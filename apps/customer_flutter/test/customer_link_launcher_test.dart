@@ -58,10 +58,28 @@ void main() {
     expect(isSafeExternalLinkUri(Uri.parse('line://app/123')), isTrue);
   });
 
+  test('social login URI guard only accepts HTTPS OAuth launch URLs', () {
+    expect(
+      isSafeSocialLoginUri(Uri.parse('https://access.line.me/oauth2/v2.1')),
+      isTrue,
+    );
+    expect(
+      isSafeSocialLoginUri(Uri.parse('https://accounts.google.com/o/oauth2')),
+      isTrue,
+    );
+    expect(
+      isSafeSocialLoginUri(Uri.parse('http://accounts.example.test')),
+      isFalse,
+    );
+    expect(isSafeSocialLoginUri(Uri.parse('line://app/123')), isFalse);
+    expect(isSafeSocialLoginUri(Uri.parse('intent://oauth')), isFalse);
+  });
+
   test('LINE social provider aliases use LINE launch behavior', () {
     expect(isLineSocialProvider('line'), isTrue);
     expect(isLineSocialProvider('line_login'), isTrue);
     expect(isLineSocialProvider('line_oa'), isTrue);
+    expect(isLineSocialProvider('line_oauth'), isTrue);
     expect(isLineSocialProvider('google'), isFalse);
     expect(isLineSocialProvider('apple_id'), isFalse);
   });

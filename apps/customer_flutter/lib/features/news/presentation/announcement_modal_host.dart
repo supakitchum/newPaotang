@@ -1,10 +1,17 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_link_launcher.dart';
 import '../data/news_models.dart';
 import '../data/news_repository.dart';
+import 'news_card.dart';
+import 'news_link_target.dart';
+import 'news_visual_tokens.dart';
 
 class AnnouncementModalHost extends ConsumerStatefulWidget {
   const AnnouncementModalHost({
@@ -24,6 +31,7 @@ class AnnouncementModalHost extends ConsumerStatefulWidget {
 class _AnnouncementModalHostState extends ConsumerState<AnnouncementModalHost> {
   bool _loaded = false;
   bool _visible = false;
+  String _noticeMessage = '';
   NewsItem? _announcement;
 
   @override
@@ -61,6 +69,7 @@ class _AnnouncementModalHostState extends ConsumerState<AnnouncementModalHost> {
         if (_visible && _announcement?.coverUrl.isNotEmpty == true)
           _AnnouncementModalOverlay(
             announcement: _announcement!,
+            noticeMessage: _noticeMessage,
             onClose: _close,
             onOpenDetail: _openDetail,
           ),
@@ -69,8 +78,9 @@ class _AnnouncementModalHostState extends ConsumerState<AnnouncementModalHost> {
   }
 
   Future<void> _loadModal() async {
-    if (_loaded || _shouldSuppress(_currentPath)) return;
+    if (_loaded) return;
     setState(() => _loaded = true);
+    if (_shouldSuppress(_currentPath)) return;
 
     try {
       final announcement = await ref.read(newsRepositoryProvider).modal();
@@ -80,6 +90,7 @@ class _AnnouncementModalHostState extends ConsumerState<AnnouncementModalHost> {
       setState(() {
         _announcement = announcement;
         _visible = true;
+        _noticeMessage = '';
       });
     } catch (_) {
       // Announcement modal must never block the app shell.
@@ -97,14 +108,47 @@ class _AnnouncementModalHostState extends ConsumerState<AnnouncementModalHost> {
 
   void _close() {
     if (!_visible) return;
-    setState(() => _visible = false);
+    setState(() {
+      _visible = false;
+      _noticeMessage = '';
+    });
   }
 
   void _openDetail() {
-    final slug = _announcement?.slug.trim() ?? '';
+    final announcement = _announcement;
+    if (announcement == null) return;
+
+    final internalPath = newsInternalPath(announcement);
+    final externalUri = newsExternalUri(announcement);
+
+    if (internalPath != null) {
+      _close();
+      widget.router.go(internalPath);
+      return;
+    }
+
+    if (externalUri != null) {
+      setState(() => _noticeMessage = '');
+      unawaited(_openExternalNews(externalUri));
+      return;
+    }
+
     _close();
-    if (slug.isEmpty) return;
-    widget.router.go('/news/${Uri.encodeComponent(slug)}');
+  }
+
+  Future<void> _openExternalNews(Uri uri) async {
+    final opened = await ref.read(customerLinkLauncherProvider).openExternal(
+          uri,
+        );
+    if (!mounted) return;
+    if (opened) {
+      setState(() {
+        _visible = false;
+        _noticeMessage = '';
+      });
+      return;
+    }
+    setState(() => _noticeMessage = context.l10n.newsOpenFailed);
   }
 
   String get _currentPath {
@@ -116,11 +160,13 @@ class _AnnouncementModalHostState extends ConsumerState<AnnouncementModalHost> {
 class _AnnouncementModalOverlay extends StatelessWidget {
   const _AnnouncementModalOverlay({
     required this.announcement,
+    required this.noticeMessage,
     required this.onClose,
     required this.onOpenDetail,
   });
 
   final NewsItem announcement;
+  final String noticeMessage;
   final VoidCallback onClose;
   final VoidCallback onOpenDetail;
 
@@ -133,90 +179,148 @@ class _AnnouncementModalOverlay extends StatelessWidget {
 
     return Positioned.fill(
       child: Material(
-        color: Colors.black.withAlpha(158),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Semantics(
-                      button: true,
-                      label: title,
-                      child: InkWell(
-                        key: const Key('announcement-modal-image-button'),
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: onOpenDetail,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            frameBuilder: (
-                              context,
-                              child,
-                              frame,
-                              wasSynchronouslyLoaded,
-                            ) {
-                              if (wasSynchronouslyLoaded || frame != null) {
-                                return child;
-                              }
-                              return const AspectRatio(
-                                aspectRatio: 1,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
+        color: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.62),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = constraints.maxWidth <= 420 ? 22.0 : 24.0;
+            final verticalPadding = constraints.maxWidth <= 420 ? 20.0 : 24.0;
+            final maxHeight = math.min(constraints.maxHeight * 0.78, 760.0);
+
+            return SafeArea(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onClose,
+                    ),
+                  ),
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: verticalPadding,
+                        ),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Semantics(
+                                  button: true,
+                                  label: title,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.scrim.withValues(
+                                                alpha: 0.28,
+                                              ),
+                                          blurRadius: 44,
+                                          offset: const Offset(0, 20),
+                                        ),
+                                      ],
+                                    ),
+                                    child: InkWell(
+                                      key: const Key(
+                                        'announcement-modal-image-button',
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: onOpenDetail,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxHeight: maxHeight,
+                                          ),
+                                          child: Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.contain,
+                                            width: double.infinity,
+                                            frameBuilder: (
+                                              context,
+                                              child,
+                                              frame,
+                                              wasSynchronouslyLoaded,
+                                            ) {
+                                              if (wasSynchronouslyLoaded ||
+                                                  frame != null) {
+                                                return child;
+                                              }
+                                              return const NewsImageLoadingFrame(
+                                                aspectRatio: 1,
+                                              );
+                                            },
+                                            errorBuilder: (context, _, __) =>
+                                                const AspectRatio(
+                                              aspectRatio: 1,
+                                              child: NewsFallbackArtwork(
+                                                iconSize: 52,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
-                            errorBuilder: (context, _, __) => AspectRatio(
-                              aspectRatio: 1,
-                              child: ColoredBox(
-                                color: Theme.of(context).colorScheme.surface,
-                                child: Icon(
-                                  Icons.campaign_outlined,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  size: 52,
+                                if (noticeMessage.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  NewsInlineNotice(message: noticeMessage),
+                                ],
+                              ],
+                            ),
+                            Positioned(
+                              right: constraints.maxWidth <= 420 ? -12 : -14,
+                              top: constraints.maxWidth <= 420 ? -12 : -14,
+                              child: Semantics(
+                                button: true,
+                                label: context.l10n.newsModalClose,
+                                child: Material(
+                                  color: Theme.of(context).colorScheme.surface,
+                                  shape: const CircleBorder(),
+                                  elevation: 8,
+                                  shadowColor: Theme.of(
+                                    context,
+                                  ).colorScheme.scrim.withValues(
+                                        alpha: 0.22,
+                                      ),
+                                  child: InkWell(
+                                    key: const Key(
+                                      'announcement-modal-close-button',
+                                    ),
+                                    customBorder: const CircleBorder(),
+                                    onTap: onClose,
+                                    child: SizedBox.square(
+                                      dimension:
+                                          constraints.maxWidth <= 420 ? 40 : 44,
+                                      child: Icon(
+                                        Icons.close,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
-                    Positioned(
-                      right: -14,
-                      top: -14,
-                      child: Semantics(
-                        button: true,
-                        label: context.l10n.newsModalClose,
-                        child: Material(
-                          color: Theme.of(context).colorScheme.surface,
-                          shape: const CircleBorder(),
-                          elevation: 8,
-                          child: InkWell(
-                            key: const Key('announcement-modal-close-button'),
-                            customBorder: const CircleBorder(),
-                            onTap: onClose,
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Icon(
-                                Icons.close,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

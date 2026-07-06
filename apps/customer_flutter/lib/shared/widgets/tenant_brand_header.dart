@@ -11,12 +11,14 @@ class TenantBrandHeader extends ConsumerWidget {
     this.icon = Icons.confirmation_number_outlined,
     this.showName = true,
     this.size = 72,
+    this.maxWidth = 280,
     this.textColor,
   });
 
   final IconData icon;
   final bool showName;
   final double size;
+  final double maxWidth;
   final Color? textColor;
 
   @override
@@ -27,45 +29,49 @@ class TenantBrandHeader extends ConsumerWidget {
     return bootstrap.maybeWhen(
       data: (data) {
         final rawLogoUrl = data.brand.logoUrl.trim();
-        final logoUrl = rawLogoUrl.isEmpty
-            ? ''
-            : _resolveTenantLogoUrl(ref, rawLogoUrl);
+        final logoUrl =
+            rawLogoUrl.isEmpty ? '' : _resolveTenantLogoUrl(ref, rawLogoUrl);
         final siteName = data.siteName.trim();
+        final headerMaxWidth = maxWidth < size ? size : maxWidth;
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: size,
-              height: size,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(22),
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: headerMaxWidth),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: size,
+                height: size,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: logoUrl.isEmpty
+                    ? Icon(icon, color: colorScheme.onPrimaryContainer)
+                    : FlexibleImage(
+                        source: logoUrl,
+                        fit: BoxFit.contain,
+                        errorIcon: icon,
+                      ),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: logoUrl.isEmpty
-                  ? Icon(icon, color: colorScheme.onPrimaryContainer)
-                  : FlexibleImage(
-                      source: logoUrl,
-                      fit: BoxFit.contain,
-                      errorIcon: icon,
-                    ),
-            ),
-            if (showName && siteName.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                siteName,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: textColor,
-                    ),
-              ),
+              if (showName && siteName.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  siteName,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                        color: textColor,
+                      ),
+                ),
+              ],
             ],
-          ],
+          ),
         );
       },
       orElse: () => Container(

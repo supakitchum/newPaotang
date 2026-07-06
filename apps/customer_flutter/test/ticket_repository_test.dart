@@ -45,6 +45,37 @@ void main() {
     expect(api.queries.last['cursor'], 'cursor_2');
   });
 
+  test('detail and claim parsers keep wrapper context from repository',
+      () async {
+    final api = _TicketEnvelopeApiClient();
+    final repository = TicketRepository(api);
+
+    final ticket = await repository.detail('ticket_envelope');
+    final status = await repository.rewardStatus('ticket_envelope');
+    final submission = await repository.createRewardClaim(
+      ticketId: 'ticket_envelope',
+      payoutMethod: 'wallet_credit',
+      pinAssertionToken: 'assertion-token',
+    );
+
+    expect(api.paths, [
+      '/customer/tickets/ticket_envelope',
+      '/customer/tickets/ticket_envelope/reward-status',
+      '/customer/reward-claims',
+    ]);
+    expect(ticket.id, 'ticket_envelope');
+    expect(ticket.number, '123456');
+    expect(ticket.rewardStatus.claimStatus, 'claim_paid');
+    expect(ticket.rewardClaimId, 'rcl_outer_context');
+    expect(ticket.prizeAmount, 4000);
+    expect(status.claimStatus, 'claim_approved');
+    expect(status.rewardClaimId, 'rcl_status_context');
+    expect(status.adminNote, 'อนุมัติจาก repository wrapper');
+    expect(submission.id, 'rcl_submission_context');
+    expect(submission.createdAt, '2026-07-01T12:34:00+07:00');
+    expect(api.payload['pin_assertion_token'], 'assertion-token');
+  });
+
   test('createRewardClaim sends PIN confirmation when provided', () async {
     final api = _TicketApiClient();
     final repository = TicketRepository(api);
@@ -107,6 +138,94 @@ class _TicketPaginationApiClient extends ApiClient {
     return Response<T>(
       requestOptions: RequestOptions(path: path),
       data: _responses[index] as T,
+    );
+  }
+}
+
+class _TicketEnvelopeApiClient extends ApiClient {
+  _TicketEnvelopeApiClient()
+      : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        );
+
+  final paths = <String>[];
+  Map<String, dynamic> payload = {};
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    paths.add(path);
+
+    final data = path.endsWith('/reward-status')
+        ? {
+            'adminNote': 'อนุมัติจาก repository wrapper',
+            'data': {
+              'resource': {
+                'rewardStatus': {
+                  'claimStatus': 'claim_approved',
+                  'claimId': 'rcl_status_context',
+                  'rewardAmount': {'amount': 200000, 'currency': 'THB'},
+                },
+              },
+            },
+          }
+        : {
+            'rewardStatus': {
+              'claimStatus': 'claim_paid',
+              'rewardClaimId': 'rcl_outer_context',
+              'prizes': [
+                {
+                  'rewardType': 'front3',
+                  'rewardNumber': '123',
+                  'rewardAmount': {'amount': 400000, 'currency': 'THB'},
+                },
+              ],
+            },
+            'data': {
+              'resource': {
+                'customerTicket': {
+                  'ticketId': 'ticket_envelope',
+                  'fullNumber': '123456',
+                },
+              },
+            },
+          };
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: data as T,
+    );
+  }
+
+  @override
+  Future<Response<T>> postWithHeaders<T>(
+    String path, {
+    Object? data,
+    bool auth = true,
+    Map<String, String> headers = const {},
+  }) async {
+    paths.add(path);
+    payload = Map<String, dynamic>.from(data! as Map);
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: {
+        'submittedAt': '2026-07-01T12:34:00+07:00',
+        'result': {
+          'submission': {
+            'claimId': 'rcl_submission_context',
+            'status': 'submitted',
+          },
+        },
+      } as T,
     );
   }
 }

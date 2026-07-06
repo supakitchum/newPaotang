@@ -51,6 +51,10 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
       mobileBootstrapProvider,
       (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
     );
+    ref.listen<AsyncValue<RewardResultBundle>>(
+      currentResultProvider,
+      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+    );
     return widget.child;
   }
 
@@ -66,11 +70,16 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
       return;
     }
 
-    final channels = [publicLatestResultChannel()];
+    final gameId = _resultRealtimeGameId(
+      ref.read(currentResultProvider).valueOrNull,
+    );
+    final channels = [
+      publicLatestResultChannel(),
+      if (gameId.isNotEmpty) publicGameResultChannel(gameId: gameId),
+    ];
     final signature = [
       bootstrap.realtime.url,
       bootstrap.realtime.key,
-      ...channels,
     ].join('|');
 
     if (_client != null && _signature == signature) {
@@ -96,14 +105,118 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
-    if (event.name != 'reward.result.live.updated') return;
+    if (normalizeRealtimeEventNameWithPayload(
+          eventName: event.name,
+          payload: event.payload,
+        ) !=
+        'reward.result.live.updated') {
+      return;
+    }
 
     ref.invalidate(currentResultProvider);
 
-    final gameId =
-        (event.payload['game_id'] ?? event.payload['gameId'] ?? '').toString();
+    final payload = normalizeRealtimePayload(event.payload);
+    final gameId = _resultRealtimeScalarText(
+      payload['game_id'] ??
+          payload['gameId'] ??
+          payload['current_game_id'] ??
+          payload['currentGameId'] ??
+          payload['reward_game_id'] ??
+          payload['rewardGameId'] ??
+          payload['result_game_id'] ??
+          payload['resultGameId'] ??
+          payload['lottery_game_id'] ??
+          payload['lotteryGameId'] ??
+          payload['selected_game_id'] ??
+          payload['selectedGameId'] ??
+          _gameIdFromRealtimePayload(payload),
+    );
     if (gameId.trim().isNotEmpty) {
       ref.invalidate(resultDetailProvider(gameId.trim()));
     }
   }
+}
+
+String _resultRealtimeGameId(RewardResultBundle? result) {
+  final currentGameId = result?.currentGame?.id.trim() ?? '';
+  if (currentGameId.isNotEmpty) return currentGameId;
+
+  return result?.selectedResult?.id.trim() ?? '';
+}
+
+String? _gameIdFromRealtimePayload(Map<String, dynamic> payload) {
+  for (final key in const [
+    'game',
+    'current_game',
+    'currentGame',
+    'reward_game',
+    'rewardGame',
+    'result_game',
+    'resultGame',
+    'lottery_game',
+    'lotteryGame',
+    'selected_game',
+    'selectedGame',
+  ]) {
+    final value = payload[key];
+    if (value is! Map) continue;
+    final id = _resultRealtimeScalarText(
+      value['id'] ??
+          value['uuid'] ??
+          value['current_game_id'] ??
+          value['currentGameId'] ??
+          value['game_id'] ??
+          value['gameId'] ??
+          value['reward_game_id'] ??
+          value['rewardGameId'] ??
+          value['result_game_id'] ??
+          value['resultGameId'] ??
+          value['lottery_game_id'] ??
+          value['lotteryGameId'] ??
+          value['selected_game_id'] ??
+          value['selectedGameId'] ??
+          value['value'] ??
+          value['code'] ??
+          value['key'],
+    );
+    if (id.isNotEmpty) return id;
+  }
+  return null;
+}
+
+String _resultRealtimeScalarText(Object? value, [int depth = 0]) {
+  if (value == null || depth > 3) return '';
+  if (value is Map) {
+    for (final key in const [
+      'value',
+      'code',
+      'key',
+      'id',
+      'uuid',
+      'current_game_id',
+      'currentGameId',
+      'game_id',
+      'gameId',
+      'reward_game_id',
+      'rewardGameId',
+      'result_game_id',
+      'resultGameId',
+      'lottery_game_id',
+      'lotteryGameId',
+      'selected_game_id',
+      'selectedGameId',
+    ]) {
+      final nested = _resultRealtimeScalarText(value[key], depth + 1);
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
+  }
+  if (value is Iterable) {
+    for (final item in value) {
+      final nested = _resultRealtimeScalarText(item, depth + 1);
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
+  }
+  return value.toString().trim();
 }

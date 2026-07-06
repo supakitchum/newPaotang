@@ -7,6 +7,7 @@ import 'package:customer_flutter/core/realtime/customer_realtime_monitor.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/affiliate/presentation/affiliate_referral_monitor.dart';
+import 'package:customer_flutter/features/lottery/presentation/customer_revenue_realtime_monitor.dart';
 import 'package:customer_flutter/features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import 'package:customer_flutter/features/monitoring/presentation/public_visit_monitor.dart';
 import 'package:customer_flutter/features/news/data/news_models.dart';
@@ -69,7 +70,7 @@ Future<void> runCustomerAppSmokeHarness(
     tester
         .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
         .enabled,
-    expectsNativeSecurity,
+    isFalse,
   );
 
   router.go('/privacy');
@@ -103,6 +104,12 @@ Future<void> runCustomerAppSmokeHarness(
   expect(
     tester.widget<WebPrivacyGuard>(find.byType(WebPrivacyGuard)).enabled,
     expectsWebPrivacy,
+  );
+  expect(
+    tester
+        .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+        .enabled,
+    expectsNativeSecurity,
   );
 }
 
@@ -158,6 +165,7 @@ List<Override> _smokeOverrides(
     customerRealtimeEnabledProvider.overrideWithValue(false),
     resultRealtimeEnabledProvider.overrideWithValue(false),
     lotteryStockRealtimeEnabledProvider.overrideWithValue(false),
+    customerRevenueRealtimeEnabledProvider.overrideWithValue(false),
     topupRealtimeEnabledProvider.overrideWithValue(false),
     claimRealtimeEnabledProvider.overrideWithValue(false),
     affiliateReferralMonitorEnabledProvider.overrideWithValue(false),

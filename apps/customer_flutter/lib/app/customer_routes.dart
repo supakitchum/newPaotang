@@ -362,8 +362,10 @@ final publicCustomerPaths = customerFeatureRoutes
     .toSet();
 
 bool isPublicCustomerPath(String path) {
+  final normalizedPath = normalizeCustomerRoutePath(path);
   return customerFeatureRoutes.any(
-    (route) => route.public && isCustomerRoutePatternMatch(route.path, path),
+    (route) =>
+        route.public && isCustomerRoutePatternMatch(route.path, normalizedPath),
   );
 }
 
@@ -371,7 +373,7 @@ bool isSensitiveCustomerPath(
   String path, {
   Iterable<String> extraSensitiveRoutes = const [],
 }) {
-  final normalizedPath = path.trim();
+  final normalizedPath = normalizeCustomerRoutePath(path);
   if (normalizedPath.isEmpty) return false;
 
   final routeSensitive = customerFeatureRoutes.any(
@@ -387,29 +389,132 @@ bool isSensitiveCustomerPath(
 }
 
 CustomerFeatureRoute? customerFeatureByPath(String path) {
+  final normalizedPath = normalizeCustomerRoutePath(path);
   for (final route in customerFeatureRoutes) {
-    if (isCustomerRoutePatternMatch(route.path, path)) return route;
+    if (isCustomerRoutePatternMatch(route.path, normalizedPath)) return route;
   }
   return null;
 }
 
 bool isCustomerRoutePatternMatch(String pattern, String path) {
-  if (pattern == path) return true;
+  final normalizedPattern = _stripCustomerRouteQuery(pattern.trim());
+  final normalizedPath = normalizeCustomerRoutePath(path);
+  if (normalizedPattern == normalizedPath) return true;
   final patternParts =
-      pattern.split('/').where((part) => part.isNotEmpty).toList();
-  final pathParts = path.split('/').where((part) => part.isNotEmpty).toList();
-  if (patternParts.length != pathParts.length) return false;
-  for (var index = 0; index < patternParts.length; index++) {
-    final patternPart = patternParts[index];
-    if (patternPart.startsWith(':')) continue;
-    if (patternPart != pathParts[index]) return false;
+      normalizedPattern.split('/').where((part) => part.isNotEmpty).toList();
+  final pathParts =
+      normalizedPath.split('/').where((part) => part.isNotEmpty).toList();
+  var pathIndex = 0;
+  for (var patternIndex = 0;
+      patternIndex < patternParts.length;
+      patternIndex++) {
+    final patternPart = patternParts[patternIndex];
+    final lastPatternPart = patternIndex == patternParts.length - 1;
+    if (patternPart == '*') {
+      return lastPatternPart && pathIndex < pathParts.length;
+    }
+    if (pathIndex >= pathParts.length) return false;
+    if (patternPart.startsWith(':')) {
+      pathIndex++;
+      continue;
+    }
+    if (patternPart != pathParts[pathIndex]) return false;
+    pathIndex++;
   }
-  return true;
+  return pathIndex == pathParts.length;
 }
 
 bool _isSensitivePathPrefixMatch(String pattern, String path) {
-  final sensitive = pattern.trim();
+  final sensitive = _stripCustomerRouteQuery(pattern.trim());
   if (sensitive.isEmpty) return false;
   if (isCustomerRoutePatternMatch(sensitive, path)) return true;
   return path == sensitive || path.startsWith('$sensitive/');
+}
+
+String normalizeCustomerRoutePath(String path) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty) return '';
+
+  final parsed = Uri.tryParse(trimmed);
+  if (parsed != null && parsed.hasScheme) {
+    final fragmentPath = _customerRoutePathFromFragment(parsed.fragment);
+    if (fragmentPath.isNotEmpty) return fragmentPath;
+    return _stripCustomerRouteQuery(parsed.path.isEmpty ? '/' : parsed.path);
+  }
+
+  final fragmentPath = _customerRoutePathFromFragment(trimmed);
+  if (fragmentPath.isNotEmpty) return fragmentPath;
+  return _stripCustomerRouteQuery(trimmed);
+}
+
+String _customerRoutePathFromFragment(String value) {
+  var fragment = value.trim();
+  if (fragment.isEmpty) return '';
+  if (fragment.startsWith('#')) fragment = fragment.substring(1).trim();
+  if (fragment.startsWith('!')) fragment = fragment.substring(1).trim();
+  if (fragment.isEmpty) return '';
+
+  final decoded = _decodeCustomerRouteValue(fragment);
+  if (decoded.startsWith('/')) return _stripCustomerRouteQuery(decoded);
+  final decodedUri = Uri.tryParse(decoded);
+  if (decodedUri != null && decodedUri.hasScheme) {
+    return normalizeCustomerRoutePath(decoded);
+  }
+
+  final query = decoded.startsWith('?') ? decoded.substring(1) : decoded;
+  final params = _safeCustomerRouteQueryParameters(query);
+  for (final key in const [
+    'route',
+    'path',
+    'screen',
+    'page',
+    'currentPath',
+    'currentUrl',
+    'activeUrl',
+    'targetUrl',
+    'routeUrl',
+    'returnUrl',
+    'redirectUrl',
+    'href',
+    'uri',
+  ]) {
+    final nested = params[key]?.trim() ?? '';
+    if (nested.isEmpty) continue;
+    final nestedPath = normalizeCustomerRoutePath(nested);
+    if (nestedPath.isNotEmpty) return nestedPath;
+  }
+  return '';
+}
+
+String _stripCustomerRouteQuery(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  final index = trimmed.indexOf(RegExp(r'[?#]'));
+  final path = index == -1 ? trimmed : trimmed.substring(0, index);
+  if (path.isEmpty && trimmed.startsWith('/')) return '/';
+  return path;
+}
+
+Map<String, String> _safeCustomerRouteQueryParameters(String value) {
+  if (!value.contains('=')) return const {};
+  try {
+    return Uri.splitQueryString(value);
+  } on FormatException {
+    return const {};
+  }
+}
+
+String _decodeCustomerRouteValue(String value) {
+  var decoded = value.trim();
+  for (var index = 0; index < 2; index++) {
+    final next = Uri.tryParse(decoded)?.toString();
+    try {
+      final decodedOnce = Uri.decodeFull(next ?? decoded).trim();
+      if (decodedOnce == decoded || decodedOnce.isEmpty) return decoded;
+      decoded = decodedOnce;
+    } on FormatException {
+      return decoded;
+    }
+  }
+  return decoded;
 }

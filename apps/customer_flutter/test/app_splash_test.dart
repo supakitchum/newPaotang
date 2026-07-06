@@ -1,8 +1,9 @@
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
-import 'package:customer_flutter/shared/widgets/flexible_image.dart';
 import 'package:customer_flutter/shared/widgets/app_splash.dart';
+import 'package:customer_flutter/shared/widgets/customer_loading_indicator.dart';
+import 'package:customer_flutter/shared/widgets/flexible_image.dart';
 import 'package:customer_flutter/shared/widgets/tenant_brand_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -32,14 +33,14 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CustomerLoadingMark), findsOneWidget);
     expect(find.text('Demo Shop'), findsOneWidget);
     expect(find.text('Ready content'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(CustomerLoadingMark), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -59,7 +60,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(CustomerLoadingMark), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -92,6 +93,60 @@ void main() {
       image.source,
       'https://partner.example.com/storage/tenant/logo.webp',
     );
+  });
+
+  testWidgets('TenantBrandHeader keeps long partner names and logos bounded', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const longPartnerName =
+        'บริษัทตัวอย่างพาร์ทเนอร์ชื่อยาวมาก International Lottery Rewards';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'siteConfig': {
+                'displayName': longPartnerName,
+                'locale': 'th-TH',
+              },
+              'brandConfig': {
+                'logoUrl': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
+                    'CAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+              },
+            }),
+          ),
+        ],
+        child: const _BrandHeaderHarness(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final logo = tester.widget<FlexibleImage>(find.byType(FlexibleImage));
+    expect(logo.fit, BoxFit.contain);
+    expect(
+      tester.getRect(find.byType(FlexibleImage)).width,
+      lessThanOrEqualTo(72),
+    );
+
+    final label = tester.widget<Text>(find.text(longPartnerName));
+    expect(label.maxLines, 2);
+    expect(label.overflow, TextOverflow.ellipsis);
+    expect(label.textAlign, TextAlign.center);
+    expect(
+      tester.widget<TenantBrandHeader>(find.byType(TenantBrandHeader)).maxWidth,
+      280,
+    );
+    expect(
+      tester.getRect(find.text(longPartnerName)).width,
+      lessThanOrEqualTo(280),
+    );
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   testWidgets('PIN reset shows friendly copy when SMS OTP is unavailable', (
@@ -171,7 +172,7 @@ void main() {
     expect(find.text('ส่งรหัสไปยัง 08x-xxx-1234'), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยัน OTP'));
+    await _tapPinResetSubmit(tester, 'ยืนยัน OTP');
     await tester.pumpAndSettle();
 
     expect(repo.verifiedOtp, '123456');
@@ -188,6 +189,50 @@ void main() {
     expect(repo.confirmedPin, '654321');
     expect(repo.confirmedPinConfirmation, '654321');
     expect(find.text('ตั้งค่า PIN ใหม่เรียบร้อยแล้ว'), findsOneWidget);
+  });
+
+  testWidgets('PIN reset returns to the saved redirect after success', (
+    tester,
+  ) async {
+    final repo = _PinResetRepository();
+    final router = GoRouter(
+      initialLocation: '/pin?redirect=%2Fcheckout',
+      routes: [
+        GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) => const Text(
+            'checkout-flow',
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+      ],
+    );
+
+    await _pumpPinRouter(tester, repo, router);
+    await tester.tap(find.text('ลืม PIN?'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '123456');
+    await _tapPinResetSubmit(tester, 'ยืนยัน OTP');
+    await tester.pumpAndSettle();
+
+    await _tapSheetPin(tester, '654321');
+    await _tapSheetPin(tester, '654321');
+    await tester.pumpAndSettle();
+
+    expect(find.text('ตั้งค่า PIN ใหม่เรียบร้อยแล้ว'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'กลับไปใช้งาน'));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+    expect(find.text('checkout-flow'), findsOneWidget);
   });
 }
 
@@ -236,6 +281,69 @@ Future<void> _pumpPinScreen(
           GlobalCupertinoLocalizations.delegate,
         ],
         home: const PinScreen(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapPinResetSubmit(WidgetTester tester, String label) async {
+  final button = find.widgetWithText(FilledButton, label);
+  final scrollable = find.byType(Scrollable).last;
+  for (var attempts = 0; attempts < 6 && button.evaluate().isEmpty; attempts++) {
+    await tester.drag(scrollable, const Offset(0, -140));
+    await tester.pumpAndSettle();
+  }
+  expect(button, findsOneWidget);
+  await tester.tap(button);
+}
+
+Future<void> _pumpPinRouter(
+  WidgetTester tester,
+  _PinResetRepository repo,
+  GoRouter router,
+) async {
+  final tokenStore = AuthTokenStore();
+  final api = ApiClient(
+    const AppConfig(
+      apiBaseUrl: 'https://partner.example.com/api/v1',
+      defaultLocale: 'th-TH',
+    ),
+    tokenStore,
+    localeTag: 'th-TH',
+  );
+  final controller = AuthController(
+    authRepository: repo,
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  )
+    ..isAuthenticated = true
+    ..pinRequired = true
+    ..pinSetupRequired = false;
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repo),
+        authControllerProvider.overrideWith((_) => controller),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson(const {
+            'mobile': {
+              'feature_flags': {'native_biometric_unlock': false},
+            },
+          }),
+        ),
+      ],
+      child: MaterialApp.router(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        routerConfig: router,
       ),
     ),
   );

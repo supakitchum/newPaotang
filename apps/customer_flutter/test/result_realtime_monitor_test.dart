@@ -43,8 +43,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(client.connectedChannels, hasLength(1));
-    expect(client.connectedChannels.single, [publicLatestResultChannel()]);
+    expect(client.connectedChannels.last, [
+      publicLatestResultChannel(),
+      publicGameResultChannel(gameId: 'game_1'),
+    ]);
     expect(latestLoads, 1);
     expect(detailLoads, 1);
     expect(find.text('latest:latest_1'), findsOneWidget);
@@ -66,9 +68,9 @@ void main() {
 
     client.emit(
       CustomerRealtimeEvent(
-        name: 'reward.result.live.updated',
+        name: 'RewardResultLiveUpdated',
         channel: publicLatestResultChannel(),
-        payload: const {'game_id': 'game_1'},
+        payload: const {'rewardGameId': 'game_1'},
       ),
     );
     await tester.pumpAndSettle();
@@ -120,6 +122,147 @@ void main() {
     expect(detailLoads, 1);
     expect(find.text('latest:latest_2'), findsOneWidget);
     expect(find.text('detail:detail_1'), findsOneWidget);
+  });
+
+  testWidgets('result realtime monitor accepts wrapped game payload aliases', (
+    tester,
+  ) async {
+    var latestLoads = 0;
+    var detailLoads = 0;
+    final client = _FakeRealtimeClient();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith((_) async => _bootstrap()),
+          customerRealtimeClientFactoryProvider
+              .overrideWithValue((_) => client),
+          currentResultProvider.overrideWith((_) async {
+            latestLoads++;
+            return _bundle('latest_$latestLoads');
+          }),
+          resultDetailProvider('game_1').overrideWith((_) async {
+            detailLoads++;
+            return _bundle('detail_$detailLoads');
+          }),
+        ],
+        child: const _ResultRealtimeHarness(gameId: 'game_1'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'bridge.message',
+        channel: publicLatestResultChannel(),
+        payload: const {
+          'eventPayload':
+              '{"eventName":"reward.result.live.updated","game":{"id":"game_1"}}',
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(latestLoads, 2);
+    expect(detailLoads, 2);
+    expect(find.text('latest:latest_2'), findsOneWidget);
+    expect(find.text('detail:detail_2'), findsOneWidget);
+  });
+
+  testWidgets('result realtime monitor accepts object-scalar game ids', (
+    tester,
+  ) async {
+    var latestLoads = 0;
+    var detailLoads = 0;
+    final client = _FakeRealtimeClient();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith((_) async => _bootstrap()),
+          customerRealtimeClientFactoryProvider
+              .overrideWithValue((_) => client),
+          currentResultProvider.overrideWith((_) async {
+            latestLoads++;
+            return _bundle('latest_$latestLoads');
+          }),
+          resultDetailProvider('game_1').overrideWith((_) async {
+            detailLoads++;
+            return _bundle('detail_$detailLoads');
+          }),
+        ],
+        child: const _ResultRealtimeHarness(gameId: 'game_1'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'reward.result.live.updated',
+        channel: publicLatestResultChannel(),
+        payload: const {
+          'rewardGame': {'value': 'game_1'},
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(latestLoads, 2);
+    expect(detailLoads, 2);
+    expect(find.text('latest:latest_2'), findsOneWidget);
+    expect(find.text('detail:detail_2'), findsOneWidget);
+  });
+
+  testWidgets('result realtime monitor accepts current-game wrapper aliases', (
+    tester,
+  ) async {
+    var latestLoads = 0;
+    var detailLoads = 0;
+    final client = _FakeRealtimeClient();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith((_) async => _bootstrap()),
+          customerRealtimeClientFactoryProvider
+              .overrideWithValue((_) => client),
+          currentResultProvider.overrideWith((_) async {
+            latestLoads++;
+            return _bundle('latest_$latestLoads');
+          }),
+          resultDetailProvider('game_1').overrideWith((_) async {
+            detailLoads++;
+            return _bundle('detail_$detailLoads');
+          }),
+        ],
+        child: const _ResultRealtimeHarness(gameId: 'game_1'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'bridge.message',
+        channel: publicLatestResultChannel(),
+        payload: const {
+          'payload': {
+            'eventName': 'reward.result.live.updated',
+            'currentGame': {
+              'selectedGameId': {'value': 'game_1'},
+            },
+          },
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(latestLoads, 2);
+    expect(detailLoads, 2);
+    expect(find.text('latest:latest_2'), findsOneWidget);
+    expect(find.text('detail:detail_2'), findsOneWidget);
   });
 }
 
@@ -214,6 +357,11 @@ class _FakeRealtimeClient extends CustomerRealtimeClient {
 
   @override
   Future<void> connect(Iterable<String> channels) async {
+    connectedChannels.add(channels.toList(growable: false));
+  }
+
+  @override
+  void updateChannels(Iterable<String> channels) {
     connectedChannels.add(channels.toList(growable: false));
   }
 

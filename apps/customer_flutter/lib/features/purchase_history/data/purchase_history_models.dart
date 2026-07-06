@@ -1,3 +1,4 @@
+import '../../../core/payment/payment_redirect_url.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/formatters.dart';
 
@@ -62,8 +63,14 @@ class PurchaseHistoryOrder {
     final store = asMap(payload['store']);
     final tickets =
         ticketRows.map(PurchaseHistoryTicket.fromJson).toList(growable: false);
-    final parsedTicketCount =
-        int.tryParse(payload['ticket_count']?.toString() ?? '');
+    final parsedTicketCount = int.tryParse(
+      _firstPurchaseHistoryText([
+        payload['ticket_count'],
+        payload['ticketCount'],
+        payload['item_count'],
+        payload['count'],
+      ]),
+    );
     final countedTickets = ticketRows.fold<int>(
       0,
       (total, ticket) =>
@@ -71,28 +78,167 @@ class PurchaseHistoryOrder {
     );
 
     return PurchaseHistoryOrder(
-      id: payload['id']?.toString() ?? '',
-      reference: payload['reference']?.toString() ?? '',
-      status: payload['status']?.toString() ?? '',
-      paymentStatus: payload['payment_status']?.toString() ?? '',
-      paymentMethod: payload['payment_method']?.toString() ?? '',
-      total: moneyToDisplayNumber(payload['total'] ?? payload['amount']),
+      id: _firstPurchaseHistoryText([
+        payload['id'],
+        payload['order_id'],
+        payload['orderId'],
+      ]),
+      reference: _firstPurchaseHistoryText([
+        payload['reference'],
+        payload['order_reference'],
+        payload['orderReference'],
+        payload['reference_code'],
+        payload['referenceCode'],
+        payload['transaction_id'],
+        payload['transactionId'],
+        payment['reference'],
+        payment['provider_reference'],
+        payment['providerReference'],
+        payment['payment_reference'],
+        payment['paymentReference'],
+        payment['transaction_id'],
+        payment['transactionId'],
+      ]),
+      status: _firstPurchaseHistoryText([
+        payload['status'],
+        payment['order_status'],
+        payment['orderStatus'],
+      ]),
+      paymentStatus: _firstPurchaseHistoryText([
+        payload['payment_status'],
+        payload['paymentStatus'],
+        payment['status'],
+      ]),
+      paymentMethod: _firstPurchaseHistoryText([
+        payload['payment_method'],
+        payload['paymentMethod'],
+        payment['method'],
+      ]),
+      total: moneyToDisplayNumber(
+        payload['total'] ?? payload['amount'] ?? payload['price'],
+      ),
       ticketCount: parsedTicketCount ?? countedTickets,
       tickets: tickets,
       gameName: game['name']?.toString() ?? '',
       drawAt: game['draw_at'],
-      walletName: wallet['name']?.toString() ?? 'G Wallet',
-      paymentProvider: payment['provider']?.toString() ?? '',
-      paymentReference:
-          (payment['provider_reference'] ?? payment['reference'] ?? '')
-              .toString(),
-      redirectUrl:
-          (payload['redirect_url'] ?? payment['redirect_url'])?.toString() ??
-              '',
-      storeName: (store['name'] ?? '').toString(),
-      paidAt: payload['paid_at'],
-      createdAt: payload['created_at'],
-      updatedAt: payload['updated_at'],
+      walletName: _firstPurchaseHistoryText([
+        wallet['name'],
+        payload['wallet_name'],
+        payload['walletName'],
+      ]).ifEmpty('G Wallet'),
+      paymentProvider: _firstPurchaseHistoryText([
+        payment['provider'],
+        payload['payment_provider'],
+        payload['paymentProvider'],
+      ]),
+      paymentReference: _firstPurchaseHistoryText([
+        payment['provider_reference'],
+        payment['providerReference'],
+        payment['reference'],
+        payment['payment_reference'],
+        payment['paymentReference'],
+        payment['transaction_reference'],
+        payment['transactionReference'],
+        payment['transaction_id'],
+        payment['transactionId'],
+        payload['payment_reference'],
+        payload['paymentReference'],
+        payload['transaction_reference'],
+        payload['transactionReference'],
+        payload['transaction_id'],
+        payload['transactionId'],
+      ]),
+      redirectUrl: firstPaymentRedirectUrl([
+        payload['redirect_url'],
+        payload['redirectUrl'],
+        payload['redirect_uri'],
+        payload['redirectUri'],
+        payload['payment_url'],
+        payload['paymentUrl'],
+        payload['payment_uri'],
+        payload['paymentUri'],
+        payload['checkout_url'],
+        payload['checkoutUrl'],
+        payload['checkout_uri'],
+        payload['checkoutUri'],
+        payload['authorization_url'],
+        payload['authorizationUrl'],
+        payload['approval_url'],
+        payload['approvalUrl'],
+        payload['payment_link'],
+        payload['paymentLink'],
+        payload['checkout_link'],
+        payload['checkoutLink'],
+        payload['web_url'],
+        payload['webUrl'],
+        payload['mobile_url'],
+        payload['mobileUrl'],
+        payload['deep_link'],
+        payload['deepLink'],
+        payload['payment_session'],
+        payload['paymentSession'],
+        payload['checkout_session'],
+        payload['checkoutSession'],
+        payload['provider_payload'],
+        payload['providerPayload'],
+        payload['next_action'],
+        payload['nextAction'],
+        payload['links'],
+        payload['link'],
+        payment['redirect_url'],
+        payment['redirectUrl'],
+        payment['redirect_uri'],
+        payment['redirectUri'],
+        payment['payment_url'],
+        payment['paymentUrl'],
+        payment['payment_uri'],
+        payment['paymentUri'],
+        payment['checkout_url'],
+        payment['checkoutUrl'],
+        payment['checkout_uri'],
+        payment['checkoutUri'],
+        payment['authorization_url'],
+        payment['authorizationUrl'],
+        payment['approval_url'],
+        payment['approvalUrl'],
+        payment['payment_link'],
+        payment['paymentLink'],
+        payment['checkout_link'],
+        payment['checkoutLink'],
+        payment['web_url'],
+        payment['webUrl'],
+        payment['mobile_url'],
+        payment['mobileUrl'],
+        payment['deep_link'],
+        payment['deepLink'],
+        payment['payment_session'],
+        payment['paymentSession'],
+        payment['checkout_session'],
+        payment['checkoutSession'],
+        payment['provider_payload'],
+        payment['providerPayload'],
+        payment['next_action'],
+        payment['nextAction'],
+        payment['url'],
+        payment['uri'],
+        payment['href'],
+        payment['link'],
+        payment['links'],
+        payment,
+      ]),
+      storeName: _firstPurchaseHistoryText([
+        store['name'],
+        payload['store_name'],
+        payload['storeName'],
+        payload['seller_name'],
+        payload['sellerName'],
+      ]),
+      paidAt: payload['paid_at'] ??
+          payload['paidAt'] ??
+          payment['paid_at'] ??
+          payment['paidAt'],
+      createdAt: payload['created_at'] ?? payload['createdAt'],
+      updatedAt: payload['updated_at'] ?? payload['updatedAt'],
     );
   }
 
@@ -143,34 +289,97 @@ class PurchaseHistoryOrder {
 }
 
 Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
-  final order = asMap(json['order']);
-  if (order.isEmpty) return json;
+  final receipt = _purchaseHistoryReceiptPayload(json);
+  final order = _purchaseHistoryNestedOrder(receipt);
+  if (order.isEmpty) return receipt;
 
   final merged = Map<String, dynamic>.from(order);
 
   for (final key in const [
     'reference',
+    'order_reference',
+    'orderReference',
     'status',
     'payment_status',
+    'paymentStatus',
     'payment_method',
+    'paymentMethod',
+    'reference_code',
+    'referenceCode',
     'redirect_url',
+    'redirectUrl',
+    'redirect_uri',
+    'redirectUri',
+    'payment_url',
+    'paymentUrl',
+    'payment_uri',
+    'paymentUri',
+    'checkout_url',
+    'checkoutUrl',
+    'checkout_uri',
+    'checkoutUri',
+    'authorization_url',
+    'authorizationUrl',
+    'approval_url',
+    'approvalUrl',
+    'payment_link',
+    'paymentLink',
+    'checkout_link',
+    'checkoutLink',
+    'web_url',
+    'webUrl',
+    'mobile_url',
+    'mobileUrl',
+    'deep_link',
+    'deepLink',
+    'payment_session',
+    'paymentSession',
+    'checkout_session',
+    'checkoutSession',
+    'provider_payload',
+    'providerPayload',
+    'next_action',
+    'nextAction',
+    'links',
+    'link',
+    'wallet_name',
+    'walletName',
+    'store_name',
+    'storeName',
+    'seller_name',
+    'sellerName',
+    'payment_provider',
+    'paymentProvider',
+    'payment_reference',
+    'paymentReference',
+    'transaction_reference',
+    'transactionReference',
+    'transaction_id',
+    'transactionId',
     'paid_at',
+    'paidAt',
     'created_at',
+    'createdAt',
     'updated_at',
+    'updatedAt',
   ]) {
-    _preferPurchaseHistoryReceiptValue(merged, key, json[key]);
+    _preferPurchaseHistoryReceiptValue(merged, key, receipt[key]);
   }
 
-  _preferPurchaseHistoryReceiptValue(merged, 'total', json['total']);
-  _preferPurchaseHistoryReceiptValue(merged, 'amount', json['amount']);
+  _preferPurchaseHistoryReceiptValue(merged, 'total', receipt['total']);
+  _preferPurchaseHistoryReceiptValue(merged, 'amount', receipt['amount']);
+  _preferPurchaseHistoryReceiptValue(merged, 'price', receipt['price']);
   _preferPurchaseHistoryReceiptValue(
     merged,
     'ticket_count',
-    json['ticket_count'] ?? json['count'],
+    receipt['ticket_count'] ??
+        receipt['ticketCount'] ??
+        receipt['item_count'] ??
+        receipt['count'],
   );
 
   for (final key in const ['game', 'wallet', 'payment', 'store']) {
-    final value = asMap(json[key]);
+    final value = asMap(receipt[key]);
     if (value.isNotEmpty) {
       merged[key] = {
         ...asMap(merged[key]),
@@ -179,13 +388,73 @@ Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
     }
   }
 
-  for (final key in const ['tickets', 'lotteries']) {
-    final value = asMapList(json[key]);
+  for (final key in const [
+    'tickets',
+    'lotteries',
+    'items',
+    'order_items',
+    'orderItems',
+  ]) {
+    final value = asMapList(receipt[key]);
     if (value.isNotEmpty && _purchaseHistoryTicketRows(merged).isEmpty) {
       merged[key] = value;
     }
   }
 
+  return merged;
+}
+
+Map<String, dynamic> _purchaseHistoryReceiptPayload(
+  Map<String, dynamic> json, [
+  int depth = 0,
+]) {
+  if (depth >= 4) return json;
+
+  for (final key in const [
+    'receipt',
+    'order_receipt',
+    'orderReceipt',
+    'resource',
+    'data',
+    'result',
+  ]) {
+    final nested = asMap(json[key]);
+    if (nested.isEmpty) continue;
+    return _mergePurchaseHistoryWrapper(
+      json,
+      _purchaseHistoryReceiptPayload(nested, depth + 1),
+    );
+  }
+
+  return json;
+}
+
+Map<String, dynamic> _purchaseHistoryNestedOrder(Map<String, dynamic> json) {
+  final order = asMap(json['order']);
+  if (order.isNotEmpty) return order;
+  final checkoutOrder = asMap(json['checkout_order']);
+  if (checkoutOrder.isNotEmpty) return checkoutOrder;
+  final checkoutOrderCamel = asMap(json['checkoutOrder']);
+  if (checkoutOrderCamel.isNotEmpty) return checkoutOrderCamel;
+  final purchaseOrder = asMap(json['purchase_order']);
+  if (purchaseOrder.isNotEmpty) return purchaseOrder;
+  final purchaseOrderCamel = asMap(json['purchaseOrder']);
+  if (purchaseOrderCamel.isNotEmpty) return purchaseOrderCamel;
+  return const <String, dynamic>{};
+}
+
+Map<String, dynamic> _mergePurchaseHistoryWrapper(
+  Map<String, dynamic> wrapper,
+  Map<String, dynamic> nested,
+) {
+  final merged = Map<String, dynamic>.from(wrapper)
+    ..remove('receipt')
+    ..remove('order_receipt')
+    ..remove('orderReceipt')
+    ..remove('resource')
+    ..remove('data')
+    ..remove('result');
+  merged.addAll(nested);
   return merged;
 }
 
@@ -204,7 +473,13 @@ List<Map<String, dynamic>> _purchaseHistoryTicketRows(
 ) {
   final tickets = asMapList(json['tickets']);
   if (tickets.isNotEmpty) return tickets;
-  return asMapList(json['lotteries']);
+  final lotteries = asMapList(json['lotteries']);
+  if (lotteries.isNotEmpty) return lotteries;
+  final items = asMapList(json['items']);
+  if (items.isNotEmpty) return items;
+  final orderItems = asMapList(json['order_items']);
+  if (orderItems.isNotEmpty) return orderItems;
+  return asMapList(json['orderItems']);
 }
 
 Map<String, dynamic> _purchaseHistoryGame(
@@ -220,6 +495,18 @@ Map<String, dynamic> _purchaseHistoryGame(
   }
 
   return const <String, dynamic>{};
+}
+
+String _firstPurchaseHistoryText(Iterable<Object?> values) {
+  for (final value in values) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
+extension _PurchaseHistoryStringFallback on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }
 
 class PurchaseHistoryPage {

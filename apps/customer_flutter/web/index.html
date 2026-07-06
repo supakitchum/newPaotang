@@ -19,6 +19,18 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Customer application.">
+  <meta name="theme-color" content="#0175C2">
+  <meta name="msapplication-TileColor" content="#0175C2">
+  <meta property="og:title" content="Customer">
+  <meta property="og:description" content="Customer application.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content=".">
+  <meta property="og:image" content="icons/Icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Customer">
+  <meta name="twitter:description" content="Customer application.">
+  <meta name="twitter:url" content=".">
+  <meta name="twitter:image" content="icons/Icon-512.png">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -30,19 +42,153 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Customer</title>
+  <link rel="canonical" href=".">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
   <script>
     (function () {
-      const runtimeConfig = window.customerFlutterWebConfig || {};
-      const appName = runtimeConfig.appName || "Customer";
-      const shortName = runtimeConfig.shortName || appName;
-      const description = runtimeConfig.description || "Customer application.";
-      const themeColor = runtimeConfig.themeColor || "#0175C2";
-      const backgroundColor = runtimeConfig.backgroundColor || themeColor;
+      function asConfigObject(value) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return {};
+        }
+        return value;
+      }
+
+      const runtimeConfigSources = [
+        window.customerFlutterWebConfig,
+        window.customerFlutterConfig,
+        window.customerConfig,
+        window.__CUSTOMER_FLUTTER_WEB_CONFIG__,
+        window.__CUSTOMER_FLUTTER_CONFIG__,
+        window.__CUSTOMER_WEB_CONFIG__,
+        window.__CUSTOMER_CONFIG__
+      ].map(asConfigObject).filter((source) => Object.keys(source).length > 0);
+
+      const expandedRuntimeConfigSources = [];
+      function addConfigSource(source, depth) {
+        if (!source || depth > 3) {
+          return;
+        }
+        expandedRuntimeConfigSources.push(source);
+        for (const key of [
+          "web",
+          "pwa",
+          "manifest",
+          "app",
+          "site",
+          "brand",
+          "theme",
+          "mobile",
+          "colors",
+          "colour",
+          "palette",
+          "icons",
+          "icon",
+          "images",
+          "assets",
+          "seo",
+          "social",
+          "openGraph",
+          "twitter",
+          "links",
+          "locale"
+        ]) {
+          const nested = asConfigObject(source[key]);
+          if (Object.keys(nested).length > 0) {
+            addConfigSource(nested, depth + 1);
+          }
+        }
+        const mobile = asConfigObject(source.mobile);
+        for (const key of ["web", "pwa", "manifest", "app", "site", "seo", "social", "theme", "brand"]) {
+          const nested = asConfigObject(mobile[key]);
+          if (Object.keys(nested).length > 0) {
+            addConfigSource(nested, depth + 1);
+          }
+        }
+      }
+      for (const source of runtimeConfigSources) {
+        addConfigSource(source, 0);
+      }
+
+      function configScalar(value) {
+        if (typeof value === "string" && value.trim()) {
+          return value.trim();
+        }
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return String(value);
+        }
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return "";
+        }
+        for (const key of [
+          "value",
+          "hex",
+          "cssValue",
+          "css_value",
+          "url",
+          "href",
+          "src",
+          "path",
+          "uri",
+          "publicUrl",
+          "public_url",
+          "assetUrl",
+          "asset_url",
+          "fullUrl",
+          "full_url"
+        ]) {
+          const nested = value[key];
+          if (typeof nested === "string" && nested.trim()) {
+            return nested.trim();
+          }
+          if (typeof nested === "number" && Number.isFinite(nested)) {
+            return String(nested);
+          }
+        }
+        return "";
+      }
+
+      function firstConfigValue(keys, fallback) {
+        for (const source of expandedRuntimeConfigSources) {
+          for (const key of keys) {
+            const value = configScalar(source[key]);
+            if (value) return value;
+          }
+        }
+        return fallback;
+      }
+
+      const appName = firstConfigValue(["appName", "webAppName", "siteName", "name", "title", "app_name", "web_app_name", "site_name", "displayName", "display_name"], "Customer");
+      const shortName = firstConfigValue(["shortName", "webShortName", "appShortName", "short_name", "web_short_name", "app_short_name"], appName);
+      const description = firstConfigValue(["description", "webDescription", "appDescription", "siteDescription", "web_description", "app_description", "site_description", "summary"], "Customer application.");
+      const themeColor = firstConfigValue(["themeColor", "theme_color", "primaryColor", "primary_color", "brandColor", "brand_color", "primary", "accent"], "#0175C2");
+      const backgroundColor = firstConfigValue(["backgroundColor", "background_color", "manifestBackgroundColor", "manifest_background_color", "background", "surface"], themeColor);
+      const icon192Url = firstConfigValue(["icon192Url", "icon192URL", "iconUrl", "iconURL", "icon_192_url", "icon_url", "icon192", "icon_192"], "icons/Icon-192.png");
+      const icon512Url = firstConfigValue(["icon512Url", "icon512URL", "iconUrl", "iconURL", "icon_512_url", "icon_url", "icon512", "icon_512"], "icons/Icon-512.png");
+      const maskableIcon192Url = firstConfigValue(["maskableIcon192Url", "maskableIcon192URL", "maskableIconUrl", "maskableIconURL", "maskable_icon_192_url", "maskable_icon_url", "maskable192", "maskable_192"], "icons/Icon-maskable-192.png");
+      const maskableIcon512Url = firstConfigValue(["maskableIcon512Url", "maskableIcon512URL", "maskableIconUrl", "maskableIconURL", "maskable_icon_512_url", "maskable_icon_url", "maskable512", "maskable_512"], "icons/Icon-maskable-512.png");
+      const faviconUrl = firstConfigValue(["faviconUrl", "faviconURL", "favicon", "favicon_url", "faviconPath", "favicon_path"], icon192Url || "favicon.png");
+      const appleTouchIconUrl = firstConfigValue(["appleTouchIconUrl", "appleTouchIconURL", "apple_touch_icon_url", "appleIcon", "apple_icon"], icon192Url);
+      const socialTitle = firstConfigValue(["socialTitle", "ogTitle", "twitterTitle", "social_title", "og_title", "twitter_title", "title"], appName);
+      const socialDescription = firstConfigValue(["socialDescription", "ogDescription", "twitterDescription", "social_description", "og_description", "twitter_description", "description"], description);
+      const shareImageUrl = firstConfigValue(["shareImageUrl", "ogImageUrl", "socialImageUrl", "twitterImageUrl", "imageUrl", "share_image_url", "og_image_url", "social_image_url", "twitter_image_url", "image_url", "shareImage", "share_image"], icon512Url);
+      const startUrl = firstConfigValue(["startUrl", "webStartUrl", "manifestStartUrl", "launchUrl", "start_url", "web_start_url", "manifest_start_url", "launch_url"], ".");
+      const canonicalUrl = firstConfigValue(["canonicalUrl", "siteUrl", "url", "canonical_url", "site_url"], startUrl || ".");
+      const manifestId = firstConfigValue(["manifestId", "webAppId", "appId", "manifest_id", "web_app_id", "app_id"], canonicalUrl);
+      const manifestScope = firstConfigValue(["scope", "webScope", "manifestScope", "web_scope", "manifest_scope"], startUrl || ".");
+      const manifestDisplay = firstConfigValue(["display", "displayMode", "webDisplay", "manifestDisplay", "display_mode", "web_display", "manifest_display"], "standalone");
+      const manifestOrientation = firstConfigValue(["orientation", "webOrientation", "manifestOrientation", "screenOrientation", "web_orientation", "manifest_orientation", "screen_orientation"], "portrait-primary");
+      const htmlLang = firstConfigValue(["lang", "language", "locale", "defaultLocale", "default_locale"], "");
+      const htmlDir = firstConfigValue(["dir", "direction", "textDirection", "text_direction"], "");
 
       document.title = appName;
+      if (htmlLang) {
+        document.documentElement.setAttribute("lang", htmlLang);
+      }
+      if (htmlDir === "ltr" || htmlDir === "rtl" || htmlDir === "auto") {
+        document.documentElement.setAttribute("dir", htmlDir);
+      }
 
       function updateMeta(selector, value) {
         const node = document.querySelector(selector);
@@ -52,37 +198,60 @@
       }
 
       updateMeta('meta[name="description"]', description);
+      updateMeta('meta[name="theme-color"]', themeColor);
+      updateMeta('meta[name="msapplication-TileColor"]', themeColor);
       updateMeta('meta[name="apple-mobile-web-app-title"]', shortName);
+      updateMeta('meta[property="og:title"]', socialTitle);
+      updateMeta('meta[property="og:description"]', socialDescription);
+      updateMeta('meta[property="og:url"]', canonicalUrl);
+      updateMeta('meta[property="og:image"]', shareImageUrl);
+      updateMeta('meta[name="twitter:title"]', socialTitle);
+      updateMeta('meta[name="twitter:description"]', socialDescription);
+      updateMeta('meta[name="twitter:url"]', canonicalUrl);
+      updateMeta('meta[name="twitter:image"]', shareImageUrl);
+
+      function updateLink(selector, value) {
+        const node = document.querySelector(selector);
+        if (node && value) {
+          node.setAttribute("href", value);
+        }
+      }
+
+      updateLink('link[rel="icon"]', faviconUrl);
+      updateLink('link[rel="apple-touch-icon"]', appleTouchIconUrl);
+      updateLink('link[rel="canonical"]', canonicalUrl);
 
       const manifest = {
+        id: manifestId,
         name: appName,
         short_name: shortName,
-        start_url: runtimeConfig.startUrl || ".",
-        display: "standalone",
+        start_url: startUrl,
+        scope: manifestScope,
+        display: manifestDisplay,
         background_color: backgroundColor,
         theme_color: themeColor,
         description: description,
-        orientation: "portrait-primary",
+        orientation: manifestOrientation,
         prefer_related_applications: false,
         icons: [
           {
-            src: "icons/Icon-192.png",
+            src: icon192Url,
             sizes: "192x192",
             type: "image/png"
           },
           {
-            src: "icons/Icon-512.png",
+            src: icon512Url,
             sizes: "512x512",
             type: "image/png"
           },
           {
-            src: "icons/Icon-maskable-192.png",
+            src: maskableIcon192Url,
             sizes: "192x192",
             type: "image/png",
             purpose: "maskable"
           },
           {
-            src: "icons/Icon-maskable-512.png",
+            src: maskableIcon512Url,
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable"

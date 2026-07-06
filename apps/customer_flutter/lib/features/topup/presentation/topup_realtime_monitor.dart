@@ -16,7 +16,11 @@ final topupRealtimeEnabledProvider = Provider<bool>((_) => true);
 final topupRealtimeTickProvider = StateProvider<int>((_) => 0);
 
 bool shouldRefreshTopupsFromRealtimeEvent(CustomerRealtimeEvent event) {
-  return event.name == 'topup.updated';
+  return normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) ==
+      'topup.updated';
 }
 
 class CustomerTopupRealtimeMonitor extends ConsumerStatefulWidget {
@@ -34,6 +38,8 @@ class _CustomerTopupRealtimeMonitorState
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
   Timer? _refreshThrottle;
+  final Set<String> _activeChannels = {};
+  final Set<String> _seenSubscribedChannels = {};
   String _signature = '';
 
   @override
@@ -93,7 +99,12 @@ class _CustomerTopupRealtimeMonitorState
         tenantId: bootstrap.tenantId,
         customerId: customerId,
       ),
+      customerWalletChannel(
+        tenantId: bootstrap.tenantId,
+        customerId: customerId,
+      ),
     ];
+    _setActiveChannels(channels);
     final signature = [
       bootstrap.tenantId,
       bootstrap.realtime.url,
@@ -118,6 +129,8 @@ class _CustomerTopupRealtimeMonitorState
 
   Future<void> _stop() async {
     _signature = '';
+    _activeChannels.clear();
+    _seenSubscribedChannels.clear();
     _refreshThrottle?.cancel();
     _refreshThrottle = null;
     await _events?.cancel();
@@ -127,7 +140,7 @@ class _CustomerTopupRealtimeMonitorState
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
-    if (!shouldRefreshTopupsFromRealtimeEvent(event)) return;
+    if (!_shouldRefreshFromEvent(event)) return;
     if (_refreshThrottle?.isActive ?? false) return;
 
     _refreshThrottle = Timer(const Duration(milliseconds: 500), () {
@@ -135,5 +148,34 @@ class _CustomerTopupRealtimeMonitorState
       ref.invalidate(walletSummaryProvider);
       ref.read(topupRealtimeTickProvider.notifier).state++;
     });
+  }
+
+  void _setActiveChannels(List<String> channels) {
+    _activeChannels
+      ..clear()
+      ..addAll(channels);
+    _seenSubscribedChannels.removeWhere(
+      (channel) => !_activeChannels.contains(channel),
+    );
+  }
+
+  bool _shouldRefreshFromEvent(CustomerRealtimeEvent event) {
+    if (shouldRefreshTopupsFromRealtimeEvent(event)) return true;
+    return _isReconnectSubscription(event);
+  }
+
+  bool _isReconnectSubscription(CustomerRealtimeEvent event) {
+    if (event.name != 'pusher_internal:subscription_succeeded') return false;
+    final channel = event.channel.trim();
+    if (!_isMoneyChannel(channel)) return false;
+
+    final seenBefore = _seenSubscribedChannels.contains(channel);
+    _seenSubscribedChannels.add(channel);
+    return seenBefore;
+  }
+
+  bool _isMoneyChannel(String channel) {
+    if (_activeChannels.contains(channel)) return true;
+    return channel.endsWith('.topups') || channel.endsWith('.wallet');
   }
 }

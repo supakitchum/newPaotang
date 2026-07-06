@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/customer_localizations.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
+import 'customer_loading_indicator.dart';
 import 'tenant_brand_header.dart';
 
 final appSplashMinimumDurationProvider = Provider<Duration>(
@@ -122,15 +123,12 @@ class _AppSplashOverlay extends StatelessWidget {
                           textColor: Colors.white,
                         ),
                         const SizedBox(height: 22),
-                        SizedBox(
-                          width: 34,
-                          height: 34,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              colors.onPrimary,
-                            ),
-                          ),
+                        CustomerLoadingMark(
+                          width: 46,
+                          height: 26,
+                          color: colors.onPrimary,
+                          trackColor: colors.onPrimary.withValues(alpha: 0.24),
+                          semanticLabel: context.l10n.appSplashPreparing,
                         ),
                         const SizedBox(height: 16),
                         Text(

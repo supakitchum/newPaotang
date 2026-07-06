@@ -8,8 +8,9 @@ import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/features/purchase_history/data/purchase_history_models.dart';
 import 'package:customer_flutter/features/purchase_history/data/purchase_history_repository.dart';
-import 'package:customer_flutter/features/system/presentation/system_pages.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
+import 'package:customer_flutter/features/system/presentation/system_pages.dart';
+import 'package:customer_flutter/shared/widgets/customer_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -29,6 +30,30 @@ void main() {
     );
     expect(maintenanceSupportPhoneUri('   '), isNull);
     expect(maintenanceSupportPhoneUri('++++'), isNull);
+  });
+
+  test('maintenanceSupportUrlUri keeps only safe external support URLs', () {
+    expect(
+      maintenanceSupportUrlUri('https://partner.example.com/support')
+          ?.toString(),
+      'https://partner.example.com/support',
+    );
+    expect(
+      maintenanceSupportUrlUri('http://partner.example.com/support'),
+      isNull,
+    );
+    expect(maintenanceSupportUrlUri('javascript:alert(1)'), isNull);
+    expect(maintenanceSupportUrlUri('   '), isNull);
+  });
+
+  test('systemSupportEmailUri builds safe mailto support links', () {
+    expect(
+      systemSupportEmailUri('support@example.test')?.toString(),
+      'mailto:support@example.test',
+    );
+    expect(systemSupportEmailUri('bad email@example.test'), isNull);
+    expect(systemSupportEmailUri('support.example.test'), isNull);
+    expect(systemSupportEmailUri('   '), isNull);
   });
 
   testWidgets('maintenance support button uses shared external link policy', (
@@ -69,6 +94,243 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pump();
+
+    expect(launcher.openedUri?.toString(), 'tel:025289682');
+  });
+
+  testWidgets('maintenance support button falls back to runtime support URL', (
+    tester,
+  ) async {
+    final launcher = _RecordingLinkLauncher();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'name': 'Alpha Shop'},
+              'supportConfig': {
+                'supportUrl': 'https://partner.example.com/support',
+              },
+              'maintenance': {
+                'active': true,
+                'message': 'Maintenance window',
+              },
+            }),
+          ),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const MaintenanceScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ติดต่อฝ่ายบริการผ่านเว็บไซต์'), findsOneWidget);
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pump();
+
+    expect(
+      launcher.openedUri?.toString(),
+      'https://partner.example.com/support',
+    );
+  });
+
+  testWidgets('maintenance support button falls back to runtime support email',
+      (
+    tester,
+  ) async {
+    final launcher = _RecordingLinkLauncher();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {
+                'name': 'Alpha Shop',
+                'support_email': 'support@example.test',
+              },
+              'maintenance': {
+                'active': true,
+                'message': 'Maintenance window',
+              },
+            }),
+          ),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const MaintenanceScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ติดต่อฝ่ายบริการ support@example.test'), findsOneWidget);
+    await tester.ensureVisible(find.byType(OutlinedButton));
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pump();
+
+    expect(launcher.openedUri?.toString(), 'mailto:support@example.test');
+  });
+
+  testWidgets('maintenance support button prefers callable phone over URL', (
+    tester,
+  ) async {
+    final launcher = _RecordingLinkLauncher();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {
+                'name': 'Alpha Shop',
+                'support_phone': '02-528-9682',
+              },
+              'supportConfig': {
+                'supportUrl': 'https://partner.example.com/support',
+              },
+              'maintenance': {
+                'active': true,
+                'message': 'Maintenance window',
+              },
+            }),
+          ),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const MaintenanceScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pump();
+
+    expect(launcher.openedUri?.toString(), 'tel:025289682');
+  });
+
+  testWidgets(
+    'account suspended support button falls back to runtime support URL',
+    (tester) async {
+      final launcher = _RecordingLinkLauncher();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {'name': 'Alpha Shop'},
+                'supportConfig': {
+                  'supportUrl': 'https://partner.example.com/support',
+                },
+              }),
+            ),
+            customerLinkLauncherProvider.overrideWithValue(launcher),
+          ],
+          child: MaterialApp(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            home: const AccountSuspendedScreen(reason: 'Risk review'),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('ติดต่อฝ่ายบริการผ่านเว็บไซต์'), findsOneWidget);
+      await tester.ensureVisible(find.byType(OutlinedButton));
+      await tester.tap(find.byType(OutlinedButton));
+      await tester.pump();
+
+      expect(
+        launcher.openedUri?.toString(),
+        'https://partner.example.com/support',
+      );
+    },
+  );
+
+  testWidgets(
+      'account suspended support button prefers callable phone over URL',
+      (tester) async {
+    final launcher = _RecordingLinkLauncher();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {
+                'name': 'Alpha Shop',
+                'support_phone': '02-528-9682',
+              },
+              'supportConfig': {
+                'supportUrl': 'https://partner.example.com/support',
+              },
+            }),
+          ),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const AccountSuspendedScreen(reason: 'Risk review'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ติดต่อฝ่ายบริการ 02-528-9682'), findsOneWidget);
+    await tester.ensureVisible(find.byType(OutlinedButton));
     await tester.tap(find.byType(OutlinedButton));
     await tester.pump();
 
@@ -274,7 +536,7 @@ void main() {
       find.text('คุณสามารถดูสลากฯ ได้ที่เมนู สลากฯ ของฉัน'),
       findsOneWidget,
     );
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CustomerLoadingMark), findsOneWidget);
     expect(find.text('กำลังโหลดข้อมูลการชำระเงิน...'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'ดูสลากฯ ของฉัน'), findsOneWidget);
     expect(tester.takeException(), isNull);

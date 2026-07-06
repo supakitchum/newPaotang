@@ -5,6 +5,7 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/core/utils/formatters.dart';
 import 'package:customer_flutter/features/activity_claims/data/activity_claim_models.dart';
@@ -61,6 +62,34 @@ void main() {
     expect(find.text('ระบบขึ้นเงินกิจกรรมปิดปรับปรุง'), findsOneWidget);
     expect(find.text('โหลดประวัติขึ้นเงินกิจกรรมไม่สำเร็จ'), findsNothing);
     expect(find.text('ลองใหม่'), findsOneWidget);
+    expect(find.byIcon(Icons.refresh), findsNothing);
+    expect(find.byType(Card), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('activity claims empty state uses Nuxt sheet and CTA', (
+    tester,
+  ) async {
+    final repository = _EmptyActivityClaimRepository();
+
+    await _pumpActivityClaimsRoute(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่มีประวัติขึ้นเงินกิจกรรม'), findsOneWidget);
+    expect(
+      find.text(
+        'เมื่อรับเงินรางวัลหรือเงินคืนจากกิจกรรม รายการจะแสดงที่หน้านี้',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('ดูกิจกรรม'), findsOneWidget);
+    expect(find.byIcon(Icons.local_activity_outlined), findsNothing);
+    expect(find.byType(Card), findsNothing);
+
+    await tester.tap(find.text('ดูกิจกรรม'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activities route'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -91,6 +120,19 @@ void main() {
         formatLocalizedDateTime('2026-06-26T10:30:00+07:00', 'th-TH'),
       ),
       findsOneWidget,
+    );
+    expect(find.byType(Card), findsNothing);
+    expect(
+      find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.expand_more), findsNothing);
+    expect(
+      find.ancestor(
+        of: find.text('โหลดเพิ่มเติม'),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
     );
 
     await tester.tap(find.text('โหลดเพิ่มเติม'));
@@ -147,6 +189,7 @@ void main() {
         bankName: 'ธนาคารกสิกรไทย',
         bankAccountNumber: '1234567890',
         paidAt: '2026-06-26T11:00:00+07:00',
+        customerName: 'ลูกค้ากิจกรรม Legacy',
         customerNote: 'ขอรับเข้าบัญชีนี้',
         adminNote: 'ตรวจสอบเรียบร้อย',
       ),
@@ -158,7 +201,7 @@ void main() {
     expect(find.text('รางวัลกิจกรรม'), findsWidgets);
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(find.text('ผู้รับเงิน'), findsOneWidget);
-    expect(find.text('มานะ ใจดี'), findsOneWidget);
+    expect(find.text('ลูกค้ากิจกรรม Legacy'), findsOneWidget);
     expect(find.text('ช่องทางขึ้นเงินรางวัล'), findsOneWidget);
     expect(find.textContaining('ธนาคารกสิกรไทย'), findsWidgets);
     expect(find.textContaining('x xxx7890'), findsOneWidget);
@@ -170,10 +213,24 @@ void main() {
     expect(find.text('ลุ้นโชคงวดนี้'), findsWidgets);
     expect(find.text('เงินคืนกิจกรรม'), findsOneWidget);
     expect(find.text('ACT-0001'), findsOneWidget);
+    expect(find.text('วันที่ทำรายการ'), findsOneWidget);
+    expect(
+      find.text(
+        formatLocalizedDateTime('2026-06-26T10:30:00+07:00', 'th-TH'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('วันที่โอนเงิน'), findsOneWidget);
+    expect(
+      find.text(
+        formatLocalizedDateTime('2026-06-26T11:00:00+07:00', 'th-TH'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('ยอดรางวัลกิจกรรม'), findsOneWidget);
-    expect(find.text('หมายเหตุของลูกค้า'), findsOneWidget);
-    expect(find.text('ขอรับเข้าบัญชีนี้'), findsOneWidget);
-    expect(find.text('หมายเหตุจากผู้ตรวจสอบ'), findsOneWidget);
+    expect(find.text('หมายเหตุของลูกค้า'), findsNothing);
+    expect(find.text('ขอรับเข้าบัญชีนี้'), findsNothing);
+    expect(find.text('หมายเหตุจากผู้ตรวจสอบ'), findsNothing);
     expect(find.text('ตรวจสอบเรียบร้อย'), findsOneWidget);
 
     await tester.tap(find.byTooltip('ย้อนกลับ'));
@@ -192,6 +249,9 @@ void main() {
         activityClaimDetailProvider(claimId).overrideWith((_) {
           return Completer<ActivityClaimItem>().future;
         }),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _activityClaimBootstrap(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -213,6 +273,9 @@ void main() {
         activityClaimDetailProvider(claimId).overrideWith((_) async {
           throw Exception('not found');
         }),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _activityClaimBootstrap(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -222,6 +285,7 @@ void main() {
 
     expect(find.text('โหลดรายการขึ้นเงินกิจกรรมไม่สำเร็จ'), findsOneWidget);
     expect(find.text('not found'), findsNothing);
+    expect(find.text('ลองใหม่'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
   });
 
@@ -234,6 +298,9 @@ void main() {
         activityClaimDetailProvider(claimId).overrideWith((_) async {
           throw _apiException('ไม่พบรายการขึ้นเงินกิจกรรมนี้');
         }),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _activityClaimBootstrap(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -243,6 +310,7 @@ void main() {
 
     expect(find.text('ไม่พบรายการขึ้นเงินกิจกรรมนี้'), findsOneWidget);
     expect(find.text('โหลดรายการขึ้นเงินกิจกรรมไม่สำเร็จ'), findsNothing);
+    expect(find.text('ลองใหม่'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -266,6 +334,9 @@ void main() {
             adminNote: loads == 1 ? '' : 'โอนสำเร็จจาก realtime',
           );
         }),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _activityClaimBootstrap(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -279,6 +350,10 @@ void main() {
 
     expect(loads, 1);
     expect(find.text('รอดำเนินการโอนเงิน'), findsWidgets);
+    expect(
+      find.text('กิจกรรมดี จะตรวจสอบและดำเนินการจ่ายเงินรางวัลกิจกรรมให้คุณ'),
+      findsOneWidget,
+    );
     expect(find.text('โอนสำเร็จจาก realtime'), findsNothing);
 
     container.read(activityClaimRealtimeTickProvider.notifier).state++;
@@ -307,6 +382,12 @@ Future<void> _pumpActivityClaimsRoute(
         path: '/profile',
         builder: (context, state) => const Scaffold(
           body: Center(child: Text('Profile route')),
+        ),
+      ),
+      GoRoute(
+        path: '/activities',
+        builder: (context, state) => const Scaffold(
+          body: Center(child: Text('Activities route')),
         ),
       ),
     ],
@@ -407,6 +488,9 @@ Future<void> _pumpActivityClaimDetail(
     ProviderScope(
       overrides: [
         activityClaimDetailProvider(claim.id).overrideWith((_) async => claim),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _activityClaimBootstrap(),
+        ),
       ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
@@ -482,6 +566,7 @@ ActivityClaimItem _claim({
   String bankAccountNumber = '',
   String walletName = 'Primary wallet',
   String? paidAt,
+  String customerName = 'มานะ ใจดี',
   String customerNote = '',
   String adminNote = '',
 }) {
@@ -492,7 +577,7 @@ ActivityClaimItem _claim({
     'payout_method': payoutMethod,
     'payout_ledger_id': payoutLedgerId,
     'claim_amount': {'amount': 150000, 'currency': 'THB'},
-    'customer': {'name': 'มานะ ใจดี'},
+    'customer_name': customerName,
     'activity_name': 'ลุ้นโชคงวดนี้',
     'award': {
       'type': 'cashback',
@@ -507,6 +592,15 @@ ActivityClaimItem _claim({
     'customer_note': customerNote,
     'admin_note': adminNote,
   });
+}
+
+MobileBootstrap _activityClaimBootstrap() {
+  return MobileBootstrap.fromJson(
+    const {
+      'site': {'display_name': 'กิจกรรมดี'},
+    },
+    defaultSiteName: 'กิจกรรมดี',
+  );
 }
 
 class _ActivityClaimListRepository extends ActivityClaimRepository {
@@ -549,6 +643,19 @@ class _ActivityClaimListRepository extends ActivityClaimRepository {
       ],
       nextCursor: 'cursor_2',
       hasMore: true,
+    );
+  }
+}
+
+class _EmptyActivityClaimRepository extends ActivityClaimRepository {
+  _EmptyActivityClaimRepository() : super(_testApiClient());
+
+  @override
+  Future<ActivityClaimPage> list({int limit = 20, String? cursor}) async {
+    return const ActivityClaimPage(
+      items: [],
+      nextCursor: null,
+      hasMore: false,
     );
   }
 }

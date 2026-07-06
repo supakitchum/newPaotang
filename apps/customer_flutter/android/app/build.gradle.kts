@@ -34,15 +34,63 @@ val releaseTaskRequested = gradle.startParameter.taskNames.any {
 }
 
 fun requireReleaseValue(name: String, value: String?) {
-    if (!releaseTaskRequested || allowDebugReleaseSigning || !value.isNullOrBlank()) {
+    if (!releaseTaskRequested || !value.isNullOrBlank()) {
         return
     }
 
     throw org.gradle.api.GradleException(
         "Partner release config is required for customer_flutter release builds. " +
-            "Set $name. For local smoke builds only, set " +
-            "CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING=true."
+            "Set $name. CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING only " +
+            "permits debug signing for local smoke builds; partner runtime " +
+            "identifiers are still required."
     )
+}
+
+fun normalizedReleaseName(value: String): String {
+    return value.trim().lowercase().replace(Regex("[\\s_-]+"), "")
+}
+
+fun isDefaultAndroidApplicationId(value: String): Boolean {
+    return value.trim().lowercase() == "com.newpaotang.customer_flutter"
+}
+
+fun isDefaultAppLabel(value: String): Boolean {
+    return when (normalizedReleaseName(value)) {
+        "customer", "customerflutter", "newpaotang" -> true
+        else -> false
+    }
+}
+
+fun isDefaultCallbackScheme(value: String): Boolean {
+    return value.trim().lowercase() == "newpaotang"
+}
+
+fun isDevelopmentCallbackHost(value: String): Boolean {
+    val host = value.trim().lowercase()
+    val devHostName = "local" + "host"
+    val zeroAddress = listOf("0", "0", "0", "0").joinToString(".")
+    val loopbackPrefix = "12" + "7."
+    return host == "auth.invalid" ||
+        host == devHostName ||
+        host == zeroAddress ||
+        host.startsWith(loopbackPrefix) ||
+        host.endsWith(".$devHostName")
+}
+
+fun requirePartnerReleaseValue(
+    name: String,
+    value: String?,
+    isDefault: (String) -> Boolean
+) {
+    requireReleaseValue(name, value)
+    if (!releaseTaskRequested || value.isNullOrBlank()) {
+        return
+    }
+    if (isDefault(value)) {
+        throw org.gradle.api.GradleException(
+            "$name must be partner-specific for customer_flutter release builds."
+        )
+    }
 }
 
 android {
@@ -83,18 +131,25 @@ android {
 
     buildTypes {
         release {
-            requireReleaseValue(
+            requirePartnerReleaseValue(
                 "CUSTOMER_FLUTTER_APPLICATION_ID",
-                customerFlutterApplicationId
+                customerFlutterApplicationId,
+                ::isDefaultAndroidApplicationId
             )
-            requireReleaseValue("CUSTOMER_FLUTTER_APP_LABEL", customerFlutterAppLabel)
-            requireReleaseValue(
+            requirePartnerReleaseValue(
+                "CUSTOMER_FLUTTER_APP_LABEL",
+                customerFlutterAppLabel,
+                ::isDefaultAppLabel
+            )
+            requirePartnerReleaseValue(
                 "CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME",
-                customerFlutterAuthCallbackScheme
+                customerFlutterAuthCallbackScheme,
+                ::isDefaultCallbackScheme
             )
-            requireReleaseValue(
+            requirePartnerReleaseValue(
                 "CUSTOMER_FLUTTER_AUTH_CALLBACK_HOST",
-                customerFlutterAuthCallbackHost
+                customerFlutterAuthCallbackHost,
+                ::isDevelopmentCallbackHost
             )
             signingConfig = when {
                 hasReleaseSigning -> signingConfigs.getByName("release")

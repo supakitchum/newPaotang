@@ -129,9 +129,8 @@ class _WaitingResultStatusCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    return DecoratedBox(
+      decoration: _waitingResultSurfaceDecoration(context, radius: 18),
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -236,19 +235,28 @@ class _WaitingResultPlaceholder extends StatelessWidget {
   }
 }
 
-class _WaitingResultLiveCard extends ConsumerWidget {
+class _WaitingResultLiveCard extends ConsumerStatefulWidget {
   const _WaitingResultLiveCard({required this.live});
 
   final MobileLiveConfig? live;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final uri = live?.launchUri;
-    final hasLive = live?.configured == true && uri != null;
+  ConsumerState<_WaitingResultLiveCard> createState() =>
+      _WaitingResultLiveCardState();
+}
 
-    return Card(
-      margin: EdgeInsets.zero,
+class _WaitingResultLiveCardState
+    extends ConsumerState<_WaitingResultLiveCard> {
+  String _noticeMessage = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final uri = widget.live?.launchUri;
+    final hasLive = widget.live?.configured == true && uri != null;
+
+    return DecoratedBox(
+      decoration: _waitingResultSurfaceDecoration(context, radius: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -285,17 +293,15 @@ class _WaitingResultLiveCard extends ConsumerWidget {
                     child: hasLive
                         ? FilledButton.icon(
                             onPressed: () async {
+                              setState(() => _noticeMessage = '');
                               final opened = await ref
                                   .read(customerLinkLauncherProvider)
                                   .openExternal(uri);
                               if (!opened && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      l10n.waitingResultLiveOpenFailed,
-                                    ),
-                                  ),
-                                );
+                                setState(() {
+                                  _noticeMessage =
+                                      l10n.waitingResultLiveOpenFailed;
+                                });
                               }
                             },
                             icon: const Icon(Icons.open_in_new),
@@ -313,6 +319,53 @@ class _WaitingResultLiveCard extends ConsumerWidget {
                           ),
                   ),
                 ),
+              ),
+            ),
+            if (_noticeMessage.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _WaitingResultInlineNotice(message: _noticeMessage),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WaitingResultInlineNotice extends StatelessWidget {
+  const _WaitingResultInlineNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF5F5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              color: colorScheme.error,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                    ),
               ),
             ),
           ],
@@ -334,8 +387,8 @@ class _WaitingResultActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _waitingResultSurfaceDecoration(context, radius: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
@@ -380,4 +433,23 @@ class _WaitingResultActions extends StatelessWidget {
       ),
     );
   }
+}
+
+BoxDecoration _waitingResultSurfaceDecoration(
+  BuildContext context, {
+  required double radius,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
 }

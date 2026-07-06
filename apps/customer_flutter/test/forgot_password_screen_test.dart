@@ -129,6 +129,21 @@ void main() {
     );
   });
 
+  testWidgets('forgot password defaults OTP resend cooldown like Nuxt',
+      (tester) async {
+    await _pumpForgotPassword(
+      tester,
+      repository: _ForgotPasswordRepository(requestOtpSucceeds: true),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '0801234567');
+    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
+    await tester.pump();
+
+    expect(find.text('ส่งใหม่ได้ใน 60 วินาที'), findsOneWidget);
+  });
+
   testWidgets('forgot password hides internal errors', (tester) async {
     await _pumpForgotPassword(
       tester,
@@ -163,12 +178,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final lineResetButton = find.widgetWithText(
-      OutlinedButton,
-      'รีเซ็ตด้วย LINE',
-    );
-    await tester.ensureVisible(lineResetButton);
-    await tester.tap(lineResetButton);
+    await _tapLineResetButton(tester);
     await tester.pumpAndSettle();
 
     expect(find.text('บัญชียังไม่ได้เชื่อมต่อ LINE'), findsOneWidget);
@@ -178,6 +188,27 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  testWidgets('forgot password LINE reset sends Nuxt return path',
+      (tester) async {
+    final repository = _ForgotPasswordRepository(
+      requestOtpError: _smsOtpProviderError(),
+      socialLoginUrlValue: 'https://access.line.me/oauth2/v2.1/authorize',
+    );
+
+    await _pumpForgotPassword(
+      tester,
+      repository: repository,
+      lineEnabled: true,
+    );
+
+    await tester.pumpAndSettle();
+    await _tapLineResetButton(tester);
+    await tester.pumpAndSettle();
+
+    expect(repository.lastSocialPurpose, 'password_reset');
+    expect(repository.lastSocialRedirect, '/forgot-password');
   });
 
   testWidgets('forgot password LINE reset hides internal errors', (
@@ -192,12 +223,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final lineResetButton = find.widgetWithText(
-      OutlinedButton,
-      'รีเซ็ตด้วย LINE',
-    );
-    await tester.ensureVisible(lineResetButton);
-    await tester.tap(lineResetButton);
+    await _tapLineResetButton(tester);
     await tester.pumpAndSettle();
 
     expect(
@@ -208,6 +234,17 @@ void main() {
     );
     expect(find.textContaining('internal line reset failed'), findsNothing);
   });
+}
+
+Future<void> _tapLineResetButton(WidgetTester tester) async {
+  final lineResetButton = find.widgetWithText(FilledButton, 'รีเซ็ตด้วย LINE');
+  await tester.scrollUntilVisible(
+    lineResetButton,
+    96,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(lineResetButton);
 }
 
 Future<void> _pumpForgotPassword(
@@ -266,8 +303,12 @@ class _ForgotPasswordTestApp extends StatelessWidget {
 class _ForgotPasswordRepository extends AuthRepository {
   _ForgotPasswordRepository({
     Object? requestOtpError,
+    bool requestOtpSucceeds = false,
     this.socialUrlError,
-  })  : requestOtpError = requestOtpError ?? _smsOtpProviderError(),
+    this.socialLoginUrlValue = 'https://line.example.com/oauth',
+  })  : requestOtpError = requestOtpSucceeds
+            ? null
+            : requestOtpError ?? _smsOtpProviderError(),
         super(
           api: ApiClient(
             const AppConfig(
@@ -282,6 +323,9 @@ class _ForgotPasswordRepository extends AuthRepository {
 
   final Object? requestOtpError;
   final Object? socialUrlError;
+  final String socialLoginUrlValue;
+  String? lastSocialPurpose;
+  String? lastSocialRedirect;
 
   @override
   Future<OtpRequestResult> requestOtp({
@@ -297,10 +341,17 @@ class _ForgotPasswordRepository extends AuthRepository {
   }
 
   @override
-  Future<String> socialLoginUrl(String provider, {String purpose = 'login'}) {
+  Future<String> socialLoginUrl(
+    String provider, {
+    String purpose = 'login',
+    String? redirect,
+    bool callbackUsesAuth = false,
+  }) {
+    lastSocialPurpose = purpose;
+    lastSocialRedirect = redirect;
     final error = socialUrlError;
     if (error != null) throw error;
-    return Future.value('https://line.example.com/oauth');
+    return Future.value(socialLoginUrlValue);
   }
 }
 

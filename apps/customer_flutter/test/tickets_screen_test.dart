@@ -36,6 +36,7 @@ void main() {
         '740000',
         count: 2,
         prizeAmount: 2000,
+        claimable: true,
         rewardStatus: const TicketRewardStatus(
           status: 'winning',
           claimStatus: '',
@@ -67,8 +68,13 @@ void main() {
     expect(find.text('ทั้งหมด 4 ใบ'), findsOneWidget);
     expect(find.text('ยินดีด้วย!'), findsOneWidget);
     expect(find.text('คุณถูกรางวัล 2 ใบ'), findsOneWidget);
+    expect(find.text('L6'), findsNWidgets(3));
+    expect(find.text('80\nบาท'), findsNWidgets(3));
+    expect(find.text('สลากดิจิทัล'), findsNWidgets(3));
     expect(find.text('740000'), findsWidgets);
     expect(find.text('880000'), findsOneWidget);
+    expect(find.text('ขึ้นรางวัล'), findsOneWidget);
+    expect(find.text('รับเงินรางวัล 2,000.00 บาท'), findsOneWidget);
     expect(
       find.text(
         'เมนู ‘สลากฯ ของฉัน’ เป็นการบันทึกเลขสลากฯ หากถูกรางวัล ระบบจะแจ้งผลรางวัลในหน้านี้',
@@ -76,6 +82,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.widgetWithText(FilledButton, 'ค้นหาเลขสลาก'), findsNothing);
+    expect(find.byType(Card), findsNothing);
 
     await tester.tap(find.byTooltip('ค้นหาเลขสลาก'));
     await tester.pumpAndSettle();
@@ -98,6 +105,99 @@ void main() {
 
     expect(find.text('880000'), findsOneWidget);
     expect(find.byKey(const ValueKey('ticket-search-clear')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current ticket stub opens claim flow directly like Nuxt', (
+    tester,
+  ) async {
+    final repository = _TicketCurrentRepository([
+      _ticket(
+        'current_claimable',
+        '740000',
+        prizeAmount: 2000,
+        claimable: true,
+        rewardStatus: const TicketRewardStatus(
+          status: 'winning',
+          claimStatus: '',
+          claimable: true,
+          prizeType: 'back2',
+          prizeNumber: '00',
+          prizeAmount: 2000,
+          prizes: [],
+          rewardClaimId: null,
+          payoutMethod: '',
+          adminNote: '',
+        ),
+      ),
+    ]);
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ขึ้นรางวัล'), findsOneWidget);
+    expect(find.text('Ticket detail'), findsNothing);
+
+    tester
+        .widget<InkWell>(
+          find.ancestor(
+            of: find.text('ขึ้นรางวัล'),
+            matching: find.byType(InkWell),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Ticket claim: current_claimable from current'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current ticket stub opens existing reward claim directly', (
+    tester,
+  ) async {
+    final repository = _TicketCurrentRepository([
+      _ticket(
+        'current_claimed',
+        '880000',
+        prizeAmount: 2000,
+        rewardClaimId: 'claim_current_existing',
+        rewardStatus: const TicketRewardStatus(
+          status: 'submitted',
+          claimStatus: 'submitted',
+          claimable: false,
+          prizeType: 'back2',
+          prizeNumber: '00',
+          prizeAmount: 2000,
+          prizes: [],
+          rewardClaimId: 'claim_current_existing',
+          payoutMethod: 'wallet_credit',
+          adminNote: '',
+        ),
+      ),
+    ]);
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ดูรางวัล'), findsOneWidget);
+
+    tester
+        .widget<InkWell>(
+          find.ancestor(
+            of: find.text('ดูรางวัล'),
+            matching: find.byType(InkWell),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Reward claim detail: claim_current_existing'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -428,7 +528,14 @@ void main() {
     expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsOneWidget);
     expect(find.text('ขายแล้ว'), findsWidgets);
 
-    await tester.tap(find.byTooltip('ดูรูปสลากฯ'));
+    tester
+        .widget<InkWell>(
+          find.descendant(
+            of: find.byTooltip('ดูรูปสลากฯ'),
+            matching: find.byType(InkWell),
+          ),
+        )
+        .onTap!();
     await tester.pumpAndSettle();
 
     expect(find.text('GLO'), findsWidgets);
@@ -436,7 +543,7 @@ void main() {
     expect(find.text('แบบดิจิทัล'), findsWidgets);
     expect(find.text('Customer'), findsOneWidget);
     expect(
-      find.text('สลากดิจิทัลนี้จัดเก็บใน Customer สำหรับ สลากกินแบ่งรัฐบาล'),
+      find.text('สลากดิจิทัลนี้จัดเก็บใน Customer สำหรับ L6'),
       findsOneWidget,
     );
 
@@ -444,6 +551,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Customer'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ticket view shows backend image error while failed', (
+    tester,
+  ) async {
+    final repository = _TicketViewRepository(
+      currentTickets: [
+        _ticket(
+          'current_failed_image',
+          '740000',
+          gameId: 'game_current',
+          orderId: 'order_1',
+          imageUrl: 'https://cdn.example.test/tickets/740000.png',
+          imageStatus: 'failed',
+          imageError: 'ภาพสลากยังไม่พร้อมจากระบบ',
+        ),
+      ],
+    );
+
+    await _pumpTicketView(
+      tester,
+      repository,
+      '/tickets/view?number=740000&order_id=order_1&game_id=game_current',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+
+    tester
+        .widget<InkWell>(
+          find.descendant(
+            of: find.byTooltip('ดูรูปสลากฯ'),
+            matching: find.byType(InkWell),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsNWidgets(2));
+    expect(find.byType(Image), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -573,7 +722,7 @@ void main() {
     expect(find.text('ถัดไป'), findsNothing);
     expect(repository.createRewardClaimCalls, 0);
 
-    await tester.tap(find.text('มีรายการขึ้นเงินแล้ว'));
+    await tester.tap(find.text('ดูรายการขึ้นเงิน'));
     await tester.pumpAndSettle();
 
     expect(find.text('Reward claim detail: claim_existing'), findsOneWidget);
@@ -619,11 +768,155 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ค่าภาษีถอนเงิน (0.5%)'), findsOneWidget);
+    expect(find.text('10.00 บาท'), findsOneWidget);
     expect(find.text('ลดให้ 10.00 บาท'), findsOneWidget);
     expect(find.text('ค่าธรรมเนียม (1%)'), findsOneWidget);
+    expect(find.text('20.00 บาท'), findsOneWidget);
     expect(find.text('ลดให้ 20.00 บาท'), findsOneWidget);
+    expect(find.text('0 บาท'), findsNWidgets(2));
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(repository.createRewardClaimCalls, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ticket claim bank payout matches Nuxt labels and payload', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketClaimRepository(
+      ticket: _ticket('ticket_bank', '112233'),
+      status: const TicketRewardStatus(
+        status: 'winning',
+        claimStatus: '',
+        claimable: true,
+        prizeType: 'back3',
+        prizeNumber: '233',
+        prizeAmount: 3000,
+        prizes: [],
+        rewardClaimId: null,
+        payoutMethod: '',
+        adminNote: '',
+      ),
+    );
+
+    await _pumpTicketClaim(
+      tester,
+      repository,
+      initialLocation: '/tickets/claim/ticket_bank',
+      profileRepository: _TicketClaimProfileRepository(
+        bankAccount: const RewardBankAccount(
+          bankName: 'ธนาคารกสิกรไทย',
+          accountName: 'ผู้ใช้งาน',
+          accountNumber: '1234567890',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('บัญชีกสิกรไทย x 7890'), findsOneWidget);
+    tester
+        .widget<InkWell>(
+          find.ancestor(
+            of: find.text('บัญชีกสิกรไทย x 7890'),
+            matching: find.byType(InkWell),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('ธนาคารกสิกรไทย'), findsOneWidget);
+    expect(find.text('หมายเลขบัญชี x xxx7890'), findsOneWidget);
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(repository.createRewardClaimCalls, 1);
+    expect(repository.createdPayoutMethods, ['bank_transfer']);
+    expect(repository.createdBankAccounts.single, {
+      'bank_name': 'ธนาคารกสิกรไทย',
+      'account_name': 'ผู้ใช้งาน',
+      'account_number': '1234567890',
+    });
+    expect(find.text('กำลังดำเนินการโอนเงินรางวัล'), findsOneWidget);
+    expect(find.text('ธนาคารกสิกรไทย'), findsOneWidget);
+    expect(find.text('หมายเลขบัญชี x xxx7890'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ticket claim wallet payout uses runtime wallet suffix', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketClaimRepository(
+      ticket: _ticket('ticket_wallet', '445566'),
+      status: const TicketRewardStatus(
+        status: 'winning',
+        claimStatus: '',
+        claimable: true,
+        prizeType: 'back3',
+        prizeNumber: '566',
+        prizeAmount: 4000,
+        prizes: [],
+        rewardClaimId: null,
+        payoutMethod: '',
+        adminNote: '',
+      ),
+    );
+
+    await _pumpTicketClaim(
+      tester,
+      repository,
+      initialLocation: '/tickets/claim/ticket_wallet',
+      profileRepository: _TicketClaimProfileRepository(
+        walletId: 'wallet_987654321',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('G Wallet x 321'), findsOneWidget);
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('G Wallet x 321'), findsOneWidget);
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(repository.createRewardClaimCalls, 1);
+    expect(repository.createdPayoutMethods, ['wallet_credit']);
+    expect(find.text('G Wallet x 321'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -689,8 +982,11 @@ void main() {
     expect(find.text('รางวัลเลขท้าย 3 ตัว 1,000.00 บาท'), findsOneWidget);
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(find.text('วันที่ทำรายการ'), findsOneWidget);
+    expect(find.text('5.00 บาท'), findsOneWidget);
     expect(find.text('ลดให้ 5.00 บาท'), findsOneWidget);
+    expect(find.text('10.00 บาท'), findsOneWidget);
     expect(find.text('ลดให้ 10.00 บาท'), findsOneWidget);
+    expect(find.text('0 บาท'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
@@ -749,6 +1045,93 @@ void main() {
     expect(find.text('ไม่สามารถส่งรายการขึ้นเงินจากระบบได้'), findsOneWidget);
     expect(find.text('ส่งรายการไม่สำเร็จ กรุณาลองใหม่'), findsNothing);
     expect(find.text('กำลังดำเนินการโอนเงินรางวัล'), findsNothing);
+  });
+
+  testWidgets('ticket claim conflict reloads existing claim like Nuxt', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketClaimRepository(
+      ticket: _ticket('ticket_conflict', '456789'),
+      status: const TicketRewardStatus(
+        status: 'winning',
+        claimStatus: '',
+        claimable: true,
+        prizeType: 'back3',
+        prizeNumber: '789',
+        prizeAmount: 1000,
+        prizes: [],
+        rewardClaimId: null,
+        payoutMethod: '',
+        adminNote: '',
+      ),
+      createError: _apiException(
+        '/customer/reward-claims',
+        'รายการนี้อาจถูกส่งขึ้นเงินไว้แล้ว',
+        statusCode: 409,
+        code: 'resource_conflict',
+      ),
+      statusAfterCreateError: const TicketRewardStatus(
+        status: 'winning',
+        claimStatus: 'submitted',
+        claimable: false,
+        prizeType: 'back3',
+        prizeNumber: '789',
+        prizeAmount: 1000,
+        prizes: [],
+        rewardClaimId: 'claim_after_conflict',
+        payoutMethod: 'wallet_credit',
+        adminNote: '',
+      ),
+    );
+
+    await _pumpTicketClaim(
+      tester,
+      repository,
+      initialLocation: '/tickets/claim/ticket_conflict',
+    );
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(repository.createRewardClaimCalls, 1);
+    expect(find.text('ใส่รหัส PIN 6 หลัก'), findsNothing);
+    expect(
+      find.text('รายการนี้ถูกดำเนินการแล้ว กรุณารีเฟรชสถานะ'),
+      findsOneWidget,
+    );
+    expect(find.text('มีรายการขึ้นเงินแล้ว'), findsOneWidget);
+    expect(
+      find.text('ติดตามสถานะรายการนี้ได้จากหน้ารายละเอียด'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('ดูรายการขึ้นเงิน'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Reward claim detail: claim_after_conflict'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('ticket claim submits biometric assertion token', (
@@ -834,6 +1217,27 @@ Future<void> _pumpCurrent(
         path: '/tickets/view',
         builder: (context, state) => const Scaffold(
           body: Center(child: Text('Ticket detail')),
+        ),
+      ),
+      GoRoute(
+        path: '/tickets/claim/:ticketId',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text(
+              'Ticket claim: ${state.pathParameters['ticketId']} '
+              'from ${state.uri.queryParameters['from']}',
+            ),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/reward-claims/:claimId',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text(
+              'Reward claim detail: ${state.pathParameters['claimId']}',
+            ),
+          ),
         ),
       ),
       GoRoute(
@@ -1027,6 +1431,7 @@ Future<void> _pumpTicketClaim(
   String? platformKey,
   bool biometricEnabled = false,
   BiometricAuthService? biometricAuth,
+  ProfileSettingsRepository? profileRepository,
 }) {
   final router = GoRouter(
     initialLocation: initialLocation,
@@ -1079,7 +1484,7 @@ Future<void> _pumpTicketClaim(
         ),
         ticketRepositoryProvider.overrideWithValue(repository),
         profileSettingsRepositoryProvider.overrideWithValue(
-          _TicketClaimProfileRepository(),
+          profileRepository ?? _TicketClaimProfileRepository(),
         ),
         if (platformKey != null)
           customerPlatformKeyProvider.overrideWithValue(platformKey),
@@ -1343,17 +1748,20 @@ class _TicketClaimRepository extends TicketRepository {
     required this.status,
     this.detailError,
     this.createError,
+    this.statusAfterCreateError,
   }) : super(_testApiClient());
 
   final CustomerTicket ticket;
-  final TicketRewardStatus status;
+  TicketRewardStatus status;
   final Object? detailError;
   final Object? createError;
+  final TicketRewardStatus? statusAfterCreateError;
   int createRewardClaimCalls = 0;
   final createdTicketIds = <String>[];
   final createdPayoutMethods = <String>[];
   final createdPins = <String>[];
   final createdAssertionTokens = <String>[];
+  final createdBankAccounts = <Map<String, dynamic>?>[];
 
   @override
   Future<CustomerTicket> detail(String id) async {
@@ -1378,8 +1786,13 @@ class _TicketClaimRepository extends TicketRepository {
     createdPayoutMethods.add(payoutMethod);
     createdPins.add(pin);
     createdAssertionTokens.add(pinAssertionToken);
+    createdBankAccounts.add(bankAccount);
     final error = createError;
-    if (error != null) throw error;
+    if (error != null) {
+      final nextStatus = statusAfterCreateError;
+      if (nextStatus != null) status = nextStatus;
+      throw error;
+    }
     return const RewardClaimSubmission(
       id: 'claim_1',
       status: 'submitted',
@@ -1389,25 +1802,31 @@ class _TicketClaimRepository extends TicketRepository {
 }
 
 class _TicketClaimProfileRepository extends ProfileSettingsRepository {
-  _TicketClaimProfileRepository() : super(_testApiClient());
+  _TicketClaimProfileRepository({this.bankAccount, this.walletId = ''})
+      : super(_testApiClient());
+
+  final RewardBankAccount? bankAccount;
+  final String walletId;
 
   @override
   Future<CustomerProfileSettings> load() async {
-    return const CustomerProfileSettings(
+    return CustomerProfileSettings(
       id: 'customer_1',
       name: 'ผู้ใช้งาน',
       customerNo: 'C001',
       phone: '0800000000',
-      bankAccount: RewardBankAccount(
-        bankName: '',
-        accountName: '',
-        accountNumber: '',
-      ),
+      bankAccount: bankAccount ??
+          const RewardBankAccount(
+            bankName: '',
+            accountName: '',
+            accountNumber: '',
+          ),
       autoReward: AutoRewardSetting(
         enabled: false,
         payoutMethod: '',
         type: '',
       ),
+      walletId: walletId,
     );
   }
 }
@@ -1430,14 +1849,22 @@ class _FakeBiometricAuthService extends BiometricAuthService {
   }
 }
 
-DioException _apiException(String path, String message) {
+DioException _apiException(
+  String path,
+  String message, {
+  int statusCode = 422,
+  String code = '',
+}) {
   final requestOptions = RequestOptions(path: path);
   return DioException(
     requestOptions: requestOptions,
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
-      statusCode: 422,
-      data: {'message': message},
+      statusCode: statusCode,
+      data: {
+        'message': message,
+        if (code.isNotEmpty) 'code': code,
+      },
     ),
   );
 }

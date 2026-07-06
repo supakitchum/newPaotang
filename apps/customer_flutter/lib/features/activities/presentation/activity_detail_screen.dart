@@ -17,10 +17,16 @@ import '../../activity_claims/data/activity_claim_models.dart';
 import '../../activity_claims/data/activity_claim_repository.dart';
 import '../../profile/data/profile_settings_models.dart';
 import '../../profile/data/profile_settings_repository.dart';
+import '../../reward_claims/presentation/claim_realtime_monitor.dart';
 import '../data/activity_models.dart';
 import '../data/activity_repository.dart';
 import 'activity_error_message.dart';
 import 'activity_localization.dart';
+import 'activity_visual_tokens.dart';
+
+Color _activityDetailPrimaryTint(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
+    colorScheme.primary.withValues(alpha: 0.12);
 
 class ActivityDetailScreen extends ConsumerWidget {
   const ActivityDetailScreen({
@@ -40,11 +46,16 @@ class ActivityDetailScreen extends ConsumerWidget {
       authenticated: auth.isAuthenticated && !auth.pinRequired,
     );
     final activity = ref.watch(activityDetailProvider(request));
+    final showBottomNavigation = activity.maybeWhen(
+      data: (item) => item.id.isNotEmpty,
+      orElse: () => false,
+    );
 
     return AppShell(
       title: context.l10n.activityDetailTitle,
       currentPath: '/activities',
       backPath: backPath,
+      showBottomNavigation: showBottomNavigation,
       child: activity.when(
         data: (item) {
           if (item.id.isEmpty) {
@@ -100,102 +111,112 @@ class _ActivityDetailBody extends ConsumerStatefulWidget {
 
 class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   bool _submittingEntry = false;
+  String _activityNoticeMessage = '';
+  bool _activityNoticeIsError = false;
 
   ActivityItem get activity => widget.activity;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
+    ref.listen<int>(activityClaimRealtimeTickProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      ref.invalidate(activityDetailProvider(widget.request));
+      if (activity.id.isNotEmpty) {
+        ref.invalidate(activityAwardListProvider(activity.id));
+      }
+    });
     final resultAnnounced = activity.resultSummary?.isAnnounced == true;
-    final awards = !resultAnnounced || activity.id.isEmpty
-        ? const AsyncValue<List<ActivityAwardItem>>.data([])
-        : ref.watch(activityAwardListProvider(activity.id));
+    final resultHasArrived =
+        resultAnnounced || _activityResultHasArrived(activity);
+    final canLoadAwards =
+        widget.authenticated && activity.id.isNotEmpty && resultHasArrived;
+    final awards = canLoadAwards
+        ? ref.watch(activityAwardListProvider(activity.id))
+        : const AsyncValue<List<ActivityAwardItem>>.data([]);
 
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+      child: _ActivityDetailPageList(
         children: [
-          CustomerPageBody(
-            maxWidth: 640,
-            top: 12,
-            mobileHorizontal: 10,
-            wideHorizontal: 10,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (activity.imageUrl.isNotEmpty) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child:
-                          Image.network(activity.imageUrl, fit: BoxFit.cover),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    Chip(label: Text(l10n.activityTypeLabel(activity.type))),
-                    if (activity.hasRight)
-                      Chip(
-                        label: Text(l10n.activityDetailHasRight),
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primaryContainer,
-                      ),
-                    if (activity.rights.entryClosed)
-                      Chip(
-                        label: Text(l10n.activityDetailEntryClosed),
-                        backgroundColor:
-                            Theme.of(context).colorScheme.errorContainer,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  activityDisplayName(l10n, activity),
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                if (activity.resultSummary?.isAnnounced == true) ...[
-                  _ActivityResultCard(summary: activity.resultSummary!),
-                  const SizedBox(height: 12),
-                ],
-                _ActivityStatusCard(activity: activity),
-                const SizedBox(height: 12),
-                if (resultAnnounced)
-                  awards.when(
-                    data: (items) => _ActivityAwardsSection(
-                      awards: items,
-                      onClaim: _startClaim,
-                    ),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
-                _ConditionCard(activity: activity),
-                if (activity.isLuckyBoard) ...[
-                  const SizedBox(height: 12),
-                  if (widget.authenticated) ...[
-                    _RightsCard(activity: activity),
-                    const SizedBox(height: 12),
-                    _SelectedNumbersPanel(entries: activity.entries),
-                    const SizedBox(height: 12),
-                    _NumberBoardCard(
-                      activity: activity,
-                      submitting: _submittingEntry,
-                      onSelect: _confirmNumber,
-                    ),
-                  ] else
-                    _LoginToJoinCard(slug: widget.request.slug),
-                ],
-              ],
+          _ActivityHeroCard(activity: activity),
+          const SizedBox(height: 8),
+          if (activity.resultSummary?.isAnnounced == true) ...[
+            _ActivityResultCard(summary: activity.resultSummary!),
+            const SizedBox(height: 12),
+          ],
+          _ActivityStatusCard(activity: activity),
+          const SizedBox(height: 12),
+          if (_activityNoticeMessage.isNotEmpty) ...[
+            _ActivityNoticePanel(
+              message: _activityNoticeMessage,
+              isError: _activityNoticeIsError,
+            ),
+            const SizedBox(height: 12),
+          ],
+          awards.when(
+            data: (items) => _ActivityAwardStatusPanel(
+              activity: activity,
+              awards: items,
+              authenticated: widget.authenticated,
+              resultAnnounced: resultHasArrived,
+              onClaim: _startClaim,
+            ),
+            loading: () => _ActivityAwardStatusPanel(
+              activity: activity,
+              awards: const [],
+              authenticated: widget.authenticated,
+              resultAnnounced: resultHasArrived,
+              loading: true,
+              onClaim: _startClaim,
+            ),
+            error: (_, __) => _ActivityAwardStatusPanel(
+              activity: activity,
+              awards: const [],
+              authenticated: widget.authenticated,
+              resultAnnounced: resultHasArrived,
+              onClaim: _startClaim,
             ),
           ),
+          _ConditionCard(activity: activity),
+          if (activity.isCashback) ...[
+            const SizedBox(height: 12),
+            awards.when(
+              data: (items) => _CashbackPanel(
+                activity: activity,
+                claimableAward: items
+                    .where((award) => award.isCashback)
+                    .where((award) => award.isClaimable)
+                    .firstOrNull,
+                onManualClaim: _startCashbackManualClaim,
+                onAutoReward: _goAutoReward,
+              ),
+              loading: () => _CashbackPanel(
+                activity: activity,
+                onManualClaim: _startCashbackManualClaim,
+                onAutoReward: _goAutoReward,
+              ),
+              error: (_, __) => _CashbackPanel(
+                activity: activity,
+                onManualClaim: _startCashbackManualClaim,
+                onAutoReward: _goAutoReward,
+              ),
+            ),
+          ],
+          if (activity.isLuckyBoard) ...[
+            const SizedBox(height: 12),
+            if (widget.authenticated) ...[
+              _RightsCard(activity: activity),
+              const SizedBox(height: 12),
+              _SelectedNumbersPanel(activity: activity),
+              const SizedBox(height: 12),
+              _NumberBoardCard(
+                activity: activity,
+                submitting: _submittingEntry,
+                onSelect: _confirmNumber,
+              ),
+            ] else
+              _LoginToJoinCard(slug: widget.request.slug),
+          ],
         ],
       ),
     );
@@ -229,7 +250,10 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
 
   Future<void> _submitEntry(String number) async {
     if (_submittingEntry || activity.id.isEmpty) return;
-    setState(() => _submittingEntry = true);
+    setState(() {
+      _submittingEntry = true;
+      _activityNoticeMessage = '';
+    });
     try {
       await ref.read(activityRepositoryProvider).createEntry(
             activityId: activity.id,
@@ -237,7 +261,10 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
             selectedNumber: number,
           );
       if (!mounted) return;
-      _showSnack(context.l10n.activitySubmitEntrySuccess);
+      _setActivityNotice(
+        context.l10n.activitySubmitEntrySuccess,
+        isError: false,
+      );
       ref.invalidate(activityDetailProvider(widget.request));
     } catch (error) {
       if (!mounted) return;
@@ -256,7 +283,7 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
         return;
       }
       if (!mounted) return;
-      _showSnack(message);
+      _setActivityNotice(message);
     } finally {
       if (mounted) setState(() => _submittingEntry = false);
     }
@@ -268,6 +295,9 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.46),
+      elevation: 0,
       builder: (context) => _ActivityClaimSheet(
         award: award,
         returnPath: returnPath,
@@ -281,13 +311,40 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
     );
   }
 
+  Future<void> _startCashbackManualClaim(ActivityAwardItem? award) async {
+    final redirect =
+        Uri.encodeComponent(GoRouterState.of(context).uri.toString());
+    if (!widget.authenticated) {
+      context.go('/login?redirect=$redirect');
+      return;
+    }
+    if (award == null) {
+      _setActivityNotice(context.l10n.activityCashbackClaimNotReadyMessage);
+      return;
+    }
+    await _startClaim(award);
+  }
+
+  void _goAutoReward() {
+    final redirect =
+        Uri.encodeComponent(GoRouterState.of(context).uri.toString());
+    if (!widget.authenticated) {
+      context.go('/login?redirect=$redirect');
+      return;
+    }
+    context.go('/profile/auto-reward?redirect=$redirect');
+  }
+
   String _errorCode(Object error) {
     return ApiErrorInfo.fromObject(error).code;
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+  void _setActivityNotice(String message, {bool isError = true}) {
+    if (!mounted) return;
+    setState(() {
+      _activityNoticeMessage = message;
+      _activityNoticeIsError = isError;
+    });
   }
 }
 
@@ -393,6 +450,403 @@ class _NumberConfirmDialog extends StatelessWidget {
   }
 }
 
+bool _activityResultHasArrived(ActivityItem activity, {DateTime? now}) {
+  final resultAt = parseDateTime(activity.resultAt);
+  if (resultAt == null) return false;
+  return !(now ?? DateTime.now()).isBefore(resultAt);
+}
+
+class _ActivityDetailPageList extends StatelessWidget {
+  const _ActivityDetailPageList({required this.children});
+
+  static const _heroHeight = 214.0;
+  static const _sheetOverlap = 24.0;
+  static const _bottomPadding = 112.0;
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const _ActivityDetailHeroBand(),
+            Padding(
+              padding: const EdgeInsets.only(top: _heroHeight - _sheetOverlap),
+              child: _ActivityDetailContentSheet(
+                child: CustomerPageBody(
+                  maxWidth: 640,
+                  top: 6,
+                  bottom: _bottomPadding,
+                  mobileHorizontal: 16,
+                  wideHorizontal: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ActivityDetailContentSheet extends StatelessWidget {
+  const _ActivityDetailContentSheet({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 620),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _ActivityDetailHeroBand extends StatelessWidget {
+  const _ActivityDetailHeroBand();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: _ActivityDetailPageList._heroHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
+                  colorScheme.primary,
+            ],
+          ),
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+class _ActivityDetailSurface extends StatelessWidget {
+  const _ActivityDetailSurface({
+    required this.child,
+    this.borderColor,
+    this.background,
+    this.shadow = true,
+  });
+
+  final Widget child;
+  final Color? borderColor;
+  final Color? background;
+  final bool shadow;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background ?? colorScheme.surface,
+        border: Border.all(
+          color:
+              borderColor ?? colorScheme.outlineVariant.withValues(alpha: 0.70),
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: shadow
+            ? [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.10),
+                  blurRadius: 30,
+                  offset: const Offset(0, 14),
+                ),
+              ]
+            : null,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _ActivityNoticePanel extends StatelessWidget {
+  const _ActivityNoticePanel({
+    required this.message,
+    required this.isError,
+  });
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = isError
+        ? activityErrorForeground(colorScheme)
+        : activitySuccessForeground(colorScheme);
+    final border = isError
+        ? activityErrorBorder(colorScheme)
+        : colorScheme.primary.withValues(alpha: 0.24);
+    final background = isError
+        ? activityErrorTint(colorScheme)
+        : activitySuccessTint(colorScheme);
+    return _ActivityDetailSurface(
+      background: background,
+      borderColor: border,
+      shadow: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
+              color: foreground,
+              size: 21,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityHeroCard extends StatelessWidget {
+  const _ActivityHeroCard({required this.activity});
+
+  final ActivityItem activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final entryClosed = activityEntryClosed(activity);
+    final colorScheme = Theme.of(context).colorScheme;
+    return _ActivityDetailSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (activity.imageUrl.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: Image.network(
+                activity.imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                frameBuilder: (
+                  context,
+                  child,
+                  frame,
+                  wasSynchronouslyLoaded,
+                ) {
+                  if (wasSynchronouslyLoaded || frame != null) return child;
+                  return const ActivityImageLoadingFrame();
+                },
+                errorBuilder: (_, __, ___) => AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: ActivityImageFallback(
+                    isCashback: activity.isCashback,
+                    iconSize: 52,
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ActivityTypePill(
+                  label: l10n.activityTypeLabel(activity.type),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  activityDisplayName(l10n, activity),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  activityConditionText(l10n, activity),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.55,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                _ActivityInfoRow(
+                  icon: Icons.calendar_month_outlined,
+                  label: activityGameLabel(l10n, activity),
+                ),
+                const SizedBox(height: 8),
+                _ActivityInfoRow(
+                  icon: Icons.schedule_rounded,
+                  label: l10n.activityDetailResultTime(
+                    activityResultTimeText(l10n, activity),
+                  ),
+                ),
+                if (activity.isLuckyBoard) ...[
+                  const SizedBox(height: 8),
+                  _ActivityInfoRow(
+                    icon: Icons.hourglass_bottom_rounded,
+                    label: activityEntryDeadlineText(l10n, activity),
+                    danger: entryClosed,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityTypePill extends StatelessWidget {
+  const _ActivityTypePill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityInfoRow extends StatelessWidget {
+  const _ActivityInfoRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color =
+        danger ? activityErrorForeground(colorScheme) : colorScheme.primary;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanelHeading extends StatelessWidget {
+  const _PanelHeading({
+    required this.title,
+    this.trailing,
+  });
+
+  final String title;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                  height: 1.25,
+                ),
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              trailing!,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                    height: 1.35,
+                  ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _ActivityStatusCard extends StatelessWidget {
   const _ActivityStatusCard({required this.activity});
 
@@ -416,28 +870,36 @@ class _ActivityStatusCard extends StatelessWidget {
             ? l10n.activityStatusBoardClosed
             : l10n.activityStatusBoardAvailable;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      color: colorScheme.primaryContainer,
+    return _ActivityDetailSurface(
+      borderColor: colorScheme.primary.withValues(alpha: 0.18),
+      background: colorScheme.primary.withValues(alpha: 0.03),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
             const SizedBox(height: 8),
             Text(
               value,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w900,
-                    color: colorScheme.onPrimaryContainer,
+                    color: colorScheme.onSurface,
                   ),
             ),
             const SizedBox(height: 6),
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    height: 1.45,
                   ),
             ),
           ],
@@ -458,49 +920,104 @@ class _ActivityResultCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final won = summary.customerWon;
     final lost = summary.customerLost;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: won
-          ? const Color(0xFFE8F8EF)
+    final numberColor = won
+        ? activitySuccessForeground(colorScheme)
+        : lost
+            ? activityWarningForeground(colorScheme)
+            : colorScheme.primary;
+    final winningNumbers = summary.winningNumbers.isEmpty
+        ? [summary.winningNumber].where((number) => number.isNotEmpty).toList()
+        : summary.winningNumbers;
+    return _ActivityDetailSurface(
+      borderColor: won
+          ? colorScheme.primary.withValues(alpha: 0.24)
           : lost
-              ? colorScheme.errorContainer
-              : null,
+              ? activityWarningBorder(colorScheme)
+              : colorScheme.primary.withValues(alpha: 0.20),
+      background: won
+          ? activitySuccessTint(colorScheme)
+          : lost
+              ? activityWarningTint(colorScheme)
+              : colorScheme.primary.withValues(alpha: 0.03),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.activityResultTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              summary.winningNumber,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: won ? const Color(0xFF087443) : colorScheme.primary,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.activityResultWinningNumber(
-                l10n.activityPredictionLabel(summary.predictionType),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              won
+            _PanelHeading(
+              title: l10n.activityResultTitle,
+              trailing: won
                   ? l10n.activityResultCustomerWon(
                       formatBaht(summary.customerAwardAmount),
                     )
                   : lost
                       ? l10n.activityResultCustomerLost
                       : l10n.activityResultWinnerCount(summary.winnerCount),
-              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final number in winningNumbers)
+                  _ActivityResultNumberPill(
+                    number: number,
+                    color: numberColor,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.activityResultWinningNumber(
+                l10n.activityPredictionLabel(summary.predictionType),
+              ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    height: 1.4,
+                  ),
+            ),
+            if (summary.customerWinningNumbers.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withValues(alpha: 0.74),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.activityResultCustomerWinningNumbers,
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: activitySuccessForeground(colorScheme),
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final number in summary.customerWinningNumbers)
+                            _ActivityResultNumberPill(
+                              number: number,
+                              color: activitySuccessForeground(colorScheme),
+                              compact: true,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -508,78 +1025,369 @@ class _ActivityResultCard extends StatelessWidget {
   }
 }
 
-class _ActivityAwardsSection extends StatelessWidget {
-  const _ActivityAwardsSection({
+class _ActivityResultNumberPill extends StatelessWidget {
+  const _ActivityResultNumberPill({
+    required this.number,
+    required this.color,
+    this.compact = false,
+  });
+
+  final String number;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 7 : 10,
+        ),
+        child: Text(
+          number,
+          style: (compact
+                  ? Theme.of(context).textTheme.titleMedium
+                  : Theme.of(context).textTheme.displaySmall)
+              ?.copyWith(
+            fontWeight: FontWeight.w900,
+            color: color,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityAwardStatusPanel extends StatelessWidget {
+  const _ActivityAwardStatusPanel({
+    required this.activity,
     required this.awards,
+    required this.authenticated,
+    required this.resultAnnounced,
+    required this.onClaim,
+    this.loading = false,
+  });
+
+  final ActivityItem activity;
+  final List<ActivityAwardItem> awards;
+  final bool authenticated;
+  final bool resultAnnounced;
+  final ValueChanged<ActivityAwardItem> onClaim;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!loading && awards.isEmpty && !resultAnnounced) {
+      return const SizedBox.shrink();
+    }
+
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final variant = _awardStatusVariant();
+    final colors = _awardStatusColors(variant, colorScheme);
+    final icon = _awardStatusIcon(variant);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _ActivityDetailSurface(
+        borderColor: colors.border,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: colors.strip),
+                ),
+                child: const SizedBox(height: 5),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _PanelHeading(
+                    title: l10n.activityAwardStatusTitle,
+                    trailing: _awardCountText(l10n),
+                  ),
+                  const SizedBox(height: 12),
+                  if (awards.isEmpty || loading)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        border: Border.all(color: colors.border),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(13),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: colors.iconBackground,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: SizedBox(
+                                width: 46,
+                                height: 46,
+                                child: Icon(icon, color: colors.iconForeground),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    loading
+                                        ? l10n.activityAwardStatusPendingTitle
+                                        : _emptyTitle(l10n),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: colorScheme.onSurface,
+                                          fontWeight: FontWeight.w900,
+                                          height: 1.25,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    loading
+                                        ? l10n.activityAwardStatusPendingMessage
+                                        : _emptyMessage(l10n),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.45,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    for (final award in awards) ...[
+                      _AwardRow(award: award, onClaim: onClaim),
+                      if (award != awards.last) const SizedBox(height: 10),
+                    ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _awardCountText(CustomerLocalizations l10n) {
+    if (awards.isNotEmpty) return l10n.activityAwardStatusCount(awards.length);
+    if (!authenticated) return l10n.activityAwardStatusLoginCount;
+    if (loading || !resultAnnounced) {
+      return l10n.activityAwardStatusPendingCount;
+    }
+    final status = activity.resultSummary?.customerStatus ?? '';
+    if (status == 'not_joined') return l10n.activityAwardStatusNotJoinedCount;
+    return l10n.activityAwardStatusNoRewardCount;
+  }
+
+  String _emptyTitle(CustomerLocalizations l10n) {
+    if (!authenticated) return l10n.activityAwardStatusLoginTitle;
+    final status = activity.resultSummary?.customerStatus ?? '';
+    if (activity.isLuckyBoard && activity.resultSummary?.customerLost == true) {
+      return l10n.activityAwardStatusMissedTitle;
+    }
+    if (status == 'not_joined') return l10n.activityAwardStatusNotJoinedTitle;
+    if (!resultAnnounced) return l10n.activityAwardStatusPendingTitle;
+    return l10n.activityAwardStatusNoRewardTitle;
+  }
+
+  String _emptyMessage(CustomerLocalizations l10n) {
+    if (!authenticated) return l10n.activityAwardStatusLoginMessage;
+    final status = activity.resultSummary?.customerStatus ?? '';
+    if (activity.isLuckyBoard && activity.resultSummary?.customerLost == true) {
+      return l10n.activityAwardStatusMissedMessage;
+    }
+    if (status == 'not_joined') return l10n.activityAwardStatusNotJoinedMessage;
+    if (!resultAnnounced) return l10n.activityAwardStatusPendingMessage;
+    return l10n.activityAwardStatusNoRewardMessage;
+  }
+
+  String _awardStatusVariant() {
+    if (awards.any((award) => award.isClaimable)) return 'claimable';
+    if (awards.any((award) => award.hasClaim)) return 'paid';
+    if (awards.isNotEmpty) return 'awarded';
+    if (!authenticated || !resultAnnounced || loading) return 'pending';
+    if (activity.isLuckyBoard &&
+        (activity.resultSummary?.customerLost == true ||
+            activity.resultSummary?.customerStatus == 'not_joined')) {
+      return 'missed';
+    }
+    return 'missed';
+  }
+}
+
+({
+  Color background,
+  Color border,
+  Color iconBackground,
+  Color iconForeground,
+  List<Color> strip
+}) _awardStatusColors(String variant, ColorScheme colorScheme) {
+  return switch (variant) {
+    'claimable' || 'paid' || 'awarded' => (
+        background: activitySuccessTint(colorScheme),
+        border: colorScheme.primary.withValues(alpha: 0.24),
+        iconBackground: activitySuccessTint(colorScheme),
+        iconForeground: activitySuccessForeground(colorScheme),
+        strip: [
+          colorScheme.primary,
+          Color.lerp(colorScheme.primary, colorScheme.secondary, 0.34) ??
+              colorScheme.primary,
+        ],
+      ),
+    'missed' => (
+        background: activityErrorTint(colorScheme),
+        border: activityErrorBorder(colorScheme),
+        iconBackground: activityErrorTint(colorScheme),
+        iconForeground: activityErrorForeground(colorScheme),
+        strip: [
+          colorScheme.error,
+          Color.lerp(colorScheme.error, colorScheme.surface, 0.44) ??
+              colorScheme.error,
+        ],
+      ),
+    _ => (
+        background: activityWarningTint(colorScheme),
+        border: activityWarningBorder(colorScheme),
+        iconBackground: activityWarningTint(colorScheme),
+        iconForeground: activityWarningForeground(colorScheme),
+        strip: [
+          colorScheme.tertiary,
+          Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.44) ??
+              colorScheme.tertiary,
+        ],
+      ),
+  };
+}
+
+IconData _awardStatusIcon(String variant) {
+  return switch (variant) {
+    'claimable' => Icons.paid_outlined,
+    'paid' => Icons.check_circle_outline,
+    'awarded' => Icons.emoji_events_outlined,
+    'missed' => Icons.cancel_outlined,
+    _ => Icons.hourglass_bottom_rounded,
+  };
+}
+
+class _AwardRow extends StatelessWidget {
+  const _AwardRow({
+    required this.award,
     required this.onClaim,
   });
 
-  final List<ActivityAwardItem> awards;
+  final ActivityAwardItem award;
   final ValueChanged<ActivityAwardItem> onClaim;
 
   @override
   Widget build(BuildContext context) {
-    if (awards.isEmpty) return const SizedBox.shrink();
     final l10n = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        children: [
-          for (final award in awards)
-            Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final narrow = constraints.maxWidth < 420;
-                    final copy = Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primaryContainer,
-                          child: const Icon(Icons.card_giftcard),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: _AwardCopy(
-                            award: award,
-                            status: _awardStatusText(context, award),
-                          ),
-                        ),
-                      ],
-                    );
-                    if (!award.isClaimable) return copy;
+    final colorScheme = Theme.of(context).colorScheme;
 
-                    final action = FilledButton(
-                      onPressed: () => onClaim(award),
-                      child: Text(l10n.activityAwardClaimButton),
-                    );
-                    if (narrow) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          copy,
-                          const SizedBox(height: 14),
-                          action,
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(child: copy),
-                        const SizedBox(width: 12),
-                        action,
-                      ],
-                    );
-                  },
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withValues(alpha: 0.03),
+            colorScheme.surface,
+          ],
+        ),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.12),
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(13),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 420;
+            final copy = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: Icon(Icons.card_giftcard),
+                  ),
                 ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _AwardCopy(
+                    award: award,
+                    status: _awardStatusText(context, award),
+                  ),
+                ),
+              ],
+            );
+            if (!award.isClaimable) return copy;
+
+            final action = FilledButton(
+              onPressed: () => onClaim(award),
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                minimumSize: const Size(104, 42),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
-            ),
-        ],
+              child: Text(l10n.activityAwardClaimButton),
+            );
+            if (narrow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  copy,
+                  const SizedBox(height: 14),
+                  action,
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: copy),
+                const SizedBox(width: 12),
+                action,
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -587,6 +1395,11 @@ class _ActivityAwardsSection extends StatelessWidget {
   String _awardStatusText(BuildContext context, ActivityAwardItem award) {
     final l10n = context.l10n;
     if (award.isClaimable) return l10n.activityAwardReady;
+    if (award.isPaid) return l10n.activityClaimStatusPaid;
+    if (award.isApproved) return l10n.activityClaimStatusApproved;
+    if (award.isRejected) return l10n.activityClaimStatusRejected;
+    if (award.isCancelled) return l10n.activityClaimStatusCancelled;
+    if (award.isSubmitted) return l10n.activityClaimStatusSubmitted;
     if (award.hasClaim) return l10n.activityAwardClaimed;
     return l10n.activityAwardProcessing;
   }
@@ -601,26 +1414,46 @@ class _AwardCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           activityAwardTitle(l10n, award),
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          formatBaht(award.amount),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
-                color: const Color(0xFF087443),
               ),
         ),
-        const SizedBox(height: 4),
-        Text(status),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: activitySuccessTint(colorScheme),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.24),
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Text(
+              formatBaht(award.amount),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: activitySuccessForeground(colorScheme),
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          status,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
       ],
     );
   }
@@ -634,27 +1467,517 @@ class _ConditionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    final colorScheme = Theme.of(context).colorScheme;
+    return _ActivityDetailSurface(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.activityConditionTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
+            _PanelHeading(title: l10n.activityConditionTitle),
             const SizedBox(height: 10),
             Text(
               activityConditionText(l10n, activity),
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                     height: 1.5,
+                    fontWeight: FontWeight.w700,
                   ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+String _cashbackMinimumText(
+  CustomerLocalizations l10n,
+  ActivityItem activity,
+) {
+  final progress = activity.cashbackProgress;
+  final minimumType = progress.minimumType.isNotEmpty
+      ? progress.minimumType
+      : activity.config.minimumType;
+  if (minimumType == 'amount') {
+    final amount = progress.minPurchaseAmount > 0
+        ? progress.minPurchaseAmount
+        : activity.config.minPurchaseAmount;
+    return amount > 0 ? formatBaht(amount) : l10n.activityCashbackNoMinimum;
+  }
+  final ticketCount = progress.minTicketCount > 0
+      ? progress.minTicketCount
+      : activity.config.minTicketCount;
+  return ticketCount > 0
+      ? l10n.activityCashbackTickets(ticketCount)
+      : l10n.activityCashbackNoMinimum;
+}
+
+String _cashbackRewardText(
+  CustomerLocalizations l10n,
+  ActivityItem activity,
+) {
+  if (activity.estimatedCashbackAmount > 0) {
+    return l10n.activityMetaCashbackEstimate(
+      formatBaht(activity.estimatedCashbackAmount),
+    );
+  }
+  if (activity.cashbackProgress.potentialAmount > 0) {
+    return l10n.activityMetaCashbackEstimate(
+      formatBaht(activity.cashbackProgress.potentialAmount),
+    );
+  }
+  if (activity.config.fixedAmount > 0) {
+    return l10n.activityMetaCashbackEstimate(
+      formatBaht(activity.config.fixedAmount),
+    );
+  }
+  return l10n.activityCashbackRewardFallback;
+}
+
+class _CashbackPanel extends StatelessWidget {
+  const _CashbackPanel({
+    required this.activity,
+    required this.onManualClaim,
+    required this.onAutoReward,
+    this.claimableAward,
+  });
+
+  final ActivityItem activity;
+  final ActivityAwardItem? claimableAward;
+  final ValueChanged<ActivityAwardItem?> onManualClaim;
+  final VoidCallback onAutoReward;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = activity.cashbackProgress;
+    final resultTime = activityResultTimeText(l10n, activity);
+    final minimum = _cashbackMinimumText(l10n, activity);
+    final rewardText = _cashbackRewardText(l10n, activity);
+    final eligible = progress.isEligible;
+    final displayEstimatedAmount = progress.estimatedAmount > 0
+        ? progress.estimatedAmount
+        : activity.estimatedCashbackAmount > 0
+            ? activity.estimatedCashbackAmount
+            : activity.config.fixedAmount > 0
+                ? activity.config.fixedAmount
+                : progress.potentialAmount;
+
+    return _ActivityDetailSurface(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _PanelHeading(
+              title: l10n.activityCashbackPanelTitle,
+              trailing: eligible
+                  ? l10n.activityCashbackProgressEligible
+                  : l10n.activityCashbackProgressPending,
+            ),
+            const SizedBox(height: 16),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.10),
+                    colorScheme.primary.withValues(alpha: 0.03),
+                  ],
+                ),
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.18),
+                ),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      rewardText,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      eligible
+                          ? l10n.activityCashbackEligibleTitle
+                          : l10n.activityCashbackPendingTitle,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w900,
+                            height: 1.25,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      eligible
+                          ? l10n.activityCashbackEligibleDescription(resultTime)
+                          : l10n.activityCashbackPendingDescription(
+                              minimum,
+                              resultTime,
+                            ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            height: 1.45,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withValues(alpha: 0.9),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.18),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.activityCashbackExpectedLabel,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color:
+                                colorScheme.onPrimary.withValues(alpha: 0.82),
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      formatBaht(displayEstimatedAmount),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: colorScheme.onPrimary,
+                                fontWeight: FontWeight.w900,
+                                height: 1.05,
+                              ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      l10n.activityCashbackExpectedHint(resultTime),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                colorScheme.onPrimary.withValues(alpha: 0.82),
+                            fontWeight: FontWeight.w800,
+                            height: 1.35,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                final children = [
+                  _CashbackMetric(
+                    label: l10n.activityCashbackPurchaseAmount,
+                    value: formatBaht(progress.purchaseAmount),
+                  ),
+                  _CashbackMetric(
+                    label: l10n.activityCashbackTicketCount,
+                    value: l10n.activityCashbackTickets(progress.ticketCount),
+                  ),
+                  _CashbackMetric(
+                    label: l10n.activityCashbackMinimum,
+                    value: minimum,
+                  ),
+                ];
+
+                return GridView.count(
+                  crossAxisCount: compact ? 1 : 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: compact ? 4.6 : 1.22,
+                  children: children,
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _CashbackDetailList(
+              rows: [
+                MapEntry(l10n.activityCashbackDetailRewardType, rewardText),
+                MapEntry(
+                  l10n.activityCashbackDetailMainCondition,
+                  activityConditionText(l10n, activity),
+                ),
+                MapEntry(
+                  l10n.activityCashbackDetailCalculationTime,
+                  resultTime,
+                ),
+                MapEntry(
+                  l10n.activityCashbackDetailPayout,
+                  l10n.activityCashbackDetailPayoutValue,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                final children = [
+                  _CashbackActionButton(
+                    icon: Icons.touch_app_outlined,
+                    title: l10n.activityCashbackManualClaimTitle,
+                    subtitle: claimableAward == null
+                        ? l10n.activityCashbackManualClaimPending
+                        : l10n.activityCashbackManualClaimReady,
+                    onPressed: () => onManualClaim(claimableAward),
+                  ),
+                  _CashbackActionButton(
+                    icon: Icons.bolt_outlined,
+                    title: l10n.activityCashbackAutoRewardTitle,
+                    subtitle: l10n.activityCashbackAutoRewardSubtitle,
+                    onPressed: onAutoReward,
+                  ),
+                ];
+
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      children.first,
+                      const SizedBox(height: 10),
+                      children.last,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: children.first),
+                    const SizedBox(width: 10),
+                    Expanded(child: children.last),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashbackMetric extends StatelessWidget {
+  const _CashbackMetric({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashbackDetailList extends StatelessWidget {
+  const _CashbackDetailList({required this.rows});
+
+  final List<MapEntry<String, String>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.78),
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            for (final row in rows) ...[
+              _CashbackDetailRow(label: row.key, value: row.value),
+              if (row != rows.last)
+                Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.62),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashbackDetailRow extends StatelessWidget {
+  const _CashbackDetailRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 108,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    height: 1.45,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CashbackActionButton extends StatelessWidget {
+  const _CashbackActionButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.82),
+        ),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(icon, color: colorScheme.primary, size: 20),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            height: 1.35,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -669,20 +1992,15 @@ class _RightsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final rights = activity.rights;
-    return Card(
-      margin: EdgeInsets.zero,
+    return _ActivityDetailSurface(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.activityRightsTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
+            _PanelHeading(title: l10n.activityRightsTitle),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -692,12 +2010,14 @@ class _RightsCard extends StatelessWidget {
                     value: rights.earnedCount.toString(),
                   ),
                 ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _RightsMetric(
                     label: l10n.activityRightsUsed,
                     value: rights.usedCount.toString(),
                   ),
                 ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _RightsMetric(
                     label: l10n.activityRightsRemaining,
@@ -712,17 +2032,23 @@ class _RightsCard extends StatelessWidget {
                 rights.ticketCount,
                 rights.consumedTicketCount,
               ),
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    height: 1.45,
+                  ),
             ),
             if (rights.entryDeadlineAt != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                l10n.activityRightsDeadline(
+              const SizedBox(height: 8),
+              _ActivityInfoRow(
+                icon: Icons.hourglass_bottom_rounded,
+                label: l10n.activityRightsDeadline(
                   formatLocalizedDateTime(
                     rights.entryDeadlineAt,
                     localeTag(l10n.locale),
                   ),
                 ),
+                danger: activityEntryClosed(activity),
               ),
             ],
           ],
@@ -740,43 +2066,93 @@ class _RightsMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
 class _SelectedNumbersPanel extends StatelessWidget {
-  const _SelectedNumbersPanel({required this.entries});
+  const _SelectedNumbersPanel({required this.activity});
 
-  final List<ActivityEntry> entries;
+  final ActivityItem activity;
 
   @override
   Widget build(BuildContext context) {
+    final entries = _activeBoardEntries(activity).toList(growable: false);
     if (entries.isEmpty) return const SizedBox.shrink();
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _ActivityDetailSurface(
+      borderColor: colorScheme.primary.withValues(alpha: 0.20),
+      background: colorScheme.primary.withValues(alpha: 0.03),
+      shadow: false,
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.activitySelectedNumbersTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.activitySelectedNumbersTitle,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    border: Border.all(
+                      color: colorScheme.primary.withValues(alpha: 0.22),
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                    child: Text(
+                      '${entries.length}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -784,10 +2160,27 @@ class _SelectedNumbersPanel extends StatelessWidget {
               runSpacing: 8,
               children: [
                 for (final entry in entries)
-                  Chip(
-                    label: Text(
-                      entry.selectedNumber,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      border: Border.all(
+                        color: colorScheme.primary.withValues(alpha: 0.42),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        entry.selectedNumber,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w900,
+                              height: 1,
+                            ),
+                      ),
                     ),
                   ),
               ],
@@ -813,65 +2206,92 @@ class _NumberBoardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final board = activity.numberBoard;
     if (!board.isReady) return const SizedBox.shrink();
 
-    final selected = activity.entries
-        .map((entry) => entry.selectedNumber)
-        .where((number) => number.isNotEmpty)
-        .toSet();
+    final selected = _selectedBoardNumbers(activity);
     final canSelect = !submitting &&
         !activity.rights.entryClosed &&
         activity.rights.remainingCount > 0;
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return _ActivityDetailSurface(
+      shadow: false,
+      borderColor: colorScheme.outlineVariant.withValues(alpha: 0.78),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.activityNumberBoardTitle(
-                l10n.activityPredictionLabel(board.predictionType),
-              ),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.activityNumberBoardTitle(
+                          l10n.activityPredictionLabel(board.predictionType),
+                        ),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l10n.activityNumberBoardSummary(
+                          board.digits == 3 ? '000-999' : '00-99',
+                          board.remainingCount.toString(),
+                          board.totalCount.toString(),
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w800,
+                              height: 1.35,
+                            ),
+                      ),
+                    ],
                   ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.activityNumberBoardSummary(
-                board.digits == 3 ? '000-999' : '00-99',
-                board.remainingCount.toString(),
-                board.totalCount.toString(),
-              ),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    height: 1.35,
+                ),
+                const SizedBox(width: 10),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
                   ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Text(
+                      activity.rights.entryClosed
+                          ? l10n.activityNumberBoardEntryClosedHint
+                          : l10n.activityNumberBoardReservedHint,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Text(
               canSelect
                   ? l10n.activityNumberBoardCanSelect
                   : activity.rights.entryClosed
                       ? l10n.activityNumberBoardClosed
                       : l10n.activityNumberBoardNoRights,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              activity.rights.entryClosed
-                  ? l10n.activityNumberBoardEntryClosedHint
-                  : l10n.activityNumberBoardReservedHint,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w800,
+                    height: 1.4,
                   ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
@@ -881,7 +2301,10 @@ class _NumberBoardCard extends StatelessWidget {
                 );
                 final rows = (board.totalCount / crossAxisCount).ceil();
                 final visibleRows = board.digits == 3 ? 8 : 10;
-                final tileHeight = board.digits == 3 ? 34.0 : 38.0;
+                final tileHeight = _numberBoardTileHeight(
+                  width: width,
+                  columns: crossAxisCount,
+                );
                 final maxHeight =
                     (tileHeight * visibleRows) + (8 * (visibleRows - 1));
                 final contentHeight = (tileHeight * rows) + (8 * (rows - 1));
@@ -923,16 +2346,23 @@ class _NumberBoardCard extends StatelessWidget {
 }
 
 int _numberBoardColumns({required double width, required int digits}) {
+  final compact = width <= 340;
   if (digits == 3) {
-    if (width >= 760) return 10;
-    if (width >= 560) return 8;
-    if (width >= 420) return 6;
-    return 5;
+    return compact ? 3 : 4;
   }
-  if (width >= 760) return 12;
-  if (width >= 560) return 10;
-  if (width >= 420) return 8;
-  return 6;
+  return compact ? 4 : 5;
+}
+
+double _numberBoardTileHeight({
+  required double width,
+  required int columns,
+}) {
+  const gap = 8.0;
+  final cellWidth = (width - (gap * (columns - 1))) / columns;
+  final aspectHeight = cellWidth * 0.72;
+  if (aspectHeight < 42) return 42;
+  if (aspectHeight > 54) return 54;
+  return aspectHeight;
 }
 
 class _NumberTile extends StatelessWidget {
@@ -956,28 +2386,64 @@ class _NumberTile extends StatelessWidget {
     final background = selected
         ? colorScheme.primary
         : reserved
-            ? colorScheme.errorContainer
-            : colorScheme.surfaceContainerHighest;
+            ? activityErrorTint(colorScheme)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.36);
     final foreground = selected
         ? colorScheme.onPrimary
         : reserved
-            ? colorScheme.onErrorContainer
+            ? activityErrorForeground(colorScheme)
             : colorScheme.onSurface;
+    final border = reserved
+        ? activityErrorBorder(colorScheme)
+        : colorScheme.outlineVariant.withValues(alpha: 0.82);
 
     return Material(
       color: background,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: border),
+      ),
       child: InkWell(
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(12),
-        child: Center(
-          child: Text(
-            number,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: foreground,
+        child: Stack(
+          children: [
+            Center(
+              child: Text(
+                number,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: foreground,
+                    ),
+              ),
+            ),
+            if (reserved)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: activityErrorForeground(colorScheme),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 3,
+                    ),
+                    child: Text(
+                      context.l10n.activityNumberBoardReservedShort,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onError,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ),
                 ),
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -992,21 +2458,33 @@ class _LoginToJoinCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _ActivityDetailSurface(
+      borderColor: colorScheme.primary.withValues(alpha: 0.18),
+      background: colorScheme.primary.withValues(alpha: 0.03),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           children: [
-            const Icon(Icons.lock_outline, size: 36),
+            Icon(
+              Icons.lock_outline,
+              size: 36,
+              color: colorScheme.primary,
+            ),
             const SizedBox(height: 10),
             Text(
               l10n.activityLoginToJoinTitle,
-              style: const TextStyle(fontWeight: FontWeight.w900),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: () => context.go('/login?redirect=/activities/$slug'),
+              style: FilledButton.styleFrom(shape: const StadiumBorder()),
               child: Text(l10n.activityLoginToJoinButton),
             ),
           ],
@@ -1014,6 +2492,21 @@ class _LoginToJoinCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Iterable<ActivityEntry> _activeBoardEntries(ActivityItem activity) {
+  final predictionType = activity.numberBoard.predictionType;
+  if (predictionType.isEmpty) return const [];
+  return activity.entries
+      .where((entry) => entry.predictionType == predictionType)
+      .where((entry) => !entry.isCancelled)
+      .where((entry) => entry.selectedNumber.isNotEmpty);
+}
+
+Set<String> _selectedBoardNumbers(ActivityItem activity) {
+  return _activeBoardEntries(activity)
+      .map((entry) => entry.selectedNumber)
+      .toSet();
 }
 
 class _ActivityClaimSheet extends ConsumerStatefulWidget {
@@ -1043,53 +2536,99 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final profile = ref.watch(customerProfileSettingsProvider);
+    final colorScheme = Theme.of(context).colorScheme;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final height = MediaQuery.sizeOf(context).height;
+    final maxHeight = (height - bottom - 12).clamp(240.0, height).toDouble();
     final platformKey = ref.watch(customerPlatformKeyProvider);
-    final biometricEnabled = ref.watch(mobileBootstrapProvider).maybeWhen(
-          data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
-          orElse: () => false,
-        );
+    final bootstrap = ref.watch(mobileBootstrapProvider);
+    final biometricEnabled = bootstrap.maybeWhen(
+      data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
+      orElse: () => false,
+    );
+    final reviewerName = bootstrap.maybeWhen(
+      data: (data) => data.siteName.trim(),
+      orElse: () => '',
+    );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, bottom + 16),
-      child: profile.when(
-        data: (settings) => _pinStep
-            ? _PinConfirmPanel(
-                title: l10n.activityClaimPinTitle,
-                subtitle: l10n.activityClaimPinSubtitle,
-                pin: _pin,
-                error: _error,
-                submitting: _submitting,
-                biometricEnabled: biometricEnabled,
-                onBack: () => setState(() {
-                  _pinStep = false;
-                  _pin = '';
-                  _error = '';
-                }),
-                onDigit: (digit) => _appendPinDigit(digit, settings),
-                onBackspace: _removePinDigit,
-                onBiometric: () => _submitWithBiometric(settings.bankAccount),
-              )
-            : _ClaimSelectPanel(
-                award: widget.award,
-                method: _method,
-                bankAccount: settings.bankAccount,
-                returnPath: widget.returnPath,
-                error: _error,
-                submitting: _submitting,
-                onMethodChanged: (method) => setState(() {
-                  _method = method;
-                  _error = '';
-                }),
-                onContinue: () => _continueToPin(settings.bankAccount),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, bottom + 12),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 390, maxHeight: maxHeight),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.22),
+                  blurRadius: 48,
+                  offset: const Offset(0, 24),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Material(
+                color: colorScheme.surface,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: profile.when(
+                    data: (settings) => _pinStep
+                        ? _PinConfirmPanel(
+                            title: l10n.activityClaimPinTitle,
+                            subtitle: l10n.activityClaimPinSubtitle,
+                            pin: _pin,
+                            error: _error,
+                            submitting: _submitting,
+                            biometricEnabled: biometricEnabled,
+                            onBack: () => setState(() {
+                              _pinStep = false;
+                              _pin = '';
+                              _error = '';
+                            }),
+                            onDigit: (digit) =>
+                                _appendPinDigit(digit, settings),
+                            onBackspace: _removePinDigit,
+                            onBiometric: () =>
+                                _submitWithBiometric(settings.bankAccount),
+                          )
+                        : _ClaimSelectPanel(
+                            award: widget.award,
+                            method: _method,
+                            bankAccount: settings.bankAccount,
+                            walletId: settings.walletId,
+                            reviewerName: reviewerName,
+                            returnPath: widget.returnPath,
+                            error: _error,
+                            submitting: _submitting,
+                            onCancel: () => Navigator.of(context).pop(),
+                            onMethodChanged: (method) => setState(() {
+                              _method = method;
+                              _error = '';
+                            }),
+                            onContinue: () =>
+                                _continueToPin(settings.bankAccount),
+                          ),
+                    loading: () => _ClaimProfileLoadingPanel(
+                      eyebrow: l10n.activityClaimSheetEyebrow,
+                      title: l10n.activityClaimSheetTitle,
+                      message: l10n.activityClaimProfileLoading,
+                    ),
+                    error: (_, __) => _ClaimProfileErrorPanel(
+                      eyebrow: l10n.activityClaimSheetEyebrow,
+                      title: l10n.activityClaimSheetTitle,
+                      message: l10n.activityClaimProfileLoadFailed,
+                      onRetry: () =>
+                          ref.invalidate(customerProfileSettingsProvider),
+                    ),
+                  ),
+                ),
               ),
-        loading: () => const SizedBox(
-          height: 180,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        error: (_, __) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(l10n.activityClaimProfileLoadFailed),
+            ),
+          ),
         ),
       ),
     );
@@ -1151,6 +2690,8 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
       final code = _errorCode(error);
       final pinInvalidMessage = context.l10n.activityClaimPinInvalid;
       final pinLockedMessage = context.l10n.activityClaimPinLocked;
+      final pinSetupRequiredMessage =
+          context.l10n.activityClaimPinSetupRequired;
       final failedMessage = context.l10n.activityClaimSubmitFailed;
       if (await handleCustomerOperationalError(
         ref: ref,
@@ -1167,7 +2708,9 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
             ? pinInvalidMessage
             : code == 'pin_locked'
                 ? pinLockedMessage
-                : activityErrorMessage(error, failedMessage);
+                : code == 'pin_setup_required' || code == 'pin_required'
+                    ? pinSetupRequiredMessage
+                    : activityErrorMessage(error, failedMessage);
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -1184,7 +2727,11 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
       final token =
           await ref.read(biometricAuthServiceProvider).requestPinAssertion(
                 purpose: 'activity_claim',
-                localizedReason: context.l10n.pinBiometricReason,
+                localizedReason: mobileBiometricPromptReason(
+                  ref.read(mobileBootstrapProvider).valueOrNull,
+                  purpose: 'activity_claim',
+                  fallback: context.l10n.pinBiometricReason,
+                ),
               );
       if (!mounted) return;
       if (token == null || token.isEmpty) {
@@ -1213,14 +2760,146 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
   }
 }
 
+class _ClaimProfileLoadingPanel extends StatelessWidget {
+  const _ClaimProfileLoadingPanel({
+    required this.eyebrow,
+    required this.title,
+    required this.message,
+  });
+
+  final String eyebrow;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      key: const Key('activity-claim-profile-loading'),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              eyebrow,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          const ActivityLoadingMark(
+            icon: Icons.account_balance_wallet_outlined,
+            size: 52,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+          ),
+          const SizedBox(height: 12),
+          const ActivityProgressLine(width: 138),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClaimProfileErrorPanel extends StatelessWidget {
+  const _ClaimProfileErrorPanel({
+    required this.eyebrow,
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String eyebrow;
+  final String title;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      key: const Key('activity-claim-profile-error'),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            eyebrow,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 16),
+          _ClaimErrorMessage(message: message),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.center,
+            child: OutlinedButton(
+              onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(132, 44),
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(
+                  color: colorScheme.primary.withValues(alpha: 0.36),
+                ),
+                shape: const StadiumBorder(),
+                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              child: Text(context.l10n.commonRetry),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ClaimSelectPanel extends StatelessWidget {
   const _ClaimSelectPanel({
     required this.award,
     required this.method,
     required this.bankAccount,
+    required this.walletId,
+    required this.reviewerName,
     required this.returnPath,
     required this.error,
     required this.submitting,
+    required this.onCancel,
     required this.onMethodChanged,
     required this.onContinue,
   });
@@ -1228,37 +2907,53 @@ class _ClaimSelectPanel extends StatelessWidget {
   final ActivityAwardItem award;
   final ActivityClaimPayoutMethod method;
   final RewardBankAccount bankAccount;
+  final String walletId;
+  final String reviewerName;
   final String returnPath;
   final String error;
   final bool submitting;
+  final VoidCallback onCancel;
   final ValueChanged<ActivityClaimPayoutMethod> onMethodChanged;
   final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            l10n.activityClaimSheetEyebrow,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w900,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.activityClaimSheetEyebrow,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                tooltip: l10n.commonCancel,
+                onPressed: submitting ? null : onCancel,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(34),
+                  minimumSize: const Size.square(34),
+                  maximumSize: const Size.square(34),
+                  padding: EdgeInsets.zero,
+                  backgroundColor: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.72),
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                  shape: const CircleBorder(),
+                ),
+                icon: const Icon(Icons.close, size: 18),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -1268,42 +2963,66 @@ class _ClaimSelectPanel extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 12),
-          Card(
-            color: Theme.of(context).colorScheme.primaryContainer,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colorScheme.primary,
+                  Color.lerp(
+                        colorScheme.primary,
+                        colorScheme.secondary,
+                        0.36,
+                      ) ??
+                      colorScheme.primary,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l10n.activityClaimAvailableAmount),
-                  const SizedBox(height: 6),
+                  Text(
+                    l10n.activityClaimAvailableAmount,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     formatBaht(award.amount),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: colorScheme.onPrimary,
+                          height: 1.05,
                         ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _PayoutOptionTile(
             method: ActivityClaimPayoutMethod.walletCredit,
             selected: method == ActivityClaimPayoutMethod.walletCredit,
-            title: l10n.activityClaimWalletTitle,
-            subtitle: l10n.activityClaimWalletSubtitle,
+            title: _activityClaimWalletOptionTitle(l10n, walletId),
+            subtitle: l10n.activityClaimWalletSubtitle(reviewerName),
             icon: Icons.account_balance_wallet,
             onTap: onMethodChanged,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           _PayoutOptionTile(
             method: ActivityClaimPayoutMethod.bankTransfer,
             selected: method == ActivityClaimPayoutMethod.bankTransfer,
-            title: l10n.activityClaimBankTitle,
+            title: bankAccount.isComplete
+                ? _activityClaimBankOptionTitle(l10n, bankAccount)
+                : l10n.activityClaimBankTitle,
             subtitle: bankAccount.isComplete
-                ? '${bankAccount.bankName} ${bankAccount.maskedNumber}'
+                ? l10n.activityClaimBankReady
                 : l10n.activityClaimBankMissing,
             icon: Icons.account_balance,
             disabled: !bankAccount.isComplete,
@@ -1311,46 +3030,75 @@ class _ClaimSelectPanel extends StatelessWidget {
           ),
           if (method == ActivityClaimPayoutMethod.bankTransfer &&
               bankAccount.isComplete) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             _ClaimBankPreview(bankAccount: bankAccount),
           ],
           if (!bankAccount.isComplete) ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => context.go(
-                _profileRewardBankRedirectPath(returnPath),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => context.go(
+                  _profileRewardBankRedirectPath(returnPath),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.10),
+                  foregroundColor: colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                child: Text(l10n.activityClaimSetupBank),
               ),
-              icon: const Icon(Icons.edit),
-              label: Text(l10n.activityClaimSetupBank),
             ),
           ],
           if (error.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              error,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+            const SizedBox(height: 8),
+            _ClaimErrorMessage(message: error),
           ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed:
-                      submitting ? null : () => Navigator.of(context).pop(),
-                  child: Text(l10n.commonCancel),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: submitting ? null : onContinue,
-                  child: Text(l10n.commonNext),
-                ),
-              ),
-            ],
+          const SizedBox(height: 2),
+          _ClaimActionButtons(
+            submitting: submitting,
+            onCancel: onCancel,
+            onContinue: onContinue,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ClaimErrorMessage extends StatelessWidget {
+  const _ClaimErrorMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: activityErrorTint(colorScheme),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Text(
+          message,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: activityErrorForeground(colorScheme),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                height: 1.45,
+              ),
+        ),
       ),
     );
   }
@@ -1365,6 +3113,40 @@ String _profileRewardBankRedirectPath(String returnPath) {
     path: '/profile/reward-bank',
     queryParameters: {'redirect': safeReturn},
   ).toString();
+}
+
+String _activityClaimWalletOptionTitle(
+  CustomerLocalizations l10n,
+  String walletId,
+) {
+  final suffix = _activityClaimWalletSuffix(walletId);
+  if (suffix.isEmpty) return l10n.activityClaimWalletTitle;
+  return l10n.activityClaimWalletAccountTitle(suffix);
+}
+
+String _activityClaimWalletSuffix(String value) {
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  final suffix =
+      digits.length <= 3 ? digits : digits.substring(digits.length - 3);
+  return suffix.padLeft(3, '0');
+}
+
+String _activityClaimBankOptionTitle(
+  CustomerLocalizations l10n,
+  RewardBankAccount bankAccount,
+) {
+  final bankName = bankAccount.bankName.trim();
+  final displayName = bankName.isEmpty
+      ? l10n.activityClaimBankTitle
+      : bankName.replaceFirst(RegExp(r'^ธนาคาร'), 'บัญชี');
+  return '$displayName x ${_activityClaimAccountLast4(bankAccount.accountNumber)}';
+}
+
+String _activityClaimAccountLast4(String value) {
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '----';
+  return digits.length <= 4 ? digits : digits.substring(digits.length - 4);
 }
 
 class _PayoutOptionTile extends StatelessWidget {
@@ -1395,20 +3177,26 @@ class _PayoutOptionTile extends StatelessWidget {
     final foreground = disabled
         ? colorScheme.onSurfaceVariant.withValues(alpha: 0.58)
         : colorScheme.onSurface;
+    final iconBackground = method == ActivityClaimPayoutMethod.walletCredit
+        ? _activityDetailPrimaryTint(colorScheme)
+        : activityInfoTint(colorScheme);
+    final iconForeground = method == ActivityClaimPayoutMethod.walletCredit
+        ? colorScheme.primary
+        : activityInfoForeground(colorScheme);
 
     return Material(
       color: selected
-          ? colorScheme.primaryContainer.withValues(alpha: 0.42)
-          : colorScheme.surface,
+          ? colorScheme.primary.withValues(alpha: 0.08)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: borderColor, width: selected ? 1.4 : 1),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderColor, width: selected ? 1.3 : 1),
       ),
       child: InkWell(
         onTap: disabled ? null : () => onTap(method),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Container(
@@ -1443,7 +3231,9 @@ class _PayoutOptionTile extends StatelessWidget {
                       title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             color: foreground,
+                            fontSize: 15,
                             fontWeight: FontWeight.w900,
+                            height: 1.25,
                           ),
                     ),
                     const SizedBox(height: 3),
@@ -1454,6 +3244,7 @@ class _PayoutOptionTile extends StatelessWidget {
                                 ? colorScheme.onSurfaceVariant
                                     .withValues(alpha: 0.58)
                                 : colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w800,
                             height: 1.35,
                           ),
                     ),
@@ -1462,20 +3253,19 @@ class _PayoutOptionTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Container(
-                width: 38,
-                height: 38,
+                width: 42,
+                height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(14),
                   color: disabled
                       ? colorScheme.surfaceContainerHighest
-                      : colorScheme.primaryContainer,
+                      : iconBackground,
                 ),
                 child: Icon(
                   icon,
-                  color: disabled
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.primary,
+                  color:
+                      disabled ? colorScheme.onSurfaceVariant : iconForeground,
                   size: 21,
                 ),
               ),
@@ -1494,34 +3284,129 @@ class _ClaimBankPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accountName = bankAccount.accountName.trim().isEmpty
+        ? l10n.activityClaimBankRecipientFallback
+        : bankAccount.accountName.trim();
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.82),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.credit_card_outlined),
-          const SizedBox(width: 10),
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.credit_card_outlined,
+              color: Theme.of(context).colorScheme.primary,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   bankAccount.bankName,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${bankAccount.accountName} · ${bankAccount.maskedNumber}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  '$accountName · ${bankAccount.maskedNumber}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        height: 1.35,
+                      ),
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ClaimActionButtons extends StatelessWidget {
+  const _ClaimActionButtons({
+    required this.submitting,
+    required this.onCancel,
+    required this.onContinue,
+  });
+
+  final bool submitting;
+  final VoidCallback onCancel;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final cancel = OutlinedButton(
+      onPressed: submitting ? null : onCancel,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(42),
+        foregroundColor: colorScheme.primary,
+        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.42)),
+        shape: const StadiumBorder(),
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+      ),
+      child: Text(context.l10n.commonCancel),
+    );
+    final next = FilledButton(
+      onPressed: submitting ? null : onContinue,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(42),
+        shape: const StadiumBorder(),
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+      ),
+      child: Text(context.l10n.commonNext),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth <= 300) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              cancel,
+              const SizedBox(height: 10),
+              next,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: cancel),
+            const SizedBox(width: 10),
+            Expanded(child: next),
+          ],
+        );
+      },
     );
   }
 }
@@ -1553,6 +3438,7 @@ class _PinConfirmPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1561,15 +3447,27 @@ class _PinConfirmPanel extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: submitting ? null : onBack,
-                icon: const Icon(Icons.arrow_back),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(38),
+                  minimumSize: const Size.square(38),
+                  maximumSize: const Size.square(38),
+                  padding: EdgeInsets.zero,
+                  backgroundColor: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.72),
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                  shape: const CircleBorder(),
+                ),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 17),
                 tooltip: context.l10n.commonBack,
               ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   children: [
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onSurface,
                             fontWeight: FontWeight.w900,
                           ),
                       textAlign: TextAlign.center,
@@ -1578,51 +3476,51 @@ class _PinConfirmPanel extends StatelessWidget {
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
+                            height: 1.35,
                           ),
                       textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 48),
+              const SizedBox(width: 46),
             ],
           ),
           const SizedBox(height: 20),
-          Text(
-            List.generate(6, (index) => index < pin.length ? '●' : '○')
-                .join(' '),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  letterSpacing: 0,
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          const SizedBox(height: 4),
+          _PinDots(count: pin.length),
+          const SizedBox(height: 8),
           Text(
             context.l10n.activityClaimPinProgress(pin.length),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
                 ),
           ),
           if (error.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              error,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-              textAlign: TextAlign.center,
-            ),
+            const SizedBox(height: 12),
+            _ClaimErrorMessage(message: error),
           ],
           const SizedBox(height: 18),
           if (biometricEnabled) ...[
             OutlinedButton.icon(
               onPressed: submitting ? null : onBiometric,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(
+                  color: colorScheme.primary.withValues(alpha: 0.32),
+                ),
+                shape: const StadiumBorder(),
+                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
               icon: const Icon(Icons.face_retouching_natural),
               label: Text(context.l10n.activityClaimBiometricButton),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
           ],
           _PinKeypad(
             enabled: !submitting,
@@ -1631,6 +3529,34 @@ class _PinConfirmPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PinDots extends StatelessWidget {
+  const _PinDots({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < 6; index += 1)
+          Container(
+            width: 12,
+            height: 12,
+            margin: const EdgeInsets.symmetric(horizontal: 5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: index < count
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1648,11 +3574,12 @@ class _PinKeypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
     return GridView.count(
       shrinkWrap: true,
       crossAxisCount: 3,
-      childAspectRatio: 1.8,
+      childAspectRatio: 1.62,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         for (final key in keys)
@@ -1665,8 +3592,17 @@ class _PinKeypad extends StatelessWidget {
                   : key == 'back'
                       ? onBackspace
                       : () => onDigit(key),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.onSurface,
+                disabledForegroundColor:
+                    colorScheme.onSurfaceVariant.withValues(alpha: 0.58),
+                shape: const CircleBorder(),
+                textStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
               child: key == 'back'
-                  ? const Icon(Icons.backspace_outlined)
+                  ? const Icon(Icons.backspace_outlined, size: 23)
                   : Text(key),
             ),
       ],
@@ -1688,68 +3624,131 @@ class _ActivityDetailStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    final colorScheme = Theme.of(context).colorScheme;
+    return _ActivityDetailPageList(
       children: [
-        CustomerPageBody(
-          maxWidth: 640,
-          top: 12,
-          mobileHorizontal: 10,
-          wideHorizontal: 10,
+        _ActivityDetailSurface(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 54, 14, 24),
-            child: Center(
-              child: missing
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          l10n.activityMissingTitle,
-                          textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
+            padding: const EdgeInsets.fromLTRB(22, 54, 22, 36),
+            child: missing
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.activityMissingTitle,
+                        textAlign: TextAlign.center,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.activityMissingMessage,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.45,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 18),
+                      _ActivityPrimaryPill(
+                        label: l10n.activityMissingBackToActivities,
+                        onPressed: () => context.go('/activities'),
+                      ),
+                    ],
+                  )
+                : Text(
+                    error
+                        ? (message.trim().isEmpty
+                            ? l10n.activityDetailLoadFailed
+                            : message.trim())
+                        : l10n.activityDetailLoading,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: error
+                              ? colorScheme.error
+                              : colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          l10n.activityMissingMessage,
-                          textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    height: 1.45,
-                                  ),
-                        ),
-                        const SizedBox(height: 18),
-                        FilledButton(
-                          onPressed: () => context.go('/activities'),
-                          child: Text(l10n.activityMissingBackToActivities),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      error
-                          ? (message.trim().isEmpty
-                              ? l10n.activityDetailLoadFailed
-                              : message.trim())
-                          : l10n.activityDetailLoading,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: error
-                                ? Theme.of(context).colorScheme.error
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-            ),
+                  ),
           ),
         ),
       ],
     );
+  }
+}
+
+class _ActivityPrimaryPill extends StatelessWidget {
+  const _ActivityPrimaryPill({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(999);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 220, minHeight: 47),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.38) ??
+                  colorScheme.primary,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.22),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onPressed,
+            child: SizedBox(
+              height: 47,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Center(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull {
+    final iterator = this.iterator;
+    if (!iterator.moveNext()) return null;
+    return iterator.current;
   }
 }

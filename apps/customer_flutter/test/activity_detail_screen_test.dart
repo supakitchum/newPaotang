@@ -11,6 +11,7 @@ import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
+import 'package:customer_flutter/core/utils/formatters.dart';
 import 'package:customer_flutter/features/activity_claims/data/activity_claim_models.dart';
 import 'package:customer_flutter/features/activity_claims/data/activity_claim_repository.dart';
 import 'package:customer_flutter/features/activities/data/activity_models.dart';
@@ -18,6 +19,7 @@ import 'package:customer_flutter/features/activities/data/activity_repository.da
 import 'package:customer_flutter/features/activities/presentation/activity_detail_screen.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_repository.dart';
+import 'package:customer_flutter/features/reward_claims/presentation/claim_realtime_monitor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -78,6 +80,59 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('ActivityDetailScreen cashback panel uses runtime result time', (
+    tester,
+  ) async {
+    final repository = _CashbackActivityRepository();
+
+    await _pumpDetail(
+      tester,
+      repository,
+      initialLocation: '/activities/cashback-5',
+    );
+    await tester.pumpAndSettle();
+
+    final expectedTime = '${formatLocalizedDateTime(
+      _cashbackResultAt,
+      'th-TH',
+    )} น.';
+
+    expect(repository.detailCount, 1);
+    expect(find.textContaining(expectedTime), findsWidgets);
+    expect(
+      find.text('ระบบจะสรุปสิทธิ์อีกครั้งเวลา $expectedTime'),
+      findsOneWidget,
+    );
+    expect(find.text('17:00 น. ของวันที่ออกผล'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivityDetailScreen refreshes awards on claim realtime tick', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+
+    await _pumpDetail(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(repository.detailCount, 1);
+    expect(repository.awardsAllCount, 1);
+    expect(find.text('พร้อมรับเงินรางวัล'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ActivityDetailScreen)),
+      listen: false,
+    );
+    container.read(activityClaimRealtimeTickProvider.notifier).state++;
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(repository.detailCount, 2);
+    expect(repository.awardsAllCount, 2);
+    expect(find.text('พร้อมรับเงินรางวัล'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ActivityDetailScreen confirms lucky number with Nuxt modal', (
     tester,
   ) async {
@@ -91,8 +146,7 @@ void main() {
     await _pumpDetail(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('04'));
-    await tester.tap(find.text('04'));
+    await _tapLuckyNumber(tester, '04');
     await tester.pumpAndSettle();
 
     expect(find.text('ยืนยันเลขนำโชค'), findsOneWidget);
@@ -227,8 +281,7 @@ void main() {
     await _pumpDetail(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('04'));
-    await tester.tap(find.text('04'));
+    await _tapLuckyNumber(tester, '04');
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'));
     await tester.pumpAndSettle();
@@ -265,6 +318,13 @@ void main() {
     expect(find.text('รับเงินรางวัลกิจกรรม'), findsOneWidget);
     expect(find.text('ยอดที่รับได้'), findsOneWidget);
     expect(find.text('2,000.00 บาท'), findsWidgets);
+    expect(
+      find.ancestor(
+        of: find.text('ยอดที่รับได้'),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
     expect(find.text('โอนเข้าบัญชีธนาคาร'), findsOneWidget);
     expect(find.text('ยังไม่ได้ตั้งค่าบัญชีรับเงิน'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
@@ -279,6 +339,106 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Activity claim sheet loading uses Nuxt payout panel', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+
+    await _pumpDetail(
+      tester,
+      repository,
+      profileRepository: _PendingRewardBankProfileRepository(),
+    );
+    await tester.pumpAndSettle();
+
+    final claimButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'รับเงิน'),
+    );
+    claimButton.onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
+    expect(find.text('รับเงินรางวัลกิจกรรม'), findsOneWidget);
+    expect(find.text('กำลังโหลดข้อมูลรับเงิน...'), findsOneWidget);
+    expect(
+      find.byKey(const Key('activity-claim-profile-loading')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Activity claim sheet bank payout matches Nuxt labels and payload', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+    final claimRepository = _CaptureActivityClaimRepository();
+
+    await _pumpDetail(
+      tester,
+      repository,
+      profileRepository: _CompleteRewardBankProfileRepository(),
+      activityClaimRepository: claimRepository,
+    );
+    await tester.pumpAndSettle();
+
+    final claimButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'รับเงิน'),
+    );
+    claimButton.onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
+    expect(find.text('G Wallet x 123'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('ยอดที่รับได้'),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
+    expect(find.text('บัญชีกสิกรไทย x 7890'), findsOneWidget);
+    expect(
+      find.text('รับเงินเข้าบัญชีรับเงินรางวัลที่บันทึกไว้'),
+      findsOneWidget,
+    );
+    expect(find.text('ธนาคารกสิกรไทย'), findsNothing);
+
+    await tester.tap(find.text('บัญชีกสิกรไทย x 7890'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ธนาคารกสิกรไทย'), findsOneWidget);
+    expect(find.text('Demo Customer · ******7890'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ถัดไป'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
+    expect(find.text('กรอกแล้ว 0/6 หลัก'), findsOneWidget);
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.widgetWithText(TextButton, digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(claimRepository.createCalls, 1);
+    expect(claimRepository.createdAwardIds, ['award_1']);
+    expect(claimRepository.createdMethods, [
+      ActivityClaimPayoutMethod.bankTransfer,
+    ]);
+    expect(claimRepository.createdPins, ['123456']);
+    expect(claimRepository.createdAssertionTokens, ['']);
+    expect(claimRepository.createdBankAccounts.single?.toJson(), {
+      'bank_name': 'ธนาคารกสิกรไทย',
+      'account_name': 'Demo Customer',
+      'account_number': '1234567890',
+    });
+    expect(find.text('Activity claim detail route'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -332,6 +492,44 @@ void main() {
     expect(claimRepository.createdPins, ['']);
     expect(claimRepository.createdAssertionTokens, ['assertion_activity_1']);
     expect(find.text('Activity claim detail route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Activity claim PIN setup error uses Nuxt copy', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+    final claimRepository = _CaptureActivityClaimRepository(
+      createError: _apiException('', code: 'pin_setup_required'),
+    );
+
+    await _pumpDetail(
+      tester,
+      repository,
+      profileRepository: _CompleteRewardBankProfileRepository(),
+      activityClaimRepository: claimRepository,
+    );
+    await tester.pumpAndSettle();
+
+    final claimButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'รับเงิน'),
+    );
+    claimButton.onPressed!();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ถัดไป'));
+    await tester.pumpAndSettle();
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.widgetWithText(TextButton, digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(claimRepository.createCalls, 1);
+    expect(find.text('กรุณาตั้งค่า PIN ก่อนทำรายการ'), findsOneWidget);
+    expect(find.text('กรอกแล้ว 0/6 หลัก'), findsOneWidget);
+    expect(find.text('Activity claim detail route'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
@@ -466,6 +664,17 @@ Future<void> _pumpDetail(
   );
 }
 
+Future<void> _tapLuckyNumber(WidgetTester tester, String number) async {
+  final finder = find.text(number);
+  await tester.scrollUntilVisible(
+    finder,
+    260,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+}
+
 class _PendingActivityRepository extends ActivityRepository {
   _PendingActivityRepository() : super(_testApiClient(), (value) => value);
 
@@ -556,6 +765,17 @@ class _MissingRewardBankProfileRepository extends ProfileSettingsRepository {
   }
 }
 
+class _PendingRewardBankProfileRepository extends ProfileSettingsRepository {
+  _PendingRewardBankProfileRepository() : super(_testApiClient());
+
+  final completer = Completer<CustomerProfileSettings>();
+
+  @override
+  Future<CustomerProfileSettings> load() {
+    return completer.future;
+  }
+}
+
 class _CompleteRewardBankProfileRepository extends ProfileSettingsRepository {
   _CompleteRewardBankProfileRepository() : super(_testApiClient());
 
@@ -566,6 +786,7 @@ class _CompleteRewardBankProfileRepository extends ProfileSettingsRepository {
       name: 'Demo Customer',
       customerNo: 'C-001',
       phone: '0800000000',
+      walletId: 'wallet_123',
       bankAccount: RewardBankAccount(
         bankName: 'ธนาคารกสิกรไทย',
         accountName: 'Demo Customer',
@@ -581,13 +802,16 @@ class _CompleteRewardBankProfileRepository extends ProfileSettingsRepository {
 }
 
 class _CaptureActivityClaimRepository extends ActivityClaimRepository {
-  _CaptureActivityClaimRepository() : super(_testApiClient());
+  _CaptureActivityClaimRepository({this.createError}) : super(_testApiClient());
+
+  final Object? createError;
 
   int createCalls = 0;
   final createdAwardIds = <String>[];
   final createdMethods = <ActivityClaimPayoutMethod>[];
   final createdPins = <String>[];
   final createdAssertionTokens = <String>[];
+  final createdBankAccounts = <RewardBankAccount?>[];
 
   @override
   Future<ActivityClaimItem> create({
@@ -603,6 +827,10 @@ class _CaptureActivityClaimRepository extends ActivityClaimRepository {
     createdMethods.add(payoutMethod);
     createdPins.add(pin ?? '');
     createdAssertionTokens.add(pinAssertionToken ?? '');
+    createdBankAccounts.add(bankAccount);
+
+    final error = createError;
+    if (error != null) throw error;
 
     return ActivityClaimItem.fromJson({
       'id': 'activity_claim_biometric',
@@ -645,6 +873,7 @@ class _FakeActivityRepository extends ActivityRepository {
 
   final bool resultAnnounced;
   final Object? entryError;
+  int detailCount = 0;
   int awardsAllCount = 0;
   int createEntryCount = 0;
   final createdActivityIds = <String>[];
@@ -653,6 +882,7 @@ class _FakeActivityRepository extends ActivityRepository {
 
   @override
   Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
+    detailCount++;
     return _activityFixture(resultAnnounced: resultAnnounced);
   }
 
@@ -697,6 +927,29 @@ class _FakeActivityRepository extends ActivityRepository {
       status: 'submitted',
       createdAt: null,
     );
+  }
+}
+
+class _CashbackActivityRepository extends ActivityRepository {
+  _CashbackActivityRepository() : super(_testApiClient(), (value) => value);
+
+  int detailCount = 0;
+  int awardsAllCount = 0;
+
+  @override
+  Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
+    detailCount++;
+    return _cashbackActivityFixture();
+  }
+
+  @override
+  Future<List<ActivityAwardItem>> awardsAll({
+    int limit = ActivityRepository.defaultAwardPageLimit,
+    int maxPages = ActivityRepository.maxAwardAutoPages,
+    String? status,
+  }) async {
+    awardsAllCount++;
+    return const [];
   }
 }
 
@@ -746,6 +999,7 @@ ActivityItem _activityFixture({required bool resultAnnounced}) {
             status: 'announced',
             predictionType: 'last2',
             winningNumber: '24',
+            winningNumbers: ['24'],
             winnerCount: 1,
             awardTotal: 2000,
             customerStatus: 'won',
@@ -756,14 +1010,73 @@ ActivityItem _activityFixture({required bool resultAnnounced}) {
   );
 }
 
-DioException _apiException(String message) {
+const _cashbackResultAt = '2026-07-30T18:15:00+07:00';
+
+ActivityItem _cashbackActivityFixture() {
+  return const ActivityItem(
+    id: 'act_cashback',
+    name: 'คืนเงิน 5%',
+    slug: 'cashback-5',
+    type: 'cashback',
+    imageUrl: '',
+    conditionText: '',
+    remainingNumbers: 0,
+    hasRight: true,
+    estimatedCashbackAmount: 50,
+    resultAt: _cashbackResultAt,
+    rights: ActivityRights(
+      earnedCount: 0,
+      usedCount: 0,
+      remainingCount: 0,
+      ticketCount: 12,
+      availableTicketCount: 12,
+      consumedTicketCount: 0,
+      qualifyingOrderCount: 1,
+      eligibilityRule: 'purchase_amount',
+      thresholdTickets: 0,
+      entryDeadlineAt: null,
+      entryClosed: false,
+    ),
+    config: ActivityConfig(
+      predictionType: '',
+      eligibilityRule: 'purchase_amount',
+      thresholdTickets: 0,
+      cashbackType: 'percent',
+      cashbackPercentBps: 500,
+      fixedAmount: 0,
+      minimumType: 'amount',
+      minTicketCount: 0,
+      minPurchaseAmount: 500,
+    ),
+    cashbackProgress: ActivityCashbackProgress(
+      ticketCount: 12,
+      purchaseAmount: 1200,
+      minimumType: 'amount',
+      minTicketCount: 0,
+      minPurchaseAmount: 500,
+      isEligible: true,
+      estimatedAmount: 60,
+      potentialAmount: 60,
+    ),
+  );
+}
+
+DioException _apiException(String message, {String code = ''}) {
   final requestOptions = RequestOptions(path: '/customer/activities/act_lucky');
+  final data = <String, dynamic>{
+    if (message.isNotEmpty) 'message': message,
+    if (code.isNotEmpty)
+      'error': {
+        'code': code,
+        if (message.isNotEmpty) 'message': message,
+      },
+  };
   return DioException(
     requestOptions: requestOptions,
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
       statusCode: 422,
-      data: {'message': message},
+      data: data,
     ),
     type: DioExceptionType.badResponse,
   );

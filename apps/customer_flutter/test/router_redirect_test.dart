@@ -1,6 +1,8 @@
 import 'package:customer_flutter/app/customer_routes.dart';
 import 'package:customer_flutter/app/router.dart';
 import 'package:customer_flutter/core/navigation/customer_redirect.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -101,6 +103,29 @@ void main() {
     }
   });
 
+  test('authenticated customer can open inline PIN routes after login', () {
+    expect(
+      customerRedirectPath(
+        path: '/affiliate',
+        isAuthenticated: true,
+        pinRequired: true,
+        pinSetupRequired: false,
+        isSecurityLocked: false,
+      ),
+      isNull,
+    );
+    expect(
+      customerRedirectPath(
+        path: '/affiliate',
+        isAuthenticated: true,
+        pinRequired: true,
+        pinSetupRequired: true,
+        isSecurityLocked: false,
+      ),
+      '/pin?redirect=%2Faffiliate',
+    );
+  });
+
   test('PIN guard allows only security and operational bypass routes', () {
     for (final path in [
       '/pin',
@@ -154,6 +179,183 @@ void main() {
         isAuthenticated: false,
         pinRequired: false,
         isSecurityLocked: false,
+      ),
+      '/',
+    );
+  });
+
+  test('maintenance config follows Nuxt route policy modes and patterns', () {
+    final fullSite = MaintenanceConfig.fromJson({
+      'active': true,
+      'mode': 'full_site',
+      'allowed_routes': [
+        {'deepLink': 'https://shop.example.test/#/news*'},
+      ],
+    });
+    expect(
+      customerRedirectPath(
+        path: '/news/notice',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: fullSite,
+      ),
+      isNull,
+    );
+    expect(
+      customerRedirectPath(
+        path: '/tickets',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: fullSite,
+      ),
+      '/maintenance',
+    );
+
+    final checkoutOnly = MaintenanceConfig.fromJson({
+      'active': true,
+      'mode': 'checkout_payment_only',
+    });
+    expect(
+      customerRedirectPath(
+        path:
+            'route=https%3A%2F%2Fshop.example.test%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: checkoutOnly,
+      ),
+      '/maintenance',
+    );
+    expect(
+      customerRedirectPath(
+        path: '/checkout/pending',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: checkoutOnly,
+      ),
+      '/maintenance',
+    );
+    expect(
+      customerRedirectPath(
+        path: '/my-wallet',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: checkoutOnly,
+      ),
+      isNull,
+    );
+
+    final readOnly = MaintenanceConfig.fromJson({
+      'active': true,
+      'mode': 'read_only',
+      'blocked_route_patterns': [
+        {'hashRoute': '#/profile/reward-bank*'},
+      ],
+    });
+    expect(
+      customerRedirectPath(
+        path: '/checkout',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: readOnly,
+      ),
+      isNull,
+    );
+    expect(
+      customerRedirectPath(
+        path: '/profile/reward-bank/edit',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenance: readOnly,
+      ),
+      '/maintenance',
+    );
+  });
+
+  test('runtime feature flags redirect disabled customer routes', () {
+    final bootstrap = MobileBootstrap.fromJson({
+      'featureFlags': {
+        'wallet': false,
+        'nativeBiometricUnlock': false,
+        'news': false,
+      },
+    });
+
+    expect(
+      customerRedirectPath(
+        path: '/topup/history',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        bootstrap: bootstrap,
+      ),
+      '/profile',
+    );
+    expect(
+      customerRedirectPath(
+        path: '/profile/biometrics',
+        isAuthenticated: true,
+        pinRequired: false,
+        isSecurityLocked: false,
+        bootstrap: bootstrap,
+      ),
+      '/profile',
+    );
+    expect(
+      customerRedirectPath(
+        path: '/news/announcement',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+        bootstrap: bootstrap,
+      ),
+      '/',
+    );
+  });
+
+  test('runtime feature flags normalize URL and deep-link route wrappers', () {
+    final bootstrap = MobileBootstrap.fromJson({
+      'featureFlags': {
+        'wallet': false,
+        'tickets': false,
+        'news': false,
+      },
+    });
+
+    expect(
+      mobileCustomerRouteAllowed(
+        bootstrap,
+        'https://shop.example.test/#/my-wallet?tab=summary',
+      ),
+      isFalse,
+    );
+    expect(
+      mobileCustomerDisabledRouteRedirect(
+        bootstrap,
+        'customer://runtime-policy?returnUrl=https%3A%2F%2Fshop.example.test%2Ftopup%2Fhistory%3Ftab%3D1',
+      ),
+      '/profile',
+    );
+    expect(
+      mobileCustomerDisabledRouteRedirect(
+        bootstrap,
+        'https%3A%2F%2Fshop.example.test%2Ftickets%2Fticket_7%3Ftab%3Dimage',
+      ),
+      '/profile',
+    );
+    expect(
+      customerRedirectPath(
+        path: 'route=%2Fnews%2Fannouncement%3Ftab%3D1',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+        bootstrap: bootstrap,
       ),
       '/',
     );
@@ -266,6 +468,7 @@ const _pinBypassPaths = {
   '/pin',
   '/security-lock',
   '/account-suspended',
+  '/affiliate',
 };
 
 String _samplePath(String pattern) {

@@ -33,6 +33,6 @@ class RewardClaimRepository {
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/reward-claims/$id',
     );
-    return RewardClaimItem.fromJson(unwrapPayload(response.data));
+    return RewardClaimItem.fromJson(asMap(response.data));
   }
 }

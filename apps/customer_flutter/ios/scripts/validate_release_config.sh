@@ -28,11 +28,29 @@ require_value() {
   fi
 }
 
+normalize_identifier() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' _-'
+}
+
 require_value "APP_DISPLAY_NAME"
 require_value "CUSTOMER_FLUTTER_URL_SCHEME"
 require_value "CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN"
 require_value "PRODUCT_BUNDLE_IDENTIFIER"
 require_value "DEVELOPMENT_TEAM"
+
+case "$(normalize_identifier "${APP_DISPLAY_NAME:-}")" in
+  customer|customerflutter|newpaotang)
+    echo "error: APP_DISPLAY_NAME must be partner-specific for Release builds." >&2
+    missing=1
+    ;;
+esac
+
+case "$(printf '%s' "${CUSTOMER_FLUTTER_URL_SCHEME:-}" | tr '[:upper:]' '[:lower:]')" in
+  newpaotang|http|https)
+    echo "error: CUSTOMER_FLUTTER_URL_SCHEME must be partner-specific for Release builds." >&2
+    missing=1
+    ;;
+esac
 
 case "${CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN:-}" in
   applinks:*)

@@ -176,6 +176,78 @@ void main() {
     expect(find.textContaining('internal search failure'), findsNothing);
   });
 
+  testWidgets('stock card renders Nuxt-style image frame and pending fallback',
+      (
+    tester,
+  ) async {
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+
+    await _pumpLotteryApp(
+      tester,
+      router: router,
+      lottery: _FakeLotteryRepository(),
+    );
+    await tester.pumpAndSettle();
+
+    final imageFrame = find.byKey(
+      const ValueKey('lottery-stock-ticket-image-frame'),
+    );
+    expect(imageFrame, findsOneWidget);
+    expect(
+      find.descendant(
+        of: imageFrame,
+        matching: find.byKey(const ValueKey('lottery-stock-ticket-image')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('lottery-stock-ticket-image-fallback')),
+      findsNothing,
+    );
+
+    await _pumpLotteryApp(
+      tester,
+      router: _lotteryRouter(initialLocation: '/buy/search?number=273707'),
+      lottery: _PendingImageLotteryRepository(),
+    );
+    await tester.pumpAndSettle();
+
+    final pendingFrame = find.byKey(
+      const ValueKey('lottery-stock-ticket-image-frame'),
+    );
+    expect(pendingFrame, findsOneWidget);
+    expect(
+      find.descendant(
+        of: pendingFrame,
+        matching: find.byKey(
+          const ValueKey('lottery-stock-ticket-image-fallback'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsOneWidget);
+
+    await _pumpLotteryApp(
+      tester,
+      router: _lotteryRouter(initialLocation: '/buy/search?number=273707'),
+      lottery: _FailedImageLotteryRepository(),
+    );
+    await tester.pumpAndSettle();
+
+    final failedFrame = find.byKey(
+      const ValueKey('lottery-stock-ticket-image-frame'),
+    );
+    expect(failedFrame, findsOneWidget);
+    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: failedFrame,
+        matching: find.byKey(const ValueKey('lottery-stock-ticket-image')),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('stock card toggles select and remove from the live cart state', (
     tester,
   ) async {
@@ -339,6 +411,9 @@ void main() {
   testWidgets('stock list disables new reservations when sales are closed', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final lottery = _ClosedLotteryRepository();
     final router = _lotteryRouter(
       initialLocation: '/buy/search?number=273707',
@@ -349,13 +424,29 @@ void main() {
 
     expect(find.text('ขณะนี้ไม่สามารถซื้อสลากได้'), findsOneWidget);
     expect(find.text('ปิดรับซื้อ'), findsOneWidget);
+    expect(find.byKey(const ValueKey('cart-selection-dock')), findsNothing);
 
     final closedButton = tester.widget<OutlinedButton>(
       find.widgetWithText(OutlinedButton, 'ปิดรับซื้อ'),
     );
     expect(closedButton.onPressed, isNull);
+    expect(
+      tester.getSize(find.widgetWithText(OutlinedButton, 'ปิดรับซื้อ')).height,
+      42,
+    );
+    expect(
+      tester.getTopLeft(find.text('ขณะนี้ไม่สามารถซื้อสลากได้')).dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('lottery-stock-row-local-stock-1')),
+            )
+            .dy,
+      ),
+    );
     expect(lottery.reserveCount, 0);
     expect(find.text('เลือก'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('stock list handles unavailable reservation races like Nuxt', (
@@ -1104,6 +1195,10 @@ class _FakeLotteryRepository extends LotteryRepository {
     String reservationId = '',
     String number = '273707',
     String localStockItemId = 'local-stock-1',
+    String imageUrl = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=',
+    String thumbUrl = '',
+    String imageStatus = 'ready',
+    String imageError = '',
   }) {
     return LotteryStockItem(
       id: 'vstock:game_1:$number:1',
@@ -1119,9 +1214,70 @@ class _FakeLotteryRepository extends LotteryRepository {
       reservationId: reservationId,
       reservationExpiresAt: null,
       serverTime: null,
-      imageUrl: '',
-      thumbUrl: '',
+      imageUrl: imageUrl,
+      thumbUrl: thumbUrl,
+      imageStatus: imageStatus,
+      imageError: imageError,
       raw: const {},
+    );
+  }
+}
+
+class _PendingImageLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    return LotteryStockPage(
+      gameId: gameId,
+      items: [_stockItem(imageUrl: '', imageStatus: 'pending_assets')],
+      nextCursor: '',
+      hasMore: false,
+      sellerName: 'ร้านทดสอบ',
+    );
+  }
+}
+
+class _FailedImageLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    return LotteryStockPage(
+      gameId: gameId,
+      items: [
+        _stockItem(
+          imageStatus: 'failed',
+          imageError: 'ภาพสลากยังไม่พร้อมจากระบบ',
+        ),
+      ],
+      nextCursor: '',
+      hasMore: false,
+      sellerName: 'ร้านทดสอบ',
     );
   }
 }

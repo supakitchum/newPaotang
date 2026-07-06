@@ -10,6 +10,7 @@ import '../../../core/realtime/customer_realtime_monitor.dart';
 import '../../../core/realtime/customer_realtime_protocol.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../activity_claims/data/activity_claim_repository.dart';
+import '../../tickets/data/ticket_repository.dart';
 import '../../wallet/data/wallet_repository.dart';
 import '../data/reward_claim_repository.dart';
 
@@ -19,28 +20,186 @@ final rewardClaimRealtimeTickProvider = StateProvider<int>((_) => 0);
 final activityClaimRealtimeTickProvider = StateProvider<int>((_) => 0);
 
 bool shouldRefreshRewardClaimsFromRealtimeEvent(CustomerRealtimeEvent event) {
-  return event.name == 'reward.claim.updated';
+  return normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) ==
+      'reward.claim.updated';
 }
 
 bool shouldRefreshActivityClaimsFromRealtimeEvent(CustomerRealtimeEvent event) {
-  return event.name == 'activity.claim.updated';
+  return normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) ==
+      'activity.claim.updated';
 }
 
 String? claimIdFromRealtimePayload(Map<String, dynamic> payload) {
-  final direct = payload['claim_id'] ??
-      payload['reward_claim_id'] ??
-      payload['activity_claim_id'] ??
-      payload['id'];
-  final directText = direct?.toString().trim() ?? '';
-  if (directText.isNotEmpty) return directText;
+  final normalized = normalizeRealtimePayload(payload);
 
-  final claim = payload['claim'];
-  if (claim is Map) {
-    final nested = claim['id']?.toString().trim() ?? '';
-    if (nested.isNotEmpty) return nested;
+  String? collect(Object? value, {bool allowIdFallback = false}) {
+    if (value == null) return null;
+    if (value is List) {
+      for (final item in value) {
+        final id = collect(item, allowIdFallback: allowIdFallback);
+        if (id != null) return id;
+      }
+      return null;
+    }
+    if (value is! Map) return _claimRealtimeScalarText(value);
+
+    final id = _claimRealtimeScalarText(
+      value['claim_id'] ??
+          value['claimId'] ??
+          value['reward_claim_id'] ??
+          value['rewardClaimId'] ??
+          value['activity_claim_id'] ??
+          value['activityClaimId'] ??
+          (allowIdFallback ? value['id'] ?? value['uuid'] : null),
+    );
+    if (id.isNotEmpty) return id;
+
+    for (final key in const [
+      'claim',
+      'reward_claim',
+      'rewardClaim',
+      'activity_claim',
+      'activityClaim',
+      'submission',
+      'record',
+      'item',
+    ]) {
+      final nested = collect(value[key], allowIdFallback: true);
+      if (nested != null) return nested;
+    }
+
+    for (final key in const [
+      'award',
+      'activity_award',
+      'activityAward',
+      'reward',
+      'prize',
+      'payout',
+      'metadata',
+      'details',
+      'context',
+    ]) {
+      final nested = collect(value[key], allowIdFallback: false);
+      if (nested != null) return nested;
+    }
+
+    return null;
   }
 
-  return null;
+  return collect(normalized, allowIdFallback: true);
+}
+
+String? ticketIdFromRewardClaimRealtimePayload(
+  Map<String, dynamic> payload, {
+  bool allowIdFallback = false,
+}) {
+  final normalized = normalizeRealtimePayload(payload);
+  final ids = <String>[];
+
+  void addId(Object? value) {
+    final text = _claimRealtimeScalarText(value);
+    if (text.isNotEmpty) ids.add(text);
+  }
+
+  void collect(Object? value, {bool allowNestedIdFallback = false}) {
+    if (ids.isNotEmpty || value == null) return;
+    if (value is List) {
+      for (final item in value) {
+        collect(item, allowNestedIdFallback: allowNestedIdFallback);
+        if (ids.isNotEmpty) return;
+      }
+      return;
+    }
+    if (value is! Map) {
+      addId(value);
+      return;
+    }
+
+    addId(
+      value['ticket_id'] ??
+          value['ticketId'] ??
+          value['customer_ticket_id'] ??
+          value['customerTicketId'] ??
+          value['lottery_ticket_id'] ??
+          value['lotteryTicketId'] ??
+          value['ticket_uuid'] ??
+          value['ticketUuid'],
+    );
+    if (ids.isNotEmpty) return;
+    if (allowNestedIdFallback) {
+      addId(value['id'] ?? value['uuid']);
+      if (ids.isNotEmpty) return;
+    }
+
+    for (final key in const [
+      'ticket',
+      'customer_ticket',
+      'customerTicket',
+      'lottery_ticket',
+      'lotteryTicket',
+      'ticket_item',
+      'ticketItem',
+    ]) {
+      collect(value[key], allowNestedIdFallback: true);
+      if (ids.isNotEmpty) return;
+    }
+
+    for (final key in const [
+      'claim',
+      'reward_claim',
+      'rewardClaim',
+      'submission',
+      'record',
+      'item',
+    ]) {
+      collect(value[key], allowNestedIdFallback: false);
+      if (ids.isNotEmpty) return;
+    }
+
+    for (final key in const [
+      'tickets',
+      'customer_tickets',
+      'customerTickets',
+      'lottery_tickets',
+      'lotteryTickets',
+      'order_items',
+      'orderItems',
+      'items',
+      'entries',
+      'rows',
+    ]) {
+      collect(value[key], allowNestedIdFallback: true);
+      if (ids.isNotEmpty) return;
+    }
+  }
+
+  collect(normalized, allowNestedIdFallback: allowIdFallback);
+  return ids.isEmpty ? null : ids.first;
+}
+
+String _claimRealtimeScalarText(Object? value, [int depth = 0]) {
+  if (value == null || depth > 3) return '';
+  if (value is Map) {
+    for (final key in const ['value', 'code', 'key', 'id', 'uuid']) {
+      final nested = _claimRealtimeScalarText(value[key], depth + 1);
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
+  }
+  if (value is Iterable) {
+    for (final item in value) {
+      final nested = _claimRealtimeScalarText(item, depth + 1);
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
+  }
+  return value.toString().trim();
 }
 
 class CustomerClaimRealtimeMonitor extends ConsumerStatefulWidget {
@@ -63,6 +222,7 @@ class _CustomerClaimRealtimeMonitorState
   bool _pendingActivityRefresh = false;
   String? _pendingRewardClaimId;
   String? _pendingActivityClaimId;
+  String? _pendingRewardTicketId;
 
   @override
   void didChangeDependencies() {
@@ -154,6 +314,7 @@ class _CustomerClaimRealtimeMonitorState
     _pendingActivityRefresh = false;
     _pendingRewardClaimId = null;
     _pendingActivityClaimId = null;
+    _pendingRewardTicketId = null;
     _refreshThrottle?.cancel();
     _refreshThrottle = null;
     await _events?.cancel();
@@ -171,6 +332,9 @@ class _CustomerClaimRealtimeMonitorState
     if (reward) {
       _pendingRewardRefresh = true;
       _pendingRewardClaimId = claimId ?? _pendingRewardClaimId;
+      _pendingRewardTicketId =
+          ticketIdFromRewardClaimRealtimePayload(event.payload) ??
+              _pendingRewardTicketId;
     }
     if (activity) {
       _pendingActivityRefresh = true;
@@ -186,17 +350,23 @@ class _CustomerClaimRealtimeMonitorState
 
     final rewardClaimId = _pendingRewardClaimId;
     final activityClaimId = _pendingActivityClaimId;
+    final rewardTicketId = _pendingRewardTicketId;
     final refreshReward = _pendingRewardRefresh;
     final refreshActivity = _pendingActivityRefresh;
     _pendingRewardRefresh = false;
     _pendingActivityRefresh = false;
     _pendingRewardClaimId = null;
     _pendingActivityClaimId = null;
+    _pendingRewardTicketId = null;
 
     if (refreshReward) {
       if (rewardClaimId != null) {
         ref.invalidate(rewardClaimDetailProvider(rewardClaimId));
       }
+      if (rewardTicketId != null) {
+        ref.invalidate(ticketDetailProvider(rewardTicketId));
+      }
+      ref.invalidate(currentTicketsProvider);
       ref.read(rewardClaimRealtimeTickProvider.notifier).state++;
     }
 

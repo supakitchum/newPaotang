@@ -301,11 +301,95 @@ void main() {
     expect(isSensitiveCustomerPath('/'), isFalse);
     expect(isSensitiveCustomerPath('/news/announcement'), isFalse);
     expect(isSensitiveCustomerPath('/my-wallet'), isTrue);
+    expect(isSensitiveCustomerPath('/my-wallet?tab=summary'), isTrue);
     expect(isSensitiveCustomerPath('/tickets/claim/ticket_123'), isTrue);
+    expect(isSensitiveCustomerPath('/reward-claims/claim_123'), isTrue);
+    expect(isSensitiveCustomerPath('/activity-claims/claim_123'), isTrue);
+    expect(isSensitiveCustomerPath('/purchase-history/order_123'), isTrue);
+    expect(
+      isSensitiveCustomerPath(
+        'https://shop.example.test/reward-claims/claim_123?tab=receipt',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'https://shop.example.test/#/activity-claims/claim_123?tab=summary',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '#route=%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
+      ),
+      isTrue,
+    );
+    expect(
+      normalizeCustomerRoutePath(
+        'https%3A%2F%2Fshop.example.test%2Fmy-wallet%3Ftab%3Dsummary',
+      ),
+      '/my-wallet',
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'https%3A%2F%2Fshop.example.test%2Freward-claims%2Fclaim_123%3Ftab%3Dreceipt',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'returnUrl=https%3A%2F%2Fshop.example.test%2Factivity-claims%2Fclaim_123%3Ftab%3Dsummary',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'targetUrl=https%253A%252F%252Fshop.example.test%252Fcheckout%252Fpending%253Forder_id%253Dord_1',
+      ),
+      isTrue,
+    );
+    expect(
+      isPublicCustomerPath('https://shop.example.test/news/announcement?ref=1'),
+      isTrue,
+    );
+    expect(
+      customerFeatureByPath(
+        'https://shop.example.test/tickets/claim/ticket_123?from=history',
+      )?.key,
+      'ticket_claim',
+    );
     expect(
       isSensitiveCustomerPath(
         '/custom-sensitive/profile',
         extraSensitiveRoutes: const ['/custom-sensitive'],
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/tenant-claims/claim_123',
+        extraSensitiveRoutes: const ['/tenant-claims/:claimId'],
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/tenant-claims/claim_123/receipt',
+        extraSensitiveRoutes: const ['/tenant-claims/*'],
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/tenant-claims',
+        extraSensitiveRoutes: const ['/tenant-claims/*'],
+      ),
+      isFalse,
+    );
+    expect(
+      isCustomerRoutePatternMatch(
+        '/social/*',
+        '/social/google/callback',
       ),
       isTrue,
     );

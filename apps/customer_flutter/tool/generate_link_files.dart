@@ -110,7 +110,9 @@ Usage:
     --android-package com.partner.customer \\
     --sha256-fingerprint AA:BB:CC:... \\
     --ios-team-id ABCDE12345 \\
-    --ios-bundle-id com.partner.customer
+    --ios-bundle-id com.partner.customer \\
+    --path /social/* \\
+    --path /checkout/pending
 
 Environment alternatives:
   CUSTOMER_FLUTTER_LINK_OUTPUT_DIR

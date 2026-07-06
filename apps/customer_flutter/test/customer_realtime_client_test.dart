@@ -85,6 +85,114 @@ void main() {
 
     await subscription.cancel();
   });
+
+  test('realtime client falls back to payload event aliases for bridge events',
+      () async {
+    final socket = _FakeRealtimeSocket();
+    final client = CustomerRealtimeClient(
+      config: _config(),
+      api: _FakeApiClient(),
+      socketFactory: (_) => socket,
+    );
+    final events = <CustomerRealtimeEvent>[];
+    final subscription = client.events.listen(events.add);
+
+    await client.connect([siteConfigChannel(tenantId: 'ten_1')]);
+    socket.addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"123.456"}',
+    });
+    socket.addServerMessage({
+      'event': 'sync.outbox',
+      'channel': siteConfigChannel(tenantId: 'ten_1'),
+      'data': '{"event_type":"maintenance.changed.v1","reason":"maintenance"}',
+    });
+    socket.addServerMessage({
+      'event': 'bridge.message',
+      'channel': customerOrdersChannel(
+        tenantId: 'ten_1',
+        customerId: 'cus_1',
+      ),
+      'data': '{"payload":{"action":"order.paid.v1","order_id":"ord_1"}}',
+    });
+    await _flushAsync();
+
+    expect(events, hasLength(2));
+    expect(events.first.name, 'site-config.updated');
+    expect(events.first.payload['event_type'], 'maintenance.changed.v1');
+    expect(events.first.payload['reason'], 'maintenance');
+    expect(events.last.name, 'order.updated');
+    expect(events.last.payload['payload'], isA<Map>());
+
+    await subscription.cancel();
+  });
+
+  test('realtime client reconnects after socket close', () async {
+    final sockets = <_FakeRealtimeSocket>[];
+    final client = CustomerRealtimeClient(
+      config: _config(),
+      api: _FakeApiClient(),
+      reconnectDelay: const Duration(milliseconds: 1),
+      socketFactory: (_) {
+        final socket = _FakeRealtimeSocket();
+        sockets.add(socket);
+        return socket;
+      },
+    );
+
+    await client.connect([siteConfigChannel(tenantId: 'ten_1')]);
+    expect(sockets, hasLength(1));
+    sockets.first.addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"123.456"}',
+    });
+    await _flushAsync();
+    expect(sockets.first.sentEvents('pusher:subscribe'), hasLength(1));
+
+    await sockets.first.closeFromServer();
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    expect(client.status, CustomerRealtimeStatus.reconnecting);
+    expect(sockets, hasLength(2));
+    sockets[1].addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"789.000"}',
+    });
+    await _flushAsync();
+
+    expect(sockets[1].sentEvents('pusher:subscribe'), hasLength(1));
+    await client.dispose();
+  });
+
+  test('realtime client unsubscribes channels removed from desired set',
+      () async {
+    final socket = _FakeRealtimeSocket();
+    final client = CustomerRealtimeClient(
+      config: _config(),
+      api: _FakeApiClient(),
+      socketFactory: (_) => socket,
+    );
+
+    await client.connect([
+      siteConfigChannel(tenantId: 'ten_1'),
+      salePriceChannel(tenantId: 'ten_1'),
+    ]);
+    socket.addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"123.456"}',
+    });
+    await _flushAsync();
+
+    client.updateChannels([siteConfigChannel(tenantId: 'ten_1')]);
+    await _flushAsync();
+
+    expect(socket.sentEvents('pusher:unsubscribe'), hasLength(1));
+    expect(
+      socket.sentPayloads('pusher:unsubscribe').single['data'],
+      {'channel': salePriceChannel(tenantId: 'ten_1')},
+    );
+    await client.dispose();
+  });
 }
 
 MobileRealtimeConfig _config() {
@@ -114,6 +222,10 @@ class _FakeRealtimeSocket implements CustomerRealtimeSocket {
 
   @override
   Future<void> close() async {
+    await _controller.close();
+  }
+
+  Future<void> closeFromServer() async {
     await _controller.close();
   }
 

@@ -37,7 +37,9 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
   DateTime? _currentGameFetchedAt;
   bool? _hasActiveCart;
   String? _lastWatchedLocation;
+  String? _lastExpiredReleaseKey;
   bool _loading = false;
+  bool _releasingExpiredCart = false;
   bool _saleClosedAlertShown = false;
 
   @override
@@ -157,10 +159,43 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
   Future<bool> _loadHasActiveCart() async {
     try {
       final cart = await ref.read(lotteryRepositoryProvider).cart();
-      return saleClosureCartHasActiveReservations(cart);
+      final hasActiveCart = saleClosureCartHasActiveReservations(cart);
+      if (!hasActiveCart) {
+        await _releaseExpiredCartReservations(cart);
+      }
+      return hasActiveCart;
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> _releaseExpiredCartReservations(LotteryCart cart) async {
+    final reservationIds = cart.reservationIds;
+    if (reservationIds.isEmpty || _releasingExpiredCart) return;
+
+    final releaseKey = reservationIds.join('|');
+    if (_lastExpiredReleaseKey == releaseKey) return;
+    _lastExpiredReleaseKey = releaseKey;
+    _releasingExpiredCart = true;
+
+    try {
+      for (final reservationId in reservationIds) {
+        await ref.read(lotteryRepositoryProvider).releaseReservation(
+              reservationId,
+            );
+      }
+    } catch (_) {
+      // Nuxt clears expired carts even when the release refresh cannot recover.
+    } finally {
+      _releasingExpiredCart = false;
+    }
+
+    if (!mounted) return;
+    ref.read(appAlertControllerProvider.notifier).show(
+          title: context.l10n.cartExpired,
+          message: context.l10n.cartExpiredReleaseMessage,
+          variant: AppAlertVariant.warning,
+        );
   }
 }
 

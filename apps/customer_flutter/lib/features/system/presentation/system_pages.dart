@@ -22,6 +22,7 @@ import '../../../features/results/data/result_models.dart';
 import '../../../features/results/data/result_repository.dart';
 import 'success_receipt_state.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 
@@ -154,11 +155,25 @@ class MaintenanceScreen extends ConsumerWidget {
     final l10n = context.l10n;
     return bootstrap.when(
       data: (data) {
+        final colorScheme = Theme.of(context).colorScheme;
         final message = data.maintenance.message.isNotEmpty
             ? data.maintenance.message
             : l10n.maintenanceDefaultMessage;
         final supportUri = maintenanceSupportPhoneUri(data.supportPhone);
-        return _FullPageState(
+        final supportEmailUri = systemSupportEmailUri(data.supportEmail);
+        final supportUrlUri = maintenanceSupportUrlUri(data.supportUrl);
+        final supportActionUri = supportUri ?? supportEmailUri ?? supportUrlUri;
+        final supportLabel = supportUri != null
+            ? l10n.maintenanceSupport(data.supportPhone)
+            : supportEmailUri != null
+                ? l10n.maintenanceSupportEmail(data.supportEmail)
+                : l10n.maintenanceSupportOnline;
+        final supportIcon = supportUri != null
+            ? Icons.support_agent_outlined
+            : supportEmailUri != null
+                ? Icons.mail_outline
+                : Icons.open_in_new;
+        return _MaintenanceStatePage(
           icon: Icons.construction_outlined,
           title: l10n.maintenanceTitle(data.siteName),
           message: message,
@@ -172,30 +187,41 @@ class MaintenanceScreen extends ConsumerWidget {
                   ),
                 ),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.86),
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
               ),
-            if (data.supportPhone.isNotEmpty)
+            if (supportActionUri != null)
               OutlinedButton.icon(
-                onPressed: supportUri == null
-                    ? null
-                    : () async {
-                        await ref
-                            .read(customerLinkLauncherProvider)
-                            .openExternal(supportUri);
-                      },
-                icon: const Icon(Icons.support_agent_outlined),
-                label: Text(l10n.maintenanceSupport(data.supportPhone)),
+                onPressed: () async {
+                  await ref
+                      .read(customerLinkLauncherProvider)
+                      .openExternal(supportActionUri);
+                },
+                icon: Icon(supportIcon),
+                label: Text(supportLabel),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                  backgroundColor: colorScheme.surface,
+                  side: BorderSide.none,
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                ),
               ),
           ],
         );
       },
-      loading: () => _FullPageState(
+      loading: () => _MaintenanceStatePage(
         icon: Icons.construction_outlined,
         title: l10n.maintenanceLoadingTitle,
         message: l10n.maintenanceLoadingMessage,
         loading: true,
       ),
-      error: (_, __) => _FullPageState(
+      error: (_, __) => _MaintenanceStatePage(
         icon: Icons.construction_outlined,
         title: l10n.maintenanceFallbackTitle,
         message: l10n.maintenanceDefaultMessage,
@@ -214,7 +240,14 @@ Uri? maintenanceSupportPhoneUri(String phone) {
   return Uri(scheme: 'tel', path: normalized);
 }
 
-class AccountSuspendedScreen extends StatelessWidget {
+Uri? maintenanceSupportUrlUri(String url) {
+  final uri = Uri.tryParse(url.trim());
+  return uri?.scheme.toLowerCase() == 'https' && isSafeExternalLinkUri(uri)
+      ? uri
+      : null;
+}
+
+class AccountSuspendedScreen extends ConsumerWidget {
   const AccountSuspendedScreen({
     super.key,
     this.reason = '',
@@ -227,8 +260,26 @@ class AccountSuspendedScreen extends StatelessWidget {
   final bool permanent;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final supportPhone = bootstrap?.supportPhone.trim() ?? '';
+    final supportEmail = bootstrap?.supportEmail.trim() ?? '';
+    final supportPhoneUri = maintenanceSupportPhoneUri(supportPhone);
+    final supportEmailUri = systemSupportEmailUri(supportEmail);
+    final supportUrlUri = maintenanceSupportUrlUri(bootstrap?.supportUrl ?? '');
+    final supportActionUri =
+        supportPhoneUri ?? supportEmailUri ?? supportUrlUri;
+    final supportLabel = supportPhoneUri != null
+        ? l10n.accountSuspendedContactSupportWithPhone(supportPhone)
+        : supportEmailUri != null
+            ? l10n.accountSuspendedContactSupportWithEmail(supportEmail)
+            : l10n.accountSuspendedContactSupportOnline;
+    final supportIcon = supportPhoneUri != null
+        ? Icons.support_agent_outlined
+        : supportEmailUri != null
+            ? Icons.mail_outline
+            : Icons.open_in_new;
     final untilText = permanent
         ? l10n.accountSuspendedPermanent
         : suspendedUntil == null || suspendedUntil!.isEmpty
@@ -236,26 +287,33 @@ class AccountSuspendedScreen extends StatelessWidget {
             : l10n.accountSuspendedUntil(
                 formatLocalizedDateTime(suspendedUntil, localeTag(l10n.locale)),
               );
-    return _FullPageState(
-      icon: Icons.shield_outlined,
-      iconColor: Colors.red.shade700,
+    return _AccountSuspendedStatePage(
       title: l10n.accountSuspendedTitle,
       message: l10n.accountSuspendedMessage,
-      footer: [
-        _InfoPanel(
-          label: l10n.accountSuspendedReason,
-          value: reason.trim().isEmpty
-              ? l10n.accountSuspendedNoReason
-              : reason.trim(),
-        ),
-        _InfoPanel(label: l10n.accountSuspendedDuration, value: untilText),
-        FilledButton(
-          onPressed: () => context.go('/login'),
-          child: Text(l10n.accountSuspendedBackToLogin),
-        ),
-      ],
+      reason:
+          reason.trim().isEmpty ? l10n.accountSuspendedNoReason : reason.trim(),
+      duration: untilText,
+      onBackToLogin: () => context.go('/login'),
+      supportLabel: supportLabel,
+      supportIcon: supportIcon,
+      onContactSupport: supportActionUri == null
+          ? null
+          : () {
+              unawaited(
+                ref
+                    .read(customerLinkLauncherProvider)
+                    .openExternal(supportActionUri),
+              );
+            },
     );
   }
+}
+
+Uri? systemSupportEmailUri(String email) {
+  final normalized = email.trim();
+  if (normalized.isEmpty || normalized.contains(RegExp(r'\s'))) return null;
+  if (!normalized.contains('@')) return null;
+  return Uri(scheme: 'mailto', path: normalized);
 }
 
 class CountdownScreen extends ConsumerStatefulWidget {
@@ -288,9 +346,13 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
   Widget build(BuildContext context) {
     final game = ref.watch(currentResultProvider);
     final l10n = context.l10n;
+    final productLabel =
+        ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
+            '';
     return AppShell(
       title: l10n.countdownTitle,
       currentPath: '/',
+      compactHeader: true,
       child: game.when(
         data: (bundle) {
           final current = bundle.currentGame;
@@ -301,59 +363,18 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
           if (saleStartAt != null && remaining.inMicroseconds <= 0) {
             _scheduleCountdownStatusRefresh();
           }
-          return _SystemPageList(
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(22),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.hourglass_top, size: 54),
-                      const SizedBox(height: 14),
-                      Text(
-                        l10n.countdownWaitingTitle,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        current?.name.isNotEmpty == true
-                            ? current!.name
-                            : l10n.countdownCurrentDrawFallback,
-                        textAlign: TextAlign.center,
-                      ),
-                      if (saleStartAt != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          l10n.countdownSaleOpensAt(
-                            formatLocalizedDateTime(
-                              saleStartAt,
-                              localeTag(l10n.locale),
-                            ),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      _CountdownGrid(remaining: remaining),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => context.go('/result'),
-                icon: const Icon(Icons.emoji_events_outlined),
-                label: Text(l10n.waitingResultCheckResult),
-              ),
-            ],
+          return _CountdownPage(
+            currentName: current?.name.isNotEmpty == true
+                ? current!.name
+                : l10n.countdownCurrentDrawFallback,
+            saleStartAt: saleStartAt,
+            remaining: remaining,
+            productLabel: productLabel,
+            onCheckResult: () => context.go('/result'),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => _ErrorCard(
+        loading: () => const _CountdownLoadingPage(),
+        error: (_, __) => _CountdownErrorPage(
           message: l10n.countdownLoadFailed,
           onRetry: () => ref.invalidate(currentResultProvider),
         ),
@@ -417,14 +438,22 @@ String _normalizedGameStatus(Object? status) {
   return (status ?? '').toString().trim().toLowerCase();
 }
 
-class SuccessScreen extends ConsumerWidget {
+class SuccessScreen extends ConsumerStatefulWidget {
   const SuccessScreen({super.key, this.orderId});
 
   final String? orderId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final id = orderId ?? '';
+  ConsumerState<SuccessScreen> createState() => _SuccessScreenState();
+}
+
+class _SuccessScreenState extends ConsumerState<SuccessScreen> {
+  String _receiptNoticeMessage = '';
+  bool _receiptNoticeSuccess = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = widget.orderId ?? '';
     final receiptBoundaryKey = GlobalKey();
     final productLabel =
         ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
@@ -450,6 +479,13 @@ class SuccessScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 14),
+          if (_receiptNoticeMessage.isNotEmpty) ...[
+            _SuccessReceiptInlineNotice(
+              message: _receiptNoticeMessage,
+              success: _receiptNoticeSuccess,
+            ),
+            const SizedBox(height: 12),
+          ],
           if (item != null) ...[
             OutlinedButton.icon(
               onPressed: () async {
@@ -464,9 +500,7 @@ class SuccessScreen extends ConsumerWidget {
                   ),
                 );
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.successReceiptSaved)),
-                );
+                _showReceiptNotice(l10n.successReceiptSaved, success: true);
               },
               icon: const Icon(Icons.download_outlined),
               label: Text(context.l10n.successSaveReceipt),
@@ -511,16 +545,15 @@ class SuccessScreen extends ConsumerWidget {
                             : successReceiptPdfFileName(item),
                       );
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.successReceiptShareStarted)),
+                  _showReceiptNotice(
+                    l10n.successReceiptShareStarted,
+                    success: true,
                   );
                 } catch (_) {
                   await Clipboard.setData(ClipboardData(text: receiptText));
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.successReceiptShareFailedCopied),
-                    ),
+                  _showReceiptNotice(
+                    l10n.successReceiptShareFailedCopied,
                   );
                 }
               },
@@ -566,6 +599,14 @@ class SuccessScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _showReceiptNotice(String message, {bool success = false}) {
+    if (!mounted) return;
+    setState(() {
+      _receiptNoticeMessage = message;
+      _receiptNoticeSuccess = success;
+    });
+  }
 }
 
 class _SuccessReceiptCard extends StatelessWidget {
@@ -583,8 +624,8 @@ class _SuccessReceiptCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _successReceiptSurfaceDecoration(context),
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -636,6 +677,22 @@ class _SuccessReceiptCard extends StatelessWidget {
   }
 }
 
+BoxDecoration _successReceiptSurfaceDecoration(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    color: colorScheme.surface,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
+}
+
 class _SuccessReceiptHeader extends StatelessWidget {
   const _SuccessReceiptHeader({required this.productLabel});
 
@@ -675,10 +732,12 @@ class _SuccessReceiptHeader extends StatelessWidget {
         const SizedBox(height: 16),
         CircleAvatar(
           radius: 36,
-          backgroundColor: Colors.green.shade50,
+          backgroundColor:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
+                  colorScheme.primary.withValues(alpha: 0.12),
           child: Icon(
             Icons.check_rounded,
-            color: Colors.green.shade700,
+            color: colorScheme.primary,
             size: 42,
           ),
         ),
@@ -724,7 +783,9 @@ class _SuccessReceiptStatusMessage extends StatelessWidget {
       child: Column(
         children: [
           if (loading)
-            const CircularProgressIndicator()
+            CustomerLoadingMark(
+              semanticLabel: message,
+            )
           else if (icon != null)
             Icon(icon, color: colorScheme.error, size: 32),
           const SizedBox(height: 14),
@@ -746,6 +807,68 @@ class _SuccessReceiptStatusMessage extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _SuccessReceiptInlineNotice extends StatelessWidget {
+  const _SuccessReceiptInlineNotice({
+    required this.message,
+    this.success = false,
+  });
+
+  final String message;
+  final bool success;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = success ? colorScheme.primary : colorScheme.error;
+    final errorBackground =
+        Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
+            colorScheme.errorContainer.withValues(alpha: 0.52);
+    final errorBorder =
+        Color.lerp(colorScheme.error, colorScheme.surface, 0.68) ??
+            colorScheme.error.withValues(alpha: 0.32);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: success
+            ? colorScheme.primary.withValues(alpha: 0.08)
+            : errorBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: success
+              ? colorScheme.primary.withValues(alpha: 0.18)
+              : errorBorder,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              success
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.error_outline_rounded,
+              color: foreground,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: foreground,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                    ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -871,12 +994,11 @@ class _SystemPageList extends StatelessWidget {
   }
 }
 
-class _FullPageState extends StatelessWidget {
-  const _FullPageState({
+class _MaintenanceStatePage extends StatelessWidget {
+  const _MaintenanceStatePage({
     required this.icon,
     required this.title,
     required this.message,
-    this.iconColor,
     this.footer = const [],
     this.loading = false,
   });
@@ -884,66 +1006,510 @@ class _FullPageState extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
-  final Color? iconColor;
   final List<Widget> footer;
   final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    final color = iconColor ?? Theme.of(context).colorScheme.primary;
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Card(
+      body: _SystemGradientScaffold(
+        child: CustomerPageBody(
+          maxWidth: 560,
+          top: 32,
+          bottom: 32,
+          mobileHorizontal: 24,
+          wideHorizontal: 24,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const TenantBrandHeader(showName: false, size: 82),
+              const SizedBox(height: 16),
+              _SystemWhiteIcon(icon: icon, color: colorScheme.primary),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      height: 1.25,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  height: 1.55,
+                ),
+              ),
+              if (loading) ...[
+                const SizedBox(height: 18),
+                CustomerLoadingMark(
+                  width: 46,
+                  height: 26,
+                  color: colorScheme.onPrimary,
+                  trackColor: colorScheme.onPrimary.withValues(alpha: 0.24),
+                  semanticLabel: message,
+                ),
+              ],
+              if (footer.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                for (final item in footer)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: item,
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountSuspendedStatePage extends StatelessWidget {
+  const _AccountSuspendedStatePage({
+    required this.title,
+    required this.message,
+    required this.reason,
+    required this.duration,
+    required this.onBackToLogin,
+    required this.supportLabel,
+    required this.supportIcon,
+    this.onContactSupport,
+  });
+
+  final String title;
+  final String message;
+  final String reason;
+  final String duration;
+  final VoidCallback onBackToLogin;
+  final String supportLabel;
+  final IconData supportIcon;
+  final VoidCallback? onContactSupport;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      body: _SystemGradientScaffold(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        child: CustomerPageBody(
+          maxWidth: 440,
+          top: 32,
+          bottom: 32,
+          mobileHorizontal: 20,
+          wideHorizontal: 20,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const TenantBrandHeader(showName: false, size: 74),
+              const SizedBox(height: 18),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.18),
+                      blurRadius: 50,
+                      offset: const Offset(0, 22),
+                    ),
+                  ],
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
-                        radius: 42,
-                        backgroundColor: color.withValues(alpha: 0.12),
-                        child: Icon(icon, size: 42, color: color),
+                      _SystemWhiteIcon(
+                        icon: Icons.lock_outline,
+                        color: colorScheme.error,
+                        backgroundColor: Color.lerp(
+                              colorScheme.error,
+                              colorScheme.surface,
+                              0.88,
+                            ) ??
+                            colorScheme.errorContainer.withValues(alpha: 0.52),
+                        size: 74,
+                        radius: 24,
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
+                      Text(
+                        l10n.accountSuspendedKicker,
+                        style: TextStyle(
+                          color: colorScheme.error,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          height: 1.25,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
                       Text(
                         title,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w900),
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.22,
+                                ),
                       ),
                       const SizedBox(height: 10),
                       Text(
                         message,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(height: 1.45),
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          height: 1.55,
+                        ),
                       ),
-                      if (loading) ...[
-                        const SizedBox(height: 18),
-                        const CircularProgressIndicator(),
-                      ],
-                      if (footer.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        for (final item in footer)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: item,
+                      const SizedBox(height: 16),
+                      _InfoPanel(
+                        label: l10n.accountSuspendedReason,
+                        value: reason,
+                      ),
+                      const SizedBox(height: 10),
+                      _InfoPanel(
+                        label: l10n.accountSuspendedDuration,
+                        value: duration,
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: onBackToLogin,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            shape: const StadiumBorder(),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
+                          child: Text(l10n.accountSuspendedBackToLogin),
+                        ),
+                      ),
+                      if (onContactSupport != null) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: onContactSupport,
+                            icon: Icon(supportIcon),
+                            label: Text(
+                              supportLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              minimumSize: const Size.fromHeight(50),
+                              side: BorderSide(
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.28,
+                                ),
+                              ),
+                              shape: const StadiumBorder(),
+                              textStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ],
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CountdownPage extends StatelessWidget {
+  const _CountdownPage({
+    required this.currentName,
+    required this.saleStartAt,
+    required this.remaining,
+    required this.productLabel,
+    required this.onCheckResult,
+  });
+
+  final String currentName;
+  final DateTime? saleStartAt;
+  final Duration remaining;
+  final String productLabel;
+  final VoidCallback onCheckResult;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _SystemGradientScaffold(
+      child: CustomerPageBody(
+        maxWidth: 560,
+        top: 48,
+        bottom: 124,
+        mobileHorizontal: 20,
+        wideHorizontal: 20,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const TenantBrandHeader(showName: false, size: 64),
+                if (productLabel.trim().isNotEmpty) ...[
+                  const SizedBox(width: 16),
+                  Text(
+                    productLabel.trim(),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: colorScheme.onPrimary,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 28),
+            Text(
+              l10n.countdownWaitingTitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colorScheme.tertiary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.countdownOpensIn,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 42,
+                    fontWeight: FontWeight.w900,
+                    height: 1.08,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              currentName,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                fontWeight: FontWeight.w800,
+                height: 1.35,
+              ),
+            ),
+            if (saleStartAt != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.countdownSaleOpensAt(
+                  formatLocalizedDateTime(
+                    saleStartAt,
+                    localeTag(l10n.locale),
+                  ),
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ],
+            const SizedBox(height: 28),
+            _CountdownGrid(remaining: remaining),
+            const SizedBox(height: 28),
+            OutlinedButton.icon(
+              onPressed: onCheckResult,
+              icon: const Icon(Icons.emoji_events_outlined),
+              label: Text(l10n.waitingResultCheckResult),
+              style: _whiteOutlinePillStyle(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountdownLoadingPage extends StatelessWidget {
+  const _CountdownLoadingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _SystemGradientScaffold(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomerLoadingMark(
+              width: 46,
+              height: 26,
+              color: colorScheme.onPrimary,
+              trackColor: colorScheme.onPrimary.withValues(alpha: 0.24),
+              semanticLabel: context.l10n.maintenanceLoadingMessage,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              context.l10n.maintenanceLoadingMessage,
+              style: TextStyle(
+                color: colorScheme.onPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountdownErrorPage extends StatelessWidget {
+  const _CountdownErrorPage({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _SystemGradientScaffold(
+      child: CustomerPageBody(
+        maxWidth: 440,
+        top: 48,
+        bottom: 124,
+        mobileHorizontal: 24,
+        wideHorizontal: 24,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _SystemWhiteIcon(
+              icon: Icons.error_outline,
+              color: colorScheme.error,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colorScheme.onPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton(
+              onPressed: onRetry,
+              style: _whiteOutlinePillStyle(context),
+              child: Text(context.l10n.commonRetry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SystemGradientScaffold extends StatelessWidget {
+  const _SystemGradientScaffold({
+    required this.child,
+    this.begin = Alignment.topLeft,
+    this.end = Alignment.bottomRight,
+  });
+
+  final Widget child;
+  final AlignmentGeometry begin;
+  final AlignmentGeometry end;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final midColor =
+        Color.lerp(colorScheme.primary, colorScheme.surface, 0.18) ??
+            colorScheme.primary;
+    final endColor =
+        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.34) ??
+            colorScheme.primary;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: begin,
+          end: end,
+          colors: [colorScheme.primary, midColor, endColor],
+        ),
+      ),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: child,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SystemWhiteIcon extends StatelessWidget {
+  const _SystemWhiteIcon({
+    required this.icon,
+    required this.color,
+    this.backgroundColor,
+    this.size = 82,
+    this.radius = 22,
+  });
+
+  final IconData icon;
+  final Color color;
+  final Color? backgroundColor;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: backgroundColor ?? Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: color, size: size * 0.42),
     );
   }
 }
@@ -956,6 +1522,8 @@ class _CountdownGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final onGradient = colorScheme.onPrimary;
     final safe = remaining.isNegative ? Duration.zero : remaining;
     final days = safe.inDays;
     final hours = safe.inHours.remainder(24);
@@ -967,35 +1535,54 @@ class _CountdownGrid extends StatelessWidget {
       (l10n.countdownMinute, minutes),
       (l10n.countdownSecond, seconds),
     ];
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 4,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 0.95,
-      children: [
-        for (final item in items)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  item.$2.toString().padLeft(2, '0'),
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth <= 380 ? 2 : 4;
+
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: columns,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: columns == 2 ? 1.7 : 0.95,
+          children: [
+            for (final item in items)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.26),
+                  border: Border.all(color: onGradient.withValues(alpha: 0.28)),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                Text(item.$1),
-              ],
-            ),
-          ),
-      ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item.$2.toString().padLeft(2, '0'),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: onGradient,
+                                fontWeight: FontWeight.w900,
+                                height: 1,
+                              ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.$1,
+                      style: TextStyle(
+                        color: onGradient.withValues(alpha: 0.86),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1008,24 +1595,56 @@ class _InfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(label, style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 4),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+            Text(
+              label,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                height: 1.45,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+ButtonStyle _whiteOutlinePillStyle(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final foregroundColor = colorScheme.onPrimary;
+
+  return OutlinedButton.styleFrom(
+    foregroundColor: foregroundColor,
+    side: BorderSide(color: foregroundColor.withValues(alpha: 0.68)),
+    backgroundColor: foregroundColor.withValues(alpha: 0.12),
+    minimumSize: const Size(0, 48),
+    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+    shape: const StadiumBorder(),
+    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+  );
 }
 
 class _ReceiptRow extends StatelessWidget {
@@ -1051,36 +1670,6 @@ class _ReceiptRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: Text(context.l10n.commonRetry),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

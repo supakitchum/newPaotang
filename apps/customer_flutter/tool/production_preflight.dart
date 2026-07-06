@@ -27,6 +27,7 @@ void main(List<String> args) {
         Platform.environment['API_BASE_URL'] ??
         '/api/v1',
     appDisplayName: options.value('app-display-name') ??
+        Platform.environment['CUSTOMER_FLUTTER_APP_LABEL'] ??
         Platform.environment['CUSTOMER_FLUTTER_APP_DISPLAY_NAME'] ??
         Platform.environment['APP_DISPLAY_NAME'],
     androidPackage: options.value('android-package') ??
@@ -58,6 +59,26 @@ void main(List<String> args) {
     socialAuthProviders: options.values('social-provider').isEmpty
         ? _splitCsv(Platform.environment['CUSTOMER_FLUTTER_SOCIAL_PROVIDERS'])
         : options.values('social-provider').expand(_splitCsv).toList(),
+    linkAssociationDir: options.value('link-association-dir') ??
+        Platform.environment['CUSTOMER_FLUTTER_LINK_ASSOCIATION_DIR'],
+    webAppName: options.value('web-app-name') ??
+        Platform.environment['CUSTOMER_FLUTTER_WEB_APP_NAME'],
+    webShortName: options.value('web-short-name') ??
+        Platform.environment['CUSTOMER_FLUTTER_WEB_SHORT_NAME'],
+    webDescription: options.value('web-description') ??
+        Platform.environment['CUSTOMER_FLUTTER_WEB_DESCRIPTION'],
+    requireStoreListingMetadata: options
+            .flag('require-store-listing-metadata') ||
+        _envFlag(
+          Platform
+              .environment['CUSTOMER_FLUTTER_REQUIRE_STORE_LISTING_METADATA'],
+        ),
+    storePrivacyPolicyUrl: options.value('store-privacy-policy-url') ??
+        Platform.environment['CUSTOMER_FLUTTER_STORE_PRIVACY_POLICY_URL'],
+    storeSupportUrl: options.value('store-support-url') ??
+        Platform.environment['CUSTOMER_FLUTTER_STORE_SUPPORT_URL'],
+    storeAccountDeletionUrl: options.value('store-account-deletion-url') ??
+        Platform.environment['CUSTOMER_FLUTTER_STORE_ACCOUNT_DELETION_URL'],
   );
 
   final issues = runCustomerFlutterProductionPreflight(input);
@@ -132,20 +153,29 @@ Usage:
     --ios-bundle-id com.partner.customer \\
     --ios-url-scheme partnerlottery \\
     --ios-associated-domain applinks:partner.example.com \\
+    --link-association-dir build/link-association \\
+    --web-app-name "Partner Lottery" \\
+    --web-short-name "Partner" \\
+    --web-description "Partner digital lottery customer portal" \\
+    --require-store-listing-metadata \\
+    --store-privacy-policy-url https://partner.example.com/privacy \\
+    --store-support-url https://partner.example.com/support \\
+    --store-account-deletion-url https://partner.example.com/account-deletion \\
     --social-provider line \\
     --social-provider google \\
     --social-provider apple
 
 Options:
   --target web|android|ios|all
-  --project-root PATH       customer_flutter project directory for --check-files.
-  --allow-dev              Allow development values such as relative API paths.
-  --skip-android-signing   Do not require Android release signing inputs.
-  --check-files            Verify files such as the Android keystore path exist.
+  --project-root PATH      customer_flutter project directory for --check-files.
+  --allow-dev             Allow development values such as relative API paths.
+  --skip-android-signing  Do not require Android release signing inputs.
+  --check-files           Verify checked-in native/web/security/release gates.
 
 Environment alternatives:
   API_BASE_URL
   CUSTOMER_FLUTTER_APP_DISPLAY_NAME
+  CUSTOMER_FLUTTER_APP_LABEL
   APP_DISPLAY_NAME
   CUSTOMER_FLUTTER_PROJECT_ROOT
   CUSTOMER_FLUTTER_APPLICATION_ID
@@ -163,6 +193,14 @@ Environment alternatives:
   CUSTOMER_FLUTTER_URL_SCHEME
   CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN
   CUSTOMER_FLUTTER_SOCIAL_PROVIDERS
+  CUSTOMER_FLUTTER_LINK_ASSOCIATION_DIR
+  CUSTOMER_FLUTTER_WEB_APP_NAME
+  CUSTOMER_FLUTTER_WEB_SHORT_NAME
+  CUSTOMER_FLUTTER_WEB_DESCRIPTION
+  CUSTOMER_FLUTTER_REQUIRE_STORE_LISTING_METADATA
+  CUSTOMER_FLUTTER_STORE_PRIVACY_POLICY_URL
+  CUSTOMER_FLUTTER_STORE_SUPPORT_URL
+  CUSTOMER_FLUTTER_STORE_ACCOUNT_DELETION_URL
 ''');
 }
 
@@ -173,6 +211,20 @@ List<String> _splitCsv(String? value) {
       .map((part) => part.trim())
       .where((part) => part.isNotEmpty)
       .toList();
+}
+
+bool _envFlag(String? value) {
+  final normalized = value?.trim().toLowerCase() ?? '';
+  return {
+    '1',
+    'true',
+    'yes',
+    'y',
+    'on',
+    'enabled',
+    'require',
+    'required',
+  }.contains(normalized);
 }
 
 class _Options {

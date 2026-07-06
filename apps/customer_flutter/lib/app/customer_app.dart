@@ -18,6 +18,7 @@ import '../core/tenant/mobile_bootstrap_controller.dart';
 import '../core/tenant/mobile_runtime_policy.dart';
 import '../core/theme/app_theme.dart';
 import '../features/affiliate/presentation/affiliate_referral_monitor.dart';
+import '../features/lottery/presentation/customer_revenue_realtime_monitor.dart';
 import '../features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import '../features/lottery/presentation/sale_closure_guard.dart';
 import '../features/monitoring/presentation/public_visit_monitor.dart';
@@ -53,12 +54,29 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
+    if (_shouldLockForLifecycleState(state) && _currentRouteIsSensitive()) {
       ref.read(authControllerProvider).lockForAppLifecycle();
     }
+  }
+
+  bool _shouldLockForLifecycleState(AppLifecycleState state) {
+    return state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached;
+  }
+
+  bool _currentRouteIsSensitive() {
+    final router = ref.read(appRouterProvider);
+    final path = router.routeInformationProvider.value.uri.path;
+    final extraSensitiveRoutes = ref.read(mobileBootstrapProvider).maybeWhen(
+          data: (data) => data.screenSecurity.sensitiveRoutes,
+          orElse: () => const <String>[],
+        );
+    return isSensitiveCustomerPath(
+      path,
+      extraSensitiveRoutes: extraSensitiveRoutes,
+    );
   }
 
   @override
@@ -117,23 +135,27 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
             child: CustomerRealtimeMonitor(
               child: ResultRealtimeMonitor(
                 child: LotteryStockRealtimeMonitor(
-                  child: CustomerTopupRealtimeMonitor(
-                    child: CustomerClaimRealtimeMonitor(
-                      child: PublicVisitMonitor(
-                        router: router,
-                        child: AffiliateReferralMonitor(
+                  child: CustomerRevenueRealtimeMonitor(
+                    child: CustomerTopupRealtimeMonitor(
+                      child: CustomerClaimRealtimeMonitor(
+                        child: PublicVisitMonitor(
                           router: router,
-                          child: AppAlertHost(
-                            child: AnnouncementModalHost(
-                              router: router,
-                              child: SaleClosureGuard(
+                          child: AffiliateReferralMonitor(
+                            router: router,
+                            child: AppAlertHost(
+                              child: AnnouncementModalHost(
                                 router: router,
-                                child: _CustomerRuntimeSecurityLayer(
+                                child: SaleClosureGuard(
                                   router: router,
-                                  bootstrap: bootstrap,
-                                  screenSecurityEnabled: screenSecurityEnabled,
-                                  webPrivacyEnabled: webPrivacyEnabled,
-                                  child: appChild,
+                                  child: _CustomerRuntimeSecurityLayer(
+                                    router: router,
+                                    bootstrap: bootstrap,
+                                    platformKey: platformKey,
+                                    screenSecurityEnabled:
+                                        screenSecurityEnabled,
+                                    webPrivacyEnabled: webPrivacyEnabled,
+                                    child: appChild,
+                                  ),
                                 ),
                               ),
                             ),
@@ -166,6 +188,7 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
   const _CustomerRuntimeSecurityLayer({
     required this.router,
     required this.bootstrap,
+    required this.platformKey,
     required this.screenSecurityEnabled,
     required this.webPrivacyEnabled,
     required this.child,
@@ -173,6 +196,7 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
 
   final GoRouter router;
   final AsyncValue<MobileBootstrap> bootstrap;
+  final String platformKey;
   final bool screenSecurityEnabled;
   final bool webPrivacyEnabled;
   final Widget child;
@@ -187,16 +211,39 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
           data: (data) => data.screenSecurity.sensitiveRoutes,
           orElse: () => const <String>[],
         );
+        final screenSecurity = bootstrap.maybeWhen(
+          data: (data) => data.screenSecurity,
+          orElse: () => null,
+        );
         final routeSensitive = isSensitiveCustomerPath(
           path,
           extraSensitiveRoutes: extraSensitiveRoutes,
         );
 
         return SensitiveScreenGuard(
-          enabled: screenSecurityEnabled,
+          enabled: screenSecurityEnabled && routeSensitive,
           route: path.isEmpty ? 'app' : path,
+          androidFlagSecure: screenSecurity?.androidFlagSecure,
+          androidProtectRecentAppPreview:
+              screenSecurity?.androidProtectRecentAppPreview,
+          iosScreenshotPolicy: screenSecurity?.iosScreenshotPolicy,
+          iosScreenCaptureOverlay: screenSecurity?.iosScreenCaptureOverlay,
+          iosExitApp: screenSecurity?.iosExitApp,
+          privacyOverlayTitle: screenSecurity?.privacyOverlayTitle,
+          privacyOverlayDescription: screenSecurity?.privacyOverlayDescription,
+          lockOnCapture: screenSecurity == null
+              ? true
+              : mobileNativeScreenSecurityLocksOnCapture(
+                  screenSecurity,
+                  platformKey,
+                ),
           child: WebPrivacyGuard(
             enabled: webPrivacyEnabled && routeSensitive,
+            mode: screenSecurity?.webSensitiveScreenMode ?? 'limited',
+            watermarkEnabled: screenSecurity?.webWatermarkEnabled ?? true,
+            privacyOverlayTitle: screenSecurity?.privacyOverlayTitle,
+            privacyOverlayDescription:
+                screenSecurity?.privacyOverlayDescription,
             child: child,
           ),
         );

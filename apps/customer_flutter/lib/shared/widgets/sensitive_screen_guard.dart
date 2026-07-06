@@ -12,12 +12,28 @@ class SensitiveScreenGuard extends ConsumerStatefulWidget {
     required this.route,
     required this.child,
     this.enabled = true,
+    this.androidFlagSecure,
+    this.androidProtectRecentAppPreview,
+    this.iosScreenshotPolicy,
+    this.iosScreenCaptureOverlay,
+    this.iosExitApp,
+    this.privacyOverlayTitle,
+    this.privacyOverlayDescription,
+    this.lockOnCapture = true,
     super.key,
   });
 
   final String route;
   final Widget child;
   final bool enabled;
+  final bool? androidFlagSecure;
+  final bool? androidProtectRecentAppPreview;
+  final String? iosScreenshotPolicy;
+  final bool? iosScreenCaptureOverlay;
+  final bool? iosExitApp;
+  final String? privacyOverlayTitle;
+  final String? privacyOverlayDescription;
+  final bool lockOnCapture;
 
   @override
   ConsumerState<SensitiveScreenGuard> createState() =>
@@ -42,7 +58,17 @@ class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
   void didUpdateWidget(covariant SensitiveScreenGuard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.route != widget.route ||
-        oldWidget.enabled != widget.enabled) {
+        oldWidget.enabled != widget.enabled ||
+        oldWidget.androidFlagSecure != widget.androidFlagSecure ||
+        oldWidget.androidProtectRecentAppPreview !=
+            widget.androidProtectRecentAppPreview ||
+        oldWidget.iosScreenshotPolicy != widget.iosScreenshotPolicy ||
+        oldWidget.iosScreenCaptureOverlay != widget.iosScreenCaptureOverlay ||
+        oldWidget.iosExitApp != widget.iosExitApp ||
+        oldWidget.privacyOverlayTitle != widget.privacyOverlayTitle ||
+        oldWidget.privacyOverlayDescription !=
+            widget.privacyOverlayDescription ||
+        oldWidget.lockOnCapture != widget.lockOnCapture) {
       _syncProtection();
     }
   }
@@ -69,15 +95,46 @@ class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
     final l10n = context.l10n;
     _screenSecurity.enable(
       route: widget.route,
-      overlayTitle: l10n.securityCaptureTitle,
-      overlayDescription: l10n.securityCaptureDescription,
+      overlayTitle: _runtimeCopy(
+        widget.privacyOverlayTitle,
+        l10n.securityCaptureTitle,
+      ),
+      overlayDescription: _runtimeCopy(
+        widget.privacyOverlayDescription,
+        l10n.securityCaptureDescription,
+      ),
+      androidFlagSecure: widget.androidFlagSecure,
+      androidProtectRecentAppPreview: widget.androidProtectRecentAppPreview,
+      iosScreenshotPolicy: widget.iosScreenshotPolicy,
+      iosScreenCaptureOverlay: widget.iosScreenCaptureOverlay,
+      iosExitApp: widget.iosExitApp,
     );
   }
 
   void _handleSecurityEvent(ScreenSecurityEvent event) {
     if (!mounted) return;
+    if (!screenSecurityRoutesMatch(event.route, widget.route)) return;
+    final route = event.route.isEmpty
+        ? normalizeScreenSecurityRoute(widget.route)
+        : normalizeScreenSecurityRoute(event.route);
+    unawaited(
+      ref.read(screenSecurityAuditServiceProvider).record(
+            event: event,
+            route: route,
+          ),
+    );
     if (event.event == 'screen_capture_ended') return;
-    if (event.route.isNotEmpty && event.route != widget.route) return;
+    if (!_shouldLockForSecurityEvent(event)) return;
     ref.read(authControllerProvider).lockForScreenSecurity();
+  }
+
+  bool _shouldLockForSecurityEvent(ScreenSecurityEvent event) {
+    if (event.event == 'screen_security_exit_requested') return true;
+    return widget.lockOnCapture;
+  }
+
+  String _runtimeCopy(String? value, String fallback) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? fallback : trimmed;
   }
 }

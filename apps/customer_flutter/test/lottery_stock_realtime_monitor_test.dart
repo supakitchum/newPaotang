@@ -33,14 +33,29 @@ void main() {
 
     final legacyPatch = lotteryStockPricePatchFromRealtimeEvent(
       CustomerRealtimeEvent(
-        name: 'stock.price.updated',
+        name: 'SalePriceUpdated',
         channel: salePriceChannel(tenantId: 'ten_stock'),
-        payload: const {'price_amount': 7500},
+        payload: const {'priceAmount': 7500},
       ),
     );
 
     expect(legacyPatch, isNotNull);
     expect(legacyPatch!.price, 75);
+
+    final wrappedPatch = lotteryStockPricePatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'sync.outbox',
+        channel: salePriceChannel(tenantId: 'ten_stock'),
+        payload: const {
+          'payload':
+              '{"event_type":"stock.price.updated","game":{"id":"game_wrapped"},"priceAmount":8800}',
+        },
+      ),
+    );
+
+    expect(wrappedPatch, isNotNull);
+    expect(wrappedPatch!.gameId, 'game_wrapped');
+    expect(wrappedPatch.price, 88);
 
     expect(
       lotteryStockPricePatchFromRealtimeEvent(
@@ -54,19 +69,61 @@ void main() {
     );
   });
 
+  test('lottery stock realtime parses object-scalar provider rows', () {
+    final pricePatch = lotteryStockPricePatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'stock.price.updated',
+        channel: salePriceChannel(tenantId: 'ten_stock'),
+        payload: const {
+          'game': {'value': 'game_scalar'},
+          'setSize': {'value': '1'},
+          'salePrice': {
+            'amount': {'value': '9100'},
+          },
+        },
+      ),
+    );
+
+    expect(pricePatch, isNotNull);
+    expect(pricePatch!.gameId, 'game_scalar');
+    expect(pricePatch.price, 91);
+
+    final availabilityPatch = lotteryStockAvailabilityPatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'stock.availability.updated',
+        channel: stockAvailabilityChannel(
+          tenantId: 'ten_stock',
+          gameId: 'game_scalar',
+        ),
+        payload: const {
+          'game': {'key': 'game_scalar'},
+          'fullNumber': {'value': '12345'},
+          'availableCount': {'value': '4'},
+          'availabilityStatus': {'code': 'available'},
+        },
+      ),
+    );
+
+    expect(availabilityPatch, isNotNull);
+    expect(availabilityPatch!.gameId, 'game_scalar');
+    expect(availabilityPatch.number, '012345');
+    expect(availabilityPatch.remainingCount, 4);
+    expect(availabilityPatch.status, 'available');
+  });
+
   test('lottery stock realtime availability patch parses Nuxt payload', () {
     final patch = lotteryStockAvailabilityPatchFromRealtimeEvent(
       CustomerRealtimeEvent(
-        name: 'stock.availability.updated',
+        name: 'stock_availability_updated',
         channel: stockAvailabilityChannel(
           tenantId: 'ten_stock',
           gameId: 'game_1',
         ),
         payload: const {
-          'game_id': 'game_1',
-          'full_number': '273707',
-          'remaining_count': 0,
-          'status': 'sold_out',
+          'gameId': 'game_1',
+          'fullNumber': '273707',
+          'availableCount': 0,
+          'availabilityStatus': 'sold_out',
         },
       ),
     );
@@ -78,6 +135,25 @@ void main() {
     expect(patch.matchesGame('game_1'), isTrue);
     expect(patch.matchesNumber('273707'), isTrue);
     expect(patch.matchesNumber('999999'), isFalse);
+
+    final wrappedPatch = lotteryStockAvailabilityPatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'bridge.message',
+        channel: stockAvailabilityChannel(
+          tenantId: 'ten_stock',
+          gameId: 'game_1',
+        ),
+        payload: const {
+          'eventPayload':
+              '{"eventName":"stock.availability.updated","gameId":"game_1","fullNumber":"000123","remaining":3}',
+        },
+      ),
+    );
+
+    expect(wrappedPatch, isNotNull);
+    expect(wrappedPatch!.number, '000123');
+    expect(wrappedPatch.remainingCount, 3);
+    expect(wrappedPatch.status, 'available');
   });
 
   testWidgets(

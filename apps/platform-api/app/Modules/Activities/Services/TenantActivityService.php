@@ -498,6 +498,12 @@ class TenantActivityService
             $query->where('status', trim((string) $queryParams['status']));
         }
 
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('id', '<', trim((string) $queryParams['cursor']));
+        }
+
+        $query->orderByDesc('id');
+
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
@@ -523,6 +529,12 @@ class TenantActivityService
             ->with(['award', 'activity'])
             ->orderByDesc('created_at')
             ->limit($limit + 1);
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('id', '<', trim((string) $queryParams['cursor']));
+        }
+
+        $query->orderByDesc('id');
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/purchase_history_models.dart';
 import '../data/purchase_history_repository.dart';
@@ -25,6 +26,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
   bool _loadingInitial = true;
   bool _loadingMore = false;
   String _error = '';
+  String _loadMoreError = '';
 
   @override
   void initState() {
@@ -46,63 +48,76 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             CustomerPageBody(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _PurchaseHistoryHeader(onBuy: () => context.go('/buy')),
-                  const SizedBox(height: 12),
-                  if (_loadingInitial)
-                    const _PurchaseHistoryLoading()
-                  else if (_error.isNotEmpty)
-                    _PurchaseHistoryError(
-                      message: _error,
-                      onRetry: _loadInitial,
-                    )
-                  else if (_orders.isEmpty)
-                    _PurchaseHistoryEmpty(onBuy: () => context.go('/buy'))
-                  else ...[
-                    for (final group in groups) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
-                        child: Text(
-                          group.year,
+              maxWidth: 560,
+              top: 0,
+              mobileHorizontal: 0,
+              wideHorizontal: 28,
+              child: _PurchaseHistoryContentSheet(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_loadingInitial)
+                      const _PurchaseHistoryLoading()
+                    else if (_error.isNotEmpty)
+                      _PurchaseHistoryError(
+                        message: _error,
+                        onRetry: _loadInitial,
+                      )
+                    else if (_orders.isEmpty)
+                      _PurchaseHistoryEmpty(onBuy: () => context.go('/buy'))
+                    else ...[
+                      for (var groupIndex = 0;
+                          groupIndex < groups.length;
+                          groupIndex++) ...[
+                        if (groupIndex > 0) const SizedBox(height: 32),
+                        Text(
+                          groups[groupIndex].year,
                           style: Theme.of(context)
                               .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                              .headlineSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                              ),
                         ),
-                      ),
-                      for (final order in group.orders)
+                        const SizedBox(height: 22),
+                        _PurchaseHistoryList(
+                          orders: groups[groupIndex].orders,
+                          onTap: (order) =>
+                              context.go('/purchase-history/${order.id}'),
+                        ),
+                      ],
+                      if (_loadMoreError.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _PurchaseHistoryInlineNotice(
+                          message: _loadMoreError,
+                          actionLabel: l10n.commonRetry,
+                          onAction: _loadingMore ? null : _loadMore,
+                        ),
+                      ],
+                      if (_currentPage < _lastPage)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _PurchaseHistoryTile(
-                            order: order,
-                            onTap: () =>
-                                context.go('/purchase-history/${order.id}'),
+                          padding: const EdgeInsets.only(top: 22),
+                          child: OutlinedButton.icon(
+                            onPressed: _loadingMore ? null : _loadMore,
+                            icon: _loadingMore
+                                ? CustomerLoadingMark(
+                                    width: 18,
+                                    height: 14,
+                                    semanticLabel: l10n.commonLoadingMore,
+                                  )
+                                : const Icon(Icons.expand_more),
+                            label: Text(
+                              _loadingMore
+                                  ? l10n.commonLoadingMore
+                                  : l10n.commonLoadMore,
+                            ),
                           ),
                         ),
                     ],
-                    if (_currentPage < _lastPage)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: OutlinedButton.icon(
-                          onPressed: _loadingMore ? null : _loadMore,
-                          icon: _loadingMore
-                              ? const SizedBox.square(
-                                  dimension: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.expand_more),
-                          label: Text(
-                            _loadingMore
-                                ? l10n.commonLoadingMore
-                                : l10n.commonLoadMore,
-                          ),
-                        ),
-                      ),
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -115,6 +130,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
     setState(() {
       _loadingInitial = true;
       _error = '';
+      _loadMoreError = '';
     });
     try {
       final page = await ref.read(purchaseHistoryRepositoryProvider).list();
@@ -136,7 +152,10 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
 
   Future<void> _loadMore() async {
     if (_loadingMore || _currentPage >= _lastPage) return;
-    setState(() => _loadingMore = true);
+    setState(() {
+      _loadingMore = true;
+      _loadMoreError = '';
+    });
     try {
       final page = await ref
           .read(purchaseHistoryRepositoryProvider)
@@ -146,11 +165,12 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
         _orders.addAll(page.items);
         _currentPage = page.currentPage;
         _lastPage = page.lastPage;
+        _loadMoreError = '';
       });
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.purchaseHistoryLoadMoreFailed)),
+        setState(
+          () => _loadMoreError = context.l10n.purchaseHistoryLoadMoreFailed,
         );
       }
     } finally {
@@ -171,6 +191,70 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
   }
 }
 
+class _PurchaseHistoryInlineNotice extends StatelessWidget {
+  const _PurchaseHistoryInlineNotice({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withValues(alpha: 0.40),
+        border: Border.all(
+          color: colorScheme.error.withValues(alpha: 0.24),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              color: colorScheme.error,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                    ),
+              ),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onAction,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PurchaseYearGroup {
   const _PurchaseYearGroup(this.year, this.orders);
 
@@ -178,111 +262,205 @@ class _PurchaseYearGroup {
   final List<PurchaseHistoryOrder> orders;
 }
 
-class _PurchaseHistoryHeader extends StatelessWidget {
-  const _PurchaseHistoryHeader({required this.onBuy});
+class _PurchaseHistoryContentSheet extends StatelessWidget {
+  const _PurchaseHistoryContentSheet({required this.child});
 
-  final VoidCallback onBuy;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: const Icon(Icons.receipt_long_outlined),
-        ),
-        title: Text(
-          l10n.purchaseHistoryHeaderTitle,
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        subtitle: Text(l10n.purchaseHistoryHeaderSubtitle),
-        trailing: IconButton(
-          tooltip: l10n.purchaseHistoryBuyTooltip,
-          onPressed: onBuy,
-          icon: const Icon(Icons.confirmation_number_outlined),
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 660),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 56),
+          child: child,
         ),
       ),
     );
   }
 }
 
-class _PurchaseHistoryTile extends StatelessWidget {
-  const _PurchaseHistoryTile({required this.order, required this.onTap});
+class _PurchaseHistoryList extends StatelessWidget {
+  const _PurchaseHistoryList({required this.orders, required this.onTap});
 
-  final PurchaseHistoryOrder order;
-  final VoidCallback onTap;
+  final List<PurchaseHistoryOrder> orders;
+  final ValueChanged<PurchaseHistoryOrder> onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          context.l10n.purchaseHistoryOrderTitle,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Chip(
-                          label:
-                              Text(context.l10n.purchaseHistoryDigitalTicket),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.purchaseHistoryDrawDate(
-                        localizedPurchaseDrawDate(context, order),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      localizedPurchaseTransactionDate(context, order),
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    formatBaht(order.total),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                  Text(
-                    context.l10n.purchaseHistoryTicketCount(order.ticketCount),
-                  ),
-                  const SizedBox(height: 8),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
-            ],
+    return Column(
+      children: [
+        for (var index = 0; index < orders.length; index++)
+          _PurchaseHistoryTile(
+            order: orders[index],
+            topPadding: index > 0,
+            onTap: () => onTap(orders[index]),
           ),
+      ],
+    );
+  }
+}
+
+class _PurchaseHistoryTile extends StatelessWidget {
+  const _PurchaseHistoryTile({
+    required this.order,
+    required this.onTap,
+    required this.topPadding,
+  });
+
+  final PurchaseHistoryOrder order;
+  final VoidCallback onTap;
+  final bool topPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(0, topPadding ? 22 : 0, 0, 22),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 9,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            context.l10n.purchaseHistoryOrderTitle,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              height: 1.2,
+                            ),
+                          ),
+                          _PurchaseHistoryPill(
+                            label: context.l10n.purchaseHistoryDigitalTicket,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.purchaseHistoryDrawDate(
+                          localizedPurchaseDrawDate(context, order),
+                        ),
+                        style: textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        localizedPurchaseTransactionDate(context, order),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.78),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 92),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatBaht(order.total),
+                        textAlign: TextAlign.right,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          height: 1.08,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        context.l10n
+                            .purchaseHistoryTicketCount(order.ticketCount),
+                        textAlign: TextAlign.right,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.78),
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Icon(
+                        Icons.chevron_right,
+                        color: colorScheme.primary,
+                        size: 34,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PurchaseHistoryPill extends StatelessWidget {
+  const _PurchaseHistoryPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.lerp(
+          colorScheme.primaryContainer,
+          colorScheme.surface,
+          0.38,
+        ),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
         ),
       ),
     );
@@ -297,8 +475,8 @@ class _PurchaseHistoryEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _purchaseHistorySurfaceDecoration(context, radius: 14),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -320,7 +498,10 @@ class _PurchaseHistoryEmpty extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               l10n.purchaseHistoryEmptySubtitle,
-              style: TextStyle(color: Colors.grey.shade700),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -341,11 +522,17 @@ class _PurchaseHistoryLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _purchaseHistorySurfaceDecoration(context, radius: 14),
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: CircularProgressIndicator()),
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: CustomerLoadingMark(
+            width: 46,
+            height: 28,
+            semanticLabel: context.l10n.commonLoadingData,
+          ),
+        ),
       ),
     );
   }
@@ -360,8 +547,8 @@ class _PurchaseHistoryError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _purchaseHistorySurfaceDecoration(context, radius: 14),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -385,4 +572,23 @@ class _PurchaseHistoryError extends StatelessWidget {
       ),
     );
   }
+}
+
+BoxDecoration _purchaseHistorySurfaceDecoration(
+  BuildContext context, {
+  required double radius,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    color: colorScheme.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
 }

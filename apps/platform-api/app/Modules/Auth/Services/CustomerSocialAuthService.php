@@ -59,6 +59,7 @@ class CustomerSocialAuthService
                 'host' => $request->getHost(),
                 'redirect_uri' => $redirectUri,
                 'purpose' => $this->purpose($payload['purpose'] ?? null),
+                'redirect' => $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null),
             ], JSON_THROW_ON_ERROR),
             'created_at' => now(),
             'updated_at' => now(),
@@ -101,6 +102,8 @@ class CustomerSocialAuthService
             return ['error' => 'authentication_required'];
         }
 
+        $metadata = is_array($stateRecord->metadata_json) ? $stateRecord->metadata_json : [];
+        $redirectPath = $this->redirectPath($metadata['redirect'] ?? null);
         $code = trim((string) ($query['code'] ?? ''));
 
         if ($code === '') {
@@ -129,7 +132,7 @@ class CustomerSocialAuthService
         }
 
         if ($currentCustomer instanceof CustomerSessionContext) {
-            return $this->linkCurrentCustomer($tenant, $currentCustomer, $provider, $providerProfile);
+            return $this->linkCurrentCustomer($tenant, $currentCustomer, $provider, $providerProfile, $redirectPath);
         }
 
         $identity = CustomerSocialIdentity::query()
@@ -159,7 +162,13 @@ class CustomerSocialAuthService
             Customer::query()->where('id', $customer->id)->update(['last_login_at' => now(), 'updated_at' => now()]);
             $this->customerAuth->ensurePrimaryWallet((string) $tenant['tenant_id'], (string) $customer->id);
 
-            return ['resource' => $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id), 'status' => 200];
+            return [
+                'resource' => array_merge(
+                    $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id),
+                    ['redirect' => $redirectPath],
+                ),
+                'status' => 200,
+            ];
         }
 
         $linkToken = $this->createLinkToken((string) $tenant['tenant_id'], $provider, $providerProfile);
@@ -169,6 +178,7 @@ class CustomerSocialAuthService
                 'social_link_required' => true,
                 'provider' => $provider,
                 'link_token' => $linkToken,
+                'redirect' => $redirectPath,
                 'profile' => [
                     'display_name' => $providerProfile['display_name'] ?? null,
                     'picture_url' => $providerProfile['avatar_url'] ?? null,
@@ -459,7 +469,7 @@ class CustomerSocialAuthService
         );
     }
 
-    private function linkCurrentCustomer(array $tenant, CustomerSessionContext $context, string $provider, array $profile): array
+    private function linkCurrentCustomer(array $tenant, CustomerSessionContext $context, string $provider, array $profile, string $redirectPath): array
     {
         $existing = CustomerSocialIdentity::query()
             ->where('tenant_id', $tenant['tenant_id'])
@@ -476,7 +486,7 @@ class CustomerSocialAuthService
         return [
             'resource' => array_merge(
                 $this->customerAuth->issueSession((string) $tenant['tenant_id'], $context->customerId(), null, $context->pinVerified() ? (string) now() : null),
-                ['social_linked' => true, 'provider' => $provider],
+                ['social_linked' => true, 'provider' => $provider, 'redirect' => $redirectPath],
             ),
             'status' => 200,
         ];
@@ -508,6 +518,23 @@ class CustomerSocialAuthService
     private function purpose(mixed $value): string
     {
         return trim((string) $value) === 'password_reset' ? 'password_reset' : 'login';
+    }
+
+    private function redirectPath(mixed $value): string
+    {
+        $redirect = trim((string) $value);
+
+        if ($redirect === '' || ! str_starts_with($redirect, '/') || str_starts_with($redirect, '//')) {
+            return '/';
+        }
+
+        $path = parse_url($redirect, PHP_URL_PATH);
+
+        if (! is_string($path) || in_array($path, ['/login', '/register', '/forgot-password', '/reset-password', '/pin'], true)) {
+            return '/';
+        }
+
+        return $redirect;
     }
 
     private function normalizeProvider(string $provider): string

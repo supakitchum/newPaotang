@@ -12,6 +12,7 @@ class CustomerLinkLauncher {
   const CustomerLinkLauncher();
 
   Future<bool> openSocialLogin(String provider, Uri uri) {
+    if (!isSafeSocialLoginUri(uri)) return Future.value(false);
     return openExternal(
       uri,
       preferSameWindowInLine: _isLineProvider(provider),
@@ -55,6 +56,11 @@ bool isSafeExternalLinkUri(Uri? uri) {
   final scheme = uri.scheme.trim().toLowerCase();
   if (scheme.isEmpty) return false;
   return !const {'javascript', 'data', 'file'}.contains(scheme);
+}
+
+bool isSafeSocialLoginUri(Uri? uri) {
+  if (!isSafeExternalLinkUri(uri)) return false;
+  return uri!.scheme.trim().toLowerCase() == 'https';
 }
 
 LinkLaunchStrategy chooseLinkLaunchStrategy({

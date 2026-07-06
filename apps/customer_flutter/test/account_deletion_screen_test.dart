@@ -39,6 +39,45 @@ void main() {
     expect(find.text('คำขอลบบัญชี'), findsOneWidget);
     expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsOneWidget);
   });
+
+  testWidgets('account deletion screen shows support email fallback',
+      (tester) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        MobileBootstrap.fromJson(const {
+          'site': {'display_name': 'Partner Shop'},
+          'support': {'email': 'support@example.test'},
+        }),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsOneWidget);
+    expect(find.text('ติดต่อร้านค้า support@example.test'), findsOneWidget);
+  });
+
+  testWidgets('account deletion screen shows runtime support URL fallback',
+      (tester) async {
+    await tester.pumpWidget(
+      _buildTestApp(
+        MobileBootstrap.fromJson(const {
+          'site': {'display_name': 'Partner Shop'},
+          'supportConfig': {
+            'channels': [
+              {
+                'type': 'supportUrl',
+                'value': 'https://partner.example.com/support',
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsOneWidget);
+    expect(find.text('ติดต่อร้านค้าผ่านเว็บไซต์'), findsOneWidget);
+  });
 }
 
 Widget _buildTestApp(MobileBootstrap bootstrap) {

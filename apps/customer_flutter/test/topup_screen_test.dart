@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
@@ -35,6 +37,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('checkout route'), findsOneWidget);
+  });
+
+  testWidgets('topup launcher shows Nuxt-style history row and channel buttons',
+      (
+    tester,
+  ) async {
+    await _pumpTopupRoute(tester, '/topup');
+
+    expect(find.text('เติมเงินเข้า G-Wallet'), findsWidgets);
+    expect(find.text('ดูประวัติเติมเงิน'), findsOneWidget);
+    expect(find.text('เลือกช่องทางการเติมเงิน'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('เลือกช่องทางการเติมเงิน'),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(
+        of: find.text('QR Code'),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('ดูประวัติเติมเงิน'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('topup history route'), findsOneWidget);
   });
 
   testWidgets('topup screen refreshes waiting request on realtime tick', (
@@ -100,6 +132,8 @@ void main() {
     expect(find.text('รายการ #top_realtime_pending'), findsOneWidget);
     expect(find.text('750.00 บาท'), findsOneWidget);
     expect(find.text('โบนัส 35.00 บาท'), findsOneWidget);
+    expect(find.text('สลิปชำระเงิน'), findsOneWidget);
+    expect(find.text('แนบสลิปชำระเงิน'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -234,6 +268,71 @@ void main() {
     expect(find.text('สร้าง Credit QR Code'), findsNothing);
   });
 
+  testWidgets('topup uses runtime payment labels and minimums', (
+    tester,
+  ) async {
+    final repository = _FailingCreateTopupRepository(
+      StateError('should not submit below runtime minimum'),
+    );
+
+    await _pumpTopupScreen(
+      tester,
+      TopupOverview(
+        bank: const TopupBankAccount(
+          bankName: '',
+          accountName: '',
+          accountNumber: '',
+        ),
+        paymentMethods: const [
+          TopupPaymentMethod(
+            key: 'qr',
+            label: 'QR Code',
+            enabled: true,
+            description: '',
+          ),
+          TopupPaymentMethod(
+            key: 'credit_card',
+            label: 'Credit Runtime QR',
+            enabled: true,
+            description: 'ขั้นต่ำตาม provider ของร้านค้า',
+            minimumAmount: 750,
+          ),
+          TopupPaymentMethod(
+            key: 'bank_transfer',
+            label: 'โอนธนาคาร',
+            enabled: true,
+            description: '',
+          ),
+        ],
+        enabledPaymentMethods: const {'qr', 'credit_card', 'bank_transfer'},
+        waiting: null,
+        histories: const [],
+        currentPage: 1,
+        lastPage: 1,
+      ),
+      repository: repository,
+    );
+
+    expect(find.text('Credit Runtime QR'), findsOneWidget);
+    expect(find.text('ขั้นต่ำตาม provider ของร้านค้า'), findsNothing);
+
+    await tester.tap(find.text('Credit Runtime QR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ขั้นต่ำตาม provider ของร้านค้า'), findsWidgets);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'สร้าง QR Code'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createCalls, 0);
+    expect(find.text('Credit Runtime QR ขั้นต่ำ 750.00 บาท'), findsOneWidget);
+    expect(
+      find.textContaining('should not submit below runtime minimum'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('bank transfer requires a slip before creating request', (
     tester,
   ) async {
@@ -278,10 +377,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('วันเวลาที่โอน'), findsOneWidget);
-    expect(
-      find.widgetWithText(OutlinedButton, 'เลือกวันเวลาที่โอน'),
-      findsOneWidget,
+    final transferTimeButton = find.ancestor(
+      of: find.byIcon(Icons.schedule),
+      matching: find.byType(OutlinedButton),
     );
+    expect(transferTimeButton, findsOneWidget);
     expect(find.text('สลิปโอนเงิน'), findsOneWidget);
     expect(find.text('แนบสลิป'), findsOneWidget);
     expect(
@@ -289,10 +389,6 @@ void main() {
       lessThan(tester.getTopLeft(find.text('แนบสลิป')).dy),
     );
 
-    final transferTimeButton = find.widgetWithText(
-      OutlinedButton,
-      'เลือกวันเวลาที่โอน',
-    );
     await Scrollable.ensureVisible(
       tester.element(transferTimeButton),
       alignment: 0.45,
@@ -651,7 +747,8 @@ void main() {
   testWidgets('waiting topup asks for confirmation before cancelling', (
     tester,
   ) async {
-    final repository = _CancelTopupRepository();
+    final cancelGate = Completer<void>();
+    final repository = _CancelTopupRepository(cancelGate: cancelGate);
 
     await _pumpTopupScreen(
       tester,
@@ -721,6 +818,22 @@ void main() {
 
     await tapCancelWaiting();
     await tester.tap(find.text('ยืนยันยกเลิก'));
+    await tester.pump();
+
+    expect(find.text('กำลังยกเลิก...'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(
+              FilledButton,
+              'กำลังยกเลิก...',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    cancelGate.complete();
     await tester.pumpAndSettle();
 
     expect(repository.cancelCalls, 1);
@@ -767,6 +880,12 @@ Future<void> _pumpTopupRoute(
         path: '/my-wallet',
         builder: (context, state) => const Scaffold(
           body: Text('wallet route'),
+        ),
+      ),
+      GoRoute(
+        path: '/topup/history',
+        builder: (context, state) => const Scaffold(
+          body: Text('topup history route'),
         ),
       ),
     ],
@@ -922,9 +1041,11 @@ class _FailingCreateTopupRepository extends TopupRepository {
 }
 
 class _CancelTopupRepository extends TopupRepository {
-  _CancelTopupRepository({this.error}) : super(_testApiClient());
+  _CancelTopupRepository({this.error, this.cancelGate})
+      : super(_testApiClient());
 
   final Object? error;
+  final Completer<void>? cancelGate;
 
   int cancelCalls = 0;
   final cancelledIds = <String>[];
@@ -933,6 +1054,7 @@ class _CancelTopupRepository extends TopupRepository {
   Future<TopupRequestItem> cancel(String id) async {
     cancelCalls++;
     cancelledIds.add(id);
+    await cancelGate?.future;
     final error = this.error;
     if (error != null) throw error;
     return TopupRequestItem(

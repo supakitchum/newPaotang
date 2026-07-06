@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'customer_loading_indicator.dart';
+
 class PinConfirmationStep extends StatelessWidget {
   const PinConfirmationStep({
     required this.title,
@@ -72,7 +74,9 @@ class PinConfirmationStep extends StatelessWidget {
               ],
               if (saving) ...[
                 const SizedBox(height: 16),
-                const CircularProgressIndicator(),
+                CustomerLoadingMark(
+                  semanticLabel: title,
+                ),
               ],
               const SizedBox(height: 12),
               if (biometricEnabled) ...[

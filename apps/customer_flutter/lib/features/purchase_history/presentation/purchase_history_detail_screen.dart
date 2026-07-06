@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
@@ -25,17 +26,49 @@ class PurchaseHistoryDetailScreen extends ConsumerWidget {
       title: l10n.purchaseHistoryDetailTitle,
       currentPath: '/profile',
       sensitive: true,
-      child: ListView(
-        children: [
-          CustomerPageBody(
-            child: AsyncStateView(
-              value: order,
-              data: (item) => _PurchaseReceipt(order: item),
-              empty: const _PurchaseReceiptEmpty(),
+      child: _PurchaseReceiptBackground(
+        child: ListView(
+          children: [
+            CustomerPageBody(
+              maxWidth: 520,
+              top: 24,
+              mobileHorizontal: 20,
+              wideHorizontal: 28,
+              child: AsyncStateView(
+                value: order,
+                data: (item) => _PurchaseReceipt(order: item),
+                empty: const _PurchaseReceiptEmpty(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _PurchaseReceiptBackground extends StatelessWidget {
+  const _PurchaseReceiptBackground({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final primary = colorScheme.primary;
+    final secondary = colorScheme.secondary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            primary,
+            Color.lerp(primary, secondary, 0.56) ?? secondary,
+          ],
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -51,32 +84,35 @@ class _PurchaseReceipt extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Card(
-          margin: EdgeInsets.zero,
+        DecoratedBox(
+          decoration:
+              _purchaseHistoryDetailSurfaceDecoration(context, radius: 8),
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _ReceiptBrand(),
-                const SizedBox(height: 18),
+                const SizedBox(height: 26),
                 Text(
                   l10n.purchaseHistoryReceiptTitle,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
+                        height: 1.35,
                       ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 Text(
                   l10n.purchaseHistoryReceiptSubtitle,
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        height: 1.45,
+                      ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 26),
                 _ReceiptSection(
                   rows: [
                     _ReceiptRow(
@@ -104,9 +140,9 @@ class _PurchaseReceipt extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 24),
                 _TotalRow(order: order),
-                const SizedBox(height: 12),
+                const SizedBox(height: 22),
                 _ReceiptMeta(order: order),
               ],
             ),
@@ -128,14 +164,49 @@ class _PurchaseReceipt extends StatelessWidget {
   }
 }
 
-class _ReceiptBrand extends StatelessWidget {
+class _ReceiptBrand extends ConsumerWidget {
   const _ReceiptBrand();
 
   @override
-  Widget build(BuildContext context) {
-    return const TenantBrandHeader(
-      size: 58,
-      icon: Icons.receipt_long_outlined,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final productLabel = ref
+            .watch(mobileBootstrapProvider)
+            .valueOrNull
+            ?.lotteryProductLabel
+            .trim() ??
+        '';
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const TenantBrandHeader(
+          size: 58,
+          maxWidth: 58,
+          showName: false,
+          icon: Icons.receipt_long_outlined,
+        ),
+        if (productLabel.isNotEmpty) ...[
+          const SizedBox(width: 18),
+          SizedBox(
+            height: 38,
+            child: VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: colorScheme.outlineVariant,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Text(
+            productLabel,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -147,13 +218,14 @@ class _ReceiptSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        const Divider(height: 1),
-        const SizedBox(height: 10),
+        Divider(height: 1, color: colorScheme.outlineVariant),
+        const SizedBox(height: 18),
         for (final row in rows)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: 18),
             child: row,
           ),
       ],
@@ -170,12 +242,22 @@ class _ReceiptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           flex: 4,
-          child: Text(label, style: TextStyle(color: Colors.grey.shade700)),
+          child: Text(
+            label,
+            style: textTheme.titleSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -183,8 +265,9 @@ class _ReceiptRow extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: TextStyle(
-              color: highlighted ? Theme.of(context).colorScheme.primary : null,
+            style: textTheme.titleSmall?.copyWith(
+              color: highlighted ? colorScheme.primary : colorScheme.onSurface,
+              fontSize: 18,
               fontWeight: FontWeight.w900,
               height: 1.35,
             ),
@@ -203,19 +286,26 @@ class _TotalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Text(
             l10n.purchaseHistoryTotalLabel,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
           ),
         ),
         Text(
           formatBaht(order.total),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w900,
+                height: 1,
               ),
         ),
       ],
@@ -231,9 +321,10 @@ class _ReceiptMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -245,9 +336,21 @@ class _ReceiptMeta extends StatelessWidget {
               l10n.purchaseHistoryTransactionAt(
                 localizedPurchaseTransactionDate(context, order),
               ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
             ),
-            const SizedBox(height: 4),
-            Text(l10n.purchaseHistoryReference(order.displayReference)),
+            const SizedBox(height: 7),
+            Text(
+              l10n.purchaseHistoryReference(order.displayReference),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+            ),
           ],
         ),
       ),
@@ -263,8 +366,8 @@ class _TicketList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _purchaseHistoryDetailSurfaceDecoration(context, radius: 14),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -283,11 +386,7 @@ class _TicketList extends StatelessWidget {
               runSpacing: 8,
               children: [
                 for (final ticket in order.tickets)
-                  Chip(
-                    label: Text(ticket.number),
-                    avatar: const Icon(Icons.confirmation_number_outlined),
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  _PurchaseTicketPill(number: ticket.number),
               ],
             ),
           ],
@@ -302,8 +401,8 @@ class _PurchaseReceiptEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _purchaseHistoryDetailSurfaceDecoration(context, radius: 14),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Text(
@@ -313,4 +412,64 @@ class _PurchaseReceiptEmpty extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PurchaseTicketPill extends StatelessWidget {
+  const _PurchaseTicketPill({required this.number});
+
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.confirmation_number_outlined,
+              size: 15,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              number,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+BoxDecoration _purchaseHistoryDetailSurfaceDecoration(
+  BuildContext context, {
+  required double radius,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    color: colorScheme.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
 }

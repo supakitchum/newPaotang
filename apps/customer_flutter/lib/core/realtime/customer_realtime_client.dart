@@ -18,6 +18,7 @@ enum CustomerRealtimeStatus {
   connecting,
   authenticating,
   connected,
+  reconnecting,
   error,
 }
 
@@ -66,14 +67,17 @@ class CustomerRealtimeClient {
     required MobileRealtimeConfig config,
     required ApiClient api,
     CustomerRealtimeSocketFactory? socketFactory,
+    Duration reconnectDelay = const Duration(seconds: 10),
   })  : _config = config,
         _api = api,
+        _reconnectDelay = reconnectDelay,
         _socketFactory =
             socketFactory ?? ((uri) => WebSocketCustomerRealtimeSocket(uri));
 
   final MobileRealtimeConfig _config;
   final ApiClient _api;
   final CustomerRealtimeSocketFactory _socketFactory;
+  final Duration _reconnectDelay;
   final StreamController<CustomerRealtimeEvent> _events =
       StreamController<CustomerRealtimeEvent>.broadcast();
   final Set<String> _desiredChannels = {};
@@ -82,7 +86,9 @@ class CustomerRealtimeClient {
 
   CustomerRealtimeSocket? _socket;
   StreamSubscription<Object?>? _subscription;
+  Timer? _reconnectTimer;
   String _socketId = '';
+  bool _disposed = false;
 
   CustomerRealtimeStatus status = CustomerRealtimeStatus.idle;
   String error = '';
@@ -92,6 +98,8 @@ class CustomerRealtimeClient {
   Future<void> connect(Iterable<String> channels) async {
     updateChannels(channels);
     if (!_config.configured || _desiredChannels.isEmpty) {
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
       status = _config.configured
           ? CustomerRealtimeStatus.idle
           : CustomerRealtimeStatus.unavailable;
@@ -99,45 +107,71 @@ class CustomerRealtimeClient {
     }
 
     await disconnect(sendUnsubscribe: false);
-    status = CustomerRealtimeStatus.connecting;
+    await _openSocket(reconnecting: false);
+  }
+
+  Future<void> _openSocket({required bool reconnecting}) async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    status = reconnecting
+        ? CustomerRealtimeStatus.reconnecting
+        : CustomerRealtimeStatus.connecting;
     error = '';
 
     try {
-      _socket = _socketFactory(CustomerRealtimeProtocol.socketUri(_config));
-      _subscription = _socket!.stream.listen(
+      final socket =
+          _socketFactory(CustomerRealtimeProtocol.socketUri(_config));
+      _socket = socket;
+      _subscription = socket.stream.listen(
         (raw) => unawaited(_handleRaw(raw)),
         onError: (Object err) {
           error = err.toString();
           status = CustomerRealtimeStatus.error;
         },
-        onDone: () {
-          _socket = null;
-          _socketId = '';
-          _subscribedChannels.clear();
-          _subscribingChannels.clear();
-          if (status != CustomerRealtimeStatus.idle) {
-            status = CustomerRealtimeStatus.unavailable;
-          }
-        },
+        onDone: () => _handleSocketDone(socket),
       );
     } catch (err) {
       error = err.toString();
       status = CustomerRealtimeStatus.error;
+      _scheduleReconnect();
     }
   }
 
   void updateChannels(Iterable<String> channels) {
+    final nextChannels = channels
+        .map((channel) => channel.trim())
+        .where((channel) => channel.isNotEmpty)
+        .toSet();
+    final removedChannels = _subscribedChannels
+        .where((channel) => !nextChannels.contains(channel))
+        .toList(growable: false);
+
     _desiredChannels
       ..clear()
-      ..addAll(
-        channels
-            .map((channel) => channel.trim())
-            .where((channel) => channel.isNotEmpty),
-      );
+      ..addAll(nextChannels);
+
+    final socket = _socket;
+    if (socket != null && _socketId.isNotEmpty) {
+      for (final channel in removedChannels) {
+        _send(socket, {
+          'event': 'pusher:unsubscribe',
+          'data': {'channel': channel},
+        });
+        _subscribedChannels.remove(channel);
+        _subscribingChannels.remove(channel);
+      }
+    }
+
+    if (_desiredChannels.isEmpty) {
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+    }
     _syncSubscriptions();
   }
 
   Future<void> disconnect({bool sendUnsubscribe = true}) async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     final socket = _socket;
     _socket = null;
     _socketId = '';
@@ -160,6 +194,7 @@ class CustomerRealtimeClient {
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     await disconnect();
     await _events.close();
   }
@@ -195,14 +230,18 @@ class CustomerRealtimeClient {
       return;
     }
 
-    final eventName = message.normalizedEvent;
+    final dataMap = message.dataMap;
+    final eventName = normalizeRealtimeEventNameWithPayload(
+      eventName: message.event,
+      payload: dataMap,
+    );
     if (eventName.isEmpty) return;
 
     _events.add(
       CustomerRealtimeEvent(
         name: eventName,
         channel: message.channel,
-        payload: message.dataMap,
+        payload: dataMap,
       ),
     );
   }
@@ -254,6 +293,40 @@ class CustomerRealtimeClient {
       },
     );
     return unwrapPayload(response.data);
+  }
+
+  void _handleSocketDone(CustomerRealtimeSocket socket) {
+    if (_socket != null && _socket != socket) return;
+
+    _socket = null;
+    _socketId = '';
+    _subscribedChannels.clear();
+    _subscribingChannels.clear();
+    if (status == CustomerRealtimeStatus.idle || _disposed) return;
+
+    if (_config.configured && _desiredChannels.isNotEmpty) {
+      _scheduleReconnect();
+    } else {
+      status = CustomerRealtimeStatus.unavailable;
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed ||
+        !_config.configured ||
+        _desiredChannels.isEmpty ||
+        _reconnectTimer != null) {
+      return;
+    }
+
+    status = CustomerRealtimeStatus.reconnecting;
+    _reconnectTimer = Timer(_reconnectDelay, () {
+      _reconnectTimer = null;
+      if (_disposed || !_config.configured || _desiredChannels.isEmpty) {
+        return;
+      }
+      unawaited(_openSocket(reconnecting: true));
+    });
   }
 
   void _send(CustomerRealtimeSocket socket, Map<String, dynamic> payload) {

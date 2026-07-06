@@ -6,6 +6,7 @@ import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
 
 class TermsScreen extends ConsumerWidget {
   const TermsScreen({super.key});
@@ -32,54 +33,50 @@ class TermsScreen extends ConsumerWidget {
     return AppShell(
       title: l10n.contentTermsTitle,
       currentPath: '/profile',
-      child: ListView(
-        children: [
-          CustomerPageBody(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroCard(
-                  icon: Icons.description_outlined,
-                  title: parsed.title,
-                  subtitle: siteName,
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SectionPill(label: l10n.contentTermsSectionTitle),
-                        const SizedBox(height: 18),
-                        if (parsed.numbered.isNotEmpty)
-                          for (final term in parsed.numbered)
-                            _NumberedText(number: term.number, text: term.text)
-                        else
-                          Text(parsed.plainText, style: _bodyStyle(context)),
-                        for (final paragraph in parsed.extraParagraphs) ...[
-                          const SizedBox(height: 16),
-                          Text(paragraph, style: _bodyStyle(context)),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+      backPath: '/profile',
+      compactHeader: true,
+      child: _InfoPageShell(
+        heroTitle: parsed.title,
+        heroSubtitle: siteName,
+        heroIcon: Icons.description_outlined,
+        heroHeight: 330,
+        sheetOverlap: 82,
+        child: _InfoCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionPill(label: l10n.contentTermsSectionTitle),
+              const SizedBox(height: 20),
+              if (parsed.numbered.isNotEmpty)
+                for (final term in parsed.numbered)
+                  _NumberedText(number: term.number, text: term.text)
+              else
+                Text(parsed.plainText, style: _bodyStyle(context)),
+              for (final paragraph in parsed.extraParagraphs) ...[
+                const SizedBox(height: 18),
+                Text(paragraph, style: _bodyStyle(context)),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class PrivacyPolicyScreen extends ConsumerWidget {
+class PrivacyPolicyScreen extends ConsumerStatefulWidget {
   const PrivacyPolicyScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PrivacyPolicyScreen> createState() =>
+      _PrivacyPolicyScreenState();
+}
+
+class _PrivacyPolicyScreenState extends ConsumerState<PrivacyPolicyScreen> {
+  String _noticeMessage = '';
+
+  @override
+  Widget build(BuildContext context) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final l10n = context.l10n;
     final siteName = bootstrap.maybeWhen(
@@ -104,67 +101,57 @@ class PrivacyPolicyScreen extends ConsumerWidget {
     return AppShell(
       title: l10n.contentPrivacyTitle,
       currentPath: '/profile',
-      child: ListView(
-        children: [
-          CustomerPageBody(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroCard(
-                  icon: Icons.privacy_tip_outlined,
-                  title: parsed.title,
-                  subtitle: l10n.contentPrivacyHeroSubtitle(siteName),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SectionPill(label: l10n.contentPrivacySectionTitle),
-                        const SizedBox(height: 18),
-                        if (parsed.numbered.isNotEmpty)
-                          for (final term in parsed.numbered)
-                            _NumberedText(number: term.number, text: term.text)
-                        else
-                          Text(parsed.plainText, style: _bodyStyle(context)),
-                        for (final paragraph in parsed.extraParagraphs) ...[
-                          const SizedBox(height: 16),
-                          Text(paragraph, style: _bodyStyle(context)),
-                        ],
-                        if (isSafeExternalLinkUri(policyUri)) ...[
-                          const SizedBox(height: 18),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: () async {
-                                final opened = await ref
-                                    .read(customerLinkLauncherProvider)
-                                    .openExternal(policyUri!);
-                                if (!opened && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content:
-                                          Text(l10n.contentPrivacyOpenFailed),
-                                    ),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.open_in_new),
-                              label: Text(l10n.contentPrivacyOpenPolicy),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+      backPath: '/profile',
+      compactHeader: true,
+      child: _InfoPageShell(
+        heroTitle: parsed.title,
+        heroSubtitle: l10n.contentPrivacyHeroSubtitle(siteName),
+        heroIcon: Icons.privacy_tip_outlined,
+        heroHeight: 330,
+        sheetOverlap: 82,
+        child: _InfoCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionPill(label: l10n.contentPrivacySectionTitle),
+              const SizedBox(height: 20),
+              if (parsed.numbered.isNotEmpty)
+                for (final term in parsed.numbered)
+                  _NumberedText(number: term.number, text: term.text)
+              else
+                Text(parsed.plainText, style: _bodyStyle(context)),
+              for (final paragraph in parsed.extraParagraphs) ...[
+                const SizedBox(height: 18),
+                Text(paragraph, style: _bodyStyle(context)),
+              ],
+              if (_noticeMessage.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _InfoInlineNotice(message: _noticeMessage),
+              ],
+              if (isSafeExternalLinkUri(policyUri)) ...[
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      setState(() => _noticeMessage = '');
+                      final opened = await ref
+                          .read(customerLinkLauncherProvider)
+                          .openExternal(policyUri!);
+                      if (!opened && context.mounted) {
+                        setState(() {
+                          _noticeMessage = l10n.contentPrivacyOpenFailed;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_new),
+                    label: Text(l10n.contentPrivacyOpenPolicy),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -179,40 +166,17 @@ class TermRewardScreen extends StatelessWidget {
     return AppShell(
       title: l10n.contentRewardTermsTitle,
       currentPath: '/',
-      child: ListView(
-        children: [
-          CustomerPageBody(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroCard(
-                  icon: Icons.emoji_events_outlined,
-                  title: l10n.contentRewardTermsHeroTitle,
-                  subtitle: l10n.contentRewardTermsHeroSubtitle,
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        const _RewardHeaderRow(),
-                        const Divider(height: 18),
-                        for (final row in _rewardRows(l10n))
-                          _RewardRow(
-                            title: row.title,
-                            count: row.count,
-                            amount: row.amount,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      backPath: '/',
+      compactHeader: true,
+      child: _InfoPageShell(
+        heroTitle: l10n.contentRewardTermsTitle,
+        heroSubtitle: '',
+        heroIcon: Icons.emoji_events_outlined,
+        heroHeight: 176,
+        sheetOverlap: 26,
+        showHeroContent: false,
+        bottom: 96,
+        child: _RewardTermsCard(l10n: l10n),
       ),
     );
   }
@@ -227,49 +191,352 @@ class LotteryKnowledgeScreen extends StatelessWidget {
     return AppShell(
       title: l10n.contentKnowledgeTitle,
       currentPath: '/profile',
-      child: ListView(
-        children: [
-          CustomerPageBody(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroCard(
-                  icon: Icons.school_outlined,
-                  title: l10n.contentKnowledgeTitle,
-                  subtitle: l10n.contentKnowledgeSubtitle,
-                ),
-                const SizedBox(height: 12),
-                for (final section in _knowledgeSections(l10n))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _KnowledgeCard(section: section),
+      backPath: '/profile',
+      compactHeader: true,
+      child: _InfoPageShell(
+        heroTitle: l10n.contentKnowledgeTitle,
+        heroSubtitle: l10n.contentKnowledgeSubtitle,
+        heroIcon: Icons.school_outlined,
+        heroHeight: 340,
+        sheetOverlap: 88,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final section in _knowledgeSections(l10n))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _KnowledgeCard(section: section),
+              ),
+            const SizedBox(height: 2),
+            const _KnowledgeFooter(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPageShell extends StatelessWidget {
+  const _InfoPageShell({
+    required this.heroTitle,
+    required this.heroSubtitle,
+    required this.heroIcon,
+    required this.heroHeight,
+    required this.sheetOverlap,
+    required this.child,
+    this.showHeroContent = true,
+    this.bottom = 128,
+  });
+
+  final String heroTitle;
+  final String heroSubtitle;
+  final IconData heroIcon;
+  final double heroHeight;
+  final double sheetOverlap;
+  final Widget child;
+  final bool showHeroContent;
+  final double bottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth <= 390;
+        final height =
+            narrow && heroHeight >= 300 ? heroHeight - 14 : heroHeight;
+        final overlap =
+            narrow && sheetOverlap >= 70 ? sheetOverlap - 6 : sheetOverlap;
+
+        return ColoredBox(
+          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.96) ??
+              colorScheme.surface,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _InfoHeroBand(
+                    height: height,
+                    overlap: overlap,
+                    title: heroTitle,
+                    subtitle: heroSubtitle,
+                    icon: heroIcon,
+                    showContent: showHeroContent,
                   ),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Text(
-                          l10n.contentKnowledgeMoreInfo,
-                          style: _bodyStyle(context),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.contentKnowledgeContact,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                  Padding(
+                    padding: EdgeInsets.only(top: height - overlap),
+                    child: CustomerPageBody(
+                      maxWidth: 640,
+                      top: 0,
+                      bottom: bottom,
+                      mobileHorizontal: narrow ? 14 : 18,
+                      wideHorizontal: 18,
+                      child: child,
                     ),
                   ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _InfoHeroBand extends StatelessWidget {
+  const _InfoHeroBand({
+    required this.height,
+    required this.overlap,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.showContent,
+  });
+
+  final double height;
+  final double overlap;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool showContent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
+
+    return SizedBox(
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
+                  colorScheme.primary,
+            ],
+          ),
+        ),
+        child: showContent
+            ? CustomerPageBody(
+                maxWidth: 640,
+                top: 24,
+                bottom: overlap + 24,
+                mobileHorizontal: 18,
+                wideHorizontal: 18,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TenantBrandHeader(
+                      icon: icon,
+                      showName: false,
+                      size: narrow ? 62 : 72,
+                    ),
+                    if (subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        subtitle.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          height: 1.35,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      title.trim(),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: colorScheme.onPrimary,
+                                fontSize: narrow ? 25 : 29,
+                                fontWeight: FontWeight.w900,
+                                height: 1.22,
+                              ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-              ],
+              )
+            : const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
+    final effectivePadding = narrow
+        ? const EdgeInsets.symmetric(horizontal: 22, vertical: 24)
+        : padding;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.11),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: effectivePadding,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _RewardTermsCard extends StatelessWidget {
+  const _RewardTermsCard({required this.l10n});
+
+  final CustomerLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _InfoCard(
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
+      child: Column(
+        children: [
+          const _RewardOfficeMark(),
+          const SizedBox(height: 20),
+          Text(
+            l10n.contentRewardTermsHeroTitle,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                  height: 1.24,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.contentRewardTermsHeroSubtitle,
+            style: _bodyStyle(context).copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
             ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          const _RewardHeaderRow(),
+          const Divider(height: 18),
+          for (final row in _rewardRows(l10n))
+            _RewardRow(
+              title: row.title,
+              count: row.count,
+              amount: row.amount,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardOfficeMark extends StatelessWidget {
+  const _RewardOfficeMark();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: colorScheme.primary, width: 1.4),
+            borderRadius: BorderRadius.circular(8),
+            color: colorScheme.surface,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Text(
+              l10n.contentRewardTermsOfficeAbbr,
+              style: TextStyle(
+                color: colorScheme.primary,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Flexible(
+          child: Text(
+            l10n.contentRewardTermsOfficeName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              height: 1.25,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KnowledgeFooter extends StatelessWidget {
+  const _KnowledgeFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Column(
+        children: [
+          Text(
+            l10n.contentKnowledgeMoreInfo,
+            style: _bodyStyle(context).copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: MediaQuery.sizeOf(context).width <= 390 ? 18 : 20,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.contentKnowledgeContact,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontSize: MediaQuery.sizeOf(context).width <= 390 ? 18 : 20,
+              fontWeight: FontWeight.w900,
+              height: 1.45,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -277,47 +544,45 @@ class LotteryKnowledgeScreen extends StatelessWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+class _InfoInlineNotice extends StatelessWidget {
+  const _InfoInlineNotice({required this.message});
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
+            colorScheme.errorContainer.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Color.lerp(colorScheme.error, colorScheme.surface, 0.68) ??
+              colorScheme.error.withValues(alpha: 0.32),
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.error_outline_rounded,
+              color: colorScheme.error,
+              size: 20,
             ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                    ),
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -333,18 +598,23 @@ class _SectionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
+        color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.9),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
+            color: colorScheme.primary,
+            fontSize: 14,
             fontWeight: FontWeight.w900,
+            height: 1,
           ),
         ),
       ),
@@ -353,31 +623,63 @@ class _SectionPill extends StatelessWidget {
 }
 
 class _NumberedText extends StatelessWidget {
-  const _NumberedText({required this.number, required this.text});
+  const _NumberedText({
+    required this.number,
+    required this.text,
+    this.large = false,
+  });
 
   final String number;
   final String text;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
+    final colorScheme = Theme.of(context).colorScheme;
+    final fontSize = large ? (narrow ? 19.0 : 22.0) : (narrow ? 16.0 : 18.0);
+    final rowGap = large ? (narrow ? 14.0 : 18.0) : (narrow ? 14.0 : 16.0);
+    final gridWidth = large ? (narrow ? 38.0 : 42.0) : (narrow ? 38.0 : 40.0);
+    final bottom = large ? (narrow ? 24.0 : 28.0) : (narrow ? 18.0 : 20.0);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: bottom),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 17,
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
+          SizedBox(
+            width: gridWidth,
+            child: Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              margin: EdgeInsets.only(top: large ? 3 : 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                number,
+                style: TextStyle(
+                  color: colorScheme.onPrimary,
+                  fontSize: large ? 18 : 17,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(text, style: _bodyStyle(context))),
+          SizedBox(width: rowGap),
+          Expanded(
+            child: Text(
+              text,
+              style: _bodyStyle(context).copyWith(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w800,
+                height: large ? 1.55 : 1.6,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -390,21 +692,25 @@ class _RewardHeaderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final style = TextStyle(
+      color: Theme.of(context).colorScheme.primary,
+      fontSize: 13,
+      fontWeight: FontWeight.w900,
+      height: 1.25,
+    );
+
     return Row(
       children: [
         Expanded(
           flex: 5,
-          child: Text(
-            l10n.contentRewardHeaderPrizeType,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
+          child: Text(l10n.contentRewardHeaderPrizeType, style: style),
         ),
         Expanded(
           flex: 3,
           child: Text(
             l10n.contentRewardHeaderCount,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w900),
+            style: style,
           ),
         ),
         Expanded(
@@ -412,7 +718,7 @@ class _RewardHeaderRow extends StatelessWidget {
           child: Text(
             l10n.contentRewardHeaderAmount,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontWeight: FontWeight.w900),
+            style: style,
           ),
         ),
       ],
@@ -433,6 +739,7 @@ class _RewardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -440,14 +747,27 @@ class _RewardRow extends StatelessWidget {
         children: [
           Expanded(
             flex: 5,
-            child: Text(title, style: const TextStyle(height: 1.35)),
+            child: Text(
+              title,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                height: 1.35,
+              ),
+            ),
           ),
           Expanded(
             flex: 3,
             child: Text(
               count,
               textAlign: TextAlign.center,
-              style: const TextStyle(height: 1.35),
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
             ),
           ),
           Expanded(
@@ -455,7 +775,12 @@ class _RewardRow extends StatelessWidget {
             child: Text(
               amount,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w800, height: 1.35),
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                height: 1.35,
+              ),
             ),
           ),
         ],
@@ -471,27 +796,33 @@ class _KnowledgeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              section.title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
+
+    return _InfoCard(
+      padding: EdgeInsets.symmetric(
+        horizontal: narrow ? 22 : 26,
+        vertical: narrow ? 24 : 28,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            section.title,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: narrow ? 21 : 24,
+                  fontWeight: FontWeight.w900,
+                  height: 1.3,
+                ),
+          ),
+          const SizedBox(height: 24),
+          for (var index = 0; index < section.items.length; index++)
+            _NumberedText(
+              number: '${index + 1}',
+              text: section.items[index],
+              large: true,
             ),
-            const SizedBox(height: 16),
-            for (var index = 0; index < section.items.length; index++)
-              _NumberedText(
-                number: '${index + 1}',
-                text: section.items[index],
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -509,7 +840,7 @@ class _ParsedTerms {
     String content, {
     required String fallbackTitle,
   }) {
-    final lines = content
+    final lines = _normalizeInfoContentText(content)
         .split(RegExp(r'\r?\n'))
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
@@ -555,6 +886,106 @@ class _ParsedTerms {
   final String plainText;
 }
 
+String _normalizeInfoContentText(String value) {
+  final decoded = _decodeInfoHtmlEntities(value.trim());
+  if (decoded.isEmpty) return '';
+
+  final withBreaks = decoded
+      .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n')
+      .replaceAll(
+        RegExp(
+          r'</\s*(p|div|li|h[1-6]|section|article|ul|ol)\s*>',
+          caseSensitive: false,
+        ),
+        '\n',
+      )
+      .replaceAll(
+        RegExp(
+          r'<\s*(p|div|li|h[1-6]|section|article|ul|ol)(\s[^>]*)?>',
+          caseSensitive: false,
+        ),
+        '',
+      );
+
+  return _decodeInfoHtmlEntities(withBreaks.replaceAll(RegExp(r'<[^>]+>'), ''))
+      .split(RegExp(r'\r?\n'))
+      .map(_normalizeInfoMarkdownLine)
+      .where((line) => line.isNotEmpty)
+      .join('\n');
+}
+
+String _normalizeInfoMarkdownLine(String line) {
+  var normalized = line.trim();
+  if (normalized.isEmpty) return '';
+  if (RegExp(r'^(-{3,}|\*{3,}|_{3,})$').hasMatch(normalized)) return '';
+
+  normalized = normalized.replaceFirst(RegExp(r'^>\s?'), '');
+  normalized = normalized.replaceFirst(RegExp(r'^#{1,6}\s+'), '');
+  normalized = normalized.replaceFirst(RegExp(r'^\s*[-*+]\s+'), '');
+  normalized = normalized.replaceFirst(RegExp(r'^\[[ xX]\]\s+'), '');
+  normalized = normalized.replaceFirstMapped(
+    RegExp(r'^(\d+)[.)]\s+'),
+    (match) => '${match.group(1)}. ',
+  );
+
+  return _stripInfoInlineMarkdown(normalized).trim();
+}
+
+String _stripInfoInlineMarkdown(String value) {
+  var normalized = value;
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'!\[([^\]]*)\]\([^)]+\)'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'\[([^\]]+)\]\([^)]+\)'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'\*\*([^*]+)\*\*'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'__([^_]+)__'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'~~([^~]+)~~'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'`([^`]+)`'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'\*([^*]+)\*'),
+    (match) => match.group(1) ?? '',
+  );
+  normalized = normalized.replaceAllMapped(
+    RegExp(r'_([^_]+)_'),
+    (match) => match.group(1) ?? '',
+  );
+  return normalized;
+}
+
+String _decodeInfoHtmlEntities(String value) {
+  var decoded = value;
+  for (var index = 0; index < 2; index++) {
+    final next = decoded
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#34;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
+    if (next == decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
 class _NumberedTerm {
   const _NumberedTerm(this.number, this.text);
 
@@ -582,15 +1013,16 @@ class _RewardDefinition {
 }
 
 TextStyle _bodyStyle(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
   return Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.grey.shade800,
-            fontWeight: FontWeight.w700,
-            height: 1.55,
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+            height: 1.6,
           ) ??
       TextStyle(
-        color: Colors.grey.shade800,
-        fontWeight: FontWeight.w700,
-        height: 1.55,
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w800,
+        height: 1.6,
       );
 }
 

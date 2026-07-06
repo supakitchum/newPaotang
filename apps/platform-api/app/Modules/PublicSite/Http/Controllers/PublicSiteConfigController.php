@@ -66,6 +66,7 @@ class PublicSiteConfigController extends Controller
         $data = $result['data'];
         $tenantId = (string) ($data['tenant_id'] ?? '');
         $line = is_array($data['line'] ?? null) ? $data['line'] : [];
+        $features = is_array($data['features'] ?? null) ? $data['features'] : [];
         $realtimeUrl = trim((string) config('platform.realtime.customer_public_url', ''));
         $realtimeKey = trim((string) config('platform.realtime.customer_public_key', 'newpaotang-customer')) ?: 'newpaotang-customer';
         $authProviders = $tenantId !== '' ? $this->socialAuth->enabledProviders($tenantId) : [];
@@ -142,12 +143,15 @@ class PublicSiteConfigController extends Controller
                     '/purchase-history',
                 ],
             ],
-            'feature_flags' => [
-                'native_biometric_unlock' => true,
-                'social_login_google' => in_array('google', $enabledAuthProviders, true),
-                'social_login_apple' => in_array('apple', $enabledAuthProviders, true),
-                'screen_security_native' => true,
-            ],
+            'feature_flags' => array_replace(
+                $features,
+                [
+                    'native_biometric_unlock' => (bool) ($features['native_biometric_unlock'] ?? true),
+                    'social_login_google' => in_array('google', $enabledAuthProviders, true),
+                    'social_login_apple' => in_array('apple', $enabledAuthProviders, true),
+                    'screen_security_native' => (bool) ($features['screen_security_native'] ?? true),
+                ],
+            ),
         ];
 
         return response()->json(['data' => $data]);

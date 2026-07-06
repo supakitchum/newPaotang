@@ -79,20 +79,25 @@ bool shouldRefreshLotteryStockFromRealtimeEvent({
   required CustomerRealtimeEvent event,
   required String gameId,
 }) {
+  final eventName = normalizeRealtimeEventNameWithPayload(
+    eventName: event.name,
+    payload: event.payload,
+  );
   final normalizedGameId = gameId.trim();
 
-  if (event.name == 'stock.availability.updated') {
+  if (eventName == 'stock.availability.updated') {
     return true;
   }
 
-  if (event.name != 'stock.price.updated') {
+  if (eventName != 'stock.price.updated') {
     return false;
   }
 
-  final payloadGameId =
-      (event.payload['game_id'] ?? event.payload['gameId'] ?? '')
-          .toString()
-          .trim();
+  final payload = normalizeRealtimePayload(event.payload);
+  final payloadGameId = _realtimePayloadText(
+    payload,
+    const ['game_id', 'gameId', 'game', 'game_uuid', 'gameUuid'],
+  );
 
   return payloadGameId.isEmpty ||
       normalizedGameId.isEmpty ||
@@ -102,18 +107,31 @@ bool shouldRefreshLotteryStockFromRealtimeEvent({
 LotteryStockPricePatch? lotteryStockPricePatchFromRealtimeEvent(
   CustomerRealtimeEvent event,
 ) {
-  if (event.name != 'stock.price.updated') return null;
-  if (int.tryParse(event.payload['set_size']?.toString() ?? '1') != 1) {
+  if (normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) !=
+      'stock.price.updated') {
     return null;
   }
-  final price = _realtimePriceDisplayAmount(event.payload);
+  final payload = normalizeRealtimePayload(event.payload);
+  final setSize = _realtimePayloadText(
+    payload,
+    const ['set_size', 'setSize', 'quantity', 'bundle_size', 'bundleSize'],
+    fallback: '1',
+  );
+  if (int.tryParse(setSize) != 1) {
+    return null;
+  }
+  final price = _realtimePriceDisplayAmount(payload);
   if (price <= 0) return null;
   _lotteryStockPricePatchSequence += 1;
   return LotteryStockPricePatch(
     price: price,
-    gameId: (event.payload['game_id'] ?? event.payload['gameId'] ?? '')
-        .toString()
-        .trim(),
+    gameId: _realtimePayloadText(
+      payload,
+      const ['game_id', 'gameId', 'game', 'game_uuid', 'gameUuid'],
+    ),
     flashKey: _lotteryStockPricePatchSequence,
   );
 }
@@ -121,19 +139,33 @@ LotteryStockPricePatch? lotteryStockPricePatchFromRealtimeEvent(
 LotteryStockAvailabilityPatch? lotteryStockAvailabilityPatchFromRealtimeEvent(
   CustomerRealtimeEvent event,
 ) {
-  if (event.name != 'stock.availability.updated') return null;
-  final number = _realtimeLotteryNumber(event.payload);
+  if (normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) !=
+      'stock.availability.updated') {
+    return null;
+  }
+  final payload = normalizeRealtimePayload(event.payload);
+  final number = _realtimeLotteryNumber(payload);
   if (number.isEmpty) return null;
-  final remainingCount =
-      int.tryParse(event.payload['remaining_count']?.toString() ?? '') ??
-          int.tryParse(event.payload['available_count']?.toString() ?? '') ??
-          0;
-  final normalizedStatus = (event.payload['status'] ??
-          event.payload['availability_status'] ??
-          (remainingCount > 0 ? 'available' : 'sold_out'))
-      .toString()
-      .trim()
-      .toLowerCase();
+  final remainingCount = _realtimePayloadInt(
+    payload,
+    const [
+      'remaining_count',
+      'remainingCount',
+      'available_count',
+      'availableCount',
+      'available',
+      'remaining',
+      'count',
+    ],
+  );
+  final normalizedStatus = (_realtimePayloadText(
+    payload,
+    const ['status', 'availability_status', 'availabilityStatus'],
+    fallback: remainingCount > 0 ? 'available' : 'sold_out',
+  )).toString().trim().toLowerCase();
   _lotteryStockAvailabilityPatchSequence += 1;
   return LotteryStockAvailabilityPatch(
     number: number,
@@ -141,20 +173,24 @@ LotteryStockAvailabilityPatch? lotteryStockAvailabilityPatchFromRealtimeEvent(
     status: normalizedStatus.isEmpty
         ? (remainingCount > 0 ? 'available' : 'sold_out')
         : normalizedStatus,
-    gameId: (event.payload['game_id'] ?? event.payload['gameId'] ?? '')
-        .toString()
-        .trim(),
+    gameId: _realtimePayloadText(
+      payload,
+      const ['game_id', 'gameId', 'game', 'game_uuid', 'gameUuid'],
+    ),
     flashKey: _lotteryStockAvailabilityPatchSequence,
   );
 }
 
 String _realtimeLotteryNumber(Map<String, Object?> payload) {
-  final raw = (payload['full_number'] ??
-          payload['number'] ??
-          payload['lottery_number'] ??
-          payload['fullNumber'] ??
-          '')
-      .toString();
+  final raw = _realtimePayloadText(payload, const [
+    'full_number',
+    'fullNumber',
+    'number',
+    'lottery_number',
+    'lotteryNumber',
+    'lottery_no',
+    'lotteryNo',
+  ]);
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   if (digits.isEmpty) return '';
   return digits.length <= 6
@@ -165,16 +201,84 @@ String _realtimeLotteryNumber(Map<String, Object?> payload) {
 double _realtimePriceDisplayAmount(Map<String, Object?> payload) {
   final price = payload['price'];
   final rawAmount = price is Map
-      ? _numericPrice(price['amount'])
-      : _numericPrice(payload['price_amount'] ?? payload['amount']);
+      ? _numericPrice(
+          price['amount'] ??
+              price['value'] ??
+              price['display_amount'] ??
+              price['displayAmount'],
+        )
+      : _numericPrice(
+          payload['price_amount'] ??
+              payload['priceAmount'] ??
+              payload['sale_price'] ??
+              payload['salePrice'] ??
+              payload['unit_price'] ??
+              payload['unitPrice'] ??
+              payload['amount'] ??
+              payload['display_price'] ??
+              payload['displayPrice'],
+        );
   if (rawAmount == null || rawAmount <= 0) return 0;
   return rawAmount >= 1000 ? rawAmount / 100 : rawAmount;
 }
 
+String _realtimePayloadText(
+  Map<String, Object?> payload,
+  List<String> keys, {
+  String fallback = '',
+}) {
+  for (final key in keys) {
+    final value = payload[key];
+    if (value == null) continue;
+    final text = _realtimeScalarText(value);
+    if (text.isNotEmpty) return text;
+  }
+  return fallback;
+}
+
+int _realtimePayloadInt(Map<String, Object?> payload, List<String> keys) {
+  for (final key in keys) {
+    final value = payload[key];
+    if (value is num && value.isFinite) return value.toInt();
+    final parsed = int.tryParse(_realtimeScalarText(value));
+    if (parsed != null) return parsed;
+  }
+  return 0;
+}
+
 double? _numericPrice(Object? value) {
   if (value is num && value.isFinite) return value.toDouble();
-  if (value is String) return double.tryParse(value);
+  final scalar = _realtimeScalarText(value);
+  if (scalar.isNotEmpty) return double.tryParse(scalar);
   return null;
+}
+
+String _realtimeScalarText(Object? value, [int depth = 0]) {
+  if (value == null || depth > 3) return '';
+  if (value is Map) {
+    for (final key in const [
+      'value',
+      'code',
+      'key',
+      'id',
+      'uuid',
+      'game_id',
+      'gameId',
+      'amount',
+    ]) {
+      final nested = _realtimeScalarText(value[key], depth + 1);
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
+  }
+  if (value is Iterable) {
+    for (final item in value) {
+      final nested = _realtimeScalarText(item, depth + 1);
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
+  }
+  return value.toString().trim();
 }
 
 class LotteryStockRealtimeMonitor extends ConsumerStatefulWidget {

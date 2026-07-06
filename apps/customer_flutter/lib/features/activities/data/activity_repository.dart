@@ -165,7 +165,7 @@ class ActivityRepository {
       auth: false,
     );
     var item = ActivityItem.fromJson(
-      unwrapPayload(publicResponse.data),
+      asMap(publicResponse.data),
       resolveAssetUrl: _resolveAssetUrl,
     );
 
@@ -175,7 +175,7 @@ class ActivityRepository {
       '/customer/activities/${item.id}',
     );
     item = ActivityItem.fromJson(
-      unwrapPayload(response.data),
+      asMap(response.data),
       resolveAssetUrl: _resolveAssetUrl,
     );
     return item;
@@ -196,7 +196,7 @@ class ActivityRepository {
         'selected_number': selectedNumber,
       },
     );
-    return ActivityEntry.fromJson(unwrapPayload(response.data));
+    return ActivityEntry.fromJson(asMap(response.data));
   }
 
   Future<ActivityAwardPage> awards({

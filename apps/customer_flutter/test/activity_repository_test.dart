@@ -143,6 +143,54 @@ void main() {
       ),
     ]);
   });
+
+  test('detail preserves wrapped public and customer activity context',
+      () async {
+    final api = _WrappedActivityApiClient();
+    final repository = ActivityRepository(api, (value) => 'asset:$value');
+
+    final activity =
+        await repository.detail('wrapped-activity', authenticated: true);
+
+    expect(api.calls.map((call) => call.path), [
+      '/public/activities/wrapped-activity',
+      '/customer/activities/act_wrapped',
+    ]);
+    expect(activity.id, 'act_wrapped');
+    expect(activity.name, 'Wrapped Lucky Board');
+    expect(activity.imageUrl, 'asset:/storage/wrapped.webp');
+    expect(activity.rights.remainingCount, 2);
+    expect(activity.numberBoard.predictionType, 'last2');
+    expect(activity.numberBoard.totalCount, 100);
+    expect(activity.numberBoard.remainingCount, 98);
+    expect(activity.numberBoard.isReserved('07'), isTrue);
+    expect(activity.resultSummary?.isAnnounced, isTrue);
+    expect(activity.resultSummary?.winningNumber, '42');
+    expect(activity.resultSummary?.customerWinningNumbers, ['42']);
+    expect(activity.resultSummary?.customerAwardAmount, 990);
+  });
+
+  test('createEntry preserves nested entry response wrappers', () async {
+    final api = _WrappedActivityApiClient();
+    final repository = ActivityRepository(api, (value) => value);
+
+    final entry = await repository.createEntry(
+      activityId: 'act_wrapped',
+      predictionType: 'last2',
+      selectedNumber: '42',
+    );
+
+    expect(api.postPath, '/customer/activities/act_wrapped/entries');
+    expect(api.postPayload, {
+      'prediction_type': 'last2',
+      'selected_number': '42',
+    });
+    expect(entry.id, 'entry_wrapped');
+    expect(entry.predictionType, 'last2');
+    expect(entry.selectedNumber, '42');
+    expect(entry.status, 'submitted');
+    expect(entry.createdAt, '2026-07-01T10:00:00+07:00');
+  });
 }
 
 class _ApiCall {
@@ -281,6 +329,134 @@ Map<String, dynamic> _awardPayload(
     'meta': {
       'has_more': !isSecondPage,
       'next_cursor': isSecondPage ? null : nextCursor,
+    },
+  };
+}
+
+class _WrappedActivityApiClient extends ApiClient {
+  _WrappedActivityApiClient()
+      : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        );
+
+  final calls = <_ApiCall>[];
+  String postPath = '';
+  Map<String, dynamic> postPayload = {};
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    calls.add(
+      _ApiCall(
+        path: path,
+        auth: auth,
+        query: Map<String, dynamic>.from(query ?? const {}),
+      ),
+    );
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: (auth ? _wrappedCustomerActivity() : _wrappedPublicActivity()) as T,
+    );
+  }
+
+  @override
+  Future<Response<T>> postWithHeaders<T>(
+    String path, {
+    Object? data,
+    bool auth = true,
+    Map<String, String> headers = const {},
+  }) async {
+    postPath = path;
+    postPayload = Map<String, dynamic>.from(data! as Map);
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: {
+        'data': {
+          'resource': {
+            'entry': {
+              'entryId': 'entry_wrapped',
+              'predictionType': 'last2',
+              'selectedNumber': '42',
+              'status': 'submitted',
+              'createdAt': '2026-07-01T10:00:00+07:00',
+            },
+          },
+        },
+      } as T,
+    );
+  }
+}
+
+Map<String, dynamic> _wrappedPublicActivity() {
+  return {
+    'data': {
+      'activity': {
+        'activityId': 'act_wrapped',
+        'title': 'Wrapped Lucky Board',
+        'slug': 'wrapped-activity',
+        'activityType': 'lucky_board',
+        'conditionText': 'เลือกเลขตามสิทธิ์จากยอดซื้อ',
+        'imageThumbUrl': '/storage/wrapped.webp',
+        'numberBoard': {
+          'predictionType': 'last2',
+          'totalCount': 100,
+          'reservedNumbers': ['07'],
+          'remainingCount': 99,
+        },
+        'resultSummary': {
+          'status': 'pending',
+          'predictionType': 'last2',
+        },
+      },
+    },
+  };
+}
+
+Map<String, dynamic> _wrappedCustomerActivity() {
+  return {
+    'result': {
+      'resource': {
+        'activityId': 'act_wrapped',
+        'title': 'Wrapped Lucky Board',
+        'slug': 'wrapped-activity',
+        'activityType': 'lucky_board',
+        'conditionText': 'เลือกเลขตามสิทธิ์จากยอดซื้อ',
+        'imageThumbUrl': '/storage/wrapped.webp',
+        'rights': {
+          'earnedCount': 3,
+          'usedCount': 1,
+          'remainingCount': 2,
+          'ticketCount': 30,
+        },
+        'numberBoard': {
+          'predictionType': 'last2',
+          'totalCount': 100,
+          'reservedNumbers': ['07'],
+          'remainingCount': 98,
+        },
+        'resultSummary': {
+          'status': 'announced',
+          'predictionType': 'last2',
+          'winningNumber': '42',
+          'winnerCount': 1,
+          'awardTotal': {'amount': 99000, 'currency': 'THB'},
+          'customer': {
+            'status': 'won',
+            'winningNumbers': ['42'],
+            'awardAmount': {'amount': 99000, 'currency': 'THB'},
+          },
+        },
+      },
     },
   };
 }

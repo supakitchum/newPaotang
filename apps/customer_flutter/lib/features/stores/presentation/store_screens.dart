@@ -90,26 +90,14 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       children: [
                         const LotteryStoreSegmentTabs(activePath: '/stores'),
                         const SizedBox(height: 16),
-                        TextField(
+                        _StoreSearchBox(
                           controller: _search,
-                          textInputAction: TextInputAction.search,
-                          decoration: InputDecoration(
-                            labelText: l10n.storesSearchLabel,
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: IconButton(
-                              onPressed: () {
-                                _search.clear();
-                                _load(reset: true);
-                              },
-                              icon: const Icon(Icons.close),
-                            ),
-                          ),
+                          hintText: l10n.storesSearchLabel,
                           onSubmitted: (_) => _load(reset: true),
                         ),
                         const SizedBox(height: 20),
                         CustomerSectionHeader(
                           title: l10n.storesRecommendedTitle,
-                          leading: const Icon(Icons.storefront_outlined),
                         ),
                         const SizedBox(height: 16),
                         if (_loading && _stores.isEmpty)
@@ -129,11 +117,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                             message: l10n.storesEmptyMessage,
                           )
                         else
-                          for (final store in _stores)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _StoreCard(store: store),
-                            ),
+                          for (final store in _stores) _StoreCard(store: store),
                         if (_error.isNotEmpty && _stores.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           _StoreErrorCard(
@@ -263,6 +247,72 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   }
 }
 
+class _StoreSearchBox extends StatelessWidget {
+  const _StoreSearchBox({
+    required this.controller,
+    required this.hintText,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      key: const ValueKey('store-search-box'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.14),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: 51,
+        child: Row(
+          children: [
+            const SizedBox(width: 16),
+            Icon(
+              Icons.search,
+              size: 22,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration.collapsed(
+                  hintText: hintText,
+                  hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                onSubmitted: onSubmitted,
+              ),
+            ),
+            const SizedBox(width: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class StoreLotteriesScreen extends ConsumerStatefulWidget {
   const StoreLotteriesScreen({
     super.key,
@@ -294,11 +344,13 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   String _gameId = '';
   String _drawDateLabel = '';
   String _busyStockId = '';
+  String _stockNoticeMessage = '';
   int _refreshCooldownSeconds = 0;
   bool _hasMore = false;
   bool _canReserve = true;
   bool _loading = true;
   bool _loadingMore = false;
+  bool _stockNoticeSuccess = false;
   String _error = '';
 
   @override
@@ -407,7 +459,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        const Divider(height: 34),
                         CustomerSectionHeader(
                           title: l10n.lotteryStockTitle,
                           action: TextButton.icon(
@@ -437,6 +489,19 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             message: l10n.storesLotteriesEmptyMessage,
                           )
                         else ...[
+                          if (_stockNoticeMessage.isNotEmpty) ...[
+                            _StoreInlineNoticeCard(
+                              message: _stockNoticeMessage,
+                              success: _stockNoticeSuccess,
+                              actionLabel: _stockNoticeSuccess
+                                  ? l10n.lotteryCartAction
+                                  : null,
+                              onAction: _stockNoticeSuccess
+                                  ? () => context.go('/cart')
+                                  : null,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           if (!_canReserve) ...[
                             _StoreSaleClosedNotice(
                               title: l10n.lotterySaleClosedTitle,
@@ -445,24 +510,21 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             const SizedBox(height: 12),
                           ],
                           for (final ticket in _tickets)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _LotteryTicketCard(
-                                ticket: ticket,
-                                morePath: lotteryMorePath(
-                                  number: ticket.number,
-                                  storeId: widget.storeId,
-                                  backPath: _storeLotteriesBackPath(
-                                    widget.storeId,
-                                  ),
+                            _LotteryTicketCard(
+                              ticket: ticket,
+                              morePath: lotteryMorePath(
+                                number: ticket.number,
+                                storeId: widget.storeId,
+                                backPath: _storeLotteriesBackPath(
+                                  widget.storeId,
                                 ),
-                                canReserve: _canReserve,
-                                reserved: _reservedByStockId.containsKey(
-                                  ticket.localStockItemId,
-                                ),
-                                busy: _busyStockId == ticket.localStockItemId,
-                                onToggle: () => _toggleReservation(ticket),
                               ),
+                              canReserve: _canReserve,
+                              reserved: _reservedByStockId.containsKey(
+                                ticket.localStockItemId,
+                              ),
+                              busy: _busyStockId == ticket.localStockItemId,
+                              onToggle: () => _toggleReservation(ticket),
                             ),
                         ],
                         if (_loadingMore) ...[
@@ -526,6 +588,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         _cursor = '';
         _tickets.clear();
         _error = '';
+        _stockNoticeMessage = '';
       } else {
         _loadingMore = true;
       }
@@ -799,7 +862,10 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
       return;
     }
 
-    setState(() => _busyStockId = ticket.localStockItemId);
+    setState(() {
+      _busyStockId = ticket.localStockItemId;
+      _stockNoticeMessage = '';
+    });
     try {
       final repo = ref.read(lotteryRepositoryProvider);
       if (reservedId != null && reservedId.isNotEmpty) {
@@ -819,19 +885,13 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         });
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
+      setState(() {
+        _stockNoticeSuccess = true;
+        _stockNoticeMessage =
             _reservedByStockId.containsKey(ticket.localStockItemId)
                 ? context.l10n.lotteryAddedToCart
-                : context.l10n.lotteryRemovedFromCart,
-          ),
-          action: SnackBarAction(
-            label: context.l10n.lotteryCartAction,
-            onPressed: () => context.go('/cart'),
-          ),
-        ),
-      );
+                : context.l10n.lotteryRemovedFromCart;
+      });
     } catch (error) {
       if (!mounted) return;
       if (_storeReservationUnavailable(error)) {
@@ -844,9 +904,13 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         );
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.lotteryActionFailed)),
-      );
+      setState(() {
+        _stockNoticeSuccess = false;
+        _stockNoticeMessage = customerErrorMessage(
+          error,
+          context.l10n.lotteryActionFailed,
+        );
+      });
     } finally {
       if (mounted) setState(() => _busyStockId = '');
     }
@@ -866,21 +930,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     StoreLotteryTicket ticket, {
     required bool removeItem,
   }) async {
-    final l10n = context.l10n;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.error_outline),
-        title: Text(l10n.lotteryReservationUnavailableTitle),
-        content: Text(l10n.lotteryReservationUnavailableMessage),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.lotteryReservationUnavailableAction),
-          ),
-        ],
-      ),
-    );
+    await showLotteryReservationUnavailableNotice(context);
     if (!mounted || !removeItem) return;
     setState(() {
       _tickets.removeWhere(
@@ -961,11 +1011,13 @@ class _StoreCartSelectionDock extends StatelessWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final deadline = earliestActiveReservation(cart.reservations);
-    return Card(
+    return DecoratedBox(
       key: const ValueKey('cart-selection-dock'),
-      margin: EdgeInsets.zero,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      decoration: _storeSurfaceDecoration(
+        context,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+        borderColor: Colors.transparent,
+        shadowAlpha: 0.10,
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(25, 27, 25, 27),
@@ -1172,34 +1224,35 @@ class _StoreCard extends StatelessWidget {
       key: ValueKey('store-list-row-${store.id}'),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+          ),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 72),
         child: Row(
           children: [
             DecoratedBox(
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
+                color: colorScheme.primary,
                 shape: BoxShape.circle,
               ),
               child: Padding(
-                padding: const EdgeInsets.all(11),
+                padding: const EdgeInsets.all(10),
                 child: Icon(
                   Icons.storefront_outlined,
-                  color: colorScheme.onPrimaryContainer,
+                  color: colorScheme.onPrimary,
                   size: 22,
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Text(
                 storeName,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w900,
@@ -1310,43 +1363,38 @@ class _StoreSkeletonRows extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var index = 0; index < count; index++)
-          Padding(
-            padding: EdgeInsets.only(bottom: index == count - 1 ? 0 : 10),
-            child: DecoratedBox(
-              key: ValueKey('$keyPrefix-$index'),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+          DecoratedBox(
+            key: ValueKey('$keyPrefix-$index'),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.75),
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    DecoratedBox(
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              child: Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: placeholderColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox.square(dimension: 42),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: placeholderColor,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const SizedBox.square(dimension: 42),
+                      child: const SizedBox(height: 18),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: placeholderColor,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const SizedBox(height: 18),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1563,6 +1611,7 @@ class _StoreLotteryImageFrame extends StatelessWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final normalizedStatus = ticket.imageStatus.trim().toLowerCase();
+    final imageError = ticket.imageError.trim();
     final source = ticket.thumbUrl.trim().isNotEmpty
         ? ticket.thumbUrl.trim()
         : ticket.imageUrl.trim();
@@ -1574,10 +1623,14 @@ class _StoreLotteryImageFrame extends StatelessWidget {
         }.contains(normalizedStatus);
     final fallbackText = normalizedStatus == 'pending_assets'
         ? l10n.ticketImagePreparing
-        : l10n.ticketImageUnavailable;
+        : normalizedStatus == 'failed' && imageError.isNotEmpty
+            ? imageError
+            : l10n.ticketImageUnavailable;
     final fallbackIcon = normalizedStatus == 'pending_assets'
         ? Icons.hourglass_top_outlined
-        : Icons.confirmation_number_outlined;
+        : normalizedStatus == 'failed'
+            ? Icons.image_outlined
+            : Icons.confirmation_number_outlined;
     return DecoratedBox(
       key: const ValueKey('store-lottery-ticket-image-frame'),
       decoration: BoxDecoration(
@@ -1750,9 +1803,13 @@ class _StoreSaleClosedNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      color: colorScheme.errorContainer,
+    return DecoratedBox(
+      decoration: _storeSurfaceDecoration(
+        context,
+        color: colorScheme.errorContainer,
+        borderColor: colorScheme.error.withValues(alpha: 0.14),
+        shadowAlpha: 0.04,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -1793,6 +1850,79 @@ class _StoreSaleClosedNotice extends StatelessWidget {
   }
 }
 
+class _StoreInlineNoticeCard extends StatelessWidget {
+  const _StoreInlineNoticeCard({
+    required this.message,
+    this.success = false,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String message;
+  final bool success;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = success ? colorScheme.primary : colorScheme.error;
+    return DecoratedBox(
+      decoration: _storeSurfaceDecoration(
+        context,
+        color: success
+            ? colorScheme.primary.withValues(alpha: 0.08)
+            : const Color(0xFFFFF5F5),
+        borderColor: success
+            ? colorScheme.primary.withValues(alpha: 0.18)
+            : const Color(0xFFFECACA),
+        shadowAlpha: 0.04,
+        blurRadius: 16,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              success
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.error_outline_rounded,
+              color: foreground,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: foreground,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                    ),
+              ),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onAction,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 LotteryStockItem _toLotteryStockItem(StoreLotteryTicket ticket) {
   return LotteryStockItem(
     id: ticket.id,
@@ -1810,6 +1940,8 @@ LotteryStockItem _toLotteryStockItem(StoreLotteryTicket ticket) {
     serverTime: null,
     imageUrl: ticket.imageUrl,
     thumbUrl: ticket.thumbUrl,
+    imageStatus: ticket.imageStatus,
+    imageError: ticket.imageError,
     raw: const {},
   );
 }
@@ -1827,8 +1959,8 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _storeSurfaceDecoration(context),
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -1862,8 +1994,8 @@ class _StoreErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _storeSurfaceDecoration(context),
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -1880,4 +2012,29 @@ class _StoreErrorCard extends StatelessWidget {
       ),
     );
   }
+}
+
+BoxDecoration _storeSurfaceDecoration(
+  BuildContext context, {
+  BorderRadiusGeometry? borderRadius,
+  Color? borderColor,
+  Color? color,
+  double shadowAlpha = 0.08,
+  double blurRadius = 24,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    color: color ?? colorScheme.surface,
+    borderRadius: borderRadius ?? BorderRadius.circular(12),
+    border: Border.all(
+      color: borderColor ?? colorScheme.primary.withValues(alpha: 0.12),
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: shadowAlpha),
+        blurRadius: blurRadius,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
 }

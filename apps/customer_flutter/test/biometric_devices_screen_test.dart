@@ -66,9 +66,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Enable biometric'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
-    await tester.pumpAndSettle();
+    await _enterBiometricPin(tester, '123456');
 
     expect(find.text('PIN ไม่ถูกต้อง กรุณาลองใหม่'), findsOneWidget);
     expect(
@@ -90,9 +88,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Enable biometric'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
-    await tester.pumpAndSettle();
+    await _enterBiometricPin(tester, '123456');
 
     expect(
       find.text(
@@ -101,6 +97,49 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('internal register failure'), findsNothing);
+  });
+
+  testWidgets('biometric enable sends localized biometric setup reason', (
+    tester,
+  ) async {
+    final biometricAuth = _BiometricAuthService();
+    await _pumpScreen(tester, biometricAuth: biometricAuth);
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Enable biometric'));
+    await tester.pumpAndSettle();
+    await _enterBiometricPin(tester, '123456');
+
+    expect(biometricAuth.registeredPins, ['123456']);
+    expect(biometricAuth.registeredPlatforms, ['ios']);
+    expect(biometricAuth.registeredDeviceNames, ['This iPhone / iPad']);
+    expect(
+      biometricAuth.localizedReasons,
+      ['Authenticate to enable biometric unlock on this device'],
+    );
+    expect(
+      find.text('Biometric unlock is enabled for this device.'),
+      findsOneWidget,
+    );
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('biometric enable uses runtime biometric setup reason', (
+    tester,
+  ) async {
+    final biometricAuth = _BiometricAuthService();
+    await _pumpScreen(
+      tester,
+      biometricAuth: biometricAuth,
+      bootstrap: _mobileBootstrapWithRuntimePrompt,
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Enable biometric'));
+    await tester.pumpAndSettle();
+    await _enterBiometricPin(tester, '123456');
+
+    expect(biometricAuth.localizedReasons, ['Runtime setup biometric prompt']);
   });
 
   testWidgets('biometric revoke uses API payload error copy', (tester) async {
@@ -124,12 +163,59 @@ void main() {
     expect(find.text('ไม่สามารถยกเลิกอุปกรณ์นี้ได้'), findsOneWidget);
     expect(find.text('Could not revoke this device.'), findsNothing);
   });
+
+  testWidgets('biometric revoke clears local key for the current device', (
+    tester,
+  ) async {
+    final repository = _BiometricDeviceRepository(
+      devices: const [_activeDevice],
+    );
+    final biometricAuth = _BiometricAuthService(localDeviceId: 'device_1');
+    await _pumpScreen(
+      tester,
+      deviceRepository: repository,
+      biometricAuth: biometricAuth,
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Revoke this device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(repository.revokedIds, ['bio_1']);
+    expect(biometricAuth.clearedDeviceIds, ['device_1']);
+    expect(find.text('Device revoked.'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('biometric revoke keeps local key for another device', (
+    tester,
+  ) async {
+    final biometricAuth = _BiometricAuthService(localDeviceId: 'device_local');
+    await _pumpScreen(
+      tester,
+      deviceRepository: _BiometricDeviceRepository(
+        devices: const [_activeDevice],
+      ),
+      biometricAuth: biometricAuth,
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Revoke this device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(biometricAuth.clearedDeviceIds, isEmpty);
+  });
 }
 
 Future<void> _pumpScreen(
   WidgetTester tester, {
   _BiometricDeviceRepository? deviceRepository,
   _BiometricAuthService? biometricAuth,
+  MobileBootstrap? bootstrap,
 }) {
   tester.view.physicalSize = const Size(900, 1400);
   tester.view.devicePixelRatio = 1;
@@ -146,7 +232,9 @@ Future<void> _pumpScreen(
           biometricAuth ?? _BiometricAuthService(),
         ),
         customerPlatformKeyProvider.overrideWithValue('ios'),
-        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => bootstrap ?? _mobileBootstrap,
+        ),
       ],
       child: const MaterialApp(
         locale: Locale('en', 'US'),
@@ -163,6 +251,14 @@ Future<void> _pumpScreen(
   );
 }
 
+Future<void> _enterBiometricPin(WidgetTester tester, String pin) async {
+  for (final digit in pin.split('')) {
+    await tester.tap(find.widgetWithText(TextButton, digit));
+    await tester.pump(const Duration(milliseconds: 20));
+  }
+  await tester.pumpAndSettle();
+}
+
 final _mobileBootstrap = MobileBootstrap.fromJson(
   const {
     'mobile': {
@@ -172,6 +268,21 @@ final _mobileBootstrap = MobileBootstrap.fromJson(
         'platforms': {
           'ios': ['local_auth'],
           'android': ['biometric_prompt'],
+        },
+      },
+    },
+  },
+);
+
+final _mobileBootstrapWithRuntimePrompt = MobileBootstrap.fromJson(
+  const {
+    'mobile': {
+      'feature_flags': {'native_biometric_unlock': true},
+      'biometric': {
+        'enabled': true,
+        'biometricSetupReason': 'Runtime setup biometric prompt',
+        'platforms': {
+          'ios': ['local_auth'],
         },
       },
     },
@@ -200,6 +311,7 @@ class _BiometricDeviceRepository extends BiometricDeviceRepository {
   final List<BiometricDevice> devices;
   final Object? loadError;
   final Object? revokeError;
+  final List<String> revokedIds = [];
 
   @override
   Future<List<BiometricDevice>> list() async {
@@ -212,13 +324,21 @@ class _BiometricDeviceRepository extends BiometricDeviceRepository {
   Future<void> revoke(String id) async {
     final error = revokeError;
     if (error != null) throw error;
+    revokedIds.add(id);
   }
 }
 
 class _BiometricAuthService extends BiometricAuthService {
-  _BiometricAuthService({this.registerError}) : super(_testApiClient());
+  _BiometricAuthService({this.registerError, this.localDeviceId})
+      : super(_testApiClient());
 
   final Object? registerError;
+  final String? localDeviceId;
+  final List<String> registeredPins = [];
+  final List<String> registeredPlatforms = [];
+  final List<String?> registeredDeviceNames = [];
+  final List<String> localizedReasons = [];
+  final List<String> clearedDeviceIds = [];
 
   @override
   Future<bool> canUseBiometric() async {
@@ -229,11 +349,29 @@ class _BiometricAuthService extends BiometricAuthService {
   Future<void> registerDevice({
     required String pin,
     required String platform,
+    required String localizedReason,
     String? deviceName,
     String? appVersion,
   }) async {
+    registeredPins.add(pin);
+    registeredPlatforms.add(platform);
+    registeredDeviceNames.add(deviceName);
+    localizedReasons.add(localizedReason);
     final error = registerError;
     if (error != null) throw error;
+  }
+
+  @override
+  Future<String?> currentDeviceId() async => localDeviceId;
+
+  @override
+  Future<bool> clearLocalDeviceKey({String? deviceId}) async {
+    if (localDeviceId == null || localDeviceId!.isEmpty) return false;
+    if (deviceId != null && deviceId.isNotEmpty && deviceId != localDeviceId) {
+      return false;
+    }
+    clearedDeviceIds.add(localDeviceId!);
+    return true;
   }
 }
 

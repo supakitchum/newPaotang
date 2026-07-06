@@ -51,14 +51,15 @@ void main() {
   });
 
   testWidgets('LINE connect uses API payload error copy', (tester) async {
+    final authRepository = _LineAuthRepository(
+      socialLoginUrlError: _apiException(
+        'กรุณาเชื่อมต่อ LINE OA กับร้านค้าก่อน',
+        path: '/customer/auth/social/line/login',
+      ),
+    );
     await _pumpScreen(
       tester,
-      authRepository: _LineAuthRepository(
-        socialLoginUrlError: _apiException(
-          'กรุณาเชื่อมต่อ LINE OA กับร้านค้าก่อน',
-          path: '/customer/auth/social/line/login',
-        ),
-      ),
+      authRepository: authRepository,
     );
 
     await tester.pumpAndSettle();
@@ -66,6 +67,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('กรุณาเชื่อมต่อ LINE OA กับร้านค้าก่อน'), findsOneWidget);
+    expect(authRepository.lastProvider, 'line');
+    expect(authRepository.lastPurpose, 'login');
+    expect(authRepository.lastRedirect, '/profile/line-notifications');
+    expect(authRepository.lastCallbackUsesAuth, isTrue);
     expect(
       find.text('Could not connect LINE. Please try again.'),
       findsNothing,
@@ -106,7 +111,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
 
     expect(find.text('ไม่สามารถเปิดแจ้งเตือน LINE ในขณะนี้'), findsOneWidget);
@@ -239,9 +244,22 @@ class _LineAuthRepository extends AuthRepository {
       : super(api: _testApiClient(), tokenStore: AuthTokenStore());
 
   final Object? socialLoginUrlError;
+  String? lastProvider;
+  String? lastPurpose;
+  String? lastRedirect;
+  bool? lastCallbackUsesAuth;
 
   @override
-  Future<String> socialLoginUrl(String provider, {String purpose = 'login'}) {
+  Future<String> socialLoginUrl(
+    String provider, {
+    String purpose = 'login',
+    String? redirect,
+    bool callbackUsesAuth = false,
+  }) {
+    lastProvider = provider;
+    lastPurpose = purpose;
+    lastRedirect = redirect;
+    lastCallbackUsesAuth = callbackUsesAuth;
     final error = socialLoginUrlError;
     if (error != null) throw error;
     return Future.value('https://line.example.com/oauth');

@@ -80,14 +80,14 @@ class TicketRepository {
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/tickets/$id',
     );
-    return CustomerTicket.fromJson(unwrapPayload(response.data));
+    return CustomerTicket.fromJson(asMap(response.data));
   }
 
   Future<TicketRewardStatus> rewardStatus(String id) async {
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/tickets/$id/reward-status',
     );
-    return TicketRewardStatus.fromJson(unwrapPayload(response.data));
+    return TicketRewardStatus.fromJson(asMap(response.data));
   }
 
   Future<RewardClaimSubmission> createRewardClaim({
@@ -110,6 +110,6 @@ class TicketRepository {
         if (bankAccount != null) 'bank_account': bankAccount,
       },
     );
-    return RewardClaimSubmission.fromJson(unwrapPayload(response.data));
+    return RewardClaimSubmission.fromJson(asMap(response.data));
   }
 }

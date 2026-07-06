@@ -59,17 +59,21 @@ String localizedActivityClaimStatusLabel(
 
 String localizedActivityClaimTransferNote(
   BuildContext context,
-  ActivityClaimItem claim,
-) {
+  ActivityClaimItem claim, {
+  String reviewerName = '',
+}) {
   final l10n = context.l10n;
   if (claim.isPaid) return l10n.activityClaimNotePaid;
+  final reviewer = reviewerName.trim().isEmpty
+      ? l10n.activityClaimReviewerFallback
+      : reviewerName.trim();
   return switch (claim.status) {
     ActivityClaimStatus.rejected => l10n.activityClaimNoteRejected,
     ActivityClaimStatus.cancelled => l10n.activityClaimNoteCancelled,
     ActivityClaimStatus.approved => l10n.activityClaimNoteApproved,
-    ActivityClaimStatus.submitted => l10n.activityClaimNoteSubmitted,
+    ActivityClaimStatus.submitted => l10n.activityClaimNoteSubmitted(reviewer),
     ActivityClaimStatus.paid => l10n.activityClaimNotePaid,
-    ActivityClaimStatus.unknown => l10n.activityClaimNoteSubmitted,
+    ActivityClaimStatus.unknown => l10n.activityClaimNoteSubmitted(reviewer),
   };
 }
 
@@ -93,7 +97,9 @@ String localizedActivityClaimPayoutSummary(
         : normalizedBank;
     return context.l10n.activityClaimBankSummary(bank);
   }
-  return context.l10n.activityClaimWalletSummary(claim.walletName);
+  return context.l10n.activityClaimWalletSummary(
+    _activityClaimWalletName(context, claim),
+  );
 }
 
 String localizedActivityClaimPayoutChannel(
@@ -106,7 +112,7 @@ String localizedActivityClaimPayoutChannel(
         : claim.bankName.trim();
     return '$bank\n${maskActivityBankAccount(claim.bankAccountNumber)}';
   }
-  return claim.walletName;
+  return _activityClaimWalletName(context, claim);
 }
 
 String localizedActivityClaimSubmittedAt(
@@ -133,4 +139,12 @@ String _normalizedBankName(CustomerLocalizations l10n, String value) {
   final prefix = l10n.activityClaimBankPrefix;
   if (prefix.isEmpty) return value.trim();
   return value.replaceFirst(RegExp('^${RegExp.escape(prefix)}'), '').trim();
+}
+
+String _activityClaimWalletName(
+  BuildContext context,
+  ActivityClaimItem claim,
+) {
+  final name = claim.walletName.trim();
+  return name.isEmpty ? context.l10n.activityClaimWalletFallback : name;
 }

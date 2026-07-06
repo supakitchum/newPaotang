@@ -25,6 +25,11 @@ void main() {
       '/forgot-password',
       '/reset-password',
       '/pin',
+      '/line/callback?code=abc',
+      '/line/link-phone?token=abc',
+      '/social',
+      '/social/google/callback?code=abc',
+      '/social/google/link-phone?token=abc',
     ]) {
       expect(safeCustomerRedirect(redirect), '/', reason: redirect);
     }

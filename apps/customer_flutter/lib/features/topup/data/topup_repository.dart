@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
 import 'topup_models.dart';
 
@@ -33,7 +32,7 @@ class TopupRepository {
       '/customer/topups',
       query: {'page': page, 'per_page': perPage},
     );
-    return TopupOverview.fromJson(unwrapPayload(response.data));
+    return TopupOverview.fromJson(response.data ?? const <String, dynamic>{});
   }
 
   Future<TopupRequestItem> create({
@@ -57,7 +56,9 @@ class TopupRepository {
           ),
         }),
       );
-      return TopupRequestItem.fromJson(unwrapPayload(response.data));
+      return TopupRequestItem.fromJson(
+        response.data ?? const <String, dynamic>{},
+      );
     }
 
     final response = await _api.postWithHeaders<Map<String, dynamic>>(
@@ -69,7 +70,9 @@ class TopupRepository {
         if (transferAt != null) 'transfer_at': transferAt.toIso8601String(),
       },
     );
-    return TopupRequestItem.fromJson(unwrapPayload(response.data));
+    return TopupRequestItem.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
   Future<TopupRequestItem> createCredit({required double amount}) async {
@@ -78,7 +81,9 @@ class TopupRepository {
       headers: {'Idempotency-Key': newIdempotencyKey('customer_credit_topup')},
       data: {'amount': _amountToMinor(amount)},
     );
-    return TopupRequestItem.fromJson(unwrapPayload(response.data));
+    return TopupRequestItem.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
   Future<TopupRequestItem> cancel(String id) async {
@@ -86,7 +91,9 @@ class TopupRepository {
       '/customer/topups/$id',
       headers: {'Idempotency-Key': newIdempotencyKey('customer_topup_cancel')},
     );
-    return TopupRequestItem.fromJson(unwrapPayload(response.data));
+    return TopupRequestItem.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
   Future<TopupRequestItem> uploadSlip({
@@ -105,7 +112,9 @@ class TopupRepository {
         if (transferAt != null) 'transfer_at': transferAt.toIso8601String(),
       }),
     );
-    return TopupRequestItem.fromJson(unwrapPayload(response.data));
+    return TopupRequestItem.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
   int _amountToMinor(double amount) => (amount * 100).round();

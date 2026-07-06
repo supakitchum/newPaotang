@@ -67,6 +67,7 @@ class CustomerLineAuthService
                 'redirect_uri' => $redirectUri,
                 'line_channel_id' => $loginChannelId,
                 'purpose' => $purpose,
+                'redirect' => $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null),
                 'provider_readiness' => 'production_ready',
                 'production_line_ready' => true,
             ], JSON_THROW_ON_ERROR),
@@ -146,6 +147,7 @@ class CustomerLineAuthService
         $metadata = is_array($stateRecord->metadata_json) ? $stateRecord->metadata_json : [];
         $redirectUri = (string) ($metadata['redirect_uri'] ?? $this->callbackUrl($tenant));
         $purpose = $this->linePurpose($metadata['purpose'] ?? null);
+        $redirectPath = $this->redirectPath($metadata['redirect'] ?? null);
         $exchange = $this->line->exchangeLoginCode(
             $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted'),
             $this->lineNotifications->decrypted($channel, 'login_channel_secret_encrypted'),
@@ -191,7 +193,7 @@ class CustomerLineAuthService
                 ];
             }
 
-            return $this->linkCurrentCustomer($tenant, $currentCustomer, $lineProfile, $lineUserId, $friendFlag);
+            return $this->linkCurrentCustomer($tenant, $currentCustomer, $lineProfile, $lineUserId, $friendFlag, $redirectPath);
         }
 
         $identity = CustomerLineIdentity::query()
@@ -233,7 +235,10 @@ class CustomerLineAuthService
             $this->customerAuth->ensurePrimaryWallet((string) $tenant['tenant_id'], (string) $customer->id);
 
             return [
-                'resource' => $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id),
+                'resource' => array_merge(
+                    $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id),
+                    ['redirect' => $redirectPath],
+                ),
                 'status' => 200,
             ];
         }
@@ -251,6 +256,7 @@ class CustomerLineAuthService
             'resource' => [
                 'line_link_required' => true,
                 'link_token' => $linkToken,
+                'redirect' => $redirectPath,
                 'line_profile' => [
                     'display_name' => $lineProfile['displayName'] ?? null,
                     'picture_url' => $lineProfile['pictureUrl'] ?? null,
@@ -272,6 +278,7 @@ class CustomerLineAuthService
         array $lineProfile,
         string $lineUserId,
         bool $friendFlag,
+        string $redirectPath,
     ): array {
         $tenantId = (string) $tenant['tenant_id'];
         $customerId = $currentCustomer->customerId();
@@ -319,7 +326,7 @@ class CustomerLineAuthService
         return [
             'resource' => array_merge(
                 $this->customerAuth->issueSession($tenantId, $customerId, null, $pinVerifiedAt),
-                ['line_linked' => true],
+                ['line_linked' => true, 'redirect' => $redirectPath],
             ),
             'status' => 200,
         ];
@@ -493,6 +500,7 @@ class CustomerLineAuthService
                 'redirect_uri' => $redirectUri,
                 'line_channel_id' => $clientId,
                 'purpose' => $purpose,
+                'redirect' => $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null),
                 'provider_readiness' => 'blocked_external',
                 'production_line_ready' => false,
             ], JSON_THROW_ON_ERROR),
@@ -617,5 +625,22 @@ class CustomerLineAuthService
         $purpose = trim((string) $value);
 
         return in_array($purpose, ['login', 'password_reset'], true) ? $purpose : 'login';
+    }
+
+    private function redirectPath(mixed $value): string
+    {
+        $redirect = trim((string) $value);
+
+        if ($redirect === '' || ! str_starts_with($redirect, '/') || str_starts_with($redirect, '//')) {
+            return '/';
+        }
+
+        $path = parse_url($redirect, PHP_URL_PATH);
+
+        if (! is_string($path) || in_array($path, ['/login', '/register', '/forgot-password', '/reset-password', '/pin'], true)) {
+            return '/';
+        }
+
+        return $redirect;
     }
 }

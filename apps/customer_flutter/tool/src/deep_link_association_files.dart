@@ -48,6 +48,7 @@ Object buildAppleAppSiteAssociation({
   final normalizedPaths = paths
       .map((path) => path.trim())
       .where((path) => path.startsWith('/'))
+      .toSet()
       .toList();
 
   if (teamId.trim().isEmpty) {
@@ -71,7 +72,7 @@ Object buildAppleAppSiteAssociation({
             for (final path in normalizedPaths)
               {
                 '/': path,
-                'comment': 'NewPaotang customer callback route',
+                'comment': 'Customer Flutter deep link route',
               },
           ],
         },

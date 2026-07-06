@@ -1,7 +1,10 @@
 import '../../app/customer_routes.dart';
 
-String? customerDeepLinkPath(Uri uri) {
-  final normalized = _normalizeUriPath(uri);
+String? customerDeepLinkPath(
+  Uri uri, {
+  Iterable<String> allowedHosts = const [],
+}) {
+  final normalized = _normalizeUriPath(uri, allowedHosts: allowedHosts);
   if (normalized == null) return null;
 
   if (_isAllowedPath(normalized.path)) {
@@ -11,8 +14,9 @@ String? customerDeepLinkPath(Uri uri) {
   return null;
 }
 
-Uri? _normalizeUriPath(Uri uri) {
+Uri? _normalizeUriPath(Uri uri, {required Iterable<String> allowedHosts}) {
   if (uri.scheme == 'http' || uri.scheme == 'https') {
+    if (!_isAllowedHost(uri.host, allowedHosts)) return null;
     return Uri(path: uri.path, queryParameters: _queryOrNull(uri));
   }
 
@@ -37,6 +41,33 @@ Uri? _normalizeUriPath(Uri uri) {
   }
 
   return null;
+}
+
+Set<String> customerDeepLinkAllowedHosts({
+  required String tenantHost,
+  required String apiBaseUrl,
+}) {
+  final tenant = _normalizeHost(tenantHost);
+  if (tenant.isNotEmpty) return {tenant};
+
+  final apiHost = _normalizeHost(apiBaseUrl);
+  return apiHost.isEmpty ? const {} : {apiHost};
+}
+
+bool _isAllowedHost(String host, Iterable<String> allowedHosts) {
+  final normalizedHost = _normalizeHost(host);
+  final normalizedAllowed = allowedHosts.map(_normalizeHost).toSet()
+    ..removeWhere((allowedHost) => allowedHost.isEmpty);
+  return normalizedAllowed.isEmpty ||
+      normalizedAllowed.contains(normalizedHost);
+}
+
+String _normalizeHost(String value) {
+  final trimmed = value.trim().toLowerCase();
+  if (trimmed.isEmpty) return '';
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null && uri.host.isNotEmpty) return uri.host.toLowerCase();
+  return trimmed.split('/').first.split(':').first.toLowerCase();
 }
 
 String? _customSchemeRoutePath({required String host, required String path}) {

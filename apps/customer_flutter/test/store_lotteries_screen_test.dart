@@ -387,6 +387,58 @@ void main() {
     );
   });
 
+  testWidgets('store lotteries shows backend image error while failed', (
+    tester,
+  ) async {
+    final tokenStore = AuthTokenStore();
+    final authController = _unauthenticatedController(tokenStore);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(
+            _FailedImageStoreLotteryRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final ticketRow = find.byKey(
+      const ValueKey('store-lottery-ticket-row-local_123123'),
+    );
+    expect(ticketRow, findsOneWidget);
+    expect(find.text('ภาพสลากร้านค้ายังไม่พร้อมจากระบบ'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching: find.byKey(const ValueKey('store-lottery-ticket-image')),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('store lotteries refreshes stock on realtime tick', (
     tester,
   ) async {
@@ -1212,6 +1264,7 @@ class _FakeStoreRepository extends StoreRepository {
     String imageUrl = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=',
     String thumbUrl = '',
     String imageStatus = 'ready',
+    String imageError = '',
   }) {
     return StoreLotteryTicket(
       id: 'stock_$number',
@@ -1228,7 +1281,7 @@ class _FakeStoreRepository extends StoreRepository {
       imageUrl: imageUrl,
       thumbUrl: thumbUrl,
       imageStatus: imageStatus,
-      imageError: '',
+      imageError: imageError,
     );
   }
 }
@@ -1270,6 +1323,35 @@ class _PendingImageStoreLotteryRepository extends _FakeStoreRepository {
     return StoreLotteryPage(
       items: [
         _ticket(number: '123123', imageUrl: '', imageStatus: 'pending_assets'),
+      ],
+      nextCursor: '',
+      hasMore: false,
+      gameId: gameId,
+      sellerName: 'ร้านทดสอบ',
+    );
+  }
+}
+
+class _FailedImageStoreLotteryRepository extends _FakeStoreRepository {
+  @override
+  Future<StoreLotteryPage> lotteries({
+    required String storeId,
+    required String gameId,
+    List<String> digits = const [],
+    String cursor = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastStoreId = storeId;
+    lastGameId = gameId;
+    lastDigits = List<String>.from(digits);
+    return StoreLotteryPage(
+      items: [
+        _ticket(
+          number: '123123',
+          imageStatus: 'failed',
+          imageError: 'ภาพสลากร้านค้ายังไม่พร้อมจากระบบ',
+        ),
       ],
       nextCursor: '',
       hasMore: false,

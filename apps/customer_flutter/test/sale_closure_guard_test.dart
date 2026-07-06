@@ -54,6 +54,32 @@ void main() {
     );
   });
 
+  test('uses wrapped camelCase current game fields for sale-close redirects',
+      () {
+    final game = CurrentGame.fromJson({
+      'result': {
+        'game': {
+          'gameId': 'game_wrapped',
+          'gameName': 'งวด Wrapped',
+          'statusCode': 1,
+          'saleCloseAt':
+              now.subtract(const Duration(seconds: 1)).toIso8601String(),
+          'serverTime': now.toIso8601String(),
+        },
+      },
+    });
+
+    expect(
+      saleClosureRedirectPath(
+        path: '/checkout',
+        gameStatus: game.status,
+        saleCloseAt: game.saleCloseAt,
+        now: now,
+      ),
+      '$waitingResultPath?$saleClosedNoticeQuery=1',
+    );
+  });
+
   test('redirects sale routes to countdown before sale start', () {
     for (final path in [
       '/',
@@ -396,6 +422,7 @@ void main() {
       '$waitingResultPath?$saleClosedNoticeQuery=1',
     );
     expect(find.text('Waiting result route'), findsOneWidget);
+    expect(lottery.releasedReservationIds, ['res_1']);
   });
 }
 
@@ -455,6 +482,7 @@ class _SaleClosureLotteryRepository extends LotteryRepository {
 
   bool expired = false;
   int cartCalls = 0;
+  final List<String> releasedReservationIds = [];
 
   @override
   Future<LotteryCart> cart() async {
@@ -468,6 +496,12 @@ class _SaleClosureLotteryRepository extends LotteryRepository {
           .toIso8601String(),
       serverTime: now.toIso8601String(),
     );
+  }
+
+  @override
+  Future<LotteryCart> releaseReservation(String reservationId) async {
+    releasedReservationIds.add(reservationId);
+    return LotteryCart.empty();
   }
 }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -41,26 +42,46 @@ import '../features/wallet/presentation/wallet_screen.dart';
 import '../shared/widgets/security_lock_screen.dart';
 import 'customer_routes.dart';
 import '../core/tenant/mobile_bootstrap_controller.dart';
+import '../core/tenant/mobile_runtime_policy.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authControllerProvider);
-  final bootstrap = ref.watch(mobileBootstrapProvider);
-  final maintenanceActive = bootstrap.maybeWhen(
-    data: (data) => data.maintenance.active,
-    orElse: () => false,
-  );
+  final routerRefresh = _RouterRefreshNotifier();
+  ref
+    ..listen<AuthController>(
+      authControllerProvider,
+      (_, __) => routerRefresh.refresh(),
+    )
+    ..listen<AsyncValue<MobileBootstrap>>(
+      mobileBootstrapProvider,
+      (_, __) => routerRefresh.refresh(),
+    );
 
-  return GoRouter(
+  late final GoRouter router;
+  ref.onDispose(() {
+    router.dispose();
+    routerRefresh.dispose();
+  });
+
+  router = GoRouter(
     initialLocation: '/',
-    refreshListenable: auth,
+    refreshListenable: routerRefresh,
     redirect: (context, state) {
+      final auth = ref.read(authControllerProvider);
+      final bootstrap = ref.read(mobileBootstrapProvider);
+      final bootstrapData = bootstrap.valueOrNull;
+      final maintenance = bootstrap.maybeWhen<MaintenanceConfig?>(
+        data: (data) => data.maintenance,
+        orElse: () => null,
+      );
       return customerRedirectPath(
         path: state.uri.path,
         requestedLocation: state.uri.toString(),
         isAuthenticated: auth.isAuthenticated,
         pinRequired: auth.pinRequired,
+        pinSetupRequired: auth.pinSetupRequired,
         isSecurityLocked: auth.isSecurityLocked,
-        maintenanceActive: maintenanceActive,
+        maintenance: maintenance,
+        bootstrap: bootstrapData,
         guestRedirectPath: state.uri.queryParameters['redirect'],
       );
     },
@@ -358,7 +379,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  return router;
 });
+
+class _RouterRefreshNotifier extends ChangeNotifier {
+  void refresh() => notifyListeners();
+}
 
 bool _isPublicPath(String path) {
   return isPublicCustomerPath(path);
@@ -369,15 +395,26 @@ String? customerRedirectPath({
   String? requestedLocation,
   required bool isAuthenticated,
   required bool pinRequired,
+  bool pinSetupRequired = false,
   required bool isSecurityLocked,
   bool maintenanceActive = false,
+  MaintenanceConfig? maintenance,
+  MobileBootstrap? bootstrap,
   String? guestRedirectPath,
 }) {
-  if (maintenanceActive) {
-    return path == '/maintenance' ? null : '/maintenance';
+  final effectiveMaintenanceActive = maintenance?.active ?? maintenanceActive;
+  final routeBlockedByMaintenance = maintenance?.blocksRoute(path) ??
+      (maintenanceActive && path != '/maintenance');
+  if (routeBlockedByMaintenance) {
+    return '/maintenance';
   }
-  if (path == '/maintenance') {
+  if (path == '/maintenance' && !effectiveMaintenanceActive) {
     return '/';
+  }
+  final disabledFeatureRedirect =
+      mobileCustomerDisabledRouteRedirect(bootstrap, path);
+  if (disabledFeatureRedirect != null) {
+    return disabledFeatureRedirect;
   }
   if (isSecurityLocked && path != '/security-lock') {
     return '/security-lock';
@@ -386,12 +423,22 @@ String? customerRedirectPath({
     return customerLoginRouteForRedirect(requestedLocation ?? path);
   }
   if (isAuthenticated && _isGuestOnlyPath(path)) {
-    return pinRequired
-        ? customerPinRouteForRedirect(guestRedirectPath)
-        : safeCustomerRedirect(guestRedirectPath);
+    return customerPostAuthRouteForRedirect(
+      redirect: guestRedirectPath,
+      pinRequired: pinRequired,
+      pinSetupRequired: pinSetupRequired,
+    );
   }
-  if (isAuthenticated && pinRequired && !_canBypassPin(path)) {
-    return customerPinRouteForRedirect(requestedLocation ?? path);
+  if (isAuthenticated &&
+      (pinRequired || pinSetupRequired) &&
+      !_canBypassPin(path)) {
+    final target = requestedLocation ?? path;
+    final redirect = customerPostAuthRouteForRedirect(
+      redirect: target,
+      pinRequired: pinRequired,
+      pinSetupRequired: pinSetupRequired,
+    );
+    if (redirect != safeCustomerRedirect(target)) return redirect;
   }
   return null;
 }

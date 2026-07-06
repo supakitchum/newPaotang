@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'deep_link_association_files.dart';
 
 enum CustomerFlutterTarget {
   web,
@@ -33,6 +36,14 @@ class ProductionPreflightInput {
     this.iosUrlScheme,
     this.iosAssociatedDomain,
     this.socialAuthProviders = const [],
+    this.linkAssociationDir,
+    this.webAppName,
+    this.webShortName,
+    this.webDescription,
+    this.requireStoreListingMetadata = false,
+    this.storePrivacyPolicyUrl,
+    this.storeSupportUrl,
+    this.storeAccountDeletionUrl,
   });
 
   final CustomerFlutterTarget target;
@@ -55,6 +66,14 @@ class ProductionPreflightInput {
   final String? iosUrlScheme;
   final String? iosAssociatedDomain;
   final List<String> socialAuthProviders;
+  final String? linkAssociationDir;
+  final String? webAppName;
+  final String? webShortName;
+  final String? webDescription;
+  final bool requireStoreListingMetadata;
+  final String? storePrivacyPolicyUrl;
+  final String? storeSupportUrl;
+  final String? storeAccountDeletionUrl;
 }
 
 class ProductionPreflightIssue {
@@ -80,22 +99,300 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   _checkApiBaseUrl(input, issues);
   _checkNativeTenantHost(input, issues);
   _checkDisplayName(input, issues);
+  _checkWebProductionMetadataInput(input, issues);
+  _checkStoreListingMetadataInput(input, issues);
   _checkSocialProviderValues(input, issues);
   _checkSocialLoginStoreCompliance(input, issues);
   if (input.production && input.checkFiles) {
     _checkStoreAccountReadiness(input, issues);
+    _checkDeepLinkAssociationFiles(input, issues);
     _checkForbiddenProductionSourceReferences(input, issues);
     _checkExternalLinkLaunchPolicy(input, issues);
-    if (input.target.includesWeb) _checkWebRuntimeMetadata(input, issues);
+    _checkFlutterRouteRegistryBinding(input, issues);
+    _checkFlutterMaintenanceRoutePolicyBinding(input, issues);
+    _checkFlutterFeatureFlagRoutePolicyBinding(input, issues);
+    _checkFlutterAuthOtpParserBinding(input, issues);
+    _checkFlutterSocialCallbackBinding(input, issues);
+    _checkFlutterSocialProviderRuntimeColorBinding(input, issues);
+    _checkFlutterRealtimeBinding(input, issues);
+    if (input.target.includesWeb) {
+      _checkWebRuntimeMetadata(input, issues);
+      _checkFlutterWebPrivacyBinding(input, issues);
+    }
   }
   if (input.checkFiles &&
       (input.target.includesAndroid || input.target.includesIos)) {
     _checkFlutterScreenSecurityBinding(input, issues);
+    _checkFlutterBiometricBinding(input, issues);
   }
   if (input.target.includesAndroid) _checkAndroid(input, issues);
   if (input.target.includesIos) _checkIos(input, issues);
 
   return issues;
+}
+
+void _checkFlutterRouteRegistryBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final routes = File(
+    _join(input.projectRoot, 'lib/app/customer_routes.dart'),
+  );
+  if (!routes.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_route_registry_missing',
+        message: 'Flutter customer route registry was not found.',
+      ),
+    );
+  } else {
+    final source = routes.readAsStringSync();
+    _requireAllSnippets(
+      source,
+      const [
+        'normalizeCustomerRoutePath',
+        '_customerRoutePathFromFragment',
+        'currentUrl',
+        'activeUrl',
+        'targetUrl',
+        'routeUrl',
+        'returnUrl',
+        'redirectUrl',
+        'href',
+        'uri',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_route_registry_url_normalization_missing',
+        message:
+            'Flutter route registry must normalize full URL, hash, and query-shaped route values before sensitive-route matching.',
+      ),
+      issues,
+    );
+  }
+}
+
+void _checkFlutterMaintenanceRoutePolicyBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final bootstrap = File(
+    _join(
+      input.projectRoot,
+      'lib/core/tenant/mobile_bootstrap_controller.dart',
+    ),
+  );
+  if (!bootstrap.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_maintenance_route_policy_missing',
+        message:
+            'Flutter mobile bootstrap maintenance route-policy parser was not found.',
+      ),
+    );
+  } else {
+    final source = bootstrap.readAsStringSync();
+    _requireAllSnippets(
+      source,
+      const [
+        'class MaintenanceConfig',
+        'bool blocksRoute',
+        '_maintenanceFlatConfig',
+        'allowed_routes',
+        'allowedRoutes',
+        'blocked_route_patterns',
+        'blockedRoutePatterns',
+        'maintenanceAllowedRoutes',
+        'maintenanceBlockedRoutePatterns',
+        '_maintenancePath',
+        '_normalizeScreenSecurityPolicyRoute',
+        '_screenSecurityRouteValueKeys',
+        'deepLink',
+        'hashRoute',
+        'returnUrl',
+        'checkout_payment_only',
+        'customer_web_only',
+        'scheduled',
+        'admin_only',
+        'read_only',
+        "site['maintenance']",
+        "mobile['maintenance']",
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_maintenance_route_policy_missing',
+        message:
+            'Flutter mobile bootstrap must preserve Nuxt-style maintenance allowed_routes, blocked_route_patterns, mode aliases, and root/site/mobile config merging.',
+      ),
+      issues,
+    );
+  }
+
+  final router = File(_join(input.projectRoot, 'lib/app/router.dart'));
+  if (!router.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_maintenance_router_binding_missing',
+        message: 'Flutter router maintenance policy binding was not found.',
+      ),
+    );
+    return;
+  }
+
+  final source = router.readAsStringSync();
+  _requireAllSnippets(
+    source,
+    const [
+      'mobileBootstrapProvider',
+      'listen<AsyncValue<MobileBootstrap>>',
+      '_RouterRefreshNotifier',
+      'MaintenanceConfig? maintenance',
+      'maintenance?.blocksRoute(path)',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_maintenance_router_binding_missing',
+      message:
+          'Flutter router must refresh on mobile bootstrap changes and route through MaintenanceConfig.blocksRoute instead of a flat active flag.',
+    ),
+    issues,
+  );
+}
+
+void _checkFlutterFeatureFlagRoutePolicyBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final bootstrap = File(
+    _join(
+      input.projectRoot,
+      'lib/core/tenant/mobile_bootstrap_controller.dart',
+    ),
+  );
+  final policy = File(
+    _join(input.projectRoot, 'lib/core/tenant/mobile_runtime_policy.dart'),
+  );
+  final router = File(_join(input.projectRoot, 'lib/app/router.dart'));
+  final profile = File(
+    _join(
+      input.projectRoot,
+      'lib/features/profile/presentation/profile_screen.dart',
+    ),
+  );
+  final shell = File(
+    _join(input.projectRoot, 'lib/shared/widgets/app_shell.dart'),
+  );
+
+  final missingFiles = <String>[
+    if (!bootstrap.existsSync())
+      'lib/core/tenant/mobile_bootstrap_controller.dart',
+    if (!policy.existsSync()) 'lib/core/tenant/mobile_runtime_policy.dart',
+    if (!router.existsSync()) 'lib/app/router.dart',
+    if (!profile.existsSync())
+      'lib/features/profile/presentation/profile_screen.dart',
+    if (!shell.existsSync()) 'lib/shared/widgets/app_shell.dart',
+  ];
+  if (missingFiles.isNotEmpty) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'flutter_feature_flag_route_policy_missing',
+        message:
+            'Flutter BO feature flag route/menu/bottom-nav policy files are missing: ${missingFiles.join(', ')}',
+      ),
+    );
+    return;
+  }
+
+  _requireAllSnippets(
+    bootstrap.readAsStringSync(),
+    const [
+      'class MobileFeatureFlags',
+      'bool contains(String key)',
+      '_featureFlagKey(key)',
+      'enabled(String key, {bool fallback = false})',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_feature_flag_route_policy_missing',
+      message:
+          'Flutter MobileFeatureFlags must distinguish missing runtime flags from explicit false BO feature/plugin settings.',
+    ),
+    issues,
+  );
+
+  _requireAllSnippets(
+    policy.readAsStringSync(),
+    const [
+      'mobileCustomerRouteAllowed',
+      'mobileCustomerDisabledRouteRedirect',
+      '_customerFeaturePathFromQuery',
+      '_customerFeaturePathFromFragment',
+      '_customerFeatureRouteKeys',
+      '_decodeCustomerFeatureRouteValue',
+      '_featureKeysAllowed',
+      'flags.contains(key)',
+      'returnUrl',
+      'targetUrl',
+      'hashRoute',
+      'wallet_topup',
+      'tickets',
+      'native_biometric_unlock',
+      'news',
+      'purchase_history',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_feature_flag_route_policy_missing',
+      message:
+          'Flutter runtime policy must preserve BO feature/plugin checks for customer routes and safe disabled-route redirects.',
+    ),
+    issues,
+  );
+
+  _requireAllSnippets(
+    router.readAsStringSync(),
+    const [
+      'mobileCustomerDisabledRouteRedirect(bootstrap, path)',
+      'MobileBootstrap? bootstrap',
+      'bootstrap.valueOrNull',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_feature_flag_router_binding_missing',
+      message:
+          'Flutter router must redirect direct entry to disabled BO feature routes through the shared runtime policy.',
+    ),
+    issues,
+  );
+
+  _requireAllSnippets(
+    profile.readAsStringSync(),
+    const [
+      'mobileCustomerRouteAllowed(bootstrap, path)',
+      'historyItems',
+      'rewardSettingItems',
+      'aboutItems',
+      "routeEnabled('/profile/biometrics')",
+      "routeEnabled('/reward-claims')",
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_feature_flag_profile_menu_binding_missing',
+      message:
+          'Flutter Profile menu must hide BO-disabled feature/plugin settings through the shared runtime policy.',
+    ),
+    issues,
+  );
+
+  _requireAllSnippets(
+    shell.readAsStringSync(),
+    const [
+      'ConsumerWidget',
+      'mobileBootstrapProvider',
+      'mobileCustomerRouteAllowed(bootstrap, item.path)',
+      'visibleItems',
+      '_BottomNavLabel.tickets',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_feature_flag_bottom_nav_binding_missing',
+      message:
+          'Flutter bottom navigation must hide BO-disabled feature/plugin routes through the shared runtime policy.',
+    ),
+    issues,
+  );
 }
 
 void _checkFlutterScreenSecurityBinding(
@@ -129,6 +426,151 @@ void _checkFlutterScreenSecurityBinding(
       ),
       issues,
     );
+    _requireAllSnippets(
+      source,
+      const [
+        'screenSecurityAuditServiceProvider',
+        'ScreenSecurityAuditService',
+        '/customer/auth/security-events',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_audit_missing',
+        message:
+            'Flutter must audit native screen security events to /customer/auth/security-events.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      source,
+      const [
+        '_screenSecurityPathFromFragment',
+        '_screenSecurityFragmentQuery',
+        '_screenSecurityQueryHasRouteKey',
+        'Uri(query: queryOnly)',
+        'Uri(query: query).queryParameters',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_fragment_route_normalization_missing',
+        message:
+            'Flutter screen security route normalization must resolve protected routes from hash-fragment query payloads before audit or session locking.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      source,
+      const [
+        '_screenSecurityRouteKeys',
+        '_firstNativeRouteString',
+        'currentUrl',
+        'routeUrl',
+        'targetUrl',
+        'routerPath',
+        'fullPath',
+        'returnUrl',
+        'redirectUrl',
+        'hash',
+        'query',
+        'href',
+        'uri',
+        'userInfo',
+        'params',
+        'routeInfo',
+        'navigationInfo',
+        'screenInfo',
+        'captureStateInfo',
+        'navigationUrl',
+        'currentViewUrl',
+        'rawValue',
+        'screenUrl',
+        '_decodeScreenSecurityRouteValue',
+        'screen_capture_changed',
+        'captureActive',
+        'screenCaptureStatus',
+        'uiscreen_captured_did_change_notification',
+        'uiapplication_user_did_take_screenshot_notification',
+        'media_projection_stopped',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_route_object_normalization_missing',
+        message:
+            'Flutter screen security route normalization must resolve encoded/hashbang route values, route objects, and currentUrl/targetUrl/href native bridge aliases before audit or session locking.',
+      ),
+      issues,
+    );
+  }
+
+  final bootstrap = File(
+    _join(
+      input.projectRoot,
+      'lib/core/tenant/mobile_bootstrap_controller.dart',
+    ),
+  );
+  final app = File(_join(input.projectRoot, 'lib/app/customer_app.dart'));
+  if (!bootstrap.existsSync() || !app.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_runtime_overlay_copy_missing',
+        message:
+            'Flutter screen-security runtime overlay copy parser or app binding was not found.',
+      ),
+    );
+  } else {
+    _requireAllSnippets(
+      bootstrap.readAsStringSync(),
+      const [
+        'privacyOverlayTitle',
+        'privacy_overlay_title',
+        'overlay_title',
+        'screen_capture_title',
+        'privacyOverlayDescription',
+        'privacy_overlay_description',
+        'overlay_description',
+        'screen_capture_description',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_runtime_overlay_copy_missing',
+        message:
+            'Flutter screen-security bootstrap must parse runtime privacy overlay title and description aliases.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      bootstrap.readAsStringSync(),
+      const [
+        '_normalizeScreenSecurityPolicyRoute',
+        '_screenSecurityPolicyPathFromQuery',
+        '_screenSecurityPolicyPathFromFragment',
+        '_screenSecurityRouteValueKeys',
+        'currentUrl',
+        'targetUrl',
+        'routeUrl',
+        'returnUrl',
+        'redirectUrl',
+        'screenUrl',
+        'deepLink',
+        'hashRoute',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_policy_route_normalization_missing',
+        message:
+            'Flutter screen-security bootstrap must normalize BO sensitive-route policy values from full URLs, hash routes, query wrappers, and native route aliases before enabling native/web guards.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      app.readAsStringSync(),
+      const [
+        'privacyOverlayTitle: screenSecurity?.privacyOverlayTitle',
+        'privacyOverlayDescription:',
+        'screenSecurity?.privacyOverlayDescription',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_runtime_overlay_copy_missing',
+        message:
+            'CustomerApp must pass runtime privacy overlay copy from mobile bootstrap into SensitiveScreenGuard.',
+      ),
+      issues,
+    );
   }
 
   final guard = File(
@@ -159,6 +601,605 @@ void _checkFlutterScreenSecurityBinding(
     ),
     issues,
   );
+  _requireAllSnippets(
+    source,
+    const [
+      'screenSecurityAuditServiceProvider',
+      '.record(',
+      'screenSecurityRoutesMatch(event.route, widget.route)',
+      'normalizeScreenSecurityRoute(',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_screen_security_audit_binding_missing',
+      message:
+          'SensitiveScreenGuard must normalize and hand matched native screen security events to the audit service.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'final String? privacyOverlayTitle',
+      'final String? privacyOverlayDescription',
+      'overlayTitle: _runtimeCopy',
+      'overlayDescription: _runtimeCopy',
+      '_runtimeCopy(',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_screen_security_runtime_overlay_copy_missing',
+      message:
+          'SensitiveScreenGuard must pass runtime privacy overlay copy to the native screen-security bridge with localized fallback.',
+    ),
+    issues,
+  );
+}
+
+void _checkFlutterWebPrivacyBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final requiredFiles = <String, List<String>>{
+    'lib/shared/widgets/web_privacy_guard.dart': const [
+      'WebPrivacyBrowserActivity',
+      '..start()',
+      'didChangeAppLifecycleState',
+      'AppLifecycleState.hidden',
+      '_browserShouldCover',
+      '_lifecycleShouldCover',
+      'webPrivacyModeShowsWatermark',
+      'webPrivacyModeShouldShowCover',
+      'final String? privacyOverlayTitle',
+      'final String? privacyOverlayDescription',
+      'final title = _runtimeCopy',
+      'final description = _runtimeCopy',
+      'text: title',
+      'title: title',
+      'description: description',
+    ],
+    'lib/shared/widgets/web_privacy_browser_activity.dart': const [
+      "if (dart.library.html) 'web_privacy_browser_activity_web.dart'",
+      "export 'web_privacy_browser_activity_stub.dart'",
+    ],
+    'lib/shared/widgets/web_privacy_browser_activity_web.dart': const [
+      'web.document.onVisibilityChange',
+      'web.EventStreamProviders.blurEvent',
+      'web.EventStreamProviders.focusEvent',
+      'web.EventStreamProviders.pageHideEvent',
+      'web.EventStreamProviders.pageShowEvent',
+      "web.EventStreamProvider<web.Event>('freeze')",
+      "web.EventStreamProvider<web.Event>('resume')",
+      "web.EventStreamProvider<web.Event>('beforeprint')",
+      "web.EventStreamProvider<web.Event>('afterprint')",
+      '_printActive',
+      '_documentHasFocus',
+      'web.document.hasFocus()',
+      'webPrivacyBrowserShouldCover',
+    ],
+    'lib/shared/widgets/web_privacy_browser_activity_state.dart': const [
+      'documentVisibilityState',
+      'pageHidden',
+      'pageFrozen',
+      'printActive',
+      '!windowFocused',
+    ],
+    'lib/shared/widgets/web_privacy_browser_activity_stub.dart': const [
+      'WebPrivacyBrowserActivity',
+      '_onChanged(false)',
+    ],
+    'lib/core/security/web_privacy_mode.dart': const [
+      'normalizeWebPrivacyMode',
+      "'true'",
+      "'on'",
+      "'enabled'",
+      "'active'",
+      "'screen_protection'",
+      'webPrivacyModeAllowsGuard',
+      'webPrivacyModeShowsWatermark',
+      'webPrivacyModeShowsLifecycleCover',
+      'webPrivacyModeShouldShowCover',
+    ],
+  };
+
+  final missing = <String>[];
+  for (final entry in requiredFiles.entries) {
+    final file = File(_join(input.projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missing.add(entry.key);
+      continue;
+    }
+
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missing.add('${entry.key} missing $snippet');
+      }
+    }
+  }
+
+  if (missing.isEmpty) return;
+
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'flutter_web_privacy_binding_missing',
+      message:
+          'Web production builds must keep browser lifecycle privacy cover plumbing for sensitive routes. Missing: ${missing.join(', ')}',
+    ),
+  );
+}
+
+void _checkFlutterBiometricBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final service = File(
+    _join(input.projectRoot, 'lib/core/security/biometric_auth_service.dart'),
+  );
+  if (!service.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_service_missing',
+        message: 'Flutter BiometricAuthService was not found.',
+      ),
+    );
+    return;
+  }
+
+  final source = service.readAsStringSync();
+  _requireAllSnippets(
+    source,
+    const [
+      "MethodChannel('customer_flutter/biometric_keys')",
+      "'existingDeviceId'",
+      "'deleteKeyPair'",
+      "'signChallenge'",
+      'BiometricChallengePayload.fromResponse',
+      'biometricPinAssertionTokenFromResponse',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_biometric_channel_binding_missing',
+      message:
+          'Flutter biometric auth must use the native biometric key channel for read-only device lookup, signing, and local key deletion.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'isDeviceSupported',
+      'getAvailableBiometrics',
+      'BiometricType.weak',
+      '_safePostMap',
+      '_safeSignChallenge',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_biometric_soft_fallback_missing',
+      message:
+          'Flutter biometric auth must reject weak-only enrollment and fall back to PIN when challenge, verify, or native signing fails.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'clearLocalDeviceKey',
+      "'deleteKeyPair'",
+      'deviceId: deviceId',
+      'rethrow',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_biometric_local_key_cleanup_missing',
+      message:
+          'Flutter biometric registration/revoke must clean up only the matching local native key when backend registration or current-device revoke succeeds.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'biometricChallengeId',
+      'authChallengeId',
+      'requestId',
+      'requestToken',
+      'challengeData',
+      'challengeBase64Url',
+      'payloadToSign',
+      'signingData',
+      'serverChallenge',
+      'publicKey',
+      'allowCredentials',
+      'excludeCredentials',
+      'credentialDescriptors',
+      'rpId',
+      'relyingParty',
+      'userVerification',
+      'authenticatorSelection',
+      'attestationFormats',
+      'mediation',
+      'hints',
+      'pubKeyCredParams',
+      'metadata: challengePayload.metadata',
+      '_biometricChallengeMetadataFromPayload',
+      '_biometricAllowCredentialsFromPayload',
+      '_biometricExcludeCredentialsFromPayload',
+      '_biometricCredentialDescriptorRows',
+      '_biometricCredentialDescriptor',
+      '_biometricChannelValue',
+      'credentialPublicKey',
+      'publicKeyDer',
+      'publicKeyJwk',
+      'rawId',
+      '_biometricAlgorithmFromPayload',
+      'SHA256WITHECDSA',
+      '-7',
+      '-257',
+      'signatureBase64',
+      'base64Signature',
+      'nativeSignature',
+      'signatureJws',
+      'signatureDer',
+      'credentialResponse',
+      'authenticatorResponse',
+      '_biometricSignatureMetadataFromPayload',
+      'credential_id',
+      'client_data_json',
+      'authenticator_data',
+      'user_handle',
+      'jws',
+      'proof',
+      'pinAssertionToken',
+      'pinAssertionJwt',
+      'assertionJwt',
+      'verificationToken',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_biometric_alias_parsing_missing',
+      message:
+          'Flutter biometric auth must preserve production challenge, signature, and assertion-token alias parsing.',
+    ),
+    issues,
+  );
+
+  final deviceModel = File(
+    _join(
+      input.projectRoot,
+      'lib/features/profile/data/biometric_device_models.dart',
+    ),
+  );
+  final deviceRepository = File(
+    _join(
+      input.projectRoot,
+      'lib/features/profile/data/biometric_device_repository.dart',
+    ),
+  );
+  if (!deviceModel.existsSync() || !deviceRepository.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_device_parser_alias_missing',
+        message:
+            'Flutter biometric device list parser/repository was not found.',
+      ),
+    );
+  } else {
+    _requireAllSnippets(
+      deviceModel.readAsStringSync(),
+      const [
+        '_mergeBiometricDeviceFallbackWrappers',
+        '_biometricDeviceFallbackWrapperKeys',
+        'metadata',
+        'attributes',
+        'platformInfo',
+        'registrationInfo',
+        'lifecycle',
+        'statusInfo',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_device_parser_alias_missing',
+        message:
+            'Flutter biometric device model must preserve production metadata/attributes/platform/lifecycle wrapper parsing.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      deviceRepository.readAsStringSync(),
+      const [
+        '_looksLikeBiometricDeviceRow',
+        'metadata',
+        'attributes',
+        'platformInfo',
+        'registrationInfo',
+        'lifecycle',
+        'statusInfo',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_device_parser_alias_missing',
+        message:
+            'Flutter biometric device repository must detect production metadata/attributes/platform/lifecycle keyed records.',
+      ),
+      issues,
+    );
+  }
+
+  final bootstrap = File(
+    _join(
+      input.projectRoot,
+      'lib/core/tenant/mobile_bootstrap_controller.dart',
+    ),
+  );
+  final runtimePolicy = File(
+    _join(input.projectRoot, 'lib/core/tenant/mobile_runtime_policy.dart'),
+  );
+  if (!bootstrap.existsSync() || !runtimePolicy.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_runtime_prompt_copy_missing',
+        message:
+            'Flutter biometric runtime prompt-copy parser or policy helper was not found.',
+      ),
+    );
+  } else {
+    _requireAllSnippets(
+      bootstrap.readAsStringSync(),
+      const [
+        'promptReasonForPurpose',
+        '_mergeBiometricPromptReasonMaps',
+        'prompt_reasons',
+        'purposeReasons',
+        'localizedReason',
+        'authenticationPromptCopy',
+        'biometricSetupReason',
+        'deviceRegistrationReason',
+        'rewardBankUpdateReason',
+        'rewardClaimReason',
+        'ticketClaimReason',
+        'activityClaimReason',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_runtime_prompt_copy_missing',
+        message:
+            'Flutter mobile bootstrap must parse runtime biometric prompt-copy aliases by purpose with localized fallback.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      runtimePolicy.readAsStringSync(),
+      const [
+        'mobileBiometricPromptReason',
+        'promptReasonForPurpose',
+        'setup = false',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_runtime_prompt_copy_missing',
+        message:
+            'Flutter runtime policy must expose a shared biometric prompt-copy resolver.',
+      ),
+      issues,
+    );
+  }
+
+  final promptBindings = <String, List<String>>{
+    'lib/features/pin/presentation/pin_screen.dart': const [
+      'mobileBiometricPromptReason(',
+      "purpose: 'pin_unlock'",
+    ],
+    'lib/features/affiliate/presentation/affiliate_screen.dart': const [
+      'mobileBiometricPromptReason(',
+      "purpose: 'pin_unlock'",
+    ],
+    'lib/features/profile/presentation/reward_bank_screen.dart': const [
+      'mobileBiometricPromptReason(',
+      "purpose: 'profile_update'",
+    ],
+    'lib/features/profile/presentation/biometric_devices_screen.dart': const [
+      'mobileBiometricPromptReason(',
+      "purpose: 'biometric_setup'",
+      'setup: true',
+    ],
+    'lib/features/tickets/presentation/tickets_screen.dart': const [
+      'mobileBiometricPromptReason(',
+      "purpose: 'reward_claim'",
+    ],
+    'lib/features/activities/presentation/activity_detail_screen.dart': const [
+      'mobileBiometricPromptReason(',
+      "purpose: 'activity_claim'",
+    ],
+  };
+  final missingPromptBindings = <String>[];
+  for (final entry in promptBindings.entries) {
+    final file = File(_join(input.projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missingPromptBindings.add(entry.key);
+      continue;
+    }
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missingPromptBindings.add('${entry.key} missing $snippet');
+      }
+    }
+  }
+  if (missingPromptBindings.isNotEmpty) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'flutter_biometric_runtime_prompt_copy_missing',
+        message:
+            'Flutter biometric prompt-copy runtime bindings are missing: ${missingPromptBindings.join(', ')}',
+      ),
+    );
+  }
+}
+
+void _checkFlutterRealtimeBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final protocol = File(
+    _join(
+      input.projectRoot,
+      'lib/core/realtime/customer_realtime_protocol.dart',
+    ),
+  );
+  if (!protocol.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_realtime_protocol_missing',
+        message: 'Flutter customer realtime protocol was not found.',
+      ),
+    );
+  } else {
+    final source = protocol.readAsStringSync();
+    _requireAllSnippets(
+      source,
+      const [
+        'normalizeRealtimeEventNameWithPayload',
+        'normalizeRealtimePayload',
+        '_directRealtimeEventNameKeys',
+        '_providerRealtimeEventNameKeys',
+        '_realtimePayloadWrapperKeys',
+        '_realtimeMessageEventKeys',
+        '_realtimeMessageChannelKeys',
+        '_realtimeMessageDataKeys',
+        '_mergeRealtimeMessageData',
+        '_realtimeEventScalarText',
+        '_realtimeScalarWrapperKeys',
+        '_isCanonicalRealtimeEvent',
+        'normalizeRealtimePayload(parseRealtimeData(data))',
+        'eventClass',
+        'event_class_name',
+        'event_fqcn',
+        'channelName',
+        'subscriptionChannel',
+        'broadcastAs',
+        'domainEventName',
+        'messageName',
+        'notificationName',
+        'notificationType',
+        'payload_json',
+        'event_data',
+        'resource_data',
+        'payloadData',
+        'envelope',
+        'notificationData',
+        'messagePayload',
+        'metadata',
+        'context',
+        'details',
+        'object',
+        'attributes',
+        'eventEnvelope',
+        'dataEnvelope',
+        'recordEnvelope',
+        'messageEnvelope',
+        'outboxMessage',
+        'payloadEnvelope',
+        'channelInfo',
+        'subscriptionInfo',
+        "'label'",
+        "'text'",
+        "'rawValue'",
+        'walletledgercreated',
+        'wallettransactioncreated',
+        'walletledgerentryupdated',
+        'rewardclaimapproved',
+        'activityclaimrejected',
+        "'value'",
+        "'code'",
+        "'key'",
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_realtime_protocol_alias_binding_missing',
+        message:
+            'Flutter realtime protocol must preserve backend outbox event-class aliases, object-scalar event rows, and bridge/provider payload wrapper normalization before production release.',
+      ),
+      issues,
+    );
+    _requireAllSnippets(
+      source,
+      const [
+        '_realtimeSocketUrlWithAppPath',
+        'encodedKey',
+        'queryIndex',
+        "replaceFirst(RegExp('^http:'",
+        "replaceFirst(RegExp('^https:'",
+        r"r'/app(?:/([^/?#]+))?$'",
+        '/app/\$encodedKey',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_realtime_socket_url_normalization_missing',
+        message:
+            'Flutter realtime protocol must preserve runtime socket URL normalization for /app endpoints, proxy paths, existing app keys, and query strings.',
+      ),
+      issues,
+    );
+  }
+
+  final requiredMonitors = <String, List<String>>{
+    'lib/features/lottery/presentation/lottery_stock_realtime_monitor.dart':
+        const [
+      'normalizeRealtimeEventNameWithPayload',
+      'normalizeRealtimePayload',
+      '_realtimeScalarText',
+      'salePrice',
+      'unitPrice',
+    ],
+    'lib/features/results/presentation/result_realtime_monitor.dart': const [
+      'normalizeRealtimeEventNameWithPayload',
+      'normalizeRealtimePayload',
+      '_resultRealtimeScalarText',
+      'rewardGame',
+      'currentGame',
+      'selectedGameId',
+    ],
+    'lib/features/lottery/presentation/customer_revenue_realtime_monitor.dart':
+        const [
+      'normalizeRealtimeEventNameWithPayload',
+      'normalizeRealtimePayload',
+      'ticketIdsFromRealtimePayload',
+      '_revenueRealtimeScalarText',
+      'orderItems',
+      'lotteryTicket',
+    ],
+    'lib/features/topup/presentation/topup_realtime_monitor.dart': const [
+      'normalizeRealtimeEventNameWithPayload',
+      'customerWalletChannel',
+    ],
+    'lib/features/reward_claims/presentation/claim_realtime_monitor.dart':
+        const [
+      'normalizeRealtimeEventNameWithPayload',
+      'normalizeRealtimePayload',
+      'claimIdFromRealtimePayload',
+      'ticketIdFromRewardClaimRealtimePayload',
+      '_claimRealtimeScalarText',
+      'orderItems',
+      'lotteryTicket',
+      'activityAward',
+    ],
+  };
+
+  final missing = <String>[];
+  for (final entry in requiredMonitors.entries) {
+    final file = File(_join(input.projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missing.add(entry.key);
+      continue;
+    }
+
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missing.add('${entry.key} missing $snippet');
+      }
+    }
+  }
+
+  if (missing.isEmpty) return;
+
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'flutter_realtime_monitor_binding_missing',
+      message:
+          'Customer realtime monitors must keep using the shared payload-aware protocol for stock, result, revenue, money, and claim refreshes. Missing: ${missing.join(', ')}',
+    ),
+  );
 }
 
 void _checkNativeTenantHost(
@@ -170,11 +1211,6 @@ void _checkNativeTenantHost(
     return;
   }
 
-  final apiUri = Uri.tryParse(input.apiBaseUrl?.trim() ?? '');
-  final apiHost = apiUri?.host.trim().toLowerCase() ?? '';
-
-  if (apiHost.isEmpty) return;
-
   final callbackHosts = <String>{
     if (input.androidCallbackHost != null)
       _hostOnly(input.androidCallbackHost!).toLowerCase(),
@@ -185,9 +1221,27 @@ void _checkNativeTenantHost(
       ).toLowerCase(),
   }..removeWhere((host) => host.isEmpty);
 
+  final tenantHost = _hostOnly(input.tenantHost ?? '').toLowerCase();
+  if (tenantHost.isNotEmpty &&
+      _looksLikeProductionHost(tenantHost, input.production) &&
+      callbackHosts.isNotEmpty &&
+      !callbackHosts.contains(tenantHost)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'tenant_host_callback_host_mismatch',
+        message:
+            'TENANT_HOST must match the native callback/App Link host so Flutter does not reject production HTTPS callbacks. Expected one of ${callbackHosts.join(', ')}, got $tenantHost.',
+      ),
+    );
+  }
+
+  final apiUri = Uri.tryParse(input.apiBaseUrl?.trim() ?? '');
+  final apiHost = apiUri?.host.trim().toLowerCase() ?? '';
+
+  if (apiHost.isEmpty) return;
+
   if (callbackHosts.isEmpty || callbackHosts.contains(apiHost)) return;
 
-  final tenantHost = _hostOnly(input.tenantHost ?? '');
   if (!_looksLikeProductionHost(tenantHost, input.production)) {
     issues.add(
       ProductionPreflightIssue(
@@ -205,11 +1259,15 @@ void _checkSocialProviderValues(
 ) {
   if (!input.production) return;
 
-  const supportedProviders = {'line', 'google', 'apple'};
   final invalidProviders = input.socialAuthProviders
-      .map((provider) => provider.trim().toLowerCase())
+      .map((provider) => provider.trim())
       .where((provider) => provider.isNotEmpty)
-      .where((provider) => !supportedProviders.contains(provider))
+      .where(
+        (provider) => !_supportedSocialProviders.contains(
+          _normalizeSocialProvider(provider),
+        ),
+      )
+      .map((provider) => provider.toLowerCase())
       .toSet()
       .toList()
     ..sort();
@@ -230,10 +1288,7 @@ void _checkSocialLoginStoreCompliance(
 ) {
   if (!input.production || !input.target.includesIos) return;
 
-  final providers = input.socialAuthProviders
-      .map((provider) => provider.trim().toLowerCase())
-      .where((provider) => provider.isNotEmpty)
-      .toSet();
+  final providers = _normalizedSocialProviders(input.socialAuthProviders);
   if (providers.isEmpty) return;
 
   final usesThirdPartyLogin =
@@ -249,17 +1304,244 @@ void _checkSocialLoginStoreCompliance(
   }
 }
 
+void _checkFlutterSocialCallbackBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final authRepository = File(
+    _join(input.projectRoot, 'lib/core/auth/auth_repository.dart'),
+  );
+  final callbackScreen = File(
+    _join(
+      input.projectRoot,
+      'lib/features/auth/presentation/line_auth_screens.dart',
+    ),
+  );
+  const issue = ProductionPreflightIssue(
+    code: 'flutter_social_callback_wrapper_binding_missing',
+    message:
+        'Flutter social callback must normalize wrapper/code/state aliases in both the route screen and auth repository before submitting production OAuth callbacks.',
+  );
+  if (!authRepository.existsSync() || !callbackScreen.existsSync()) {
+    issues.add(issue);
+    return;
+  }
+
+  final authSource = authRepository.readAsStringSync();
+  final callbackSource = callbackScreen.readAsStringSync();
+  final authMissing = const [
+    'data: normalizedQuery',
+    '_socialLoginPayloadWrapperKeys',
+    '_socialCallbackPayloadWrapperKeys',
+    '_normalizedSocialCallbackData',
+    '_socialCallbackAuthMode',
+    '_authPayload',
+    '_asAuthMap',
+    'convert.jsonDecode',
+    'authorizationCode',
+    'callbackState',
+    'providerCode',
+    'providerState',
+    'metadata',
+    'context',
+    'providerData',
+  ].any((snippet) => !authSource.contains(snippet));
+  final callbackMissing = const [
+    '_socialCallbackWrapperKeys',
+    '_normalizedSocialCallbackQuery',
+    '_wrappedSocialCallbackQuery',
+    '_jsonStringMap',
+    'convert.jsonEncode',
+    'convert.jsonDecode',
+    'authorizationCode',
+    'callbackState',
+    'providerCode',
+    'providerState',
+    'metadata',
+    'context',
+    'providerData',
+    'payload',
+  ].any((snippet) => !callbackSource.contains(snippet));
+  if (authMissing || callbackMissing) issues.add(issue);
+}
+
+void _checkFlutterAuthOtpParserBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final authRepository = File(
+    _join(input.projectRoot, 'lib/core/auth/auth_repository.dart'),
+  );
+  if (!authRepository.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_auth_otp_parser_binding_missing',
+        message: 'Flutter auth repository OTP parser was not found.',
+      ),
+    );
+    return;
+  }
+
+  _requireAllSnippets(
+    authRepository.readAsStringSync(),
+    const [
+      'OtpRequestResult',
+      'OtpVerifyResult',
+      'otpRequestResult',
+      'otpVerifyResult',
+      'pinReset',
+      'passwordReset',
+      'mobileNumberMasked',
+      'retryAfterSeconds',
+      'verificationId',
+      'recipient',
+      'delivery',
+      'maskedPhone',
+      '_firstScalarString',
+      '_authScalarString',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_auth_otp_parser_binding_missing',
+      message:
+          'Flutter auth OTP parser must keep production reset/register envelopes plus phone-mask, resend-cooldown, and verification-token aliases for register, forgot password, and PIN reset.',
+    ),
+    issues,
+  );
+}
+
+void _checkFlutterSocialProviderRuntimeColorBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final bootstrap = File(
+    _join(
+      input.projectRoot,
+      'lib/core/tenant/mobile_bootstrap_controller.dart',
+    ),
+  );
+  final login = File(
+    _join(
+      input.projectRoot,
+      'lib/features/auth/presentation/login_screen.dart',
+    ),
+  );
+  final forgotPassword = File(
+    _join(
+      input.projectRoot,
+      'lib/features/auth/presentation/forgot_password_screen.dart',
+    ),
+  );
+  final socialScreens = File(
+    _join(
+      input.projectRoot,
+      'lib/features/auth/presentation/line_auth_screens.dart',
+    ),
+  );
+  final lineNotifications = File(
+    _join(
+      input.projectRoot,
+      'lib/features/profile/presentation/line_notifications_screen.dart',
+    ),
+  );
+  const issue = ProductionPreflightIssue(
+    code: 'flutter_social_provider_runtime_color_binding_missing',
+    message:
+        'Flutter social-provider UI must keep brand/button colors runtime-configured through mobile bootstrap provider aliases instead of hardcoded LINE/Google/Apple colors.',
+  );
+  final files = [
+    bootstrap,
+    login,
+    forgotPassword,
+    socialScreens,
+    lineNotifications,
+  ];
+  if (files.any((file) => !file.existsSync())) {
+    issues.add(issue);
+    return;
+  }
+
+  final bootstrapSource = bootstrap.readAsStringSync();
+  final loginSource = login.readAsStringSync();
+  final forgotSource = forgotPassword.readAsStringSync();
+  final socialSource = socialScreens.readAsStringSync();
+  final lineNotificationsSource = lineNotifications.readAsStringSync();
+
+  final bootstrapMissing = const [
+    'final Color? brandColor',
+    'final Color? buttonBackgroundColor',
+    'final Color? buttonForegroundColor',
+    "json['brandColor']",
+    "json['buttonBackgroundColor']",
+    "json['buttonForegroundColor']",
+    '_runtimeColorFrom',
+  ].any((snippet) => !bootstrapSource.contains(snippet));
+  final loginMissing = const [
+    'provider.brandColor',
+    'provider.buttonBackgroundColor',
+    'provider.buttonForegroundColor',
+  ].any((snippet) => !loginSource.contains(snippet));
+  final forgotMissing = const [
+    'provider.brandColor',
+    'provider.buttonBackgroundColor',
+    'provider.buttonForegroundColor',
+  ].any((snippet) => !forgotSource.contains(snippet));
+  final socialMissing = const [
+    '_runtimeSocialProvider',
+    'mobileBootstrapProvider',
+    'runtimeProvider?.brandColor',
+  ].any((snippet) => !socialSource.contains(snippet));
+  final hardcodedProviderColor = const [
+    '0xFF06C755',
+    '0xff06c755',
+    '0xFF00B900',
+    '0xff00b900',
+    '0xFF00C300',
+    '0xff00c300',
+    '0xFF4285F4',
+    '0xff4285f4',
+  ].any(
+    (snippet) =>
+        loginSource.contains(snippet) ||
+        forgotSource.contains(snippet) ||
+        socialSource.contains(snippet) ||
+        lineNotificationsSource.contains(snippet),
+  );
+  if (bootstrapMissing ||
+      loginMissing ||
+      forgotMissing ||
+      socialMissing ||
+      hardcodedProviderColor) {
+    issues.add(issue);
+  }
+}
+
 void _checkStoreAccountReadiness(
   ProductionPreflightInput input,
   List<ProductionPreflightIssue> issues,
 ) {
-  final providers = input.socialAuthProviders
-      .map((provider) => provider.trim().toLowerCase())
-      .where((provider) => provider.isNotEmpty)
-      .toSet();
-  if (providers.isEmpty) return;
-
   final requiredFiles = <String, List<String>>{
+    'lib/core/tenant/mobile_bootstrap_controller.dart': const [
+      "json['storeReadiness']",
+      "site['storeReadiness']",
+      "site['storeListing']",
+      "mobile['storeReadiness']",
+      "json['compliance']",
+      "site['compliance']",
+      'privacyContent:',
+      'privacyPolicyUrl:',
+      'accountDeletionUrl:',
+      'supportUrl:',
+      "legal['privacy_content']",
+      "legalPrivacy['policyUrl']",
+      "legalAccountDeletion['requestUrl']",
+      "legal['links']",
+      "storeReadiness['developerContact']",
+      'app_store_privacy_policy',
+      'store_account_deletion_url',
+      'store_listing_support',
+      '_runtimeLinkForAliases(',
+      '_runtimeContactValueFrom(',
+    ],
     'lib/app/customer_routes.dart': const [
       "path: '/privacy'",
       "path: '/profile/account-deletion'",
@@ -273,6 +1555,23 @@ void _checkStoreAccountReadiness(
     'lib/features/profile/presentation/profile_screen.dart': const [
       "path: '/privacy'",
       "path: '/profile/account-deletion'",
+    ],
+    'lib/features/content/presentation/info_pages.dart': const [
+      'class PrivacyPolicyScreen',
+      'mobileBootstrapProvider',
+      'privacyContent',
+      'privacyPolicyUrl',
+      'isSafeExternalLinkUri',
+      'customerLinkLauncherProvider',
+    ],
+    'lib/features/profile/presentation/account_deletion_screen.dart': const [
+      'class AccountDeletionScreen',
+      'mobileBootstrapProvider',
+      'accountDeletionUrl',
+      'supportUrl',
+      'isSafeExternalLinkUri',
+      'customerLinkLauncherProvider',
+      'sensitive: true',
     ],
   };
 
@@ -298,9 +1597,246 @@ void _checkStoreAccountReadiness(
     ProductionPreflightIssue(
       code: 'store_account_readiness_missing',
       message:
-          'Production builds with social login must expose Privacy Policy and Account Deletion entry points. Missing: ${missing.join(', ')}',
+          'Production builds must expose runtime-driven Privacy Policy and Account Deletion entry points. Missing: ${missing.join(', ')}',
     ),
   );
+}
+
+void _checkDeepLinkAssociationFiles(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final configuredDir = input.linkAssociationDir?.trim() ?? '';
+  if (configuredDir.isEmpty) return;
+  if (!input.target.includesAndroid && !input.target.includesIos) return;
+
+  final configured = Directory(configuredDir);
+  final wellKnown =
+      configured.path.endsWith('${Platform.pathSeparator}.well-known')
+          ? configured
+          : Directory(_join(configured.path, '.well-known'));
+  if (!wellKnown.existsSync()) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'deep_link_association_dir_missing',
+        message:
+            'Deep-link association directory was not found: ${wellKnown.path}',
+      ),
+    );
+    return;
+  }
+
+  if (input.target.includesAndroid) {
+    _checkAndroidAssetLinks(input, wellKnown, issues);
+  }
+  if (input.target.includesIos) {
+    _checkAppleAppSiteAssociation(input, wellKnown, issues);
+  }
+}
+
+void _checkStoreListingMetadataInput(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  if (!input.production ||
+      !input.requireStoreListingMetadata ||
+      (!input.target.includesAndroid && !input.target.includesIos)) {
+    return;
+  }
+
+  final privacyUrl = input.storePrivacyPolicyUrl?.trim() ?? '';
+  if (privacyUrl.isEmpty) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'store_privacy_policy_url_missing',
+        message:
+            'Store submission preflight requires a partner privacy policy HTTPS URL.',
+      ),
+    );
+  } else if (!_looksLikeHttpsProductionUrl(privacyUrl, input.production)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'store_privacy_policy_url_invalid',
+        message:
+            'Store privacy policy URL must be an HTTPS production URL, got $privacyUrl.',
+      ),
+    );
+  }
+
+  final supportUrl = input.storeSupportUrl?.trim() ?? '';
+  if (supportUrl.isEmpty) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'store_support_url_missing',
+        message:
+            'Store submission preflight requires a partner support HTTPS URL.',
+      ),
+    );
+  } else if (!_looksLikeHttpsProductionUrl(supportUrl, input.production)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'store_support_url_invalid',
+        message:
+            'Store support URL must be an HTTPS production URL, got $supportUrl.',
+      ),
+    );
+  }
+
+  final accountDeletionUrl = input.storeAccountDeletionUrl?.trim() ?? '';
+  if (accountDeletionUrl.isEmpty) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'store_account_deletion_url_missing',
+        message:
+            'Store submission preflight requires a partner account deletion HTTPS URL.',
+      ),
+    );
+  } else if (!_looksLikeHttpsProductionUrl(
+    accountDeletionUrl,
+    input.production,
+  )) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'store_account_deletion_url_invalid',
+        message:
+            'Store account deletion URL must be an HTTPS production URL, got $accountDeletionUrl.',
+      ),
+    );
+  }
+}
+
+void _checkAndroidAssetLinks(
+  ProductionPreflightInput input,
+  Directory wellKnown,
+  List<ProductionPreflightIssue> issues,
+) {
+  final file = File(_join(wellKnown.path, 'assetlinks.json'));
+  if (!file.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_assetlinks_missing',
+        message:
+            'Android App Links require .well-known/assetlinks.json for the production callback host.',
+      ),
+    );
+    return;
+  }
+
+  final value = _readJsonFile(
+    file,
+    const ProductionPreflightIssue(
+      code: 'android_assetlinks_invalid',
+      message: 'assetlinks.json must be valid JSON.',
+    ),
+    issues,
+  );
+  if (value == null) return;
+  if (value is! List) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_assetlinks_invalid',
+        message: 'assetlinks.json must contain a list of Android app links.',
+      ),
+    );
+    return;
+  }
+
+  final expectedPackage = input.androidPackage?.trim() ?? '';
+  final matches = value.whereType<Map>().any((entry) {
+    final relation = _stringListFromJson(entry['relation']);
+    final target = entry['target'];
+    if (target is! Map) return false;
+    final fingerprints =
+        _stringListFromJson(target['sha256_cert_fingerprints']);
+    return relation.contains('delegate_permission/common.handle_all_urls') &&
+        target['namespace']?.toString() == 'android_app' &&
+        target['package_name']?.toString() == expectedPackage &&
+        fingerprints.any(_looksLikeSha256Fingerprint);
+  });
+
+  if (!matches) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'android_assetlinks_mismatch',
+        message:
+            'assetlinks.json must target $expectedPackage with at least one real SHA-256 signing fingerprint.',
+      ),
+    );
+  }
+}
+
+void _checkAppleAppSiteAssociation(
+  ProductionPreflightInput input,
+  Directory wellKnown,
+  List<ProductionPreflightIssue> issues,
+) {
+  final file = File(_join(wellKnown.path, 'apple-app-site-association'));
+  if (!file.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_aasa_missing',
+        message:
+            'iOS Universal Links require .well-known/apple-app-site-association for the production callback host.',
+      ),
+    );
+    return;
+  }
+
+  final value = _readJsonFile(
+    file,
+    const ProductionPreflightIssue(
+      code: 'ios_aasa_invalid',
+      message: 'apple-app-site-association must be valid JSON.',
+    ),
+    issues,
+  );
+  if (value == null) return;
+  if (value is! Map) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_aasa_invalid',
+        message: 'apple-app-site-association must contain an applinks object.',
+      ),
+    );
+    return;
+  }
+
+  final expectedAppId =
+      '${input.iosTeamId?.trim() ?? ''}.${input.iosBundleId?.trim() ?? ''}';
+  final applinks = value['applinks'];
+  final details = applinks is Map ? applinks['details'] : null;
+  final matchedPaths = <String>{};
+  if (details is List) {
+    for (final rawDetail in details.whereType<Map>()) {
+      final appIds = _stringListFromJson(rawDetail['appIDs']);
+      final legacyAppId = rawDetail['appID']?.toString().trim();
+      final matchesAppId = appIds.contains(expectedAppId) ||
+          (legacyAppId != null && legacyAppId == expectedAppId);
+      if (!matchesAppId) continue;
+
+      matchedPaths.addAll(_stringListFromJson(rawDetail['paths']));
+      final components = rawDetail['components'];
+      if (components is List) {
+        for (final component in components.whereType<Map>()) {
+          final path = component['/']?.toString().trim();
+          if (path?.startsWith('/') == true) matchedPaths.add(path!);
+        }
+      }
+    }
+  }
+
+  final missingPaths = defaultCustomerDeepLinkPaths
+      .where((path) => !matchedPaths.contains(path))
+      .toList();
+  if (matchedPaths.isEmpty || missingPaths.isNotEmpty) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'ios_aasa_mismatch',
+        message:
+            'apple-app-site-association must target $expectedAppId and include deep-link paths: ${missingPaths.isEmpty ? defaultCustomerDeepLinkPaths.join(', ') : missingPaths.join(', ')}',
+      ),
+    );
+  }
 }
 
 void _checkApiBaseUrl(
@@ -344,12 +1880,90 @@ void _checkDisplayName(
   List<ProductionPreflightIssue> issues,
 ) {
   final value = input.appDisplayName?.trim() ?? '';
-  if (input.production && value.isEmpty) {
+  if (!input.production) return;
+
+  if (value.isEmpty) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'app_display_name_missing',
         message:
-            'Production builds require CUSTOMER_FLUTTER_APP_DISPLAY_NAME or APP_DISPLAY_NAME.',
+            'Production builds require CUSTOMER_FLUTTER_APP_LABEL, CUSTOMER_FLUTTER_APP_DISPLAY_NAME, or APP_DISPLAY_NAME.',
+      ),
+    );
+  } else if (_isDefaultDisplayName(value)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'app_display_name_not_partner_specific',
+        message:
+            'Production builds require a partner-specific app display name, not the default scaffold name: $value',
+      ),
+    );
+  }
+}
+
+void _checkWebProductionMetadataInput(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  if (!input.production || !input.target.includesWeb) return;
+
+  final appName = (input.webAppName?.trim().isNotEmpty == true
+          ? input.webAppName
+          : input.appDisplayName)
+      ?.trim();
+  final shortName = input.webShortName?.trim() ?? '';
+  final description = input.webDescription?.trim() ?? '';
+
+  if (appName == null || appName.isEmpty) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'web_app_name_missing',
+        message:
+            'Web production builds require CUSTOMER_FLUTTER_WEB_APP_NAME or a partner-specific app display name.',
+      ),
+    );
+  } else if (_isDefaultDisplayName(appName)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'web_app_name_not_partner_specific',
+        message:
+            'Web production builds require partner-specific runtime web app metadata, not the default scaffold name: $appName',
+      ),
+    );
+  }
+
+  if (shortName.isNotEmpty && _isDefaultDisplayName(shortName)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'web_short_name_not_partner_specific',
+        message:
+            'Web production builds require partner-specific runtime web short name metadata, not the default scaffold name: $shortName',
+      ),
+    );
+  } else if (shortName.isEmpty) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'web_short_name_missing',
+        message:
+            'Web production builds require CUSTOMER_FLUTTER_WEB_SHORT_NAME for installable PWA metadata.',
+      ),
+    );
+  }
+
+  if (description.isEmpty) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'web_description_missing',
+        message:
+            'Web production builds require CUSTOMER_FLUTTER_WEB_DESCRIPTION for partner-specific PWA and search metadata.',
+      ),
+    );
+  } else if (_isDefaultWebDescription(description)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'web_description_not_partner_specific',
+        message:
+            'Web production builds require partner-specific runtime web description metadata, not the default scaffold description: $description',
       ),
     );
   }
@@ -573,6 +2187,70 @@ void _checkAndroidNativeSecurity(
     ),
     issues,
   );
+  _requireAllSnippets(
+    source,
+    const [
+      '"reportSecurityEvent"',
+      '"securityEvent"',
+      'invokeMethod',
+      '"eventName"',
+      '"currentRoute"',
+      '"reasonText"',
+      '"android_report_security_event"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_security_event_callback_missing',
+      message:
+          'Android reportSecurityEvent must forward route-aware securityEvent payloads back to Flutter for audit and session locking.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'ScreenCaptureCallback',
+      'registerScreenCaptureCallback',
+      'unregisterScreenCaptureCallback',
+      'updateScreenCaptureDetection',
+      'android_screen_capture_callback',
+      '"screenshot_detected"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_capture_callback_missing',
+      message:
+          'Android 14+ screen-security builds must register the platform screenshot callback only while a sensitive route is active and forward detections to Flutter.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const ['protect_recent_app_preview', 'setRecentsScreenshotEnabled'],
+    const ProductionPreflightIssue(
+      code: 'android_recent_app_preview_guard_missing',
+      message:
+          'Android screen security must honor protect_recent_app_preview and disable recent-app screenshots when supported.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      '"enabled"',
+      '"active"',
+      '"allowed"',
+      '"supported"',
+      '"disabled"',
+      '"blocked"',
+      '"unsupported"',
+      '"not_allowed"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_security_bool_aliases_missing',
+      message:
+          'Android screen security must parse BO/runtime boolean aliases before applying FLAG_SECURE and recent-app preview policy.',
+    ),
+    issues,
+  );
   _requireSnippet(
     source,
     'customer_flutter/biometric_keys',
@@ -586,7 +2264,19 @@ void _checkAndroidNativeSecurity(
     source,
     const [
       'AndroidKeyStore',
+      'existingDeviceId',
+      'deleteKeyPair',
+      'deleteEntry',
+      'hasExistingKeyPair',
+      'remove(deviceIdKey)',
+      'credentialId',
+      'rawId',
+      'signatureBase64',
+      'signatureDer',
+      'signedPayload',
+      'keyAlgorithm',
       'setUserAuthenticationRequired(true)',
+      'AUTH_BIOMETRIC_STRONG',
       'setInvalidatedByBiometricEnrollment(true)',
       'packageName',
     ],
@@ -594,6 +2284,16 @@ void _checkAndroidNativeSecurity(
       code: 'android_biometric_keyguard_missing',
       message:
           'Android biometric keys must be package-scoped, require user authentication, and be invalidated on enrollment changes.',
+    ),
+    issues,
+  );
+  _rejectSnippet(
+    source,
+    'AUTH_DEVICE_CREDENTIAL',
+    const ProductionPreflightIssue(
+      code: 'android_biometric_device_credential_allowed',
+      message:
+          'Android biometric assertion keys must not allow device credential fallback; use AUTH_BIOMETRIC_STRONG only.',
     ),
     issues,
   );
@@ -628,6 +2328,29 @@ void _checkAndroidManifest(
   );
   _requireSnippet(
     source,
+    'android.permission.DETECT_SCREEN_CAPTURE',
+    const ProductionPreflightIssue(
+      code: 'android_screen_capture_permission_missing',
+      message:
+          'AndroidManifest.xml must declare DETECT_SCREEN_CAPTURE for Android 14+ screenshot detection on sensitive routes.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'android:allowBackup="false"',
+      'android:fullBackupContent="false"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_backup_disabled_missing',
+      message:
+          'AndroidManifest.xml must disable app backup for production customer builds.',
+    ),
+    issues,
+  );
+  _requireSnippet(
+    source,
     r'android:scheme="${authCallbackScheme}"',
     const ProductionPreflightIssue(
       code: 'android_custom_scheme_callback_missing',
@@ -650,6 +2373,38 @@ void _checkAndroidManifest(
       code: 'android_app_links_missing',
       message:
           'AndroidManifest.xml must declare verified HTTPS app links for auth, reset, and checkout callbacks.',
+    ),
+    issues,
+  );
+  _checkAndroidReleaseManifest(input, issues);
+}
+
+void _checkAndroidReleaseManifest(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final manifest = File(
+    _join(input.projectRoot, 'android/app/src/release/AndroidManifest.xml'),
+  );
+  if (!manifest.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_release_manifest_missing',
+        message:
+            'Android release manifest overlay must disable cleartext network traffic.',
+      ),
+    );
+    return;
+  }
+
+  final source = manifest.readAsStringSync();
+  _requireSnippet(
+    source,
+    'android:usesCleartextTraffic="false"',
+    const ProductionPreflightIssue(
+      code: 'android_cleartext_traffic_not_disabled',
+      message:
+          'Android release manifest overlay must set android:usesCleartextTraffic="false".',
     ),
     issues,
   );
@@ -736,6 +2491,15 @@ void _checkIosNativeSecurity(
       ),
       issues,
     );
+    if (!_hasPlistStringValue(plist, 'CFBundleName', r'$(APP_DISPLAY_NAME)')) {
+      issues.add(
+        const ProductionPreflightIssue(
+          code: 'ios_bundle_name_runtime_missing',
+          message:
+              'iOS Info.plist must read CFBundleName from APP_DISPLAY_NAME.',
+        ),
+      );
+    }
     _requireSnippet(
       plist,
       r'$(CUSTOMER_FLUTTER_URL_SCHEME)',
@@ -746,10 +2510,12 @@ void _checkIosNativeSecurity(
       ),
       issues,
     );
+    _checkIosImagePickerUsageDescriptions(input, plist, issues);
   }
 
   _checkIosEntitlements(input, issues);
   _checkIosXcconfig(input, issues);
+  _checkIosPrivacyManifest(input, issues);
   _checkIosProjectConfig(input, issues);
   _checkIosReleaseConfigGuard(input, issues);
 
@@ -781,6 +2547,13 @@ void _checkIosNativeSecurity(
       'UIApplication.userDidTakeScreenshotNotification',
       'UIScreen.capturedDidChangeNotification',
       'UIScreen.main.isCaptured',
+      'UIApplication.userDidTakeScreenshotNotification.rawValue',
+      'UIScreen.capturedDidChangeNotification.rawValue',
+      '"nativeEvent"',
+      '"isCaptured"',
+      '"screenCaptureActive"',
+      '"currentRoute"',
+      '"reasonText"',
       'showPrivacyOverlay',
       'securityEvent',
     ],
@@ -807,6 +2580,60 @@ void _checkIosNativeSecurity(
     ),
     issues,
   );
+  _requireAllSnippets(
+    source,
+    const [
+      'ios_exit_app',
+      'iosExitAppEnabled',
+      'screen_security_exit_requested',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_exit_app_policy_missing',
+      message:
+          'iOS AppDelegate must honor the ios_exit_app screen-security policy by requesting a sensitive-session lock.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'screenSecurityRouteKeys',
+      '"currentRoute"',
+      '"routeName"',
+      '"targetUrl"',
+      'screenSecurityEventKeys',
+      '"eventName"',
+      '"nativeEvent"',
+      'screenSecurityReasonKeys',
+      '"reasonText"',
+      'screenshotPolicyKeys',
+      '"iosScreenshotPolicy"',
+      'screenCaptureOverlayKeys',
+      '"iosScreenCaptureOverlay"',
+      'exitAppPolicyKeys',
+      '"iosExitApp"',
+      'privacyOverlayTitleKeys',
+      '"privacyOverlayTitle"',
+      'privacyOverlayDescriptionKeys',
+      '"privacyOverlayDescription"',
+      'stringArg(',
+      'normalizedStringArg',
+      '"enabled"',
+      '"active"',
+      '"allowed"',
+      '"supported"',
+      '"disabled"',
+      '"blocked"',
+      '"unsupported"',
+      '"not_allowed"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_screen_security_aliases_missing',
+      message:
+          'iOS AppDelegate must accept runtime screen-security route/event/reason/policy/copy aliases before forwarding native events.',
+    ),
+    issues,
+  );
   _requireSnippet(
     source,
     'customer_flutter/biometric_keys',
@@ -821,6 +2648,17 @@ void _checkIosNativeSecurity(
     const [
       'kSecAttrAccessibleWhenUnlockedThisDeviceOnly',
       'biometryCurrentSet',
+      'existingDeviceId',
+      'deleteKeyPair',
+      'SecItemDelete',
+      'hasExistingBiometricKeyPair',
+      'removeObject(forKey: biometricDeviceIdKey)',
+      '"credentialId"',
+      '"rawId"',
+      '"signatureBase64"',
+      '"signatureDer"',
+      '"signedPayload"',
+      '"keyAlgorithm"',
       'SecKeyCreateSignature',
       'Bundle.main.bundleIdentifier',
     ],
@@ -831,6 +2669,135 @@ void _checkIosNativeSecurity(
     ),
     issues,
   );
+}
+
+void _checkIosImagePickerUsageDescriptions(
+  ProductionPreflightInput input,
+  String plist,
+  List<ProductionPreflightIssue> issues,
+) {
+  final sources = _iosImagePickerSources(input.projectRoot);
+  if (sources.contains('gallery')) {
+    _requireSnippet(
+      plist,
+      'NSPhotoLibraryUsageDescription',
+      const ProductionPreflightIssue(
+        code: 'ios_photo_library_usage_missing',
+        message:
+            'iOS Info.plist must include NSPhotoLibraryUsageDescription when Flutter uses image_picker gallery flows.',
+      ),
+      issues,
+    );
+  }
+  if (sources.contains('camera')) {
+    _requireSnippet(
+      plist,
+      'NSCameraUsageDescription',
+      const ProductionPreflightIssue(
+        code: 'ios_camera_usage_missing',
+        message:
+            'iOS Info.plist must include NSCameraUsageDescription when Flutter uses image_picker camera flows.',
+      ),
+      issues,
+    );
+  }
+}
+
+void _checkIosPrivacyManifest(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final manifest = File(
+    _join(input.projectRoot, 'ios/Runner/PrivacyInfo.xcprivacy'),
+  );
+  if (!manifest.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_privacy_manifest_missing',
+        message:
+            'iOS Runner target must include PrivacyInfo.xcprivacy for App Store privacy manifests.',
+      ),
+    );
+    return;
+  }
+
+  final source = manifest.readAsStringSync();
+  _requireAllSnippets(
+    source,
+    const [
+      'NSPrivacyTracking',
+      '<false/>',
+      'NSPrivacyTrackingDomains',
+      'NSPrivacyCollectedDataTypes',
+      'NSPrivacyCollectedDataTypePhoneNumber',
+      'NSPrivacyCollectedDataTypeUserID',
+      'NSPrivacyCollectedDataTypePurchaseHistory',
+      'NSPrivacyCollectedDataTypePhotosorVideos',
+      'NSPrivacyCollectedDataTypeOtherFinancialInfo',
+      'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+      'NSPrivacyAccessedAPITypes',
+      'NSPrivacyAccessedAPICategoryUserDefaults',
+      'CA92.1',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_privacy_manifest_incomplete',
+      message:
+          'iOS PrivacyInfo.xcprivacy must declare no tracking, customer app-functionality data use, and the UserDefaults required-reason API used by native biometric storage.',
+    ),
+    issues,
+  );
+
+  final project = File(
+    _join(input.projectRoot, 'ios/Runner.xcodeproj/project.pbxproj'),
+  );
+  if (!project.existsSync()) return;
+  _requireAllSnippets(
+    project.readAsStringSync(),
+    const [
+      'PrivacyInfo.xcprivacy',
+      'PrivacyInfo.xcprivacy in Resources',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_privacy_manifest_project_binding_missing',
+      message:
+          'iOS Runner target must include PrivacyInfo.xcprivacy in the Resources build phase.',
+    ),
+    issues,
+  );
+}
+
+Set<String> _iosImagePickerSources(String projectRoot) {
+  final lib = Directory(_join(projectRoot, 'lib'));
+  if (!lib.existsSync()) return const {};
+
+  final sources = <String>{};
+  for (final entity in lib.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File || _extensionOf(entity.path) != '.dart') continue;
+
+    String source;
+    try {
+      source = entity.readAsStringSync();
+    } on FileSystemException {
+      continue;
+    } on FormatException {
+      continue;
+    }
+
+    if (!source.contains('image_picker') &&
+        !source.contains('ImagePicker') &&
+        !source.contains('ImageSource.')) {
+      continue;
+    }
+
+    if (source.contains('ImageSource.camera')) sources.add('camera');
+    if (source.contains('ImageSource.gallery') ||
+        source.contains('ImageSource.photos') ||
+        source.contains('pickImage(') ||
+        source.contains('pickMultiImage(')) {
+      sources.add('gallery');
+    }
+  }
+  return sources;
 }
 
 void _checkIosEntitlements(
@@ -1168,9 +3135,97 @@ void _checkWebRuntimeMetadata(
     indexSource,
     const [
       'customerFlutterWebConfig',
+      'customerFlutterConfig',
+      '__CUSTOMER_FLUTTER_WEB_CONFIG__',
+      'runtimeConfigSources',
+      'expandedRuntimeConfigSources',
+      'addConfigSource',
+      'configScalar',
+      '"colors"',
+      '"icons"',
+      '"seo"',
+      '"publicUrl"',
+      '"assetUrl"',
+      '"cssValue"',
+      'firstConfigValue',
       'document.title',
       'meta[name="description"]',
+      'meta[name="theme-color"]',
+      'meta[name="msapplication-TileColor"]',
       'meta[name="apple-mobile-web-app-title"]',
+      'meta[property="og:title"]',
+      'meta[property="og:description"]',
+      'meta[property="og:url"]',
+      'meta[property="og:image"]',
+      'meta[name="twitter:title"]',
+      'meta[name="twitter:description"]',
+      'meta[name="twitter:url"]',
+      'meta[name="twitter:image"]',
+      '"webAppName"',
+      '"web_app_name"',
+      '"shortName"',
+      '"short_name"',
+      '"webShortName"',
+      '"web_short_name"',
+      '"webDescription"',
+      '"web_description"',
+      '"themeColor"',
+      '"theme_color"',
+      '"backgroundColor"',
+      '"background_color"',
+      '"faviconUrl"',
+      '"favicon_url"',
+      '"appleTouchIconUrl"',
+      '"apple_touch_icon_url"',
+      '"icon192Url"',
+      '"icon_192_url"',
+      '"icon512Url"',
+      '"icon_512_url"',
+      '"maskableIcon192Url"',
+      '"maskable_icon_192_url"',
+      '"maskableIcon512Url"',
+      '"maskable_icon_512_url"',
+      '"ogTitle"',
+      '"og_title"',
+      '"ogDescription"',
+      '"og_description"',
+      '"ogImageUrl"',
+      '"og_image_url"',
+      '"shareImageUrl"',
+      '"share_image_url"',
+      '"canonicalUrl"',
+      '"canonical_url"',
+      '"siteUrl"',
+      '"site_url"',
+      '"startUrl"',
+      '"start_url"',
+      '"webStartUrl"',
+      '"web_start_url"',
+      '"manifestId"',
+      '"manifest_id"',
+      '"webAppId"',
+      '"web_app_id"',
+      '"scope"',
+      '"webScope"',
+      '"web_scope"',
+      '"displayMode"',
+      '"display_mode"',
+      '"webDisplay"',
+      '"web_display"',
+      '"orientation"',
+      '"webOrientation"',
+      '"web_orientation"',
+      '"lang"',
+      '"defaultLocale"',
+      '"default_locale"',
+      '"dir"',
+      '"textDirection"',
+      '"text_direction"',
+      'document.documentElement.setAttribute("lang"',
+      'document.documentElement.setAttribute("dir"',
+      'link[rel="icon"]',
+      'link[rel="apple-touch-icon"]',
+      'link[rel="canonical"]',
       'application/manifest+json',
     ],
     const ProductionPreflightIssue(
@@ -1201,6 +3256,15 @@ void _requireSnippet(
   if (!source.contains(snippet)) issues.add(issue);
 }
 
+bool _hasPlistStringValue(String source, String key, String value) {
+  final pattern = RegExp(
+    '<key>\\s*${RegExp.escape(key)}\\s*</key>\\s*'
+    '<string>\\s*${RegExp.escape(value)}\\s*</string>',
+    multiLine: true,
+  );
+  return pattern.hasMatch(source);
+}
+
 void _requireAllSnippets(
   String source,
   List<String> snippets,
@@ -1208,6 +3272,61 @@ void _requireAllSnippets(
   List<ProductionPreflightIssue> issues,
 ) {
   if (snippets.any((snippet) => !source.contains(snippet))) issues.add(issue);
+}
+
+void _rejectSnippet(
+  String source,
+  String snippet,
+  ProductionPreflightIssue issue,
+  List<ProductionPreflightIssue> issues,
+) {
+  if (source.contains(snippet)) issues.add(issue);
+}
+
+Object? _readJsonFile(
+  File file,
+  ProductionPreflightIssue issue,
+  List<ProductionPreflightIssue> issues,
+) {
+  try {
+    return jsonDecode(file.readAsStringSync());
+  } on FormatException {
+    issues.add(issue);
+  } on FileSystemException {
+    issues.add(issue);
+  }
+  return null;
+}
+
+List<String> _stringListFromJson(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .map((entry) => entry?.toString().trim() ?? '')
+      .where((entry) => entry.isNotEmpty)
+      .toList();
+}
+
+bool _looksLikeSha256Fingerprint(String value) {
+  return RegExp(r'^([0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$').hasMatch(value);
+}
+
+const _supportedSocialProviders = {'line', 'google', 'apple'};
+
+Set<String> _normalizedSocialProviders(Iterable<String> providers) {
+  return providers
+      .map(_normalizeSocialProvider)
+      .where((provider) => provider.isNotEmpty)
+      .where(_supportedSocialProviders.contains)
+      .toSet();
+}
+
+String _normalizeSocialProvider(String provider) {
+  return switch (provider.trim().toLowerCase()) {
+    'gmail' || 'google_login' || 'google_oauth' || 'google_oauth2' => 'google',
+    'apple_id' || 'apple_login' || 'sign_in_with_apple' => 'apple',
+    'line_login' || 'line_oa' || 'line_oauth' => 'line',
+    final value => value,
+  };
 }
 
 String _join(String first, String second) {
@@ -1266,6 +3385,24 @@ bool _isDefaultCallbackScheme(String value) {
   return value.trim().toLowerCase() == 'newpaotang';
 }
 
+bool _isDefaultDisplayName(String value) {
+  final normalized =
+      value.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  return normalized == 'customer' ||
+      normalized == 'customerflutter' ||
+      normalized == 'newpaotang';
+}
+
+bool _isDefaultWebDescription(String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) return true;
+  if (normalized == 'customer application.') return true;
+  if (normalized == 'customer application') return true;
+  if (normalized == 'a new flutter project.') return true;
+  if (normalized == 'a new flutter project') return true;
+  return _isDefaultDisplayName(normalized);
+}
+
 bool _looksLikeProductionHost(String value, bool production) {
   value = _hostOnly(value);
   if (value.isEmpty) return false;
@@ -1273,6 +3410,12 @@ bool _looksLikeProductionHost(String value, bool production) {
   if (value == 'localhost' || value.endsWith('.localhost')) return false;
   if (value.startsWith('127.') || value == '0.0.0.0') return false;
   return value.contains('.');
+}
+
+bool _looksLikeHttpsProductionUrl(String value, bool production) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || uri.scheme.toLowerCase() != 'https') return false;
+  return _looksLikeProductionHost(uri.host, production);
 }
 
 String _hostOnly(String value) {

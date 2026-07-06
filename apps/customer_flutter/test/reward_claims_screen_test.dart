@@ -153,11 +153,7 @@ void main() {
     expect(find.text('โหลดประวัติขึ้นเงินไม่สำเร็จ'), findsOneWidget);
     expect(find.text('ลองใหม่'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
-
-    await tester.tap(find.text('ลองใหม่'));
-    await tester.pumpAndSettle();
-
-    expect(failingRepository.listCalls, 2);
+    expect(failingRepository.listCalls, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -173,6 +169,7 @@ void main() {
 
     expect(find.text('ระบบขึ้นเงินปิดปรับปรุง'), findsOneWidget);
     expect(find.text('โหลดประวัติขึ้นเงินไม่สำเร็จ'), findsNothing);
+    expect(find.text('ลองใหม่'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -186,6 +183,7 @@ void main() {
 
     expect(find.text('ไม่พบรายการขึ้นเงินนี้'), findsOneWidget);
     expect(find.text('โหลดรายการขึ้นเงินไม่สำเร็จ'), findsNothing);
+    expect(find.text('ลองใหม่'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -235,7 +233,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('รายละเอียดการขึ้นเงิน'), findsOneWidget);
+    expect(find.text('รายละเอียดการขึ้นเงินรางวัล'), findsOneWidget);
     expect(find.text('GLO'), findsOneWidget);
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
     expect(find.text('ผู้รับเงิน'), findsOneWidget);
@@ -254,9 +252,12 @@ void main() {
     expect(find.text('740000'), findsOneWidget);
     expect(find.textContaining('รางวัลเลขท้าย 2 ตัว'), findsOneWidget);
     expect(find.text('ค่าภาษีถอนเงิน (0.5%)'), findsOneWidget);
-    expect(find.text('ลดให้ 19.70 บาท'), findsOneWidget);
+    expect(find.text('20.00 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 20.00 บาท'), findsOneWidget);
     expect(find.text('ค่าธรรมเนียม (1%)'), findsOneWidget);
-    expect(find.text('ลดให้ 39.40 บาท'), findsOneWidget);
+    expect(find.text('39.00 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 39.00 บาท'), findsOneWidget);
+    expect(find.text('0 บาท'), findsNWidgets(2));
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(find.text('ตรวจสอบเอกสารแล้ว'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
@@ -293,7 +294,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('รายละเอียดการขึ้นเงิน'), findsOneWidget);
+    expect(find.text('รายละเอียดการขึ้นเงินรางวัล'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -306,6 +307,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('โหลดรายการขึ้นเงินไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ลองใหม่'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -329,6 +331,39 @@ void main() {
     expect(find.text('สลากฯ งวดวันที่'), findsOneWidget);
     expect(find.text('16 พ.ค. 2569'), findsOneWidget);
     expect(find.text('รอดำเนินการโอนเงิน'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reward claim detail uses legacy top-level customer name', (
+    tester,
+  ) async {
+    await _pumpRewardClaimDetail(
+      tester,
+      RewardClaimItem.fromJson({
+        'id': 'claim_legacy_name',
+        'reference': 'RWD-LEGACY-NAME',
+        'status': 'submitted',
+        'payout_method': 'wallet_credit',
+        'prize_amount': {'amount': 200000, 'currency': 'THB'},
+        'customer_display_name': 'ลูกค้า Legacy',
+        'ticket': {
+          'full_number': '123456',
+          'game': {'name': 'งวด 16 พ.ค. 2569'},
+        },
+        'prizes': [
+          {
+            'prize_type': 'back2',
+            'amount': {'amount': 200000, 'currency': 'THB'},
+          },
+        ],
+        'submitted_at': '2026-05-16T10:30:00+07:00',
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ผู้รับเงิน'), findsOneWidget);
+    expect(find.text('ลูกค้า Legacy'), findsOneWidget);
+    expect(find.text('ผู้ใช้งาน'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -409,7 +444,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('รายละเอียดการขึ้นเงิน'), findsOneWidget);
+    expect(find.text('รายละเอียดการขึ้นเงินรางวัล'), findsOneWidget);
     expect(find.text('ช่องทางขึ้นเงินรางวัล'), findsOneWidget);
     expect(find.textContaining('x xxx6789'), findsOneWidget);
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);

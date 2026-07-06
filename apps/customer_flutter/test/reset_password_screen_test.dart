@@ -26,8 +26,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), 'P@ssword123');
     await tester.enterText(find.byType(TextField).at(1), 'P@ssword123');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่'));
-    await tester.pumpAndSettle();
+    await _tapSubmit(tester);
 
     expect(repository.calls, 1);
     expect(repository.token, 'line-token');
@@ -49,8 +48,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), 'P@ssword123');
     await tester.enterText(find.byType(TextField).at(1), 'P@ssword123');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่'));
-    await tester.pumpAndSettle();
+    await _tapSubmit(tester);
 
     expect(repository.calls, 1);
     expect(repository.token, 'line-alias-token');
@@ -70,8 +68,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), 'P@ssword456');
     await tester.enterText(find.byType(TextField).at(1), 'P@ssword456');
-    await tester.tap(find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่'));
-    await tester.pumpAndSettle();
+    await _tapSubmit(tester);
 
     expect(repository.calls, 1);
     expect(repository.token, 'admin-token');
@@ -145,7 +142,18 @@ void main() {
 Future<void> _submitValidResetPassword(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField).at(0), 'P@ssword123');
   await tester.enterText(find.byType(TextField).at(1), 'P@ssword123');
-  await tester.tap(find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่'));
+  await _tapSubmit(tester);
+}
+
+Future<void> _tapSubmit(WidgetTester tester) async {
+  final submit = find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่');
+  await tester.scrollUntilVisible(
+    submit,
+    120,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(submit);
   await tester.pumpAndSettle();
 }
 

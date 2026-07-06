@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
+import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
+import 'package:customer_flutter/features/profile/data/profile_settings_repository.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
 import 'package:customer_flutter/features/wallet/presentation/wallet_screen.dart';
@@ -65,17 +67,153 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(loads, 1);
+    expect(find.text('กระเป๋าของฉัน'), findsOneWidget);
     expect(find.text('ประวัติรายการเดินเงินล่าสุด'), findsOneWidget);
     expect(
       find.text('รายการเติมเงิน ชำระเงิน และรับเงินรางวัล'),
       findsOneWidget,
     );
     expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
 
     await tester.tap(find.byTooltip('โหลดรายการใหม่'));
     await tester.pumpAndSettle();
 
     expect(loads, 2);
+  });
+
+  testWidgets('wallet screen shows Nuxt-style member code on wallet card', (
+    tester,
+  ) async {
+    await _pumpWallet(
+      tester,
+      const WalletSummary(
+        wallets: [
+          CustomerWallet(
+            id: 'wallet_1',
+            name: 'G Wallet',
+            type: '1',
+            balance: 2240,
+          ),
+        ],
+        ledger: [],
+        customerNo: 'CUS001234',
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยอดเงินในกระเป๋า'), findsOneWidget);
+    expect(find.text('รหัสสมาชิก : CUS001234'), findsOneWidget);
+    expect(find.text('ยังไม่มีรายการเดินเงิน'), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wallet screen falls back to profile member code like Nuxt', (
+    tester,
+  ) async {
+    await _pumpWallet(
+      tester,
+      const WalletSummary(
+        wallets: [
+          CustomerWallet(
+            id: 'wallet_1',
+            name: 'G Wallet',
+            type: '1',
+            balance: 2240,
+          ),
+        ],
+        ledger: [],
+      ),
+      overrides: [
+        customerProfileSettingsProvider.overrideWith(
+          (_) async => _profileWithCustomerNo('CUS-PROFILE'),
+        ),
+      ],
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('รหัสสมาชิก : CUS-PROFILE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wallet card actions preserve Nuxt topup back and history anchor',
+      (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/my-wallet',
+      routes: [
+        GoRoute(
+          path: '/my-wallet',
+          builder: (context, state) => const WalletScreen(),
+        ),
+        GoRoute(
+          path: '/topup',
+          builder: (context, state) => Scaffold(
+            body: Center(child: Text(state.uri.toString())),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          walletSummaryProvider.overrideWith(
+            (_) async => const WalletSummary(
+              wallets: [
+                CustomerWallet(
+                  id: 'wallet_1',
+                  name: 'G Wallet',
+                  type: '1',
+                  balance: 2240,
+                ),
+              ],
+              ledger: [],
+              customerNo: 'CUS001234',
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('เติมเงิน').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/topup?back=/my-wallet',
+    );
+    expect(find.text('/topup?back=/my-wallet'), findsOneWidget);
+
+    router.go('/my-wallet');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ประวัติ').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/my-wallet#transactions',
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('wallet screen reloads when realtime invalidates summary', (
@@ -266,6 +404,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('wallet refresh failure stays in the wallet error surface', (
+    tester,
+  ) async {
+    var loads = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          walletSummaryProvider.overrideWith((_) async {
+            loads++;
+            if (loads == 1) {
+              return const WalletSummary(
+                wallets: [
+                  CustomerWallet(
+                    id: 'wallet_1',
+                    name: 'G Wallet',
+                    type: '1',
+                    balance: 2240,
+                  ),
+                ],
+                ledger: [
+                  WalletLedgerEntry(
+                    id: 'ledger_1',
+                    entryType: 'credit',
+                    referenceType: 'topup',
+                    referenceId: 'topup_1',
+                    reason: '',
+                    amount: 500,
+                    balanceAfter: 2740,
+                    createdAt: '2026-06-12T11:12:00+07:00',
+                  ),
+                ],
+              );
+            }
+            throw StateError('wallet refresh failed');
+          }),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const WalletScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(loads, 1);
+    expect(find.text('อ้างอิง topup_1'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('โหลดรายการใหม่'));
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(find.textContaining('wallet refresh failed'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('wallet ledger failure shows API copy like Nuxt', (
     tester,
   ) async {
@@ -438,11 +643,16 @@ void main() {
   });
 }
 
-Future<void> _pumpWallet(WidgetTester tester, WalletSummary summary) {
+Future<void> _pumpWallet(
+  WidgetTester tester,
+  WalletSummary summary, {
+  List<Override> overrides = const [],
+}) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
         walletSummaryProvider.overrideWith((_) async => summary),
+        ...overrides,
       ],
       child: MaterialApp(
         locale: fallbackCustomerLocale,
@@ -456,6 +666,25 @@ Future<void> _pumpWallet(WidgetTester tester, WalletSummary summary) {
         theme: AppTheme.light(),
         home: const WalletScreen(),
       ),
+    ),
+  );
+}
+
+CustomerProfileSettings _profileWithCustomerNo(String customerNo) {
+  return CustomerProfileSettings(
+    id: 'customer_profile',
+    name: 'Customer',
+    customerNo: customerNo,
+    phone: '0812345678',
+    bankAccount: const RewardBankAccount(
+      bankName: '',
+      accountName: '',
+      accountNumber: '',
+    ),
+    autoReward: const AutoRewardSetting(
+      enabled: false,
+      payoutMethod: 'wallet_credit',
+      type: 'wallet_credit',
     ),
   );
 }

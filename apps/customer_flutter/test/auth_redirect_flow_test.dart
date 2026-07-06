@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:customer_flutter/app/router.dart';
 import 'package:customer_flutter/core/auth/auth_controller.dart';
 import 'package:customer_flutter/core/auth/auth_repository.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
@@ -14,12 +17,47 @@ import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.
 import 'package:customer_flutter/features/pin/presentation/pin_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  test('app router is not recreated by PIN status auth refresh', () async {
+    final repo = _AuthRedirectRepository();
+    final tokenStore = AuthTokenStore();
+    final api = ApiClient(_testConfig, tokenStore, localeTag: 'en-US');
+    final controller = AuthController(
+      authRepository: repo,
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
+      ..isAuthenticated = true
+      ..pinRequired = true;
+    final container = ProviderContainer(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repo),
+        authControllerProvider.overrideWith((_) => controller),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson(const {
+            'site': {'display_name': 'Test Shop', 'locale': 'en-US'},
+            'mobile': {
+              'auth_providers': [],
+              'feature_flags': {'native_biometric_unlock': false},
+            },
+          }),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final router = container.read(appRouterProvider);
+    await controller.syncPinStatus();
+
+    expect(container.read(appRouterProvider), same(router));
+  });
+
   testWidgets('login preserves checkout redirect after password auth', (
     tester,
   ) async {
@@ -39,7 +77,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.tap(find.byType(FilledButton));
+    await _tapLoginSubmit(tester);
     await tester.pumpAndSettle();
 
     expect(repo.lastLoginUsername, '0812345678');
@@ -48,6 +86,27 @@ void main() {
       '/checkout',
     );
     expect(find.text('checkout-flow'), findsOneWidget);
+  });
+
+  testWidgets('login phone input keeps Nuxt numeric 10-digit behavior', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '08a12345678999');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await _tapLoginSubmit(tester);
+    await tester.pumpAndSettle();
+
+    expect(repo.lastLoginUsername, '0812345678');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
   });
 
   testWidgets('login sends PIN-required sessions to PIN with redirect', (
@@ -69,7 +128,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.tap(find.byType(FilledButton));
+    await _tapLoginSubmit(tester);
     await tester.pumpAndSettle();
 
     expect(
@@ -77,6 +136,35 @@ void main() {
       '/pin?redirect=%2Fcheckout',
     );
     expect(find.text('pin-flow'), findsOneWidget);
+  });
+
+  testWidgets('login resumes inline PIN routes without global PIN redirect', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      loginSession: const CustomerSession(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        pinRequired: true,
+        pinSetupRequired: false,
+        customerId: 'cus_affiliate',
+      ),
+    );
+    final router = _authRouter('/login?redirect=%2Faffiliate');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await _tapLoginSubmit(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/affiliate',
+    );
+    expect(find.text('affiliate-flow'), findsOneWidget);
   });
 
   testWidgets('login shows API error copy like Nuxt', (
@@ -95,7 +183,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'wrong-password');
-    await tester.tap(find.byType(FilledButton));
+    await _tapLoginSubmit(tester);
     await tester.pumpAndSettle();
 
     expect(
@@ -122,7 +210,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.tap(find.byType(FilledButton));
+    await _tapLoginSubmit(tester);
     await tester.pumpAndSettle();
 
     expect(find.text('Could not sign in'), findsOneWidget);
@@ -138,8 +226,9 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Already have an account? Sign in'));
-    await tester.tap(find.text('Already have an account? Sign in'));
+    final signInLink = find.widgetWithText(TextButton, 'Sign in');
+    await _scrollUntilVisible(tester, signInLink);
+    await tester.tap(signInLink);
     await tester.pumpAndSettle();
 
     expect(
@@ -160,7 +249,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _fillRegisterForm(tester);
-    await tester.tap(find.byType(FilledButton));
+    await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
 
     expect(repo.requestOtpCalls, 1);
@@ -184,6 +273,36 @@ void main() {
     );
   });
 
+  testWidgets('register stops when OTP verification returns no token', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      verifyOtpResult: const OtpVerifyResult(verificationToken: ''),
+    );
+    final router = _authRouter('/register?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await _fillRegisterForm(tester);
+    await _tapRegisterSubmit(tester, 'Create account');
+    await tester.pumpAndSettle();
+    await _enterRegisterOtp(tester, '123456');
+    await _tapRegisterSubmit(tester, 'Verify and create account');
+    await tester.pumpAndSettle();
+
+    expect(repo.lastVerifiedOtp, '123456');
+    expect(repo.registerCalls, 0);
+    expect(
+      find.text('OTP verification failed. Please request a new code.'),
+      findsOneWidget,
+    );
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/register?redirect=%2Fcheckout',
+    );
+  });
+
   testWidgets('register falls back for internal errors', (
     tester,
   ) async {
@@ -196,7 +315,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _fillRegisterForm(tester);
-    await tester.tap(find.byType(FilledButton));
+    await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
     await _enterRegisterOtp(tester, '123456');
     await _tapRegisterSubmit(tester, 'Verify and create account');
@@ -251,6 +370,129 @@ void main() {
     );
     expect(find.text('checkout-flow'), findsOneWidget);
   });
+
+  testWidgets('PIN status refresh keeps digits entered while it is pending', (
+    tester,
+  ) async {
+    final pinStatusCompleter = Completer<PinStatus>();
+    final repo = _AuthRedirectRepository(
+      pinStatusCompleter: pinStatusCompleter,
+    );
+    final router = GoRouter(
+      initialLocation: '/pin?redirect=%2Fcheckout',
+      routes: [
+        GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) => const Text(
+            'checkout-flow',
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        router: router,
+        repo: repo,
+        authenticated: true,
+        pinRequired: true,
+      ),
+    );
+    await tester.pump();
+
+    await _tapPinDigits(tester, '123');
+    pinStatusCompleter.complete(
+      const PinStatus(
+        hasPin: true,
+        pinVerified: false,
+        pinRequired: true,
+        pinSetupRequired: false,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await _tapPinDigits(tester, '456');
+    await tester.pumpAndSettle();
+
+    expect(repo.lastVerifiedPin, '123456');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+    expect(find.text('checkout-flow'), findsOneWidget);
+  });
+
+  testWidgets('PIN keypad mirrors Nuxt layout and keeps entered dots visible', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repo = _AuthRedirectRepository();
+    final router = GoRouter(
+      initialLocation: '/pin?redirect=%2Fcheckout',
+      routes: [
+        GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) => const Text(
+            'checkout-flow',
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        router: router,
+        repo: repo,
+        authenticated: true,
+        pinRequired: true,
+        locale: const Locale('th', 'TH'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Test Shop'), findsOneWidget);
+    expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
+    expect(find.text('เพื่อทำรายการต่อ'), findsOneWidget);
+    expect(find.text('ลืม PIN?'), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
+
+    await _tapPinDigits(tester, '123');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('pin-dot-0-active')), findsOneWidget);
+    expect(find.byKey(const ValueKey('pin-dot-1-active')), findsOneWidget);
+    expect(find.byKey(const ValueKey('pin-dot-2-active')), findsOneWidget);
+    expect(find.byKey(const ValueKey('pin-dot-3-empty')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('pin-dot-3-active')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('pin-dot-4-active')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit6);
+    await tester.pumpAndSettle();
+
+    expect(repo.lastVerifiedPin, '123456');
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+    expect(find.text('checkout-flow'), findsOneWidget);
+  });
+}
+
+Future<void> _tapPinDigits(WidgetTester tester, String pin) async {
+  for (final digit in pin.split('')) {
+    await tester.tap(find.text(digit));
+    await tester.pump();
+  }
 }
 
 Future<void> _fillRegisterForm(WidgetTester tester) async {
@@ -259,9 +501,18 @@ Future<void> _fillRegisterForm(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField).at(2), '0812345678');
   await tester.enterText(find.byType(TextField).at(3), 'secret1234');
   await tester.enterText(find.byType(TextField).at(4), 'secret1234');
-  await tester.ensureVisible(find.byType(Checkbox));
-  await tester.tap(find.byType(Checkbox));
+  final termsConsent = find.bySemanticsLabel(
+    'Accept terms and conditions',
+  );
+  await _scrollUntilVisible(tester, termsConsent);
+  await tester.tap(termsConsent);
   await tester.pumpAndSettle();
+}
+
+Future<void> _tapLoginSubmit(WidgetTester tester) async {
+  final submitButton = find.widgetWithText(FilledButton, 'Sign in');
+  await _scrollUntilVisible(tester, submitButton);
+  await tester.tap(submitButton);
 }
 
 Future<void> _enterRegisterOtp(WidgetTester tester, String otp) async {
@@ -272,8 +523,17 @@ Future<void> _enterRegisterOtp(WidgetTester tester, String otp) async {
 
 Future<void> _tapRegisterSubmit(WidgetTester tester, String label) async {
   final submitButton = find.widgetWithText(FilledButton, label);
-  await tester.ensureVisible(submitButton);
+  await _scrollUntilVisible(tester, submitButton);
   await tester.tap(submitButton);
+}
+
+Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    96,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
 }
 
 Widget _testApp({
@@ -281,6 +541,7 @@ Widget _testApp({
   required _AuthRedirectRepository repo,
   bool authenticated = false,
   bool pinRequired = false,
+  Locale locale = const Locale('en', 'US'),
 }) {
   final tokenStore = AuthTokenStore();
   final api = ApiClient(_testConfig, tokenStore, localeTag: 'en-US');
@@ -311,7 +572,7 @@ Widget _testApp({
       ),
     ],
     child: MaterialApp.router(
-      locale: const Locale('en', 'US'),
+      locale: locale,
       supportedLocales: supportedCustomerLocales,
       localizationsDelegates: const [
         CustomerLocalizations.delegate,
@@ -347,6 +608,13 @@ GoRouter _authRouter(String initialLocation) {
           textDirection: TextDirection.ltr,
         ),
       ),
+      GoRoute(
+        path: '/affiliate',
+        builder: (context, state) => const Text(
+          'affiliate-flow',
+          textDirection: TextDirection.ltr,
+        ),
+      ),
     ],
   );
 }
@@ -367,6 +635,9 @@ class _AuthRedirectRepository extends AuthRepository {
     ),
     this.loginError,
     this.registerError,
+    this.verifyOtpResult =
+        const OtpVerifyResult(verificationToken: 'otp_verified_register'),
+    this.pinStatusCompleter,
   }) : super(
           api: ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
           tokenStore: AuthTokenStore(),
@@ -375,10 +646,14 @@ class _AuthRedirectRepository extends AuthRepository {
   final CustomerSession loginSession;
   final Object? loginError;
   final Object? registerError;
+  final OtpVerifyResult verifyOtpResult;
+  final Completer<PinStatus>? pinStatusCompleter;
   String lastLoginUsername = '';
   String lastVerifiedPin = '';
   String lastVerifiedOtp = '';
+  String? lastRegisterOtpToken;
   int requestOtpCalls = 0;
+  int registerCalls = 0;
 
   @override
   Future<CustomerSession> login({
@@ -410,7 +685,7 @@ class _AuthRedirectRepository extends AuthRepository {
     required String otp,
   }) async {
     lastVerifiedOtp = otp;
-    return const OtpVerifyResult(verificationToken: 'otp_verified_register');
+    return verifyOtpResult;
   }
 
   @override
@@ -422,6 +697,8 @@ class _AuthRedirectRepository extends AuthRepository {
     required String passwordConfirmation,
     String? otpVerificationToken,
   }) async {
+    registerCalls++;
+    lastRegisterOtpToken = otpVerificationToken;
     final error = registerError;
     if (error != null) throw error;
     return loginSession;
@@ -429,6 +706,8 @@ class _AuthRedirectRepository extends AuthRepository {
 
   @override
   Future<PinStatus> pinStatus() async {
+    final completer = pinStatusCompleter;
+    if (completer != null) return completer.future;
     return const PinStatus(
       hasPin: true,
       pinVerified: false,

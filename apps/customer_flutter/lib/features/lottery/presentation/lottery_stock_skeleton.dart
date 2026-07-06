@@ -6,10 +6,8 @@ List<Widget> lotteryStockSkeletonCards({
   String keyPrefix = 'lottery-stock-skeleton',
 }) {
   return [
-    for (var index = 0; index < lotteryStockSkeletonItemCount; index++) ...[
+    for (var index = 0; index < lotteryStockSkeletonItemCount; index++)
       LotteryStockSkeletonCard(index: index, keyPrefix: keyPrefix),
-      if (index < lotteryStockSkeletonItemCount - 1) const SizedBox(height: 10),
-    ],
   ];
 }
 
@@ -28,15 +26,17 @@ class LotteryStockSkeletonCard extends StatelessWidget {
     final blockColor = colorScheme.surfaceContainerHighest.withValues(
       alpha: 0.66,
     );
-    final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.5);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+          ),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 420;

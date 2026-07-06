@@ -11,6 +11,37 @@ import '../data/topup_repository.dart';
 import 'topup_error_message.dart';
 import 'topup_realtime_monitor.dart';
 
+Color _topupHistoryPrimaryTint(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
+    colorScheme.primary.withValues(alpha: 0.12);
+
+Color _topupHistorySuccessTint(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
+    colorScheme.primary.withValues(alpha: 0.12);
+
+Color _topupHistoryWarningTint(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.86) ??
+    colorScheme.tertiary.withValues(alpha: 0.14);
+
+Color _topupHistoryErrorTint(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
+    colorScheme.errorContainer.withValues(alpha: 0.52);
+
+Color _topupHistoryNeutralTint(ColorScheme colorScheme) =>
+    colorScheme.surfaceContainerHighest;
+
+Color _topupHistoryBorder(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.outlineVariant, colorScheme.surface, 0.18) ??
+    colorScheme.outlineVariant;
+
+Color _topupHistoryDisabledBackground(ColorScheme colorScheme) =>
+    Color.lerp(
+      colorScheme.surfaceContainerHighest,
+      colorScheme.surface,
+      0.18,
+    ) ??
+    colorScheme.surfaceContainerHighest;
+
 class TopupHistoryScreen extends ConsumerStatefulWidget {
   const TopupHistoryScreen({super.key});
 
@@ -33,43 +64,122 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
 
     return AppShell(
       title: l10n.topupHistoryTitle,
-      currentPath: '/my-wallet',
+      currentPath: '/topup/history',
       backPath: '/topup',
       sensitive: true,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          CustomerPageBody(
+      showBottomNavigation: false,
+      child: _TopupHistoryPageBody(
+        hero: const _TopupHistoryHeroSummary(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            history.when(
+              data: (overview) => _TopupHistoryContent(
+                overview: overview,
+                page: _page,
+                onTopup: () => context.go('/topup'),
+                onPageChanged: (page) => setState(() => _page = page),
+              ),
+              loading: () => const _TopupHistoryLoading(),
+              error: (error, __) => _TopupHistoryError(
+                message: topupErrorMessage(
+                  error,
+                  l10n.topupHistoryLoadFailed,
+                ),
+                onRetry: () => ref.invalidate(topupHistoryProvider(_page)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopupHistoryPageBody extends StatelessWidget {
+  const _TopupHistoryPageBody({
+    required this.hero,
+    required this.child,
+  });
+
+  final Widget hero;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        _TopupHistoryHeroBand(child: hero),
+        _TopupHistoryContentSheet(
+          child: child,
+        ),
+      ],
+    );
+  }
+}
+
+class _TopupHistoryHeroBand extends StatelessWidget {
+  const _TopupHistoryHeroBand({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primary,
+            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
+                colorScheme.primary,
+          ],
+        ),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 220),
+        child: CustomerPageBody(
+          maxWidth: 640,
+          top: 20,
+          bottom: 36,
+          mobileHorizontal: 20,
+          wideHorizontal: 20,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _TopupHistoryContentSheet extends StatelessWidget {
+  const _TopupHistoryContentSheet({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 660),
+          child: CustomerPageBody(
             maxWidth: 640,
             top: 24,
-            bottom: 128,
+            bottom: 56,
             mobileHorizontal: 20,
             wideHorizontal: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const _TopupHistoryHeader(),
-                const SizedBox(height: 20),
-                history.when(
-                  data: (overview) => _TopupHistoryContent(
-                    overview: overview,
-                    page: _page,
-                    onTopup: () => context.go('/topup'),
-                    onPageChanged: (page) => setState(() => _page = page),
-                  ),
-                  loading: () => const _TopupHistoryLoading(),
-                  error: (error, __) => _TopupHistoryError(
-                    message: topupErrorMessage(
-                      error,
-                      l10n.topupHistoryLoadFailed,
-                    ),
-                    onRetry: () => ref.invalidate(topupHistoryProvider(_page)),
-                  ),
-                ),
-              ],
-            ),
+            child: child,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -107,6 +217,7 @@ class _TopupHistoryContent extends StatelessWidget {
                 _TopupHistoryTile(
                   item: overview.histories[index],
                   showDivider: index < overview.histories.length - 1,
+                  topPadding: index == 0 ? 0 : 18,
                 ),
             ],
           ),
@@ -125,46 +236,63 @@ class _TopupHistoryContent extends StatelessWidget {
 }
 
 class _TopupHistoryTile extends StatelessWidget {
-  const _TopupHistoryTile({required this.item, required this.showDivider});
+  const _TopupHistoryTile({
+    required this.item,
+    required this.showDivider,
+    required this.topPadding,
+  });
 
   final TopupRequestItem item;
   final bool showDivider;
+  final double topPadding;
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(item.status, context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final tone = _statusTone(item.status, colorScheme);
     final l10n = context.l10n;
     final transactionAt = item.transferAt ?? item.createdAt;
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         border: showDivider
             ? Border(
                 bottom: BorderSide(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+                  color: _topupHistoryBorder(colorScheme),
                 ),
               )
             : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 18),
+        padding: EdgeInsets.only(top: topPadding, bottom: 18),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth <= 360;
-            final amountBlock = _HistoryAmountBlock(item: item);
+            final amountBlock = _HistoryAmountBlock(
+              item: item,
+              alignEnd: !compact,
+            );
 
             final detailBlock = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   l10n.topupHistoryItemTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF17335F),
+                        color: colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                         height: 1.2,
                       ),
                 ),
+                if (compact) ...[
+                  const SizedBox(height: 7),
+                  _HistoryStatusPill(
+                    label: _statusLabel(item.status, l10n),
+                    tone: tone,
+                  ),
+                ],
                 const SizedBox(height: 7),
                 Wrap(
                   spacing: 10,
@@ -173,7 +301,7 @@ class _TopupHistoryTile extends StatelessWidget {
                     Text(
                       l10n.topupReference(item.id),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: const Color(0xFF64748B),
+                            color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                             height: 1.25,
                           ),
@@ -184,7 +312,7 @@ class _TopupHistoryTile extends StatelessWidget {
                         l10n.locale.toLanguageTag(),
                       ),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: const Color(0xFF64748B),
+                            color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                             height: 1.25,
                           ),
@@ -210,11 +338,11 @@ class _TopupHistoryTile extends StatelessWidget {
                   height: compact ? 42 : 46,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: color.withValues(alpha: 0.12),
+                    color: tone.background,
                   ),
                   child: Icon(
                     _statusIcon(item.status),
-                    color: color,
+                    color: tone.foreground,
                     size: compact ? 19 : 21,
                   ),
                 ),
@@ -231,21 +359,11 @@ class _TopupHistoryTile extends StatelessWidget {
                             const SizedBox(width: 12),
                             _HistoryStatusPill(
                               label: _statusLabel(item.status, l10n),
-                              color: color,
+                              tone: tone,
                             ),
                           ],
                         ],
                       ),
-                      if (compact) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: _HistoryStatusPill(
-                            label: _statusLabel(item.status, l10n),
-                            color: color,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -261,17 +379,32 @@ class _TopupHistoryTile extends StatelessWidget {
     );
   }
 
-  Color _statusColor(TopupStatus status, BuildContext context) {
+  _HistoryStatusTone _statusTone(
+    TopupStatus status,
+    ColorScheme colorScheme,
+  ) {
     return switch (status) {
-      TopupStatus.approved => Colors.green.shade700,
+      TopupStatus.approved => _HistoryStatusTone(
+          foreground: colorScheme.primary,
+          background: _topupHistorySuccessTint(colorScheme),
+        ),
       TopupStatus.rejected ||
       TopupStatus.cancelled ||
       TopupStatus.expired =>
-        Colors.red.shade700,
+        _HistoryStatusTone(
+          foreground: colorScheme.error,
+          background: _topupHistoryErrorTint(colorScheme),
+        ),
       TopupStatus.pendingPayment ||
       TopupStatus.pendingReview =>
-        Colors.orange.shade800,
-      TopupStatus.unknown => Theme.of(context).colorScheme.primary,
+        _HistoryStatusTone(
+          foreground: colorScheme.tertiary,
+          background: _topupHistoryWarningTint(colorScheme),
+        ),
+      TopupStatus.unknown => _HistoryStatusTone(
+          foreground: colorScheme.onSurfaceVariant,
+          background: _topupHistoryNeutralTint(colorScheme),
+        ),
     };
   }
 
@@ -302,22 +435,35 @@ class _TopupHistoryTile extends StatelessWidget {
   }
 }
 
+class _HistoryStatusTone {
+  const _HistoryStatusTone({
+    required this.foreground,
+    required this.background,
+  });
+
+  final Color foreground;
+  final Color background;
+}
+
 class _HistoryAmountBlock extends StatelessWidget {
-  const _HistoryAmountBlock({required this.item});
+  const _HistoryAmountBlock({required this.item, this.alignEnd = true});
 
   final TopupRequestItem item;
+  final bool alignEnd;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         Text(
           _amountOnly(item.amount, l10n),
-          textAlign: TextAlign.right,
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: const Color(0xFF17335F),
+                color: colorScheme.onSurface,
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
                 height: 1,
@@ -326,9 +472,9 @@ class _HistoryAmountBlock extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           l10n.topupBahtSuffix,
-          textAlign: TextAlign.right,
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF64748B),
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w800,
               ),
         ),
@@ -345,11 +491,12 @@ class _HistoryBonusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFE6F8EF),
+          color: _topupHistorySuccessTint(colorScheme),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Padding(
@@ -357,16 +504,16 @@ class _HistoryBonusPill extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.auto_awesome,
                 size: 15,
-                color: Color(0xFF047857),
+                color: colorScheme.primary,
               ),
               const SizedBox(width: 5),
               Text(
                 l10n.topupHistoryBonus(formatBaht(amount)),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF047857),
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
                     ),
@@ -379,61 +526,56 @@ class _HistoryBonusPill extends StatelessWidget {
   }
 }
 
-class _TopupHistoryHeader extends StatelessWidget {
-  const _TopupHistoryHeader();
+class _TopupHistoryHeroSummary extends StatelessWidget {
+  const _TopupHistoryHeroSummary();
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primary,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.14),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: colorScheme.surface,
-              child: Icon(Icons.history, color: colorScheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.topupHistoryHeaderTitle,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.topupHistoryHeaderSubtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.86),
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          child: Icon(
+            Icons.history,
+            color: colorScheme.primary,
+            size: 24,
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.topupHistoryHeaderTitle,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.topupHistoryHeaderSubtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onPrimary.withValues(alpha: 0.86),
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -441,17 +583,17 @@ class _TopupHistoryHeader extends StatelessWidget {
 class _HistoryStatusPill extends StatelessWidget {
   const _HistoryStatusPill({
     required this.label,
-    required this.color,
+    required this.tone,
   });
 
   final String label;
-  final Color color;
+  final _HistoryStatusTone tone;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.11),
+        color: tone.background,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
@@ -459,7 +601,7 @@ class _HistoryStatusPill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
+                color: tone.foreground,
                 fontWeight: FontWeight.w900,
               ),
         ),
@@ -503,17 +645,18 @@ class _PaginationControls extends StatelessWidget {
               fixedSize: const Size.square(34),
               padding: EdgeInsets.zero,
               shape: const CircleBorder(),
-              foregroundColor:
-                  pageNumber == page ? Colors.white : const Color(0xFF17335F),
+              foregroundColor: pageNumber == page
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurface,
               backgroundColor: pageNumber == page
                   ? colorScheme.primary
                   : colorScheme.surface,
-              disabledForegroundColor: Colors.white,
+              disabledForegroundColor: colorScheme.onPrimary,
               disabledBackgroundColor: colorScheme.primary,
               side: BorderSide(
                 color: pageNumber == page
                     ? colorScheme.primary
-                    : colorScheme.outlineVariant,
+                    : _topupHistoryBorder(colorScheme),
               ),
             ),
             child: Text(
@@ -559,11 +702,28 @@ class _PaginationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.outlined(
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
       tooltip: tooltip,
       onPressed: enabled ? onPressed : null,
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(34),
+        minimumSize: const Size.square(34),
+        maximumSize: const Size.square(34),
+        padding: EdgeInsets.zero,
+        backgroundColor: enabled
+            ? colorScheme.surface
+            : _topupHistoryDisabledBackground(colorScheme),
+        foregroundColor: enabled
+            ? colorScheme.onSurface
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.62),
+        disabledBackgroundColor: _topupHistoryDisabledBackground(colorScheme),
+        disabledForegroundColor:
+            colorScheme.onSurfaceVariant.withValues(alpha: 0.62),
+        shape: const CircleBorder(),
+        side: BorderSide(color: _topupHistoryBorder(colorScheme)),
+      ),
       constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-      padding: EdgeInsets.zero,
       iconSize: 20,
       icon: Icon(icon),
     );
@@ -598,30 +758,93 @@ class _TopupHistoryError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: Text(context.l10n.commonRetry),
-            ),
-          ],
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = l10n.topupHistoryLoadFailed;
+    final body = message.trim();
+    final showBody = body.isNotEmpty && body != title;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.09),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 260),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: _topupHistoryErrorTint(colorScheme),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.receipt_long_outlined,
+                  color: colorScheme.error,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.error,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              if (showBody) ...[
+                const SizedBox(height: 6),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 160,
+                child: OutlinedButton(
+                  style: _topupHistoryOutlinePillStyle(context),
+                  onPressed: onRetry,
+                  child: Text(l10n.commonRetry),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+ButtonStyle _topupHistoryOutlinePillStyle(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return OutlinedButton.styleFrom(
+    minimumSize: const Size.fromHeight(44),
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    foregroundColor: colorScheme.primary,
+    side: BorderSide(color: colorScheme.primary),
+    shape: const StadiumBorder(),
+    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w900,
+        ),
+  );
 }
 
 class _EmptyTopupHistory extends StatelessWidget {
@@ -639,7 +862,7 @@ class _EmptyTopupHistory extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF162E52).withValues(alpha: 0.09),
+            color: colorScheme.primary.withValues(alpha: 0.09),
             blurRadius: 22,
             offset: const Offset(0, 8),
           ),
@@ -656,7 +879,7 @@ class _EmptyTopupHistory extends StatelessWidget {
                 width: 68,
                 height: 68,
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
+                  color: _topupHistoryPrimaryTint(colorScheme),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
@@ -670,9 +893,9 @@ class _EmptyTopupHistory extends StatelessWidget {
                 l10n.topupHistoryEmptyTitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF17335F),
+                      color: colorScheme.onSurface,
                       fontSize: 20,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 6),
@@ -680,7 +903,7 @@ class _EmptyTopupHistory extends StatelessWidget {
                 l10n.topupHistoryEmptySubtitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF64748B),
+                      color: colorScheme.onSurfaceVariant,
                       height: 1.5,
                     ),
               ),
@@ -688,6 +911,13 @@ class _EmptyTopupHistory extends StatelessWidget {
               SizedBox(
                 width: 220,
                 child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    shape: const StadiumBorder(),
+                    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
                   onPressed: onTopup,
                   child: Text(l10n.topupTitle),
                 ),

@@ -13,13 +13,16 @@ void main() {
     final api = _TopupApiClient();
     final repository = TopupRepository(api);
 
-    await repository.create(channel: TopupChannel.qr, amount: 500);
+    final item = await repository.create(channel: TopupChannel.qr, amount: 500);
 
     expect(api.postPath, '/customer/topups');
     expect(api.postPayload['channel'], 'qr');
     expect(api.postPayload['amount'], 50000);
     expect(api.multipartPath, isEmpty);
     expect(api.postHeaders['Idempotency-Key'], startsWith('customer_topup_'));
+    expect(item.id, 'topup_1');
+    expect(item.qrCode, 'data:image/png;base64,WRAPPED');
+    expect(item.message, 'สแกน QR Code เพื่อชำระเงินรายการนี้');
   });
 
   test('create sends multipart slip for bank transfer request', () async {
@@ -50,6 +53,50 @@ void main() {
       api.multipartHeaders['Idempotency-Key'],
       startsWith('customer_topup_'),
     );
+  });
+
+  test('uploadSlip sends multipart slip without implicit transfer time',
+      () async {
+    final api = _TopupApiClient();
+    final repository = TopupRepository(api);
+
+    await repository.uploadSlip(
+      id: 'topup_waiting_qr',
+      slip: TopupSlipUpload(
+        filename: 'qr-slip.webp',
+        bytes: Uint8List.fromList([4, 5, 6]),
+      ),
+    );
+
+    final fields = Map<String, String>.fromEntries(api.multipartData!.fields);
+
+    expect(api.multipartPath, '/customer/topups/topup_waiting_qr/slip');
+    expect(fields.containsKey('transfer_at'), isFalse);
+    expect(api.multipartData!.files.single.key, 'slip');
+    expect(api.multipartData!.files.single.value.filename, 'qr-slip.webp');
+    expect(
+      api.multipartHeaders['Idempotency-Key'],
+      startsWith('customer_topup_slip_'),
+    );
+  });
+
+  test('uploadSlip forwards explicit transfer time when provided', () async {
+    final api = _TopupApiClient();
+    final repository = TopupRepository(api);
+    final transferAt = DateTime.parse('2026-06-26T12:45:00+07:00');
+
+    await repository.uploadSlip(
+      id: 'topup_waiting_qr',
+      transferAt: transferAt,
+      slip: TopupSlipUpload(
+        filename: 'qr-slip.webp',
+        bytes: Uint8List.fromList([7, 8, 9]),
+      ),
+    );
+
+    final fields = Map<String, String>.fromEntries(api.multipartData!.fields);
+
+    expect(fields['transfer_at'], transferAt.toIso8601String());
   });
 }
 
@@ -107,13 +154,17 @@ class _TopupApiClient extends ApiClient {
   Map<String, dynamic> _topupResponse(Object? channel) {
     return {
       'data': {
-        'id': 'topup_1',
-        'amount': {'amount': 80000, 'currency': 'THB'},
-        'bonus_amount': {'amount': 0, 'currency': 'THB'},
-        'status': 'pending_review',
-        'channel': channel?.toString() ?? 'qr',
-        'provider': '',
-        'created_at': '2026-06-26T10:00:00+07:00',
+        'result': {
+          'id': 'topup_1',
+          'amount': {'amount': 80000, 'currency': 'THB'},
+          'bonus_amount': {'amount': 0, 'currency': 'THB'},
+          'status': 'pending_review',
+          'channel': channel?.toString() ?? 'qr',
+          'provider': '',
+          'created_at': '2026-06-26T10:00:00+07:00',
+        },
+        'qr_code': 'data:image/png;base64,WRAPPED',
+        'message': 'สแกน QR Code เพื่อชำระเงินรายการนี้',
       },
     };
   }

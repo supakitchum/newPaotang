@@ -2,6 +2,7 @@ import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/navigation/customer_link_launcher.dart';
 import 'package:customer_flutter/features/news/data/news_models.dart';
 import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/features/news/presentation/announcement_modal_host.dart';
@@ -58,6 +59,88 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('News detail'), findsOneWidget);
+    expect(
+      find.byKey(const Key('announcement-modal-close-button')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('announcement modal opens runtime internal url before slug', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository(
+      item: const NewsItem(
+        id: 'news_internal',
+        title: 'Campaign',
+        summary: '',
+        body: '',
+        slug: 'fallback-detail',
+        url: '/profile?from=announcement',
+        coverUrl: 'https://example.invalid/campaign.webp',
+        publishedAt: null,
+      ),
+    );
+    final router = _testRouter(initialLocation: '/');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          newsRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('announcement-modal-image-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('News detail'), findsNothing);
+    expect(
+      find.byKey(const Key('announcement-modal-close-button')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('announcement modal opens external url through shared launcher', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository(
+      item: const NewsItem(
+        id: 'news_external',
+        title: 'Campaign',
+        summary: '',
+        body: '',
+        slug: 'fallback-detail',
+        url: 'https://partner.example.com/campaign',
+        coverUrl: 'https://example.invalid/campaign.webp',
+        publishedAt: null,
+      ),
+    );
+    final launcher = _RecordingLinkLauncher();
+    final router = _testRouter(initialLocation: '/');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          newsRepositoryProvider.overrideWithValue(repository),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('announcement-modal-image-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home'), findsOneWidget);
+    expect(launcher.openedUris, [
+      Uri.parse('https://partner.example.com/campaign'),
+    ]);
     expect(
       find.byKey(const Key('announcement-modal-close-button')),
       findsNothing,
@@ -138,6 +221,48 @@ void main() {
     );
     expect(repository.modalCalls, 0);
   });
+
+  testWidgets('announcement modal stays suppressed after news detail route', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository(
+      item: const NewsItem(
+        id: 'news_1',
+        title: 'Promo',
+        summary: '',
+        body: '',
+        slug: 'promo',
+        url: '',
+        coverUrl: 'https://example.invalid/promo.webp',
+        publishedAt: null,
+      ),
+    );
+    final router = _testRouter(initialLocation: '/news/promo');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          newsRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('News detail'), findsOneWidget);
+    expect(repository.modalCalls, 0);
+
+    router.go('/');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home'), findsOneWidget);
+    expect(repository.modalCalls, 0);
+    expect(
+      find.byKey(const Key('announcement-modal-close-button')),
+      findsNothing,
+    );
+  });
 }
 
 class _TestApp extends StatelessWidget {
@@ -180,6 +305,10 @@ GoRouter _testRouter({required String initialLocation}) {
         path: '/news/:slug',
         builder: (context, state) => const Text('News detail'),
       ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const Text('Profile'),
+      ),
     ],
   );
 }
@@ -218,5 +347,18 @@ class _FakeNewsRepository extends NewsRepository {
     int maxPages = NewsRepository.maxAutoPages,
   }) {
     return Future.value(const []);
+  }
+}
+
+class _RecordingLinkLauncher extends CustomerLinkLauncher {
+  final openedUris = <Uri>[];
+
+  @override
+  Future<bool> openExternal(
+    Uri uri, {
+    bool preferSameWindowInLine = false,
+  }) async {
+    openedUris.add(uri);
+    return true;
   }
 }

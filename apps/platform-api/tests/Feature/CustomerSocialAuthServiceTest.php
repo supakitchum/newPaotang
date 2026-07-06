@@ -122,6 +122,56 @@ class CustomerSocialAuthServiceTest extends TestCase
         $this->assertFalse((bool) ($response['feature_flags']['social_login_apple'] ?? true));
     }
 
+    public function test_mobile_bootstrap_merges_tenant_feature_flags_without_overriding_social_provider_config(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        DB::table('partner_tenant_feature_flags')->insert([
+            [
+                'id' => 'ptff_bio',
+                'tenant_id' => 'ten_social',
+                'feature_key' => 'native_biometric_unlock',
+                'enabled' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'ptff_screen',
+                'tenant_id' => 'ten_social',
+                'feature_key' => 'screen_security_native',
+                'enabled' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'ptff_google',
+                'tenant_id' => 'ten_social',
+                'feature_key' => 'social_login_google',
+                'enabled' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'ptff_custom',
+                'tenant_id' => 'ten_social',
+                'feature_key' => 'custom_mobile_gate',
+                'enabled' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $flags = $this->getJson('http://social-store.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->json('data.mobile.feature_flags');
+
+        $this->assertFalse((bool) ($flags['native_biometric_unlock'] ?? true));
+        $this->assertFalse((bool) ($flags['screen_security_native'] ?? true));
+        $this->assertTrue((bool) ($flags['custom_mobile_gate'] ?? false));
+        $this->assertTrue((bool) ($flags['social_login_google'] ?? false));
+        $this->assertFalse((bool) ($flags['social_login_apple'] ?? true));
+    }
+
     public function test_mobile_bootstrap_marks_financial_identity_routes_as_sensitive(): void
     {
         $this->seedTenant('social-store.test');

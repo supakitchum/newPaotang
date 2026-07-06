@@ -4,11 +4,27 @@ import '../data/ticket_models.dart';
 
 String ticketStatusLabel(CustomerLocalizations l10n, CustomerTicket ticket) {
   final status = ticket.rewardStatus.status;
+  final claimStatus = ticket.rewardStatus.claimStatus;
   if (status == 'winning') return l10n.ticketStatusWinning;
   if (status == 'non_winning') return l10n.ticketStatusNonWinning;
-  if (status == 'rejected') return l10n.ticketStatusClaimFailed;
-  if (status == 'paid' || status == 'paid_out') return l10n.ticketStatusPaid;
-  if (status == 'submitted' || status == 'under_review') {
+  if (_ticketRejectedStatuses.contains(status) ||
+      _ticketRejectedStatuses.contains(claimStatus)) {
+    return l10n.ticketStatusClaimFailed;
+  }
+  if (_ticketCancelledStatuses.contains(status) ||
+      _ticketCancelledStatuses.contains(claimStatus)) {
+    return l10n.ticketStatusClaimCancelled;
+  }
+  if (_ticketPaidStatuses.contains(status) ||
+      _ticketPaidStatuses.contains(claimStatus)) {
+    return l10n.ticketStatusPaid;
+  }
+  if (_ticketApprovedStatuses.contains(status) ||
+      _ticketApprovedStatuses.contains(claimStatus)) {
+    return l10n.ticketStatusApproved;
+  }
+  if (_ticketSubmittedStatuses.contains(status) ||
+      _ticketSubmittedStatuses.contains(claimStatus)) {
     return l10n.ticketStatusPendingClaim;
   }
 
@@ -18,6 +34,36 @@ String ticketStatusLabel(CustomerLocalizations l10n, CustomerTicket ticket) {
   }
   return l10n.ticketStatusPendingResult;
 }
+
+const _ticketSubmittedStatuses = {
+  'submitted',
+  'claim_submitted',
+  'under_review',
+  'pending',
+};
+
+const _ticketApprovedStatuses = {
+  'approved',
+  'claim_approved',
+};
+
+const _ticketPaidStatuses = {
+  'paid',
+  'paid_out',
+  'claim_paid',
+};
+
+const _ticketRejectedStatuses = {
+  'rejected',
+  'claim_rejected',
+};
+
+const _ticketCancelledStatuses = {
+  'cancelled',
+  'canceled',
+  'claim_cancelled',
+  'claim_canceled',
+};
 
 String ticketPrizeTypeLabel(CustomerLocalizations l10n, String type) {
   return l10n.ticketPrizeType(type);

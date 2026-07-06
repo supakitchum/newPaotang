@@ -35,7 +35,7 @@ void main() {
     final api = _ActivityClaimApiClient();
     final repository = ActivityClaimRepository(api);
 
-    await repository.create(
+    final claim = await repository.create(
       awardId: 'award_1',
       payoutMethod: ActivityClaimPayoutMethod.walletCredit,
       pin: '123456',
@@ -44,6 +44,29 @@ void main() {
 
     expect(api.payload.containsKey('pin'), isFalse);
     expect(api.payload['pin_assertion_token'], 'assertion-token');
+    expect(claim.id, 'activity_claim_1');
+  });
+
+  test('detail preserves wrapper context around nested claim resources',
+      () async {
+    final api = _ActivityClaimApiClient();
+    final repository = ActivityClaimRepository(api);
+
+    final claim = await repository.detail('acl_wrapped');
+
+    expect(api.paths, ['/customer/activity-claims/acl_wrapped']);
+    expect(claim.id, 'acl_wrapped');
+    expect(claim.displayReference, 'ACT-WRAPPED');
+    expect(claim.customerName, 'ลูกค้ากิจกรรม Wrapper');
+    expect(claim.activityName, 'ภารกิจ Wrapper');
+    expect(claim.award?.id, 'award_wrapped');
+    expect(claim.type, 'cashback');
+    expect(claim.amount, 990);
+    expect(claim.status, ActivityClaimStatus.paid);
+    expect(claim.payoutMethod, 'bank_transfer');
+    expect(claim.payoutLedgerId, 'ledger_activity_wrapped');
+    expect(claim.bankName, 'ธนาคารกรุงไทย');
+    expect(claim.bankAccountNumber, '006123456789');
   });
 }
 
@@ -60,6 +83,46 @@ class _ActivityClaimApiClient extends ApiClient {
 
   String path = '';
   Map<String, dynamic> payload = {};
+  final paths = <String>[];
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    paths.add(path);
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: {
+        'customerDisplayName': 'ลูกค้ากิจกรรม Wrapper',
+        'activityName': 'ภารกิจ Wrapper',
+        'award': {
+          'activityAwardId': 'award_wrapped',
+          'activityName': 'ภารกิจ Wrapper',
+          'rewardType': 'cashback',
+          'rewardAmount': {'amount': 99000, 'currency': 'THB'},
+        },
+        'data': {
+          'resource': {
+            'activityClaimId': 'acl_wrapped',
+            'claimReference': 'ACT-WRAPPED',
+            'claimStatus': 'claim_paid',
+            'payout': {
+              'method': 'bankTransfer',
+              'ledgerId': 'ledger_activity_wrapped',
+              'bankAccount': {
+                'bankDisplayName': 'ธนาคารกรุงไทย',
+                'bankDepositNo': '006123456789',
+              },
+            },
+            'paidAt': '2026-07-01T11:00:00+07:00',
+          },
+        },
+      } as T,
+    );
+  }
 
   @override
   Future<Response<T>> postWithHeaders<T>(

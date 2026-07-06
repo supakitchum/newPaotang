@@ -39,15 +39,10 @@ void main() {
     expect(find.text('กิจกรรมงวดย้อนหลัง'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    final luckyCard = find.ancestor(
-      of: find.text('กิจกรรมทายเลข 2 ตัว'),
-      matching: find.byType(Card),
-    );
-    final cardRect = tester.getRect(luckyCard.first);
+    final titleRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
 
-    expect(cardRect.width, lessThanOrEqualTo(920));
-    expect(cardRect.left, greaterThanOrEqualTo(140));
-    expect(cardRect.right, lessThanOrEqualTo(1060));
+    expect(titleRect.left, greaterThanOrEqualTo(140));
+    expect(titleRect.right, lessThanOrEqualTo(1060));
   });
 
   testWidgets('ActivitiesScreen exposes Nuxt-style header back to home', (
@@ -69,6 +64,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('กำลังโหลดกิจกรรม'), findsOneWidget);
+    expect(
+      find.byKey(const Key('activities-loading-progress')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('ActivitiesScreen error uses API copy when available', (
@@ -150,7 +150,7 @@ void main() {
     await tester.tap(find.text('กิจกรรมงวดย้อนหลัง'));
     await tester.pumpAndSettle();
 
-    expect(find.text('กลับไปกิจกรรมงวดปัจจุบัน'), findsOneWidget);
+    expect(find.text('งวดปัจจุบัน'), findsWidgets);
     expect(
       repository.calls.map((call) => call.history),
       containsAllInOrder([false, true]),
@@ -170,7 +170,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('กลับไปกิจกรรมงวดปัจจุบัน'), findsOneWidget);
+    expect(repository.calls.map((call) => call.history), contains(true));
 
     await tester.tap(find.byTooltip('ย้อนกลับ'));
     await tester.pumpAndSettle();
@@ -202,6 +202,30 @@ void main() {
     final cashbackTop = tester.getTopLeft(find.text('คืนเงิน 5%')).dy;
 
     expect(luckyTop, lessThan(cashbackTop));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivitiesScreen marks closed lucky boards and sorts them down',
+      (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(
+      items: [_closedLuckyFixture, _activityFixtures.first],
+    );
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _authenticatedController(),
+    );
+    await tester.pumpAndSettle();
+
+    final openTop = tester.getTopLeft(find.text('กิจกรรมทายเลข 2 ตัว')).dy;
+    final closedTop = tester.getTopLeft(find.text('กิจกรรมปิดรับแล้ว')).dy;
+
+    expect(openTop, lessThan(closedTop));
+    expect(find.text('หมดเวลาเข้าร่วมแล้ว'), findsOneWidget);
+    expect(find.text('หมดเวลาเข้าร่วม'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
@@ -421,6 +445,39 @@ const _cashbackWithoutRightFixture = ActivityItem(
     isEligible: false,
     estimatedAmount: 0,
     potentialAmount: 0,
+  ),
+);
+
+const _closedLuckyFixture = ActivityItem(
+  id: 'act_closed',
+  name: 'กิจกรรมปิดรับแล้ว',
+  slug: 'closed-board',
+  type: 'lucky_board',
+  imageUrl: '',
+  conditionText: 'ทุก 10 ใบ ได้ 1 สิทธิ์',
+  remainingNumbers: 80,
+  hasRight: true,
+  estimatedCashbackAmount: 0,
+  rights: ActivityRights(
+    earnedCount: 4,
+    usedCount: 0,
+    remainingCount: 4,
+    ticketCount: 40,
+    availableTicketCount: 40,
+    consumedTicketCount: 0,
+    qualifyingOrderCount: 0,
+    eligibilityRule: 'cumulative_tickets',
+    thresholdTickets: 10,
+    entryDeadlineAt: '2020-01-01T14:30:00+07:00',
+    entryClosed: false,
+  ),
+  numberBoard: ActivityNumberBoard(
+    predictionType: 'last2',
+    digits: 2,
+    totalCount: 100,
+    reservedCount: 20,
+    remainingCount: 80,
+    reservedNumbers: {},
   ),
 );
 

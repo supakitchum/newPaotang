@@ -37,19 +37,49 @@ class CurrentGame {
   });
 
   factory CurrentGame.fromJson(Map<String, dynamic> json) {
+    final payload = _currentGamePayload(json);
     return CurrentGame(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      status: json['status']?.toString() ?? '',
-      drawAt: json['draw_at'],
-      saleStartAt: json['sale_start_at'] ?? json['sales_start_at'],
-      saleCloseAt: json['sale_close_at'] ??
-          json['sales_close_at'] ??
-          json['close_at'] ??
-          json['end_at'] ??
-          json['sale_end_at'] ??
-          json['sales_end_at'],
-      serverTime: json['server_time'],
+      id: (payload['id'] ?? payload['game_id'] ?? payload['gameId'])
+              ?.toString() ??
+          '',
+      name: (payload['name'] ??
+                  payload['game_name'] ??
+                  payload['gameName'] ??
+                  payload['draw_label'] ??
+                  payload['drawLabel'])
+              ?.toString() ??
+          '',
+      status: (payload['status'] ??
+                  payload['game_status'] ??
+                  payload['gameStatus'] ??
+                  payload['status_code'] ??
+                  payload['statusCode'])
+              ?.toString() ??
+          '',
+      drawAt: payload['draw_at'] ?? payload['drawAt'] ?? payload['draw_date'],
+      saleStartAt: payload['sale_start_at'] ??
+          payload['sales_start_at'] ??
+          payload['saleStartAt'] ??
+          payload['salesStartAt'] ??
+          payload['start_at'] ??
+          payload['startAt'],
+      saleCloseAt: payload['sale_close_at'] ??
+          payload['sales_close_at'] ??
+          payload['saleCloseAt'] ??
+          payload['salesCloseAt'] ??
+          payload['close_at'] ??
+          payload['closeAt'] ??
+          payload['end_at'] ??
+          payload['endAt'] ??
+          payload['sale_end_at'] ??
+          payload['saleEndAt'] ??
+          payload['sales_end_at'] ??
+          payload['salesEndAt'],
+      serverTime: payload['server_time'] ??
+          payload['serverTime'] ??
+          payload['current_time'] ??
+          payload['currentTime'] ??
+          payload['now'],
     );
   }
 
@@ -73,6 +103,46 @@ class CurrentGame {
       rewards: const [],
     );
   }
+}
+
+Map<String, dynamic> _currentGamePayload(
+  Map<String, dynamic> json, [
+  int depth = 0,
+]) {
+  if (depth >= 4) return json;
+
+  for (final key in const [
+    'game',
+    'current_game',
+    'currentGame',
+    'resource',
+    'data',
+    'result',
+  ]) {
+    final nested = asMap(json[key]);
+    if (nested.isEmpty) continue;
+    return _mergeCurrentGameWrapper(
+      json,
+      _currentGamePayload(nested, depth + 1),
+    );
+  }
+
+  return json;
+}
+
+Map<String, dynamic> _mergeCurrentGameWrapper(
+  Map<String, dynamic> wrapper,
+  Map<String, dynamic> nested,
+) {
+  final merged = Map<String, dynamic>.from(wrapper)
+    ..remove('game')
+    ..remove('current_game')
+    ..remove('currentGame')
+    ..remove('resource')
+    ..remove('data')
+    ..remove('result');
+  merged.addAll(nested);
+  return merged;
 }
 
 class RewardResultGame {

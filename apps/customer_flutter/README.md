@@ -54,6 +54,14 @@ screen patterns into shared Flutter components.
 
 Android uses `FLAG_SECURE` in `MainActivity` for sensitive screens, which blocks
 screenshots, screen recording, and recent-app previews while the guard is active.
+On Android 14+, the manifest declares `DETECT_SCREEN_CAPTURE` and
+`MainActivity` registers `Activity.ScreenCaptureCallback` only while a sensitive
+route is active. Detected screenshots are forwarded to Flutter as
+`screenshot_detected` security events with the current route, while
+`FLAG_SECURE` remains the primary prevention layer. Android also forwards
+native/report-only screen-security events back to Flutter as `securityEvent`
+callbacks so matched sensitive routes are audited and locked through the same
+guard path as iOS.
 
 iOS cannot block a screenshot before capture with public APIs. The runner
 therefore:
@@ -62,8 +70,17 @@ therefore:
 - Listens for `UIScreen.capturedDidChangeNotification` for recording/mirroring.
 - Shows a native privacy overlay while capture is active.
 - Sends a `securityEvent` over `customer_flutter/screen_security`.
+- Accepts runtime route/event/reason/policy/copy aliases such as
+  `currentRoute`, `routeName`, `targetUrl`, `eventName`, `nativeEvent`,
+  `iosScreenshotPolicy`, `iosScreenCaptureOverlay`, `iosExitApp`,
+  `privacyOverlayTitle`, and `privacyOverlayDescription` before it applies the
+  overlay or forwards an event to Flutter.
+- Audits matched sensitive-route events to
+  `POST /customer/auth/security-events` on a best-effort path.
 - Lets Flutter lock the customer back to `/security-lock` and require unlock
-  again.
+  again when the runtime policy is `lock_and_blank` or `ios_exit_app`.
+  Overlay/report-only policies such as `overlay_only` still show/report the
+  native privacy event without forcing a PIN lock.
 
 Do not call `exit(0)` on iOS; it is not App Review safe.
 
@@ -72,8 +89,10 @@ Do not call `exit(0)` on iOS; it is not App Review safe.
 The app exposes `customer_flutter/biometric_keys` on iOS and Android:
 
 - `deviceId`
+- `existingDeviceId`
 - `createKeyPair`
 - `signChallenge`
+- `deleteKeyPair`
 
 Android stores a P-256 signing key in Android Keystore. iOS stores a P-256 key in
 Keychain and uses Secure Enclave on real devices when available. Public keys are
@@ -117,7 +136,10 @@ Partner social provider callback URLs in BO should point to the public customer
 domain using `/line/callback` or `/social/{provider}/callback`. External
 payment providers should return to `/checkout/pending?order_id=...`. The app
 maps those URLs back into Flutter routes without hardcoding tenant-specific
-domains.
+domains. Native HTTPS app-link events are accepted only when the URL host
+matches runtime `TENANT_HOST`, falling back to the configured `API_BASE_URL`
+host when no tenant host is set; custom scheme callbacks remain route-based for
+partner callback schemes.
 
 Generate partner-specific domain files with:
 
@@ -163,6 +185,14 @@ dart run tool/production_preflight.dart \
   --ios-bundle-id com.partner.customer \
   --ios-url-scheme partnerlottery \
   --ios-associated-domain applinks:partner.example.com \
+  --link-association-dir build/link-association \
+  --web-app-name "Partner Lottery" \
+  --web-short-name "Partner" \
+  --web-description "Partner digital lottery customer portal" \
+  --require-store-listing-metadata \
+  --store-privacy-policy-url https://partner.example.com/privacy \
+  --store-support-url https://partner.example.com/support \
+  --store-account-deletion-url https://partner.example.com/account-deletion \
   --social-provider line \
   --social-provider google \
   --social-provider apple
@@ -176,17 +206,75 @@ for required screen security and biometric bridge hooks such as Android
 `FLAG_SECURE`, iOS screenshot / recording detection, `NSFaceIDUsageDescription`,
 and device-bound biometric key channels. It also checks Android manifest
 permissions, custom-scheme and HTTPS app-link callbacks, Gradle manifest
-placeholders, iOS Associated Domains entitlements, and iOS xcconfig runtime
-values for display name / URL scheme / Associated Domain. Release iOS xcconfig
-must read these values from partner-specific CI/Xcode settings, not checked-in
-brand defaults. Pass every enabled customer social login provider with
+placeholders, backup-disabling flags, iOS Associated Domains entitlements, and
+iOS xcconfig runtime values for display name / URL scheme / Associated Domain.
+iOS `CFBundleDisplayName` and `CFBundleName` must both read the runtime
+`APP_DISPLAY_NAME`, and release iOS xcconfig must read these values from
+partner-specific CI/Xcode settings, not checked-in brand defaults. Pass
+`--link-association-dir` after running
+`tool/generate_link_files.dart` to validate that generated Android
+`assetlinks.json` targets the release application ID with a real SHA-256
+fingerprint, and Apple App Site Association targets the release Team ID /
+bundle ID with the required auth/reset/checkout paths. Pass every enabled
+customer social login provider with
 `--social-provider` or set
 `CUSTOMER_FLUTTER_SOCIAL_PROVIDERS=line,google,apple`; supported values are
 `line`, `google`, and `apple` only. The production preflight fails unknown
 provider names so typoed settings cannot bypass store-compliance checks. iOS
 production preflight fails when LINE or Google login is enabled without Apple ID
-login. Use `--target web` when checking a same-origin web build that keeps
+login. For the final App Store / Play Store submission pass, add
+`--require-store-listing-metadata` or set
+`CUSTOMER_FLUTTER_REQUIRE_STORE_LISTING_METADATA=true`, then provide
+`--store-privacy-policy-url` / `CUSTOMER_FLUTTER_STORE_PRIVACY_POLICY_URL`,
+`--store-support-url` / `CUSTOMER_FLUTTER_STORE_SUPPORT_URL`, and
+`--store-account-deletion-url` /
+`CUSTOMER_FLUTTER_STORE_ACCOUNT_DELETION_URL`. Those values must be
+partner-owned HTTPS production URLs, keeping store listing metadata outside
+checked-in source while still release-gated. With `--check-files`, the same
+preflight also verifies that Privacy Policy and Account Deletion are not only
+routed from Profile, but remain bound to runtime legal/store-readiness config
+from mobile bootstrap and open external policy/request URLs through the shared
+safe customer link launcher. Web
+production preflight also requires partner-specific runtime PWA/search
+metadata via `--web-app-name` or `CUSTOMER_FLUTTER_WEB_APP_NAME`,
+`--web-short-name` or `CUSTOMER_FLUTTER_WEB_SHORT_NAME`, and
+`--web-description` or `CUSTOMER_FLUTTER_WEB_DESCRIPTION`; this keeps the
+checked-in web shell generic while making release metadata explicit. The web
+shell also reads partner browser/PWA metadata from the hosting/bootstrap globals
+`window.customerFlutterWebConfig`, `window.customerFlutterConfig`,
+`window.customerConfig`, `window.__CUSTOMER_FLUTTER_WEB_CONFIG__`,
+`window.__CUSTOMER_FLUTTER_CONFIG__`, `window.__CUSTOMER_WEB_CONFIG__`, and
+`window.__CUSTOMER_CONFIG__`. It resolves root values plus nested `web`, `pwa`,
+`manifest`, `app`, `site`, `brand`, `theme`, `mobile`, `colors`, `icons`,
+`images`, `assets`, `seo`, `social`, `openGraph`, `twitter`, `links`, and
+`locale` maps, and unwraps scalar object rows such as `value`, `hex`,
+`cssValue`, `publicUrl`, `assetUrl`, and `fullUrl`. Browser/PWA theme and icon
+values use aliases such as `themeColor`, `faviconUrl`, `appleTouchIconUrl`,
+`icon192Url`, `icon512Url`, `maskableIcon192Url`, and
+`maskableIcon512Url`. Open Graph and Twitter share metadata are runtime-driven
+from `socialTitle`/`ogTitle`, `socialDescription`/`ogDescription`, and
+`shareImageUrl`/`ogImageUrl`/`socialImageUrl`; canonical/social URL and
+installable PWA identity/scope use `canonicalUrl`/`siteUrl`,
+`manifestId`/`webAppId`, and `scope`/`webScope`. Manifest launch, display, and
+orientation values can also stay runtime-driven through `startUrl`/`webStartUrl`,
+`displayMode`/`webDisplay`, and `orientation`/`webOrientation`; snake_case
+aliases are accepted for BO/hosting payloads. The web shell also keeps the HTML
+language and text direction runtime-driven through `lang`/`defaultLocale` and
+`dir`/`textDirection`, and preflight checks that wiring so partner web releases
+do not ship with generic document metadata. Keep those values runtime or hosting
+configured instead of replacing the checked-in generic web assets with
+partner-specific files. Use `--target web` when checking a same-origin web build
+that keeps
 `API_BASE_URL=/api/v1`.
+
+With `--check-files`, Web/PWA preflight also verifies the sensitive-route
+privacy fallback remains wired through `WebPrivacyGuard` and the browser
+activity bridge. The required lifecycle coverage includes visibility changes,
+window blur/focus, `pagehide`/`pageshow`, `freeze`/`resume`, and
+`beforeprint`/`afterprint`, so wallet, checkout, tickets, claims, profile, PIN,
+and runtime-sensitive routes keep the cover during backgrounding, bfcache,
+frozen-page, and print-preview transitions without screenshot or print-capture
+automation.
 
 ## Verification
 
@@ -277,10 +365,18 @@ before upgrading Flutter to a version that turns the warning into an error.
   `CUSTOMER_FLUTTER_STORE_FILE`, `CUSTOMER_FLUTTER_STORE_PASSWORD`,
   `CUSTOMER_FLUTTER_KEY_ALIAS`, `CUSTOMER_FLUTTER_KEY_PASSWORD`.
   Release builds fail when partner runtime config or signing inputs are
-  missing. For local smoke builds only, set
-  `CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING=true`; never use that flag for
-  CI, Play Store, or production artifacts because it also permits the checked-in
-  development Android defaults.
+  missing or set to checked-in defaults such as `NewPaotang`, `newpaotang`,
+  `auth.invalid`, or `com.newpaotang.customer_flutter`. For local smoke builds
+  only, set
+  `CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING=true` to use debug signing
+  while still passing the partner runtime identifiers above; never use that flag
+  for CI, Play Store, or production artifacts.
+- Keep Android app backup disabled in `AndroidManifest.xml`; production
+  preflight rejects release manifests that omit `android:allowBackup="false"`
+  and `android:fullBackupContent="false"`.
+- Keep Android cleartext network traffic disabled for release builds. The
+  release manifest overlay sets `android:usesCleartextTraffic="false"`, and
+  production preflight rejects release overlays that remove or weaken it.
 - The GitHub workflow performs an Android release smoke build by generating a
   short-lived CI keystore and setting all partner runtime identifiers. This is
   only a compile/signing-path check; do not distribute that artifact.
@@ -291,6 +387,9 @@ before upgrading Flutter to a version that turns the warning into an error.
   `CUSTOMER_FLUTTER_IOS_TEAM_ID`, `CUSTOMER_FLUTTER_IOS_BUNDLE_ID`,
   `CUSTOMER_FLUTTER_IOS_URL_SCHEME`, and
   `CUSTOMER_FLUTTER_IOS_ASSOCIATED_DOMAIN` in Xcode/CI for the production app
+  with partner-specific values. The iOS release guard rejects missing,
+  unresolved, localhost, and checked-in default display name / URL scheme /
+  bundle id values.
   name, signing team, bundle id, callback scheme, and final customer callback
   domain, for example `applinks:partner.example.com`. The checked-in
   `Release.xcconfig` and Runner release build settings read from these values.
@@ -299,6 +398,16 @@ before upgrading Flutter to a version that turns the warning into an error.
 - Set `CUSTOMER_FLUTTER_SOCIAL_PROVIDERS` in CI/release jobs to the exact
   enabled providers for the partner app. If LINE or Google is enabled for an iOS
   app, Apple ID must be enabled too.
+- Before store submission, enable
+  `CUSTOMER_FLUTTER_REQUIRE_STORE_LISTING_METADATA=true` and provide
+  `CUSTOMER_FLUTTER_STORE_PRIVACY_POLICY_URL`,
+  `CUSTOMER_FLUTTER_STORE_SUPPORT_URL`, and
+  `CUSTOMER_FLUTTER_STORE_ACCOUNT_DELETION_URL` as partner-owned HTTPS URLs.
+- Keep realtime protocol/monitor release gates enabled. Production preflight
+  checks bridge/outbox event aliases, nested payload wrappers, and object-scalar
+  event rows such as `{ value }`, `{ code }`, and `{ key }` so stock, order,
+  wallet/topup, reward-claim, activity-claim, and result updates do not silently
+  stop refreshing after backend/BO bridge changes.
 - Configure iOS signing team, bundle id, associated domains, and URL schemes.
 - Configure LINE, Google, and Apple Sign-In credentials per partner in BO plugin
   settings.

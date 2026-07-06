@@ -3,21 +3,24 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../config/app_config.dart';
 import 'customer_deep_link.dart';
 
-class CustomerDeepLinkListener extends StatefulWidget {
+class CustomerDeepLinkListener extends ConsumerStatefulWidget {
   const CustomerDeepLinkListener({required this.child, super.key});
 
   final Widget child;
 
   @override
-  State<CustomerDeepLinkListener> createState() =>
+  ConsumerState<CustomerDeepLinkListener> createState() =>
       _CustomerDeepLinkListenerState();
 }
 
-class _CustomerDeepLinkListenerState extends State<CustomerDeepLinkListener> {
+class _CustomerDeepLinkListenerState
+    extends ConsumerState<CustomerDeepLinkListener> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _subscription;
   String? _lastHandled;
@@ -50,7 +53,14 @@ class _CustomerDeepLinkListenerState extends State<CustomerDeepLinkListener> {
   }
 
   void _handleUri(Uri uri) {
-    final target = customerDeepLinkPath(uri);
+    final config = ref.read(appConfigProvider);
+    final target = customerDeepLinkPath(
+      uri,
+      allowedHosts: customerDeepLinkAllowedHosts(
+        tenantHost: config.normalizedTenantHost,
+        apiBaseUrl: config.apiBaseUrl,
+      ),
+    );
     if (target == null || target == _lastHandled || !mounted) return;
 
     _lastHandled = target;

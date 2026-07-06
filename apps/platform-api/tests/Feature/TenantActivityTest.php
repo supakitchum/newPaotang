@@ -284,6 +284,53 @@ class TenantActivityTest extends TestCase
         $this->assertFalse($customerPage['meta']['has_more']);
     }
 
+    public function test_customer_activity_awards_and_claims_support_cursor_pagination(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_claim_pages', 'ten_act_claim_pages', 'act-claim-pages.test');
+        $this->insertGame('gam_act_claim_pages', 'open');
+        $this->issueCustomerToken('ten_act_claim_pages', 'cus_act_claim_pages');
+        $this->insertCashbackActivity('ten_act_claim_pages', 'gam_act_claim_pages', 'act_claim_pages', 'fixed', 0, 1000, 1, 10000, 1);
+        $createdAt = now();
+
+        foreach ([1, 2, 3] as $index) {
+            $awardId = 'awa_claim_page_'.$index;
+            $this->insertActivityAward('ten_act_claim_pages', 'gam_act_claim_pages', 'act_claim_pages', 'cus_act_claim_pages', $awardId, $createdAt);
+            $this->insertActivityClaim('ten_act_claim_pages', 'gam_act_claim_pages', 'act_claim_pages', 'cus_act_claim_pages', $awardId, 'acl_claim_page_'.$index, $createdAt);
+        }
+
+        $customer = $this->customerContext('ten_act_claim_pages', 'cus_act_claim_pages');
+        $firstAwards = $service->customerAwards('ten_act_claim_pages', $customer, ['limit' => 2]);
+
+        $this->assertSame(['awa_claim_page_3', 'awa_claim_page_2'], array_column($firstAwards['data'], 'id'));
+        $this->assertTrue($firstAwards['meta']['has_more']);
+        $this->assertSame('awa_claim_page_2', $firstAwards['meta']['next_cursor']);
+
+        $secondAwards = $service->customerAwards('ten_act_claim_pages', $customer, [
+            'limit' => 2,
+            'cursor' => $firstAwards['meta']['next_cursor'],
+        ]);
+
+        $this->assertSame(['awa_claim_page_1'], array_column($secondAwards['data'], 'id'));
+        $this->assertFalse($secondAwards['meta']['has_more']);
+        $this->assertNull($secondAwards['meta']['next_cursor']);
+
+        $firstClaims = $service->customerClaims('ten_act_claim_pages', $customer, ['limit' => 2]);
+
+        $this->assertSame(['acl_claim_page_3', 'acl_claim_page_2'], array_column($firstClaims['data'], 'id'));
+        $this->assertTrue($firstClaims['meta']['has_more']);
+        $this->assertSame('acl_claim_page_2', $firstClaims['meta']['next_cursor']);
+
+        $secondClaims = $service->customerClaims('ten_act_claim_pages', $customer, [
+            'limit' => 2,
+            'cursor' => $firstClaims['meta']['next_cursor'],
+        ]);
+
+        $this->assertSame(['acl_claim_page_1'], array_column($secondClaims['data'], 'id'));
+        $this->assertFalse($secondClaims['meta']['has_more']);
+        $this->assertNull($secondClaims['meta']['next_cursor']);
+    }
+
     public function test_lucky_board_customer_detail_exposes_announced_result_and_customer_status(): void
     {
         $service = app(TenantActivityService::class);
@@ -661,6 +708,71 @@ class TenantActivityTest extends TestCase
             'metadata_json' => null,
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+    }
+
+    private function insertActivityAward(
+        string $tenantId,
+        string $gameId,
+        string $activityId,
+        string $customerId,
+        string $awardId,
+        mixed $createdAt,
+    ): void {
+        DB::table('tenant_activity_awards')->insert([
+            'id' => $awardId,
+            'tenant_id' => $tenantId,
+            'activity_id' => $activityId,
+            'game_id' => $gameId,
+            'customer_id' => $customerId,
+            'entry_id' => null,
+            'type' => 'cashback',
+            'prediction_type' => null,
+            'amount' => 1000,
+            'currency' => 'THB',
+            'status' => 'claimable',
+            'calculated_at' => $createdAt,
+            'metadata_json' => null,
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+    }
+
+    private function insertActivityClaim(
+        string $tenantId,
+        string $gameId,
+        string $activityId,
+        string $customerId,
+        string $awardId,
+        string $claimId,
+        mixed $createdAt,
+    ): void {
+        DB::table('activity_claims')->insert([
+            'id' => $claimId,
+            'tenant_id' => $tenantId,
+            'activity_award_id' => $awardId,
+            'activity_id' => $activityId,
+            'game_id' => $gameId,
+            'customer_id' => $customerId,
+            'wallet_id' => null,
+            'payout_ledger_id' => null,
+            'reference' => 'ACT-'.strtoupper(substr($claimId, -10)),
+            'status' => 'submitted',
+            'payout_method' => 'wallet_credit',
+            'claim_amount' => 1000,
+            'currency' => 'THB',
+            'bank_account_json' => null,
+            'customer_note' => null,
+            'admin_note' => null,
+            'idempotency_key' => null,
+            'payload_hash' => sha1($claimId),
+            'reviewed_by_admin_id' => null,
+            'paid_by_admin_id' => null,
+            'submitted_at' => $createdAt,
+            'reviewed_at' => null,
+            'paid_at' => null,
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
         ]);
     }
 

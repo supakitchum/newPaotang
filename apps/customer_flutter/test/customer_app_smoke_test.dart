@@ -47,4 +47,37 @@ void main() {
       expectedScaffoldBackgroundColor: const Color(0xFFF8FAFC),
     );
   });
+
+  testWidgets('CustomerApp applies camelCase partner theme tokens', (
+    tester,
+  ) async {
+    await runCustomerAppSmokeHarness(
+      tester,
+      platformKey: 'web',
+      bootstrapPayload: const {
+        'tenant_id': 'tenant_theme_camel',
+        'siteConfig': {
+          'displayName': 'Partner Camel Theme',
+          'locale': 'en-US',
+        },
+        'mobileConfig': {
+          'themeConfig': {
+            'primaryColor': '#224488',
+            'secondaryColor': '#0EA5E9',
+            'backgroundColor': '#F9FAFB',
+            'textColor': '#172033',
+            'fontFamily': 'Inter',
+          },
+          'screenSecurity': {
+            'web': {
+              'sensitiveScreenMode': 'limited',
+              'watermarkEnabled': true,
+            },
+          },
+        },
+      },
+      expectedPrimaryColor: const Color(0xFF224488),
+      expectedScaffoldBackgroundColor: const Color(0xFFF9FAFB),
+    );
+  });
 }

@@ -119,7 +119,11 @@ class _CustomerRealtimeMonitorState
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
-    if (event.name == 'site-config.updated') {
+    if (normalizeRealtimeEventNameWithPayload(
+          eventName: event.name,
+          payload: event.payload,
+        ) ==
+        'site-config.updated') {
       ref.invalidate(mobileBootstrapProvider);
       return;
     }

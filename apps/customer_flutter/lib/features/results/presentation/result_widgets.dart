@@ -51,190 +51,199 @@ class ResultSummaryCard extends StatelessWidget {
     final pillForeground =
         featured ? Colors.white : colorScheme.onPrimaryContainer;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      color: featured ? Colors.transparent : null,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      child: InkWell(
+    return DecoratedBox(
+      decoration: featured
+          ? BoxDecoration(borderRadius: radius)
+          : _resultSurfaceDecoration(context, radius: featured ? 24 : 18),
+      child: ClipRRect(
         borderRadius: radius,
-        onTap: link == null ? null : () => context.go(link!),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: featured
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colorScheme.primary,
-                      Color.lerp(
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                            0.52,
-                          ) ??
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: link == null ? null : () => context.go(link!),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: featured
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
                           colorScheme.primary,
-                    ],
-                  )
-                : null,
-          ),
-          child: Stack(
-            children: [
-              if (featured) ...[
-                Positioned(
-                  right: -34,
-                  bottom: -44,
-                  child: Container(
-                    width: 128,
-                    height: 128,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFFFD629).withValues(alpha: 0.78),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: -58,
-                  top: -34,
-                  child: Transform.rotate(
-                    angle: -0.54,
-                    child: Container(
-                      width: 260,
-                      height: 86,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.07),
-                        borderRadius: BorderRadius.circular(44),
+                          Color.lerp(
+                                colorScheme.primary,
+                                colorScheme.secondary,
+                                0.52,
+                              ) ??
+                              colorScheme.primary,
+                        ],
+                      )
+                    : null,
+              ),
+              child: Stack(
+                children: [
+                  if (featured) ...[
+                    Positioned(
+                      right: -34,
+                      bottom: -44,
+                      child: Container(
+                        width: 128,
+                        height: 128,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              const Color(0xFFFFD629).withValues(alpha: 0.78),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-              Padding(
-                padding: EdgeInsets.all(featured ? 22 : 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      l10n.resultTitle,
-                                      style:
-                                          theme.textTheme.titleMedium?.copyWith(
-                                        color: foreground,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                  if (result.isUnofficial) ...[
-                                    const SizedBox(width: 6),
-                                    Icon(
-                                      Icons.info_outline,
-                                      size: 16,
-                                      color: mutedForeground,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                l10n.resultDrawDate(
-                                  drawDate.isEmpty
-                                      ? l10n.resultPendingDrawDate
-                                      : drawDate,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: mutedForeground,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                    Positioned(
+                      left: -58,
+                      top: -34,
+                      child: Transform.rotate(
+                        angle: -0.54,
+                        child: Container(
+                          width: 260,
+                          height: 86,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(44),
                           ),
                         ),
-                        if (link != null)
-                          Icon(Icons.chevron_right, color: mutedForeground),
-                      ],
-                    ),
-                    if (result.isUnofficial) ...[
-                      const SizedBox(height: 12),
-                      _UnofficialBadge(featured: featured),
-                    ],
-                    const SizedBox(height: 18),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final twoColumns = constraints.maxWidth >= 390;
-                        final children = [
-                          _ResultNumberBlock(
-                            label: l10n.resultRewardTitle('reward_1'),
-                            number: summary.first,
-                            prominent: true,
-                            labelColor: mutedForeground,
-                            pillBackground: pillBackground,
-                            pillForeground: pillForeground,
-                          ),
-                          _ResultNumberBlock(
-                            label: l10n.resultRewardTitle('reward_two_digit'),
-                            number: summary.last2,
-                            prominent: true,
-                            labelColor: mutedForeground,
-                            pillBackground: pillBackground,
-                            pillForeground: pillForeground,
-                          ),
-                          _ResultNumberBlock(
-                            label:
-                                l10n.resultRewardTitle('reward_three_digit_1'),
-                            numbers: summary.front3,
-                            labelColor: mutedForeground,
-                            pillBackground: pillBackground,
-                            pillForeground: pillForeground,
-                          ),
-                          _ResultNumberBlock(
-                            label:
-                                l10n.resultRewardTitle('reward_three_digit_2'),
-                            numbers: summary.last3,
-                            labelColor: mutedForeground,
-                            pillBackground: pillBackground,
-                            pillForeground: pillForeground,
-                          ),
-                        ];
-
-                        if (!twoColumns) {
-                          return Column(
-                            children: [
-                              for (final child in children)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: child,
-                                ),
-                            ],
-                          );
-                        }
-
-                        return Wrap(
-                          spacing: 16,
-                          runSpacing: 16,
-                          children: [
-                            for (final child in children)
-                              SizedBox(
-                                width: (constraints.maxWidth - 16) / 2,
-                                child: child,
-                              ),
-                          ],
-                        );
-                      },
+                      ),
                     ),
                   ],
-                ),
+                  Padding(
+                    padding: EdgeInsets.all(featured ? 22 : 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          l10n.resultTitle,
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                            color: foreground,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                      if (result.isUnofficial) ...[
+                                        const SizedBox(width: 6),
+                                        Icon(
+                                          Icons.info_outline,
+                                          size: 16,
+                                          color: mutedForeground,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.resultDrawDate(
+                                      drawDate.isEmpty
+                                          ? l10n.resultPendingDrawDate
+                                          : drawDate,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        theme.textTheme.labelMedium?.copyWith(
+                                      color: mutedForeground,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (link != null)
+                              Icon(Icons.chevron_right, color: mutedForeground),
+                          ],
+                        ),
+                        if (result.isUnofficial) ...[
+                          const SizedBox(height: 12),
+                          _UnofficialBadge(featured: featured),
+                        ],
+                        const SizedBox(height: 18),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final twoColumns = constraints.maxWidth >= 390;
+                            final children = [
+                              _ResultNumberBlock(
+                                label: l10n.resultRewardTitle('reward_1'),
+                                number: summary.first,
+                                prominent: true,
+                                labelColor: mutedForeground,
+                                pillBackground: pillBackground,
+                                pillForeground: pillForeground,
+                              ),
+                              _ResultNumberBlock(
+                                label:
+                                    l10n.resultRewardTitle('reward_two_digit'),
+                                number: summary.last2,
+                                prominent: true,
+                                labelColor: mutedForeground,
+                                pillBackground: pillBackground,
+                                pillForeground: pillForeground,
+                              ),
+                              _ResultNumberBlock(
+                                label: l10n
+                                    .resultRewardTitle('reward_three_digit_1'),
+                                numbers: summary.front3,
+                                labelColor: mutedForeground,
+                                pillBackground: pillBackground,
+                                pillForeground: pillForeground,
+                              ),
+                              _ResultNumberBlock(
+                                label: l10n
+                                    .resultRewardTitle('reward_three_digit_2'),
+                                numbers: summary.last3,
+                                labelColor: mutedForeground,
+                                pillBackground: pillBackground,
+                                pillForeground: pillForeground,
+                              ),
+                            ];
+
+                            if (!twoColumns) {
+                              return Column(
+                                children: [
+                                  for (final child in children)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 14),
+                                      child: child,
+                                    ),
+                                ],
+                              );
+                            }
+
+                            return Wrap(
+                              spacing: 16,
+                              runSpacing: 16,
+                              children: [
+                                for (final child in children)
+                                  SizedBox(
+                                    width: (constraints.maxWidth - 16) / 2,
+                                    child: child,
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -253,9 +262,8 @@ class ResultDetailGroupCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    return DecoratedBox(
+      decoration: _resultSurfaceDecoration(context, radius: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -336,8 +344,8 @@ class ResultInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      decoration: _resultSurfaceDecoration(context, radius: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -374,6 +382,25 @@ class ResultInfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+BoxDecoration _resultSurfaceDecoration(
+  BuildContext context, {
+  required double radius,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
 }
 
 class _ResultNumberBlock extends StatelessWidget {

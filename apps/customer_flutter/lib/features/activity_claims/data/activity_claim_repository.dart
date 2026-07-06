@@ -36,7 +36,7 @@ class ActivityClaimRepository {
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/activity-claims/$id',
     );
-    return ActivityClaimItem.fromJson(unwrapPayload(response.data));
+    return ActivityClaimItem.fromJson(asMap(response.data));
   }
 
   Future<ActivityClaimItem> create({
@@ -66,6 +66,6 @@ class ActivityClaimRepository {
         if (note.trim().isNotEmpty) 'note': note.trim(),
       },
     );
-    return ActivityClaimItem.fromJson(unwrapPayload(response.data));
+    return ActivityClaimItem.fromJson(asMap(response.data));
   }
 }

@@ -10,8 +10,15 @@ class StoreItem {
 
   factory StoreItem.fromJson(Map<String, dynamic> json) {
     return StoreItem(
-      id: (json['affiliate_id'] ?? json['id'])?.toString() ?? '',
-      name: (json['store_name'] ?? json['name'])?.toString() ?? '',
+      id: (json['affiliate_id'] ?? json['store_id'] ?? json['id'])
+              ?.toString() ??
+          '',
+      name: (json['store_name'] ??
+                  json['name'] ??
+                  json['display_name'] ??
+                  json['seller_name'])
+              ?.toString() ??
+          '',
       code: json['code']?.toString() ?? '',
     );
   }
@@ -29,19 +36,41 @@ class StorePage {
   });
 
   factory StorePage.fromJson(Map<String, dynamic> json) {
-    final meta = unwrapMeta(json);
+    final payload = unwrapPayload(json);
+    final meta = {
+      ...asMap(payload['pagination']),
+      ...unwrapMeta(json),
+    };
+    final rows = unwrapDataList(json);
+    final items = rows.isNotEmpty
+        ? rows
+        : asMapList(
+            payload['stores'] ??
+                payload['store_list'] ??
+                payload['affiliates'] ??
+                payload['items'],
+          );
     return StorePage(
-      items: unwrapDataList(json).map(StoreItem.fromJson).toList(
+      items: items.map(StoreItem.fromJson).toList(
             growable: false,
           ),
-      nextCursor: meta['next_cursor']?.toString() ?? '',
-      hasMore: meta['has_more'] == true,
+      nextCursor:
+          (meta['next_cursor'] ?? meta['cursor'] ?? meta['seed'])?.toString() ??
+              '',
+      hasMore: _storeListHasMore(meta['has_more']),
     );
   }
 
   final List<StoreItem> items;
   final String nextCursor;
   final bool hasMore;
+}
+
+bool _storeListHasMore(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final normalized = value?.toString().trim().toLowerCase() ?? '';
+  return normalized == 'true' || normalized == '1' || normalized == 'yes';
 }
 
 class StoreLotteryTicket {
@@ -73,12 +102,12 @@ class StoreLotteryTicket {
         (json['local_stock_item_id'] ?? json['id'] ?? json['token'])
                 ?.toString() ??
             '';
-    final number = (json['number'] ??
-            json['full_number'] ??
-            json['lottery_number'] ??
-            json['fullNumber'])
-        ?.toString()
-        .replaceAll(RegExp(r'\D'), '');
+    final number = _normalizeStoreLotteryNumber(
+      json['number'] ??
+          json['full_number'] ??
+          json['lottery_number'] ??
+          json['fullNumber'],
+    );
     final sellerName =
         (json['seller'] ?? json['seller_name'] ?? json['store_name'] ?? '')
             .toString();
@@ -89,16 +118,17 @@ class StoreLotteryTicket {
       stockRef:
           (json['stock_ref'] ?? json['virtual_stock_ref'] ?? id)?.toString() ??
               '',
-      number: (number ?? '').padLeft(6, '0').substring(0, 6),
+      number: number,
       sellerName: sellerName,
       storeName: (json['store_name'] ?? sellerName).toString(),
       price: moneyToDisplayNumber(json['price'], fallback: 80),
       remainingCount: int.tryParse(json['remaining_count']?.toString() ?? '') ??
           int.tryParse(json['available_count']?.toString() ?? '') ??
           1,
-      status: json['availability_status']?.toString() ??
-          json['status']?.toString() ??
-          'available',
+      status: (json['availability_status'] ?? json['status'] ?? 'available')
+          .toString()
+          .trim()
+          .toLowerCase(),
       reservationId: json['reservation_id']?.toString() ?? '',
       imageUrl: (json['image_url'] ??
               json['image_full_url'] ??
@@ -175,11 +205,28 @@ class StoreLotteryTicket {
   }
 
   bool get isAvailable =>
-      remainingCount > 0 &&
-      status != 'sold_out' &&
-      status != 'reserved' &&
-      status != 'sold';
+      remainingCount > 0 && !_unavailableStoreLotteryStatuses.contains(status);
 }
+
+const _unavailableStoreLotteryStatuses = {
+  'sold_out',
+  'sold',
+  'reserved',
+  'booked',
+  'unavailable',
+  'not_available',
+  'disabled',
+  'inactive',
+  'recalled',
+  'voided',
+  'expired',
+  'cancelled',
+  'canceled',
+  'blocked',
+  'locked',
+  'hold',
+  'held',
+};
 
 class StoreLotteryPage {
   const StoreLotteryPage({
@@ -198,15 +245,19 @@ class StoreLotteryPage {
       ...unwrapMeta(json),
     };
     final seller = asMap(payload['seller'] ?? json['seller']);
+    final rows = unwrapDataList(json);
+    final items = rows.isNotEmpty
+        ? rows
+        : asMapList(payload['lotteries'] ?? payload['items']);
     return StoreLotteryPage(
-      items: unwrapDataList(json).map(StoreLotteryTicket.fromJson).toList(
+      items: items.map(StoreLotteryTicket.fromJson).toList(
             growable: false,
           ),
       nextCursor: meta['next_cursor']?.toString() ??
           meta['cursor']?.toString() ??
           meta['seed']?.toString() ??
           '',
-      hasMore: meta['has_more'] == true,
+      hasMore: _storeListHasMore(meta['has_more']),
       gameId: meta['game_id']?.toString() ?? '',
       sellerName: (seller['name'] ?? meta['seller_name'])?.toString() ?? '',
       canReserve: _storeLotteryPageCanReserve(
@@ -226,6 +277,14 @@ class StoreLotteryPage {
   final String gameId;
   final String sellerName;
   final bool canReserve;
+}
+
+String _normalizeStoreLotteryNumber(Object? value) {
+  final digits = value?.toString().replaceAll(RegExp(r'\D'), '') ?? '';
+  if (digits.length >= 6) {
+    return digits.substring(digits.length - 6);
+  }
+  return digits.padLeft(6, '0');
 }
 
 bool _storeLotteryPageCanReserve(Object? value) {

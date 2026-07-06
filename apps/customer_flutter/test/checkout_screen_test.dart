@@ -23,6 +23,7 @@ import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/system/presentation/system_pages.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
+import 'package:customer_flutter/shared/widgets/customer_loading_indicator.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -90,8 +91,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('ยืนยันการชำระเงิน'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('กำลังเตรียมรายการชำระเงิน...'), findsOneWidget);
+    expect(find.byType(CustomerLoadingMark), findsOneWidget);
+    expect(find.text('กำลังเตรียมรายการชำระเงิน...'), findsWidgets);
     expect(tester.takeException(), isNull);
 
     cartCompleter.complete(await _CheckoutLotteryRepository().cart());
@@ -153,7 +154,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CustomerLoadingMark), findsOneWidget);
     expect(find.text('กำลังโหลดรายการสลากในตะกร้า...'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -201,7 +202,7 @@ void main() {
 
     expect(
       find.text('ไม่พบรายการชำระเงิน กรุณาเลือกสลากใหม่'),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
   });
@@ -306,9 +307,9 @@ void main() {
     expect(find.text('ช่องทางชำระเงิน'), findsOneWidget);
     final summaryCard = find.byKey(const ValueKey('checkout-summary-card'));
     expect(summaryCard, findsOneWidget);
-    final summaryShape =
-        tester.widget<Card>(summaryCard).shape as RoundedRectangleBorder;
-    expect(summaryShape.borderRadius, BorderRadius.circular(12));
+    final summaryDecoration =
+        tester.widget<DecoratedBox>(summaryCard).decoration as BoxDecoration;
+    expect(summaryDecoration.borderRadius, BorderRadius.circular(12));
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
     expect(find.text('จำนวนสลากฯ'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
@@ -341,9 +342,9 @@ void main() {
       const ValueKey('checkout-payment-method-option-wallet'),
     );
     expect(walletOption, findsOneWidget);
-    final walletOptionCard = tester.widget<Card>(walletOption);
-    final walletOptionShape = walletOptionCard.shape as RoundedRectangleBorder;
-    expect(walletOptionShape.borderRadius, BorderRadius.circular(12));
+    final walletOptionDecoration =
+        tester.widget<DecoratedBox>(walletOption).decoration as BoxDecoration;
+    expect(walletOptionDecoration.borderRadius, BorderRadius.circular(12));
     final walletNote = tester.widget<Container>(
       find.descendant(
         of: walletOption,
@@ -356,7 +357,7 @@ void main() {
     final walletTheme = Theme.of(tester.element(walletOption));
     expect(
       walletNoteDecoration.color,
-      walletTheme.colorScheme.primaryContainer.withValues(alpha: 0.42),
+      walletTheme.colorScheme.primaryContainer.withValues(alpha: 0.52),
     );
     expect(
       find.descendant(
@@ -386,10 +387,10 @@ void main() {
 
     final paymentDock = find.byKey(const ValueKey('checkout-payment-dock'));
     expect(paymentDock, findsOneWidget);
-    final checkoutDockShape =
-        tester.widget<Card>(paymentDock).shape as RoundedRectangleBorder;
+    final checkoutDockDecoration =
+        tester.widget<DecoratedBox>(paymentDock).decoration as BoxDecoration;
     expect(
-      checkoutDockShape.borderRadius,
+      checkoutDockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(16)),
     );
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
@@ -686,6 +687,45 @@ void main() {
     expect(lottery.checkoutReservationIds, ['res_1']);
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodWallet);
     expect(find.text('success:ord_nested'), findsOneWidget);
+  });
+
+  testWidgets('checkout accepts legacy Nuxt cart order payloads', (
+    tester,
+  ) async {
+    final lottery = _LegacyCartOrderLotteryRepository();
+    final router = await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: lottery,
+    );
+
+    expect(find.text('ยืนยันการชำระเงิน'), findsOneWidget);
+    expect(find.text('จำนวนสลากฯ'), findsOneWidget);
+    expect(find.text('2 ใบ'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('checkout-summary-total-amount')),
+          )
+          .data,
+      '160.00',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('checkout-summary-total-unit')),
+          )
+          .data,
+      'บาท',
+    );
+
+    await _submitCheckoutPayment(tester);
+
+    expect(lottery.checkoutReservationIds, ['res_legacy_1', 'res_legacy_2']);
+    expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodWallet);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/success?order_id=ord_nested',
+    );
   });
 
   testWidgets('checkout shows API error copy on payment failure like Nuxt', (
@@ -1044,6 +1084,101 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'checkout external payment continues to pending if link open fails', (
+    tester,
+  ) async {
+    final lottery = _CheckoutLotteryRepository(
+      redirectUrl: 'https://pay.example.test/session/ord_nested',
+    );
+    final launcher = _RecordingLinkLauncher(openError: Exception('blocked'));
+    final router = GoRouter(
+      initialLocation: '/checkout',
+      routes: [
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) => const CheckoutScreen(),
+        ),
+        GoRoute(
+          path: '/checkout/pending',
+          builder: (context, state) => Scaffold(
+            body: Text('pending:${state.uri.queryParameters['order_id']}'),
+          ),
+        ),
+        GoRoute(
+          path: '/topup',
+          builder: (context, state) => const Scaffold(body: Text('Topup')),
+        ),
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('Home')),
+        ),
+        GoRoute(
+          path: '/tickets',
+          builder: (context, state) => const Scaffold(body: Text('Tickets')),
+        ),
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) => const Scaffold(body: Text('Profile')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          lotteryRepositoryProvider.overrideWithValue(lottery),
+          walletRepositoryProvider.overrideWithValue(
+            _WalletRepository(balance: 20),
+          ),
+          affiliateReferralServiceProvider.overrideWithValue(
+            _NoopAffiliateReferralService(),
+          ),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+          checkoutPaymentMethodProvider.overrideWithValue(
+            checkoutPaymentMethodWallet,
+          ),
+          checkoutPaymentMethodsProvider.overrideWithValue(const [
+            checkoutPaymentMethodWallet,
+            checkoutPaymentMethodExternalPayment,
+          ]),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
+    await tester.ensureVisible(externalOption);
+    await tester.pumpAndSettle();
+    await tester.tap(externalOption);
+    await tester.pumpAndSettle();
+
+    await _submitCheckoutPayment(tester);
+
+    expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
+    expect(
+      launcher.openedUri,
+      Uri.parse('https://pay.example.test/session/ord_nested'),
+    );
+    expect(find.text('pending:ord_nested'), findsOneWidget);
+    expect(find.text('ชำระเงินไม่สำเร็จ'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('checkout external-only config skips wallet summary load', (
     tester,
   ) async {
@@ -1198,7 +1333,7 @@ void main() {
 
     expect(find.byType(CheckoutPendingPaymentScreen), findsOneWidget);
     expect(find.text('กำลังตรวจสอบสถานะการชำระเงิน...'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CustomerLoadingMark), findsOneWidget);
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     expect(tester.takeException(), isNull);
 
@@ -1377,6 +1512,8 @@ void main() {
     expect(find.text('PAY-ORDER-RETRY'), findsOneWidget);
     expect(find.text('รอชำระ'), findsOneWidget);
     expect(find.text('เปิดหน้าชำระเงิน'), findsOneWidget);
+    expect(find.byIcon(Icons.open_in_new), findsNothing);
+    expect(find.byIcon(Icons.refresh), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1538,6 +1675,8 @@ void main() {
     expect(find.text('ชำระไม่สำเร็จ'), findsOneWidget);
     expect(find.text('เปิดหน้าชำระเงิน'), findsOneWidget);
     expect(find.text('ดูใบเสร็จ'), findsNothing);
+    expect(find.byIcon(Icons.open_in_new), findsNothing);
+    expect(find.byIcon(Icons.refresh), findsNothing);
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -1622,6 +1761,7 @@ void main() {
     expect(find.text('เปิดหน้าชำระเงิน'), findsNothing);
     expect(find.text('ดูใบเสร็จ'), findsNothing);
     expect(find.text('ตรวจสอบสถานะอีกครั้ง'), findsOneWidget);
+    expect(find.byIcon(Icons.refresh), findsNothing);
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -2169,10 +2309,10 @@ void main() {
     );
     final paymentDock = find.byKey(const ValueKey('cart-payment-dock'));
     expect(paymentDock, findsOneWidget);
-    final cartDockShape =
-        tester.widget<Card>(paymentDock).shape as RoundedRectangleBorder;
+    final cartDockDecoration =
+        tester.widget<DecoratedBox>(paymentDock).decoration as BoxDecoration;
     expect(
-      cartDockShape.borderRadius,
+      cartDockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(16)),
     );
     final dockAmount = tester.widget<Text>(
@@ -3036,6 +3176,40 @@ class _FailingCartLotteryRepository extends _CheckoutLotteryRepository {
   }
 }
 
+class _LegacyCartOrderLotteryRepository extends _CheckoutLotteryRepository {
+  @override
+  Future<LotteryCart> cart() async {
+    cartCount++;
+    return LotteryCart.fromJson({
+      'result': {
+        'cart_order': {
+          'exp':
+              DateTime.now().add(const Duration(minutes: 12)).toIso8601String(),
+          'created_at': DateTime.now().toIso8601String(),
+          'lotteries': [
+            {
+              'reservation_id': 'res_legacy_1',
+              'game_id': 'game_1',
+              'local_stock_item_id': 'legacy_stock_1',
+              'number': '273707',
+              'store_name': 'ร้าน legacy',
+              'price': {'amount': 8000, 'currency': 'THB'},
+            },
+            {
+              'reservation_id': 'res_legacy_2',
+              'game_id': 'game_1',
+              'local_stock_item_id': 'legacy_stock_2',
+              'number': '445566',
+              'store_name': 'ร้าน legacy',
+              'price': {'amount': 8000, 'currency': 'THB'},
+            },
+          ],
+        },
+      },
+    });
+  }
+}
+
 class _GroupedCartLotteryRepository extends _CheckoutLotteryRepository {
   @override
   Future<LotteryCart> cart() async {
@@ -3141,6 +3315,9 @@ class _CartResultRepository extends ResultRepository {
 }
 
 class _RecordingLinkLauncher extends CustomerLinkLauncher {
+  _RecordingLinkLauncher({this.openError});
+
+  final Object? openError;
   Uri? openedUri;
 
   @override
@@ -3149,6 +3326,8 @@ class _RecordingLinkLauncher extends CustomerLinkLauncher {
     bool preferSameWindowInLine = false,
   }) async {
     openedUri = uri;
+    final error = openError;
+    if (error != null) throw error;
     return true;
   }
 }

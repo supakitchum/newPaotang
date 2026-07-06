@@ -21,12 +21,22 @@ class CustomerWalletBalanceCard extends StatelessWidget {
     required this.actions,
     super.key,
     this.onOpenWallet,
+    this.customerLabel = '',
+    this.loading = false,
+    this.loadingLabel = '',
+    this.compact = false,
   });
 
   final double balance;
   final String title;
   final List<CustomerWalletCardAction> actions;
   final VoidCallback? onOpenWallet;
+  final String customerLabel;
+  final bool loading;
+  final String loadingLabel;
+  final bool compact;
+
+  static const _cardRadius = 16.0;
 
   @override
   Widget build(BuildContext context) {
@@ -35,149 +45,261 @@ class CustomerWalletBalanceCard extends StatelessWidget {
     final primary = colorScheme.primary;
     final secondary = colorScheme.secondary;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onOpenWallet,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                primary,
-                Color.lerp(primary, secondary, 0.52) ?? primary,
-                const Color(0xFF11A878),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth <= 360;
+        final wide = constraints.maxWidth >= 420;
+        final paddingValue = compact
+            ? narrow
+                ? 18.0
+                : wide
+                    ? 24.0
+                    : 20.0
+            : narrow
+                ? 19.0
+                : wide
+                    ? 26.0
+                    : 22.0;
+        final padding = EdgeInsets.all(paddingValue);
+        final actionGap = compact
+            ? 0.0
+            : narrow
+                ? 6.0
+                : wide
+                    ? 14.0
+                    : 10.0;
+        final amountTopGap = compact
+            ? wide
+                ? 20.0
+                : 15.0
+            : wide
+                ? 22.0
+                : 17.0;
+        final actionsTopGap = compact ? (wide ? 20.0 : 15.0) : 18.0;
+        final amountFontSize = narrow
+            ? 26.0
+            : wide
+                ? 34.0
+                : 30.0;
+        final yellowAccentRight = wide ? 34.0 : 0.0;
+
+        return Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(_cardRadius),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_cardRadius),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  primary,
+                  Color.lerp(primary, secondary, 0.52) ?? primary,
+                  Color.lerp(secondary, primary, 0.18) ?? secondary,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: primary.withValues(alpha: 0.23),
+                  blurRadius: 30,
+                  offset: const Offset(0, 14),
+                ),
               ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: primary.withValues(alpha: 0.22),
-                blurRadius: 26,
-                offset: const Offset(0, 14),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -22,
-                  top: -18,
-                  child: _WalletOrb(
-                    size: 104,
-                    color: const Color(0xFFFFD629).withValues(alpha: 0.86),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_cardRadius),
+              child: Stack(
+                children: [
+                  Positioned(
+                    right: yellowAccentRight,
+                    top: -38,
+                    child: _WalletOrb(
+                      size: 76,
+                      color: const Color(0xFFFFD329).withValues(alpha: 0.92),
+                    ),
                   ),
-                ),
-                Positioned(
-                  left: -46,
-                  bottom: -62,
-                  child: _WalletOrb(
-                    size: 150,
-                    color: Colors.white.withValues(alpha: 0.10),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet_outlined,
-                            color: Colors.white.withValues(alpha: 0.92),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.92),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (onOpenWallet != null)
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: IconButton(
-                                visualDensity: VisualDensity.compact,
-                                tooltip: title,
-                                onPressed: onOpenWallet,
-                                icon: const Icon(Icons.qr_code_2_rounded),
-                                color: Colors.white,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        formatBaht(balance),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0.13),
+                            Colors.transparent,
+                            Colors.transparent,
+                          ],
+                          stops: const [0, 0.22, 0.226, 0.54, 1],
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          for (var index = 0; index < actions.length; index++)
+                    ),
+                  ),
+                  Padding(
+                    padding: padding,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.account_balance_wallet_outlined,
+                              color: Colors.white.withValues(alpha: 0.90),
+                              size: 17,
+                            ),
+                            const SizedBox(width: 7),
                             Expanded(
-                              child: _WalletCardActionButton(
-                                action: actions[index],
+                              flex: compact ? 2 : 1,
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.90),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
+                            if (compact) const Spacer(),
+                            if (onOpenWallet != null)
+                              Tooltip(
+                                message: title,
+                                child: SizedBox.square(
+                                  dimension: 42,
+                                  child: Material(
+                                    color: (Color.lerp(
+                                              primary,
+                                              Colors.black,
+                                              0.42,
+                                            ) ??
+                                            primary)
+                                        .withValues(alpha: 0.24),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InkWell(
+                                      onTap: onOpenWallet,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: const Icon(
+                                        Icons.qr_code_scanner,
+                                        color: Colors.white,
+                                        size: 25,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        SizedBox(height: amountTopGap),
+                        Semantics(
+                          liveRegion: loading,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _balanceText(),
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                color: Colors.white,
+                                fontSize: amountFontSize,
+                                fontWeight: FontWeight.w900,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (!compact && customerLabel.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            customerLabel.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.84),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
-                      ),
-                    ],
+                        SizedBox(height: actionsTopGap),
+                        Row(
+                          children: [
+                            for (var index = 0;
+                                index < actions.length;
+                                index++) ...[
+                              Expanded(
+                                child: _WalletCardActionButton(
+                                  action: actions[index],
+                                  compact: compact,
+                                  narrow: narrow,
+                                ),
+                              ),
+                              if (index < actions.length - 1)
+                                SizedBox(width: actionGap),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  String _balanceText() {
+    if (!loading) return formatBaht(balance);
+    final label = loadingLabel.trim();
+    return label.isEmpty ? formatBaht(balance) : label;
   }
 }
 
 class _WalletCardActionButton extends StatelessWidget {
-  const _WalletCardActionButton({required this.action});
+  const _WalletCardActionButton({
+    required this.action,
+    required this.compact,
+    required this.narrow,
+  });
 
   final CustomerWalletCardAction action;
+  final bool compact;
+  final bool narrow;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = narrow ? 36.0 : 40.0;
+    final primary = Theme.of(context).colorScheme.primary;
+    final overlay = Color.lerp(primary, Colors.black, 0.42) ?? primary;
     return InkWell(
       onTap: action.onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 0 : 3,
+          vertical: compact ? 0 : 6,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.16),
+                color: overlay.withValues(alpha: 0.42),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
               ),
-              child: Icon(action.icon, color: Colors.white, size: 20),
+              child: Icon(action.icon, color: Colors.white, size: 18),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 6),
             Text(
               action.label,
               maxLines: 1,
@@ -186,6 +308,7 @@ class _WalletCardActionButton extends StatelessWidget {
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
+                    fontSize: narrow ? 10 : 11,
                   ),
             ),
           ],

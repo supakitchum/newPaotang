@@ -52,7 +52,7 @@ String rewardClaimPayoutSummary(
       name.isEmpty ? l10n.rewardClaimBankFallback : name,
     );
   }
-  return l10n.rewardClaimPayoutWallet(claim.walletName);
+  return l10n.rewardClaimPayoutWallet(_rewardClaimWalletName(l10n, claim));
 }
 
 String rewardClaimPayoutChannelText(
@@ -65,7 +65,7 @@ String rewardClaimPayoutChannelText(
         : claim.bankName.trim();
     return '$bank\n${maskBankAccount(claim.bankAccountNumber)}';
   }
-  return claim.walletName;
+  return _rewardClaimWalletName(l10n, claim);
 }
 
 List<String> rewardClaimPrizeNames(
@@ -134,4 +134,12 @@ String _normalizedBankName(CustomerLocalizations l10n, String value) {
   final prefix = l10n.rewardClaimBankPrefix;
   if (prefix.isEmpty) return value.trim();
   return value.replaceFirst(RegExp('^${RegExp.escape(prefix)}'), '').trim();
+}
+
+String _rewardClaimWalletName(
+  CustomerLocalizations l10n,
+  RewardClaimItem claim,
+) {
+  final name = claim.walletName.trim();
+  return name.isEmpty ? l10n.rewardClaimWalletFallback : name;
 }
