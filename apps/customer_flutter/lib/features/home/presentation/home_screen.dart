@@ -60,6 +60,7 @@ class HomeScreen extends ConsumerWidget {
     final cart =
         ref.watch(_homeCartProvider).valueOrNull ?? LotteryCart.empty();
     final showCartDock = _homeCartSelectionEnabled(cart);
+    final homeCartDockBottom = MediaQuery.sizeOf(context).height * 0.12;
     final l10n = context.l10n;
 
     return AppShell(
@@ -109,7 +110,7 @@ class HomeScreen extends ConsumerWidget {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 86,
+              bottom: homeCartDockBottom,
               child: _HomeFloatingCartDock(
                 cart: cart,
                 onCheckout: () => context.go('/checkout'),
@@ -146,7 +147,9 @@ class _HomeFloatingCartDock extends StatelessWidget {
       minimum: const EdgeInsets.symmetric(horizontal: 18),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
+          constraints: BoxConstraints(
+            maxWidth: customerContentMaxWidthFor(context),
+          ),
           child: DecoratedBox(
             key: const ValueKey('home-cart-payment-dock'),
             decoration: _homeSurfaceDecoration(context, radius: 12).copyWith(

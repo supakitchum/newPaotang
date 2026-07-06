@@ -478,7 +478,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
               statusContent: statusContent,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
           if (_receiptNoticeMessage.isNotEmpty) ...[
             _SuccessReceiptInlineNotice(
               message: _receiptNoticeMessage,
@@ -504,7 +504,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
               },
             ),
           ],
-          const SizedBox(height: 176),
+          const SizedBox(height: 238),
           _SuccessPrimaryActionButton(
             onPressed: () => context.go('/tickets'),
             label: context.l10n.successViewTickets,
@@ -743,10 +743,12 @@ class _SuccessReceiptCard extends StatelessWidget {
                 _ReceiptRow(
                   label: l10n.purchaseHistoryTicketCountLabel,
                   value: l10n.purchaseHistoryTicketCount(item!.ticketCount),
+                  highlighted: true,
                 ),
                 _ReceiptRow(
                   label: l10n.purchaseHistoryDrawDateLabel,
                   value: localizedPurchaseDrawDate(context, item!),
+                  highlighted: true,
                 ),
                 const Divider(height: 24),
                 _ReceiptRow(
@@ -1015,21 +1017,50 @@ class _SuccessTotalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final formatted = l10n.formatBaht(total);
+    final unit = l10n.commonBahtSuffix.trim();
+    final amount = unit.isEmpty
+        ? formatted
+        : formatted.replaceFirst(RegExp('\\s*${RegExp.escape(unit)}\$'), '');
     return LayoutBuilder(
       builder: (context, constraints) {
-        final value = Text(
-          formatBaht(total),
-          textAlign:
-              constraints.maxWidth < 360 ? TextAlign.left : TextAlign.end,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
+        final value = Wrap(
+          alignment: constraints.maxWidth < 360
+              ? WrapAlignment.start
+              : WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          spacing: 4,
+          children: [
+            Text(
+              amount.trim(),
+              textAlign:
+                  constraints.maxWidth < 360 ? TextAlign.left : TextAlign.end,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+            ),
+            if (unit.isNotEmpty)
+              Text(
+                unit,
+                textAlign:
+                    constraints.maxWidth < 360 ? TextAlign.left : TextAlign.end,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      height: 1.15,
+                    ),
               ),
+          ],
         );
         if (constraints.maxWidth < 360) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(l10n.purchaseHistoryTotalLabel),
+              Text(
+                l10n.purchaseHistoryTotalLabel,
+                style: _successReceiptLabelStyle(context),
+              ),
               const SizedBox(height: 4),
               value,
             ],
@@ -1038,7 +1069,12 @@ class _SuccessTotalRow extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Expanded(child: Text(l10n.purchaseHistoryTotalLabel)),
+            Expanded(
+              child: Text(
+                l10n.purchaseHistoryTotalLabel,
+                style: _successReceiptLabelStyle(context),
+              ),
+            ),
             const SizedBox(width: 12),
             Flexible(child: value),
           ],
@@ -1760,29 +1796,54 @@ ButtonStyle _whiteOutlinePillStyle(BuildContext context) {
 }
 
 class _ReceiptRow extends StatelessWidget {
-  const _ReceiptRow({required this.label, required this.value});
+  const _ReceiptRow({
+    required this.label,
+    required this.value,
+    this.highlighted = false,
+  });
 
   final String label;
   final String value;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label)),
+          Expanded(
+            child: Text(
+              label,
+              style: _successReceiptLabelStyle(context),
+            ),
+          ),
           const SizedBox(width: 12),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w900),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: highlighted
+                        ? colorScheme.primary
+                        : colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+TextStyle? _successReceiptLabelStyle(BuildContext context) {
+  return Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w500,
+        height: 1.25,
+      );
 }

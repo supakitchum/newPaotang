@@ -1256,7 +1256,6 @@ class _StoreContentSheet extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 620),
         child: CustomerPageBody(
-          maxWidth: 960,
           top: 23,
           bottom: bottom,
           mobileHorizontal: 18,
@@ -1278,19 +1277,13 @@ class _StoreFixedPaymentDockContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 720 ? 28.0 : 0.0;
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontal),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960),
-              child: child,
-            ),
-          ),
-        );
-      },
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: customerContentMaxWidthFor(context),
+        ),
+        child: child,
+      ),
     );
   }
 }
@@ -1565,7 +1558,8 @@ class _StoreSkeletonRows extends StatelessWidget {
               child: Row(
                 children: [
                   DecoratedBox(
-                    decoration: BoxDecoration(
+                    decoration: _storeSkeletonBlockDecoration(
+                      context,
                       color: placeholderColor,
                       shape: BoxShape.circle,
                     ),
@@ -1574,7 +1568,8 @@ class _StoreSkeletonRows extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DecoratedBox(
-                      decoration: BoxDecoration(
+                      decoration: _storeSkeletonBlockDecoration(
+                        context,
                         color: placeholderColor,
                         borderRadius: BorderRadius.circular(999),
                       ),
@@ -1588,6 +1583,21 @@ class _StoreSkeletonRows extends StatelessWidget {
       ],
     );
   }
+}
+
+BoxDecoration _storeSkeletonBlockDecoration(
+  BuildContext context, {
+  required Color color,
+  BorderRadiusGeometry? borderRadius,
+  BoxShape shape = BoxShape.rectangle,
+}) {
+  final highlight =
+      Color.lerp(color, Theme.of(context).colorScheme.surface, 0.62) ?? color;
+  return BoxDecoration(
+    gradient: LinearGradient(colors: [color, highlight, color]),
+    borderRadius: shape == BoxShape.circle ? null : borderRadius,
+    shape: shape,
+  );
 }
 
 class _LotteryTicketCard extends StatelessWidget {
@@ -1663,8 +1673,7 @@ class _LotteryTicketCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
+          builder: (context, _) {
             final moreButton = morePath.isEmpty
                 ? null
                 : TextButton(
@@ -1673,23 +1682,16 @@ class _LotteryTicketCard extends StatelessWidget {
                     style: _storeTextLinkButtonStyle(context),
                     child: Text(l10n.lotteryViewMore),
                   );
-            final brandHeader = compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const LotteryProductBrandRow(),
-                      if (moreButton != null) ...[
-                        const SizedBox(height: 4),
-                        moreButton,
-                      ],
-                    ],
-                  )
-                : Row(
-                    children: [
-                      const Expanded(child: LotteryProductBrandRow()),
-                      if (moreButton != null) moreButton,
-                    ],
-                  );
+            final brandHeader = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(child: LotteryProductBrandRow()),
+                if (moreButton != null) ...[
+                  const SizedBox(width: 12),
+                  moreButton,
+                ],
+              ],
+            );
             final ticketDisplay = Column(
               key: const ValueKey('store-lottery-ticket-display-row'),
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1730,19 +1732,6 @@ class _LotteryTicketCard extends StatelessWidget {
                 _StoreLotteryPriceText(ticket: ticket),
               ],
             );
-
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  brandHeader,
-                  const SizedBox(height: 10),
-                  mainRow,
-                  const SizedBox(height: 8),
-                  bottomRow,
-                ],
-              );
-            }
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

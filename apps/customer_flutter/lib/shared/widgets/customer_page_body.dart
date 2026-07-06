@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 
+const double customerContentMaxWidthAuto = -1;
+
+double customerContentMaxWidthFor(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1280) return 1080;
+  if (width >= 1024) return 920;
+  return 960;
+}
+
 class CustomerPageBody extends StatelessWidget {
   const CustomerPageBody({
     required this.child,
     super.key,
-    this.maxWidth = 960,
+    this.maxWidth = customerContentMaxWidthAuto,
     this.top = 16,
     this.bottom = 128,
     this.mobileHorizontal = 16,
@@ -24,9 +33,11 @@ class CustomerPageBody extends StatelessWidget {
       builder: (context, constraints) {
         final horizontal =
             constraints.maxWidth >= 720 ? wideHorizontal : mobileHorizontal;
+        final effectiveMaxWidth =
+            maxWidth >= 0 ? maxWidth : customerContentMaxWidthFor(context);
         return Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
+            constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
             child: Padding(
               padding: EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom),
               child: child,

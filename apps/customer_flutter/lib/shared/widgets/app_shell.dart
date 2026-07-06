@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/i18n/customer_localizations.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../core/tenant/mobile_runtime_policy.dart';
+import 'customer_page_body.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({
@@ -250,7 +251,9 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(20, topPadding, 20, 24),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960),
+              constraints: BoxConstraints(
+                maxWidth: customerContentMaxWidthFor(context),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

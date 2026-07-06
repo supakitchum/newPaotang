@@ -1196,7 +1196,9 @@ class _CartPaymentDock extends StatelessWidget {
                     l10n.checkoutSummaryTotal,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          height: 1.2,
                         ),
                   ),
                 ),
@@ -1213,7 +1215,9 @@ class _CartPaymentDock extends StatelessWidget {
                         textAlign: TextAlign.end,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: colorScheme.primary,
-                              fontWeight: FontWeight.w900,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
                             ),
                       ),
                       if (bahtUnit.isNotEmpty)
@@ -1224,7 +1228,9 @@ class _CartPaymentDock extends StatelessWidget {
                           style:
                               Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.1,
                                   ),
                         ),
                     ],
@@ -1232,7 +1238,7 @@ class _CartPaymentDock extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             DecoratedBox(
               decoration: _lotteryDockButtonDecoration(
                 context,
@@ -1473,8 +1479,7 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
             ),
             _CheckoutPendingInfoRow(
               label: l10n.checkoutPendingAmountLabel,
-              value: formatBaht(order.total),
-              emphasized: true,
+              trailing: _CheckoutPendingAmountValue(total: order.total),
             ),
             _CheckoutPendingInfoRow(
               label: l10n.checkoutPendingStatusLabel,
@@ -1524,18 +1529,60 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
   }
 }
 
+class _CheckoutPendingAmountValue extends StatelessWidget {
+  const _CheckoutPendingAmountValue({required this.total});
+
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final amount = _paymentAmountWithoutUnit(l10n, total);
+    final unit = l10n.commonBahtSuffix.trim();
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.end,
+      spacing: 4,
+      children: [
+        Text(
+          amount,
+          key: const ValueKey('checkout-pending-amount'),
+          textAlign: TextAlign.end,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colorScheme.primary,
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+        ),
+        if (unit.isNotEmpty)
+          Text(
+            unit,
+            key: const ValueKey('checkout-pending-amount-unit'),
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  height: 1.1,
+                ),
+          ),
+      ],
+    );
+  }
+}
+
 class _CheckoutPendingInfoRow extends StatelessWidget {
   const _CheckoutPendingInfoRow({
     required this.label,
     this.value,
     this.trailing,
-    this.emphasized = false,
   }) : assert(value != null || trailing != null);
 
   final String label;
   final String? value;
   final Widget? trailing;
-  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
@@ -1545,9 +1592,9 @@ class _CheckoutPendingInfoRow extends StatelessWidget {
           value!,
           textAlign: TextAlign.right,
           style: TextStyle(
-            color: emphasized ? colorScheme.primary : colorScheme.onSurface,
-            fontSize: emphasized ? 18 : 15,
-            fontWeight: FontWeight.w900,
+            color: colorScheme.onSurface,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
             height: 1.25,
           ),
         );
@@ -1563,7 +1610,8 @@ class _CheckoutPendingInfoRow extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
+                    height: 1.25,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1578,7 +1626,8 @@ class _CheckoutPendingInfoRow extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
+                    height: 1.25,
                   ),
                 ),
               ),
@@ -2920,42 +2969,71 @@ class LotteryProductBrandRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final fallbackMarker = productMarker.trim();
     final marker = ref.watch(mobileBootstrapProvider).maybeWhen(
-          data: (bootstrap) => bootstrap.lotteryProductLabel.trim(),
-          orElse: () => productMarker.trim(),
+          data: (bootstrap) {
+            final configured = bootstrap.lotteryProductLabel.trim();
+            return configured.isEmpty ? fallbackMarker : configured;
+          },
+          orElse: () => fallbackMarker,
         );
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       key: const ValueKey('lottery-stock-brand-row'),
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         if (marker.isNotEmpty) ...[
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                marker,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
+          _LotteryProductMark(marker: marker),
+          const SizedBox(width: 10),
         ],
         Flexible(
           child: Text(
             context.l10n.ticketLabelGovernmentLottery,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 1.25,
                 ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LotteryProductMark extends StatelessWidget {
+  const _LotteryProductMark({required this.marker});
+
+  final String marker;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          marker,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: colorScheme.primary,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                height: 1,
+                letterSpacing: 0,
+              ),
+        ),
+        Transform.translate(
+          offset: const Offset(-5, 1),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.tertiary,
+              shape: BoxShape.circle,
+            ),
+            child: const SizedBox.square(dimension: 8),
           ),
         ),
       ],
@@ -3002,8 +3080,7 @@ class _LotteryStockCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
+          builder: (context, _) {
             final moreButton = morePath.isEmpty
                 ? null
                 : TextButton(
@@ -3011,23 +3088,16 @@ class _LotteryStockCard extends StatelessWidget {
                     style: _lotteryTextLinkButtonStyle(context),
                     child: Text(l10n.lotteryViewMore),
                   );
-            final brandHeader = compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const LotteryProductBrandRow(),
-                      if (moreButton != null) ...[
-                        const SizedBox(height: 4),
-                        moreButton,
-                      ],
-                    ],
-                  )
-                : Row(
-                    children: [
-                      const Expanded(child: LotteryProductBrandRow()),
-                      if (moreButton != null) moreButton,
-                    ],
-                  );
+            final brandHeader = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(child: LotteryProductBrandRow()),
+                if (moreButton != null) ...[
+                  const SizedBox(width: 12),
+                  moreButton,
+                ],
+              ],
+            );
             final actionLabel = busy
                 ? reserved
                     ? l10n.lotteryRemoving
@@ -3107,19 +3177,6 @@ class _LotteryStockCard extends StatelessWidget {
                 _LotteryStockPriceText(item: item),
               ],
             );
-
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  brandHeader,
-                  const SizedBox(height: 10),
-                  mainRow,
-                  const SizedBox(height: 8),
-                  bottomRow,
-                ],
-              );
-            }
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3474,7 +3531,6 @@ class _CheckoutDockedPage extends StatelessWidget {
             children: [
               _LotteryContentSheet(
                 flush: true,
-                maxWidth: 960,
                 bottom: dock == null ? 128 : 265,
                 children: children,
               ),
@@ -3498,13 +3554,11 @@ class _LotteryContentSheet extends StatelessWidget {
     required this.children,
     required this.bottom,
     this.flush = false,
-    this.maxWidth = 960,
   });
 
   final List<Widget> children;
   final double bottom;
   final bool flush;
-  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -3519,7 +3573,6 @@ class _LotteryContentSheet extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 620),
         child: CustomerPageBody(
-          maxWidth: maxWidth,
           top: 23,
           bottom: bottom,
           mobileHorizontal: 18,
@@ -3541,19 +3594,13 @@ class _FixedPaymentDockContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontal = constraints.maxWidth >= 720 ? 28.0 : 0.0;
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontal),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960),
-              child: child,
-            ),
-          ),
-        );
-      },
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: customerContentMaxWidthFor(context),
+        ),
+        child: child,
+      ),
     );
   }
 }
@@ -3661,7 +3708,9 @@ class _CheckoutProductSummary extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
                     ),
               ),
             ),
@@ -4302,6 +4351,19 @@ class _AmountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+          height: 1.2,
+        );
+    final valueStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          height: 1.2,
+        );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: LayoutBuilder(
@@ -4310,24 +4372,24 @@ class _AmountRow extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(label),
+                Text(label, style: labelStyle),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  style: valueStyle,
                 ),
               ],
             );
           }
           return Row(
             children: [
-              Expanded(child: Text(label)),
+              Expanded(child: Text(label, style: labelStyle)),
               const SizedBox(width: 12),
               Flexible(
                 child: Text(
                   value,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  style: valueStyle,
                 ),
               ),
             ],
@@ -4875,7 +4937,9 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
       textAlign: TextAlign.end,
       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: colorScheme.primary,
-            fontWeight: FontWeight.w900,
+            fontSize: 32,
+            fontWeight: FontWeight.w700,
+            height: 1,
           ),
     );
     final unitText = unit.isEmpty
@@ -4886,9 +4950,17 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
                 ),
           );
+    final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+          height: 1.2,
+        );
     final value = Wrap(
       key: const ValueKey('checkout-summary-total-value'),
       alignment: WrapAlignment.end,
@@ -4908,7 +4980,7 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
               key: const ValueKey('checkout-summary-total-row'),
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(label),
+                Text(label, style: labelStyle),
                 const SizedBox(height: 2),
                 Align(alignment: Alignment.centerRight, child: value),
               ],
@@ -4917,7 +4989,7 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
           return Row(
             key: const ValueKey('checkout-summary-total-row'),
             children: [
-              Expanded(child: Text(label)),
+              Expanded(child: Text(label, style: labelStyle)),
               const SizedBox(width: 12),
               Flexible(child: value),
             ],

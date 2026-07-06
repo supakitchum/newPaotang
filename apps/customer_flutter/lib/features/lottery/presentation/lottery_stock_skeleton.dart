@@ -22,95 +22,63 @@ class LotteryStockSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final blockColor = colorScheme.surfaceContainerHighest.withValues(
-      alpha: 0.66,
-    );
+    final blockColor =
+        Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.66,
+            );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Theme.of(context).colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.75),
           ),
         ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
-            final details = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 100),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _LotterySkeletonBlock.square(
-                      size: 16,
-                      color: blockColor,
-                      radius: 8,
-                    ),
-                    const SizedBox(width: 6),
                     _LotterySkeletonBlock(
-                      width: 136,
+                      width: 132,
                       height: 14,
                       color: blockColor,
                     ),
+                    const SizedBox(height: 15),
+                    _LotterySkeletonBlock(
+                      width: 154,
+                      height: 32,
+                      color: blockColor,
+                      radius: 7,
+                    ),
+                    const SizedBox(height: 14),
+                    _LotterySkeletonBlock(
+                      width: 180,
+                      height: 13,
+                      color: blockColor,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    for (var digit = 0; digit < 6; digit++)
-                      _LotterySkeletonBlock(
-                        width: 30,
-                        height: 36,
-                        color: blockColor,
-                        radius: 8,
-                      ),
-                  ],
-                ),
-              ],
-            );
-            final actions = Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _LotterySkeletonBlock(
-                  width: 112,
-                  height: 42,
-                  color: blockColor,
-                  radius: 21,
-                ),
-                const SizedBox(height: 10),
-                _LotterySkeletonBlock(
-                  width: 62,
-                  height: 14,
-                  color: blockColor,
-                ),
-              ],
-            );
-
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  details,
-                  const SizedBox(height: 12),
-                  Align(alignment: Alignment.centerRight, child: actions),
-                ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: details),
-                const SizedBox(width: 12),
-                actions,
-              ],
-            );
-          },
+              ),
+              const SizedBox(width: 16),
+              _LotterySkeletonBlock(
+                width: 68,
+                height: 40,
+                color: blockColor,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -125,13 +93,6 @@ class _LotterySkeletonBlock extends StatelessWidget {
     this.radius = 999,
   });
 
-  const _LotterySkeletonBlock.square({
-    required double size,
-    required this.color,
-    this.radius = 999,
-  })  : width = size,
-        height = size;
-
   final double width;
   final double height;
   final Color color;
@@ -139,9 +100,13 @@ class _LotterySkeletonBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highlight =
+        Color.lerp(color, Theme.of(context).colorScheme.surface, 0.62) ?? color;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color,
+        gradient: LinearGradient(
+          colors: [color, highlight, color],
+        ),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
