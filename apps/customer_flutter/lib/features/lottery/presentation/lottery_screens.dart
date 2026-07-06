@@ -121,6 +121,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
           const Divider(height: 34),
           _LotteryStockList(
             title: l10n.lotteryStockTitle,
+            showTicketImages: false,
             onCartChanged: _syncCart,
           ),
         ],
@@ -305,6 +306,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
               storeId: widget.query['store_id'] ?? '',
               returnPath: returnPath,
               showMoreLink: !exactSearch,
+              showTicketImages: false,
               onCartChanged: _syncCart,
               onResetLoadingChanged: _setSearchLoading,
             ),
@@ -405,6 +407,7 @@ class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
             showMoreLink: false,
             showFilterPills: false,
             showRefreshAction: false,
+            showTicketImages: false,
             useRandomSeed: false,
             onCartChanged: _syncCart,
           ),
@@ -751,6 +754,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     if (group.reservationIds.isEmpty || _busy) return;
     await showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
       barrierDismissible: false,
       builder: (context) {
         var removing = false;
@@ -1044,10 +1048,15 @@ class _CartRemoveConfirmationDialog extends StatelessWidget {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final actionTextStyle = theme.textTheme.titleSmall?.copyWith(
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+    );
     return Dialog(
       key: const ValueKey('cart-remove-confirmation-dialog'),
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       backgroundColor: colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 338),
@@ -1061,8 +1070,10 @@ class _CartRemoveConfirmationDialog extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  height: 1.25,
+                  color: colorScheme.onSurface,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
                 ),
               ),
               const SizedBox(height: 22),
@@ -1071,6 +1082,7 @@ class _CartRemoveConfirmationDialog extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurface,
+                  fontSize: 17,
                   fontWeight: FontWeight.w500,
                   height: 1.55,
                 ),
@@ -1083,20 +1095,36 @@ class _CartRemoveConfirmationDialog extends StatelessWidget {
                       height: 54,
                       child: OutlinedButton(
                         onPressed: removing ? null : onCancel,
+                        style: _lotteryOutlinePillButtonStyle(
+                          context,
+                          enabled: !removing,
+                        ).copyWith(
+                          textStyle: WidgetStatePropertyAll(actionTextStyle),
+                        ),
                         child: Text(l10n.commonCancel),
                       ),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: SizedBox(
-                      height: 54,
-                      child: FilledButton(
-                        onPressed: removing ? null : onConfirm,
-                        child: Text(
-                          removing
-                              ? l10n.cartRemoveGroupRemoving
-                              : l10n.cartRemoveGroupConfirm,
+                    child: DecoratedBox(
+                      decoration: _lotteryDockButtonDecoration(
+                        context,
+                        enabled: !removing,
+                      ),
+                      child: SizedBox(
+                        height: 54,
+                        child: FilledButton(
+                          onPressed: removing ? null : onConfirm,
+                          style: _lotteryDockButtonStyle(
+                            context,
+                            fontSize: 18,
+                          ),
+                          child: Text(
+                            removing
+                                ? l10n.cartRemoveGroupRemoving
+                                : l10n.cartRemoveGroupConfirm,
+                          ),
                         ),
                       ),
                     ),
@@ -1454,39 +1482,39 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             if (paid)
-              FilledButton(
-                onPressed: onViewReceipt,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: const StadiumBorder(),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              DecoratedBox(
+                decoration: _lotteryDockButtonDecoration(context),
+                child: SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: onViewReceipt,
+                    style: _lotteryDockButtonStyle(context),
+                    child: Text(l10n.checkoutPendingViewReceipt),
+                  ),
                 ),
-                child: Text(l10n.checkoutPendingViewReceipt),
               )
             else ...[
               if (onOpenPayment != null) ...[
-                FilledButton(
-                  onPressed: onOpenPayment,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
-                    shape: const StadiumBorder(),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                DecoratedBox(
+                  decoration: _lotteryDockButtonDecoration(context),
+                  child: SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: onOpenPayment,
+                      style: _lotteryDockButtonStyle(context),
+                      child: Text(l10n.checkoutPendingOpenPayment),
+                    ),
                   ),
-                  child: Text(l10n.checkoutPendingOpenPayment),
                 ),
                 const SizedBox(height: 10),
               ],
-              OutlinedButton(
-                onPressed: onRefresh,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                  shape: const StadiumBorder(),
-                  side: BorderSide(
-                    color: colorScheme.primary.withValues(alpha: 0.34),
-                  ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              SizedBox(
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: onRefresh,
+                  style: _lotteryOutlinePillButtonStyle(context),
+                  child: Text(l10n.checkoutPendingRefresh),
                 ),
-                child: Text(l10n.checkoutPendingRefresh),
               ),
             ],
           ],
@@ -2016,6 +2044,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
     this.showMoreLink = true,
     this.showFilterPills = true,
     this.showRefreshAction = true,
+    this.showTicketImages = true,
     this.useRandomSeed = true,
     this.onCartChanged,
     this.onResetLoadingChanged,
@@ -2029,6 +2058,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
   final bool showMoreLink;
   final bool showFilterPills;
   final bool showRefreshAction;
+  final bool showTicketImages;
   final bool useRandomSeed;
   final ValueChanged<LotteryCart>? onCartChanged;
   final ValueChanged<bool>? onResetLoadingChanged;
@@ -2205,6 +2235,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
             ),
             busy: _busyStockId == _items[index].localStockItemId,
             reserveDisabled: !_canReserve,
+            showTicketImage: widget.showTicketImages,
             morePath: widget.showMoreLink
                 ? lotteryMorePath(
                     number: _items[index].number,
@@ -2787,7 +2818,7 @@ class _CartSelectionDock extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.checkoutSummaryTotal,
+                        l10n.cartSelectionTitle,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -2938,6 +2969,7 @@ class _LotteryStockCard extends StatelessWidget {
     required this.reserved,
     required this.busy,
     required this.reserveDisabled,
+    required this.showTicketImage,
     required this.morePath,
     required this.onReserve,
   });
@@ -2946,6 +2978,7 @@ class _LotteryStockCard extends StatelessWidget {
   final bool reserved;
   final bool busy;
   final bool reserveDisabled;
+  final bool showTicketImage;
   final String morePath;
   final VoidCallback onReserve;
 
@@ -3036,8 +3069,10 @@ class _LotteryStockCard extends StatelessWidget {
               key: const ValueKey('lottery-stock-ticket-display-row'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _LotteryStockImageFrame(item: item),
-                const SizedBox(height: 10),
+                if (showTicketImage) ...[
+                  _LotteryStockImageFrame(item: item),
+                  const SizedBox(height: 10),
+                ],
                 _LotteryNumber(number: item.number),
               ],
             );
@@ -3556,13 +3591,6 @@ class _CheckoutHeroSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.checkoutSummaryTitle,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 14),
             const _CheckoutProductSummary(),
             const SizedBox(height: 12),
             _AmountRow(

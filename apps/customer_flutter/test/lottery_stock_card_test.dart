@@ -176,7 +176,7 @@ void main() {
     expect(find.textContaining('internal search failure'), findsNothing);
   });
 
-  testWidgets('stock card renders Nuxt-style image frame and pending fallback',
+  testWidgets('buy search hides ticket image frame like Nuxt show-image false',
       (
     tester,
   ) async {
@@ -189,19 +189,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final imageFrame = find.byKey(
-      const ValueKey('lottery-stock-ticket-image-frame'),
-    );
-    expect(imageFrame, findsOneWidget);
     expect(
-      find.descendant(
-        of: imageFrame,
-        matching: find.byKey(const ValueKey('lottery-stock-ticket-image')),
-      ),
-      findsOneWidget,
+      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+      findsNothing,
     );
     expect(
-      find.byKey(const ValueKey('lottery-stock-ticket-image-fallback')),
+      find.byKey(const ValueKey('lottery-stock-ticket-image')),
       findsNothing,
     );
 
@@ -212,20 +205,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final pendingFrame = find.byKey(
-      const ValueKey('lottery-stock-ticket-image-frame'),
-    );
-    expect(pendingFrame, findsOneWidget);
     expect(
-      find.descendant(
-        of: pendingFrame,
-        matching: find.byKey(
-          const ValueKey('lottery-stock-ticket-image-fallback'),
-        ),
-      ),
-      findsOneWidget,
+      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+      findsNothing,
     );
-    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsOneWidget);
+    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsNothing);
 
     await _pumpLotteryApp(
       tester,
@@ -234,18 +218,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final failedFrame = find.byKey(
-      const ValueKey('lottery-stock-ticket-image-frame'),
-    );
-    expect(failedFrame, findsOneWidget);
-    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsOneWidget);
     expect(
-      find.descendant(
-        of: failedFrame,
-        matching: find.byKey(const ValueKey('lottery-stock-ticket-image')),
-      ),
+      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
       findsNothing,
     );
+    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsNothing);
   });
 
   testWidgets('stock card toggles select and remove from the live cart state', (
@@ -331,7 +308,10 @@ void main() {
     expect(lottery.cartCount, 0);
     expect(find.text('เลือก'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(lottery.cartCount, 0);
@@ -343,7 +323,7 @@ void main() {
   testWidgets('stock list shows selected-cart dock after reservation', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 640));
+    await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _FakeLotteryRepository();
@@ -362,20 +342,20 @@ void main() {
     await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
     final selectionDock = find.byKey(const ValueKey('cart-selection-dock'));
     expect(selectionDock, findsOneWidget);
     expect(
       find.ancestor(of: selectionDock, matching: find.byType(ListView)),
       findsNothing,
     );
-    final selectionDockShape =
-        tester.widget<Card>(selectionDock).shape as RoundedRectangleBorder;
+    final selectionDockDecoration =
+        tester.widget<DecoratedBox>(selectionDock).decoration as BoxDecoration;
     expect(
-      selectionDockShape.borderRadius,
+      selectionDockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(12)),
     );
-    expect(find.text('จำนวนที่เลือก'), findsOneWidget);
+    expect(find.text('จำนวนที่เลือก'), findsNothing);
+    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
     expect(
       find.descendant(
@@ -411,7 +391,7 @@ void main() {
   testWidgets('stock list disables new reservations when sales are closed', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 640));
+    await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _ClosedLotteryRepository();
@@ -462,7 +442,10 @@ void main() {
 
     expect(find.text('เลือก'), findsOneWidget);
 
-    await tester.tap(find.text('เลือก'));
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 1);
@@ -613,7 +596,7 @@ void main() {
   testWidgets('stock list fallback load-more stays text-only like Nuxt', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(800, 900));
+    await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _PaginatedLotteryRepository();
@@ -661,8 +644,8 @@ void main() {
       find.widgetWithText(TextButton, 'ล้างค่า'),
     );
     expect(loadingClearButton.onPressed, isNull);
-    expect(find.widgetWithText(TextButton, 'แสดงเลขใหม่'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'กำลังโหลด'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'กำลังโหลด'), findsNothing);
     expect(_lotteryStockSkeletons(), findsNWidgets(5));
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
@@ -732,6 +715,10 @@ void main() {
     expect(find.text('ลดราคา'), findsOneWidget);
     expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
     expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+      findsNothing,
+    );
     expect(find.text('เลือก'), findsNWidgets(2));
   });
 
@@ -761,30 +748,34 @@ void main() {
     final initialSeed = lottery.lastRandomSeed;
     expect(initialSeed, isNotEmpty);
 
-    final refreshButton = find.widgetWithText(TextButton, 'แสดงเลขใหม่');
+    final refreshButton = find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่');
     await tester.tap(refreshButton);
     await tester.pump();
     await tester.pump();
 
     expect(lottery.searchCount, 2);
     expect(lottery.lastRandomSeed, isNot(initialSeed));
-    expect(find.widgetWithText(TextButton, 'รอ 10 วิ'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'รอ 10 วิ'), findsOneWidget);
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, 'รอ 10 วิ'))
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'รอ 10 วิ'),
+          )
           .onPressed,
       isNull,
     );
 
     await tester.pump(const Duration(seconds: 1));
-    expect(find.widgetWithText(TextButton, 'รอ 9 วิ'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'รอ 9 วิ'), findsOneWidget);
     expect(lottery.searchCount, 2);
 
     await tester.pump(const Duration(seconds: 9));
-    expect(find.widgetWithText(TextButton, 'แสดงเลขใหม่'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'), findsOneWidget);
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, 'แสดงเลขใหม่'))
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'),
+          )
           .onPressed,
       isNotNull,
     );
@@ -802,13 +793,13 @@ void main() {
     expect(lottery.searchCount, 1);
     expect(find.text('เลือก'), findsNWidgets(3));
 
-    await tester.tap(find.widgetWithText(TextButton, 'แสดงเลขใหม่'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'));
     await tester.pump();
     await tester.pump();
 
     expect(lottery.searchCount, 2);
     expect(find.textContaining('รอ '), findsNothing);
-    expect(find.widgetWithText(TextButton, 'แสดงเลขใหม่'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'), findsOneWidget);
   });
 
   testWidgets('more page close action restores the stacked search page', (
@@ -884,6 +875,10 @@ void main() {
     expect(find.text('ร้านค้าผู้พิการ'), findsNothing);
     expect(find.text('ร้านค้าหน่วยงาน'), findsNothing);
     expect(find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่ม'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+      findsNothing,
+    );
     expect(lottery.searchCount, 1);
     expect(lottery.lastStoreId, 'store_1');
     expect(lottery.lastRandomSeed, isEmpty);

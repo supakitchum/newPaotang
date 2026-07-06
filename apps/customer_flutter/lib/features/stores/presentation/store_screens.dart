@@ -22,7 +22,6 @@ import '../../../features/lottery/presentation/lottery_store_segment_tabs.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/flexible_image.dart';
 import '../data/store_models.dart';
 import '../data/store_repository.dart';
@@ -97,10 +96,10 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                         onSubmitted: (_) => _load(reset: true),
                       ),
                       const SizedBox(height: 48),
-                      CustomerSectionHeader(
+                      _StoreSectionHeader(
                         title: l10n.storesRecommendedTitle,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       const _StoreFilterPills(),
                       const SizedBox(height: 24),
                       if (_loading && _stores.isEmpty)
@@ -253,6 +252,41 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     if (distanceFromBottom <= 240) {
       _load(reset: false);
     }
+  }
+}
+
+class _StoreSectionHeader extends StatelessWidget {
+  const _StoreSectionHeader({
+    required this.title,
+    this.action,
+  });
+
+  final String title;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  height: 1.12,
+                ),
+          ),
+        ),
+        if (action != null) ...[
+          const SizedBox(width: 12),
+          action!,
+        ],
+      ],
+    );
   }
 }
 
@@ -546,20 +580,29 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ],
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 20),
                           LotteryDigitInputRow(
                             controllers: _digits,
-                            onSubmitted: _submitSearch,
-                          ),
-                          const SizedBox(height: 12),
-                          _StoreLotterySearchActions(
-                            onSearch: _submitSearch,
-                            onClear: _clearSearch,
+                            readOnly: true,
+                            onTap: _openStoreSearch,
+                            style: LotteryDigitInputStyle(
+                              enabledBorderColor:
+                                  Theme.of(context).colorScheme.outlineVariant,
+                              focusedBorderColor:
+                                  Theme.of(context).colorScheme.primary,
+                              hintColor: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.18),
+                              borderRadius: 9,
+                              spacing: 18,
+                              verticalPadding: 8,
+                            ),
                           ),
                         ],
                       ),
                       const Divider(height: 34),
-                      CustomerSectionHeader(
+                      _StoreSectionHeader(
                         title: l10n.lotteryStockTitle,
                         action: OutlinedButton.icon(
                           onPressed:
@@ -572,7 +615,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       if (_loading && _tickets.isEmpty)
                         ...lotteryStockSkeletonCards(
                           keyPrefix: 'store-lottery-stock-skeleton',
@@ -791,20 +834,11 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   }
 
   List<String> get _searchDigits {
-    return _digits.map((controller) => controller.text).toList(
-          growable: false,
-        );
+    return const ['', '', '', '', '', ''];
   }
 
-  void _submitSearch() {
-    _load(reset: true);
-  }
-
-  void _clearSearch() {
-    for (final controller in _digits) {
-      controller.clear();
-    }
-    _load(reset: true);
+  void _openStoreSearch() {
+    context.go(lotterySearchPath(storeId: widget.storeId));
   }
 
   bool get _refreshDisabled {
@@ -1154,7 +1188,7 @@ class _StoreCartSelectionDock extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.checkoutSummaryTotal,
+                        l10n.cartSelectionTitle,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -1552,63 +1586,6 @@ class _StoreSkeletonRows extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _StoreLotterySearchActions extends StatelessWidget {
-  const _StoreLotterySearchActions({
-    required this.onSearch,
-    required this.onClear,
-  });
-
-  final VoidCallback onSearch;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 380;
-        final searchButton = DecoratedBox(
-          decoration: _storeDockButtonDecoration(context),
-          child: FilledButton(
-            onPressed: onSearch,
-            style: _storeDockButtonStyle(context, fontSize: 17).copyWith(
-              overlayColor: WidgetStatePropertyAll(
-                colorScheme.onPrimary.withValues(alpha: 0.08),
-              ),
-            ),
-            child: Text(l10n.lotterySearchButton),
-          ),
-        );
-        final clearButton = TextButton(
-          onPressed: onClear,
-          style: _storeTextLinkButtonStyle(context),
-          child: Text(l10n.lotteryClearButton),
-        );
-
-        if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: 54, child: searchButton),
-              const SizedBox(height: 8),
-              Align(alignment: Alignment.center, child: clearButton),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: SizedBox(height: 54, child: searchButton)),
-            const SizedBox(width: 14),
-            clearButton,
-          ],
-        );
-      },
     );
   }
 }

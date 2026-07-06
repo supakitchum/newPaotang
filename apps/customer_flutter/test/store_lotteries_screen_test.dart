@@ -150,35 +150,15 @@ void main() {
       ),
       findsNothing,
     );
-    final searchButton = find.widgetWithText(FilledButton, 'ค้นหาเลข');
-    expect(searchButton, findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'ค้นหาเลข'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'ล้างค่า'), findsNothing);
     expect(
-      find.descendant(of: searchButton, matching: find.byIcon(Icons.search)),
-      findsNothing,
+      tester.widget<TextField>(find.byType(TextField).first).readOnly,
+      isTrue,
     );
-    final clearButton = find.widgetWithText(OutlinedButton, 'ล้างค่า');
-    expect(clearButton, findsOneWidget);
-    expect(
-      find.descendant(of: clearButton, matching: find.byIcon(Icons.refresh)),
-      findsNothing,
-    );
-
-    await tester.enterText(find.byType(TextField).at(0), '4');
-    await tester.enterText(find.byType(TextField).at(2), '5');
-    await tester.enterText(find.byType(TextField).at(5), '6');
-    await tester.tap(searchButton);
-    await tester.pumpAndSettle();
-
-    expect(store.searchCount, 2);
     expect(store.lastStoreId, 'store_1');
     expect(store.lastGameId, 'game_1');
-    expect(store.lastDigits, ['4', '', '5', '', '', '6']);
     expect(find.text('เลือก'), findsOneWidget);
-
-    await tester.tap(clearButton);
-    await tester.pumpAndSettle();
-
-    expect(store.searchCount, 3);
     expect(store.lastDigits, ['', '', '', '', '', '']);
     for (var index = 0; index < 6; index++) {
       expect(
@@ -189,6 +169,66 @@ void main() {
         '',
       );
     }
+  });
+
+  testWidgets('store lotteries digit boxes open store-scoped Nuxt search route',
+      (tester) async {
+    final store = _FakeStoreRepository();
+    final tokenStore = AuthTokenStore();
+    final authController = _unauthenticatedController(tokenStore);
+    final router = GoRouter(
+      initialLocation: '/stores/lotteries?store_id=store_1',
+      routes: [
+        GoRoute(
+          path: '/stores/lotteries',
+          builder: (context, state) => StoreLotteriesScreen(
+            storeId: state.uri.queryParameters['store_id'] ?? '',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+        GoRoute(
+          path: '/buy/search',
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: Text(
+                'Search route ${state.uri.queryParameters['store_id'] ?? ''}',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(store),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TextField).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search route store_1'), findsOneWidget);
   });
 
   testWidgets('guest store stock selection keeps Nuxt-style login redirect', (
@@ -248,7 +288,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 0);
@@ -301,26 +344,28 @@ void main() {
     expect(store.searchCount, 1);
     expect(find.text('เลขสลากดิจิทัล'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'แสดงเลขใหม่'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'));
     await tester.pump();
     await tester.pump();
 
     expect(store.searchCount, 2);
-    expect(find.widgetWithText(TextButton, 'รอ 10 วิ'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'รอ 10 วิ'), findsOneWidget);
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, 'รอ 10 วิ'))
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'รอ 10 วิ'),
+          )
           .onPressed,
       isNull,
     );
 
     await tester.pump(const Duration(seconds: 1));
-    expect(find.widgetWithText(TextButton, 'รอ 9 วิ'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'รอ 9 วิ'), findsOneWidget);
     expect(store.searchCount, 2);
 
     await tester.pump(const Duration(seconds: 9));
-    final refreshButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'แสดงเลขใหม่'),
+    final refreshButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'),
     );
     expect(refreshButton.onPressed, isNotNull);
     expect(tester.takeException(), isNull);
@@ -680,20 +725,23 @@ void main() {
     expect(find.text('จำนวนที่เลือก'), findsNothing);
     expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
 
-    await tester.tap(find.text('เลือก'));
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 1);
-    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
     final selectionDock = find.byKey(const ValueKey('cart-selection-dock'));
     expect(selectionDock, findsOneWidget);
-    final selectionDockShape =
-        tester.widget<Card>(selectionDock).shape as RoundedRectangleBorder;
+    final selectionDockDecoration =
+        tester.widget<DecoratedBox>(selectionDock).decoration as BoxDecoration;
     expect(
-      selectionDockShape.borderRadius,
+      selectionDockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(12)),
     );
-    expect(find.text('จำนวนที่เลือก'), findsOneWidget);
+    expect(find.text('จำนวนที่เลือก'), findsNothing);
+    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
     expect(
       find.descendant(
@@ -777,7 +825,10 @@ void main() {
     expect(lottery.cartCount, 1);
     expect(find.text('เลือก'), findsOneWidget);
 
-    await tester.tap(find.text('เลือก'));
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 1);

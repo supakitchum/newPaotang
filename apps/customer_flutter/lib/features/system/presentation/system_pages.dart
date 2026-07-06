@@ -503,59 +503,6 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
                 _showReceiptNotice(l10n.successReceiptSaved, success: true);
               },
             ),
-            const SizedBox(height: 10),
-            _SuccessReceiptShareAction(
-              onPressed: () async {
-                final l10n = context.l10n;
-                final receiptText = successReceiptClipboardText(
-                  context,
-                  item,
-                );
-                Uint8List? imageBytes;
-                Uint8List? pdfBytes;
-                try {
-                  imageBytes = await ref
-                      .read(receiptImageExporterProvider)
-                      .capturePng(receiptBoundaryKey);
-                } catch (_) {
-                  imageBytes = null;
-                }
-                if (imageBytes != null) {
-                  try {
-                    pdfBytes = await ref
-                        .read(receiptPdfExporterProvider)
-                        .buildPdf(imageBytes: imageBytes);
-                  } catch (_) {
-                    pdfBytes = null;
-                  }
-                }
-                try {
-                  await ref.read(receiptShareServiceProvider).shareReceipt(
-                        text: receiptText,
-                        subject: l10n.successPurchaseTitle,
-                        imageBytes: imageBytes,
-                        fileName: imageBytes == null
-                            ? null
-                            : successReceiptImageFileName(item),
-                        pdfBytes: pdfBytes,
-                        pdfFileName: pdfBytes == null
-                            ? null
-                            : successReceiptPdfFileName(item),
-                      );
-                  if (!context.mounted) return;
-                  _showReceiptNotice(
-                    l10n.successReceiptShareStarted,
-                    success: true,
-                  );
-                } catch (_) {
-                  await Clipboard.setData(ClipboardData(text: receiptText));
-                  if (!context.mounted) return;
-                  _showReceiptNotice(
-                    l10n.successReceiptShareFailedCopied,
-                  );
-                }
-              },
-            ),
           ],
           const SizedBox(height: 176),
           _SuccessPrimaryActionButton(
@@ -709,36 +656,6 @@ class _SuccessReceiptSaveAction extends StatelessWidget {
           ),
           icon: const Icon(Icons.download_outlined, size: 25),
           label: Text(context.l10n.successSaveReceipt),
-        ),
-      ),
-    );
-  }
-}
-
-class _SuccessReceiptShareAction extends StatelessWidget {
-  const _SuccessReceiptShareAction({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: SizedBox(
-        width: 216,
-        child: OutlinedButton.icon(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            foregroundColor: colorScheme.surface,
-            minimumSize: const Size.fromHeight(48),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            shape: const StadiumBorder(),
-            side: BorderSide(color: colorScheme.surface.withValues(alpha: 0.7)),
-            textStyle: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-          icon: const Icon(Icons.ios_share_outlined, size: 22),
-          label: Text(context.l10n.successShareReceipt),
         ),
       ),
     );

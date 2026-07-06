@@ -383,9 +383,6 @@ void main() {
     tester,
   ) async {
     String? clipboardText;
-    final shareService = _RecordingReceiptShareService();
-    final imageExporter = _FakeReceiptImageExporter();
-    final pdfExporter = _FakeReceiptPdfExporter();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') {
@@ -431,9 +428,6 @@ void main() {
           purchaseHistoryDetailProvider('ord_1').overrideWith(
             (_) async => order,
           ),
-          receiptShareServiceProvider.overrideWithValue(shareService),
-          receiptImageExporterProvider.overrideWithValue(imageExporter),
-          receiptPdfExporterProvider.overrideWithValue(pdfExporter),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -467,6 +461,7 @@ void main() {
     expect(find.textContaining('รหัสอ้างอิง'), findsOneWidget);
     expect(find.textContaining('ORD-25690701-0001'), findsOneWidget);
     expect(find.text('บันทึก'), findsOneWidget);
+    expect(find.text('แชร์'), findsNothing);
 
     final saveButton = find.widgetWithText(OutlinedButton, 'บันทึก');
     await tester.ensureVisible(saveButton);
@@ -478,20 +473,6 @@ void main() {
     final clipboard = await Clipboard.getData('text/plain');
     expect(clipboard?.text, contains('ORD-25690701-0001'));
     expect(clipboard?.text, contains('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'));
-
-    final shareButton = find.widgetWithText(OutlinedButton, 'แชร์');
-    await tester.ensureVisible(shareButton);
-    await tester.pumpAndSettle();
-    await tester.tap(shareButton);
-    await tester.pumpAndSettle();
-
-    expect(shareService.subject, 'ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ');
-    expect(shareService.text, contains('ORD-25690701-0001'));
-    expect(shareService.text, contains('ร้านค้าสลากฯ เดโม'));
-    expect(shareService.fileName, 'receipt-ord-25690701-0001.png');
-    expect(shareService.imageBytes, imageExporter.bytes);
-    expect(shareService.pdfFileName, 'receipt-ord-25690701-0001.pdf');
-    expect(shareService.pdfBytes, pdfExporter.bytes);
   });
 
   testWidgets('success receipt loading state uses Nuxt payment copy', (
@@ -591,7 +572,8 @@ void main() {
 
     expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
     expect(find.text('โหลดข้อมูลการชำระเงินไม่สำเร็จ'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'ลองใหม่'), findsOneWidget);
+    expect(
+        find.widgetWithText(OutlinedButton, 'ดูสลากฯ ของฉัน'), findsOneWidget);
     final fallbackButton = find.widgetWithText(FilledButton, 'ดูสลากฯ ของฉัน');
     expect(fallbackButton, findsOneWidget);
 
@@ -633,50 +615,6 @@ void main() {
 
 const _transparentPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+p5qgoAAAAABJRU5ErkJggg==';
-
-class _RecordingReceiptShareService implements ReceiptShareService {
-  String? text;
-  String? subject;
-  Uint8List? imageBytes;
-  String? fileName;
-  Uint8List? pdfBytes;
-  String? pdfFileName;
-
-  @override
-  Future<void> shareReceipt({
-    required String text,
-    required String subject,
-    Uint8List? imageBytes,
-    String? fileName,
-    Uint8List? pdfBytes,
-    String? pdfFileName,
-  }) async {
-    this.text = text;
-    this.subject = subject;
-    this.imageBytes = imageBytes;
-    this.fileName = fileName;
-    this.pdfBytes = pdfBytes;
-    this.pdfFileName = pdfFileName;
-  }
-}
-
-class _FakeReceiptImageExporter implements ReceiptImageExporter {
-  final bytes = Uint8List.fromList([0x89, 0x50, 0x4e, 0x47]);
-
-  @override
-  Future<Uint8List> capturePng(GlobalKey boundaryKey) async {
-    return bytes;
-  }
-}
-
-class _FakeReceiptPdfExporter implements ReceiptPdfExporter {
-  final bytes = Uint8List.fromList([0x25, 0x50, 0x44, 0x46]);
-
-  @override
-  Future<Uint8List> buildPdf({required Uint8List imageBytes}) async {
-    return bytes;
-  }
-}
 
 const _receiptLogoDataUri = 'data:image/png;base64,'
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/'
