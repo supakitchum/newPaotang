@@ -246,6 +246,7 @@ class _LoginHeroSection extends StatelessWidget {
         ),
         child: Stack(
           children: [
+            const _LoginHeroAccents(),
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 920),
@@ -315,6 +316,77 @@ class _LoginHeroSection extends StatelessWidget {
                         ],
                       ),
                     ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginHeroAccents extends StatelessWidget {
+  const _LoginHeroAccents();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Positioned(
+              right: -76,
+              bottom: -126,
+              child: Container(
+                width: 344,
+                height: 344,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.secondary.withValues(alpha: 0.34),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 34,
+              bottom: 34,
+              child: Container(
+                width: 116,
+                height: 116,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.tertiary.withValues(alpha: 0.86),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -78,
+              top: 26,
+              child: Transform.rotate(
+                angle: -0.58,
+                child: Container(
+                  width: 360,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(44),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 82,
+              bottom: 40,
+              child: Transform.rotate(
+                angle: -0.58,
+                child: Container(
+                  width: 310,
+                  height: 78,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(42),
                   ),
                 ),
               ),

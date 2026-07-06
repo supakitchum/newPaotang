@@ -75,7 +75,7 @@ class HomeScreen extends ConsumerWidget {
               bottom: showCartDock ? 236 : 116,
               children: [
                 const _HomeQuickActionPanel(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 if (wallet == null) ...[
                   const _HomeGuestPanel(),
                 ] else ...[
@@ -97,9 +97,9 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
                 _ActivitiesRail(value: activities),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 _HomeResultSection(value: result),
                 _NewsRail(value: news),
               ],
@@ -146,7 +146,7 @@ class _HomeFloatingCartDock extends StatelessWidget {
       minimum: const EdgeInsets.symmetric(horizontal: 18),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
+          constraints: const BoxConstraints(maxWidth: 720),
           child: DecoratedBox(
             key: const ValueKey('home-cart-payment-dock'),
             decoration: _homeSurfaceDecoration(context, radius: 12).copyWith(
@@ -523,17 +523,30 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
                     },
                   ),
                   const SizedBox(height: 18),
-                  LotteryDigitInputRow(
-                    controllers: _digits,
-                    readOnly: true,
-                    onTap: _goSearch,
-                    onSubmitted: _goSearch,
-                    style: LotteryDigitInputStyle(
-                      borderRadius: 12,
-                      spacing: 8,
-                      fillColor: colorScheme.surface,
-                      hintColor: colorScheme.onSurface.withValues(alpha: 0.20),
-                      focusedBorderColor: colorScheme.tertiary,
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: LotteryDigitInputRow(
+                        controllers: _digits,
+                        readOnly: true,
+                        onTap: _goSearch,
+                        onSubmitted: _goSearch,
+                        style: LotteryDigitInputStyle(
+                          borderRadius: 8,
+                          spacing: 8,
+                          fillColor: colorScheme.surface,
+                          enabledBorderColor: colorScheme.outlineVariant
+                              .withValues(alpha: 0.92),
+                          shadowColor:
+                              colorScheme.shadow.withValues(alpha: 0.12),
+                          shadowBlurRadius: 5,
+                          shadowOffset: const Offset(0, 2),
+                          hintColor:
+                              colorScheme.onSurface.withValues(alpha: 0.20),
+                          focusedBorderColor: colorScheme.tertiary,
+                          maxDigitWidth: 58,
+                        ),
+                      ),
                     ),
                   ),
                 ],

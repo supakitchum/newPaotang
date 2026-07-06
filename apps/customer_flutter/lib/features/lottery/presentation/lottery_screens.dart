@@ -2143,18 +2143,9 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
                       _loading || refreshCoolingDown ? null : _refreshStockList,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: Text(refreshLabel),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    shape: const StadiumBorder(),
-                    side: BorderSide(
-                      color: (_loading || refreshCoolingDown)
-                          ? Theme.of(context).colorScheme.outlineVariant
-                          : Theme.of(context).colorScheme.primary,
-                    ),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  style: _lotteryOutlinePillButtonStyle(
+                    context,
+                    enabled: !_loading && !refreshCoolingDown,
                   ),
                 )
               : null,
@@ -2228,12 +2219,19 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
           ...lotteryStockSkeletonCards(),
         ] else if (_hasMore) ...[
           const SizedBox(height: 12),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton(
-              onPressed: _loadingMore ? null : () => _load(reset: false),
-              child: Text(
-                _loadingMore ? l10n.commonLoadingMore : l10n.commonLoadMore,
+          Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              height: 40,
+              child: OutlinedButton(
+                onPressed: _loadingMore ? null : () => _load(reset: false),
+                style: _lotteryOutlinePillButtonStyle(
+                  context,
+                  enabled: !_loadingMore,
+                ),
+                child: Text(
+                  _loadingMore ? l10n.commonLoadingMore : l10n.commonLoadMore,
+                ),
               ),
             ),
           ),
@@ -3315,7 +3313,7 @@ class _LotteryFilterPill extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: foreground,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
               ),
             ],
@@ -4621,15 +4619,7 @@ class _MessageCard extends StatelessWidget {
               const SizedBox(height: 18),
               OutlinedButton(
                 onPressed: onAction,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 45),
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  shape: const StadiumBorder(),
-                  side: BorderSide(
-                    color: colorScheme.primary.withValues(alpha: 0.34),
-                  ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                ),
+                style: _lotteryOutlinePillButtonStyle(context),
                 child: Text(actionLabel!),
               ),
             ],
@@ -5033,6 +5023,31 @@ ButtonStyle _lotteryTextLinkButtonStyle(BuildContext context) {
     textStyle: const TextStyle(
       fontWeight: FontWeight.w700,
     ),
+  );
+}
+
+ButtonStyle _lotteryOutlinePillButtonStyle(
+  BuildContext context, {
+  bool enabled = true,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return OutlinedButton.styleFrom(
+    foregroundColor:
+        enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+    disabledForegroundColor: colorScheme.onSurfaceVariant,
+    minimumSize: const Size(0, 40),
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    backgroundColor:
+        enabled ? colorScheme.surface : colorScheme.surfaceContainerHighest,
+    shape: const StadiumBorder(),
+    side: BorderSide(
+      color: enabled
+          ? colorScheme.primary.withValues(alpha: 0.72)
+          : colorScheme.outlineVariant,
+    ),
+    textStyle: const TextStyle(fontWeight: FontWeight.w600),
   );
 }
 

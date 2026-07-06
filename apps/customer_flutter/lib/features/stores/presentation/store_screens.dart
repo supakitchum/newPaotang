@@ -96,7 +96,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                         hintText: l10n.storesSearchLabel,
                         onSubmitted: (_) => _load(reset: true),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 48),
                       CustomerSectionHeader(
                         title: l10n.storesRecommendedTitle,
                       ),
@@ -134,13 +134,24 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                         ),
                       ] else if (_hasMore) ...[
                         const SizedBox(height: 8),
-                        OutlinedButton(
-                          onPressed:
-                              _loadingMore ? null : () => _load(reset: false),
-                          child: Text(
-                            _loadingMore
-                                ? l10n.commonLoadingMore
-                                : l10n.commonLoadMore,
+                        Align(
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            height: 40,
+                            child: OutlinedButton(
+                              onPressed: _loadingMore
+                                  ? null
+                                  : () => _load(reset: false),
+                              style: _storeOutlinePillButtonStyle(
+                                context,
+                                enabled: !_loadingMore,
+                              ),
+                              child: Text(
+                                _loadingMore
+                                    ? l10n.commonLoadingMore
+                                    : l10n.commonLoadMore,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -298,7 +309,7 @@ class _StoreSearchBox extends StatelessWidget {
                       ),
                 ),
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                 onSubmitted: onSubmitted,
               ),
@@ -389,7 +400,7 @@ class _StoreFilterPill extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: foreground,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
               ),
             ],
@@ -555,19 +566,9 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                               _refreshDisabled ? null : _refreshLotteries,
                           icon: const Icon(Icons.refresh, size: 18),
                           label: Text(_refreshLabel(l10n)),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 40),
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                            shape: const StadiumBorder(),
-                            side: BorderSide(
-                              color: _refreshDisabled
-                                  ? Theme.of(context).colorScheme.outlineVariant
-                                  : Theme.of(context).colorScheme.primary,
-                            ),
-                            textStyle:
-                                const TextStyle(fontWeight: FontWeight.w700),
+                          style: _storeOutlinePillButtonStyle(
+                            context,
+                            enabled: !_refreshDisabled,
                           ),
                         ),
                       ),
@@ -633,13 +634,24 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                         ),
                       ] else if (_hasMore) ...[
                         const SizedBox(height: 8),
-                        OutlinedButton(
-                          onPressed:
-                              _loadingMore ? null : () => _load(reset: false),
-                          child: Text(
-                            _loadingMore
-                                ? l10n.commonLoadingMore
-                                : l10n.commonLoadMore,
+                        Align(
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            height: 40,
+                            child: OutlinedButton(
+                              onPressed: _loadingMore
+                                  ? null
+                                  : () => _load(reset: false),
+                              style: _storeOutlinePillButtonStyle(
+                                context,
+                                enabled: !_loadingMore,
+                              ),
+                              child: Text(
+                                _loadingMore
+                                    ? l10n.commonLoadingMore
+                                    : l10n.commonLoadMore,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1374,13 +1386,13 @@ class _StoreCard extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 72),
         child: Row(
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
+            SizedBox.square(
+              dimension: 40,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(
                   Icons.storefront_outlined,
                   color: colorScheme.onPrimary,
@@ -1395,7 +1407,8 @@ class _StoreCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ),
@@ -1514,7 +1527,7 @@ class _StoreSkeletonRows extends StatelessWidget {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 15),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Row(
                 children: [
                   DecoratedBox(
@@ -1522,7 +1535,7 @@ class _StoreSkeletonRows extends StatelessWidget {
                       color: placeholderColor,
                       shape: BoxShape.circle,
                     ),
-                    child: const SizedBox.square(dimension: 42),
+                    child: const SizedBox.square(dimension: 40),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1680,6 +1693,7 @@ class _LotteryTicketCard extends StatelessWidget {
                 : TextButton(
                     key: const ValueKey('store-lottery-more-link'),
                     onPressed: () => context.push(morePath),
+                    style: _storeTextLinkButtonStyle(context),
                     child: Text(l10n.lotteryViewMore),
                   );
             final brandHeader = compact
@@ -2156,7 +2170,11 @@ class _StoreErrorCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
+            OutlinedButton(
+              onPressed: onAction,
+              style: _storeOutlinePillButtonStyle(context),
+              child: Text(actionLabel),
+            ),
           ],
         ),
       ),
@@ -2248,5 +2266,30 @@ ButtonStyle _storeTextLinkButtonStyle(BuildContext context) {
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.compact,
     textStyle: const TextStyle(fontWeight: FontWeight.w700),
+  );
+}
+
+ButtonStyle _storeOutlinePillButtonStyle(
+  BuildContext context, {
+  bool enabled = true,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return OutlinedButton.styleFrom(
+    foregroundColor:
+        enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+    disabledForegroundColor: colorScheme.onSurfaceVariant,
+    minimumSize: const Size(0, 40),
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    backgroundColor:
+        enabled ? colorScheme.surface : colorScheme.surfaceContainerHighest,
+    shape: const StadiumBorder(),
+    side: BorderSide(
+      color: enabled
+          ? colorScheme.primary.withValues(alpha: 0.72)
+          : colorScheme.outlineVariant,
+    ),
+    textStyle: const TextStyle(fontWeight: FontWeight.w600),
   );
 }

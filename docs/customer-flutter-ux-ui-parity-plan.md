@@ -1936,6 +1936,16 @@ Acceptance evidence for every screen group:
   image/body proportions, and top-aligned copy toward the Nuxt CSS. Hero
   content, wallet loading, activity/news links, result routing, and cart dock
   behavior were unchanged; no widget/screenshot tests were added.
+- Current Revenue Home digit/dock micro-parity note: Home now constrains the
+  six read-only digit boxes to Nuxt's `max-width:620px` rhythm with max 58px
+  digit slots, gray outline, soft shadow, 8px radius, and runtime-themed focus
+  token instead of letting the boxes expand across wide Flutter layouts. Home
+  also lifts the quick-card to wallet/guest and wallet/guest to activities
+  spacing to the Nuxt `mb-4` rhythm and widens the floating cart selection dock
+  clamp so tablet/web layouts read closer to Nuxt `PaymentDock` instead of a
+  narrow Flutter card. Digit tap-to-search, cart checkout, countdown, wallet,
+  activities, result, and news behavior were unchanged; no widget/screenshot
+  tests were added.
 - Current Revenue lottery-item shell note: public Buy/Search stock rows and
   store-scoped lottery rows now follow Nuxt `LotteryItem` structure more
   closely: product brand/more header, wide lottery image card, number block,
@@ -1964,6 +1974,17 @@ Acceptance evidence for every screen group:
   count/total rows. Cart checkout navigation, reservation countdown, Checkout
   wallet/external payment selection, submit behavior, pending handoff, and
   route state were unchanged; no widget/screenshot tests were added.
+- Current Revenue list-control micro-parity note: Buy/Search stock refresh,
+  Buy/Search fallback pagination, `/stores` fallback pagination,
+  store-scoped stock refresh, store-scoped fallback pagination, and retry
+  actions now share Nuxt-like `outline-pill` sizing, disabled tones, and
+  compact centered width instead of default Material outlined buttons.
+  `/stores` also tightens the Nuxt `search-box mb-5` spacing and store-row
+  details: 40px runtime-themed shop mark, 20px bold store names, matching
+  skeleton icon width, lighter filter/search text weight, and Nuxt-like
+  text-link treatment for store-scoped "ดูเลขนี้เพิ่ม". Search, refresh,
+  pagination, reservation toggles, cart review, and route behavior were
+  unchanged; no widget/screenshot tests were added.
 - Current Revenue payment-dock note: Buy/Search/More and store-scoped floating
   review docks, Home's floating selection dock, Cart's fixed payment dock, and
   Checkout's fixed confirm dock now track Nuxt `PaymentDock` structure more
@@ -2201,6 +2222,12 @@ Acceptance evidence for every screen group:
   tinted circular Flutter buttons. Login/register/reset/social behavior,
   redirects, provider parsing, and error copy were unchanged. No
   widget/screenshot tests were added under the reduced-test cadence.
+- Current Login/Register hero accent note: login and register now restore the
+  Nuxt `login-hero` decorative structure with runtime-themed lower sky/yellow
+  circles and diagonal translucent overlays behind the existing hero copy.
+  This keeps the converted login/register sheet/card/form behavior unchanged
+  while making the first viewport read closer to the original Nuxt pages; no
+  widget/screenshot tests were added.
 - Current Login input behavior note: `/login` now matches Nuxt's phone input
   filtering by accepting digits only and limiting the identifier field to 10
   digits before password login submit. This preserves the converted hero/sheet
@@ -3685,6 +3712,10 @@ screenshot capture tasks unless explicitly requested in the current turn.
   final spacing, dock behavior, loading/empty/error states, success/pending
   receipt states, and responsive details before calling revenue visual parity
   closed again.
+- Home digit boxes should stay centered and capped like Nuxt
+  `.home-digit-boxes` on tablet/desktop widths while retaining compact mobile
+  sizing; the Home floating cart dock should feel like a responsive
+  `PaymentDock`, not a narrow card.
 - `/buy/search` now follows the Nuxt title-only `BlueHeader` plus
   overlapping `content-sheet` structure, `/buy/more` now follows Nuxt's short
   blank hero with the close action in the sheet header, `/stores` keeps the
@@ -3709,13 +3740,15 @@ screenshot capture tasks unless explicitly requested in the current turn.
   affordance: title row starts below the native status area like Nuxt's 58px
   top padding, the back control reads as a transparent 42px chevron, and the
   hero background includes both yellow and sky lower accents.
-- Buy/Search list states follow Nuxt sheet rhythm: refresh is an `outline-pill`,
-  empty results are centered muted text in the list, and sale-closed state is a
-  compact alert bar rather than a full framed message card.
+- Buy/Search list states follow Nuxt sheet rhythm: refresh and fallback
+  pagination are `outline-pill` controls, empty results are centered muted text
+  in the list, and sale-closed state is a compact alert bar rather than a full
+  framed message card.
 - Stores list states follow Nuxt sheet rhythm: recommended-store filter pills
   are present, empty store/lottery results are centered muted text in the sheet,
-  store lottery refresh is an `outline-pill`, and sale-closed state is a compact
-  alert bar.
+  store lottery refresh and fallback pagination are `outline-pill` controls,
+  store rows use the Nuxt 40px shop mark plus bold 20px name rhythm, and
+  sale-closed state is a compact alert bar.
 - Cart/Checkout helper sections follow Nuxt sheet rhythm: Cart add-more helper
   is centered muted copy plus green pill below the list, and Checkout payment
   method heading has the same bold `fs-5` scale and `mb-4` spacing before the
