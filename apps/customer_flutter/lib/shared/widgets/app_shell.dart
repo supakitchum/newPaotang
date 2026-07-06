@@ -17,6 +17,7 @@ class AppShell extends StatelessWidget {
     this.sensitive = false,
     this.showBottomNavigation = true,
     this.compactHeader = false,
+    this.fullScreen = false,
     this.heroContent,
     this.heroMinHeight = 174,
     this.heroSheetOverlap = 34,
@@ -31,6 +32,7 @@ class AppShell extends StatelessWidget {
   final bool sensitive;
   final bool showBottomNavigation;
   final bool compactHeader;
+  final bool fullScreen;
   final Widget? heroContent;
   final double heroMinHeight;
   final double heroSheetOverlap;
@@ -40,6 +42,16 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final expandedHero = heroContent;
+
+    if (fullScreen) {
+      return Scaffold(
+        extendBody: showBottomNavigation,
+        body: child,
+        bottomNavigationBar: showBottomNavigation
+            ? _CustomerBottomNav(currentPath: currentPath)
+            : null,
+      );
+    }
 
     if (expandedHero != null) {
       return Scaffold(

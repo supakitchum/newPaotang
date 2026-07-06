@@ -1889,6 +1889,38 @@ Acceptance evidence for every screen group:
   submission, wallet/external payment behavior, pending polling, reservation
   release, and route handoff logic. This was a UX/UI-first visual shell slice
   under the test-light cadence, so no new widget/screenshot tests were added.
+- Current Revenue expanded-shell note: `/stores` now matches the Nuxt
+  `BlueHeader` rhythm by keeping the store segment tab in the blue hero and the
+  search/recommended-store rows in a rounded content sheet. Store-scoped
+  lottery browsing now places the store hero card in the blue hero and keeps
+  digit search plus stock rows inside the sheet. Cart and Checkout now use the
+  expanded `AppShell.heroContent` path directly instead of a nested page hero,
+  so their shell hierarchy is closer to Nuxt while preserving reservation,
+  checkout, payment, and route behavior. This was visual shell work only; no
+  widget/screenshot tests were added.
+- Current Revenue success/pending shell note: `/checkout/pending` now uses the
+  revenue title-only blue hero plus rounded content sheet instead of the
+  generic AppBar list body. `/success` now uses a Nuxt-like full-screen
+  success background, compact receipt card, runtime-themed success mark,
+  white export/share pills, and the existing Tickets bottom-nav target through
+  `AppShell.fullScreen`, while keeping receipt loading/error, clipboard/export/
+  share, pending polling, paid redirect, and route behavior unchanged. This was
+  visual shell work only; no widget/screenshot tests were added.
+- Current Revenue Home shell/dock note: Home now uses `AppShell.fullScreen` so
+  the first viewport starts at the Nuxt-like `BlueHeader` hero instead of a
+  generic Flutter AppBar. The hero/sheet height, home-sheet radius/padding,
+  and quick-action icon/padding rhythm were tightened toward Nuxt, and Home now
+  shows an authenticated floating selection dock above the bottom nav when
+  active reservations exist, matching Nuxt `MobileShell`'s `/` cart dock
+  behavior. Wallet/activity/news/result loading, links, checkout route handoff,
+  and reservation parsing were unchanged; no widget/screenshot tests were
+  added.
+- Current Revenue lottery-item shell note: public Buy/Search stock rows and
+  store-scoped lottery rows now follow Nuxt `LotteryItem` structure more
+  closely: product brand/more header, wide lottery image card, number block,
+  right-side select/remove pill, and seller/price footer. Reservation toggles,
+  sale-closed handling, realtime stock refresh, image loading, and route
+  behavior were unchanged; no widget/screenshot tests were added.
 - Current Revenue contract-parity note: Checkout order parsing now accepts
   production recursive `data.resource` wrappers, camelCase `checkoutOrder` and
   `purchaseOrder` resources, checkout/purchase order id aliases,
@@ -3561,15 +3593,26 @@ screenshot capture tasks unless explicitly requested in the current turn.
   were removed. Compare against Nuxt page structure first: `MobileShell`,
   `BlueHeader`, `content-sheet`, floating `PaymentDock`, `BottomNav`, and the
   page-specific order of hero/sheet/list/dock sections.
-- `/buy` has started this rework by using the expanded Flutter `AppShell`
-  hero path with tabs inside the blue hero and the shared lottery content
-  sheet. Continue the same shell treatment across Buy/Search/Store/Cart/
-  Checkout before calling revenue visual parity closed again.
+- Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery
+  browsing, Cart, and Checkout now use either `AppShell.fullScreen` or the
+  expanded Flutter `AppShell` hero path for the main Nuxt-like blue
+  header/content-sheet structure. Continue the same manual device review for
+  final spacing, dock behavior, loading/empty/error states, success/pending
+  receipt states, and responsive details before calling revenue visual parity
+  closed again.
 - `/buy/search` now follows the Nuxt title-only `BlueHeader` plus
-  overlapping `content-sheet` structure, and `/buy/more` now follows Nuxt's
-  short blank hero with the close action in the sheet header instead of the
-  Flutter AppBar action row. Continue next with store browsing and sticky
-  cart/payment dock parity.
+  overlapping `content-sheet` structure, `/buy/more` now follows Nuxt's short
+  blank hero with the close action in the sheet header, `/stores` keeps the
+  tab strip in the blue hero, store lottery browsing keeps the store card in
+  the blue hero, and Cart/Checkout now use `AppShell.heroContent` instead of a
+  nested page hero. `/checkout/pending` now follows the title-only revenue
+  hero/sheet structure, and `/success` now uses a full-screen Nuxt-like
+  success background/receipt layout instead of the generic system AppBar. Home
+  now starts from the revenue hero without a generic AppBar and shows the
+  floating cart selection dock above bottom nav when active reservations exist.
+- Public Buy/Search stock rows and store-scoped lottery rows follow Nuxt
+  `LotteryItem` ordering: brand/more header, wide lottery-image card, number
+  block, right-side select/remove pill, and seller/price footer.
 - No clipped hero text on 360px, 390px, 430px, tablet, and desktop widths.
 - No bottom nav overlap with sticky action footers.
 - No horizontal scroll on modal sheets or activity grids.

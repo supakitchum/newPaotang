@@ -657,16 +657,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       backPath: '/buy',
       sensitive: true,
       showBottomNavigation: false,
+      heroMinHeight: 294,
+      heroContent: _CartHeaderSummary(
+        count: _cart.itemCount,
+        drawDateLabel: drawDateLabel,
+        empty: _cart.isEmpty,
+        onHero: true,
+      ),
       child: RefreshIndicator(
         onRefresh: _load,
         child: _CartReviewDockedPage(
           physics: const AlwaysScrollableScrollPhysics(),
-          hero: _CartHeaderSummary(
-            count: _cart.itemCount,
-            drawDateLabel: drawDateLabel,
-            empty: _cart.isEmpty,
-            onHero: true,
-          ),
           dock: (!_loading &&
                   _error.isEmpty &&
                   !(_cart.isEmpty || groupedTickets.isEmpty))
@@ -1255,6 +1256,8 @@ class _CheckoutPendingPaymentScreenState
       backPath: '/checkout',
       sensitive: true,
       showBottomNavigation: false,
+      heroMinHeight: 190,
+      heroContent: const SizedBox.shrink(),
       child: order.when(
         data: (item) {
           if (item != null && _checkoutOrderPaid(item)) {
@@ -1264,8 +1267,7 @@ class _CheckoutPendingPaymentScreenState
                 context.go(checkoutSuccessPath(successOrderId));
               }
             });
-            return _LotteryPageList(
-              physics: const AlwaysScrollableScrollPhysics(),
+            return _LotteryDockedPage(
               children: [
                 _LoadingMessageCard(
                   message: context.l10n.checkoutPendingLoading,
@@ -1273,8 +1275,7 @@ class _CheckoutPendingPaymentScreenState
               ],
             );
           }
-          return _LotteryPageList(
-            physics: const AlwaysScrollableScrollPhysics(),
+          return _LotteryDockedPage(
             children: [
               if (_noticeMessage.isNotEmpty) ...[
                 _InlineNoticeCard(message: _noticeMessage),
@@ -1302,15 +1303,14 @@ class _CheckoutPendingPaymentScreenState
             ],
           );
         },
-        loading: () => _LotteryPageList(
-          physics: const AlwaysScrollableScrollPhysics(),
+        loading: () => _LotteryDockedPage(
           children: [
             _LoadingMessageCard(
               message: context.l10n.checkoutPendingLoading,
             ),
           ],
         ),
-        error: (error, _) => _LotteryPageList(
+        error: (error, _) => _LotteryDockedPage(
           children: [
             _MessageCard(
               icon: Icons.error_outline,
@@ -1685,16 +1685,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       backPath: '/cart',
       sensitive: true,
       showBottomNavigation: false,
+      heroMinHeight: 454,
+      heroSheetOverlap: 0,
+      heroContent: _CheckoutHeroSummaryCard(
+        ticketCount: _cart.itemCount,
+        total: _cart.total,
+        loading: _loading,
+        error: _error,
+      ),
       child: RefreshIndicator(
         onRefresh: _load,
         child: _CheckoutDockedPage(
           physics: const AlwaysScrollableScrollPhysics(),
-          hero: _CheckoutHeroSummaryCard(
-            ticketCount: _cart.itemCount,
-            total: _cart.total,
-            loading: _loading,
-            error: _error,
-          ),
           dock: (!_loading &&
                   _error.isEmpty &&
                   !(_cart.isEmpty || !hasActivePayment))
@@ -2913,33 +2915,6 @@ class _LotteryStockCard extends StatelessWidget {
                       if (moreButton != null) moreButton,
                     ],
                   );
-            final details = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                brandHeader,
-                const SizedBox(height: 10),
-                Row(
-                  key: const ValueKey('lottery-stock-ticket-display-row'),
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _LotteryStockImageFrame(item: item),
-                    const SizedBox(width: 12),
-                    Expanded(child: _LotteryNumber(number: item.number)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  sellerName,
-                  key: const ValueKey('lottery-stock-seller-row'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
-            );
             final actionLabel = busy
                 ? reserved
                     ? l10n.lotteryRemoving
@@ -2956,17 +2931,64 @@ class _LotteryStockCard extends StatelessWidget {
             final actionButton = reserved
                 ? FilledButton(
                     onPressed: busy || !canToggle ? null : onReserve,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(96, 42),
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
                     child: Text(actionLabel),
                   )
                 : OutlinedButton(
                     onPressed: busy || !canToggle ? null : onReserve,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(96, 42),
+                      shape: const StadiumBorder(),
+                      side: BorderSide(
+                        color: canToggle
+                            ? colorScheme.primary
+                            : colorScheme.outlineVariant,
+                      ),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
                     child: Text(actionLabel),
                   );
-            final actions = Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            final ticketDisplay = Column(
+              key: const ValueKey('lottery-stock-ticket-display-row'),
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 42, child: actionButton),
-                const SizedBox(height: 8),
+                _LotteryStockImageFrame(item: item),
+                const SizedBox(height: 10),
+                _LotteryNumber(number: item.number),
+              ],
+            );
+            final mainRow = Row(
+              key: const ValueKey('lottery-stock-main-row'),
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: ticketDisplay),
+                const SizedBox(width: 14),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 96),
+                  child: SizedBox(height: 42, child: actionButton),
+                ),
+              ],
+            );
+            final bottomRow = Row(
+              key: const ValueKey('lottery-stock-meta-price-row'),
+              children: [
+                Expanded(
+                  child: Text(
+                    sellerName,
+                    key: const ValueKey('lottery-stock-seller-row'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 _LotteryStockPriceText(item: item),
               ],
             );
@@ -2975,24 +2997,23 @@ class _LotteryStockCard extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  details,
+                  brandHeader,
+                  const SizedBox(height: 10),
+                  mainRow,
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Spacer(),
-                      actions,
-                    ],
-                  ),
+                  bottomRow,
                 ],
               );
             }
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: details),
-                const SizedBox(width: 12),
-                actions,
+                brandHeader,
+                const SizedBox(height: 10),
+                mainRow,
+                const SizedBox(height: 8),
+                bottomRow,
               ],
             );
           },
@@ -3037,49 +3058,52 @@ class _LotteryStockImageFrame extends StatelessWidget {
       key: const ValueKey('lottery-stock-ticket-image-frame'),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.65),
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          width: 78,
-          height: 58,
-          child: canLoadImage
-              ? FlexibleImage(
-                  key: const ValueKey('lottery-stock-ticket-image'),
-                  source: source,
-                  fit: BoxFit.cover,
-                  errorIcon: Icons.confirmation_number_outlined,
-                )
-              : Padding(
-                  key: const ValueKey('lottery-stock-ticket-image-fallback'),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        fallbackIcon,
-                        color: colorScheme.onSurfaceVariant,
-                        size: 18,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        fallbackText,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                              height: 1.1,
-                            ),
-                      ),
-                    ],
+        borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: AspectRatio(
+            aspectRatio: 5 / 2.8,
+            child: canLoadImage
+                ? FlexibleImage(
+                    key: const ValueKey('lottery-stock-ticket-image'),
+                    source: source,
+                    fit: BoxFit.cover,
+                    errorIcon: Icons.confirmation_number_outlined,
+                  )
+                : Padding(
+                    key: const ValueKey('lottery-stock-ticket-image-fallback'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          fallbackIcon,
+                          color: colorScheme.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          fallbackText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.25,
+                                  ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
     );
@@ -3237,33 +3261,6 @@ class _LotterySectionHeading extends StatelessWidget {
   }
 }
 
-class _LotteryPageList extends StatelessWidget {
-  const _LotteryPageList({
-    required this.children,
-    this.physics,
-  });
-
-  final List<Widget> children;
-  final ScrollPhysics? physics;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: physics,
-      children: [
-        CustomerPageBody(
-          maxWidth: 760,
-          bottom: 128,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _LotteryDockedPage extends StatelessWidget {
   const _LotteryDockedPage({
     required this.children,
@@ -3302,16 +3299,11 @@ class _LotteryDockedPage extends StatelessWidget {
 
 class _CartReviewDockedPage extends StatelessWidget {
   const _CartReviewDockedPage({
-    required this.hero,
     required this.children,
     this.dock,
     this.physics,
   });
 
-  static const _heroMinHeight = 230.0;
-  static const _sheetOverlap = 34.0;
-
-  final Widget hero;
   final List<Widget> children;
   final Widget? dock;
   final ScrollPhysics? physics;
@@ -3325,30 +3317,9 @@ class _CartReviewDockedPage extends StatelessWidget {
             padding: EdgeInsets.zero,
             physics: physics,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: _heroMinHeight,
-                    ),
-                    child: _LotteryGradientHeroBand(
-                      maxWidth: 760,
-                      top: 30,
-                      bottom: 64,
-                      child: hero,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: _heroMinHeight - _sheetOverlap,
-                    ),
-                    child: _LotteryContentSheet(
-                      bottom: dock == null ? 128 : 220,
-                      children: children,
-                    ),
-                  ),
-                ],
+              _LotteryContentSheet(
+                bottom: dock == null ? 128 : 280,
+                children: children,
               ),
             ],
           ),
@@ -3367,15 +3338,11 @@ class _CartReviewDockedPage extends StatelessWidget {
 
 class _CheckoutDockedPage extends StatelessWidget {
   const _CheckoutDockedPage({
-    required this.hero,
     required this.children,
     this.dock,
     this.physics,
   });
 
-  static const _heroMinHeight = 390.0;
-
-  final Widget hero;
   final List<Widget> children;
   final Widget? dock;
   final ScrollPhysics? physics;
@@ -3389,19 +3356,10 @@ class _CheckoutDockedPage extends StatelessWidget {
             padding: EdgeInsets.zero,
             physics: physics,
             children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: _heroMinHeight),
-                child: _LotteryGradientHeroBand(
-                  maxWidth: 640,
-                  top: 24,
-                  bottom: 46,
-                  child: hero,
-                ),
-              ),
               _LotteryContentSheet(
                 flush: true,
                 maxWidth: 640,
-                bottom: dock == null ? 128 : 220,
+                bottom: dock == null ? 128 : 265,
                 children: children,
               ),
             ],
@@ -3415,46 +3373,6 @@ class _CheckoutDockedPage extends StatelessWidget {
             child: _FixedPaymentDockContainer(child: dock!),
           ),
       ],
-    );
-  }
-}
-
-class _LotteryGradientHeroBand extends StatelessWidget {
-  const _LotteryGradientHeroBand({
-    required this.child,
-    required this.maxWidth,
-    required this.top,
-    required this.bottom,
-  });
-
-  final Widget child;
-  final double maxWidth;
-  final double top;
-  final double bottom;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
-          ],
-        ),
-      ),
-      child: CustomerPageBody(
-        top: top,
-        bottom: bottom,
-        maxWidth: maxWidth,
-        mobileHorizontal: 18,
-        wideHorizontal: 0,
-        child: child,
-      ),
     );
   }
 }

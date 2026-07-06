@@ -68,8 +68,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     final l10n = context.l10n;
     final showCartDock = _storeCartSelectionReviewEnabled(_cart);
     return AppShell(
-      title: l10n.storesTitle,
+      title: l10n.lotteryBuyTitle,
       currentPath: '/stores',
+      backPath: '/buy',
+      showBottomNavigation: false,
+      heroMinHeight: 252,
+      heroContent: const LotteryStoreSegmentTabs(activePath: '/stores'),
       child: Stack(
         children: [
           Positioned.fill(
@@ -82,71 +86,67 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
               },
               child: ListView(
                 controller: _scrollController,
+                padding: EdgeInsets.zero,
                 children: [
-                  CustomerPageBody(
+                  _StoreContentSheet(
                     bottom: showCartDock ? 220 : 128,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const LotteryStoreSegmentTabs(activePath: '/stores'),
-                        const SizedBox(height: 16),
-                        _StoreSearchBox(
-                          controller: _search,
-                          hintText: l10n.storesSearchLabel,
-                          onSubmitted: (_) => _load(reset: true),
+                    children: [
+                      _StoreSearchBox(
+                        controller: _search,
+                        hintText: l10n.storesSearchLabel,
+                        onSubmitted: (_) => _load(reset: true),
+                      ),
+                      const SizedBox(height: 20),
+                      CustomerSectionHeader(
+                        title: l10n.storesRecommendedTitle,
+                      ),
+                      const SizedBox(height: 16),
+                      if (_loading && _stores.isEmpty)
+                        const _StoreSkeletonRows()
+                      else if (_error.isNotEmpty && _stores.isEmpty)
+                        _StoreErrorCard(
+                          icon: Icons.error_outline,
+                          title: l10n.storesLoadFailedTitle,
+                          message: _error,
+                          actionLabel: l10n.commonRetry,
+                          onAction: () => _load(reset: true),
+                        )
+                      else if (_stores.isEmpty)
+                        _EmptyCard(
+                          icon: Icons.storefront_outlined,
+                          title: l10n.storesEmptyTitle,
+                          message: l10n.storesEmptyMessage,
+                        )
+                      else
+                        for (final store in _stores) _StoreCard(store: store),
+                      if (_error.isNotEmpty && _stores.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _StoreErrorCard(
+                          icon: Icons.error_outline,
+                          title: l10n.storesLoadFailedTitle,
+                          message: _error,
+                          actionLabel: l10n.commonRetry,
+                          onAction: () => _load(reset: false),
                         ),
-                        const SizedBox(height: 20),
-                        CustomerSectionHeader(
-                          title: l10n.storesRecommendedTitle,
-                        ),
-                        const SizedBox(height: 16),
-                        if (_loading && _stores.isEmpty)
-                          const _StoreSkeletonRows()
-                        else if (_error.isNotEmpty && _stores.isEmpty)
-                          _StoreErrorCard(
-                            icon: Icons.error_outline,
-                            title: l10n.storesLoadFailedTitle,
-                            message: _error,
-                            actionLabel: l10n.commonRetry,
-                            onAction: () => _load(reset: true),
-                          )
-                        else if (_stores.isEmpty)
-                          _EmptyCard(
-                            icon: Icons.storefront_outlined,
-                            title: l10n.storesEmptyTitle,
-                            message: l10n.storesEmptyMessage,
-                          )
-                        else
-                          for (final store in _stores) _StoreCard(store: store),
-                        if (_error.isNotEmpty && _stores.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _StoreErrorCard(
-                            icon: Icons.error_outline,
-                            title: l10n.storesLoadFailedTitle,
-                            message: _error,
-                            actionLabel: l10n.commonRetry,
-                            onAction: () => _load(reset: false),
-                          ),
-                        ],
-                        if (_loadingMore) ...[
-                          const SizedBox(height: 8),
-                          const _StoreSkeletonRows(
-                            keyPrefix: 'store-list-skeleton-more',
-                          ),
-                        ] else if (_hasMore) ...[
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed:
-                                _loadingMore ? null : () => _load(reset: false),
-                            child: Text(
-                              _loadingMore
-                                  ? l10n.commonLoadingMore
-                                  : l10n.commonLoadMore,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                      if (_loadingMore) ...[
+                        const SizedBox(height: 8),
+                        const _StoreSkeletonRows(
+                          keyPrefix: 'store-list-skeleton-more',
+                        ),
+                      ] else if (_hasMore) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed:
+                              _loadingMore ? null : () => _load(reset: false),
+                          child: Text(
+                            _loadingMore
+                                ? l10n.commonLoadingMore
+                                : l10n.commonLoadMore,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -411,6 +411,10 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     return AppShell(
       title: l10n.storesLotteriesTitle,
       currentPath: '/stores',
+      backPath: '/stores',
+      showBottomNavigation: false,
+      heroMinHeight: 312,
+      heroContent: _StoreLotteriesHero(storeName: storeName),
       child: Stack(
         children: [
           Positioned.fill(
@@ -418,144 +422,140 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
               onRefresh: () => _load(reset: true),
               child: ListView(
                 controller: _scrollController,
+                padding: EdgeInsets.zero,
                 children: [
-                  CustomerPageBody(
+                  _StoreContentSheet(
                     bottom: showCartDock ? 220 : 128,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _StoreLotteriesHero(storeName: storeName),
-                        const SizedBox(height: 18),
-                        Column(
-                          key: const ValueKey('store-lotteries-search-panel'),
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                    children: [
+                      Column(
+                        key: const ValueKey('store-lotteries-search-panel'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.storesLotteriesSubtitle,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          if (_drawDateLabel.isNotEmpty) ...[
+                            const SizedBox(height: 4),
                             Text(
-                              l10n.storesLotteriesSubtitle,
+                              _drawDateLabel,
                               style: Theme.of(context)
                                   .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            if (_drawDateLabel.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                _drawDateLabel,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-                            LotteryDigitInputRow(
-                              controllers: _digits,
-                              onSubmitted: _submitSearch,
-                            ),
-                            const SizedBox(height: 12),
-                            _StoreLotterySearchActions(
-                              onSearch: _submitSearch,
-                              onClear: _clearSearch,
+                                  .bodyLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ],
+                          const SizedBox(height: 12),
+                          LotteryDigitInputRow(
+                            controllers: _digits,
+                            onSubmitted: _submitSearch,
+                          ),
+                          const SizedBox(height: 12),
+                          _StoreLotterySearchActions(
+                            onSearch: _submitSearch,
+                            onClear: _clearSearch,
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 34),
+                      CustomerSectionHeader(
+                        title: l10n.lotteryStockTitle,
+                        action: TextButton.icon(
+                          onPressed:
+                              _refreshDisabled ? null : _refreshLotteries,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: Text(_refreshLabel(l10n)),
                         ),
-                        const Divider(height: 34),
-                        CustomerSectionHeader(
-                          title: l10n.lotteryStockTitle,
-                          action: TextButton.icon(
-                            onPressed:
-                                _refreshDisabled ? null : _refreshLotteries,
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: Text(_refreshLabel(l10n)),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_loading && _tickets.isEmpty)
+                        ...lotteryStockSkeletonCards(
+                          keyPrefix: 'store-lottery-stock-skeleton',
+                        )
+                      else if (_error.isNotEmpty && _tickets.isEmpty)
+                        _StoreErrorCard(
+                          icon: Icons.error_outline,
+                          title: l10n.storesLotteriesLoadFailedTitle,
+                          message: _error,
+                          actionLabel: l10n.commonRetry,
+                          onAction: () => _load(reset: true),
+                        )
+                      else if (_tickets.isEmpty)
+                        _EmptyCard(
+                          icon: Icons.confirmation_number_outlined,
+                          title: l10n.storesLotteriesEmptyTitle,
+                          message: l10n.storesLotteriesEmptyMessage,
+                        )
+                      else ...[
+                        if (_stockNoticeMessage.isNotEmpty) ...[
+                          _StoreInlineNoticeCard(
+                            message: _stockNoticeMessage,
+                            success: _stockNoticeSuccess,
+                            actionLabel: _stockNoticeSuccess
+                                ? l10n.lotteryCartAction
+                                : null,
+                            onAction: _stockNoticeSuccess
+                                ? () => context.go('/cart')
+                                : null,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (_loading && _tickets.isEmpty)
-                          ...lotteryStockSkeletonCards(
-                            keyPrefix: 'store-lottery-stock-skeleton',
-                          )
-                        else if (_error.isNotEmpty && _tickets.isEmpty)
-                          _StoreErrorCard(
-                            icon: Icons.error_outline,
-                            title: l10n.storesLotteriesLoadFailedTitle,
-                            message: _error,
-                            actionLabel: l10n.commonRetry,
-                            onAction: () => _load(reset: true),
-                          )
-                        else if (_tickets.isEmpty)
-                          _EmptyCard(
-                            icon: Icons.confirmation_number_outlined,
-                            title: l10n.storesLotteriesEmptyTitle,
-                            message: l10n.storesLotteriesEmptyMessage,
-                          )
-                        else ...[
-                          if (_stockNoticeMessage.isNotEmpty) ...[
-                            _StoreInlineNoticeCard(
-                              message: _stockNoticeMessage,
-                              success: _stockNoticeSuccess,
-                              actionLabel: _stockNoticeSuccess
-                                  ? l10n.lotteryCartAction
-                                  : null,
-                              onAction: _stockNoticeSuccess
-                                  ? () => context.go('/cart')
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          if (!_canReserve) ...[
-                            _StoreSaleClosedNotice(
-                              title: l10n.lotterySaleClosedTitle,
-                              message: l10n.lotterySaleClosedMessage,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          for (final ticket in _tickets)
-                            _LotteryTicketCard(
-                              ticket: ticket,
-                              morePath: lotteryMorePath(
-                                number: ticket.number,
-                                storeId: widget.storeId,
-                                backPath: _storeLotteriesBackPath(
-                                  widget.storeId,
-                                ),
+                          const SizedBox(height: 12),
+                        ],
+                        if (!_canReserve) ...[
+                          _StoreSaleClosedNotice(
+                            title: l10n.lotterySaleClosedTitle,
+                            message: l10n.lotterySaleClosedMessage,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        for (final ticket in _tickets)
+                          _LotteryTicketCard(
+                            ticket: ticket,
+                            morePath: lotteryMorePath(
+                              number: ticket.number,
+                              storeId: widget.storeId,
+                              backPath: _storeLotteriesBackPath(
+                                widget.storeId,
                               ),
-                              canReserve: _canReserve,
-                              reserved: _reservedByStockId.containsKey(
-                                ticket.localStockItemId,
-                              ),
-                              busy: _busyStockId == ticket.localStockItemId,
-                              onToggle: () => _toggleReservation(ticket),
                             ),
-                        ],
-                        if (_loadingMore) ...[
-                          if (_tickets.isNotEmpty) const SizedBox(height: 10),
-                          ...lotteryStockSkeletonCards(
-                            keyPrefix: 'store-lottery-stock-skeleton-more',
-                          ),
-                        ] else if (_hasMore) ...[
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed:
-                                _loadingMore ? null : () => _load(reset: false),
-                            child: Text(
-                              _loadingMore
-                                  ? l10n.commonLoadingMore
-                                  : l10n.commonLoadMore,
+                            canReserve: _canReserve,
+                            reserved: _reservedByStockId.containsKey(
+                              ticket.localStockItemId,
                             ),
+                            busy: _busyStockId == ticket.localStockItemId,
+                            onToggle: () => _toggleReservation(ticket),
                           ),
-                        ],
-                        if (_error.isNotEmpty && _tickets.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _StoreErrorCard(
-                            icon: Icons.error_outline,
-                            title: l10n.storesLotteriesLoadFailedTitle,
-                            message: _error,
-                            actionLabel: l10n.commonRetry,
-                            onAction: () => _load(reset: false),
-                          ),
-                        ],
                       ],
-                    ),
+                      if (_loadingMore) ...[
+                        if (_tickets.isNotEmpty) const SizedBox(height: 10),
+                        ...lotteryStockSkeletonCards(
+                          keyPrefix: 'store-lottery-stock-skeleton-more',
+                        ),
+                      ] else if (_hasMore) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed:
+                              _loadingMore ? null : () => _load(reset: false),
+                          child: Text(
+                            _loadingMore
+                                ? l10n.commonLoadingMore
+                                : l10n.commonLoadMore,
+                          ),
+                        ),
+                      ],
+                      if (_error.isNotEmpty && _tickets.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _StoreErrorCard(
+                          icon: Icons.error_outline,
+                          title: l10n.storesLotteriesLoadFailedTitle,
+                          message: _error,
+                          actionLabel: l10n.commonRetry,
+                          onAction: () => _load(reset: false),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -1082,6 +1082,41 @@ class _StoreCartSelectionDock extends StatelessWidget {
   }
 }
 
+class _StoreContentSheet extends StatelessWidget {
+  const _StoreContentSheet({
+    required this.children,
+    required this.bottom,
+  });
+
+  final List<Widget> children;
+  final double bottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 620),
+        child: CustomerPageBody(
+          maxWidth: 760,
+          top: 23,
+          bottom: bottom,
+          mobileHorizontal: 18,
+          wideHorizontal: 0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StoreFixedPaymentDockContainer extends StatelessWidget {
   const _StoreFixedPaymentDockContainer({required this.child});
 
@@ -1489,10 +1524,25 @@ class _LotteryTicketCard extends StatelessWidget {
     final actionButton = reserved
         ? FilledButton(
             onPressed: busy || !canToggle ? null : onToggle,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(96, 42),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
             child: Text(actionLabel),
           )
         : OutlinedButton(
             onPressed: busy || !canToggle ? null : onToggle,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(96, 42),
+              shape: const StadiumBorder(),
+              side: BorderSide(
+                color: canToggle
+                    ? colorScheme.primary
+                    : colorScheme.outlineVariant,
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
             child: Text(actionLabel),
           );
     return DecoratedBox(
@@ -1534,38 +1584,43 @@ class _LotteryTicketCard extends StatelessWidget {
                       if (moreButton != null) moreButton,
                     ],
                   );
-            final details = Column(
+            final ticketDisplay = Column(
+              key: const ValueKey('store-lottery-ticket-display-row'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                brandHeader,
+                _StoreLotteryImageFrame(ticket: ticket),
                 const SizedBox(height: 10),
-                Row(
-                  key: const ValueKey('store-lottery-ticket-display-row'),
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _StoreLotteryImageFrame(ticket: ticket),
-                    const SizedBox(width: 12),
-                    Expanded(child: _StoreLotteryNumber(number: ticket.number)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  sellerName,
-                  key: const ValueKey('lottery-stock-seller-row'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                _StoreLotteryNumber(number: ticket.number),
+              ],
+            );
+            final mainRow = Row(
+              key: const ValueKey('store-lottery-ticket-main-row'),
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: ticketDisplay),
+                const SizedBox(width: 14),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 96),
+                  child: SizedBox(height: 42, child: actionButton),
                 ),
               ],
             );
-            final actions = Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            final bottomRow = Row(
+              key: const ValueKey('store-lottery-ticket-meta-price-row'),
               children: [
-                SizedBox(height: 42, child: actionButton),
-                const SizedBox(height: 8),
+                Expanded(
+                  child: Text(
+                    sellerName,
+                    key: const ValueKey('lottery-stock-seller-row'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 _StoreLotteryPriceText(ticket: ticket),
               ],
             );
@@ -1574,24 +1629,23 @@ class _LotteryTicketCard extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  details,
+                  brandHeader,
+                  const SizedBox(height: 10),
+                  mainRow,
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Spacer(),
-                      actions,
-                    ],
-                  ),
+                  bottomRow,
                 ],
               );
             }
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: details),
-                const SizedBox(width: 12),
-                actions,
+                brandHeader,
+                const SizedBox(height: 10),
+                mainRow,
+                const SizedBox(height: 8),
+                bottomRow,
               ],
             );
           },
@@ -1635,49 +1689,52 @@ class _StoreLotteryImageFrame extends StatelessWidget {
       key: const ValueKey('store-lottery-ticket-image-frame'),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.65),
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          width: 78,
-          height: 58,
-          child: canLoadImage
-              ? FlexibleImage(
-                  key: const ValueKey('store-lottery-ticket-image'),
-                  source: source,
-                  fit: BoxFit.cover,
-                  errorIcon: Icons.confirmation_number_outlined,
-                )
-              : Padding(
-                  key: const ValueKey('store-lottery-ticket-image-fallback'),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        fallbackIcon,
-                        color: colorScheme.onSurfaceVariant,
-                        size: 18,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        fallbackText,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                              height: 1.1,
-                            ),
-                      ),
-                    ],
+        borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: AspectRatio(
+            aspectRatio: 5 / 2.8,
+            child: canLoadImage
+                ? FlexibleImage(
+                    key: const ValueKey('store-lottery-ticket-image'),
+                    source: source,
+                    fit: BoxFit.cover,
+                    errorIcon: Icons.confirmation_number_outlined,
+                  )
+                : Padding(
+                    key: const ValueKey('store-lottery-ticket-image-fallback'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          fallbackIcon,
+                          color: colorScheme.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          fallbackText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.25,
+                                  ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
     );

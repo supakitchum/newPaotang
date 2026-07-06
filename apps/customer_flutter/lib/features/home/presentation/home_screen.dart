@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +14,14 @@ import '../../../features/activities/data/activity_repository.dart';
 import '../../../features/activities/presentation/activity_localization.dart';
 import '../../../features/lottery/presentation/lottery_digit_input_row.dart';
 import '../../../features/lottery/presentation/lottery_navigation.dart';
+import '../../../features/lottery/presentation/lottery_screens.dart'
+    show
+        earliestActiveReservation,
+        formatReservationCountdown,
+        reservationDeadlineExpired,
+        reservationRemainingDuration;
+import '../../../features/lottery/data/lottery_models.dart';
+import '../../../features/lottery/data/lottery_repository.dart';
 import '../../../features/news/data/news_models.dart';
 import '../../../features/news/data/news_repository.dart';
 import '../../../features/news/presentation/news_card.dart';
@@ -28,6 +38,14 @@ import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/customer_wallet_card.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 
+final _homeCartProvider = FutureProvider.autoDispose<LotteryCart>((ref) async {
+  final auth = ref.watch(authControllerProvider);
+  if (!auth.isAuthenticated || auth.pinRequired) {
+    return LotteryCart.empty();
+  }
+  return ref.watch(lotteryRepositoryProvider).cart();
+});
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -39,54 +57,247 @@ class HomeScreen extends ConsumerWidget {
     final activities = ref.watch(activityListProvider);
     final news = ref.watch(newsListProvider);
     final result = ref.watch(currentResultProvider);
+    final cart =
+        ref.watch(_homeCartProvider).valueOrNull ?? LotteryCart.empty();
+    final showCartDock = _homeCartSelectionEnabled(cart);
     final l10n = context.l10n;
 
     return AppShell(
       title: l10n.homeTitle,
       currentPath: '/',
       sensitive: true,
-      child: _HomePageList(
-        hero: _HomeLotteryHero(value: result),
+      fullScreen: true,
+      child: Stack(
         children: [
-          const _HomeQuickActionPanel(),
-          const SizedBox(height: 16),
-          if (wallet == null) ...[
-            const _HomeGuestPanel(),
-          ] else ...[
-            AsyncStateView(
-              value: wallet,
-              data: (summary) => CustomerWalletBalanceCard(
-                balance: summary.balance,
-                title: l10n.commonWalletBalance,
-                onOpenWallet: () => context.go('/my-wallet'),
-                actions: _walletCardActions(context),
-                compact: true,
-              ),
-              empty: CustomerWalletBalanceCard(
-                balance: 0,
-                title: l10n.commonWalletBalance,
-                onOpenWallet: () => context.go('/my-wallet'),
-                actions: _walletCardActions(context),
-                compact: true,
+          Positioned.fill(
+            child: _HomePageList(
+              hero: _HomeLotteryHero(value: result),
+              bottom: showCartDock ? 236 : 116,
+              children: [
+                const _HomeQuickActionPanel(),
+                const SizedBox(height: 16),
+                if (wallet == null) ...[
+                  const _HomeGuestPanel(),
+                ] else ...[
+                  AsyncStateView(
+                    value: wallet,
+                    data: (summary) => CustomerWalletBalanceCard(
+                      balance: summary.balance,
+                      title: l10n.commonWalletBalance,
+                      onOpenWallet: () => context.go('/my-wallet'),
+                      actions: _walletCardActions(context),
+                      compact: true,
+                    ),
+                    empty: CustomerWalletBalanceCard(
+                      balance: 0,
+                      title: l10n.commonWalletBalance,
+                      onOpenWallet: () => context.go('/my-wallet'),
+                      actions: _walletCardActions(context),
+                      compact: true,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                _ActivitiesRail(value: activities),
+                const SizedBox(height: 18),
+                _HomeResultSection(value: result),
+                _NewsRail(value: news),
+              ],
+            ),
+          ),
+          if (showCartDock)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 86,
+              child: _HomeFloatingCartDock(
+                cart: cart,
+                onCheckout: () => context.go('/checkout'),
               ),
             ),
-          ],
-          const SizedBox(height: 18),
-          _ActivitiesRail(value: activities),
-          const SizedBox(height: 18),
-          _HomeResultSection(value: result),
-          _NewsRail(value: news),
         ],
       ),
     );
   }
 }
 
+bool _homeCartSelectionEnabled(LotteryCart cart) {
+  if (cart.reservationIds.isEmpty) return false;
+  final deadline = earliestActiveReservation(cart.reservations);
+  return deadline == null || !reservationDeadlineExpired(deadline);
+}
+
+class _HomeFloatingCartDock extends StatelessWidget {
+  const _HomeFloatingCartDock({
+    required this.cart,
+    required this.onCheckout,
+  });
+
+  final LotteryCart cart;
+  final VoidCallback onCheckout;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final deadline = earliestActiveReservation(cart.reservations);
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.symmetric(horizontal: 18),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: DecoratedBox(
+            key: const ValueKey('home-cart-payment-dock'),
+            decoration: _homeSurfaceDecoration(context, radius: 12).copyWith(
+              border: Border.all(color: Colors.transparent),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, -8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.cartSelectionTitle,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: _homeTitleColor(context),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.ticketsCount(cart.itemCount),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 144,
+                      maxWidth: 176,
+                      minHeight: 58,
+                    ),
+                    child: FilledButton(
+                      onPressed: onCheckout,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(144, 58),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(l10n.cartCheckout),
+                          if (deadline != null)
+                            _HomeCartCountdownText(deadline: deadline),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeCartCountdownText extends StatefulWidget {
+  const _HomeCartCountdownText({required this.deadline});
+
+  final LotteryReservation deadline;
+
+  @override
+  State<_HomeCartCountdownText> createState() => _HomeCartCountdownTextState();
+}
+
+class _HomeCartCountdownTextState extends State<_HomeCartCountdownText> {
+  late DateTime _fallbackExpiresAt;
+  late Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _fallbackExpiresAt = DateTime.now().add(
+      Duration(seconds: widget.deadline.expiresInSeconds),
+    );
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeCartCountdownText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deadline.id != widget.deadline.id ||
+        oldWidget.deadline.expiresAt != widget.deadline.expiresAt ||
+        oldWidget.deadline.expiresInSeconds !=
+            widget.deadline.expiresInSeconds) {
+      _fallbackExpiresAt = DateTime.now().add(
+        Duration(seconds: widget.deadline.expiresInSeconds),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = reservationRemainingDuration(
+      widget.deadline,
+      now: DateTime.now(),
+      fallbackExpiresAt:
+          widget.deadline.expiresInSeconds > 0 ? _fallbackExpiresAt : null,
+    );
+    if (remaining.inSeconds <= 0) return const SizedBox.shrink();
+    return Text(
+      formatReservationCountdown(remaining),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color:
+                Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.92),
+            fontWeight: FontWeight.w700,
+            height: 1.1,
+          ),
+    );
+  }
+}
+
 class _HomePageList extends StatelessWidget {
-  const _HomePageList({required this.hero, required this.children});
+  const _HomePageList({
+    required this.hero,
+    required this.children,
+    required this.bottom,
+  });
 
   final Widget hero;
   final List<Widget> children;
+  final double bottom;
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +316,7 @@ class _HomePageList extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: colorScheme.surface,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(30),
+                    top: Radius.circular(34),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -116,8 +327,8 @@ class _HomePageList extends StatelessWidget {
                   ],
                 ),
                 child: CustomerPageBody(
-                  top: 18,
-                  bottom: 96,
+                  top: 23,
+                  bottom: bottom,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: children,
@@ -225,7 +436,7 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: _homeHeroHeight),
             child: CustomerPageBody(
-              top: 12,
+              top: MediaQuery.paddingOf(context).top + 12,
               bottom: 56,
               mobileHorizontal: 20,
               wideHorizontal: 28,
@@ -491,7 +702,7 @@ class _HomeQuickActionPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: _homeSurfaceDecoration(context, radius: 14),
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
         child: Row(
           children: [
             Expanded(
@@ -541,11 +752,18 @@ class _HomeQuickAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 58,
-                height: 58,
+                width: 70,
+                height: 60,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      colorScheme.primary.withValues(alpha: 0.12),
+                      colorScheme.primary.withValues(alpha: 0.34),
+                    ],
+                  ),
                 ),
                 child: Icon(icon, color: colorScheme.primary, size: 28),
               ),
@@ -557,7 +775,7 @@ class _HomeQuickAction extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: _homeTitleColor(context),
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ],
@@ -1450,6 +1668,6 @@ Color _homeBodyColor(BuildContext context) =>
 
 Color _homeMutedColor(BuildContext context) =>
     Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
-const _homeHeroHeight = 336.0;
-const _homeSheetOverlap = 44.0;
+const _homeHeroHeight = 352.0;
+const _homeSheetOverlap = 60.0;
 const _homeNewsRailHeight = 256.0;

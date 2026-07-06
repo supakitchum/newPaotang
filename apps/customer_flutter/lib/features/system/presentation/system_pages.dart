@@ -468,7 +468,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
             .watch(purchaseHistoryDetailProvider(id))
             .whenData((value) => value);
     Widget content(PurchaseHistoryOrder? item, {Widget? statusContent}) {
-      return _SystemPageList(
+      return _SuccessPageList(
         children: [
           RepaintBoundary(
             key: receiptBoundaryKey,
@@ -487,80 +487,81 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
             const SizedBox(height: 12),
           ],
           if (item != null) ...[
-            OutlinedButton.icon(
-              onPressed: () async {
-                final l10n = context.l10n;
-                final receiptText = successReceiptClipboardText(
-                  context,
-                  item,
-                );
-                await Clipboard.setData(
-                  ClipboardData(
-                    text: receiptText,
-                  ),
-                );
-                if (!context.mounted) return;
-                _showReceiptNotice(l10n.successReceiptSaved, success: true);
-              },
-              icon: const Icon(Icons.download_outlined),
-              label: Text(context.l10n.successSaveReceipt),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final l10n = context.l10n;
-                final receiptText = successReceiptClipboardText(
-                  context,
-                  item,
-                );
-                Uint8List? imageBytes;
-                Uint8List? pdfBytes;
-                try {
-                  imageBytes = await ref
-                      .read(receiptImageExporterProvider)
-                      .capturePng(receiptBoundaryKey);
-                } catch (_) {
-                  imageBytes = null;
-                }
-                if (imageBytes != null) {
+            _SuccessReceiptActionRow(
+              saveButton: OutlinedButton.icon(
+                onPressed: () async {
+                  final l10n = context.l10n;
+                  final receiptText = successReceiptClipboardText(
+                    context,
+                    item,
+                  );
+                  await Clipboard.setData(
+                    ClipboardData(
+                      text: receiptText,
+                    ),
+                  );
+                  if (!context.mounted) return;
+                  _showReceiptNotice(l10n.successReceiptSaved, success: true);
+                },
+                icon: const Icon(Icons.download_outlined),
+                label: Text(context.l10n.successSaveReceipt),
+              ),
+              shareButton: OutlinedButton.icon(
+                onPressed: () async {
+                  final l10n = context.l10n;
+                  final receiptText = successReceiptClipboardText(
+                    context,
+                    item,
+                  );
+                  Uint8List? imageBytes;
+                  Uint8List? pdfBytes;
                   try {
-                    pdfBytes = await ref
-                        .read(receiptPdfExporterProvider)
-                        .buildPdf(imageBytes: imageBytes);
+                    imageBytes = await ref
+                        .read(receiptImageExporterProvider)
+                        .capturePng(receiptBoundaryKey);
                   } catch (_) {
-                    pdfBytes = null;
+                    imageBytes = null;
                   }
-                }
-                try {
-                  await ref.read(receiptShareServiceProvider).shareReceipt(
-                        text: receiptText,
-                        subject: l10n.successPurchaseTitle,
-                        imageBytes: imageBytes,
-                        fileName: imageBytes == null
-                            ? null
-                            : successReceiptImageFileName(item),
-                        pdfBytes: pdfBytes,
-                        pdfFileName: pdfBytes == null
-                            ? null
-                            : successReceiptPdfFileName(item),
-                      );
-                  if (!context.mounted) return;
-                  _showReceiptNotice(
-                    l10n.successReceiptShareStarted,
-                    success: true,
-                  );
-                } catch (_) {
-                  await Clipboard.setData(ClipboardData(text: receiptText));
-                  if (!context.mounted) return;
-                  _showReceiptNotice(
-                    l10n.successReceiptShareFailedCopied,
-                  );
-                }
-              },
-              icon: const Icon(Icons.ios_share_outlined),
-              label: Text(context.l10n.successShareReceipt),
+                  if (imageBytes != null) {
+                    try {
+                      pdfBytes = await ref
+                          .read(receiptPdfExporterProvider)
+                          .buildPdf(imageBytes: imageBytes);
+                    } catch (_) {
+                      pdfBytes = null;
+                    }
+                  }
+                  try {
+                    await ref.read(receiptShareServiceProvider).shareReceipt(
+                          text: receiptText,
+                          subject: l10n.successPurchaseTitle,
+                          imageBytes: imageBytes,
+                          fileName: imageBytes == null
+                              ? null
+                              : successReceiptImageFileName(item),
+                          pdfBytes: pdfBytes,
+                          pdfFileName: pdfBytes == null
+                              ? null
+                              : successReceiptPdfFileName(item),
+                        );
+                    if (!context.mounted) return;
+                    _showReceiptNotice(
+                      l10n.successReceiptShareStarted,
+                      success: true,
+                    );
+                  } catch (_) {
+                    await Clipboard.setData(ClipboardData(text: receiptText));
+                    if (!context.mounted) return;
+                    _showReceiptNotice(
+                      l10n.successReceiptShareFailedCopied,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.ios_share_outlined),
+                label: Text(context.l10n.successShareReceipt),
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 96),
           ],
           FilledButton.icon(
             onPressed: () => context.go('/tickets'),
@@ -575,6 +576,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
       title: context.l10n.successTitle,
       currentPath: '/tickets',
       sensitive: true,
+      fullScreen: true,
       child: order.when(
         data: (item) => content(item ?? fallbackOrder),
         loading: () => content(
@@ -606,6 +608,147 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
       _receiptNoticeMessage = message;
       _receiptNoticeSuccess = success;
     });
+  }
+}
+
+class _SuccessPageList extends StatelessWidget {
+  const _SuccessPageList({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colorScheme.primary,
+                      Color.lerp(
+                            colorScheme.primary,
+                            colorScheme.secondary,
+                            0.72,
+                          ) ??
+                          colorScheme.secondary,
+                    ],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -74,
+                      bottom: 18,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colorScheme.tertiary.withValues(alpha: 0.88),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const SizedBox.square(dimension: 210),
+                      ),
+                    ),
+                    Positioned(
+                      right: 34,
+                      bottom: 132,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withValues(alpha: 0.36),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const SizedBox.square(dimension: 220),
+                      ),
+                    ),
+                    SafeArea(
+                      bottom: false,
+                      child: CustomerPageBody(
+                        maxWidth: 430,
+                        top: 54,
+                        bottom: 142,
+                        mobileHorizontal: 18,
+                        wideHorizontal: 0,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: children,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SuccessReceiptActionRow extends StatelessWidget {
+  const _SuccessReceiptActionRow({
+    required this.saveButton,
+    required this.shareButton,
+  });
+
+  final Widget saveButton;
+  final Widget shareButton;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final buttonStyle = OutlinedButton.styleFrom(
+      backgroundColor: colorScheme.surface,
+      foregroundColor: colorScheme.primary,
+      minimumSize: const Size.fromHeight(52),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      shape: const StadiumBorder(),
+      side: BorderSide(color: colorScheme.surface.withValues(alpha: 0.92)),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+    );
+    Widget styled(Widget child) {
+      if (child is OutlinedButton) {
+        return OutlinedButton(
+          onPressed: child.onPressed,
+          style: buttonStyle,
+          child: child.child,
+        );
+      }
+      return child;
+    }
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 330) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  styled(saveButton),
+                  const SizedBox(height: 10),
+                  styled(shareButton),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: styled(saveButton)),
+                const SizedBox(width: 10),
+                Expanded(child: styled(shareButton)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -681,13 +824,24 @@ BoxDecoration _successReceiptSurfaceDecoration(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
     color: colorScheme.surface,
-    borderRadius: BorderRadius.circular(16),
-    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    borderRadius: BorderRadius.circular(8),
+    border:
+        Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        colorScheme.primary.withValues(alpha: 0.035),
+        colorScheme.surface,
+        colorScheme.surface,
+      ],
+      stops: const [0, 0.48, 1],
+    ),
     boxShadow: [
       BoxShadow(
         color: colorScheme.primary.withValues(alpha: 0.08),
-        blurRadius: 24,
-        offset: const Offset(0, 10),
+        blurRadius: 18,
+        offset: const Offset(0, 8),
       ),
     ],
   );
@@ -730,15 +884,18 @@ class _SuccessReceiptHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        CircleAvatar(
-          radius: 36,
-          backgroundColor:
-              Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
-                  colorScheme.primary.withValues(alpha: 0.12),
-          child: Icon(
-            Icons.check_rounded,
-            color: colorScheme.primary,
-            size: 42,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.tertiary,
+            shape: BoxShape.circle,
+          ),
+          child: SizedBox.square(
+            dimension: 62,
+            child: Icon(
+              Icons.check_rounded,
+              color: colorScheme.onTertiary,
+              size: 38,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -971,27 +1128,6 @@ String _successPaymentChannelText(
   final reference = item.maskedPaymentReference;
   if (reference.isEmpty) return channel;
   return '$channel\n$reference';
-}
-
-class _SystemPageList extends StatelessWidget {
-  const _SystemPageList({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        CustomerPageBody(
-          maxWidth: 760,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _MaintenanceStatePage extends StatelessWidget {
