@@ -455,9 +455,13 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
   Widget build(BuildContext context) {
     final id = widget.orderId ?? '';
     final receiptBoundaryKey = GlobalKey();
-    final productLabel =
+    final bootstrapProductLabel =
         ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
             '';
+    final productLabel = _successProductLabel(
+      context,
+      bootstrapProductLabel,
+    );
     final fallbackOrder = successReceiptFallbackForOrderId(
       ref.watch(successReceiptFallbackOrderProvider),
       id,
@@ -641,25 +645,36 @@ class _SuccessReceiptSaveAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: SizedBox(
-        width: 216,
-        child: OutlinedButton.icon(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            backgroundColor: colorScheme.surface,
-            foregroundColor: colorScheme.primary,
-            minimumSize: const Size.fromHeight(54),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            shape: const StadiumBorder(),
-            side: BorderSide.none,
-            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+      child: FractionallySizedBox(
+        widthFactor: 0.5,
+        child: SizedBox(
+          height: 54,
+          child: OutlinedButton.icon(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: colorScheme.surface,
+              foregroundColor: colorScheme.primary,
+              minimumSize: const Size.fromHeight(54),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              shape: const StadiumBorder(),
+              side: BorderSide.none,
+              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            icon: const Icon(Icons.download_outlined, size: 25),
+            label: Text(context.l10n.successSaveReceipt),
           ),
-          icon: const Icon(Icons.download_outlined, size: 25),
-          label: Text(context.l10n.successSaveReceipt),
         ),
       ),
     );
   }
+}
+
+String _successProductLabel(BuildContext context, String configuredLabel) {
+  final configured = configuredLabel.trim();
+  if (configured.isNotEmpty) return configured;
+  final localized = context.l10n.successLotteryProductLabel.trim();
+  if (localized.isNotEmpty) return localized;
+  return context.l10n.ticketStubSeriesLabel.trim();
 }
 
 class _SuccessPrimaryActionButton extends StatelessWidget {
@@ -851,12 +866,11 @@ class _SuccessReceiptHeader extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 14),
                 color: colorScheme.outlineVariant,
               ),
-              Text(
-                productLabel.trim(),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w900,
-                    ),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: _SuccessProductMark(label: productLabel.trim()),
+                ),
               ),
             ],
           ],
@@ -889,6 +903,43 @@ class _SuccessReceiptHeader extends StatelessWidget {
         Text(
           l10n.successPurchaseSubtitle,
           textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class _SuccessProductMark extends StatelessWidget {
+  const _SuccessProductMark({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: colorScheme.primary,
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                height: 1,
+                letterSpacing: 0,
+              ),
+        ),
+        Transform.translate(
+          offset: const Offset(-5, 1),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.tertiary,
+              shape: BoxShape.circle,
+            ),
+            child: const SizedBox.square(dimension: 8),
+          ),
         ),
       ],
     );

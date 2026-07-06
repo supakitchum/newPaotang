@@ -874,10 +874,11 @@ Acceptance evidence for every screen group:
   payout parsing, and navigation behavior were unchanged.
 - Current Reward Claims detail title/brand note:
   `/reward-claims/{claim_id}` now uses Nuxt's exact Thai header title
-  `รายละเอียดการขึ้นเงินรางวัล`, and the receipt brand mark falls back from
-  runtime `ticket_image_watermark` to runtime `lottery_product_label` before
-  using the tenant-brand fallback. This keeps receipt branding runtime-driven
-  without hardcoded provider copy.
+  `รายละเอียดการขึ้นเงินรางวัล`, and the receipt brand mark now keeps the
+  Nuxt 42px circular `reward-lottery-logo` rhythm by resolving localized
+  lottery-office abbreviation copy first, then runtime `lottery_product_label`
+  or `ticket_image_watermark` if needed. Long runtime labels scale inside the
+  42px circle instead of widening the receipt header.
 - Current Reward Claims runtime-theme note: history row titles, prize/payout/date
   copy, list separators, loading/empty/inline-error states, detail receipt
   labels, money separators, discounted tax/fee helper copy, and neutral
@@ -1919,6 +1920,10 @@ Acceptance evidence for every screen group:
   runtime-primary, the total row separates the emphasized amount from the baht
   unit, the save action sits at the Nuxt `mt-4` distance below the receipt, and
   the Tickets CTA uses the same large lower spacing as the source page.
+  Success receipt header product mark now stays visible through runtime
+  bootstrap/localized fallback copy with the Nuxt yellow-dot accent, and the
+  save pill now uses the source `w-50` responsive width instead of a fixed
+  Flutter width.
   `/checkout/pending` now tightens the pending card padding/icon/action
   heights, uses the shared Nuxt-like gradient primary pill for open-payment/
   view-receipt actions plus the shared outline pill for refresh, and derives
@@ -2009,10 +2014,19 @@ Acceptance evidence for every screen group:
   compact centered width instead of default Material outlined buttons.
   `/stores` also tightens the Nuxt `search-box mb-5` spacing and store-row
   details: 40px runtime-themed shop mark, 20px bold store names, matching
-  skeleton icon width, lighter filter/search text weight, and Nuxt-like
+  skeleton icon width, section-title sizing/weight, lighter filter text weight,
+  and Nuxt-like
   text-link treatment for store-scoped "ดูเลขนี้เพิ่ม". Search, refresh,
   pagination, reservation toggles, cart review, and route behavior were
   unchanged; no widget/screenshot tests were added.
+- Current Revenue Checkout wallet-card micro-parity note: Checkout wallet/
+  payment method rows now follow Nuxt `wallet-card` structure more closely by
+  keeping the selector at `fs-3` scale, restoring the `gap-3` spacing before
+  the copy column, rendering wallet name/balance at Nuxt `fs-5 fw-bold`
+  weight, placing the top-up `outline-pill` under the wallet balance instead
+  of as a separate wide-row action, and matching the 55px rounded wallet mark.
+  Wallet/external payment selection, topup return path, submit behavior, and
+  payment handoff were unchanged; no widget/screenshot tests were added.
 - Current Revenue payment-dock note: Buy/Search/More and store-scoped floating
   review docks, Home's floating selection dock, Cart's fixed payment dock, and
   Checkout's fixed confirm dock now track Nuxt `PaymentDock` structure more

@@ -1560,11 +1560,13 @@ Recent verified work:
     hero plus rounded content-sheet rhythm as the rest of the revenue payment
     flow instead of the generic AppBar/list wrapper. `/success` now uses a
     full-screen Nuxt-like success background with runtime-themed gradient
-    accents, a compact 8px receipt card, centered white save pill, lower
-    primary Tickets CTA, and the existing Tickets bottom-nav target via a new
-    backward-compatible `AppShell.fullScreen` option. Receipt loading/error,
-    save clipboard behavior, pending polling, paid-order redirect, and route
-    behavior were unchanged; no widget/screenshot tests were added.
+    accents, a compact 8px receipt card, product mark with runtime/localized
+    fallback plus Nuxt yellow-dot accent, centered white save pill that follows
+    the source `w-50` responsive width, lower primary Tickets CTA, and the
+    existing Tickets bottom-nav target via a new backward-compatible
+    `AppShell.fullScreen` option. Receipt loading/error, save clipboard
+    behavior, pending polling, paid-order redirect, and route behavior were
+    unchanged; no widget/screenshot tests were added.
   - Home structural parity advanced under the UX/UI-first test-light cadence:
     Home now opts into the `AppShell.fullScreen` path so the first viewport
     starts with the Nuxt-like revenue hero instead of a generic Flutter AppBar.
@@ -1656,10 +1658,11 @@ Recent verified work:
   - Stores list-state micro-parity advanced under the UX/UI-first test-light
     cadence: `/stores` now restores the Nuxt `FilterPills` rail below the
     recommended-store heading, Store and store-scoped stock headings now use
-    Nuxt `section-title` sizing/spacing, store empty results render as centered
-    muted sheet text instead of a framed card, store-scoped lottery refresh uses
-    the Nuxt-like `outline-pill` treatment, store lottery empty results use the
-    same sheet empty rhythm, and store sale-closed status now uses the compact
+    Nuxt `section-title` sizing/spacing/weight, store filter pills now use the
+    lighter Nuxt pill label weight, store empty results render as centered muted
+    sheet text instead of a framed card, store-scoped lottery refresh uses the
+    Nuxt-like `outline-pill` treatment, store lottery empty results use the same
+    sheet empty rhythm, and store sale-closed status now uses the compact
     alert-bar treatment. Store search, pagination, store-list skeletons, retry
     errors, reservation toggles, realtime refresh, cart sync, and route behavior
     were unchanged; no widget/screenshot tests were added.
@@ -1668,6 +1671,10 @@ Recent verified work:
     muted-copy plus green-pill add-more rhythm more closely, with matching
     spacing after ticket rows, and Checkout's payment-method heading now uses
     Nuxt-like `fs-5` weight and bottom spacing before the wallet/payment card.
+    Checkout wallet/payment method rows now also keep the Nuxt `gap-3` selector
+    rhythm, `fs-5 fw-bold` wallet name/balance, inline-under-balance topup
+    `outline-pill`, and 55px rounded wallet mark instead of the earlier
+    Flutter-wide action placement.
     Cart grouping, remove confirmation, checkout methods, payment submission,
     topup return path, and route behavior were unchanged; no widget/screenshot
     tests were added.
@@ -2147,16 +2154,16 @@ Recent verified work:
     pills were also tightened to the Nuxt 13px note and 160px text-pill rhythm.
     This was a visual/edge parity slice, so no new tests were added under the
     test-light cadence.
-  - Reward claim detail receipt branding now uses the runtime
-    `ticket_image_watermark` from mobile bootstrap as the Nuxt-style receipt
-    mark instead of a hardcoded lottery logo, with widget coverage.
+  - Reward claim detail receipt branding now keeps Nuxt's fixed 42px circular
+    `reward-lottery-logo` rhythm by resolving localized lottery-office
+    abbreviation copy first, then runtime `lottery_product_label` or
+    `ticket_image_watermark` as fallback. Long runtime labels scale inside the
+    circle instead of widening the receipt brand row.
   - Reward claim detail copy/branding parity advanced under the UX/UI-first
     reduced-test cadence: `/reward-claims/{claim_id}` now uses Nuxt's exact
     Thai header title `รายละเอียดการขึ้นเงินรางวัล`, and the receipt brand mark
-    falls back from runtime `ticket_image_watermark` to runtime
-    `lottery_product_label` before using the tenant-brand fallback. This keeps
-    reward receipts aligned with runtime product configuration without
-    hardcoding lottery/provider copy.
+    stays aligned to the source receipt logo size while preserving runtime/
+    localized fallback copy without hardcoding provider values.
   - Reward claim parsing now accepts backend and legacy payout variants for
     `payout_ledger_id`, top-level bank names/account numbers, nested
     `bank_account`/`payout_bank_account` objects, and `wallet`/`payout_wallet`

@@ -3914,64 +3914,17 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                         key: ValueKey(
                           'checkout-payment-method-selector-$method',
                         ),
+                        size: 28,
                         color: selected
                             ? colorScheme.primary
                             : colorScheme.onSurfaceVariant,
-                      );
-                      final copy = Column(
-                        crossAxisAlignment: compact
-                            ? CrossAxisAlignment.stretch
-                            : CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: walletMethod
-                                  ? colorScheme.onSurface
-                                  : colorScheme.onSurfaceVariant,
-                              fontWeight: walletMethod
-                                  ? FontWeight.w900
-                                  : FontWeight.w700,
-                            ),
-                          ),
-                          if (walletMethod &&
-                              !walletLoading &&
-                              walletError.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              walletError,
-                              style: TextStyle(
-                                color: colorScheme.error,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ] else if (walletMethod &&
-                              !walletLoading &&
-                              !enoughBalance) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              l10n.checkoutInsufficientTitle,
-                              style: TextStyle(
-                                color: colorScheme.error,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ],
                       );
                       final topupAction = walletMethod
                           ? OutlinedButton.icon(
                               onPressed: onTopup,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: colorScheme.primary,
-                                minimumSize: const Size(0, 38),
+                                minimumSize: const Size(0, 40),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 14,
                                   vertical: 9,
@@ -3984,14 +3937,69 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                                   ),
                                 ),
                                 shape: const StadiumBorder(),
-                                textStyle: theme.textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                textStyle: theme.textTheme.labelLarge
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               icon: const Icon(Icons.add, size: 18),
                               label: Text(l10n.homeActionTopup),
                             )
                           : null;
+                      final copy = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: 20,
+                              color: walletMethod
+                                  ? colorScheme.onSurface
+                                  : colorScheme.onSurfaceVariant,
+                              fontWeight: walletMethod
+                                  ? FontWeight.w700
+                                  : FontWeight.w700,
+                              height: 1.2,
+                            ),
+                          ),
+                          if (walletMethod &&
+                              !walletLoading &&
+                              walletError.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              walletError,
+                              style: TextStyle(
+                                color: colorScheme.error,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ] else if (walletMethod &&
+                              !walletLoading &&
+                              !enoughBalance) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.checkoutInsufficientTitle,
+                              style: TextStyle(
+                                color: colorScheme.error,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                          if (topupAction != null) ...[
+                            const SizedBox(height: 8),
+                            topupAction,
+                          ],
+                        ],
+                      );
                       final markText = walletMethod
                           ? _checkoutWalletMethodMark(walletName)
                           : '';
@@ -4000,7 +4008,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                           color: selected
                               ? colorScheme.primary
                               : colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: SizedBox.square(
                           dimension: 55,
@@ -4040,19 +4048,12 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 selector,
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 16),
                                 Expanded(child: copy),
                                 const SizedBox(width: 12),
                                 methodMark,
                               ],
                             ),
-                            if (topupAction != null) ...[
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: topupAction,
-                              ),
-                            ],
                           ],
                         );
                       }
@@ -4061,12 +4062,8 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           selector,
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 16),
                           Expanded(child: copy),
-                          if (topupAction != null) ...[
-                            const SizedBox(width: 12),
-                            topupAction,
-                          ],
                           const SizedBox(width: 12),
                           methodMark,
                         ],

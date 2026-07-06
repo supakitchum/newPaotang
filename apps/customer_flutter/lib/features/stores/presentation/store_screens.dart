@@ -275,8 +275,8 @@ class _StoreSectionHeader extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
                   height: 1.12,
                 ),
           ),
@@ -434,7 +434,7 @@ class _StoreFilterPill extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: foreground,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
               ),
             ],
@@ -568,7 +568,10 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w900),
+                                ?.copyWith(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                           if (_drawDateLabel.isNotEmpty) ...[
                             const SizedBox(height: 4),

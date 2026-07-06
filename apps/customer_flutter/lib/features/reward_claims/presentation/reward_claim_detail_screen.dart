@@ -98,11 +98,13 @@ class _RewardClaimReceipt extends ConsumerWidget {
     final statusColor = _statusColor(context, claim);
     final receiptMark = ref.watch(mobileBootstrapProvider).maybeWhen(
           data: (data) {
-            final watermark = data.ticketImageWatermark.trim();
-            if (watermark.isNotEmpty) return watermark;
-            return data.lotteryProductLabel.trim();
+            final officeAbbr = context.l10n.contentRewardTermsOfficeAbbr.trim();
+            if (officeAbbr.isNotEmpty) return officeAbbr;
+            final productLabel = data.lotteryProductLabel.trim();
+            if (productLabel.isNotEmpty) return productLabel;
+            return data.ticketImageWatermark.trim();
           },
-          orElse: () => '',
+          orElse: () => context.l10n.contentRewardTermsOfficeAbbr.trim(),
         );
     return ColoredBox(
       color: Theme.of(context).colorScheme.surface,
@@ -208,27 +210,33 @@ class _ReceiptBrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minWidth: 42, maxWidth: 76),
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.22),
+    return SizedBox.square(
+      dimension: 42,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.22),
+          ),
         ),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
             ),
+          ),
+        ),
       ),
     );
   }
