@@ -1416,12 +1416,12 @@ class _StoreLotteriesHero extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       key: const ValueKey('store-lotteries-hero'),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-        ),
+      decoration: _storeSurfaceDecoration(
+        context,
+        borderRadius: BorderRadius.circular(12),
+        borderColor: Colors.transparent,
+        shadowAlpha: 0.09,
+        blurRadius: 22,
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1432,14 +1432,14 @@ class _StoreLotteriesHero extends StatelessWidget {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
+                    color: colorScheme.primary,
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Icon(
                       Icons.storefront_outlined,
-                      color: colorScheme.onPrimaryContainer,
+                      color: colorScheme.onPrimary,
                       size: 26,
                     ),
                   ),
@@ -1453,10 +1453,10 @@ class _StoreLotteriesHero extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: colorScheme.surface,
-                        width: 2,
+                        width: 1.5,
                       ),
                     ),
-                    child: const SizedBox.square(dimension: 12),
+                    child: const SizedBox.square(dimension: 10),
                   ),
                 ),
               ],
@@ -1477,7 +1477,7 @@ class _StoreLotteriesHero extends StatelessWidget {
               Icons.favorite_border,
               key: const ValueKey('store-lotteries-hero-favorite'),
               color: colorScheme.onSurfaceVariant,
-              size: 28,
+              size: 32,
             ),
           ],
         ),
@@ -1555,15 +1555,25 @@ class _StoreLotterySearchActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 380;
-        final searchButton = FilledButton(
-          onPressed: onSearch,
-          child: Text(l10n.lotterySearchButton),
+        final searchButton = DecoratedBox(
+          decoration: _storeDockButtonDecoration(context),
+          child: FilledButton(
+            onPressed: onSearch,
+            style: _storeDockButtonStyle(context, fontSize: 17).copyWith(
+              overlayColor: WidgetStatePropertyAll(
+                colorScheme.onPrimary.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Text(l10n.lotterySearchButton),
+          ),
         );
-        final clearButton = OutlinedButton(
+        final clearButton = TextButton(
           onPressed: onClear,
+          style: _storeTextLinkButtonStyle(context),
           child: Text(l10n.lotteryClearButton),
         );
 
@@ -1571,18 +1581,18 @@ class _StoreLotterySearchActions extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(height: 50, child: searchButton),
-              const SizedBox(height: 10),
-              SizedBox(height: 48, child: clearButton),
+              SizedBox(height: 54, child: searchButton),
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.center, child: clearButton),
             ],
           );
         }
 
         return Row(
           children: [
-            Expanded(child: SizedBox(height: 50, child: searchButton)),
-            const SizedBox(width: 10),
-            SizedBox(height: 50, child: clearButton),
+            Expanded(child: SizedBox(height: 54, child: searchButton)),
+            const SizedBox(width: 14),
+            clearButton,
           ],
         );
       },
@@ -2180,39 +2190,63 @@ BoxDecoration _storeSurfaceDecoration(
   );
 }
 
-BoxDecoration _storeDockButtonDecoration(BuildContext context) {
+BoxDecoration _storeDockButtonDecoration(
+  BuildContext context, {
+  bool enabled = true,
+}) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
-    gradient: LinearGradient(
-      colors: [
-        colorScheme.primary,
-        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
-            colorScheme.primary,
-      ],
-    ),
+    gradient: enabled
+        ? LinearGradient(
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
+                  colorScheme.primary,
+            ],
+          )
+        : null,
+    color: enabled ? null : colorScheme.surfaceContainerHighest,
     borderRadius: BorderRadius.circular(999),
-    boxShadow: [
-      BoxShadow(
-        color: colorScheme.primary.withValues(alpha: 0.22),
-        blurRadius: 20,
-        offset: const Offset(0, 10),
-      ),
-    ],
+    boxShadow: enabled
+        ? [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.22),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ]
+        : null,
   );
 }
 
-ButtonStyle _storeDockButtonStyle(BuildContext context) {
+ButtonStyle _storeDockButtonStyle(
+  BuildContext context, {
+  double fontSize = 20,
+}) {
   final colorScheme = Theme.of(context).colorScheme;
   return FilledButton.styleFrom(
     backgroundColor: Colors.transparent,
+    disabledBackgroundColor: Colors.transparent,
     foregroundColor: colorScheme.onPrimary,
+    disabledForegroundColor: colorScheme.onSurfaceVariant,
     shadowColor: Colors.transparent,
     padding: const EdgeInsets.symmetric(horizontal: 18),
     shape: const StadiumBorder(),
     textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontSize: 20,
+          fontSize: fontSize,
           fontWeight: FontWeight.w900,
           height: 1.1,
         ),
+  );
+}
+
+ButtonStyle _storeTextLinkButtonStyle(BuildContext context) {
+  return TextButton.styleFrom(
+    foregroundColor: Theme.of(context).colorScheme.primary,
+    minimumSize: const Size(0, 36),
+    padding: EdgeInsets.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    textStyle: const TextStyle(fontWeight: FontWeight.w700),
   );
 }

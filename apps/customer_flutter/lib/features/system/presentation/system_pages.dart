@@ -487,86 +487,80 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
             const SizedBox(height: 12),
           ],
           if (item != null) ...[
-            _SuccessReceiptActionRow(
-              saveButton: OutlinedButton.icon(
-                onPressed: () async {
-                  final l10n = context.l10n;
-                  final receiptText = successReceiptClipboardText(
-                    context,
-                    item,
-                  );
-                  await Clipboard.setData(
-                    ClipboardData(
-                      text: receiptText,
-                    ),
-                  );
-                  if (!context.mounted) return;
-                  _showReceiptNotice(l10n.successReceiptSaved, success: true);
-                },
-                icon: const Icon(Icons.download_outlined),
-                label: Text(context.l10n.successSaveReceipt),
-              ),
-              shareButton: OutlinedButton.icon(
-                onPressed: () async {
-                  final l10n = context.l10n;
-                  final receiptText = successReceiptClipboardText(
-                    context,
-                    item,
-                  );
-                  Uint8List? imageBytes;
-                  Uint8List? pdfBytes;
-                  try {
-                    imageBytes = await ref
-                        .read(receiptImageExporterProvider)
-                        .capturePng(receiptBoundaryKey);
-                  } catch (_) {
-                    imageBytes = null;
-                  }
-                  if (imageBytes != null) {
-                    try {
-                      pdfBytes = await ref
-                          .read(receiptPdfExporterProvider)
-                          .buildPdf(imageBytes: imageBytes);
-                    } catch (_) {
-                      pdfBytes = null;
-                    }
-                  }
-                  try {
-                    await ref.read(receiptShareServiceProvider).shareReceipt(
-                          text: receiptText,
-                          subject: l10n.successPurchaseTitle,
-                          imageBytes: imageBytes,
-                          fileName: imageBytes == null
-                              ? null
-                              : successReceiptImageFileName(item),
-                          pdfBytes: pdfBytes,
-                          pdfFileName: pdfBytes == null
-                              ? null
-                              : successReceiptPdfFileName(item),
-                        );
-                    if (!context.mounted) return;
-                    _showReceiptNotice(
-                      l10n.successReceiptShareStarted,
-                      success: true,
-                    );
-                  } catch (_) {
-                    await Clipboard.setData(ClipboardData(text: receiptText));
-                    if (!context.mounted) return;
-                    _showReceiptNotice(
-                      l10n.successReceiptShareFailedCopied,
-                    );
-                  }
-                },
-                icon: const Icon(Icons.ios_share_outlined),
-                label: Text(context.l10n.successShareReceipt),
-              ),
+            _SuccessReceiptSaveAction(
+              onPressed: () async {
+                final l10n = context.l10n;
+                final receiptText = successReceiptClipboardText(
+                  context,
+                  item,
+                );
+                await Clipboard.setData(
+                  ClipboardData(
+                    text: receiptText,
+                  ),
+                );
+                if (!context.mounted) return;
+                _showReceiptNotice(l10n.successReceiptSaved, success: true);
+              },
             ),
-            const SizedBox(height: 96),
+            const SizedBox(height: 10),
+            _SuccessReceiptShareAction(
+              onPressed: () async {
+                final l10n = context.l10n;
+                final receiptText = successReceiptClipboardText(
+                  context,
+                  item,
+                );
+                Uint8List? imageBytes;
+                Uint8List? pdfBytes;
+                try {
+                  imageBytes = await ref
+                      .read(receiptImageExporterProvider)
+                      .capturePng(receiptBoundaryKey);
+                } catch (_) {
+                  imageBytes = null;
+                }
+                if (imageBytes != null) {
+                  try {
+                    pdfBytes = await ref
+                        .read(receiptPdfExporterProvider)
+                        .buildPdf(imageBytes: imageBytes);
+                  } catch (_) {
+                    pdfBytes = null;
+                  }
+                }
+                try {
+                  await ref.read(receiptShareServiceProvider).shareReceipt(
+                        text: receiptText,
+                        subject: l10n.successPurchaseTitle,
+                        imageBytes: imageBytes,
+                        fileName: imageBytes == null
+                            ? null
+                            : successReceiptImageFileName(item),
+                        pdfBytes: pdfBytes,
+                        pdfFileName: pdfBytes == null
+                            ? null
+                            : successReceiptPdfFileName(item),
+                      );
+                  if (!context.mounted) return;
+                  _showReceiptNotice(
+                    l10n.successReceiptShareStarted,
+                    success: true,
+                  );
+                } catch (_) {
+                  await Clipboard.setData(ClipboardData(text: receiptText));
+                  if (!context.mounted) return;
+                  _showReceiptNotice(
+                    l10n.successReceiptShareFailedCopied,
+                  );
+                }
+              },
+            ),
           ],
-          FilledButton.icon(
+          const SizedBox(height: 176),
+          _SuccessPrimaryActionButton(
             onPressed: () => context.go('/tickets'),
-            icon: const Icon(Icons.confirmation_number_outlined),
-            label: Text(context.l10n.successViewTickets),
+            label: context.l10n.successViewTickets,
           ),
         ],
       );
@@ -593,8 +587,8 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
             statusContent: _SuccessReceiptStatusMessage(
               message: context.l10n.successPaymentLoadFailed,
               icon: Icons.error_outline,
-              actionLabel: context.l10n.commonRetry,
-              onAction: () => ref.invalidate(purchaseHistoryDetailProvider(id)),
+              actionLabel: context.l10n.successViewTickets,
+              onAction: () => context.go('/tickets'),
             ),
           );
         },
@@ -691,61 +685,110 @@ class _SuccessPageList extends StatelessWidget {
   }
 }
 
-class _SuccessReceiptActionRow extends StatelessWidget {
-  const _SuccessReceiptActionRow({
-    required this.saveButton,
-    required this.shareButton,
-  });
+class _SuccessReceiptSaveAction extends StatelessWidget {
+  const _SuccessReceiptSaveAction({required this.onPressed});
 
-  final Widget saveButton;
-  final Widget shareButton;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final buttonStyle = OutlinedButton.styleFrom(
-      backgroundColor: colorScheme.surface,
-      foregroundColor: colorScheme.primary,
-      minimumSize: const Size.fromHeight(52),
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      shape: const StadiumBorder(),
-      side: BorderSide(color: colorScheme.surface.withValues(alpha: 0.92)),
-      textStyle: const TextStyle(fontWeight: FontWeight.w800),
-    );
-    Widget styled(Widget child) {
-      if (child is OutlinedButton) {
-        return OutlinedButton(
-          onPressed: child.onPressed,
-          style: buttonStyle,
-          child: child.child,
-        );
-      }
-      return child;
-    }
-
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 330) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  styled(saveButton),
-                  const SizedBox(height: 10),
-                  styled(shareButton),
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: styled(saveButton)),
-                const SizedBox(width: 10),
-                Expanded(child: styled(shareButton)),
-              ],
-            );
-          },
+      child: SizedBox(
+        width: 216,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: colorScheme.surface,
+            foregroundColor: colorScheme.primary,
+            minimumSize: const Size.fromHeight(54),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape: const StadiumBorder(),
+            side: BorderSide.none,
+            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          icon: const Icon(Icons.download_outlined, size: 25),
+          label: Text(context.l10n.successSaveReceipt),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessReceiptShareAction extends StatelessWidget {
+  const _SuccessReceiptShareAction({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: SizedBox(
+        width: 216,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: colorScheme.surface,
+            minimumSize: const Size.fromHeight(48),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape: const StadiumBorder(),
+            side: BorderSide(color: colorScheme.surface.withValues(alpha: 0.7)),
+            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          icon: const Icon(Icons.ios_share_outlined, size: 22),
+          label: Text(context.l10n.successShareReceipt),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessPrimaryActionButton extends StatelessWidget {
+  const _SuccessPrimaryActionButton({
+    required this.onPressed,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final secondary =
+        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.72) ??
+            colorScheme.secondary;
+    return SizedBox(
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [secondary, colorScheme.primary]),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.22),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: colorScheme.onPrimary,
+            shadowColor: Colors.transparent,
+            minimumSize: const Size.fromHeight(56),
+            shape: const StadiumBorder(),
+            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          ).copyWith(
+            overlayColor: WidgetStatePropertyAll(
+              colorScheme.onPrimary.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Text(label, textAlign: TextAlign.center),
         ),
       ),
     );
@@ -769,51 +812,56 @@ class _SuccessReceiptCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: _successReceiptSurfaceDecoration(context),
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            _SuccessReceiptHeader(productLabel: productLabel),
-            if (item != null) ...[
-              const Divider(height: 30),
-              _ReceiptRow(
-                label: l10n.purchaseHistoryTicketCountLabel,
-                value: l10n.purchaseHistoryTicketCount(item!.ticketCount),
-              ),
-              _ReceiptRow(
-                label: l10n.purchaseHistoryDrawDateLabel,
-                value: localizedPurchaseDrawDate(context, item!),
-              ),
-              const Divider(height: 24),
-              _ReceiptRow(
-                label: l10n.purchaseHistoryPayeeLabel,
-                value: localizedPurchaseStoreName(context, item!),
-              ),
-              _ReceiptRow(
-                label: l10n.purchaseHistoryPaymentChannelLabel,
-                value: _successPaymentChannelText(context, item!),
-              ),
-              const Divider(height: 24),
-              _SuccessTotalRow(total: item!.total),
-              const SizedBox(height: 8),
-              Text(
-                [
-                  '${l10n.successTransactionAtLabel} '
-                      '${localizedPurchaseTransactionDate(context, item!)}',
-                  '${l10n.purchaseHistoryReferenceLabel} '
-                      '${item!.displayReference}',
-                ].join('\n'),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ] else if (statusContent != null) ...[
-              const Divider(height: 30),
-              statusContent!,
+      child: CustomPaint(
+        painter: _SuccessReceiptStripePainter(
+          color: colorScheme.primary.withValues(alpha: 0.035),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+          child: Column(
+            children: [
+              _SuccessReceiptHeader(productLabel: productLabel),
+              if (item != null) ...[
+                const Divider(height: 30),
+                _ReceiptRow(
+                  label: l10n.purchaseHistoryTicketCountLabel,
+                  value: l10n.purchaseHistoryTicketCount(item!.ticketCount),
+                ),
+                _ReceiptRow(
+                  label: l10n.purchaseHistoryDrawDateLabel,
+                  value: localizedPurchaseDrawDate(context, item!),
+                ),
+                const Divider(height: 24),
+                _ReceiptRow(
+                  label: l10n.purchaseHistoryPayeeLabel,
+                  value: localizedPurchaseStoreName(context, item!),
+                ),
+                _ReceiptRow(
+                  label: l10n.purchaseHistoryPaymentChannelLabel,
+                  value: _successPaymentChannelText(context, item!),
+                ),
+                const Divider(height: 24),
+                _SuccessTotalRow(total: item!.total),
+                const SizedBox(height: 8),
+                Text(
+                  [
+                    '${l10n.successTransactionAtLabel} '
+                        '${localizedPurchaseTransactionDate(context, item!)}',
+                    '${l10n.purchaseHistoryReferenceLabel} '
+                        '${item!.displayReference}',
+                  ].join('\n'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ] else if (statusContent != null) ...[
+                const Divider(height: 30),
+                statusContent!,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -825,26 +873,37 @@ BoxDecoration _successReceiptSurfaceDecoration(BuildContext context) {
   return BoxDecoration(
     color: colorScheme.surface,
     borderRadius: BorderRadius.circular(8),
-    border:
-        Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        colorScheme.primary.withValues(alpha: 0.035),
-        colorScheme.surface,
-        colorScheme.surface,
-      ],
-      stops: const [0, 0.48, 1],
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: colorScheme.primary.withValues(alpha: 0.08),
-        blurRadius: 18,
-        offset: const Offset(0, 8),
-      ),
-    ],
   );
+}
+
+class _SuccessReceiptStripePainter extends CustomPainter {
+  const _SuccessReceiptStripePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    const stripeWidth = 28.0;
+    const stripeStep = 66.0;
+    final slant = size.height * 0.58;
+    for (var x = -slant - stripeWidth;
+        x < size.width + slant;
+        x += stripeStep) {
+      final path = Path()
+        ..moveTo(x, 0)
+        ..lineTo(x + stripeWidth, 0)
+        ..lineTo(x + stripeWidth + slant, size.height)
+        ..lineTo(x + slant, size.height)
+        ..close();
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SuccessReceiptStripePainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
 }
 
 class _SuccessReceiptHeader extends StatelessWidget {

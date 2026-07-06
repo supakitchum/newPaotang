@@ -304,7 +304,6 @@ class _HomePageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return ListView(
       padding: EdgeInsets.zero,
       children: [
@@ -317,17 +316,10 @@ class _HomePageList extends StatelessWidget {
               ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colorScheme.surface,
+                  color: _homeSheetColor(context),
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(34),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.08),
-                      blurRadius: 28,
-                      offset: const Offset(0, -8),
-                    ),
-                  ],
                 ),
                 child: CustomerPageBody(
                   top: 23,
@@ -703,7 +695,7 @@ class _HomeQuickActionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return DecoratedBox(
-      decoration: _homeSurfaceDecoration(context, radius: 14),
+      decoration: _homeSurfaceDecoration(context, radius: 16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
         child: Row(
@@ -750,7 +742,7 @@ class _HomeQuickAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => context.go(path),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -778,7 +770,7 @@ class _HomeQuickAction extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: _homeTitleColor(context),
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
               ),
             ],
@@ -798,10 +790,10 @@ class _HomeGuestPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: _homeSurfaceDecoration(context, radius: 12),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 390;
+            final compact = constraints.maxWidth < 520;
             final copy = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -809,42 +801,26 @@ class _HomeGuestPanel extends StatelessWidget {
                   l10n.homeGuestTitle,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: _homeTitleColor(context),
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   l10n.homeGuestSubtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: _homeBodyColor(context),
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        height: 1.35,
+                        height: 1.45,
                       ),
                 ),
               ],
             );
-            final actions = Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: compact ? WrapAlignment.start : WrapAlignment.end,
-              children: [
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(118, 42),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () => context.go('/login'),
-                  child: Text(l10n.loginTitle),
-                ),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(118, 42),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () => context.go('/register'),
-                  child: Text(l10n.registerTitle),
-                ),
-              ],
+            final actions = _HomeGuestActions(
+              compact: compact,
+              onLogin: () => context.go('/login'),
+              onRegister: () => context.go('/register'),
             );
 
             if (compact) {
@@ -859,7 +835,7 @@ class _HomeGuestPanel extends StatelessWidget {
             }
 
             return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: copy),
                 const SizedBox(width: 14),
@@ -868,6 +844,72 @@ class _HomeGuestPanel extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _HomeGuestActions extends StatelessWidget {
+  const _HomeGuestActions({
+    required this.compact,
+    required this.onLogin,
+    required this.onRegister,
+  });
+
+  final bool compact;
+  final VoidCallback onLogin;
+  final VoidCallback onRegister;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final primaryStyle = FilledButton.styleFrom(
+      minimumSize: const Size(118, 42),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      shape: const StadiumBorder(),
+      textStyle: const TextStyle(fontWeight: FontWeight.w900),
+      visualDensity: VisualDensity.compact,
+    );
+    final secondaryStyle = FilledButton.styleFrom(
+      backgroundColor: colorScheme.primary.withValues(alpha: 0.10),
+      foregroundColor: colorScheme.primary,
+      minimumSize: const Size(118, 42),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      shape: const StadiumBorder(),
+      textStyle: const TextStyle(fontWeight: FontWeight.w900),
+      visualDensity: VisualDensity.compact,
+    );
+    final login = FilledButton(
+      style: primaryStyle,
+      onPressed: onLogin,
+      child: Text(l10n.loginTitle),
+    );
+    final register = FilledButton(
+      style: secondaryStyle,
+      onPressed: onRegister,
+      child: Text(l10n.registerTitle),
+    );
+
+    if (compact) {
+      return Row(
+        children: [
+          Expanded(child: login),
+          const SizedBox(width: 8),
+          Expanded(child: register),
+        ],
+      );
+    }
+
+    return SizedBox(
+      width: 132,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          login,
+          const SizedBox(height: 8),
+          register,
+        ],
       ),
     );
   }
@@ -896,7 +938,7 @@ class _ActivitiesRail extends StatelessWidget {
               builder: (context, constraints) {
                 final cardWidth = _activityCardWidth(constraints.maxWidth);
                 return SizedBox(
-                  height: constraints.maxWidth < 380 ? 148 : 158,
+                  height: constraints.maxWidth < 380 ? 142 : 148,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     primary: false,
@@ -957,7 +999,9 @@ class _ActivityCard extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    width: width < 280 ? 96 : 124,
+                    width: width < 280
+                        ? 88
+                        : (width * 0.32).clamp(96.0, 128.0).toDouble(),
                     color: Theme.of(context).colorScheme.primaryContainer,
                     child: activity.imageUrl.isEmpty
                         ? _ActivityImageFallback(width: width)
@@ -973,7 +1017,7 @@ class _ActivityCard extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
                           Row(
                             children: [
@@ -1033,7 +1077,7 @@ class _ActivityCard extends StatelessWidget {
                                 ),
                           ),
                           if (activity.conditionText.trim().isNotEmpty) ...[
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 4),
                             Text(
                               activity.conditionText.trim(),
                               maxLines: 2,
@@ -1049,7 +1093,7 @@ class _ActivityCard extends StatelessWidget {
                                   ),
                             ),
                           ],
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 4),
                           Text(
                             activityMetaText(l10n, activity),
                             maxLines: 1,
@@ -1642,6 +1686,16 @@ List<CustomerWalletCardAction> _walletCardActions(BuildContext context) {
   ];
 }
 
+Color _homeSheetColor(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return Color.lerp(
+        colorScheme.surfaceContainerLowest,
+        colorScheme.surfaceContainerHighest,
+        0.42,
+      ) ??
+      colorScheme.surfaceContainerHighest;
+}
+
 BoxDecoration _homeSurfaceDecoration(
   BuildContext context, {
   required double radius,
@@ -1650,12 +1704,12 @@ BoxDecoration _homeSurfaceDecoration(
   return BoxDecoration(
     color: Theme.of(context).cardTheme.color ?? colorScheme.surface,
     border: Border.all(
-      color: colorScheme.outlineVariant.withValues(alpha: 0.82),
+      color: colorScheme.outlineVariant.withValues(alpha: 0.74),
     ),
     borderRadius: BorderRadius.circular(radius),
     boxShadow: [
       BoxShadow(
-        color: colorScheme.primary.withValues(alpha: 0.08),
+        color: colorScheme.shadow.withValues(alpha: 0.08),
         blurRadius: 24,
         offset: const Offset(0, 10),
       ),

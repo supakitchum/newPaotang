@@ -264,12 +264,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
                   const SizedBox(width: 12),
                   TextButton(
                     onPressed: _searching ? null : _clearDigits,
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(64, 36),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    style: _lotteryTextLinkButtonStyle(context),
                     child: Text(l10n.lotteryClearButton),
                   ),
                 ],
@@ -1150,7 +1145,7 @@ class _CartPaymentDock extends StatelessWidget {
           18,
           22,
           18,
-          22 + MediaQuery.paddingOf(context).bottom,
+          28 + MediaQuery.paddingOf(context).bottom,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1390,10 +1385,12 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
     return DecoratedBox(
       decoration: _lotterySurfaceDecoration(
         context,
-        borderColor: const Color(0xFFE7EDF5),
+        borderColor: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        blurRadius: 16,
+        shadowAlpha: 0.06,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1403,14 +1400,16 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: paid
                       ? colorScheme.primary.withValues(alpha: 0.10)
-                      : const Color(0xFFFFF7E8),
+                      : colorScheme.tertiaryContainer.withValues(alpha: 0.72),
                   shape: BoxShape.circle,
                 ),
                 child: SizedBox.square(
-                  dimension: 58,
+                  dimension: 62,
                   child: Icon(
                     paid ? Icons.check_rounded : Icons.pending_actions,
-                    color: paid ? colorScheme.primary : const Color(0xFFD17A00),
+                    color: paid
+                        ? colorScheme.primary
+                        : colorScheme.onTertiaryContainer,
                     size: paid ? 34 : 30,
                   ),
                 ),
@@ -1436,7 +1435,10 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
                 height: 1.45,
               ),
             ),
-            const Divider(height: 30, color: Color(0xFFE7EDF5)),
+            Divider(
+              height: 30,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.64),
+            ),
             _CheckoutPendingInfoRow(
               label: l10n.checkoutPendingReferenceLabel,
               value: order.displayReference,
@@ -1455,9 +1457,9 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
               FilledButton(
                 onPressed: onViewReceipt,
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(47),
+                  minimumSize: const Size.fromHeight(52),
                   shape: const StadiumBorder(),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 child: Text(l10n.checkoutPendingViewReceipt),
               )
@@ -1466,9 +1468,9 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
                 FilledButton(
                   onPressed: onOpenPayment,
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(47),
+                    minimumSize: const Size.fromHeight(52),
                     shape: const StadiumBorder(),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   child: Text(l10n.checkoutPendingOpenPayment),
                 ),
@@ -1477,7 +1479,7 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
               OutlinedButton(
                 onPressed: onRefresh,
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(45),
+                  minimumSize: const Size.fromHeight(50),
                   shape: const StadiumBorder(),
                   side: BorderSide(
                     color: colorScheme.primary.withValues(alpha: 0.34),
@@ -1570,19 +1572,29 @@ class _CheckoutPendingStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final value = _checkoutPendingStatusValue(order);
     final colors = switch (value) {
-      'paid' => (const Color(0xFFE5F9ED), const Color(0xFF058A3B)),
+      'paid' => (
+          colorScheme.primary.withValues(alpha: 0.12),
+          colorScheme.primary,
+        ),
       'failed' || 'cancelled' || 'rejected' => (
-          const Color(0xFFFFE8E8),
-          const Color(0xFFC62828),
+          colorScheme.errorContainer.withValues(alpha: 0.56),
+          colorScheme.error,
         ),
-      'expired' => (const Color(0xFFF1F3F7), const Color(0xFF6B7280)),
+      'expired' => (
+          colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
+          colorScheme.onSurfaceVariant,
+        ),
       'pending_payment' || 'pending' || 'processing' => (
-          const Color(0xFFFFF3DC),
-          const Color(0xFFB46500),
+          colorScheme.tertiaryContainer.withValues(alpha: 0.72),
+          colorScheme.onTertiaryContainer,
         ),
-      _ => (const Color(0xFFF1F3F7), const Color(0xFF6B7280)),
+      _ => (
+          colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
+          colorScheme.onSurfaceVariant,
+        ),
     };
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -2847,13 +2859,25 @@ class _LotterySearchActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: double.infinity,
-      height: 50,
-      child: FilledButton(
-        onPressed: searching ? null : onSearch,
-        child: Text(
-          searching ? l10n.lotterySearchLoading : l10n.lotterySearchButton,
+      height: 54,
+      child: DecoratedBox(
+        decoration: _lotteryDockButtonDecoration(
+          context,
+          enabled: !searching,
+        ),
+        child: FilledButton(
+          onPressed: searching ? null : onSearch,
+          style: _lotteryDockButtonStyle(context).copyWith(
+            overlayColor: WidgetStatePropertyAll(
+              colorScheme.onPrimary.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Text(
+            searching ? l10n.lotterySearchLoading : l10n.lotterySearchButton,
+          ),
         ),
       ),
     );
@@ -2953,6 +2977,7 @@ class _LotteryStockCard extends StatelessWidget {
                 ? null
                 : TextButton(
                     onPressed: () => context.push(morePath),
+                    style: _lotteryTextLinkButtonStyle(context),
                     child: Text(l10n.lotteryViewMore),
                   );
             final brandHeader = compact
@@ -3218,6 +3243,7 @@ class _LotteryFilterPills extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -3231,19 +3257,19 @@ class _LotteryFilterPills extends StatelessWidget {
           _LotteryFilterPill(
             label: l10n.lotteryFilterDiscount,
             icon: Icons.keyboard_double_arrow_down,
-            iconColor: Colors.red.shade600,
+            iconColor: colorScheme.error,
           ),
           const SizedBox(width: 12),
           _LotteryFilterPill(
             label: l10n.lotteryFilterAccessibleStore,
             icon: Icons.accessible_forward,
-            iconColor: Colors.red.shade600,
+            iconColor: colorScheme.error,
           ),
           const SizedBox(width: 12),
           _LotteryFilterPill(
             label: l10n.lotteryFilterAgencyStore,
             icon: Icons.groups_2_outlined,
-            iconColor: Colors.amber.shade800,
+            iconColor: colorScheme.tertiary,
           ),
         ],
       ),
@@ -3524,6 +3550,8 @@ class _CheckoutHeroSummaryCard extends StatelessWidget {
       decoration: _lotterySurfaceDecoration(
         context,
         borderColor: Colors.transparent,
+        shadowAlpha: 0.09,
+        blurRadius: 22,
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -3582,10 +3610,23 @@ class _CheckoutProductSummary extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 14),
         child: Row(
           children: [
-            const TenantBrandHeader(
-              showName: false,
-              size: 48,
-              icon: Icons.confirmation_number_outlined,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.78),
+                ),
+              ),
+              child: const SizedBox.square(
+                dimension: 48,
+                child: Center(
+                  child: TenantBrandHeader(
+                    showName: false,
+                    size: 44,
+                    icon: Icons.confirmation_number_outlined,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -4979,6 +5020,19 @@ ButtonStyle _lotteryDockButtonStyle(
           fontWeight: FontWeight.w900,
           height: 1.1,
         ),
+  );
+}
+
+ButtonStyle _lotteryTextLinkButtonStyle(BuildContext context) {
+  return TextButton.styleFrom(
+    foregroundColor: Theme.of(context).colorScheme.primary,
+    minimumSize: const Size(0, 36),
+    padding: EdgeInsets.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    textStyle: const TextStyle(
+      fontWeight: FontWeight.w700,
+    ),
   );
 }
 
