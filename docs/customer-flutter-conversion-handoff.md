@@ -1051,11 +1051,8 @@ Recent verified work:
     dot, store name, and heart marker instead of the earlier Flutter
     Card/ListTile hero with duplicated subtitle copy.
   - `/stores/lotteries` now auto-loads the next stock page when customers scroll
-    near the bottom, matching Nuxt's store-scoped stock browsing while
-    preserving the manual load-more fallback.
-  - `/stores/lotteries` fallback pagination now matches the text-only Nuxt
-    direction by removing the Flutter-only expand/spinner icon while still
-    loading the next cursor page when auto-scroll is not triggered.
+    near the bottom, matching Nuxt's store-scoped stock browsing without a
+    Flutter-only visible load-more fallback.
   - `/stores/lotteries` now shares the Nuxt-style lottery skeleton cards during
     initial and next-page stock loading instead of falling back to spinner-only
     loading states.
@@ -1102,12 +1099,12 @@ Recent verified work:
     Flutter-only leading section icon, and renders store/skeleton rows as
     72px divider rows instead of bordered rounded cards.
   - `/stores` now auto-loads the next store page when customers scroll near the
-    bottom, matching Nuxt's infinite store browsing while preserving the manual
-    load-more fallback.
+    bottom, matching Nuxt's infinite store browsing without a Flutter-only
+    visible load-more fallback.
   - `/stores` now renders Nuxt-style placeholder store rows during initial and
     next-page loading instead of a spinner-only store browsing state.
-  - `/stores` fallback pagination now uses the same text-only outline
-    "โหลดเพิ่มเติม" control without a Flutter-only expand/spinner icon.
+  - `/stores` now keeps next-page loading visual-only with Nuxt-style skeleton
+    rows instead of rendering a Flutter-only "โหลดเพิ่มเติม" control.
   - `/stores` and `/stores/lotteries` load failures now preserve backend API
     payload messages on customer recovery cards while internal/client
     exceptions stay on localized retry fallback copy.
@@ -1123,15 +1120,14 @@ Recent verified work:
     tapping "แสดงเลขใหม่" reloads the list, then disables the button with a
     10-second countdown while search and more-number refresh remain available.
   - Stock result lists auto-load the next page when the user is near the bottom,
-    matching the Nuxt infinite-list behavior while keeping the existing load
-    more button fallback.
+    matching the Nuxt infinite-list behavior without rendering a Flutter-only
+    visible load-more fallback.
   - Buy/search stock result lists now render Nuxt-style lottery skeleton cards
     during initial and next-page loading instead of a spinner-only loading
     state.
-  - Buy/search stock list fallback pagination now uses a text-only outline
-    "โหลดเพิ่มเติม" control without the earlier Flutter-only expand/spinner
-    icon, while still loading the next cursor page when auto-scroll is not
-    triggered.
+  - Buy/search stock list next-page loading now follows Nuxt infinite-scroll:
+    cursor pages load from scroll and only skeleton rows appear while loading,
+    without the earlier Flutter-only "โหลดเพิ่มเติม" button.
   - Buy/search and `/stores/lotteries` reservation races now match Nuxt's
     sold-ticket handling: backend `reservation_unavailable` refreshes the cart
     quietly, shows the localized "สลากใบนี้ถูกซื้อแล้ว" acknowledgement dialog,
@@ -1152,9 +1148,10 @@ Recent verified work:
     unsafe or direct-entry back paths.
   - `/buy/more` now matches the Nuxt compact number-list surface more closely:
     the content header shows "รายการสลากฯ" plus spaced "สลากฯ เลข ..." text
-    instead of an extra card, suppresses filter/more/refresh controls, keeps
-    the same-number search unseeded, and has compact-mobile regression coverage
-    for overflow-free rendering.
+    instead of an extra card, uses a transparent no-ripple close affordance like
+    Nuxt `icon-back-button`, suppresses the duplicate stock-list heading plus
+    filter/more/refresh controls, keeps the same-number search unseeded, and has
+    compact-mobile regression coverage for overflow-free rendering.
   - `/buy/more` same-number pagination now has Nuxt-style infinite-scroll
     coverage: scrolling near the bottom loads the next cursor page, keeps the
     store context, and continues to omit `random_seed` so more-number ordering
@@ -1433,8 +1430,7 @@ Recent verified work:
     prefixes.
   - Buy/search and store-scoped stock pagination now accepts legacy
     boolean/numeric/string `has_more` aliases, so `true`, `1`, and `"1"` keep
-    infinite/fallback load-more behavior active instead of prematurely stopping
-    result paging.
+    infinite-scroll paging active instead of prematurely stopping result paging.
   - Stock availability parsing now normalizes Buy/search and store-scoped
     availability statuses case-insensitively and treats unavailable aliases
     such as `SOLD_OUT`, `Booked`, `unavailable`, `recalled`, and `voided` as
@@ -1679,10 +1675,11 @@ Recent verified work:
     test-light cadence: the stock refresh action now uses a Nuxt-like
     `outline-pill` treatment, empty lottery results now render as the centered
     muted `empty-lottery-state` style inside the sheet instead of a framed
-    Flutter message card, and sale-closed browsing notice now uses a compact
-    Nuxt-like alert bar. Retry errors, reservation toggles, realtime refresh,
-    cart sync, and route behavior were unchanged; no widget/screenshot tests
-    were added.
+    Flutter message card, sale-closed browsing notice now uses a compact
+    Nuxt-like alert bar, and next-page pagination no longer renders a
+    Flutter-only visible load-more CTA. Retry errors, reservation toggles,
+    realtime refresh, cart sync, and route behavior were unchanged; no
+    widget/screenshot tests were added.
   - Stores list-state micro-parity advanced under the UX/UI-first test-light
     cadence: `/stores` now restores the Nuxt `FilterPills` rail below the
     recommended-store heading, Store and store-scoped stock headings now use
@@ -1691,9 +1688,11 @@ Recent verified work:
     sheet text instead of a framed card, store-scoped lottery refresh uses the
     Nuxt-like `outline-pill` treatment, store lottery empty results use the same
     sheet empty rhythm, and store sale-closed status now uses the compact
-    alert-bar treatment. Store search, pagination, store-list skeletons, retry
-    errors, reservation toggles, realtime refresh, cart sync, and route behavior
-    were unchanged; no widget/screenshot tests were added.
+    alert-bar treatment. Store/store-scoped pagination now stays invisible until
+    Nuxt-like skeleton rows append during scroll loading. Store search,
+    store-list skeletons, retry errors, reservation toggles, realtime refresh,
+    cart sync, and route behavior were unchanged; no widget/screenshot tests
+    were added.
   - Stores row handoff parity advanced under the UX/UI-first test-light
     cadence: `/stores` recommended-store rows now keep the Nuxt `store-row`
     visual shell but are interactive browse handoffs into
@@ -4905,9 +4904,9 @@ Recent verified work:
 
 | Area | What remains | Remaining |
 | --- | --- | ---: |
-| UX/UI parity overall | Re-opened after owner visual feedback and source-level Nuxt comparison: removing raw Material widgets was not enough to prove structural parity. Flutter still needs a broader Nuxt-shell pass for `MobileShell`/`BlueHeader`/`content-sheet`/floating `PaymentDock`/`BottomNav` structure, page-level spacing, and manual device review across major screens. The revenue shell pass now covers Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery browsing, public no-image lottery item rows, store image lottery item rows, sold/unavailable lottery-row visual state, Cart, Checkout, pending payment, Success receipt, Home floating cart dock, browse review docks, fixed cart/checkout dock structure, shared BlueHeader rhythm including top-aligned hero content flow, shared bottom navigation shell, Buy/Search/Stores empty/alert/filter/refresh/list-pagination rhythm, Cart/Checkout sheet helper spacing, Cart empty sheet text/add-more rhythm, success/pending receipt micro-structure, Home sheet/guest/action/activity rail/link-surface micro-structure, Home digit-row/dock/section-spacing micro-parity, Buy/Search search CTA/text-link/filter token micro-parity, store row/search/list-control micro-parity, store-scoped hero/digit-redirect micro-parity, selection-dock title copy, Checkout summary-card product-row ordering, Cart/Checkout summary/dock micro-parity, and Login/Register `login-hero` accent micro-parity. | 13% |
+| UX/UI parity overall | Re-opened after owner visual feedback and source-level Nuxt comparison: removing raw Material widgets was not enough to prove structural parity. Flutter still needs a broader Nuxt-shell pass for `MobileShell`/`BlueHeader`/`content-sheet`/floating `PaymentDock`/`BottomNav` structure, page-level spacing, and manual device review across major screens. The revenue shell pass now covers Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery browsing, public no-image lottery item rows, store image lottery item rows, sold/unavailable lottery-row visual state, Cart, Checkout, pending payment, Success receipt, Home floating cart dock, browse review docks, fixed cart/checkout dock structure, shared BlueHeader rhythm including top-aligned hero content flow, shared bottom navigation shell, Buy/Search/Stores empty/alert/filter/refresh/infinite-scroll skeleton rhythm, `/buy/more` close/list-header micro-structure, Cart/Checkout sheet helper spacing, Cart empty sheet text/add-more rhythm, success/pending receipt micro-structure, Home sheet/guest/action/activity rail/link-surface micro-structure, Home digit-row/dock/section-spacing micro-parity, Buy/Search search CTA/text-link/filter token micro-parity, store row/search/list-control micro-parity, store-scoped hero/digit-redirect micro-parity, selection-dock title copy, Checkout summary-card product-row ordering, Cart/Checkout summary/dock micro-parity, and Login/Register `login-hero` accent micro-parity. | 13% |
 | Home | Final manual device/browser visual signoff and any last responsive polish; Home now uses a full-screen Nuxt-like hero/sheet structure instead of the generic AppBar, the home hero runtime brand lockup/price-badge row, sheet radius/padding/background, quick-action card rhythm, transparent no-ripple link surfaces, guest login/register action layout, activity rail/card proportions, digit-row max width/outline/shadow, section spacing, and floating cart dock width/placement are closer to Nuxt. An authenticated Home floating cart dock now appears above the bottom nav with Nuxt-like selection dock pill/timer treatment, responsive content max width, and Nuxt `bottom: 12%` placement when active reservations exist, and the shared bottom nav now follows Nuxt's anchored 98px shell. Home hero, price/sale badges, digit focus, quick/guest/activity/news/result surfaces, activity/news fallback media, loading marks, and shared result summary surfaces remain runtime-theme driven. | 2% |
-| Buy/Search | Manual owner/device signoff only; implementation parity is otherwise closed for current known Buy/Search/More/Stores revenue browsing surfaces. `/buy`, `/buy/search`, and `/buy/more` now use expanded Nuxt-style hero/content-sheet shells; `/stores` now keeps the store tab inside the blue hero and renders the search/recommended-store list inside a Nuxt-like content sheet; `/stores` recommended-store rows now keep the Nuxt `store-row` shell and hand off into `/stores/lotteries?store_id=...`; store-scoped lottery browsing now moves the store hero card into the blue hero and keeps read-only digit boxes plus stock rows inside the sheet; those store-scoped digit boxes now mirror Nuxt `DigitBoxes` by opening `/buy/search` with `store_id` instead of rendering a Flutter-only inline search/clear action row; public Buy/Search/More lottery rows now follow Nuxt `LotteryItem :show-image="false"` with number/action/seller-price ordering, while store-scoped rows keep the Nuxt default image variant, and sold/unavailable stock rows now apply Nuxt's faded/grayscale `is-unavailable` treatment; browse review docks align with Nuxt `PaymentDock` spacing, gradient CTA, title copy, shadow, width clamp, and safe-area treatment; Buy/Search/Stores empty, filter, sale-closed, refresh-action, section-title spacing, search CTA, text-link, fallback pagination, store row icon/name sizing, and store hero-card now follow Nuxt sheet rhythm more closely while filter/action colors derive from runtime theme tokens. | 0% |
+| Buy/Search | Manual owner/device signoff only; implementation parity is otherwise closed for current known Buy/Search/More/Stores revenue browsing surfaces. `/buy`, `/buy/search`, and `/buy/more` now use expanded Nuxt-style hero/content-sheet shells; `/buy/more` now keeps the sheet close action transparent/no-ripple and suppresses the duplicate stock-list heading so the list starts after the Nuxt-style number summary; `/stores` now keeps the store tab inside the blue hero and renders the search/recommended-store list inside a Nuxt-like content sheet; `/stores` recommended-store rows now keep the Nuxt `store-row` shell and hand off into `/stores/lotteries?store_id=...`; store-scoped lottery browsing now moves the store hero card into the blue hero and keeps read-only digit boxes plus stock rows inside the sheet; those store-scoped digit boxes now mirror Nuxt `DigitBoxes` by opening `/buy/search` with `store_id` instead of rendering a Flutter-only inline search/clear action row; public Buy/Search/More lottery rows now follow Nuxt `LotteryItem :show-image="false"` with number/action/seller-price ordering, while store-scoped rows keep the Nuxt default image variant, and sold/unavailable stock rows now apply Nuxt's faded/grayscale `is-unavailable` treatment; browse review docks align with Nuxt `PaymentDock` spacing, gradient CTA, title copy, shadow, width clamp, and safe-area treatment; Buy/Search/Stores empty, filter, sale-closed, refresh-action, section-title spacing, search CTA, text-link, infinite-scroll skeleton pagination, store row icon/name sizing, and store hero-card now follow Nuxt sheet rhythm more closely while filter/action colors derive from runtime theme tokens. | 0% |
 | Cart/Checkout | Manual owner/device signoff only; implementation parity is otherwise closed for current known Cart, Checkout, pending-payment, and Success receipt surfaces. Cart/Checkout now use the expanded `AppShell` blue hero directly instead of a nested page hero, and the shared BlueHeader flow now top-aligns the title row plus 24px hero-content slot like Nuxt instead of centering tall hero content vertically; Cart count/draw-date, Cart empty sheet text plus purchase-limit/add-more rhythm, Cart remove modal overlay/typography/action pills, fixed cart dock safe-area padding, Checkout summary-card starting with the product/logo row, runtime BrandLogo-like product marks in Checkout and Success, payment-method heading/wallet card, pending payment status surface/action pills, and Success receipt background/card/save/primary-action structure follow Nuxt `BlueHeader` + `content-sheet` + `PaymentDock` rhythm more closely while keeping payment/provider/route behavior unchanged. | 0% |
 | Tickets | Manual owner/device signoff only; implementation parity is otherwise closed for current known ticket current/history/detail/preview/reward-claim surfaces. Reward-claim handoff marker/link/badge accents, ticket prize labels, claim PIN keypad/dots/submitting mark, claim hero/confirm/processing receipt surfaces, current-ticket search/tabs/empty/error/detail/claim neutral surfaces, and ticket history/claim submit feedback now follow the converted Nuxt-style flow and runtime partner theme without transient SnackBars or Flutter Material progress bars. | 0% |
 | Wallet | Final manual responsive/device review, remaining provider realtime device smoke, remaining device failed/error review, and native/web sensitive-screen validation; nested wallet transaction/history payload aliases, object scalar wallet/ledger/customer-number rows, nested money value wrappers, and localized Thai cashback ledger titles are now covered in code, Wallet refresh failures stay inside the converted error surface, and Wallet card, ledger loading/error/empty/list, credit/debit/neutral row accents, and refresh/empty states now follow runtime partner `Theme.colorScheme` tokens. | 4% |

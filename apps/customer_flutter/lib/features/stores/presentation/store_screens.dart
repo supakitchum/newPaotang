@@ -136,28 +136,6 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                         const _StoreSkeletonRows(
                           keyPrefix: 'store-list-skeleton-more',
                         ),
-                      ] else if (_hasMore) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: 40,
-                            child: OutlinedButton(
-                              onPressed: _loadingMore
-                                  ? null
-                                  : () => _load(reset: false),
-                              style: _storeOutlinePillButtonStyle(
-                                context,
-                                enabled: !_loadingMore,
-                              ),
-                              child: Text(
-                                _loadingMore
-                                    ? l10n.commonLoadingMore
-                                    : l10n.commonLoadMore,
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ],
                   ),
@@ -682,28 +660,6 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                         if (_tickets.isNotEmpty) const SizedBox(height: 10),
                         ...lotteryStockSkeletonCards(
                           keyPrefix: 'store-lottery-stock-skeleton-more',
-                        ),
-                      ] else if (_hasMore) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: 40,
-                            child: OutlinedButton(
-                              onPressed: _loadingMore
-                                  ? null
-                                  : () => _load(reset: false),
-                              style: _storeOutlinePillButtonStyle(
-                                context,
-                                enabled: !_loadingMore,
-                              ),
-                              child: Text(
-                                _loadingMore
-                                    ? l10n.commonLoadingMore
-                                    : l10n.commonLoadMore,
-                              ),
-                            ),
-                          ),
                         ),
                       ],
                       if (_error.isNotEmpty && _tickets.isNotEmpty) ...[

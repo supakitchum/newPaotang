@@ -1717,8 +1717,8 @@ Acceptance evidence for every screen group:
   preserving the Nuxt sold-ticket dialog plus row removal after an authenticated
   store-scoped reservation race, and auto-loading the next stock page when
   customers scroll near the bottom while rendering Nuxt-style skeleton cards
-  during initial and next-page loading, plus text-only outline fallback
-  pagination without Flutter-only expand/spinner icons. Current visual parity
+  during initial and next-page loading without a Flutter-only visible load-more
+  fallback. Current visual parity
   also removes the remaining outer bordered store-stock list shell and ticket
   gaps so stock rows and skeleton rows use the Nuxt bottom-divider rhythm. It
   was a visual-only parity slice, so no new tests were added under the
@@ -1745,8 +1745,8 @@ Acceptance evidence for every screen group:
   icon/name store rows without the Flutter-only Card/ListTile/code subtitle,
   active-cart fixed review dock behavior on `/stores`, infinite-scroll
   next-page loading on the store list, Nuxt-style placeholder store rows during
-  initial and next-page loading, text-only outline fallback pagination without
-  Flutter-only expand/spinner icons, store-list parser compatibility for
+  initial and next-page loading, no visible Flutter load-more CTA, store-list
+  parser compatibility for
   legacy `result.stores`/`store_list`/`affiliates`, id/name aliases, and
   cursor/`has_more` variants, plus store-list load API payload error copy with
   localized fallback for internal/client failures.
@@ -1802,9 +1802,9 @@ Acceptance evidence for every screen group:
   patching with temporary up/down trend affordances, availability realtime
   patching that disables sold rows immediately, plus the text-only selected-cart
   dock review CTA and centered timer matching Nuxt PaymentDock, fixed-bottom
-  `/buy/more` dock behavior for Nuxt's `/buy/*` route family, and text-only
-  outline fallback stock pagination that still loads the next cursor page
-  without Flutter-only expand/spinner icons.
+  `/buy/more` dock behavior for Nuxt's `/buy/*` route family, and scroll-driven
+  same-number pagination that appends Nuxt-style skeleton rows without a
+  Flutter-only load-more CTA.
 - `test/cart_grouping_test.dart` covers Cart review grouping by lottery number
   across reservation IDs and keeps the earliest payment deadline for the group.
 - `test/checkout_screen_test.dart` covers Checkout success navigation with
@@ -2007,6 +2007,13 @@ Acceptance evidence for every screen group:
   literals, matching the Store filter pass. Search submission, clear behavior,
   same-number pagination, stock realtime refresh, and reservation toggles were
   unchanged; no widget/screenshot tests were added.
+- Current Revenue Buy/More header micro-parity note: `/buy/more` now keeps the
+  Nuxt sheet-header order without a duplicate stock-list section title, so the
+  same-number rows start directly after "รายการสลากฯ" plus spaced "สลากฯ เลข
+  ..." summary. The close action now uses a transparent no-ripple icon affordance
+  closer to Nuxt `icon-back-button` while preserving stacked-search pop and safe
+  fallback routing. Same-number pagination, reservation toggles, and cart dock
+  behavior were unchanged; no screenshot tests were added.
 - Current Revenue Store-scoped micro-parity note: `/stores/lotteries` hero now
   follows Nuxt `store-hero-card` more closely with 12px radius, soft shadow,
   runtime primary store icon, smaller online dot, and larger heart affordance.
@@ -2040,10 +2047,11 @@ Acceptance evidence for every screen group:
   logo container. Fallback stays generic/runtime-safe, and checkout summary
   math, payment selection, submit behavior, and provider handoff were unchanged.
 - Current Revenue list-control micro-parity note: Buy/Search stock refresh,
-  Buy/Search fallback pagination, `/stores` fallback pagination,
-  store-scoped stock refresh, store-scoped fallback pagination, and retry
-  actions now share Nuxt-like `outline-pill` sizing, disabled tones, and
-  compact centered width instead of default Material outlined buttons.
+  store-scoped stock refresh, and retry actions now share Nuxt-like
+  `outline-pill` sizing, disabled tones, and compact centered width instead of
+  default Material outlined buttons. Buy/Search, `/stores`, and store-scoped
+  next-page pagination now stays scroll-driven with only appended skeleton rows,
+  removing the Flutter-only visible load-more CTA from revenue lists.
   `/stores` also tightens the Nuxt `search-box mb-5` spacing and store-row
   details: 40px runtime-themed shop mark, 20px bold store names, matching
   skeleton icon width, section-title sizing/weight, lighter filter text weight,
@@ -3860,16 +3868,18 @@ screenshot capture tasks unless explicitly requested in the current turn.
   lift instead of a fixed 34px. Shared content bodies and revenue
   hero/content/dock max widths now follow Nuxt's responsive content cap for
   tablet and Web.
-- Buy/Search list states follow Nuxt sheet rhythm: refresh and fallback
-  pagination are `outline-pill` controls, empty results are centered muted text
-  in the list, and sale-closed state is a compact alert bar rather than a full
-  framed message card.
+- Buy/Search list states follow Nuxt sheet rhythm: refresh uses an
+  `outline-pill` control, next-page pagination is scroll-driven with skeleton
+  rows instead of a visible Flutter load-more CTA, empty results are centered
+  muted text in the list, and sale-closed state is a compact alert bar rather
+  than a full framed message card.
 - Stores list states follow Nuxt sheet rhythm: recommended-store filter pills
   are present, empty store/lottery results are centered muted text in the sheet,
-  store lottery refresh and fallback pagination are `outline-pill` controls,
-  Store section titles use the Nuxt 20px bold `section-title` rhythm, store rows
-  use the Nuxt 40px shop mark plus bold 20px name rhythm, and sale-closed state
-  is a compact alert bar.
+  store lottery refresh is an `outline-pill` control, revenue store pagination
+  is scroll-driven with skeleton rows instead of a visible Flutter load-more
+  CTA, Store section titles use the Nuxt 20px bold `section-title` rhythm, store
+  rows use the Nuxt 40px shop mark plus bold 20px name rhythm, and sale-closed
+  state is a compact alert bar.
 - Cart/Checkout helper sections follow Nuxt sheet rhythm: Cart add-more helper
   is centered muted copy plus green pill below the list, and Checkout payment
   method heading has the same bold `fs-5` scale and `mb-4` spacing before the

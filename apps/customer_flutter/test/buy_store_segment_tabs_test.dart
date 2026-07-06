@@ -380,10 +380,10 @@ void main() {
     expect(find.text('ร้านถัดไป'), findsOneWidget);
   });
 
-  testWidgets('stores screen fallback load-more stays text-only like Nuxt', (
+  testWidgets('stores screen omits Flutter load-more CTA', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(800, 900));
+    await tester.binding.setSurfaceSize(const Size(390, 520));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final repository = _ShortPaginatedStoreRepository();
@@ -410,22 +410,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final loadMoreButton = find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
-    expect(loadMoreButton, findsOneWidget);
-    expect(
-      find.descendant(
-        of: loadMoreButton,
-        matching: find.byIcon(Icons.expand_more),
-      ),
-      findsNothing,
-    );
-
-    await tester.tap(loadMoreButton);
-    await tester.pumpAndSettle();
-
-    expect(repository.listCount, 2);
-    expect(repository.cursors, ['', 'cursor_1']);
-    expect(find.text('ร้านถัดไป'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม'), findsNothing);
   });
 
   testWidgets('stores screen load failure shows API payload copy safely', (

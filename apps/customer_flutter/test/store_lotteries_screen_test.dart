@@ -952,7 +952,7 @@ void main() {
   });
 
   testWidgets(
-    'store lotteries fallback load-more stays text-only like Nuxt',
+    'store lotteries omit Flutter load-more CTA',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -992,23 +992,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final loadMoreButton =
-          find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
-      expect(loadMoreButton, findsOneWidget);
       expect(
-        find.descendant(
-          of: loadMoreButton,
-          matching: find.byIcon(Icons.expand_more),
-        ),
+        find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม'),
         findsNothing,
       );
-
-      await tester.tap(loadMoreButton);
-      await tester.pumpAndSettle();
-
-      expect(store.searchCount, 2);
-      expect(store.cursors, ['', 'cursor_1']);
-      expect(find.text('ร้านถัดไป'), findsOneWidget);
     },
   );
 

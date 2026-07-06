@@ -593,7 +593,7 @@ void main() {
     expect(find.text('เลือก'), findsNWidgets(2));
   });
 
-  testWidgets('stock list fallback load-more stays text-only like Nuxt', (
+  testWidgets('stock list omits Flutter load-more CTA', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
@@ -605,24 +605,7 @@ void main() {
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
 
-    final loadMoreButton = find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
-    expect(loadMoreButton, findsOneWidget);
-    expect(
-      find.descendant(
-        of: loadMoreButton,
-        matching: find.byIcon(Icons.expand_more),
-      ),
-      findsNothing,
-    );
-
-    await tester.tap(loadMoreButton);
-    await tester.pumpAndSettle();
-
-    expect(lottery.searchCount, 2);
-    expect(lottery.lastCursor, 'cursor_1');
-    expect(lottery.randomSeeds, hasLength(2));
-    expect(lottery.randomSeeds.last, lottery.randomSeeds.first);
-    expect(find.text('เลือก'), findsNWidgets(2));
+    expect(find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม'), findsNothing);
   });
 
   testWidgets('stock list renders Nuxt-style skeletons while initially loading',
@@ -867,7 +850,7 @@ void main() {
     expect(find.text('รายการสลากฯ'), findsOneWidget);
     expect(find.text('สลากฯ เลข'), findsOneWidget);
     expect(find.text('2 7 3 7 0 7'), findsOneWidget);
-    expect(find.text('เลขนี้เพิ่มเติม'), findsOneWidget);
+    expect(find.text('เลขนี้เพิ่มเติม'), findsNothing);
     expect(find.text('แสดงเลขใหม่'), findsNothing);
     expect(find.byIcon(Icons.refresh), findsNothing);
     expect(find.text('ทั้งหมด'), findsNothing);

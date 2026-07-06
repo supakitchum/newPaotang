@@ -404,6 +404,7 @@ class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
             number: number,
             storeId: widget.query['store_id'] ?? '',
             returnPath: backPath,
+            showTitle: false,
             showMoreLink: false,
             showFilterPills: false,
             showRefreshAction: false,
@@ -463,16 +464,10 @@ class _LotteryMoreSummaryHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            IconButton(
+            _LotteryMoreCloseButton(
               tooltip: l10n.commonBack,
-              onPressed: onClose,
-              icon: const Icon(Icons.close),
               color: colorScheme.onSurface,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: EdgeInsets.zero,
-              ),
+              onClose: onClose,
             ),
           ],
         ),
@@ -497,6 +492,46 @@ class _LotteryMoreSummaryHeader extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _LotteryMoreCloseButton extends StatelessWidget {
+  const _LotteryMoreCloseButton({
+    required this.tooltip,
+    required this.color,
+    required this.onClose,
+  });
+
+  final String tooltip;
+  final Color color;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onClose,
+            child: SizedBox.square(
+              dimension: 44,
+              child: Center(
+                child: Icon(
+                  Icons.close,
+                  color: color,
+                  size: 38,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2131,6 +2166,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
     this.storeId = '',
     this.returnPath = '/buy',
     this.showMoreLink = true,
+    this.showTitle = true,
     this.showFilterPills = true,
     this.showRefreshAction = true,
     this.showTicketImages = true,
@@ -2145,6 +2181,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
   final String storeId;
   final String returnPath;
   final bool showMoreLink;
+  final bool showTitle;
   final bool showFilterPills;
   final bool showRefreshAction;
   final bool showTicketImages;
@@ -2254,26 +2291,32 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _LotterySectionHeading(
-          title: widget.title,
-          action: widget.showRefreshAction
-              ? OutlinedButton.icon(
-                  onPressed:
-                      _loading || refreshCoolingDown ? null : _refreshStockList,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(refreshLabel),
-                  style: _lotteryOutlinePillButtonStyle(
-                    context,
-                    enabled: !_loading && !refreshCoolingDown,
-                  ),
-                )
-              : null,
-        ),
-        if (widget.showFilterPills) ...[
-          const SizedBox(height: 10),
+        if (widget.showTitle) ...[
+          _LotterySectionHeading(
+            title: widget.title,
+            action: widget.showRefreshAction
+                ? OutlinedButton.icon(
+                    onPressed: _loading || refreshCoolingDown
+                        ? null
+                        : _refreshStockList,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: Text(refreshLabel),
+                    style: _lotteryOutlinePillButtonStyle(
+                      context,
+                      enabled: !_loading && !refreshCoolingDown,
+                    ),
+                  )
+                : null,
+          ),
+          if (widget.showFilterPills) ...[
+            const SizedBox(height: 10),
+            const _LotteryFilterPills(),
+          ],
+          const SizedBox(height: 12),
+        ] else if (widget.showFilterPills) ...[
           const _LotteryFilterPills(),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(height: 12),
         _buildListContent(context, l10n),
       ],
     );
@@ -2337,24 +2380,6 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
         ],
         if (_loadingMore) ...[
           ...lotteryStockSkeletonCards(),
-        ] else if (_hasMore) ...[
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.center,
-            child: SizedBox(
-              height: 40,
-              child: OutlinedButton(
-                onPressed: _loadingMore ? null : () => _load(reset: false),
-                style: _lotteryOutlinePillButtonStyle(
-                  context,
-                  enabled: !_loadingMore,
-                ),
-                child: Text(
-                  _loadingMore ? l10n.commonLoadingMore : l10n.commonLoadMore,
-                ),
-              ),
-            ),
-          ),
         ],
       ],
     );
