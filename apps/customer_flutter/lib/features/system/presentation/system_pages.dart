@@ -14,6 +14,7 @@ import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/purchase_history/data/purchase_history_models.dart';
 import '../../../features/purchase_history/data/purchase_history_repository.dart';
@@ -24,6 +25,7 @@ import 'success_receipt_state.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/flexible_image.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 
 final receiptShareServiceProvider = Provider<ReceiptShareService>((ref) {
@@ -854,11 +856,7 @@ class _SuccessReceiptHeader extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const TenantBrandHeader(
-              icon: Icons.storefront_outlined,
-              showName: false,
-              size: 44,
-            ),
+            const _SuccessReceiptBrandLogo(),
             if (productLabel.trim().isNotEmpty) ...[
               Container(
                 width: 1,
@@ -907,6 +905,58 @@ class _SuccessReceiptHeader extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SuccessReceiptBrandLogo extends ConsumerWidget {
+  const _SuccessReceiptBrandLogo();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bootstrap = ref.watch(mobileBootstrapProvider);
+    return SizedBox.square(
+      dimension: 44,
+      child: Center(
+        child: bootstrap.maybeWhen(
+          data: (data) {
+            final rawLogoUrl = data.brand.logoUrl.trim();
+            if (rawLogoUrl.isEmpty) {
+              return Icon(
+                Icons.storefront_outlined,
+                color: colorScheme.primary,
+                size: 28,
+              );
+            }
+            return FlexibleImage(
+              key: const ValueKey('success-receipt-brand-logo'),
+              source: _resolveSuccessReceiptLogoUrl(ref, rawLogoUrl),
+              width: 36,
+              height: 36,
+              fit: BoxFit.contain,
+              errorIcon: Icons.storefront_outlined,
+            );
+          },
+          orElse: () => Icon(
+            Icons.storefront_outlined,
+            color: colorScheme.primary,
+            size: 28,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _resolveSuccessReceiptLogoUrl(WidgetRef ref, String value) {
+  final trimmed = value.trim();
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null &&
+      (uri.hasScheme ||
+          trimmed.startsWith('data:') ||
+          trimmed.startsWith('//'))) {
+    return trimmed;
+  }
+  return ref.watch(assetUrlResolverProvider)(trimmed);
 }
 
 class _SuccessProductMark extends StatelessWidget {

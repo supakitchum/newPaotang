@@ -115,7 +115,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       else if (_stores.isEmpty)
                         _StoreEmptyState(message: l10n.storesEmptyTitle)
                       else
-                        for (final store in _stores) _StoreCard(store: store),
+                        for (final store in _stores)
+                          _StoreCard(
+                            store: store,
+                            onTap: () =>
+                                context.go(_storeLotteriesPath(store.id)),
+                          ),
                       if (_error.isNotEmpty && _stores.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _StoreErrorCard(
@@ -1392,9 +1397,13 @@ String _storeLotteriesDrawDateLabel(
 }
 
 class _StoreCard extends StatelessWidget {
-  const _StoreCard({required this.store});
+  const _StoreCard({
+    required this.store,
+    required this.onTap,
+  });
 
   final StoreItem store;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1402,47 +1411,57 @@ class _StoreCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final storeName =
         store.name.isEmpty ? l10n.storesFallbackStoreName : store.name;
-    return DecoratedBox(
+    return Semantics(
       key: ValueKey('store-list-row-${store.id}'),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+      button: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border(
+            bottom: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+            ),
           ),
         ),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 72),
-        child: Row(
-          children: [
-            SizedBox.square(
-              dimension: 40,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.storefront_outlined,
-                  color: colorScheme.onPrimary,
-                  size: 22,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                storeName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 72),
+              child: Row(
+                children: [
+                  SizedBox.square(
+                    dimension: 40,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.storefront_outlined,
+                        color: colorScheme.onPrimary,
+                        size: 22,
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      storeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1930,6 +1949,10 @@ class _StoreLotteryNumber extends StatelessWidget {
 }
 
 String _storeLotteriesBackPath(String storeId) {
+  return _storeLotteriesPath(storeId);
+}
+
+String _storeLotteriesPath(String storeId) {
   final normalizedStoreId = storeId.trim();
   return Uri(
     path: '/stores/lotteries',

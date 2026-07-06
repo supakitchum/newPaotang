@@ -828,45 +828,66 @@ class _HomeQuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.go(path),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 70,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      colorScheme.primary.withValues(alpha: 0.12),
-                      colorScheme.primary.withValues(alpha: 0.34),
-                    ],
-                  ),
+    return _HomeLinkGesture(
+      onTap: () => context.go(path),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 70,
+              height: 60,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.12),
+                    colorScheme.primary.withValues(alpha: 0.34),
+                  ],
                 ),
-                child: Icon(icon, color: colorScheme.primary, size: 28),
               ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: _homeTitleColor(context),
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
+              child: Icon(icon, color: colorScheme.primary, size: 28),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLinkGesture extends StatelessWidget {
+  const _HomeLinkGesture({
+    required this.child,
+    this.onTap,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Semantics(
+      button: enabled,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: child,
         ),
       ),
     );
@@ -1080,132 +1101,125 @@ class _ActivityCard extends StatelessWidget {
         decoration: _homeSurfaceDecoration(context, radius: 14),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: slug.isEmpty
-                  ? null
-                  : () => context.go(
-                        '/activities/${Uri.encodeComponent(slug)}',
-                      ),
-              child: Row(
-                children: [
-                  Container(
-                    width: width < 280
-                        ? 88
-                        : (width * 0.32).clamp(96.0, 128.0).toDouble(),
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: activity.imageUrl.isEmpty
-                        ? _ActivityImageFallback(width: width)
-                        : Image.network(
-                            activity.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _ActivityImageFallback(width: width),
-                          ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Container(
-                                  constraints:
-                                      const BoxConstraints(minHeight: 23),
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 9),
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.10),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    l10n.activityTypeLabel(activity.type),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w900,
-                                          height: 1,
-                                        ),
-                                  ),
+          child: _HomeLinkGesture(
+            onTap: slug.isEmpty
+                ? null
+                : () => context.go(
+                      '/activities/${Uri.encodeComponent(slug)}',
+                    ),
+            child: Row(
+              children: [
+                Container(
+                  width: width < 280
+                      ? 88
+                      : (width * 0.32).clamp(96.0, 128.0).toDouble(),
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  child: activity.imageUrl.isEmpty
+                      ? _ActivityImageFallback(width: width)
+                      : Image.network(
+                          activity.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _ActivityImageFallback(width: width),
+                        ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Container(
+                                constraints:
+                                    const BoxConstraints(minHeight: 23),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 9),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  l10n.activityTypeLabel(activity.type),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1,
+                                      ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.chevron_right,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 18,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            activityDisplayName(l10n, activity),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  color: _homeTitleColor(context),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.32,
-                                ),
-                          ),
-                          if (activity.conditionText.trim().isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              activity.conditionText.trim(),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: _homeBodyColor(context),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.35,
-                                  ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.chevron_right,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 18,
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          activityDisplayName(l10n, activity),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: _homeTitleColor(context),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.32,
+                                  ),
+                        ),
+                        if (activity.conditionText.trim().isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            activityMetaText(l10n, activity),
-                            maxLines: 1,
+                            activity.conditionText.trim(),
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.2,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: _homeBodyColor(context),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.35,
+                                    ),
                           ),
                         ],
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          activityMetaText(l10n, activity),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                              ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1507,81 +1521,75 @@ class _HomeNewsCard extends ConsumerWidget {
         decoration: _homeSurfaceDecoration(context, radius: 14),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: hasNewsTarget(item)
-                  ? () => _openHomeNews(context, ref, item)
-                  : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 126,
-                    width: double.infinity,
-                    child: item.coverUrl.isEmpty
-                        ? const _HomeNewsImageFallback()
-                        : Image.network(
-                            item.coverUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const _HomeNewsImageFallback(),
-                          ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+          child: _HomeLinkGesture(
+            onTap: hasNewsTarget(item)
+                ? () => _openHomeNews(context, ref, item)
+                : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 126,
+                  width: double.infinity,
+                  child: item.coverUrl.isEmpty
+                      ? const _HomeNewsImageFallback()
+                      : Image.network(
+                          item.coverUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const _HomeNewsImageFallback(),
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: _homeTitleColor(context),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              height: 1.36,
+                            ),
+                      ),
+                      if (publishedAt.isNotEmpty && publishedAt != '-') ...[
+                        const SizedBox(height: 5),
                         Text(
-                          title,
+                          publishedAt,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: _homeMutedColor(context),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.2,
+                                  ),
+                        ),
+                      ],
+                      if (item.summary.trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          item.summary.trim(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: _homeTitleColor(context),
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.36,
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: _homeBodyColor(context),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.4,
                                   ),
                         ),
-                        if (publishedAt.isNotEmpty && publishedAt != '-') ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            publishedAt,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: _homeMutedColor(context),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                ),
-                          ),
-                        ],
-                        if (item.summary.trim().isNotEmpty) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            item.summary.trim(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: _homeBodyColor(context),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.4,
-                                    ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1672,77 +1680,72 @@ class _FeatureLinkCard extends StatelessWidget {
         decoration: _homeSurfaceDecoration(context, radius: 14),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => context.go(path),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.primary.withValues(alpha: 0.10),
+          child: _HomeLinkGesture(
+            onTap: () => context.go(path),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.primary.withValues(alpha: 0.10),
+                    ),
+                    child: SizedBox.square(
+                      dimension: 46,
+                      child: Icon(
+                        icon,
+                        color: colorScheme.primary,
+                        size: 24,
                       ),
-                      child: SizedBox.square(
-                        dimension: 46,
-                        child: Icon(
-                          icon,
-                          color: colorScheme.primary,
-                          size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: _homeTitleColor(context),
+                                    fontWeight: FontWeight.w900,
+                                  ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  color: _homeTitleColor(context),
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: _homeBodyColor(context),
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.32,
-                                    ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.primary.withValues(alpha: 0.08),
-                      ),
-                      child: SizedBox.square(
-                        dimension: 34,
-                        child: Icon(
-                          Icons.chevron_right,
-                          color: colorScheme.primary,
-                          size: 20,
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: _homeBodyColor(context),
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.32,
+                                  ),
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.primary.withValues(alpha: 0.08),
+                    ),
+                    child: SizedBox.square(
+                      dimension: 34,
+                      child: Icon(
+                        Icons.chevron_right,
+                        color: colorScheme.primary,
+                        size: 20,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

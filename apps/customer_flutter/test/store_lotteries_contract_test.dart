@@ -17,7 +17,7 @@ void main() {
     expect(source, contains('lotteryRemovedFromCart'));
   });
 
-  test('store list does not expose store lottery navigation before phase', () {
+  test('store list exposes Nuxt-style store lottery navigation', () {
     final source = File('lib/features/stores/presentation/store_screens.dart')
         .readAsStringSync();
     final storeCardSource =
@@ -25,8 +25,11 @@ void main() {
     final storeCardEnd = storeCardSource.indexOf('class _LotteryTicketCard');
     final storeCard = storeCardSource.substring(0, storeCardEnd);
 
-    expect(storeCard, isNot(contains('/stores/lotteries')));
-    expect(storeCard, isNot(contains('onTap:')));
+    expect(source, contains("path: '/stores/lotteries'"));
+    expect(storeCard, contains('onTap:'));
+    expect(storeCard, contains('GestureDetector'));
+    expect(storeCard, contains('MouseRegion'));
+    expect(storeCard, isNot(contains('InkWell')));
     expect(storeCard, isNot(contains('Icons.chevron_right')));
   });
 }

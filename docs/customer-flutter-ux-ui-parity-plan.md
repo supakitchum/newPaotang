@@ -1932,6 +1932,11 @@ Acceptance evidence for every screen group:
   bootstrap/localized fallback copy with the Nuxt yellow-dot accent, and the
   save pill now uses the source `w-50` responsive width instead of a fixed
   Flutter width.
+  Success receipt header now also renders the runtime tenant logo directly in
+  the Nuxt `BrandLogo` position instead of placing the shared Flutter rounded
+  logo container before the divider/product mark. Receipt data loading,
+  clipboard save, share/export services, and Tickets CTA behavior were
+  unchanged.
   `/checkout/pending` now tightens the pending card padding/icon/action
   heights, uses the shared Nuxt-like gradient primary pill for open-payment/
   view-receipt actions plus the shared outline pill for refresh, and derives
@@ -1960,6 +1965,11 @@ Acceptance evidence for every screen group:
   image/body proportions, and top-aligned copy toward the Nuxt CSS. Hero
   content, wallet loading, activity/news links, result routing, and cart dock
   behavior were unchanged; no widget/screenshot tests were added.
+- Current Revenue Home link-surface note: Home quick actions, activity cards,
+  news cards, and feature-link rows now use transparent link gestures instead
+  of Material/InkWell ripple surfaces, matching Nuxt `NuxtLink`/anchor cards
+  more closely while keeping the same route targets, external news handoff, and
+  card sizing. No screenshot tests were added.
 - Current Revenue Home digit/dock micro-parity note: Home now constrains the
   six read-only digit boxes to Nuxt's `max-width:620px` rhythm with max 58px
   digit slots, gray outline, soft shadow, 8px radius, and runtime-themed focus
@@ -2024,6 +2034,11 @@ Acceptance evidence for every screen group:
   Flutter-only summary heading above it. Ticket count, total math, wallet/
   external payment selection, submit behavior, pending handoff, and route state
   were unchanged; no widget/screenshot tests were added.
+- Current Revenue Checkout BrandLogo note: Checkout's summary product mark now
+  resolves the runtime `brand.logoUrl` directly inside the 48px circular border,
+  matching Nuxt `BrandLogo` more closely and removing the extra Flutter rounded
+  logo container. Fallback stays generic/runtime-safe, and checkout summary
+  math, payment selection, submit behavior, and provider handoff were unchanged.
 - Current Revenue list-control micro-parity note: Buy/Search stock refresh,
   Buy/Search fallback pagination, `/stores` fallback pagination,
   store-scoped stock refresh, store-scoped fallback pagination, and retry
@@ -2041,7 +2056,8 @@ Acceptance evidence for every screen group:
   keeping the selector at `fs-3` scale, restoring the `gap-3` spacing before
   the copy column, rendering wallet name/balance at Nuxt `fs-5 fw-bold`
   weight, placing the top-up `outline-pill` under the wallet balance instead
-  of as a separate wide-row action, and matching the 55px rounded wallet mark.
+  of as a separate wide-row action, matching the 55px rounded wallet mark, and
+  using a transparent gesture surface instead of a Material ripple/surface.
   Wallet/external payment selection, topup return path, submit behavior, and
   payment handoff were unchanged; no widget/screenshot tests were added.
 - Current Revenue payment-dock note: Buy/Search/More and store-scoped floating
@@ -2111,6 +2127,12 @@ Acceptance evidence for every screen group:
   uses the compact alert-bar treatment. Search, pagination, skeletons, retry
   errors, reservation toggles, realtime refresh, cart sync, and route behavior
   were unchanged; no widget/screenshot tests were added.
+- Current Stores row handoff note: `/stores` recommended-store rows now keep
+  the Nuxt `store-row` visual structure but behave as the store-browse handoff
+  into `/stores/lotteries?store_id=...` instead of remaining a static Flutter
+  row. The change uses the existing store-scoped lottery route and preserves
+  the row height, icon/name spacing, no-card/no-ripple shell, pagination,
+  search, cart dock, and runtime theme colors; no screenshot tests were added.
 - Current Cart/Checkout sheet-helper note: Cart's purchase-limit helper now
   follows Nuxt's centered muted-copy plus green-pill add-more rhythm more
   closely, including the larger gap after ticket rows. Checkout's payment-method

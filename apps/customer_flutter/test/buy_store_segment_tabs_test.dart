@@ -107,7 +107,8 @@ void main() {
     expect(find.text('Search'), findsOneWidget);
   });
 
-  testWidgets('stores screen exposes Nuxt-style all-ticket tab navigation', (
+  testWidgets('stores screen exposes Nuxt-style store row navigation and tabs',
+      (
     tester,
   ) async {
     final router = GoRouter(
@@ -120,6 +121,14 @@ void main() {
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy')),
+        ),
+        GoRoute(
+          path: '/stores/lotteries',
+          builder: (context, state) => Scaffold(
+            body: Text(
+              'Store lotteries ${state.uri.queryParameters['store_id']}',
+            ),
+          ),
         ),
       ],
     );
@@ -144,6 +153,14 @@ void main() {
       find.ancestor(of: storeRow, matching: find.byType(Card)),
       findsNothing,
     );
+
+    await tester.tap(storeRow);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Store lotteries store_1'), findsOneWidget);
+
+    router.go('/stores');
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('สลากฯ ทั้งหมด'));
     await tester.pumpAndSettle();
@@ -197,9 +214,10 @@ void main() {
       find.ancestor(of: dock, matching: find.byType(ListView)),
       findsNothing,
     );
-    final dockShape = tester.widget<Card>(dock).shape as RoundedRectangleBorder;
+    final dockDecoration =
+        tester.widget<DecoratedBox>(dock).decoration as BoxDecoration;
     expect(
-      dockShape.borderRadius,
+      dockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(12)),
     );
     expect(

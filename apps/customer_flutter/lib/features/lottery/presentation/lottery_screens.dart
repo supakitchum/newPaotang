@@ -13,6 +13,7 @@ import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/payment/checkout_payment_config.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/api_errors.dart';
+import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/affiliate/data/affiliate_referral_repository.dart';
 import '../../../features/purchase_history/data/purchase_history_models.dart';
@@ -28,7 +29,6 @@ import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/flexible_image.dart';
-import '../../../shared/widgets/tenant_brand_header.dart';
 import '../data/lottery_models.dart';
 import '../data/lottery_repository.dart';
 import 'checkout_payment_method_provider.dart';
@@ -3781,11 +3781,7 @@ class _CheckoutProductSummary extends StatelessWidget {
               child: const SizedBox.square(
                 dimension: 48,
                 child: Center(
-                  child: TenantBrandHeader(
-                    showName: false,
-                    size: 44,
-                    icon: Icons.confirmation_number_outlined,
-                  ),
+                  child: _CheckoutProductMark(),
                 ),
               ),
             ),
@@ -3807,6 +3803,53 @@ class _CheckoutProductSummary extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CheckoutProductMark extends ConsumerWidget {
+  const _CheckoutProductMark();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bootstrap = ref.watch(mobileBootstrapProvider);
+    return bootstrap.maybeWhen(
+      data: (data) {
+        final rawLogoUrl = data.brand.logoUrl.trim();
+        if (rawLogoUrl.isEmpty) {
+          return Icon(
+            Icons.confirmation_number_outlined,
+            color: colorScheme.primary,
+            size: 26,
+          );
+        }
+        return FlexibleImage(
+          key: const ValueKey('checkout-product-brand-logo'),
+          source: _resolveCheckoutBrandLogoUrl(ref, rawLogoUrl),
+          width: 34,
+          height: 34,
+          fit: BoxFit.contain,
+          errorIcon: Icons.confirmation_number_outlined,
+        );
+      },
+      orElse: () => Icon(
+        Icons.confirmation_number_outlined,
+        color: colorScheme.primary,
+        size: 26,
+      ),
+    );
+  }
+}
+
+String _resolveCheckoutBrandLogoUrl(WidgetRef ref, String value) {
+  final trimmed = value.trim();
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null &&
+      (uri.hasScheme ||
+          trimmed.startsWith('data:') ||
+          trimmed.startsWith('//'))) {
+    return trimmed;
+  }
+  return ref.watch(assetUrlResolverProvider)(trimmed);
 }
 
 class _CheckoutPaymentMethodCard extends StatelessWidget {
@@ -3986,9 +4029,11 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
+        child: MouseRegion(
+          cursor:
+              selected ? SystemMouseCursors.basic : SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: selected ? null : onSelected,
             child: Column(
               children: [
