@@ -41,7 +41,13 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
     return AppShell(
       title: l10n.purchaseHistoryTitle,
       currentPath: '/profile',
+      backPath: '/profile',
       sensitive: true,
+      showBottomNavigation: false,
+      heroMinHeight: 176,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: RefreshIndicator(
         onRefresh: _loadInitial,
         child: ListView(

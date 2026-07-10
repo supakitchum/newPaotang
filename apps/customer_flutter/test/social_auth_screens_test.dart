@@ -51,12 +51,12 @@ void main() {
     expect(find.text('Continue with Apple ID'), findsOneWidget);
     expect(find.text('Continue with discord'), findsNothing);
     expect(find.text('Remember me'), findsOneWidget);
-    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+    expect(find.byIcon(Icons.check), findsOneWidget);
 
     await tester.tap(find.text('Remember me'));
     await tester.pumpAndSettle();
 
-    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+    expect(find.byIcon(Icons.check), findsNothing);
   });
 
   testWidgets(
@@ -592,6 +592,12 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'If this phone already has an account, we will check the existing password and link this Google account immediately.',
+      ),
+      findsOneWidget,
+    );
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await tester.enterText(find.byType(TextField).at(2), 'secret1234');

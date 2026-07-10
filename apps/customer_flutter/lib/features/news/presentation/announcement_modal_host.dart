@@ -179,7 +179,7 @@ class _AnnouncementModalOverlay extends StatelessWidget {
 
     return Positioned.fill(
       child: Material(
-        color: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.62),
+        color: newsNuxtModalOverlay,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final horizontalPadding = constraints.maxWidth <= 420 ? 22.0 : 24.0;
@@ -217,11 +217,7 @@ class _AnnouncementModalOverlay extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.scrim.withValues(
-                                                alpha: 0.28,
-                                              ),
+                                          color: newsNuxtModalImageShadow,
                                           blurRadius: 44,
                                           offset: const Offset(0, 20),
                                         ),
@@ -283,14 +279,10 @@ class _AnnouncementModalOverlay extends StatelessWidget {
                                 button: true,
                                 label: context.l10n.newsModalClose,
                                 child: Material(
-                                  color: Theme.of(context).colorScheme.surface,
+                                  color: newsNuxtSurface,
                                   shape: const CircleBorder(),
                                   elevation: 8,
-                                  shadowColor: Theme.of(
-                                    context,
-                                  ).colorScheme.scrim.withValues(
-                                        alpha: 0.22,
-                                      ),
+                                  shadowColor: newsNuxtModalCloseShadow,
                                   child: InkWell(
                                     key: const Key(
                                       'announcement-modal-close-button',
@@ -302,9 +294,7 @@ class _AnnouncementModalOverlay extends StatelessWidget {
                                           constraints.maxWidth <= 420 ? 40 : 44,
                                       child: Icon(
                                         Icons.close,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
+                                        color: newsNuxtModalCloseForeground,
                                         size: 24,
                                       ),
                                     ),

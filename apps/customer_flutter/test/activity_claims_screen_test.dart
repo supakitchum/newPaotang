@@ -110,8 +110,12 @@ void main() {
 
     expect(repository.listCalls, 1);
     expect(find.text('เงินรางวัลกิจกรรม'), findsOneWidget);
-    expect(find.text('1,500.00 บาท'), findsOneWidget);
+    expect(find.text('1,500 บาท'), findsOneWidget);
     expect(find.text('โอนเงินสำเร็จ'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('โอนเงินสำเร็จ')).style?.color,
+      const Color(0xFF28A81E),
+    );
     expect(find.text('เงินคืนกิจกรรม'), findsOneWidget);
     expect(find.text('ลุ้นโชคงวดนี้'), findsWidgets);
     expect(find.text('รับผ่านบัญชีกสิกรไทย'), findsOneWidget);
@@ -134,13 +138,22 @@ void main() {
       ),
       findsNothing,
     );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.chevron_right)).color,
+      const Color(0xFF3B9CFF),
+    );
 
     await tester.tap(find.text('โหลดเพิ่มเติม'));
     await tester.pumpAndSettle();
 
     expect(repository.listCalls, 2);
     expect(repository.cursors, [null, 'cursor_2']);
+    expect(find.text('1,500.5 บาท'), findsOneWidget);
     expect(find.text('ยกเลิกรายการ'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('ยกเลิกรายการ')).style?.color,
+      const Color(0xFFED2C25),
+    );
     expect(find.text('รับเข้า Primary wallet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -209,6 +222,13 @@ void main() {
     expect(find.text('โอนเข้าบัญชีธนาคาร'), findsOneWidget);
     expect(find.text('โอนเงินสำเร็จ'), findsWidgets);
     expect(find.text('โอนเงินรางวัลกิจกรรมเรียบร้อยแล้ว'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.text('โอนเงินรางวัลกิจกรรมเรียบร้อยแล้ว'))
+          .style
+          ?.color,
+      const Color(0xFF28A81E),
+    );
     expect(find.text('กิจกรรม'), findsWidgets);
     expect(find.text('ลุ้นโชคงวดนี้'), findsWidgets);
     expect(find.text('เงินคืนกิจกรรม'), findsOneWidget);
@@ -228,10 +248,15 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('ยอดรางวัลกิจกรรม'), findsOneWidget);
+    expect(find.text('1,500 บาท'), findsWidgets);
     expect(find.text('หมายเหตุของลูกค้า'), findsNothing);
     expect(find.text('ขอรับเข้าบัญชีนี้'), findsNothing);
     expect(find.text('หมายเหตุจากผู้ตรวจสอบ'), findsNothing);
     expect(find.text('ตรวจสอบเรียบร้อย'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('ตรวจสอบเรียบร้อย')).style?.color,
+      const Color(0xFF475569),
+    );
 
     await tester.tap(find.byTooltip('ย้อนกลับ'));
     await tester.pumpAndSettle();
@@ -569,6 +594,7 @@ ActivityClaimItem _claim({
   String customerName = 'มานะ ใจดี',
   String customerNote = '',
   String adminNote = '',
+  int amountCents = 150000,
 }) {
   return ActivityClaimItem.fromJson({
     'id': id,
@@ -576,13 +602,13 @@ ActivityClaimItem _claim({
     'status': status,
     'payout_method': payoutMethod,
     'payout_ledger_id': payoutLedgerId,
-    'claim_amount': {'amount': 150000, 'currency': 'THB'},
+    'claim_amount': {'amount': amountCents, 'currency': 'THB'},
     'customer_name': customerName,
     'activity_name': 'ลุ้นโชคงวดนี้',
     'award': {
       'type': 'cashback',
       'activity_name': 'ลุ้นโชคงวดนี้',
-      'amount': {'amount': 150000, 'currency': 'THB'},
+      'amount': {'amount': amountCents, 'currency': 'THB'},
     },
     'bank_name': bankName,
     'bank_account_number': bankAccountNumber,
@@ -622,6 +648,7 @@ class _ActivityClaimListRepository extends ActivityClaimRepository {
             reference: 'ACT-0002',
             status: 'cancelled',
             payoutMethod: 'wallet_credit',
+            amountCents: 150050,
           ),
         ],
         nextCursor: null,

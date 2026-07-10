@@ -10,8 +10,10 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
+import 'auth_visual_tokens.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -131,7 +133,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontSize: 23,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 4),
@@ -149,11 +151,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ],
             const SizedBox(height: 22),
             _buildNameFields(context),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _RegisterFieldLabel(label: l10n.registerPhoneLabel),
             const SizedBox(height: 8),
             TextFormField(
               controller: _phone,
+              style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
               inputFormatters: [
@@ -167,25 +170,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               validator: _phoneValidator,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _RegisterFieldLabel(label: l10n.registerPasswordLabel),
             const SizedBox(height: 8),
             TextFormField(
               controller: _password,
+              style: authInputTextStyle(context),
               obscureText: !_showPassword,
               textInputAction: TextInputAction.next,
               decoration: _registerInputDecoration(
                 context,
                 hintText: l10n.registerPasswordHint,
                 prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
-                  onPressed: () =>
-                      setState(() => _showPassword = !_showPassword),
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() => _showPassword = !_showPassword),
+                  icon: _showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   tooltip: _showPassword
                       ? l10n.registerHidePassword
                       : l10n.registerShowPassword,
@@ -193,26 +197,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               validator: _required,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _RegisterFieldLabel(label: l10n.registerConfirmPasswordLabel),
             const SizedBox(height: 8),
             TextFormField(
               controller: _confirmPassword,
+              style: authInputTextStyle(context),
               obscureText: !_showConfirmPassword,
               textInputAction: TextInputAction.done,
               decoration: _registerInputDecoration(
                 context,
                 hintText: l10n.registerConfirmPasswordHint,
                 prefixIcon: const Icon(Icons.verified_user_outlined),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(
-                    () => _showConfirmPassword = !_showConfirmPassword,
-                  ),
-                  icon: Icon(
-                    _showConfirmPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(
+                            () => _showConfirmPassword = !_showConfirmPassword,
+                          ),
+                  icon: _showConfirmPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   tooltip: _showConfirmPassword
                       ? l10n.registerHidePassword
                       : l10n.registerShowPassword,
@@ -228,32 +234,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             _buildTermsTile(context),
             if (_otpSent) ...[
               const SizedBox(height: 14),
               _buildOtpCard(context),
             ],
             const SizedBox(height: 20),
-            SizedBox(
+            authPrimaryActionButton(
+              onPressed: _submitting ? null : _submit,
               height: 54,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                onPressed: _submitting ? null : _submit,
-                child: Text(
-                  _submitting
-                      ? l10n.registerSubmitting
-                      : _otpSent
-                          ? l10n.registerSubmitWithOtp
-                          : l10n.registerSubmit,
-                ),
-              ),
+              fontSize: 18,
+              label: _submitting
+                  ? l10n.registerSubmitting
+                  : _otpSent
+                      ? l10n.registerSubmitWithOtp
+                      : l10n.registerSubmit,
             ),
             const SizedBox(height: 18),
             Row(
@@ -297,6 +293,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       label: l10n.registerFirstNameLabel,
       child: TextFormField(
         controller: _firstName,
+        style: authInputTextStyle(context),
         decoration: _registerInputDecoration(
           context,
           hintText: l10n.registerFirstNameHint,
@@ -310,6 +307,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       label: l10n.registerLastNameLabel,
       child: TextFormField(
         controller: _lastName,
+        style: authInputTextStyle(context),
         decoration: _registerInputDecoration(
           context,
           hintText: l10n.registerLastNameHint,
@@ -320,25 +318,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 380) {
-          return Column(
-            children: [
-              firstNameField,
-              const SizedBox(height: 12),
-              lastNameField,
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: firstNameField),
-            const SizedBox(width: 12),
-            Expanded(child: lastNameField),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        firstNameField,
+        const SizedBox(height: 16),
+        lastNameField,
+      ],
     );
   }
 
@@ -407,6 +392,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _otp,
+              style: authInputTextStyle(context),
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -674,8 +660,7 @@ class _RegisterHeroSection extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [
               colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
+              AppTheme.heroGradientEnd(colorScheme.primary),
             ],
           ),
         ),
@@ -719,7 +704,7 @@ class _RegisterHeroSection extends StatelessWidget {
                                     context.l10n.registerHeroBadge,
                                     style: textTheme.labelLarge?.copyWith(
                                       color: colorScheme.onPrimary,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                       letterSpacing: 0,
                                     ),
                                   ),
@@ -733,7 +718,7 @@ class _RegisterHeroSection extends StatelessWidget {
                             style: textTheme.headlineLarge?.copyWith(
                               color: colorScheme.onPrimary,
                               fontSize: 34,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w800,
                               height: 1.1,
                             ),
                           ),
@@ -744,7 +729,6 @@ class _RegisterHeroSection extends StatelessWidget {
                               color:
                                   colorScheme.onPrimary.withValues(alpha: 0.9),
                               fontSize: 17,
-                              fontWeight: FontWeight.w600,
                               height: 1.45,
                             ),
                           ),
@@ -893,7 +877,7 @@ class _RegisterFieldLabel extends StatelessWidget {
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
             color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
     );
   }
@@ -1009,37 +993,10 @@ InputDecoration _registerInputDecoration(
   required Widget prefixIcon,
   Widget? suffixIcon,
 }) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return InputDecoration(
+  return authInputDecoration(
+    context,
     hintText: hintText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
-    filled: true,
-    fillColor: colorScheme.surface,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.86),
-      ),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: colorScheme.primary),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: colorScheme.error),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: colorScheme.error),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-      ),
-    ),
   );
 }

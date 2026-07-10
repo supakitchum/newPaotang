@@ -2,7 +2,6 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/shared/widgets/app_splash.dart';
-import 'package:customer_flutter/shared/widgets/customer_loading_indicator.dart';
 import 'package:customer_flutter/shared/widgets/flexible_image.dart';
 import 'package:customer_flutter/shared/widgets/tenant_brand_header.dart';
 import 'package:flutter/material.dart';
@@ -33,14 +32,14 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(CustomerLoadingMark), findsOneWidget);
+    expect(find.text('L6'), findsOneWidget);
     expect(find.text('Demo Shop'), findsOneWidget);
     expect(find.text('Ready content'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CustomerLoadingMark), findsNothing);
+    expect(find.text('L6'), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -60,7 +59,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byType(CustomerLoadingMark), findsNothing);
+    expect(find.text('L6'), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 

@@ -14,6 +14,15 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 
+const _pinInk = Color(0xFF2F3337);
+const _pinMuted = Color(0xFF9AA0A6);
+const _pinBack = Color(0xFF8B9299);
+const _pinBrand = Color(0xFF8487F8);
+const _pinErrorColor = Color(0xFFD3455B);
+const _pinDotEmpty = Color(0xFFDDDDDF);
+const _pinDotError = Color(0xFFF2B6BD);
+const _pinActionBlue = Color(0xFF0D7FE8);
+
 class PinScreen extends ConsumerStatefulWidget {
   const PinScreen({super.key});
 
@@ -54,10 +63,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
           orElse: () => false,
         );
-    final brand = ref.watch(mobileBootstrapProvider).maybeWhen(
-          data: (data) => data.siteName.trim(),
-          orElse: () => '',
-        );
+    final brand = l10n.pinBrand;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -69,45 +75,57 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxHeight < 660;
+              final horizontal = constraints.maxWidth <= 360 ? 22.0 : 28.0;
+              final mainVerticalPadding =
+                  (constraints.maxHeight * 0.05).clamp(10.0, 58.0).toDouble();
               return Padding(
-                padding: EdgeInsets.fromLTRB(
-                  constraints.maxWidth <= 360 ? 22 : 28,
-                  12,
-                  constraints.maxWidth <= 360 ? 22 : 28,
-                  22,
-                ),
+                key: const ValueKey('pin-screen-frame'),
+                padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 22),
                 child: Column(
                   children: [
-                    _PinTopBar(
-                      brand: brand,
-                      disabled: _verifying,
-                      onBack: _handleBack,
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: _PinTopBar(
+                        brand: brand,
+                      ),
                     ),
                     Expanded(
                       child: Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 430),
-                          child: _PinMainContent(
-                            title: _title(l10n, setupRequired),
-                            subtitle: _description(l10n, setupRequired),
-                            helper: _helper(l10n, setupRequired),
-                            error: _pinError,
-                            pinLength: _pin.length,
-                            verifying: _verifying,
-                            compact: compact,
-                            showBiometric: !setupRequired && biometricEnabled,
-                            onBiometric: _unlockWithBiometric,
-                            showForgotPin: !setupRequired,
-                            onForgotPin: _showResetPinSheet,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: mainVerticalPadding,
+                            ),
+                            child: Center(
+                              child: _PinMainContent(
+                                title: _title(l10n, setupRequired),
+                                subtitle: _description(l10n, setupRequired),
+                                helper: _helper(l10n, setupRequired),
+                                error: _pinError,
+                                pinLength: _pin.length,
+                                verifying: _verifying,
+                                compact: compact,
+                                showBiometric:
+                                    !setupRequired && biometricEnabled,
+                                onBiometric: _unlockWithBiometric,
+                                showForgotPin: !setupRequired,
+                                onForgotPin: _showResetPinSheet,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    _Keypad(
-                      onDigit: _digit,
-                      onBackspace: _backspace,
-                      enabled: !_verifying,
-                      compact: compact,
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: _Keypad(
+                        pinLength: _pin.length,
+                        onDigit: _digit,
+                        onBackspace: _backspace,
+                        enabled: !_verifying,
+                        compact: compact,
+                      ),
                     ),
                   ],
                 ),
@@ -129,25 +147,6 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     if (event.logicalKey == LogicalKeyboardKey.backspace) {
       _backspace();
     }
-  }
-
-  Future<void> _handleBack() async {
-    if (_verifying) return;
-    if (ref.read(authControllerProvider).pinSetupRequired &&
-        _confirmingSetupPin) {
-      setState(() {
-        _pin = '';
-        _setupPin = '';
-        _pinError = '';
-        _confirmingSetupPin = false;
-      });
-      return;
-    }
-
-    final redirect = _safeRedirect();
-    await ref.read(authControllerProvider).logout();
-    if (!mounted) return;
-    context.go('/login?redirect=${Uri.encodeComponent(redirect)}');
   }
 
   Future<void> _syncPinStatus() async {
@@ -381,49 +380,32 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 class _PinTopBar extends StatelessWidget {
   const _PinTopBar({
     required this.brand,
-    required this.disabled,
-    required this.onBack,
   });
 
   final String brand;
-  final bool disabled;
-  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return ConstrainedBox(
+      key: const ValueKey('pin-topbar'),
       constraints: const BoxConstraints(maxWidth: 430),
       child: SizedBox(
         height: 42,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 42,
-              child: IconButton(
-                alignment: Alignment.centerLeft,
-                padding: EdgeInsets.zero,
-                tooltip: context.l10n.commonBack,
-                onPressed: disabled ? null : onBack,
-                icon: const Icon(Icons.chevron_left, size: 30),
-                color: colorScheme.onSurfaceVariant,
-              ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              brand,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: _pinBrand,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
             ),
-            Expanded(
-              child: Text(
-                brand,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-              ),
-            ),
-            const SizedBox(width: 42),
-          ],
+          ),
         ),
       ),
     );
@@ -459,9 +441,13 @@ class _PinMainContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final message = error.isNotEmpty ? error : helper;
-    return Column(
+    final height = MediaQuery.sizeOf(context).height;
+    final dotGap = (height * 0.05).clamp(21.0, 34.0).toDouble();
+    final messageTop = (height * 0.03).clamp(12.0, 17.0).toDouble();
+    final messageMinHeight =
+        compact ? 18.0 : (height * 0.04).clamp(18.0, 33.0).toDouble();
+    final content = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -469,8 +455,8 @@ class _PinMainContent extends StatelessWidget {
           title,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: colorScheme.onSurface,
-                fontSize: compact ? 26 : 30,
+                color: _pinInk,
+                fontSize: 30,
                 fontWeight: FontWeight.w900,
                 height: 1.2,
               ),
@@ -480,31 +466,30 @@ class _PinMainContent extends StatelessWidget {
           subtitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: compact ? 17 : 20,
+                color: _pinMuted,
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 height: 1.35,
               ),
         ),
-        SizedBox(height: compact ? 20 : 30),
+        SizedBox(height: dotGap),
         _PinIndicator(length: pinLength, hasError: error.isNotEmpty),
         AnimatedOpacity(
           opacity: message.isEmpty ? 0 : 1,
           duration: const Duration(milliseconds: 120),
           child: Container(
             constraints: BoxConstraints(
-              minHeight: compact ? 22 : 30,
+              minHeight: messageMinHeight,
               maxWidth: 260,
             ),
             alignment: Alignment.center,
-            margin: EdgeInsets.only(top: compact ? 10 : 14),
+            margin: EdgeInsets.only(top: messageTop),
             child: Text(
               message.isEmpty ? ' ' : message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: error.isNotEmpty
-                        ? colorScheme.error
-                        : colorScheme.onSurfaceVariant,
+                    color: _pinErrorColor,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     height: 1.35,
                   ),
@@ -519,27 +504,81 @@ class _PinMainContent extends StatelessWidget {
           ),
         ],
         if (showBiometric) ...[
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: verifying ? null : onBiometric,
-            icon: const Icon(Icons.face_retouching_natural),
-            label: Text(context.l10n.pinUseBiometric),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 32,
+            child: Center(
+              child: TextButton.icon(
+                onPressed: verifying ? null : onBiometric,
+                icon: const Icon(Icons.face_retouching_natural, size: 18),
+                label: Text(context.l10n.pinUseBiometric),
+                style: TextButton.styleFrom(
+                  foregroundColor: _pinActionBlue,
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                ).copyWith(
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
         if (showForgotPin)
-          TextButton(
-            onPressed: verifying ? null : onForgotPin,
-            style: TextButton.styleFrom(
-              minimumSize: const Size(64, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
+          SizedBox(
+            height: 32,
+            child: Center(
+              child: TextButton(
+                onPressed: verifying ? null : onForgotPin,
+                style: TextButton.styleFrom(
+                  foregroundColor: _pinActionBlue,
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
                   ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                ).copyWith(
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                ),
+                child: Text(context.l10n.pinForgot),
+              ),
             ),
-            child: Text(context.l10n.pinForgot),
           ),
       ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight || constraints.maxHeight.isInfinite) {
+          return content;
+        }
+        final contentWidth =
+            constraints.hasBoundedWidth && constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 430.0;
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: SizedBox(width: contentWidth, child: content),
+        );
+      },
     );
   }
 }
@@ -939,6 +978,7 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
           ),
           const SizedBox(height: 10),
           _Keypad(
+            pinLength: digits.length,
             onDigit: _resetPinDigit,
             onBackspace: _resetPinBackspace,
             compact: true,
@@ -1345,7 +1385,6 @@ class _PinIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Semantics(
       label: _pinDots(length),
       child: Row(
@@ -1365,9 +1404,9 @@ class _PinIndicator extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: index < length
                     ? hasError
-                        ? colorScheme.error.withValues(alpha: 0.32)
-                        : colorScheme.onSurface
-                    : colorScheme.outlineVariant,
+                        ? _pinDotError
+                        : _pinInk
+                    : _pinDotEmpty,
               ),
             ),
         ],
@@ -1378,12 +1417,14 @@ class _PinIndicator extends StatelessWidget {
 
 class _Keypad extends StatelessWidget {
   const _Keypad({
+    required this.pinLength,
     required this.onDigit,
     required this.onBackspace,
     this.enabled = true,
     this.compact = false,
   });
 
+  final int pinLength;
   final ValueChanged<String> onDigit;
   final VoidCallback onBackspace;
   final bool enabled;
@@ -1391,52 +1432,76 @@ class _Keypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
+    final horizontalGap = MediaQuery.sizeOf(context).width <= 360 ? 24.0 : 30.0;
+    final height = MediaQuery.sizeOf(context).height;
+    final verticalGap = (height * 0.05).clamp(17.0, 26.0).toDouble();
     return ConstrainedBox(
+      key: const ValueKey('pin-keypad'),
       constraints: const BoxConstraints(maxWidth: 340),
-      child: GridView.count(
-        shrinkWrap: true,
-        crossAxisCount: 3,
-        mainAxisSpacing: compact ? 17 : 24,
-        crossAxisSpacing: compact ? 24 : 30,
-        childAspectRatio: compact ? 1.5 : 1.75,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          for (final key in keys)
-            if (key.isEmpty)
-              const SizedBox.shrink()
-            else
-              Semantics(
-                button: true,
-                label: key == 'back' ? context.l10n.commonBack : key,
-                child: TextButton(
-                  onPressed: !enabled
-                      ? null
-                      : key == 'back'
-                          ? onBackspace
-                          : () => onDigit(key),
-                  style: TextButton.styleFrom(
-                    foregroundColor: key == 'back'
-                        ? colorScheme.onSurfaceVariant
-                        : colorScheme.onSurface,
-                    disabledForegroundColor:
-                        colorScheme.onSurface.withValues(alpha: 0.42),
-                    minimumSize: Size(54, compact ? 36 : 43),
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = (constraints.maxWidth - horizontalGap * 2) / 3;
+          final itemHeight = (height * 0.085).clamp(36.0, 43.0).toDouble();
+          return Wrap(
+            spacing: horizontalGap,
+            runSpacing: verticalGap,
+            children: [
+              for (final key in keys)
+                SizedBox(
+                  width: itemWidth,
+                  height: itemHeight,
+                  child: key.isEmpty
+                      ? const SizedBox.shrink()
+                      : Semantics(
+                          button: true,
+                          label: key == 'back'
+                              ? MaterialLocalizations.of(context)
+                                  .deleteButtonTooltip
+                              : key,
+                          enabled: enabled && (key != 'back' || pinLength > 0),
+                          child: TextButton(
+                            onPressed: !enabled
+                                ? null
+                                : key == 'back'
+                                    ? pinLength > 0
+                                        ? onBackspace
+                                        : null
+                                    : () => onDigit(key),
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  key == 'back' ? _pinBack : _pinInk,
+                              disabledForegroundColor:
+                                  (key == 'back' ? _pinBack : _pinInk)
+                                      .withValues(alpha: 0.42),
+                              minimumSize: Size(54, itemHeight),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1,
+                                  ),
+                            ).copyWith(
+                              overlayColor: const WidgetStatePropertyAll(
+                                Colors.transparent,
+                              ),
+                            ),
+                            child: key == 'back'
+                                ? const Icon(
+                                    Icons.backspace_outlined,
+                                    size: 17,
+                                  )
+                                : Text(key),
+                          ),
                         ),
-                  ),
-                  child: key == 'back'
-                      ? const Icon(Icons.backspace_outlined, size: 20)
-                      : Text(key),
                 ),
-              ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

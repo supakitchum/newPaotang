@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -16,22 +17,20 @@ Color _walletPrimaryTint(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
     colorScheme.primary.withValues(alpha: 0.12);
 
-Color _walletCreditColor(ColorScheme colorScheme) => colorScheme.primary;
+Color _walletCreditColor(ColorScheme colorScheme) => const Color(0xFF078254);
 
 Color _walletCreditBackground(ColorScheme colorScheme) =>
-    _walletPrimaryTint(colorScheme);
+    const Color(0xFFE7F8EF);
 
-Color _walletDebitColor(ColorScheme colorScheme) => colorScheme.error;
+Color _walletDebitColor(ColorScheme colorScheme) => const Color(0xFFD33B38);
 
 Color _walletDebitBackground(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
-    colorScheme.errorContainer.withValues(alpha: 0.52);
+    const Color(0xFFFFECEC);
 
-Color _walletNeutralColor(ColorScheme colorScheme) =>
-    colorScheme.onSurfaceVariant;
+Color _walletNeutralColor(ColorScheme colorScheme) => const Color(0xFF64748B);
 
 Color _walletNeutralBackground(ColorScheme colorScheme) =>
-    colorScheme.surfaceContainerHighest;
+    const Color(0xFFEEF2F7);
 
 Color _walletPanelBorder(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.outlineVariant, colorScheme.surface, 0.18) ??
@@ -190,8 +189,7 @@ class _WalletHeroSection extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
+            AppTheme.heroGradientEnd(colorScheme.primary),
           ],
         ),
       ),
@@ -288,11 +286,17 @@ class _WalletLedgerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final sheetColor = Color.lerp(
+          colorScheme.surfaceContainerHigh,
+          colorScheme.surface,
+          0.16,
+        ) ??
+        colorScheme.surfaceContainerHigh;
     return DecoratedBox(
       decoration: BoxDecoration(color: colorScheme.primary),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: sheetColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
         child: CustomerPageBody(
@@ -474,6 +478,8 @@ class _WalletLedgerHeader extends StatelessWidget {
             disabledForegroundColor:
                 colorScheme.onSurfaceVariant.withValues(alpha: 0.62),
             shape: const CircleBorder(),
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           ),
           icon: const Icon(Icons.refresh, size: 18),
         ),

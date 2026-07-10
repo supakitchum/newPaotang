@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -46,6 +48,7 @@ class _LineNotificationsScreenState
       title: l10n.profileLineNotifications,
       currentPath: '/profile',
       sensitive: true,
+      fullScreen: true,
       child: settings.when(
         data: (data) => Column(
           children: [
@@ -54,7 +57,7 @@ class _LineNotificationsScreenState
                 padding: EdgeInsets.zero,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const _LineHero(),
+                  _LineHero(onBack: () => context.go('/profile')),
                   _LineContentSheet(
                     child: CustomerPageBody(
                       top: 16,
@@ -107,8 +110,8 @@ class _LineNotificationsScreenState
         loading: () => ListView(
           padding: EdgeInsets.zero,
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            _LineHero(),
+          children: [
+            _LineHero(onBack: () => context.go('/profile')),
             _LineContentSheet(
               child: CustomerPageBody(
                 top: 16,
@@ -129,7 +132,7 @@ class _LineNotificationsScreenState
           padding: EdgeInsets.zero,
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            const _LineHero(),
+            _LineHero(onBack: () => context.go('/profile')),
             _LineContentSheet(
               child: CustomerPageBody(
                 top: 16,
@@ -237,12 +240,15 @@ class _LineNotificationsScreenState
 }
 
 class _LineHero extends StatelessWidget {
-  const _LineHero();
+  const _LineHero({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final topInset = MediaQuery.paddingOf(context).top;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -250,8 +256,7 @@ class _LineHero extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
+            AppTheme.heroGradientEnd(colorScheme.primary),
           ],
         ),
       ),
@@ -262,73 +267,90 @@ class _LineHero extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 920),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 28),
-                child: Row(
+                padding: EdgeInsets.fromLTRB(
+                  horizontal,
+                  topInset + 58,
+                  horizontal,
+                  28,
+                ),
+                child: Column(
                   children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Color.lerp(
-                              colorScheme.primary,
-                              colorScheme.secondary,
-                              0.35,
-                            ) ??
-                            colorScheme.primary,
-                        border: Border.all(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.78),
-                          width: 3,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.shadow.withValues(alpha: 0.14),
-                            blurRadius: 22,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: SizedBox.square(
-                        dimension: 62,
-                        child: Icon(
-                          Icons.chat_bubble,
-                          color: colorScheme.onPrimary,
-                          size: 34,
-                        ),
-                      ),
+                    _ProfileHeroTitleRow(
+                      title: l10n.profileLineNotifications,
+                      onBack: onBack,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.profileLineHeroTitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  color: colorScheme.onPrimary,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.18,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n.profileLineHeroSubtitle,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Color.lerp(
+                                  colorScheme.primary,
+                                  colorScheme.secondary,
+                                  0.35,
+                                ) ??
+                                colorScheme.primary,
+                            border: Border.all(
                               color: colorScheme.onPrimary.withValues(
-                                alpha: 0.92,
+                                alpha: 0.78,
                               ),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              height: 1.45,
+                              width: 3,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    colorScheme.shadow.withValues(alpha: 0.14),
+                                blurRadius: 22,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: SizedBox.square(
+                            dimension: 62,
+                            child: Icon(
+                              Icons.chat_bubble,
+                              color: colorScheme.onPrimary,
+                              size: 34,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.profileLineHeroTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      color: colorScheme.onPrimary,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.18,
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                l10n.profileLineHeroSubtitle,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onPrimary.withValues(
+                                    alpha: 0.92,
+                                  ),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -336,6 +358,63 @@ class _LineHero extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ProfileHeroTitleRow extends StatelessWidget {
+  const _ProfileHeroTitleRow({
+    required this.title,
+    required this.onBack,
+  });
+
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 42,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 0,
+            child: IconButton(
+              tooltip: context.l10n.commonBack,
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
+              color: colorScheme.onPrimary,
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 54),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }

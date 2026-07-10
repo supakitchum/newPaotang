@@ -34,13 +34,16 @@ class TermsScreen extends ConsumerWidget {
       title: l10n.contentTermsTitle,
       currentPath: '/profile',
       backPath: '/profile',
-      compactHeader: true,
+      heroMinHeight: 330,
+      heroSheetOverlap: 82,
+      heroContent: _InfoHeroContent(
+        title: parsed.title,
+        subtitle: siteName,
+        icon: Icons.description_outlined,
+        subtitleGap: 30,
+        titleGap: 14,
+      ),
       child: _InfoPageShell(
-        heroTitle: parsed.title,
-        heroSubtitle: siteName,
-        heroIcon: Icons.description_outlined,
-        heroHeight: 330,
-        sheetOverlap: 82,
         child: _InfoCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,13 +105,16 @@ class _PrivacyPolicyScreenState extends ConsumerState<PrivacyPolicyScreen> {
       title: l10n.contentPrivacyTitle,
       currentPath: '/profile',
       backPath: '/profile',
-      compactHeader: true,
+      heroMinHeight: 330,
+      heroSheetOverlap: 82,
+      heroContent: _InfoHeroContent(
+        title: parsed.title,
+        subtitle: l10n.contentPrivacyHeroSubtitle(siteName),
+        icon: Icons.privacy_tip_outlined,
+        subtitleGap: 30,
+        titleGap: 14,
+      ),
       child: _InfoPageShell(
-        heroTitle: parsed.title,
-        heroSubtitle: l10n.contentPrivacyHeroSubtitle(siteName),
-        heroIcon: Icons.privacy_tip_outlined,
-        heroHeight: 330,
-        sheetOverlap: 82,
         child: _InfoCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,14 +173,10 @@ class TermRewardScreen extends StatelessWidget {
       title: l10n.contentRewardTermsTitle,
       currentPath: '/',
       backPath: '/',
-      compactHeader: true,
+      heroMinHeight: 176,
+      heroSheetOverlap: 16,
+      heroContent: const SizedBox.shrink(),
       child: _InfoPageShell(
-        heroTitle: l10n.contentRewardTermsTitle,
-        heroSubtitle: '',
-        heroIcon: Icons.emoji_events_outlined,
-        heroHeight: 176,
-        sheetOverlap: 26,
-        showHeroContent: false,
         bottom: 96,
         child: _RewardTermsCard(l10n: l10n),
       ),
@@ -192,13 +194,15 @@ class LotteryKnowledgeScreen extends StatelessWidget {
       title: l10n.contentKnowledgeTitle,
       currentPath: '/profile',
       backPath: '/profile',
-      compactHeader: true,
+      heroMinHeight: 340,
+      heroSheetOverlap: 88,
+      heroContent: _InfoHeroContent(
+        title: l10n.contentKnowledgeTitle,
+        icon: Icons.school_outlined,
+        logoSize: 78,
+        titleGap: 28,
+      ),
       child: _InfoPageShell(
-        heroTitle: l10n.contentKnowledgeTitle,
-        heroSubtitle: l10n.contentKnowledgeSubtitle,
-        heroIcon: Icons.school_outlined,
-        heroHeight: 340,
-        sheetOverlap: 88,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -218,23 +222,11 @@ class LotteryKnowledgeScreen extends StatelessWidget {
 
 class _InfoPageShell extends StatelessWidget {
   const _InfoPageShell({
-    required this.heroTitle,
-    required this.heroSubtitle,
-    required this.heroIcon,
-    required this.heroHeight,
-    required this.sheetOverlap,
     required this.child,
-    this.showHeroContent = true,
     this.bottom = 128,
   });
 
-  final String heroTitle;
-  final String heroSubtitle;
-  final IconData heroIcon;
-  final double heroHeight;
-  final double sheetOverlap;
   final Widget child;
-  final bool showHeroContent;
   final double bottom;
 
   @override
@@ -243,10 +235,6 @@ class _InfoPageShell extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth <= 390;
-        final height =
-            narrow && heroHeight >= 300 ? heroHeight - 14 : heroHeight;
-        final overlap =
-            narrow && sheetOverlap >= 70 ? sheetOverlap - 6 : sheetOverlap;
 
         return ColoredBox(
           color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.96) ??
@@ -255,29 +243,13 @@ class _InfoPageShell extends StatelessWidget {
             padding: EdgeInsets.zero,
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _InfoHeroBand(
-                    height: height,
-                    overlap: overlap,
-                    title: heroTitle,
-                    subtitle: heroSubtitle,
-                    icon: heroIcon,
-                    showContent: showHeroContent,
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: height - overlap),
-                    child: CustomerPageBody(
-                      maxWidth: 640,
-                      top: 0,
-                      bottom: bottom,
-                      mobileHorizontal: narrow ? 14 : 18,
-                      wideHorizontal: 18,
-                      child: child,
-                    ),
-                  ),
-                ],
+              CustomerPageBody(
+                maxWidth: 640,
+                top: 0,
+                bottom: bottom,
+                mobileHorizontal: narrow ? 14 : 18,
+                wideHorizontal: 18,
+                child: child,
               ),
             ],
           ),
@@ -287,89 +259,66 @@ class _InfoPageShell extends StatelessWidget {
   }
 }
 
-class _InfoHeroBand extends StatelessWidget {
-  const _InfoHeroBand({
-    required this.height,
-    required this.overlap,
+class _InfoHeroContent extends StatelessWidget {
+  const _InfoHeroContent({
     required this.title,
-    required this.subtitle,
     required this.icon,
-    required this.showContent,
+    this.subtitle = '',
+    this.logoSize = 72,
+    this.subtitleGap = 16,
+    this.titleGap = 8,
   });
 
-  final double height;
-  final double overlap;
   final String title;
   final String subtitle;
   final IconData icon;
-  final bool showContent;
+  final double logoSize;
+  final double subtitleGap;
+  final double titleGap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final narrow = MediaQuery.sizeOf(context).width <= 390;
+    final compactLogoSize = logoSize - 10;
 
-    return SizedBox(
-      height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
-            ],
-          ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TenantBrandHeader(
+          icon: icon,
+          showName: false,
+          size: narrow ? compactLogoSize : logoSize,
         ),
-        child: showContent
-            ? CustomerPageBody(
-                maxWidth: 640,
-                top: 24,
-                bottom: overlap + 24,
-                mobileHorizontal: 18,
-                wideHorizontal: 18,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TenantBrandHeader(
-                      icon: icon,
-                      showName: false,
-                      size: narrow ? 62 : 72,
-                    ),
-                    if (subtitle.trim().isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        subtitle.trim(),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.9),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          height: 1.35,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      title.trim(),
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: colorScheme.onPrimary,
-                                fontSize: narrow ? 25 : 29,
-                                fontWeight: FontWeight.w900,
-                                height: 1.22,
-                              ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              )
-            : const SizedBox.expand(),
-      ),
+        if (subtitle.trim().isNotEmpty) ...[
+          SizedBox(height: subtitleGap),
+          Text(
+            subtitle.trim(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colorScheme.onPrimary.withValues(alpha: 0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              height: 1.35,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        SizedBox(height: titleGap),
+        Text(
+          title.trim(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onPrimary,
+                fontSize: narrow ? 25 : 29,
+                fontWeight: FontWeight.w900,
+                height: 1.22,
+              ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

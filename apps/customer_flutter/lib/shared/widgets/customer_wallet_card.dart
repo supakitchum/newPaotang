@@ -44,6 +44,8 @@ class CustomerWalletBalanceCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final primary = colorScheme.primary;
     final secondary = colorScheme.secondary;
+    final onHero = colorScheme.onPrimary;
+    final heroScrim = colorScheme.scrim;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -115,7 +117,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                     top: -38,
                     child: _WalletOrb(
                       size: 76,
-                      color: const Color(0xFFFFD329).withValues(alpha: 0.92),
+                      color: colorScheme.tertiary.withValues(alpha: 0.92),
                     ),
                   ),
                   Positioned.fill(
@@ -127,7 +129,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                           colors: [
                             Colors.transparent,
                             Colors.transparent,
-                            Colors.white.withValues(alpha: 0.13),
+                            onHero.withValues(alpha: 0.13),
                             Colors.transparent,
                             Colors.transparent,
                           ],
@@ -146,7 +148,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.account_balance_wallet_outlined,
-                              color: Colors.white.withValues(alpha: 0.90),
+                              color: onHero.withValues(alpha: 0.90),
                               size: 17,
                             ),
                             const SizedBox(width: 7),
@@ -157,7 +159,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.90),
+                                  color: onHero.withValues(alpha: 0.90),
                                   fontWeight: FontWeight.w800,
                                   fontSize: 12,
                                 ),
@@ -172,7 +174,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                                   child: Material(
                                     color: (Color.lerp(
                                               primary,
-                                              Colors.black,
+                                              heroScrim,
                                               0.42,
                                             ) ??
                                             primary)
@@ -181,9 +183,14 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                                     child: InkWell(
                                       onTap: onOpenWallet,
                                       borderRadius: BorderRadius.circular(12),
-                                      child: const Icon(
+                                      splashFactory: NoSplash.splashFactory,
+                                      overlayColor:
+                                          const WidgetStatePropertyAll(
+                                        Colors.transparent,
+                                      ),
+                                      child: Icon(
                                         Icons.qr_code_scanner,
-                                        color: Colors.white,
+                                        color: onHero,
                                         size: 25,
                                       ),
                                     ),
@@ -201,7 +208,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                               _balanceText(),
                               textAlign: TextAlign.center,
                               style: theme.textTheme.headlineMedium?.copyWith(
-                                color: Colors.white,
+                                color: onHero,
                                 fontSize: amountFontSize,
                                 fontWeight: FontWeight.w900,
                                 height: 1,
@@ -217,7 +224,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.84),
+                              color: onHero.withValues(alpha: 0.84),
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                             ),
@@ -274,11 +281,15 @@ class _WalletCardActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconSize = narrow ? 36.0 : 40.0;
-    final primary = Theme.of(context).colorScheme.primary;
-    final overlay = Color.lerp(primary, Colors.black, 0.42) ?? primary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final overlay = Color.lerp(colorScheme.primary, colorScheme.scrim, 0.42) ??
+        colorScheme.primary;
+    final onHero = colorScheme.onPrimary;
     return InkWell(
       onTap: action.onTap,
       borderRadius: BorderRadius.circular(16),
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 0 : 3,
@@ -294,10 +305,10 @@ class _WalletCardActionButton extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: overlay.withValues(alpha: 0.42),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: onHero.withValues(alpha: 0.08),
                 ),
               ),
-              child: Icon(action.icon, color: Colors.white, size: 18),
+              child: Icon(action.icon, color: onHero, size: 18),
             ),
             const SizedBox(height: 6),
             Text(
@@ -306,7 +317,7 @@ class _WalletCardActionButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
+                    color: onHero,
                     fontWeight: FontWeight.w800,
                     fontSize: narrow ? 10 : 11,
                   ),

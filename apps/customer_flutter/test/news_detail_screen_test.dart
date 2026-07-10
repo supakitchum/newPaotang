@@ -36,8 +36,16 @@ void main() {
     );
 
     expect(find.text('ข่าวแคมเปญ'), findsOneWidget);
+    expect(find.text('ข่าวสารและกิจกรรม'), findsOneWidget);
     expect(find.text('สรุปโปรโมชัน'), findsOneWidget);
     expect(find.text('รายละเอียดเพิ่มเติมสำหรับสมาชิก'), findsOneWidget);
+    expect(_textColor(tester, 'ข่าวสารและกิจกรรม'), const Color(0xFF0875DF));
+    expect(_textColor(tester, 'ข่าวแคมเปญ'), const Color(0xFF1F2937));
+    expect(_textColor(tester, 'สรุปโปรโมชัน'), const Color(0xFF53616F));
+    expect(
+      _textColor(tester, 'รายละเอียดเพิ่มเติมสำหรับสมาชิก'),
+      const Color(0xFF344054),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -119,4 +127,8 @@ Future<void> _pumpNewsDetail(WidgetTester tester, NewsItem item) async {
   );
 
   await tester.pumpAndSettle();
+}
+
+Color? _textColor(WidgetTester tester, String text) {
+  return tester.widget<Text>(find.text(text)).style?.color;
 }

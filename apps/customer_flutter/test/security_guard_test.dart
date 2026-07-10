@@ -1308,7 +1308,7 @@ void main() {
     expect(authController.pinRequired, isTrue);
   });
 
-  testWidgets('CustomerApp enables web privacy guard on sensitive web routes',
+  testWidgets('CustomerApp enables web privacy guard without watermark',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -1369,7 +1369,7 @@ void main() {
     );
     expect(webGuard.enabled, isTrue);
     expect(webGuard.mode, 'limited');
-    expect(webGuard.watermarkEnabled, isTrue);
+    expect(webGuard.watermarkEnabled, isFalse);
     expect(webGuard.privacyOverlayTitle, 'Runtime web privacy');
     expect(
       webGuard.privacyOverlayDescription,
@@ -1543,7 +1543,7 @@ void main() {
     expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
   });
 
-  testWidgets('WebPrivacyGuard watermark-only mode does not lifecycle cover',
+  testWidgets('WebPrivacyGuard watermark-only mode renders no watermark cover',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -1567,12 +1567,15 @@ void main() {
     );
     await tester.pump();
 
+    expect(_privacyWatermarkFinder, findsNothing);
+
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
 
     expect(find.text('Sensitive wallet'), findsOneWidget);
     expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
     expect(find.text('Partner watermark'), findsNothing);
+    expect(_privacyWatermarkFinder, findsNothing);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
@@ -2108,6 +2111,11 @@ class _NoopResultRepository extends ResultRepository {
     );
   }
 }
+
+final _privacyWatermarkFinder = find.byWidgetPredicate((widget) {
+  if (widget is! CustomPaint) return false;
+  return widget.painter.runtimeType.toString().contains('PrivacyWatermark');
+});
 
 AuthController _testAuthController({bool pinSetupRequired = false}) {
   final tokenStore = AuthTokenStore();

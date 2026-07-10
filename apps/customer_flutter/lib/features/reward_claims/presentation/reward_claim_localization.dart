@@ -2,6 +2,22 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../data/reward_claim_models.dart';
 
+String formatRewardClaimBaht(CustomerLocalizations l10n, num value) {
+  final formatted = l10n.formatBaht(value);
+  final unit = l10n.commonBahtSuffix.trim();
+  final amount = unit.isEmpty
+      ? formatted.trim()
+      : formatted
+          .replaceFirst(RegExp('\\s*${RegExp.escape(unit)}\$'), '')
+          .trim();
+  final numericValue = value.toDouble();
+  final cleanAmount = numericValue.isFinite &&
+          (numericValue - numericValue.roundToDouble()).abs() <= 0.000001
+      ? amount.replaceFirst(RegExp(r'[\.,]00$'), '')
+      : amount;
+  return unit.isEmpty ? cleanAmount : '$cleanAmount $unit';
+}
+
 String rewardClaimCustomerName(
   CustomerLocalizations l10n,
   RewardClaimItem claim,
@@ -98,13 +114,13 @@ String rewardClaimPrizeLines(
 ) {
   if (claim.prizes.isEmpty) {
     return '${l10n.rewardClaimPrizeType(claim.prizeType)}\n'
-        '${formatBaht(claim.prizeAmount)}';
+        '${formatRewardClaimBaht(l10n, claim.prizeAmount)}';
   }
 
   return claim.prizes
       .map(
         (prize) => '${l10n.rewardClaimPrizeType(prize.prizeType)}\n'
-            '${formatBaht(prize.amount)}',
+            '${formatRewardClaimBaht(l10n, prize.amount)}',
       )
       .join('\n\n');
 }

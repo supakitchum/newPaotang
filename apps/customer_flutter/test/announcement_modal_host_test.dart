@@ -54,6 +54,13 @@ void main() {
       find.byKey(const Key('announcement-modal-close-button')),
       findsOneWidget,
     );
+    final closeIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('announcement-modal-close-button')),
+        matching: find.byIcon(Icons.close),
+      ),
+    );
+    expect(closeIcon.color, const Color(0xFF1D2A3A));
 
     await tester.tap(find.byKey(const Key('announcement-modal-image-button')));
     await tester.pumpAndSettle();

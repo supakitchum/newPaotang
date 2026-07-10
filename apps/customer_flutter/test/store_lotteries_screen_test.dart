@@ -113,6 +113,12 @@ void main() {
       ),
       findsOneWidget,
     );
+    final selectButton = find.descendant(
+      of: ticketRow,
+      matching: find.widgetWithText(OutlinedButton, 'เลือก'),
+    );
+    expect(selectButton, findsOneWidget);
+    expect(tester.getSize(selectButton).height, 40);
     final rowDecoration =
         tester.widget<DecoratedBox>(ticketRow).decoration as BoxDecoration;
     expect(rowDecoration.borderRadius, isNull);
@@ -132,14 +138,14 @@ void main() {
         matching:
             find.byKey(const ValueKey('store-lottery-ticket-image-frame')),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(
         of: ticketRow,
         matching: find.byKey(const ValueKey('store-lottery-ticket-image')),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(
@@ -371,7 +377,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('store lotteries shows Nuxt-style image fallback while pending', (
+  testWidgets('store lotteries keeps compact rows while image is pending', (
     tester,
   ) async {
     final tokenStore = AuthTokenStore();
@@ -420,9 +426,9 @@ void main() {
           const ValueKey('store-lottery-ticket-image-fallback'),
         ),
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsOneWidget);
+    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsNothing);
     expect(
       find.descendant(
         of: ticketRow,
@@ -432,7 +438,7 @@ void main() {
     );
   });
 
-  testWidgets('store lotteries shows backend image error while failed', (
+  testWidgets('store lotteries keeps compact rows while image has failed', (
     tester,
   ) async {
     final tokenStore = AuthTokenStore();
@@ -474,7 +480,7 @@ void main() {
       const ValueKey('store-lottery-ticket-row-local_123123'),
     );
     expect(ticketRow, findsOneWidget);
-    expect(find.text('ภาพสลากร้านค้ายังไม่พร้อมจากระบบ'), findsOneWidget);
+    expect(find.text('ภาพสลากร้านค้ายังไม่พร้อมจากระบบ'), findsNothing);
     expect(
       find.descendant(
         of: ticketRow,
@@ -740,8 +746,8 @@ void main() {
       selectionDockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(12)),
     );
-    expect(find.text('จำนวนที่เลือก'), findsNothing);
-    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsOneWidget);
+    expect(find.text('จำนวนที่เลือก'), findsOneWidget);
+    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
     expect(find.text('1 ใบ'), findsOneWidget);
     expect(
       find.descendant(
@@ -780,6 +786,60 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cart route'), findsOneWidget);
+  });
+
+  testWidgets('store lotteries keeps vstock ticket selected after reservation',
+      (
+    tester,
+  ) async {
+    final store = _VirtualStockStoreRepository();
+    final lottery = _MaterializedReservationLotteryRepository();
+    final tokenStore = AuthTokenStore();
+    final authController = _authenticatedController(tokenStore);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(store),
+          lotteryRepositoryProvider.overrideWithValue(lottery),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 1);
+    expect(lottery.lastReservedItemId, startsWith('vstock:'));
+    expect(find.text('เลือก'), findsNothing);
+    expect(find.text('เอาออก'), findsOneWidget);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.byKey(const ValueKey('cart-selection-dock')), findsOneWidget);
   });
 
   testWidgets('store lotteries handles unavailable reservation races like Nuxt',
@@ -1310,6 +1370,8 @@ class _FakeStoreRepository extends StoreRepository {
       localStockItemId: 'local_$number',
       stockRef: 'ref_$number',
       number: number,
+      drawNumber: '',
+      setNumber: '',
       sellerName: sellerName,
       storeName: sellerName,
       price: 80,
@@ -1367,6 +1429,39 @@ class _PendingImageStoreLotteryRepository extends _FakeStoreRepository {
       gameId: gameId,
       sellerName: 'ร้านทดสอบ',
     );
+  }
+}
+
+class _VirtualStockStoreRepository extends _FakeStoreRepository {
+  @override
+  Future<StoreLotteryPage> lotteries({
+    required String storeId,
+    required String gameId,
+    List<String> digits = const [],
+    String cursor = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastStoreId = storeId;
+    lastGameId = gameId;
+    lastDigits = List<String>.from(digits);
+    const stockRef = 'vstock:tenant_a:game_1:123123:0';
+    return StoreLotteryPage.fromJson(const {
+      'data': [
+        {
+          'id': stockRef,
+          'token': stockRef,
+          'local_stock_item_id': stockRef,
+          'stock_ref': stockRef,
+          'game_id': 'game_1',
+          'full_number': '123123',
+          'remaining_count': 1,
+          'status': 'available',
+          'price': {'amount': 8000, 'currency': 'THB'},
+        },
+      ],
+      'meta': {'game_id': 'game_1', 'has_more': false},
+    });
   }
 }
 
@@ -1644,6 +1739,58 @@ class _SuccessfulReservationLotteryRepository extends LotteryRepository {
       expiresInSeconds: 600,
       serverTime: DateTime.now().toIso8601String(),
       items: [item],
+      total: item.price,
+    );
+  }
+}
+
+class _MaterializedReservationLotteryRepository extends LotteryRepository {
+  _MaterializedReservationLotteryRepository() : super(_testApiClient());
+
+  int reserveCount = 0;
+  String lastReservedItemId = '';
+
+  @override
+  Future<LotteryCart> cart() async {
+    return LotteryCart.empty();
+  }
+
+  @override
+  Future<LotteryReservation> reserve({
+    required String gameId,
+    required LotteryStockItem item,
+  }) async {
+    reserveCount++;
+    lastReservedItemId = item.reserveStockItemId;
+    return LotteryReservation(
+      id: 'res_store_vstock',
+      gameId: gameId,
+      status: 'active',
+      expiresAt: null,
+      expiresInSeconds: 600,
+      serverTime: DateTime.now().toIso8601String(),
+      items: [
+        LotteryStockItem(
+          id: 'local_stock_123123',
+          token: 'local_stock_123123',
+          localStockItemId: 'local_stock_123123',
+          stockRef: item.reserveStockItemId,
+          number: item.number,
+          sellerName: item.sellerName,
+          storeName: item.storeName,
+          price: item.price,
+          remainingCount: item.remainingCount,
+          status: 'reserved',
+          reservationId: 'res_store_vstock',
+          reservationExpiresAt: null,
+          serverTime: null,
+          imageUrl: '',
+          thumbUrl: '',
+          imageStatus: '',
+          imageError: '',
+          raw: {'stock_ref': item.reserveStockItemId},
+        ),
+      ],
       total: item.price,
     );
   }

@@ -108,6 +108,8 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
     _checkDeepLinkAssociationFiles(input, issues);
     _checkForbiddenProductionSourceReferences(input, issues);
     _checkExternalLinkLaunchPolicy(input, issues);
+    _checkFlutterSystemChromeIdentityBinding(input, issues);
+    _checkFlutterSplashIdentityBinding(input, issues);
     _checkFlutterRouteRegistryBinding(input, issues);
     _checkFlutterMaintenanceRoutePolicyBinding(input, issues);
     _checkFlutterFeatureFlagRoutePolicyBinding(input, issues);
@@ -129,6 +131,84 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   if (input.target.includesIos) _checkIos(input, issues);
 
   return issues;
+}
+
+void _checkFlutterSystemChromeIdentityBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final app = File(_join(input.projectRoot, 'lib/app/customer_app.dart'));
+  if (!app.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_system_chrome_identity_missing',
+        message:
+            'CustomerApp must bind system status/navigation chrome to the Nuxt customer identity.',
+      ),
+    );
+    return;
+  }
+
+  _requireAllSnippets(
+    app.readAsStringSync(),
+    const [
+      'AnnotatedRegion<SystemUiOverlayStyle>',
+      'statusBarColor: AppTheme.appBlue',
+      'statusBarIconBrightness: Brightness.light',
+      'statusBarBrightness: Brightness.dark',
+      'systemNavigationBarColor: AppTheme.appSheet',
+      'systemNavigationBarIconBrightness: Brightness.dark',
+      'systemNavigationBarDividerColor: AppTheme.appBorder',
+      'systemNavigationBarContrastEnforced: false',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_system_chrome_identity_missing',
+      message:
+          'CustomerApp must keep native system status/navigation chrome on the Nuxt blue/white customer identity instead of default or runtime partner colors.',
+    ),
+    issues,
+  );
+}
+
+void _checkFlutterSplashIdentityBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final splash = File(
+    _join(input.projectRoot, 'lib/shared/widgets/app_splash.dart'),
+  );
+  if (!splash.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_splash_identity_missing',
+        message:
+            'Flutter AppSplashHost must preserve the Nuxt customer splash identity.',
+      ),
+    );
+    return;
+  }
+
+  _requireAllSnippets(
+    splash.readAsStringSync(),
+    const [
+      'AppTheme.appBlue',
+      'Color(0xFF0C6FE0)',
+      'Color(0xFF15AEEA)',
+      'AppTheme.appYellow',
+      '_SplashYellowCorner',
+      '_SplashBrandLockup',
+      '_SplashMark',
+      "'L6'",
+      '_SplashLoader',
+      'Duration(milliseconds: 1050)',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_splash_identity_missing',
+      message:
+          'Flutter splash must stay aligned with the Nuxt blue/yellow splash instead of default Flutter loading or runtime partner colors.',
+    ),
+    issues,
+  );
 }
 
 void _checkFlutterRouteRegistryBinding(
@@ -2133,6 +2213,7 @@ void _checkAndroidNativeSecurity(
 ) {
   _checkAndroidManifest(input, issues);
   _checkAndroidGradleConfig(input, issues);
+  _checkAndroidLaunchIdentity(input, issues);
 
   final mainActivity = _findFirstFile(
     Directory(_join(input.projectRoot, 'android/app/src/main/kotlin')),
@@ -2297,6 +2378,54 @@ void _checkAndroidNativeSecurity(
     ),
     issues,
   );
+}
+
+void _checkAndroidLaunchIdentity(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final colors = File(
+    _join(input.projectRoot, 'android/app/src/main/res/values/colors.xml'),
+  );
+  final launch = File(
+    _join(
+      input.projectRoot,
+      'android/app/src/main/res/drawable/launch_background.xml',
+    ),
+  );
+  final launchV21 = File(
+    _join(
+      input.projectRoot,
+      'android/app/src/main/res/drawable-v21/launch_background.xml',
+    ),
+  );
+  if (!colors.existsSync() || !launch.existsSync() || !launchV21.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_launch_identity_missing',
+        message:
+            'Android launch background resources must exist and use the Nuxt customer blue identity.',
+      ),
+    );
+    return;
+  }
+
+  final colorSource = colors.readAsStringSync();
+  final launchSource = launch.readAsStringSync();
+  final launchV21Source = launchV21.readAsStringSync();
+  final missingIdentity = !colorSource.contains('customer_launch_background') ||
+      !colorSource.contains('#087FF0') ||
+      !launchSource.contains('@color/customer_launch_background') ||
+      !launchV21Source.contains('@color/customer_launch_background');
+  if (missingIdentity) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_launch_identity_missing',
+        message:
+            'Android launch background must be the Nuxt customer blue #087FF0 instead of Flutter/default white or runtime partner colors.',
+      ),
+    );
+  }
 }
 
 void _checkAndroidManifest(
@@ -2518,6 +2647,7 @@ void _checkIosNativeSecurity(
   _checkIosPrivacyManifest(input, issues);
   _checkIosProjectConfig(input, issues);
   _checkIosReleaseConfigGuard(input, issues);
+  _checkIosLaunchIdentity(input, issues);
 
   final appDelegate =
       File(_join(input.projectRoot, 'ios/Runner/AppDelegate.swift'));
@@ -2669,6 +2799,39 @@ void _checkIosNativeSecurity(
     ),
     issues,
   );
+}
+
+void _checkIosLaunchIdentity(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final storyboard = File(
+    _join(input.projectRoot, 'ios/Runner/Base.lproj/LaunchScreen.storyboard'),
+  );
+  if (!storyboard.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_launch_identity_missing',
+        message:
+            'iOS LaunchScreen.storyboard must exist and use the Nuxt customer blue identity.',
+      ),
+    );
+    return;
+  }
+
+  final source = storyboard.readAsStringSync();
+  final hasCustomerBlue = source.contains('red="0.03137254902"') &&
+      source.contains('green="0.4980392157"') &&
+      source.contains('blue="0.9411764706"');
+  if (!hasCustomerBlue) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_launch_identity_missing',
+        message:
+            'iOS launch screen background must be the Nuxt customer blue #087FF0 instead of Flutter/default white or runtime partner colors.',
+      ),
+    );
+  }
 }
 
 void _checkIosImagePickerUsageDescriptions(
@@ -3169,8 +3332,9 @@ void _checkWebRuntimeMetadata(
       '"web_short_name"',
       '"webDescription"',
       '"web_description"',
-      '"themeColor"',
-      '"theme_color"',
+      'customerIdentityThemeColor',
+      '"manifestBackgroundColor"',
+      '"manifest_background_color"',
       '"backgroundColor"',
       '"background_color"',
       '"faviconUrl"',
@@ -3235,6 +3399,26 @@ void _checkWebRuntimeMetadata(
     ),
     issues,
   );
+  const forbiddenThemeColorRuntimeBindings = [
+    'firstConfigValue(["themeColor"',
+    "firstConfigValue(['themeColor'",
+    'runtimeConfig.themeColor',
+    'runtimeConfig["themeColor"]',
+    'runtimeConfig.theme_color',
+    'runtimeConfig["theme_color"]',
+    '"manifestThemeColor"',
+    '"manifest_theme_color"',
+    'primaryColor", "primary_color", "brandColor"',
+  ];
+  if (forbiddenThemeColorRuntimeBindings.any(indexSource.contains)) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'web_runtime_theme_color_identity_drift',
+        message:
+            'Web/PWA theme-color must stay on the Nuxt customer blue identity instead of runtime partner/provider theme colors.',
+      ),
+    );
+  }
 }
 
 File? _findFirstFile(Directory root, String fileName) {

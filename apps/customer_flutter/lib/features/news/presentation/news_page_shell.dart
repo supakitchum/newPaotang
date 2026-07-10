@@ -10,8 +10,8 @@ class NewsPageShell extends StatelessWidget {
     this.maxWidth = 640,
   });
 
-  static const _heroHeight = 214.0;
-  static const _sheetOverlap = 54.0;
+  static const heroMinHeight = 214.0;
+  static const sheetOverlap = 54.0;
 
   final Widget child;
   final double maxWidth;
@@ -21,52 +21,17 @@ class NewsPageShell extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const _NewsHeroBand(),
-            Padding(
-              padding: const EdgeInsets.only(top: _heroHeight - _sheetOverlap),
-              child: _NewsContentSheet(
-                child: CustomerPageBody(
-                  maxWidth: maxWidth,
-                  top: 0,
-                  bottom: 96,
-                  mobileHorizontal: 16,
-                  wideHorizontal: 16,
-                  child: child,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _NewsHeroBand extends StatelessWidget {
-  const _NewsHeroBand();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: NewsPageShell._heroHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
-            ],
+        _NewsContentSheet(
+          child: CustomerPageBody(
+            maxWidth: maxWidth,
+            top: 0,
+            bottom: 96,
+            mobileHorizontal: 16,
+            wideHorizontal: 16,
+            child: child,
           ),
         ),
-        child: const SizedBox.expand(),
-      ),
+      ],
     );
   }
 }

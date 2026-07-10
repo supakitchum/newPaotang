@@ -154,6 +154,8 @@ void main() {
       findsNothing,
     );
 
+    await tester.ensureVisible(storeRow);
+    await tester.pumpAndSettle();
     await tester.tap(storeRow);
     await tester.pumpAndSettle();
 
@@ -241,7 +243,11 @@ void main() {
       findsNothing,
     );
     final dockBottom = tester.getBottomLeft(dock).dy;
-    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    await tester.drag(
+      find.byType(ListView),
+      const Offset(0, -260),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
     expect(tester.getBottomLeft(dock).dy, closeTo(dockBottom, 1));
 

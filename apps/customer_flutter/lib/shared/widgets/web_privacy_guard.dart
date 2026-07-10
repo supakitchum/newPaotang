@@ -89,10 +89,6 @@ class _WebPrivacyGuardState extends State<WebPrivacyGuard>
       widget.privacyOverlayDescription,
       l10n.securityCaptureDescription,
     );
-    final showWatermark = webPrivacyModeShowsWatermark(
-      widget.mode,
-      watermarkEnabled: widget.watermarkEnabled,
-    );
     final coverVisible = webPrivacyModeShouldShowCover(
       widget.mode,
       lifecycleShouldCover: _lifecycleShouldCover,
@@ -102,15 +98,6 @@ class _WebPrivacyGuardState extends State<WebPrivacyGuard>
       fit: StackFit.expand,
       children: [
         widget.child,
-        if (showWatermark)
-          IgnorePointer(
-            child: CustomPaint(
-              painter: _PrivacyWatermarkPainter(
-                text: title,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
         if (coverVisible)
           Positioned.fill(
             child: _PrivacyCover(
@@ -195,49 +182,5 @@ class _PrivacyCover extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _PrivacyWatermarkPainter extends CustomPainter {
-  const _PrivacyWatermarkPainter({
-    required this.text,
-    required this.color,
-  });
-
-  final String text;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (text.trim().isEmpty || size.isEmpty) return;
-
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color.withValues(alpha: 0.055),
-          fontSize: 18,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-
-    const xGap = 210.0;
-    const yGap = 145.0;
-    canvas.save();
-    canvas.rotate(-0.36);
-    for (var y = -size.height; y < size.height * 1.8; y += yGap) {
-      for (var x = -size.width; x < size.width * 1.8; x += xGap) {
-        textPainter.paint(canvas, Offset(x, y));
-      }
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _PrivacyWatermarkPainter oldDelegate) {
-    return oldDelegate.text != text || oldDelegate.color != color;
   }
 }

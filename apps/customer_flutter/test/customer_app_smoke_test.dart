@@ -1,3 +1,4 @@
+import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
@@ -10,7 +11,8 @@ void main() {
     await runCustomerAppSmokeHarness(tester, platformKey: 'web');
   });
 
-  testWidgets('CustomerApp applies partner theme tokens from bootstrap', (
+  testWidgets(
+      'CustomerApp keeps Nuxt blue identity with bootstrap theme tokens', (
     tester,
   ) async {
     await runCustomerAppSmokeHarness(
@@ -43,12 +45,13 @@ void main() {
           },
         },
       },
-      expectedPrimaryColor: const Color(0xFF0055AA),
+      expectedPrimaryColor: AppTheme.appBlue,
       expectedScaffoldBackgroundColor: const Color(0xFFF8FAFC),
     );
   });
 
-  testWidgets('CustomerApp applies camelCase partner theme tokens', (
+  testWidgets(
+      'CustomerApp keeps Nuxt blue identity with camelCase theme tokens', (
     tester,
   ) async {
     await runCustomerAppSmokeHarness(
@@ -76,7 +79,7 @@ void main() {
           },
         },
       },
-      expectedPrimaryColor: const Color(0xFF224488),
+      expectedPrimaryColor: AppTheme.appBlue,
       expectedScaffoldBackgroundColor: const Color(0xFFF9FAFB),
     );
   });

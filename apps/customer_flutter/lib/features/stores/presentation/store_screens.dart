@@ -8,6 +8,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/lottery/data/lottery_models.dart';
@@ -21,8 +22,8 @@ import '../../../features/lottery/presentation/lottery_stock_skeleton.dart';
 import '../../../features/lottery/presentation/lottery_store_segment_tabs.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../../shared/widgets/flexible_image.dart';
 import '../data/store_models.dart';
 import '../data/store_repository.dart';
 
@@ -347,6 +348,7 @@ class _StoreFilterPills extends StatelessWidget {
     final l10n = context.l10n;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: 2),
       child: Row(
         children: [
           _StoreFilterPill(
@@ -398,29 +400,33 @@ class _StoreFilterPill extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected ? colorScheme.surface : colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? colorScheme.primary : Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 39),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color:
+                selected ? colorScheme.surface : colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? colorScheme.primary : Colors.transparent,
+            ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: iconColor ?? foreground),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: iconColor ?? foreground),
+                const SizedBox(width: 7),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -520,6 +526,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     );
 
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final storeName =
         _storeName.isEmpty ? l10n.storesFallbackStoreName : _storeName;
     final showCartDock = _storeCartSelectionReviewEnabled(_cart);
@@ -563,28 +570,34 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.w700),
+                                  ?.copyWith(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.25,
+                                  ),
                             ),
                           ],
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 27),
                           LotteryDigitInputRow(
                             controllers: _digits,
                             readOnly: true,
                             onTap: _openStoreSearch,
                             style: LotteryDigitInputStyle(
-                              enabledBorderColor:
-                                  Theme.of(context).colorScheme.outlineVariant,
-                              focusedBorderColor:
-                                  Theme.of(context).colorScheme.primary,
-                              hintColor: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.18),
-                              borderRadius: 9,
-                              spacing: 18,
+                              enabledBorderColor: colorScheme.outlineVariant,
+                              focusedBorderColor: colorScheme.primary,
+                              hintColor: colorScheme.outlineVariant,
+                              shadowColor:
+                                  colorScheme.shadow.withValues(alpha: 0.12),
+                              borderRadius: 8,
+                              spacing: 0,
                               verticalPadding: 8,
+                              shadowBlurRadius: 5,
+                              shadowOffset: const Offset(0, 2),
+                              maxDigitWidth: 58,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
+                          const SizedBox(height: 11),
                         ],
                       ),
                       const Divider(height: 34),
@@ -649,10 +662,8 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                               ),
                             ),
                             canReserve: _canReserve,
-                            reserved: _reservedByStockId.containsKey(
-                              ticket.localStockItemId,
-                            ),
-                            busy: _busyStockId == ticket.localStockItemId,
+                            reserved: _reservedIdForTicket(ticket) != null,
+                            busy: _busyStockId == _storeTicketUiKey(ticket),
                             onToggle: () => _toggleReservation(ticket),
                           ),
                       ],
@@ -902,10 +913,9 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   }
 
   StoreLotteryTicket? _matchingStoreTicket(StoreLotteryTicket ticket) {
+    final ticketKeys = _storeTicketReservationKeys(ticket);
     for (final existing in _tickets) {
-      if (existing.localStockItemId == ticket.localStockItemId ||
-          existing.token == ticket.token ||
-          existing.stockRef == ticket.stockRef) {
+      if (_storeTicketReservationKeys(existing).any(ticketKeys.contains)) {
         return existing;
       }
     }
@@ -958,7 +968,8 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
 
   Future<void> _toggleReservation(StoreLotteryTicket ticket) async {
     if (_busyStockId.isNotEmpty) return;
-    final reservedId = _reservedByStockId[ticket.localStockItemId];
+    final ticketKey = _storeTicketUiKey(ticket);
+    final reservedId = _reservedIdForTicket(ticket);
     if (!_canReserve && (reservedId == null || reservedId.isEmpty)) {
       return;
     }
@@ -971,7 +982,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     }
 
     setState(() {
-      _busyStockId = ticket.localStockItemId;
+      _busyStockId = ticketKey;
       _stockNoticeMessage = '';
     });
     try {
@@ -985,20 +996,17 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
           item: _toLotteryStockItem(ticket),
         );
         if (!mounted) return;
-        setState(() {
-          _cart = _storeCartWithReservation(_cart, reservation);
-          for (final item in reservation.items) {
-            _reservedByStockId[item.localStockItemId] = reservation.id;
-          }
-        });
+        setState(
+          () =>
+              _syncReservedCart(_storeCartWithReservation(_cart, reservation)),
+        );
       }
       if (!mounted) return;
       setState(() {
         _stockNoticeSuccess = true;
-        _stockNoticeMessage =
-            _reservedByStockId.containsKey(ticket.localStockItemId)
-                ? context.l10n.lotteryAddedToCart
-                : context.l10n.lotteryRemovedFromCart;
+        _stockNoticeMessage = _reservedIdForTicket(ticket) != null
+            ? context.l10n.lotteryAddedToCart
+            : context.l10n.lotteryRemovedFromCart;
       });
     } catch (error) {
       if (!mounted) return;
@@ -1008,7 +1016,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         if (!mounted) return;
         await _showStoreReservationUnavailableDialog(
           ticket,
-          removeItem: reservedId?.isEmpty ?? true,
+          removeItem: reservedId == null || reservedId.isEmpty,
         );
         return;
       }
@@ -1040,24 +1048,30 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   }) async {
     await showLotteryReservationUnavailableNotice(context);
     if (!mounted || !removeItem) return;
+    final ticketKeys = _storeTicketReservationKeys(ticket);
     setState(() {
       _tickets.removeWhere(
         (candidate) =>
-            candidate.localStockItemId == ticket.localStockItemId ||
-            candidate.token == ticket.token,
+            _storeTicketReservationKeys(candidate).any(ticketKeys.contains),
       );
     });
+  }
+
+  String? _reservedIdForTicket(StoreLotteryTicket ticket) {
+    for (final key in _storeTicketReservationKeys(ticket)) {
+      final reservationId = _reservedByStockId[key];
+      if (reservationId != null && reservationId.isNotEmpty) {
+        return reservationId;
+      }
+    }
+    return null;
   }
 
   void _syncReservedCart(LotteryCart cart) {
     _cart = cart;
     _reservedByStockId
       ..clear()
-      ..addEntries(
-        cart.items.map(
-          (item) => MapEntry(item.localStockItemId, item.reservationId),
-        ),
-      );
+      ..addEntries(_storeCartReservationEntries(cart));
   }
 }
 
@@ -1117,7 +1131,6 @@ class _StoreCartSelectionDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     final deadline = earliestActiveReservation(cart.reservations);
     return DecoratedBox(
       key: const ValueKey('cart-selection-dock'),
@@ -1152,19 +1165,19 @@ class _StoreCartSelectionDock extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.cartSelectionTitle,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                        l10n.cartSelectionCountLabel,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppTheme.appMuted,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              height: 1.2,
                             ),
                       ),
                       const SizedBox(height: 5),
-                      Text(
-                        l10n.ticketsCount(cart.itemCount),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w900,
-                            ),
+                      CustomerPaymentSelectionCountText(
+                        count: cart.itemCount,
+                        countText: l10n.ticketsCount(cart.itemCount),
+                        numberFontSize: 24,
                       ),
                     ],
                   ),
@@ -1178,16 +1191,12 @@ class _StoreCartSelectionDock extends StatelessWidget {
                       maxWidth: 220,
                       minHeight: 58,
                     ),
-                    child: DecoratedBox(
-                      decoration: _storeDockButtonDecoration(context),
-                      child: SizedBox(
-                        height: 58,
-                        child: FilledButton(
-                          onPressed: onReview,
-                          style: _storeDockButtonStyle(context),
-                          child: Text(l10n.cartSelectionReview),
-                        ),
-                      ),
+                    child: CustomerGradientButton.text(
+                      onPressed: onReview,
+                      height: 58,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      label: l10n.cartSelectionReview,
                     ),
                   ),
                 ),
@@ -1414,6 +1423,33 @@ class _StoreCard extends StatelessWidget {
                           ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 88,
+                    child: OutlinedButton(
+                      onPressed: onTap,
+                      style: _storeOutlinePillButtonStyle(context).copyWith(
+                        minimumSize: const WidgetStatePropertyAll(
+                          Size(88, 40),
+                        ),
+                        padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(horizontal: 10),
+                        ),
+                        textStyle: WidgetStatePropertyAll(
+                          Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 1,
+                              ),
+                        ),
+                      ),
+                      child: Text(
+                        l10n.storesViewStore,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1486,7 +1522,8 @@ class _StoreLotteriesHero extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
             ),
@@ -1554,6 +1591,15 @@ class _StoreSkeletonRows extends StatelessWidget {
                       child: const SizedBox(height: 18),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  DecoratedBox(
+                    decoration: _storeSkeletonBlockDecoration(
+                      context,
+                      color: placeholderColor,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const SizedBox(width: 88, height: 40),
+                  ),
                 ],
               ),
             ),
@@ -1616,26 +1662,57 @@ class _LotteryTicketCard extends StatelessWidget {
                     : l10n.lotterySaleClosedAction;
     final canToggle = reserved || (canReserve && ticket.isAvailable);
     final actionButton = reserved
-        ? FilledButton(
-            onPressed: busy || !canToggle ? null : onToggle,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(96, 42),
-              shape: const StadiumBorder(),
-              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: busy || !canToggle
+                  ? null
+                  : const LinearGradient(
+                      colors: [
+                        AppTheme.appActionStart,
+                        AppTheme.appActionEnd,
+                      ],
+                    ),
+              color: busy || !canToggle
+                  ? AppTheme.appOutlinePillDisabledFill
+                  : null,
+              borderRadius: BorderRadius.circular(999),
             ),
-            child: Text(actionLabel),
+            child: FilledButton(
+              onPressed: busy || !canToggle ? null : onToggle,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                foregroundColor: AppTheme.appSheet,
+                disabledForegroundColor: AppTheme.appOutlinePillDisabledText,
+                shadowColor: Colors.transparent,
+                minimumSize: const Size(84, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                ),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+              child: Text(actionLabel),
+            ),
           )
         : OutlinedButton(
             onPressed: busy || !canToggle ? null : onToggle,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(96, 42),
-              shape: const StadiumBorder(),
-              side: BorderSide(
-                color: canToggle
-                    ? colorScheme.primary
-                    : colorScheme.outlineVariant,
+            style: _storeOutlinePillButtonStyle(
+              context,
+              enabled: canToggle,
+            ).copyWith(
+              minimumSize: const WidgetStatePropertyAll(Size(84, 40)),
+              textStyle: WidgetStatePropertyAll(
+                Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
               ),
-              textStyle: const TextStyle(fontWeight: FontWeight.w900),
             ),
             child: Text(actionLabel),
           );
@@ -1673,24 +1750,46 @@ class _LotteryTicketCard extends StatelessWidget {
                   ],
                 ],
               );
-              final ticketDisplay = Column(
+              final ticketMetaRow = Row(
                 key: const ValueKey('store-lottery-ticket-display-row'),
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _StoreLotteryImageFrame(ticket: ticket),
-                  const SizedBox(height: 10),
                   _StoreLotteryNumber(number: ticket.number),
+                  if (ticket.drawNumber.trim().isNotEmpty) ...[
+                    const SizedBox(width: 13),
+                    _StoreLotteryMetaColumn(
+                      label: l10n.ticketLabelDrawNumber,
+                      value: ticket.drawNumber,
+                    ),
+                  ],
+                  if (ticket.setNumber.trim().isNotEmpty) ...[
+                    const SizedBox(width: 13),
+                    _StoreLotteryMetaColumn(
+                      label: l10n.ticketLabelSetNumber,
+                      value: ticket.setNumber,
+                    ),
+                  ],
                 ],
               );
               final mainRow = Row(
                 key: const ValueKey('store-lottery-ticket-main-row'),
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(child: ticketDisplay),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: ticketMetaRow,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 96),
-                    child: SizedBox(height: 42, child: actionButton),
+                    constraints: const BoxConstraints(minWidth: 84),
+                    child: SizedBox(height: 40, child: actionButton),
                   ),
                 ],
               );
@@ -1704,8 +1803,8 @@ class _LotteryTicketCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
+                            color: AppTheme.appMuted,
+                            fontWeight: FontWeight.w500,
                           ),
                     ),
                   ),
@@ -1725,92 +1824,6 @@ class _LotteryTicketCard extends StatelessWidget {
                 ],
               );
             },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StoreLotteryImageFrame extends StatelessWidget {
-  const _StoreLotteryImageFrame({required this.ticket});
-
-  final StoreLotteryTicket ticket;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final normalizedStatus = ticket.imageStatus.trim().toLowerCase();
-    final imageError = ticket.imageError.trim();
-    final source = ticket.thumbUrl.trim().isNotEmpty
-        ? ticket.thumbUrl.trim()
-        : ticket.imageUrl.trim();
-    final canLoadImage = source.isNotEmpty &&
-        !{
-          'pending_assets',
-          'failed',
-          'missing',
-        }.contains(normalizedStatus);
-    final fallbackText = normalizedStatus == 'pending_assets'
-        ? l10n.ticketImagePreparing
-        : normalizedStatus == 'failed' && imageError.isNotEmpty
-            ? imageError
-            : l10n.ticketImageUnavailable;
-    final fallbackIcon = normalizedStatus == 'pending_assets'
-        ? Icons.hourglass_top_outlined
-        : normalizedStatus == 'failed'
-            ? Icons.image_outlined
-            : Icons.confirmation_number_outlined;
-    return DecoratedBox(
-      key: const ValueKey('store-lottery-ticket-image-frame'),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.65),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
-          child: AspectRatio(
-            aspectRatio: 5 / 2.8,
-            child: canLoadImage
-                ? FlexibleImage(
-                    key: const ValueKey('store-lottery-ticket-image'),
-                    source: source,
-                    fit: BoxFit.cover,
-                    errorIcon: Icons.confirmation_number_outlined,
-                  )
-                : Padding(
-                    key: const ValueKey('store-lottery-ticket-image-fallback'),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          fallbackIcon,
-                          color: colorScheme.primary,
-                          size: 18,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          fallbackText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.25,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
           ),
         ),
       ),
@@ -1855,10 +1868,59 @@ class _StoreLotteryPriceText extends StatelessWidget {
           key: const ValueKey('store-lottery-ticket-price'),
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: trendColor,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
         ),
       ],
+    );
+  }
+}
+
+class _StoreLotteryMetaColumn extends StatelessWidget {
+  const _StoreLotteryMetaColumn({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 50,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.15,
+                ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.05,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1870,10 +1932,11 @@ class _StoreLotteryNumber extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final digits = number.split('');
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF9DF),
+        color: AppTheme.appLotteryNumberFill,
         borderRadius: BorderRadius.circular(7),
       ),
       child: SizedBox(
@@ -1887,8 +1950,8 @@ class _StoreLotteryNumber extends StatelessWidget {
                   child: Text(
                     digit,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF030303),
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       height: 1,
@@ -1997,15 +2060,17 @@ class _StoreInlineNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final foreground = success ? colorScheme.primary : colorScheme.error;
+    final background = success
+        ? colorScheme.primary.withValues(alpha: 0.08)
+        : colorScheme.errorContainer.withValues(alpha: 0.42);
+    final border = success
+        ? colorScheme.primary.withValues(alpha: 0.18)
+        : colorScheme.error.withValues(alpha: 0.18);
     return DecoratedBox(
       decoration: _storeSurfaceDecoration(
         context,
-        color: success
-            ? colorScheme.primary.withValues(alpha: 0.08)
-            : const Color(0xFFFFF5F5),
-        borderColor: success
-            ? colorScheme.primary.withValues(alpha: 0.18)
-            : const Color(0xFFFECACA),
+        color: background,
+        borderColor: border,
         shadowAlpha: 0.04,
         blurRadius: 16,
       ),
@@ -2072,8 +2137,56 @@ LotteryStockItem _toLotteryStockItem(StoreLotteryTicket ticket) {
     thumbUrl: ticket.thumbUrl,
     imageStatus: ticket.imageStatus,
     imageError: ticket.imageError,
-    raw: const {},
+    raw: ticket.raw,
   );
+}
+
+String _storeTicketUiKey(StoreLotteryTicket ticket) {
+  for (final value in [
+    ticket.localStockItemId,
+    _storeTicketReserveStockItemId(ticket),
+    ticket.stockRef,
+    ticket.id,
+    ticket.token,
+  ]) {
+    final text = value.trim();
+    if (text.isNotEmpty) return text;
+  }
+  return ticket.number;
+}
+
+Set<String> _storeTicketReservationKeys(StoreLotteryTicket ticket) {
+  return {
+    ticket.localStockItemId,
+    _storeTicketReserveStockItemId(ticket),
+    ticket.stockRef,
+    ticket.id,
+    ticket.token,
+  }.map((value) => value.trim()).where((value) => value.isNotEmpty).toSet();
+}
+
+String _storeTicketReserveStockItemId(StoreLotteryTicket ticket) {
+  return _toLotteryStockItem(ticket).reserveStockItemId;
+}
+
+List<MapEntry<String, String>> _storeCartReservationEntries(LotteryCart cart) {
+  final entries = <MapEntry<String, String>>[];
+  for (final item in cart.items) {
+    final reservationId = item.reservationId.trim();
+    if (reservationId.isEmpty) continue;
+    entries.addAll(
+      {
+        item.localStockItemId,
+        item.reserveStockItemId,
+        item.stockRef,
+        item.id,
+        item.token,
+      }.map((value) => value.trim()).where((value) => value.isNotEmpty).map(
+            (key) => MapEntry(key, reservationId),
+          ),
+    );
+  }
+  return entries;
 }
 
 class _StoreEmptyState extends StatelessWidget {
@@ -2167,59 +2280,10 @@ BoxDecoration _storeSurfaceDecoration(
   );
 }
 
-BoxDecoration _storeDockButtonDecoration(
-  BuildContext context, {
-  bool enabled = true,
-}) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return BoxDecoration(
-    gradient: enabled
-        ? LinearGradient(
-            colors: [
-              colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
-                  colorScheme.primary,
-            ],
-          )
-        : null,
-    color: enabled ? null : colorScheme.surfaceContainerHighest,
-    borderRadius: BorderRadius.circular(999),
-    boxShadow: enabled
-        ? [
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.22),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ]
-        : null,
-  );
-}
-
-ButtonStyle _storeDockButtonStyle(
-  BuildContext context, {
-  double fontSize = 20,
-}) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return FilledButton.styleFrom(
-    backgroundColor: Colors.transparent,
-    disabledBackgroundColor: Colors.transparent,
-    foregroundColor: colorScheme.onPrimary,
-    disabledForegroundColor: colorScheme.onSurfaceVariant,
-    shadowColor: Colors.transparent,
-    padding: const EdgeInsets.symmetric(horizontal: 18),
-    shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w900,
-          height: 1.1,
-        ),
-  );
-}
-
 ButtonStyle _storeTextLinkButtonStyle(BuildContext context) {
   return TextButton.styleFrom(
-    foregroundColor: Theme.of(context).colorScheme.primary,
+    foregroundColor: AppTheme.appBlueLink,
+    overlayColor: Colors.transparent,
     minimumSize: const Size(0, 36),
     padding: EdgeInsets.zero,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -2232,23 +2296,35 @@ ButtonStyle _storeOutlinePillButtonStyle(
   BuildContext context, {
   bool enabled = true,
 }) {
-  final colorScheme = Theme.of(context).colorScheme;
   return OutlinedButton.styleFrom(
-    foregroundColor:
-        enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-    disabledForegroundColor: colorScheme.onSurfaceVariant,
+    foregroundColor: AppTheme.appOutlinePillText,
+    disabledForegroundColor: AppTheme.appOutlinePillDisabledText,
+    overlayColor: Colors.transparent,
     minimumSize: const Size(0, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.compact,
-    backgroundColor:
-        enabled ? colorScheme.surface : colorScheme.surfaceContainerHighest,
+    backgroundColor: AppTheme.appSheet,
+    disabledBackgroundColor: AppTheme.appOutlinePillDisabledFill,
     shape: const StadiumBorder(),
     side: BorderSide(
       color: enabled
-          ? colorScheme.primary.withValues(alpha: 0.72)
-          : colorScheme.outlineVariant,
+          ? AppTheme.appOutlinePillBorder
+          : AppTheme.appOutlinePillDisabledBorder,
     ),
     textStyle: const TextStyle(fontWeight: FontWeight.w600),
+  ).copyWith(
+    backgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (!enabled || states.contains(WidgetState.disabled)) {
+        return AppTheme.appOutlinePillDisabledFill;
+      }
+      return AppTheme.appSheet;
+    }),
+    side: WidgetStateProperty.resolveWith((states) {
+      if (!enabled || states.contains(WidgetState.disabled)) {
+        return const BorderSide(color: AppTheme.appOutlinePillDisabledBorder);
+      }
+      return const BorderSide(color: AppTheme.appOutlinePillBorder);
+    }),
   );
 }

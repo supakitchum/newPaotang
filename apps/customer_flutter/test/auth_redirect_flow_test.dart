@@ -256,7 +256,7 @@ void main() {
     expect(find.textContaining('OTP'), findsWidgets);
 
     await _enterRegisterOtp(tester, '123456');
-    await _tapRegisterSubmit(tester, 'Verify and create account');
+    await _tapRegisterSubmit(tester, 'Verify OTP and create account');
     await tester.pumpAndSettle();
 
     expect(repo.lastVerifiedOtp, '123456');
@@ -288,7 +288,7 @@ void main() {
     await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
     await _enterRegisterOtp(tester, '123456');
-    await _tapRegisterSubmit(tester, 'Verify and create account');
+    await _tapRegisterSubmit(tester, 'Verify OTP and create account');
     await tester.pumpAndSettle();
 
     expect(repo.lastVerifiedOtp, '123456');
@@ -318,7 +318,7 @@ void main() {
     await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
     await _enterRegisterOtp(tester, '123456');
-    await _tapRegisterSubmit(tester, 'Verify and create account');
+    await _tapRegisterSubmit(tester, 'Verify OTP and create account');
     await tester.pumpAndSettle();
 
     expect(
@@ -456,11 +456,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Test Shop'), findsOneWidget);
+    expect(find.text('เป๋าตัง'), findsOneWidget);
     expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
     expect(find.text('เพื่อทำรายการต่อ'), findsOneWidget);
     expect(find.text('ลืม PIN?'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
+    expect(find.byIcon(Icons.chevron_left), findsNothing);
+    expect(find.byTooltip('ย้อนกลับ'), findsNothing);
 
     await _tapPinDigits(tester, '123');
     await tester.pumpAndSettle();
@@ -486,6 +488,57 @@ void main() {
     );
     expect(find.text('checkout-flow'), findsOneWidget);
   });
+
+  testWidgets('PIN keeps Nuxt top header and bottom keypad on large viewports',
+      (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1024, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repo = _AuthRedirectRepository();
+    final router = GoRouter(
+      initialLocation: '/pin?redirect=%2Fcheckout',
+      routes: [
+        GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) => const Text(
+            'checkout-flow',
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        router: router,
+        repo: repo,
+        authenticated: true,
+        pinRequired: true,
+        locale: const Locale('th', 'TH'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final headerRect = tester.getRect(find.byKey(const ValueKey('pin-topbar')));
+    final titleCenter = tester.getCenter(find.text('ใส่รหัส PIN 6 หลัก'));
+    final keypadRect = tester.getRect(find.byKey(const ValueKey('pin-keypad')));
+    const viewportCenterX = 512.0;
+
+    expect(headerRect.top, lessThanOrEqualTo(12));
+    expect(keypadRect.bottom, greaterThan(970));
+    expect(
+      headerRect.center.dx,
+      moreOrLessEquals(viewportCenterX, epsilon: 0.5),
+    );
+    expect(titleCenter.dx, moreOrLessEquals(viewportCenterX, epsilon: 0.5));
+    expect(
+      keypadRect.center.dx,
+      moreOrLessEquals(viewportCenterX, epsilon: 0.5),
+    );
+  });
 }
 
 Future<void> _tapPinDigits(WidgetTester tester, String pin) async {
@@ -502,7 +555,7 @@ Future<void> _fillRegisterForm(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField).at(3), 'secret1234');
   await tester.enterText(find.byType(TextField).at(4), 'secret1234');
   final termsConsent = find.bySemanticsLabel(
-    'Accept terms and conditions',
+    'Accept terms of service and privacy policy',
   );
   await _scrollUntilVisible(tester, termsConsent);
   await tester.tap(termsConsent);

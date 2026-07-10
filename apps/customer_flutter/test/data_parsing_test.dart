@@ -3274,6 +3274,7 @@ void main() {
           'key': 'credit_card',
           'label': 'Runtime Credit QR',
           'description': 'Runtime provider minimum applies',
+          'logoUrl': 'https://cdn.example.test/credit-qr.png',
           'enabled': false,
           'minimum_amount': {'amount': 75000, 'currency': 'THB'},
         },
@@ -3309,6 +3310,7 @@ void main() {
     final credit = overview.methodForChannel(TopupChannel.creditCard);
     expect(credit?.label, 'Runtime Credit QR');
     expect(credit?.description, 'Runtime provider minimum applies');
+    expect(credit?.iconUrl, 'https://cdn.example.test/credit-qr.png');
     expect(credit?.minimumAmount, 750);
     expect(overview.waiting?.amount, 500);
     expect(overview.waiting?.status, TopupStatus.pendingPayment);
@@ -3690,6 +3692,33 @@ void main() {
     expect(sparse.bank.bankName, 'ธนาคารไทยพาณิชย์');
     expect(sparse.bank.accountName, 'ร้านโชคดี');
     expect(sparse.bank.accountNumber, '0141234567');
+  });
+
+  test('topup overview accepts runtime bank account list aliases', () {
+    final overview = TopupOverview.fromJson({
+      'website_banks': [
+        {
+          'bank': {'name': 'กรุงไทย'},
+          'bank_deposit_name': 'ร้านหนึ่ง',
+          'bank_deposit_number': '1112223334',
+          'bank_logo_url': 'https://cdn.example.test/ktb.png',
+        },
+        {
+          'bankName': 'กสิกรไทย',
+          'accountName': 'ร้านสอง',
+          'accountNumber': '5556667778',
+        },
+      ],
+      'enabled_payment_methods': ['bank_transfer'],
+    });
+
+    expect(overview.banks, hasLength(2));
+    expect(overview.banks.first.bankName, 'กรุงไทย');
+    expect(overview.banks.first.accountName, 'ร้านหนึ่ง');
+    expect(overview.banks.first.accountNumber, '1112223334');
+    expect(overview.banks.first.iconUrl, 'https://cdn.example.test/ktb.png');
+    expect(overview.banks.last.bankName, 'กสิกรไทย');
+    expect(overview.isChannelEnabled(TopupChannel.bankTransfer), isTrue);
   });
 
   test('topup overview keeps three channels and disables missing methods', () {

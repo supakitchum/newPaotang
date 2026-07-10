@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/topup_models.dart';
 import '../data/topup_repository.dart';
 import 'topup_error_message.dart';
+import 'topup_money_format.dart';
 import 'topup_realtime_monitor.dart';
 
 Color _topupHistoryPrimaryTint(ColorScheme colorScheme) =>
@@ -68,7 +70,10 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
       backPath: '/topup',
       sensitive: true,
       showBottomNavigation: false,
+      fullScreen: true,
       child: _TopupHistoryPageBody(
+        title: l10n.topupHistoryTitle,
+        backPath: '/topup',
         hero: const _TopupHistoryHeroSummary(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -98,10 +103,14 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
 
 class _TopupHistoryPageBody extends StatelessWidget {
   const _TopupHistoryPageBody({
+    required this.title,
+    required this.backPath,
     required this.hero,
     required this.child,
   });
 
+  final String title;
+  final String backPath;
   final Widget hero;
   final Widget child;
 
@@ -111,7 +120,11 @@ class _TopupHistoryPageBody extends StatelessWidget {
       padding: EdgeInsets.zero,
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        _TopupHistoryHeroBand(child: hero),
+        _TopupHistoryHeroBand(
+          title: title,
+          backPath: backPath,
+          child: hero,
+        ),
         _TopupHistoryContentSheet(
           child: child,
         ),
@@ -121,35 +134,160 @@ class _TopupHistoryPageBody extends StatelessWidget {
 }
 
 class _TopupHistoryHeroBand extends StatelessWidget {
-  const _TopupHistoryHeroBand({required this.child});
+  const _TopupHistoryHeroBand({
+    required this.title,
+    required this.backPath,
+    required this.child,
+  });
 
+  final String title;
+  final String backPath;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
-          ],
-        ),
+    return SizedBox(
+      height: 220,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.primary,
+                    Color.lerp(
+                          colorScheme.primary,
+                          colorScheme.secondary,
+                          0.46,
+                        ) ??
+                        colorScheme.primary,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -52,
+            right: -42,
+            child: IgnorePointer(
+              child: _TopupHistoryHeroAccent(
+                size: 150,
+                color: colorScheme.onPrimary.withValues(alpha: 0.09),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -46,
+            bottom: 22,
+            child: IgnorePointer(
+              child: _TopupHistoryHeroAccent(
+                size: 108,
+                color: colorScheme.tertiary.withValues(alpha: 0.34),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: SafeArea(
+              bottom: false,
+              child: CustomerPageBody(
+                maxWidth: 640,
+                top: 18,
+                bottom: 30,
+                mobileHorizontal: 20,
+                wideHorizontal: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TopupHistoryHeaderBar(
+                      title: title,
+                      backPath: backPath,
+                    ),
+                    const SizedBox(height: 20),
+                    child,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 220),
-        child: CustomerPageBody(
-          maxWidth: 640,
-          top: 20,
-          bottom: 36,
-          mobileHorizontal: 20,
-          wideHorizontal: 20,
-          child: child,
-        ),
+    );
+  }
+}
+
+class _TopupHistoryHeroAccent extends StatelessWidget {
+  const _TopupHistoryHeroAccent({
+    required this.size,
+    required this.color,
+  });
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      child: SizedBox.square(dimension: size),
+    );
+  }
+}
+
+class _TopupHistoryHeaderBar extends StatelessWidget {
+  const _TopupHistoryHeaderBar({
+    required this.title,
+    required this.backPath,
+  });
+
+  final String title;
+  final String backPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: IconButton(
+              tooltip: context.l10n.commonBack,
+              onPressed: () => context.go(backPath),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 22),
+              style: IconButton.styleFrom(
+                backgroundColor: colorScheme.onPrimary.withValues(alpha: 0.15),
+                foregroundColor: colorScheme.onPrimary,
+                side: BorderSide(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.22),
+                ),
+                fixedSize: const Size.square(44),
+                minimumSize: const Size.square(44),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 56),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -511,7 +649,7 @@ class _HistoryBonusPill extends StatelessWidget {
               ),
               const SizedBox(width: 5),
               Text(
-                l10n.topupHistoryBonus(formatBaht(amount)),
+                l10n.topupHistoryBonus(formatTopupBaht(l10n, amount)),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colorScheme.primary,
                       fontWeight: FontWeight.w800,
@@ -760,9 +898,9 @@ class _TopupHistoryError extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final title = l10n.topupHistoryLoadFailed;
     final body = message.trim();
-    final showBody = body.isNotEmpty && body != title;
+    final fallback = l10n.topupHistoryLoadFailed;
+    final title = body.isEmpty ? fallback : body;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -805,17 +943,6 @@ class _TopupHistoryError extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
               ),
-              if (showBody) ...[
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.5,
-                      ),
-                ),
-              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: 160,
@@ -910,16 +1037,12 @@ class _EmptyTopupHistory extends StatelessWidget {
               const SizedBox(height: 16),
               SizedBox(
                 width: 220,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(46),
-                    shape: const StadiumBorder(),
-                    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
+                child: CustomerGradientButton.text(
                   onPressed: onTopup,
-                  child: Text(l10n.topupTitle),
+                  height: 46,
+                  fontSize: 15,
+                  shadow: false,
+                  label: l10n.homeActionTopup,
                 ),
               ),
             ],
@@ -931,10 +1054,5 @@ class _EmptyTopupHistory extends StatelessWidget {
 }
 
 String _amountOnly(num value, CustomerLocalizations l10n) {
-  final amount = formatBaht(value);
-  final suffix = ' ${l10n.topupBahtSuffix}';
-  if (amount.endsWith(suffix)) {
-    return amount.substring(0, amount.length - suffix.length);
-  }
-  return amount;
+  return formatTopupAmount(l10n, value);
 }

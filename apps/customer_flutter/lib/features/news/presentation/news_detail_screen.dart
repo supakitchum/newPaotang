@@ -8,7 +8,6 @@ import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../data/news_models.dart';
 import '../data/news_repository.dart';
-import 'news_error_message.dart';
 import 'news_page_shell.dart';
 import 'news_visual_tokens.dart';
 
@@ -26,21 +25,16 @@ class NewsDetailScreen extends ConsumerWidget {
       title: l10n.newsDetailTitle,
       currentPath: '/news',
       backPath: '/news',
+      heroMinHeight: NewsPageShell.heroMinHeight,
+      heroSheetOverlap: NewsPageShell.sheetOverlap,
+      heroContent: const SizedBox.shrink(),
       child: news.when(
         data: (item) => _NewsDetailBody(item: item),
         loading: () => const NewsPageShell(
           child: _NewsDetailLoadingCard(),
         ),
-        error: (error, _) => NewsPageShell(
-          child: newsNotFoundError(error)
-              ? const _NewsMissingCard()
-              : _NewsDetailErrorCard(
-                  message: newsErrorMessage(
-                    error,
-                    l10n.newsLoadFailedMessage,
-                  ),
-                  onRetry: () => ref.invalidate(newsDetailProvider(slug)),
-                ),
+        error: (_, __) => const NewsPageShell(
+          child: _NewsMissingCard(),
         ),
       ),
     );
@@ -55,11 +49,8 @@ class _NewsDetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final bodyColor = newsBodyColor(context);
     final mutedColor = newsMutedColor(context);
     final surfaceColor = newsCardSurfaceColor(context);
-    final titleColor = newsTitleColor(context);
     final title = item.title.isEmpty ? l10n.newsFallbackTitle : item.title;
     final locale = localeTag(l10n.locale);
     final displayWindow = _displayWindow(item, locale);
@@ -74,7 +65,7 @@ class _NewsDetailBody extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: newsShadowColor(context),
+              color: newsDetailShadowColor(context),
               blurRadius: 34,
               offset: const Offset(0, 16),
             ),
@@ -117,9 +108,9 @@ class _NewsDetailBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.newsCategory,
+                      l10n.newsDetailCategory,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: colorScheme.primary,
+                            color: newsDetailKickerColor(context),
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                             height: 1.2,
@@ -130,7 +121,7 @@ class _NewsDetailBody extends StatelessWidget {
                       title,
                       style:
                           Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: titleColor,
+                                color: newsDetailTitleColor(context),
                                 fontSize: 25,
                                 fontWeight: FontWeight.w900,
                                 height: 1.25,
@@ -142,7 +133,7 @@ class _NewsDetailBody extends StatelessWidget {
                         item.summary,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: bodyColor,
+                                  color: newsDetailSummaryColor(context),
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   height: 1.55,
@@ -189,7 +180,7 @@ class _NewsBodyParagraphs extends StatelessWidget {
           Text(
             paragraphs[index],
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: newsBodyColor(context),
+                  color: newsDetailBodyColor(context),
                   fontSize: 16,
                   height: 1.72,
                 ),
@@ -258,7 +249,7 @@ class _NewsMissingCard extends StatelessWidget {
               l10n.newsMissingTitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: newsTitleColor(context),
+                    color: newsDetailTitleColor(context),
                     fontSize: 25,
                     fontWeight: FontWeight.w900,
                     height: 1.25,
@@ -269,7 +260,7 @@ class _NewsMissingCard extends StatelessWidget {
               l10n.newsMissingMessage,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: newsBodyColor(context),
+                    color: newsDetailEmptyBodyColor(context),
                     height: 1.5,
                   ),
             ),
@@ -277,65 +268,6 @@ class _NewsMissingCard extends StatelessWidget {
             _NewsPrimaryPill(
               label: l10n.newsBackToList,
               onPressed: () => context.go('/news'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NewsDetailErrorCard extends StatelessWidget {
-  const _NewsDetailErrorCard({
-    required this.message,
-    required this.onRetry,
-  });
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final body = message.trim().isEmpty ? l10n.newsLoadFailedMessage : message;
-    return DecoratedBox(
-      decoration: _stateCardDecoration(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              color: colorScheme.error,
-              size: 42,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              l10n.newsLoadFailedTitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: colorScheme.error,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    height: 1.25,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: newsBodyColor(context),
-                    height: 1.5,
-                  ),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton(
-              style: _newsDetailOutlinePillStyle(context),
-              onPressed: onRetry,
-              child: Text(l10n.commonRetry),
             ),
           ],
         ),
@@ -406,25 +338,13 @@ class _NewsPrimaryPill extends StatelessWidget {
   }
 }
 
-ButtonStyle _newsDetailOutlinePillStyle(BuildContext context) {
-  return OutlinedButton.styleFrom(
-    minimumSize: const Size(160, 44),
-    padding: const EdgeInsets.symmetric(horizontal: 18),
-    shape: const StadiumBorder(),
-    side: BorderSide(color: Theme.of(context).colorScheme.primary),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
-        ),
-  );
-}
-
 BoxDecoration _stateCardDecoration(BuildContext context) {
   return BoxDecoration(
     color: newsCardSurfaceColor(context),
     borderRadius: BorderRadius.circular(18),
     boxShadow: [
       BoxShadow(
-        color: newsShadowColor(context),
+        color: newsDetailShadowColor(context),
         blurRadius: 34,
         offset: const Offset(0, 16),
       ),

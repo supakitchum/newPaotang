@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/reward_claim_models.dart';
@@ -12,9 +11,29 @@ import 'claim_realtime_monitor.dart';
 import 'reward_claim_error_message.dart';
 import 'reward_claim_localization.dart';
 
-Color _rewardClaimPrimaryTint(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
-    colorScheme.primary.withValues(alpha: 0.12);
+const _rewardClaimHeadTextColor = Color(0xFF202938);
+const _rewardClaimBodyTextColor = Color(0xFF4B5563);
+const _rewardClaimMutedTextColor = Color(0xFF94A3B8);
+const _rewardClaimDividerColor = Color(0xFFEEF2F7);
+const _rewardClaimChevronColor = Color(0xFF3B9CFF);
+const _rewardClaimEmptyIconColor = Color(0xFF0B69DC);
+const _rewardClaimEmptyIconBackground = Color(0xFFEEF7FF);
+const _rewardClaimEmptyTitleColor = Color(0xFF111827);
+const _rewardClaimEmptyTextColor = Color(0xFF64748B);
+const _rewardClaimPaidColor = Color(0xFF28A81E);
+const _rewardClaimPaidBackground = Color(0xFFE5F8DF);
+const _rewardClaimPendingColor = Color(0xFFE29300);
+const _rewardClaimPendingBackground = Color(0xFFFFF3D0);
+const _rewardClaimRejectedColor = Color(0xFFED2C25);
+const _rewardClaimRejectedBackground = Color(0xFFFFE1DF);
+const _rewardClaimPrimaryStart = Color(0xFF149AF9);
+const _rewardClaimPrimaryEnd = Color(0xFF0064D5);
+const _rewardClaimPrimaryShadow = Color(0x380066D5);
+const _rewardClaimOutlineBorder = Color(0xFF0B69DC);
+const _rewardClaimOutlineText = Color(0xFF075EC9);
+const _rewardClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
+const _rewardClaimOutlineDisabledText = Color(0xFF8A8F98);
+const _rewardClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
 
 class RewardClaimsScreen extends ConsumerStatefulWidget {
   const RewardClaimsScreen({super.key});
@@ -189,7 +208,7 @@ class _RewardClaimsPageBody extends StatelessWidget {
             ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: ColoredBox(
-                color: Theme.of(context).colorScheme.surface,
+                color: Colors.white,
                 child: CustomerPageBody(
                   maxWidth: 640,
                   top: 0,
@@ -305,9 +324,8 @@ class _RewardClaimTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(context, claim);
+    final color = _statusColor(claim);
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     final prizeNames = rewardClaimPrizeNames(l10n, claim);
     final submittedAt = rewardClaimSubmittedText(l10n, claim);
 
@@ -319,14 +337,16 @@ class _RewardClaimTile extends StatelessWidget {
         claim.displayReference,
       ].join(' '),
       child: Material(
-        color: colorScheme.surface,
+        color: Colors.white,
         child: InkWell(
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           onTap: onTap,
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: showDivider
                   ? Border(
-                      bottom: BorderSide(color: colorScheme.outlineVariant),
+                      bottom: BorderSide(color: _rewardClaimDividerColor),
                     )
                   : null,
             ),
@@ -342,17 +362,17 @@ class _RewardClaimTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurface,
+                            color: _rewardClaimHeadTextColor,
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                             height: 1.25,
                           ),
                     ),
                     trailing: Text(
-                      formatBaht(claim.prizeAmount),
+                      formatRewardClaimBaht(l10n, claim.prizeAmount),
                       textAlign: TextAlign.right,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurface,
+                            color: _rewardClaimHeadTextColor,
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                             height: 1.25,
@@ -373,7 +393,7 @@ class _RewardClaimTile extends StatelessWidget {
                                 .textTheme
                                 .bodyMedium
                                 ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
+                                  color: _rewardClaimBodyTextColor,
                                   fontSize: 15,
                                   height: 1.32,
                                 ),
@@ -383,7 +403,7 @@ class _RewardClaimTile extends StatelessWidget {
                     trailing: _StatusChip(
                       label: rewardClaimStatusLabel(l10n, claim),
                       color: color,
-                      backgroundColor: _statusBackgroundColor(context, claim),
+                      backgroundColor: _statusBackgroundColor(claim),
                     ),
                     trailingMaxWidthFactor: 0.56,
                   ),
@@ -393,7 +413,7 @@ class _RewardClaimTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                          color: _rewardClaimBodyTextColor,
                           fontSize: 15,
                           height: 1.32,
                         ),
@@ -405,9 +425,7 @@ class _RewardClaimTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.72,
-                            ),
+                            color: _rewardClaimMutedTextColor,
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             height: 1.32,
@@ -415,7 +433,7 @@ class _RewardClaimTile extends StatelessWidget {
                     ),
                     trailing: Icon(
                       Icons.chevron_right,
-                      color: colorScheme.primary,
+                      color: _rewardClaimChevronColor,
                       size: 23,
                     ),
                     trailingMaxWidthFactor: 0.2,
@@ -649,7 +667,6 @@ class _RewardClaimsEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 54),
@@ -660,11 +677,11 @@ class _RewardClaimsEmpty extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _rewardClaimPrimaryTint(colorScheme),
+              color: _rewardClaimEmptyIconBackground,
             ),
             child: Icon(
               Icons.emoji_events_outlined,
-              color: colorScheme.primary,
+              color: _rewardClaimEmptyIconColor,
               size: 30,
             ),
           ),
@@ -673,7 +690,7 @@ class _RewardClaimsEmpty extends StatelessWidget {
             l10n.rewardClaimsEmptyTitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
+                  color: _rewardClaimEmptyTitleColor,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
@@ -683,7 +700,7 @@ class _RewardClaimsEmpty extends StatelessWidget {
             l10n.rewardClaimsEmptySubtitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                  color: _rewardClaimEmptyTextColor,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   height: 1.45,
@@ -711,7 +728,6 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(999);
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 190, minHeight: 47),
@@ -721,15 +737,11 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.18) ??
-                  colorScheme.primary,
-              colorScheme.primary,
-            ],
+            colors: [_rewardClaimPrimaryStart, _rewardClaimPrimaryEnd],
           ),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.22),
+              color: _rewardClaimPrimaryShadow,
               blurRadius: 22,
               offset: const Offset(0, 10),
             ),
@@ -739,6 +751,8 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: radius,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             onTap: onPressed,
             child: SizedBox(
               height: 47,
@@ -750,9 +764,9 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onPrimary,
+                          color: Colors.white,
                           fontSize: 14,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
                   ),
@@ -780,33 +794,37 @@ class _RewardClaimsStatePanel extends StatelessWidget {
   }
 }
 
-Color _statusColor(BuildContext context, RewardClaimItem claim) {
-  final colorScheme = Theme.of(context).colorScheme;
-  if (claim.isPaid) {
-    return Color.lerp(colorScheme.tertiary, colorScheme.primary, 0.12) ??
-        colorScheme.tertiary;
-  }
-  if (claim.isRejected) return colorScheme.error;
-  return Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.32) ??
-      colorScheme.primary;
+Color _statusColor(RewardClaimItem claim) {
+  if (claim.isPaid) return _rewardClaimPaidColor;
+  if (claim.isRejected) return _rewardClaimRejectedColor;
+  return _rewardClaimPendingColor;
 }
 
-Color _statusBackgroundColor(BuildContext context, RewardClaimItem claim) {
-  final colorScheme = Theme.of(context).colorScheme;
-  final statusColor = _statusColor(context, claim);
-  final alpha = claim.isRejected ? 0.10 : 0.13;
-  return Color.lerp(colorScheme.surface, statusColor, alpha) ??
-      statusColor.withValues(alpha: alpha);
+Color _statusBackgroundColor(RewardClaimItem claim) {
+  if (claim.isPaid) return _rewardClaimPaidBackground;
+  if (claim.isRejected) return _rewardClaimRejectedBackground;
+  return _rewardClaimPendingBackground;
 }
 
 ButtonStyle _claimOutlinePillStyle(BuildContext context) {
   return OutlinedButton.styleFrom(
-    minimumSize: const Size(160, 44),
-    padding: const EdgeInsets.symmetric(horizontal: 18),
+    backgroundColor: Colors.white,
+    disabledBackgroundColor: _rewardClaimOutlineDisabledBackground,
+    disabledForegroundColor: _rewardClaimOutlineDisabledText,
+    foregroundColor: _rewardClaimOutlineText,
+    minimumSize: const Size(160, 40),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    side: BorderSide(color: Theme.of(context).colorScheme.primary),
     textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
         ),
+  ).copyWith(
+    side: WidgetStateProperty.resolveWith(
+      (states) => BorderSide(
+        color: states.contains(WidgetState.disabled)
+            ? _rewardClaimOutlineDisabledBorder
+            : _rewardClaimOutlineBorder,
+      ),
+    ),
   );
 }

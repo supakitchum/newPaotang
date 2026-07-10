@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-07-06
+Last updated: 2026-07-10
 
 ## Objective
 
@@ -45,6 +45,9 @@ loading, error, and action states.
 - Do not run any clear-worktree flow, staging process, commit, or push unless
   the user explicitly asks for **clear worktree**, **commit**, or **push** in
   the current turn.
+- Do not generate standalone continuation prompts, goal-start prompts, or
+  handoff prompts unless the user explicitly asks for a prompt in the current
+  turn. Keep continuity in this handoff instead.
 - Do not require automated screenshot capture or screenshot-test artifacts for
   UX/UI signoff unless the user explicitly asks in the current turn. The user
   will perform manual visual inspection. For normal visual/layout/UX polish
@@ -117,6 +120,24 @@ Important Flutter primitives:
 
 Recent verified work:
 
+- Web privacy persistent watermark removed per owner UX direction. Customer
+  Flutter no longer paints the repeated "screen capture is not allowed"
+  watermark on sensitive Web routes, even if runtime `watermark_enabled` is
+  true or the mode is watermark-only. The lifecycle/browser privacy cover and
+  native screen-security/audit plumbing remain intact.
+- Shared back/header normalization advanced. `AppShell` now resolves automatic
+  back actions from the real GoRouter path instead of only the bottom-nav group
+  path, so secondary pages that highlight `/profile` or `/tickets` still show a
+  back affordance while root tab routes stay clean. Profile LINE notifications,
+  Reward Bank, Auto Reward select, Ticket History, and Success receipt now keep
+  their back controls inside their Nuxt-like hero/header instead of stacking an
+  extra Flutter AppBar over a custom blue header.
+- Shared secondary header shape tightened. Any non-fullscreen secondary page
+  that has a resolved back action but does not provide custom hero content now
+  automatically uses the same expanded BlueHeader structure as Activities
+  instead of falling back to a small Material AppBar/topbar. This keeps
+  Purchase History, detail pages, claims, wallet/profile subpages, and other
+  plain `AppShell` routes on the same back/title/header rhythm.
 - Realtime stock/result object-scalar payload parsing advanced. Stock price,
   stock availability, and reward-result live monitors now unwrap provider/BO
   object-scalar rows such as `{value}`/`{code}`/`{key}` for game ids, lottery
@@ -699,6 +720,15 @@ Recent verified work:
   from runtime bootstrap tokens instead of fixed customer-blue values, keeping
   auth-adjacent and affiliate surfaces aligned with partner theme overrides
   without changing input or business-flow behavior.
+- PIN `3_1` reference cleanup advanced under the UX/UI-first cadence: `/pin`
+  now keeps the Nuxt-style visible topbar brand by falling back through the
+  localized `pin.brand` copy when runtime site name is not available, while
+  still allowing runtime site names to override the fallback. Shared
+  `PinConfirmationStep` now renders the same brand topbar instead of an empty
+  center slot, and keypad delete semantics now match the Nuxt delete control.
+  PIN digit state, setup/verify/reset submission, biometric fallback, redirect
+  return, and hardware-keyboard behavior are unchanged; no screenshot
+  automation or broad test backfill was added.
 - Partner UI regression coverage now guards long Thai/English partner names,
   runtime tenant logos with contained aspect fit, and bottom-navigation selected
   colors sourced from runtime theme tokens.
@@ -831,6 +861,16 @@ Recent verified work:
   gray/white/blue literals. Provider brand colors, password/OTP/social launch,
   callback, link-phone, redirect/PIN handoff, and API error behavior are
   unchanged.
+- Login/Register typography and checkbox parity advanced under the UX/UI-first
+  cadence: the login/register hero badges, hero titles, hero descriptions,
+  form headings, and field labels now use the lighter Nuxt font-weight rhythm
+  instead of the heavier Flutter `w900` treatment. `/login` also removes the
+  remaining Material `Checkbox` from the remember-me row and uses the same
+  runtime-themed 17px inline checkbox treatment as the converted register
+  consent row. Password login, registration OTP, social provider launch,
+  redirects, affiliate referral application, and PIN-required handoff behavior
+  were unchanged; focused auth redirect/PIN coverage was rerun without
+  screenshot automation.
 - Shared wallet-card partner-theme parity advanced: the Home compact wallet
   and `/my-wallet` full wallet card no longer keep a fixed green gradient stop
   or fixed dark-blue QR/action overlays; those accents now derive from runtime
@@ -886,6 +926,13 @@ Recent verified work:
   preview border/background now derive from runtime partner primary color/tints
   instead of fixed blue literals. Profile loading, save, PIN, biometric, and
   account payload behavior are unchanged.
+- Profile/Menu `8-อื่นๆ` reference-shell cleanup advanced: `/profile` now keeps
+  the Nuxt profile language card as the first white-sheet card, enlarges the
+  identity avatar to the reference scale, softens the top accent circle, and
+  removes the lower decorative hero circle that made the Flutter screen diverge
+  from the screenshot. Member-code copy, feature-gated rows, logout,
+  pull-to-refresh, and profile API payload behavior are unchanged; no
+  screenshot automation was added.
 - Profile/affiliate money-setting surface theme parity advanced: Topup history
   empty/error cards, Reward Bank panels, Auto Reward error/benefit accents,
   Affiliate summary/list surfaces, and Profile LINE notification status/event
@@ -1006,6 +1053,16 @@ Recent verified work:
     remains the single full-width primary action under the digit boxes.
   - `/buy/search` primary search CTA now matches Nuxt's text-only primary pill
     and no longer shows a Flutter-only search icon.
+  - Buy/Search first-form micro-parity advanced under the UX/UI-first
+    reduced-test cadence: `/buy` and `/buy/search` now use a local Nuxt-like
+    `section-title` style instead of the heavier shared Flutter header, draw
+    dates are `fs-5` normal weight, the six digit boxes use Nuxt-like 9px
+    radius/18px gaps/700 number weight with primary filled digits, and search,
+    filter, select, remove, clear, and view-more action weights now follow
+    `primary-pill`/`filter-pill`/`outline-pill`/`remove-pill`/`btn-link`
+    closer. Search submit/clear behavior, pagination, stock realtime refresh,
+    reservation toggles, cart dock eligibility, and API calls were unchanged,
+    and no widget or screenshot automation was added.
   - `/buy/search` now matches Nuxt's initial search loading affordance: the
     primary search button switches to "กำลังค้นหา" and both search/clear
     actions are disabled while the first result load is in progress, while the
@@ -1024,12 +1081,12 @@ Recent verified work:
     marker when configured, seller summary as its own muted row, text-only
     "ดูเลขนี้เพิ่ม" link, outline select/sale-closed pills, and text-only
     filled remove pills instead of Flutter cart/action icons.
-  - Buy/search stock cards now render the same Nuxt-style lottery image frame
-    used by `LotteryItem`, preferring runtime thumbnail/image payloads and
-    falling back to the localized pending/unavailable image state for
-    `image_status` values such as `pending_assets`, `failed`, and `missing`,
-    including backend `image_error` copy when a failed image payload provides
-    one.
+  - Buy/search/store-scoped stock cards keep Nuxt `LotteryItem` information
+    order while suppressing the large image frame where the provided references
+    use compact no-image rows. Runtime image payloads remain parsed in the data
+    layer for downstream cart/ticket flows, but the current browse rows stay
+    focused on product marker, number, draw/set metadata, seller, price, and
+    row action.
   - Buy/search stock rows now use the Nuxt `lottery-row` visual shell more
     closely: no rounded card background, no all-around card border, only the
     content-sheet row with a bottom divider and vertical row padding.
@@ -1043,6 +1100,14 @@ Recent verified work:
     "ค้นหาเลขสลากฯ ในร้านค้า" heading and removes the earlier Flutter card
     wrapper around the search controls, matching Nuxt's content-sheet section
     structure.
+  - `/stores/lotteries` digit-row micro-parity now follows Nuxt `DigitBoxes`
+    spacing more closely: the six read-only boxes use the source 27px top /
+    28px pre-divider rhythm, 8px radius, soft 2px/5px shadow, runtime outline
+    hint/border tones, 700 digit weight, normal-weight draw date, and a 58px
+    max digit width. The store hero name also uses the Nuxt `fs-5 fw-bold`
+    weight instead of a heavier Flutter title. Store stock browse, search
+    handoff, refresh, reservation toggles, and cart dock behavior were
+    unchanged; no widget/screenshot tests were added.
   - `/stores/lotteries` search and clear actions now use text-only form
     controls so store-scoped digit search does not introduce Flutter-only
     search/refresh icons.
@@ -1231,12 +1296,12 @@ Recent verified work:
     button.
   - Cart payment dock CTA copy now matches the Nuxt checkout dock ("ชำระเงิน")
     while preserving the `/checkout` route handoff.
-  - Cart and Checkout payment docks now stay fixed to the bottom of the payment
-    page and hide the Flutter bottom navigation on those payment pages, matching
-    Nuxt's focused fixed-dock checkout experience while leaving the rest of
-    AppShell navigation unchanged.
-  - Cart and Checkout fixed payment docks now use the Nuxt payment-dock 16px
-    top radius rather than the earlier Flutter-only 18px Material radius.
+  - Cart payment dock now stays fixed to the bottom of the cart page and hides
+    Flutter bottom navigation on focused payment pages; Checkout now uses the
+    Nuxt in-sheet payment dock flow rather than a fixed overlay.
+  - Cart fixed payment dock and Checkout in-sheet payment dock now use the Nuxt
+    payment-dock 16px top radius rather than the earlier Flutter-only 18px
+    Material radius.
   - Cart header now restores the Nuxt-style current-draw date line from
     `/public/games/current` while preserving the existing reserved-ticket count
     and total summary.
@@ -1274,6 +1339,21 @@ Recent verified work:
   - Cart "เลือกสลากฯ เพิ่ม" now uses a filled runtime-accent pill with the plus
     affordance instead of the earlier Flutter outlined button, matching the
     Nuxt green-pill action pattern while preserving runtime theming.
+  - Cart `2_1` reference cleanup now restores the row-level "ดูเลขนี้เพิ่ม"
+    handoff to `/buy/more`, enlarges the cart-specific brand/product row while
+    still reading the runtime lottery product marker from bootstrap, and moves
+    the green add-more pill closer to the fixed payment dock like the reference
+    screen. Cart grouping, release confirmation, countdown, and checkout route
+    handoff are unchanged.
+  - Checkout `3_0` reference cleanup now renders the payment-method title as a
+    flush grey section band at the top of the white sheet before the selected
+    wallet card. Wallet/external method selection, topup return path, payment
+    submission, pending-provider handoff, and countdown behavior are unchanged;
+    no screenshot automation was added.
+  - Cart/Checkout compact-viewport cleanup now shortens the revenue hero bands
+    and fixed payment docks below 700px screen height so row actions remain
+    tappable above the dock while preserving the tall `2_1`/`3_0` reference
+    rhythm on normal mobile screens.
   - Cart remove confirmation now matches Nuxt copy more closely for single
     tickets and grouped same-number ticket sets, including the grouped
     "สลากฯ ชุดนี้" removal wording before releasing every reservation ID.
@@ -1324,6 +1404,26 @@ Recent verified work:
     launch, and waiting-result actions were unchanged. Waiting-result live-link
     launch failures now stay visible inside the live panel as an inline notice
     instead of disappearing as a transient Flutter SnackBar.
+  - Result reference-parity advanced against the provided `1_1_0` and `1_1_1`
+    screenshots: `/result` now uses a custom full-screen Nuxt-like blue hero
+    instead of the shared AppShell decorative orb treatment, places the white
+    featured result card inside the 386px hero, moves history cards into a
+    rounded light sheet, disables the Flutter bottom nav for the public result
+    route, renders result numbers as plain tabular text rather than Flutter
+    pills, and uses a sticky payout hint surface like Nuxt. `/result/full` now
+    uses the short title hero with a localized draw-date title, flat highlight
+    grid, full-width gray prize bars, plain number grids, and the same payout
+    dock. Result API parsing, selected-result routing, realtime invalidation,
+    loading/error data flow, and waiting-result behavior were unchanged; no
+    screenshot automation or widget-test backfill was added.
+  - Result exact source-color/min-height parity advanced: `/result` now follows
+    Nuxt `BlueHeader min-height="386px"` semantics instead of forcing a fixed
+    386px hero, preventing featured-card overflow on narrow mobile widths.
+    Shared result summary cards, history sheet, history title, inline states,
+    retry pill, number text, unofficial alert, info link, and payout dock now
+    use exact Nuxt `main.css` colors/shadows instead of runtime theme or
+    Material-derived tones. Result API parsing, selected-result routing,
+    realtime invalidation, and waiting-result behavior were unchanged.
   - Result realtime QA advanced: `ResultRealtimeMonitor` now has widget
     coverage for subscribing to the public latest-result channel, ignoring
     unrelated events, refreshing the latest result provider, and refreshing the
@@ -1520,8 +1620,9 @@ Recent verified work:
     wallet-note footer instead of the Material-default rounded/neutral note.
   - Cart/Checkout micro-parity advanced under the UX/UI-first test-light
     cadence: Checkout summary and pending-payment cards now carry the Nuxt
-    12px shadowed summary/payment surface rhythm, Cart and Checkout fixed
-    payment docks now restore the Nuxt upward payment-dock shadow, the Cart
+    12px shadowed summary/payment surface rhythm, Cart's fixed dock and
+    Checkout's in-sheet payment dock now restore the Nuxt upward payment-dock
+    shadow, the Cart
     add-more and remove pills now use Nuxt-like height/padding/weight, Cart
     remove confirmation uses the darker Nuxt overlay plus outline/primary-pill
     modal actions, compact Cart rows add the missing spacing before the remove
@@ -1539,6 +1640,45 @@ Recent verified work:
     closely. Cart grouping, reservation release, checkout submission, external
     payment handoff, pending polling, and route behavior were unchanged; no
     new widget/screenshot tests were added for this visual shell slice.
+  - Cart hero visual parity advanced against the `2_1` reference: the Flutter
+    Cart hero now includes the Nuxt-like right-side money/coin visual beside
+    the reserved-ticket count and draw-date copy, using runtime theme colors
+    instead of a static asset or hardcoded tenant branding. Cart grouping,
+    release, add-more, countdown, totals, checkout navigation, and API behavior
+    were unchanged.
+  - Checkout payment-section visual parity advanced against the `3_0`
+    reference: `/checkout` now renders "ช่องทางชำระเงิน" directly on the white
+    content sheet like Nuxt instead of keeping the earlier Flutter-only grey
+    header band. Wallet loading/error, topup routing, payment-method
+    selection, confirm submission, pending handoff, countdown, and provider
+    behavior were unchanged.
+  - Cart/Checkout dock/sheet micro-parity advanced under the UX/UI-first
+    test-light cadence: Cart hero count/date typography now follows the Nuxt
+    `fs-5 fw-bold` and normal date rhythm, Checkout keeps the Nuxt
+    `content-sheet flush` top radius instead of flattening the sheet, Checkout
+    payment-method title weight now matches Nuxt's `fw-bold`, and Cart/Checkout
+    payment-dock countdown copy now keeps the sentence text neutral while
+    highlighting only the time value in the runtime primary color. Reservation,
+    checkout, payment-method, pending, and route behavior were unchanged; no
+    widget/screenshot tests were added.
+  - Cart row/control micro-parity advanced from the `2_1` reference: reserved
+    ticket rows now bring the seller and price typography closer to Nuxt
+    `LotteryItem`, keep the brand-to-number 12px rhythm, use a larger
+    Nuxt-like blue remove pill, make the green add-more pill match the source
+    54px touch target with larger icon/copy, and tighten the cart payment-dock
+    total label weight. Cart grouping, reservation release, add-more routing,
+    checkout navigation, countdown logic, and payment totals were unchanged;
+    this was visual-only with analyze/diff-check verification and no screenshot
+    automation.
+  - Checkout control micro-parity advanced from the `3_0` reference: the Cart
+    and Checkout dock CTA labels now use the larger Nuxt primary-pill text
+    scale, the selected wallet method border/shadow is softened closer to the
+    Nuxt `wallet-card`, and the wallet note band now uses the source 12px
+    vertical padding with medium-weight copy instead of a heavier Flutter note.
+    Checkout summary math, wallet/topup routing, payment-method selection,
+    confirm submission, pending handoff, and reservation countdown behavior
+    were unchanged; this was visual-only with analyze/diff-check verification
+    and no screenshot automation.
   - Checkout/Success BrandLogo micro-parity advanced under the UX/UI-first
     test-light cadence: Checkout summary and Success receipt header now render
     the runtime tenant logo directly in the Nuxt `BrandLogo` position instead
@@ -1547,6 +1687,21 @@ Recent verified work:
     generic/runtime-safe, and checkout math, payment/provider handoff, receipt
     loading, clipboard save, share/export services, and route behavior were
     unchanged.
+  - Checkout/Success receipt micro-parity advanced under the UX/UI-first
+    test-light cadence: Checkout summary now keeps the Nuxt emphasis on the
+    amount only by reducing the localized baht unit weight, wallet payment
+    cards keep the runtime-primary 55px method mark like the Nuxt `G` tile even
+    when multiple payment methods are configured, and Success receipt rows plus
+    transaction/reference copy now follow the Nuxt `fs-6` muted receipt rhythm
+    more closely. Checkout math, payment method selection, provider handoff,
+    receipt loading, clipboard save, and Tickets navigation behavior were
+    unchanged; no screenshot automation was added.
+  - Checkout wallet payment-card micro-parity advanced from the provided
+    `3_0` reference: the selected wallet card now uses a stronger runtime
+    primary border, a Nuxt-like light-blue note band derived from runtime
+    theme colors, and bolder 16px note copy closer to the source wallet note.
+    Wallet loading/error, insufficient-balance, topup routing, payment-method
+    selection, and checkout submission behavior were unchanged.
   - Revenue AppShell structural parity advanced again under the UX/UI-first
     test-light cadence: `/stores` now places the store tab inside the expanded
     blue hero and renders search/recommended-store rows inside a Nuxt-like
@@ -1559,6 +1714,21 @@ Recent verified work:
     grouping, reservation release, checkout submission, external payment
     handoff, pending polling, and route behavior were unchanged; no new
     widget/screenshot tests were added.
+  - Revenue reference-shell alignment advanced from the provided design images
+    and `docs/customer-flutter-design-principles.md`: `/buy`, `/buy/search`,
+    `/stores`, and `/cart` now opt into flush hero-to-sheet placement where the
+    screenshots show the white sheet starting at the bottom of the blue hero.
+    `/buy/search` was corrected back to the Nuxt/reference title-only
+    BlueHeader with no store segment tabs, while `/buy` and `/stores` keep the
+    taller Nuxt pill segment rhythm. Reservation, search, cart, store,
+    checkout, API, and payment behavior were unchanged.
+  - Revenue SegmentTabs parity advanced under the UX/UI-first cadence:
+    `/buy` and `/stores` no longer use Flutter's Material `SegmentedButton`.
+    The shared store/buy tab control now matches Nuxt `SegmentTabs` more
+    closely with a 4px padded white pill rail, text-only tabs, 50px minimum
+    height, runtime-gradient active tab, and on-primary inset-style ring while
+    preserving route navigation. Existing Buy/Store segment widget coverage was
+    rerun without screenshot tests.
   - Success/Pending receipt shell parity advanced under the UX/UI-first
     test-light cadence: `/checkout/pending` now uses the same title-only blue
     hero plus rounded content-sheet rhythm as the rest of the revenue payment
@@ -1571,6 +1741,21 @@ Recent verified work:
     `AppShell.fullScreen` option. Receipt loading/error, save clipboard
     behavior, pending polling, paid-order redirect, and route behavior were
     unchanged; no widget/screenshot tests were added.
+  - Success receipt typography/recovery micro-parity advanced under the
+    UX/UI-first test-light cadence: the receipt success title now follows the
+    Nuxt `fs-4 fw-bold` weight instead of the heavier Flutter title, the
+    subtitle uses muted receipt copy, the centered white save pill now uses
+    `fw-semibold` weight, and the in-card loading/error recovery copy plus
+    outline action use the same Nuxt pill rhythm. Receipt data, clipboard save,
+    export/share services, and Tickets navigation behavior were unchanged; no
+    widget/screenshot tests were added.
+  - Success background geometry parity advanced from the provided reference:
+    `/success` now paints the runtime-themed blue/yellow geometric background
+    with a source-like linear blue base, top diagonal facet, lower blue sweep,
+    large lower blue radial shape, and bottom-right yellow accent instead of
+    the earlier generic circle-only Flutter treatment. Receipt data, clipboard
+    save/export, loading/error recovery, and Tickets navigation behavior were
+    unchanged; no screenshot automation was added.
   - Home structural parity advanced under the UX/UI-first test-light cadence:
     Home now opts into the `AppShell.fullScreen` path so the first viewport
     starts with the Nuxt-like revenue hero instead of a generic Flutter AppBar.
@@ -1592,12 +1777,59 @@ Recent verified work:
     rounded logo container, resolving `brand.logoUrl`, site name, and support
     phone from runtime bootstrap. Hero data, digit routing,
     wallet/activity/news/result loading, and cart dock behavior were unchanged.
+  - Home `1_0` reference-scale cleanup advanced: the first hero row now restores
+    the top-right close affordance visible in the provided Home reference,
+    keeps the runtime brand lockup left, places the price badge in the
+    Nuxt-like row rhythm before the close affordance, restores the simple 60px
+    Nuxt price circle without extra Flutter coin decoration, steps the hero
+    headline/price/sale typography back toward the Nuxt `fw-bold` rhythm, and
+    restores the Nuxt `home-digit-boxes` vertical gap before the read-only
+    digit row. Home providers, digit search route,
+    wallet/activity/news/result loading, active cart dock, and route behavior
+    were unchanged; no screenshot automation was added.
+  - Home first-viewport reference correction advanced: the Home hero height now
+    resolves from Nuxt's 352px `BlueHeader` baseline plus the device safe-area
+    top inset instead of using a fixed Flutter-only 384px height. The sheet
+    still overlaps by the Nuxt `home-sheet` 34px rhythm, and hero bottom
+    padding was tightened so 360px mobile viewports keep the digit row usable
+    without overflow. Verification: `dart format`, focused `flutter analyze`,
+    and `flutter test test/home_screen_test.dart --reporter compact`.
+  - Home `1_0` hero tightening advanced after re-checking
+    `docs/customer-flutter-design-principles.md` and the Nuxt Home source:
+    the first-viewport search title/draw-date copy now uses a larger
+    reference-like rhythm, the sale badge is wider/darker with stronger yellow
+    amount emphasis, the 80-baht badge has a subtle runtime-theme shadow, the
+    close action suppresses Material overlay feedback, and the hero bottom
+    padding remains trimmed so the 360px mobile hero does not overflow. Home
+    providers, quick-action routes, result routing, wallet/auth state, and cart
+    dock behavior were unchanged. Verification: `dart format`, focused
+    `flutter analyze`, focused Home widget tests, and `git diff --check`. No
+    screenshot automation or git process was run.
+  - Home BlueHeader backdrop parity advanced against `1_0`: the Home hero now
+    uses the shared runtime-themed blue wave/yellow-wedge backdrop from
+    `AppShell` instead of its older local decorative circle/rotated-bar
+    treatment, keeping the blue-yellow identity consistent with Buy/Search,
+    Store, Cart, and the other BlueHeader revenue surfaces. Home providers,
+    digit search route, wallet/activity/news/result loading, active cart dock,
+    and routes were unchanged.
   - Home link-surface micro-parity advanced under the UX/UI-first test-light
     cadence: Home quick actions, activity cards, news cards, and feature-link
     rows now use transparent link gestures instead of Material/InkWell ripple
     surfaces, matching the Nuxt `NuxtLink`/anchor card feel while preserving
     route targets, external-news handoff, card sizing, and runtime theme colors.
     No screenshot tests were added.
+  - Home `1_0` quick-action illustration/theme pass advanced after re-reading
+    `docs/customer-flutter-design-principles.md` and the provided Home
+    reference image: the two Home quick actions now render custom
+    runtime-themed phone/ticket and scan/QR illustrations instead of generic
+    Material icons, making the rounded-panel match the Nuxt/reference
+    illustrated action card more closely without adding partner-specific
+    hardcoded marks. The Home sheet background and Home title/body color helpers
+    were also nudged toward the soft customer storefront palette from the
+    design-principles tokens. Quick-action routes, wallet/auth/result/news/
+    activity providers, cart dock behavior, and API calls were unchanged.
+    Verification: `dart format`, focused `flutter analyze`, and
+    `git diff --check`; no screenshot automation or git process was run.
   - Lottery item shell parity advanced under the UX/UI-first test-light
     cadence: public Buy/Search/More stock rows now follow Nuxt's no-image
     `LotteryItem` variant with brand/more header, number block, right-side
@@ -1605,10 +1837,20 @@ Recent verified work:
     the Nuxt default image variant with the wide lottery-image card. Reservation
     toggles, sale-closed handling, realtime stock refresh, image loading, and
     route behavior were unchanged; no widget/screenshot tests were added.
+  - Buy/Search `2_0` interaction-surface parity advanced: the shared
+    Buy/Store segmented tabs now follow the Nuxt `.pill-tab` 43px height,
+    medium label weight, and flat no-ripple tap feel instead of a taller
+    Flutter Material tab. Reserved lottery-row "เอาออก" actions now use a
+    runtime-themed gradient `remove-pill` surface with transparent Material
+    overlay, matching Nuxt's row action treatment while keeping the same
+    reserve/release callbacks, stock realtime updates, and cart sync behavior.
+    Verification: `dart format`, focused `flutter analyze`, and
+    `git diff --check`; no screenshot automation, widget-test expansion, or git
+    process was run.
   - Revenue payment-dock structural parity advanced under the UX/UI-first
     test-light cadence: Buy/Search/More and store-scoped floating review docks,
     Home's floating selection dock, Cart's fixed payment dock, and Checkout's
-    fixed confirm dock now share Nuxt-like `PaymentDock` rhythm with top-shadow
+    in-sheet confirm dock now share Nuxt-like `PaymentDock` rhythm with top-shadow
     direction, 58px gradient pill CTAs, 720px wide layout clamp, safe-area
     padding inside the white dock surface, and localized small timer copy in
     the Home selection CTA. Reservation expiry, cart review, checkout submit,
@@ -1622,14 +1864,22 @@ Recent verified work:
     runtime route/feature gating preserved. Home, Tickets, Profile/Menu,
     Success, and other bottom-nav surfaces keep their existing route behavior;
     no widget/screenshot tests were added.
+  - Shared BottomNav rail parity advanced under the UX/UI-first cadence: the
+    bottom navigation surface now spans the full mobile viewport like Nuxt
+    `.bottom-nav` while still using the `customerContentMaxWidthFor` cap on
+    desktop/wide layouts. The earlier Flutter-only 16px mobile side inset was
+    removed. Runtime route/feature gating and navigation were unchanged, and
+    focused AppShell widget coverage was updated/rerun without screenshot
+    tests.
   - Shared BlueHeader structural parity advanced under the UX/UI-first
     test-light cadence: the expanded Flutter `AppShell` hero now starts its
-    header row at the Nuxt-like top rhythm, adds the missing lower sky accent
-    circle behind the runtime gradient, and changes the back affordance from a
-    Flutter-tinted circular button to the transparent 42px chevron treatment
-    used by Nuxt `BlueHeader`. Hero content, route back behavior, runtime
-    colors, and page-specific hero heights were unchanged; no widget/screenshot
-    tests were added.
+    header row at the Nuxt-like top rhythm and changes the back affordance from
+    a Flutter-tinted circular button to the transparent 42px chevron treatment
+    used by Nuxt `BlueHeader`. The shared hero background now follows the
+    provided references more closely with blue wave bands and a yellow
+    lower-right wedge instead of the earlier Flutter decorative circles. Hero
+    content, route back behavior, runtime colors, and page-specific hero
+    heights were unchanged; no screenshot automation was added.
   - Shared content-sheet overlap parity advanced under the same UX/UI-first
     cadence: expanded `AppShell` routes now use Nuxt's responsive
     `content-sheet` overlap rhythm (`clamp(-64px, -15vw, -34px)`) instead of a
@@ -1693,6 +1943,13 @@ Recent verified work:
     store-list skeletons, retry errors, reservation toggles, realtime refresh,
     cart sync, and route behavior were unchanged; no widget/screenshot tests
     were added.
+  - Revenue row-action theme parity advanced under the UX/UI-first reduced-test
+    cadence: public Buy/Search/More stock rows and store-scoped lottery rows
+    now use the shared runtime-themed Nuxt-like outline pill helper for
+    unselected/sold/sale-closed actions instead of per-row Material outline
+    styling. Reservation toggles, disabled sale-closed behavior, realtime cart
+    sync, and route behavior were unchanged; no screenshot automation was
+    added.
   - Stores row handoff parity advanced under the UX/UI-first test-light
     cadence: `/stores` recommended-store rows now keep the Nuxt `store-row`
     visual shell but are interactive browse handoffs into
@@ -1702,6 +1959,23 @@ Recent verified work:
     floating cart dock, and runtime theme colors; only the stale "before phase"
     contract test plus the existing store-tab widget coverage were updated. No
     screenshot tests were added.
+  - Stores `1_2_2_0` reference CTA cleanup advanced: `/stores` recommended
+    rows now restore the visible right-side Nuxt/reference outline
+    `ดูร้านค้า` action and the store-list skeleton rows include the matching
+    88px button placeholder. The whole row remains tappable and still uses the
+    existing `/stores/lotteries?store_id=...` route handoff. Store search,
+    pagination, cart dock, parser, and API behavior were unchanged; no
+    screenshot automation or broad test backfill was added.
+  - Stores `1_2_2_1` stock-row reference cleanup advanced: `/stores/lotteries`
+    rows now use the compact Nuxt/reference number/meta/action structure
+    instead of rendering a large Flutter ticket-image frame above every
+    six-digit number. Store lottery rows now parse `draw_no`/`drawNumber`/
+    `game_no` and `set`/`setNumber` aliases so backend-provided "งวดที่" and
+    "ชุดที่" values appear beside the lottery number like Nuxt. Reservation,
+    release, realtime price/availability patching, image metadata forwarding
+    into downstream cart/ticket flows, search handoff, pagination, and API
+    behavior were unchanged; no screenshot automation or broad test backfill
+    was added.
   - Cart/Checkout sheet micro-parity advanced under the UX/UI-first test-light
     cadence: Cart's purchase-limit helper now follows the Nuxt centered
     muted-copy plus green-pill add-more rhythm more closely, with matching
@@ -1714,6 +1988,16 @@ Recent verified work:
     Cart grouping, remove confirmation, checkout methods, payment submission,
     topup return path, and route behavior were unchanged; no widget/screenshot
     tests were added.
+  - Cart row metadata parity advanced from the `2_1-รายการสลากในตะกร้า`
+    reference: grouped cart ticket rows now show Nuxt-style `งวดที่` and
+    `ชุดที่` mini columns beside the six-digit lottery number when runtime
+    reservation item payloads include `draw_no`/`drawNumber` or
+    `set`/`setNumber` aliases. The meta row collapses on very narrow rows to
+    avoid overflow. The latest reference cleanup lowers the compact-row
+    breakpoint and tightens the remove pill so `เลขสลากฯ / งวดที่ / ชุดที่ /
+    เอาออก` remains a single row at the `2_1` mobile width. Cart grouping,
+    release, countdown, checkout navigation, and payment dock behavior were
+    unchanged; focused cart dock coverage was rerun.
   - Revenue recovery/loading panel polish advanced under the reduced-test
     cadence: the shared Buy/Search/Cart/Checkout message and loading surfaces
     now use the Nuxt-like 12px bordered/shadowed white panel rhythm, softer
@@ -1900,6 +2184,16 @@ Recent verified work:
     `/tickets/view` start with the same hero-plus-sheet composition as the old
     Nuxt pages while preserving search, filtering, detail lookup, reward
     routing, and claim entry behavior.
+  - Current/history Tickets reference-shell parity advanced from the
+    `6_0-สลากของฉัน` design reference: `/tickets` and `/tickets/history` now
+    run full-screen without the generic Flutter AppBar, place the title/search
+    circle plus current/history segment tabs inside the blue hero, and start the
+    rounded white sheet directly below the hero. Ticket detail keeps its
+    previous compact hero height/overlap so detail rows are not pushed down by
+    the list-page hero. Current ticket search/tabs behavior was verified; the
+    broader tickets widget suite still has residual history load-more and
+    ticket-detail viewport failures to clean up in the later test-backfill
+    pass.
   - Current/history Tickets navigation micro-parity advanced under the
     UX/UI-first test-light cadence: Flutter removed the extra AppShell history
     and current-ticket icon actions that duplicated the Nuxt `SegmentTabs`
@@ -1909,6 +2203,16 @@ Recent verified work:
     `btn-link fw-bold p-0` treatment. Search, filtering, auto-load, detail
     lookup, reward routing, claim entry, and parser behavior were unchanged;
     no widget/screenshot tests were added.
+  - Tickets `6_0`/`7` reference-scale cleanup advanced: `/tickets` now enlarges
+    the circular search button to the source screen scale, strengthens the
+    centered hero title, and makes the current/history segmented tabs taller
+    with heavier 18px labels. `/tickets/history` now uses a custom first-row
+    header matching `7-สลากย้อนหลัง`: larger "รายการสลากฯ" title plus an
+    underlined blue winning-filter link with a larger list-check icon instead
+    of the smaller shared Flutter section header. Search toggle, current/
+    history navigation, winning filter, pagination, ticket preview, reward
+    routing, claim entry, and API behavior were unchanged; no screenshot
+    automation was added.
   - Current tickets empty/search-empty copy parity advanced under the
     UX/UI-first reduced-test cadence: `/tickets` now uses Nuxt's single-line
     `empty-lottery-state` copy for no current tickets and no search results,
@@ -1972,6 +2276,18 @@ Recent verified work:
     runtime-site note strip. The note now prefers runtime lottery product label
     instead of always falling back to government-lottery copy. No new widget or
     screenshot tests were added for this visual slice.
+  - Tickets reference micro-parity advanced against `6_0`/`6_1`/`7`: the
+    history no-winning banner now keeps the customer blue/yellow identity after
+    owner feedback rejected green app drift, while retaining the diagonal slash
+    plus star/hand illustration treatment. Ticket stubs use the Nuxt purple
+    digital side rail and bounded L6/yellow mark to avoid compact-row overflow,
+    and the image preview dialog uses the Nuxt darker overlay, 12px modal
+    radius, and L6 yellow-dot product mark.
+    Current/history ticket rows now open the image overlay directly on the list
+    pages like Nuxt, while `/tickets/view` remains available for deep links and
+    detail fallback. The detail summary now exposes the ticket number near the
+    top of the page, and generated fallback ticket images scale down inside
+    compact dialogs without mobile viewport overflow.
   - Ticket claim action states now show Nuxt-style unavailable reward messages
     for pending-result, non-winning, and winning-not-open states, with payout
     options and next action disabled until a claim is allowed.
@@ -2068,12 +2384,14 @@ Recent verified work:
     claim existing-state card, claim fixed footer, payout option cards,
     confirm/processing receipt headings/dividers/helper rows, ticket image
     frames, and ticket status colors now derive from runtime
-    `Theme.colorScheme` tokens. Remaining fixed colors in the touched file are
-    deliberate ticket/prize artwork, generated ticket fallback art, or
-    transparent Material controls. Ticket search, history filtering, detail
-    lookup, payout selection, PIN/biometric submission, parser behavior,
-    realtime, and route handoffs were unchanged; no screenshot tests were
-    added.
+    `Theme.colorScheme` tokens. A follow-up ticket artwork sweep now also moves
+    the winning/no-winning banners, ticket stub side rail, reward strip, claim
+    pill, generated ticket fallback art/patterns, number strip, and metadata
+    chips to `Theme.colorScheme`-derived tones, leaving no fixed `Color(0x...)`
+    artwork colors in the Tickets presentation file. Ticket search, history
+    filtering, detail lookup, payout selection, PIN/biometric submission,
+    parser behavior, realtime, and route handoffs were unchanged; no screenshot
+    tests were added.
   - Ticket claim select-step payout options advanced under the UX/UI-first
     reduced-test cadence: the wallet/bank choices now use Nuxt's compact
     74px/8px option rhythm, custom 17px radio indicator, right-side 40px
@@ -2144,6 +2462,14 @@ Recent verified work:
     shared Nuxt `empty-lottery-state` 52px/16px padding. Reward claim data,
     payout rendering, realtime refresh, parser behavior, and route behavior
     were unchanged.
+  - Reward claim detail receipt spacing tightened again under the UX/UI-first
+    cadence: receipt and money rows now use Nuxt-style 8px gaps only between
+    rows instead of Flutter trailing row padding, the first brand-to-section
+    break includes Nuxt's extra 2px brand padding rhythm, and the total money
+    divider keeps the Nuxt 10px top padding. Reward claim data, payout parsing,
+    realtime refresh, and navigation were unchanged; existing
+    `test/reward_claims_screen_test.dart` coverage was rerun without screenshot
+    tests.
   - Reward claim history/detail visual polish advanced again: the history list
     removed the remaining Flutter-only outer top/bottom border around the
     Nuxt-style row list, status labels now use the exact Nuxt paid/pending/
@@ -2404,6 +2730,13 @@ Recent verified work:
     38px icon rhythm, Nuxt-like 82px row height, and tighter title/subtitle/date
     typography while preserving the existing wallet data and realtime behavior.
     No new widget/screenshot tests were added for this visual slice.
+  - Wallet money-surface polish advanced under the UX/UI-first reduced-test
+    cadence: the shared Home/Wallet balance card now derives hero foreground,
+    diagonal sheen, QR/action overlays, and action-icon borders from runtime
+    `onPrimary`/`scrim` tokens instead of fixed white/black literals, and
+    `/my-wallet` restores the Nuxt light-gray transaction sheet behind the
+    white ledger loading/empty/failure/list panels. Wallet data, routes,
+    realtime refresh, and sensitive-screen handling were unchanged.
   - Wallet compact ledger readability advanced: on very narrow mobile widths,
     ledger amount/balance blocks now align with the transaction copy after they
     move below the main ledger text, matching Nuxt's compact transaction media
@@ -2639,6 +2972,102 @@ Recent verified work:
 	    from `Theme.colorScheme`/card theme instead of fixed Flutter blue/white/
 	    yellow literals. Home routes, wallet/auth/news/activity/result providers,
 	    safe-link handling, and read-only search handoff were unchanged.
+	  - Home first-viewport micro-parity advanced: the Flutter Home sheet now
+	    overlaps the 352px hero by the Nuxt `home-sheet` 34px amount, hero
+	    heading/search/price/sale text weights were reduced to the Nuxt
+	    `fw-bold`/normal rhythm, the read-only 1-6 digit boxes now follow the
+	    Nuxt `clamp(36px, 10vw, 58px)` width rhythm, the quick-action panel drops
+	    its Flutter-only outline, and result loading returns to a centered muted
+	    text `result-card` surface. This was visual-only; Home routes, auth,
+	    cart dock eligibility, wallet/news/activity/result providers, safe-link
+	    handling, and `/buy/search` handoff were unchanged, and no widget or
+	    screenshot automation was added.
+	  - Design-principles theme correction advanced after
+	    `docs/customer-flutter-design-principles.md` was added as the theme source:
+	    `AppTheme` fallback tokens now match the documented customer identity
+	    (`#087FF0` blue, `#0067D9` dark blue, `#19B8EF` sky, `#FFD10B` yellow,
+	    `#242833` ink, `#8A8F98` muted, `#E8EBEF` border, white content sheets,
+	    and soft `#F5F7FB` containers). Kanit 400/500/600/700/800/900 fonts are
+	    now bundled in `apps/customer_flutter/assets/fonts/kanit` and registered
+	    in `pubspec.yaml` so real iOS/Android/Web builds no longer depend on a
+	    platform font fallback. Runtime partner theme overrides remain supported
+	    for primary, secondary, accent, background, text, and font values.
+	  - Design-system control correction advanced: shared default
+	    `FilledButton`, `OutlinedButton`, and `TextButton` styles now use
+	    customer pill geometry, 44-47px touch targets, Kanit weights, soft
+	    disabled action color, and light borders from the design-principles file
+	    instead of Flutter's Material-default control feel. The shared BlueHeader
+	    yellow accent and `CustomerWalletBalanceCard` yellow orb now derive from
+	    runtime `colorScheme.tertiary`, preserving the documented yellow identity
+	    while still allowing tenant accent overrides.
+	  - AppTheme token output cleanup advanced under the UX/UI-first cadence:
+	    `AppTheme.light` now emits customer design tokens through
+	    `AppTheme.appSheet`, `AppTheme.appInk`, and runtime `ColorScheme`
+	    on-colors for app bars, content/card/input surfaces, disabled button
+	    foreground, shadow, and scrim instead of fixed `Colors.white`/`Colors.black`
+	    literals outside token declarations. Partner bootstrap overrides still
+	    drive runtime primary, secondary, accent, background, text, and font
+	    values; theme-focused smoke tests were rerun without screenshot
+	    automation.
+	  - Shared splash/digit token sweep advanced under the UX/UI-first cadence:
+	    `AppSplashHost` now gives the runtime tenant brand name
+	    `colorScheme.onPrimary` instead of fixed white, and
+	    `LotteryDigitInputRow` defaults digit box fill to runtime
+	    `colorScheme.surface` instead of a hardcoded white surface. Splash
+	    timing/bootstrap failure behavior and digit input focus/one-digit
+	    behavior were unchanged; focused non-screenshot tests were rerun.
+	  - Revenue token sweep advanced: Buy/Search/Cart and store-scoped
+	    `ticket-number` strips keep the Nuxt 154px width, 5px/10px padding, 7px
+	    radius, and 22px tabular digit rhythm, but now derive the pale-yellow
+	    fill from runtime `colorScheme.tertiary` mixed with the white sheet
+	    surface and use `colorScheme.onSurface` for the digits instead of fixed
+	    `#fff9df`/`#030303`. Shared revenue message card borders and titles now
+	    use `outlineVariant`/`onSurface` instead of hardcoded ink/border colors.
+	    Stock loading, search, reservation, cart, and checkout behavior were
+	    unchanged.
+	  - Shared/revenue notice theme sweep advanced: `AppAlert`, Cart
+	    reservation dialogs, Buy/Search/Cart inline notices, loading panels, and
+	    store-scoped inline notices now derive warning/error/scrim/shadow/border
+	    colors from runtime `Theme.colorScheme` instead of fixed orange, black,
+	    pale-red, or light-border literals. Alert copy, dismiss behavior,
+	    reservation release, search, stock, cart, and store behavior were
+	    unchanged.
+	  - Result theme sweep advanced: shared `ResultSummaryCard` featured yellow
+	    accent, unofficial alert tint/icon/copy, and waiting-result inline error
+	    notices now derive from runtime tertiary/error theme tokens instead of
+	    fixed yellow/amber/red literals. Result heading weight was reduced to the
+	    Nuxt `section-title fw-bold` rhythm. Result data parsing, result links,
+	    waiting-result loading, and live-result behavior were unchanged.
+	  - Result/AppShell foreground token sweep advanced: shared `AppShell`
+	    hero titles, back affordances, and decorative sheen now use runtime
+	    `onPrimary`/tertiary tokens instead of fixed white/yellow literals, and
+	    featured result plus waiting-result card surfaces now bind foreground,
+	    surface, border, and shadow to `Theme.colorScheme` tokens. Result data,
+	    waiting-result redirect/alert behavior, live launch, and navigation were
+	    unchanged; focused AppShell and waiting-result widget tests were rerun
+	    without screenshot tests.
+	  - Result BlueHeader reference alignment advanced under the UX/UI-first
+	    cadence: `/result` now reuses the shared `CustomerBlueHeroBackdrop`
+	    wave/yellow BlueHeader treatment instead of carrying a one-off result
+	    gradient/streak implementation, and `/result/full` now starts its white
+	    sheet below a taller 164px title hero with zero sheet overlap to match
+	    the `1_1_1` reference more closely. Result APIs, selected-game routing,
+	    realtime invalidation, number rendering, payout dock, loading/error
+	    behavior, and public route behavior were unchanged. Verification:
+	    `dart format` and focused `flutter analyze`; no screenshot automation
+	    or broad result widget-test backfill was added.
+	  - Result detail parity advanced: `/result/full` now uses the Nuxt/reference
+	    hero title `ผลรางวัลงวดวันที่ ...` from the selected runtime draw date
+	    instead of a generic title, and the white sheet now starts directly with
+	    the prize highlight grid like `1_1_1` rather than repeating the draw-date
+	    label inside the sheet. Unresolved current games still switch to the
+	    localized waiting-result state instead of showing placeholder detail
+	    prize groups. Additional prize groups are only listed once at least one
+	    number is resolved, preserving partial live-result placeholders inside
+	    visible groups. Result APIs, selected-game routing, realtime
+	    invalidation, payout dock behavior, and public route behavior were
+	    unchanged. Verification: `dart format`, focused `flutter analyze`, and
+	    `flutter test test/result_screens_test.dart --reporter compact`.
 	  - Widget coverage now locks Home quick action routing, activity detail slug
 	    routing, internal news URL routing, external news URL launch policy, and
 	    unsafe news URL rejection without adding screenshot/golden tests.
@@ -2661,6 +3090,34 @@ Recent verified work:
     API still override the defaults. Topup create/cancel/slip upload, provider
     handoff, realtime refresh, minimum validation, and back-allowlist behavior
     were unchanged.
+  - Topup BlueHeader shell parity advanced under the UX/UI-first cadence:
+    `/topup` and `/topup/history` now opt into the full-screen shell so the
+    generic Flutter AppBar no longer stacks above the page-specific blue hero.
+    Both screens render their back affordance and centered title inside the
+    runtime-themed BlueHeader-style hero; `/topup`
+    keeps channel selection/history in the blue hero and `/topup/history`
+    keeps the Nuxt 220px hero plus flush white sheet. Topup
+    create/cancel/slip upload, provider redirects, realtime refresh,
+    pagination, and safe back targets were unchanged; focused Topup and Topup
+    history widget coverage was rerun without screenshot automation.
+  - Topup hero/channel visual cleanup advanced under the UX/UI-first cadence:
+    the main `/topup` hero now uses a solid runtime primary surface like the
+    Nuxt `BlueHeader` instead of the leftover Flutter gradient/accent-circle
+    treatment, the hero back affordance is a transparent white chevron, and the
+    payment channel launcher keeps Nuxt's 3-column white logo-and-label button
+    rhythm while preserving runtime API labels/descriptions, disabled badges,
+    blocking-waiting behavior, and provider create flows. Payment methods now
+    parse runtime `iconUrl`/`logoUrl`/`imageUrl` aliases so channel tiles can
+    render provider artwork like the `4-เติมเงิน` reference without hardcoding
+    provider assets. No screenshot automation was added.
+  - Topup bank-instruction sheet parity advanced from the provided reference:
+    when no waiting topup is active and runtime overview data exposes a bank
+    transfer method/account, `/topup` now uses a shorter blue hero with a
+    rounded white instruction sheet titled "วิธีการเติมเงินผ่านธนาคาร". The
+    sheet shows the runtime receiving bank/account as a tappable bank tile plus
+    account details and opens the existing bank-transfer bottom sheet without
+    hardcoding provider/bank lists. Loading/error states and tenants without
+    bank-transfer runtime data keep the previous hero-only fallback.
   - Topup provider redirect compatibility advanced: QR/Credit topup detail and
     create response parsing now reuses the shared payment redirect resolver, so
     nested provider-session/link containers such as
@@ -2672,6 +3129,12 @@ Recent verified work:
     route flag, provider handoff, and history navigation behavior stay the
     same, while route-aware harnesses and future guard/nav checks see the real
     page path.
+  - Topup create-sheet surface polish advanced under the UX/UI-first
+    reduced-test cadence: the create modal now uses the runtime soft-surface
+    treatment that matches Nuxt's pale `#f8fbff` sheet instead of a flat white
+    Material surface. Close action, amount controls, quick amounts, submit
+    action, provider handoff, create/cancel/slip upload, realtime refresh, and
+    back-allowlist behavior were unchanged.
   - Waiting topup cards now match the Nuxt surface more closely: the Flutter
     card is a white bordered/shadowed panel instead of a generic Material card,
     separates request title/status, topup amount, bonus pill, transfer/created
@@ -2923,8 +3386,9 @@ Recent verified work:
   - Topup hero/sheet parity advanced under the UX/UI-first reduced-test
     cadence: `/topup` now renders the runtime payment channel launcher and
     history action inside a Nuxt-like runtime-themed blue hero instead of a
-    standalone in-body header card. With no waiting request, the hero fills the
-    visible viewport like Nuxt's full-height `BlueHeader`; with a waiting
+    standalone in-body header card. With no waiting request and bank-transfer
+    runtime data, the hero now uses the provided reference's shorter blue
+    section plus a rounded white bank-instruction sheet; with a waiting
     request, the hero uses the Nuxt 340px rhythm and the waiting card overlaps
     below it with a `-14px` style offset, while very narrow devices get extra
     hero height so stacked channel buttons do not collide with the waiting
@@ -2932,6 +3396,36 @@ Recent verified work:
     create/cancel/slip upload, realtime refresh, and back allowlist behavior
     were unchanged, and no widget/screenshot tests were added for this
     visual-shell slice.
+  - Topup reference-shell cleanup advanced against `4-เติมเงิน`: the launcher
+    hero now uses the shared runtime `CustomerBlueHeroBackdrop`, the channel
+    launcher reads as three flat white Nuxt-style icon/label buttons, the
+    bank-instruction sheet fills the lower
+    viewport like the reference white content sheet, and landing-state account
+    details were removed so account numbers appear only after the customer
+    selects the runtime bank-transfer flow. Payment config, provider handoff,
+    create/cancel/slip upload, realtime refresh, and route/back behavior were
+    unchanged. Focused Topup widget tests were rerun without screenshot
+    automation.
+  - Topup runtime bank-grid parity advanced against `4-เติมเงิน`: Flutter now
+    parses runtime bank/account list aliases and renders the bank instruction
+    sheet as a Nuxt-like bank grid with runtime logos when present, falling
+    back to the existing single receiving-account tile for tenants with one
+    configured account. No bank/provider list was hardcoded; topup channel
+    enablement, create/cancel/upload/payment behavior, provider redirects,
+    realtime refresh, and route/back behavior were unchanged. Focused parser
+    and widget tests covered the bank-list path without screenshot automation.
+  - Topup `4-เติมเงิน` reference-scale cleanup advanced: the launcher topbar
+    now sits lower in the blue header, the three channel actions use tall
+    square white cards closer to the reference, the history row is hidden from
+    the bank-instruction launcher viewport so the white sheet begins after the
+    channel cards like the provided image, and the bank-instruction sheet uses
+    wider horizontal padding plus larger runtime bank logos/labels. Topup
+    history routing remains available in states without the bank-instruction
+    sheet; payment config, provider handoff, create/cancel/slip upload,
+    realtime refresh, and back behavior were unchanged. Verification:
+    `dart format`, focused `flutter analyze`, and focused
+    `flutter test test/topup_screen_test.dart` plain-name runs for launcher and
+    disabled-channel bank-grid coverage.
   - Topup initial loading/error shell parity advanced under the stronger
     feature/UX-first reduced-test cadence: `/topup` no longer falls back to the
     generic Flutter `AsyncStateView` card while the overview/payment-method
@@ -3316,6 +3810,14 @@ Recent verified work:
     awards after result state is available.
   - Activities loading states now use current/history-specific Nuxt loading
     copy instead of the generic async loading label.
+  - Activities exact current/history list-card color parity advanced: the
+    history link/filter strip, activity card surface, fallback image, type
+    pill, rights badge, number/deadline badge, empty panels, history empty
+    current-link CTA, and load-more outline pill now use the Nuxt page/global
+    CSS tones for borders, shadows, text, and semantic badge colors instead of
+    theme-derived Flutter colors. Activity sorting, PIN redirect, pagination,
+    API parsing, detail routing, claim modal/PIN behavior, and realtime
+    refresh were unchanged.
   - Authenticated current/history activity lists now match Nuxt's rights-first
     behavior by sorting activities with current usable rights ahead of
     no-right activities while preserving backend order for public/guest lists.
@@ -3470,30 +3972,46 @@ Recent verified work:
     closely, and activity type/right/number/deadline pills now switch to the
     11px compact typography under the same narrow breakpoint as Nuxt. No list
     loading, sorting, PIN, claim, or navigation behavior changed.
-  - Activities guest/PIN rights-badge parity advanced under the UX/UI-first
-    reduced-test cadence: current/history activity cards now receive the auth
-    state explicitly and show Nuxt's guest/PIN badge copy ("เข้าสู่ระบบเพื่อเช็คสิทธิ์"
-    and "ยืนยัน PIN เพื่อเช็คสิทธิ์") with the same neutral lock treatment
-    instead of interpreting public or PIN-blocked payloads as "no rights".
-    Authenticated, PIN-cleared activity lists still use customer activity data,
-    rights-first sorting, closed-entry handling, and existing detail navigation.
-    No API, claim, sorting, or parser behavior changed and no widget/screenshot
-    tests were added.
+  - Activities guest/PIN access parity advanced under the UX/UI-first
+    reduced-test cadence: current/history activity cards still receive the auth
+    state explicitly so guests see Nuxt's "เข้าสู่ระบบเพื่อเช็คสิทธิ์" neutral
+    lock badge instead of a no-rights/cashback-pending row. Logged-in customers
+    whose PIN is still required or still needs setup now follow Nuxt's
+    `redirectToActivityPin` behavior by navigating to `/pin?redirect=...`
+    before activity rights loading, preserving `/activities/history?game_id=...`
+    as the return target. PIN-cleared authenticated lists still use customer
+    activity data, rights-first sorting, closed-entry handling, and existing
+    detail navigation.
   - Activities current/history hero-shell parity advanced under the
-    UX/UI-first, test-light cadence: both pages now use a blue hero band below
-    the Flutter app bar so the combined header height matches the Nuxt
-    `BlueHeader min-height="214px"` rhythm, and the content overlays the hero by
-    42px like the Nuxt `activities-sheet` while keeping the 640px content rail
-    and bottom-nav-safe padding. This was a layout-only pass; no list loading,
-    sorting, PIN, claim, parser, or repository behavior changed.
+    UX/UI-first, test-light cadence: both pages now use the shared expanded
+    `AppShell` BlueHeader directly instead of stacking a short Flutter AppBar
+    above a second page-local blue band. The shared header keeps the Nuxt
+    `BlueHeader min-height="214px"` rhythm, and the activity content overlays
+    the hero by 42px like the Nuxt `activities-sheet` while keeping the 640px
+    content rail and bottom-nav-safe padding. This was a layout-only pass; no
+    list loading, sorting, PIN, claim, parser, or repository behavior changed.
   - Activities hero implementation parity corrected under the UX/UI-first
     reduced-test cadence: the Flutter current/history activity shell now
     actually uses the Nuxt 214px hero height instead of the older 150px band,
-    removes the Flutter-only rotated decorative highlights from the hero, keeps
+    removes the duplicate page-local hero painter, keeps
     the 42px sheet overlap and 118px bottom-nav-safe sheet padding, and renders
     load-more as a centered 160px outline pill. List loading, sorting,
     history-game selection, PIN redirect, claim entry, parser, repository, and
-    navigation behavior were unchanged; no widget/screenshot tests were added.
+    navigation behavior were unchanged. Verification: `dart format`, focused
+    `flutter analyze`, focused `flutter test test/app_shell_test.dart`, and
+    `git diff --check` passed. `flutter test test/activities_screen_test.dart`
+    was attempted but the existing suite did not find content after the shell
+    change and still needs a test-harness update for the expanded BlueHeader
+    layout; no screenshot automation, DB, clear worktree, prompt generation,
+    commit, or push process was run.
+  - Activities rail-scroll parity advanced under the UX/UI-first reduced-test
+    cadence: current/history activity rows now render inside a bounded
+    Nuxt-like `activities-list` rail with viewport-minus-226 max height, 2px top
+    padding, and 12px separated rows instead of flowing as page-level Flutter
+    list padding. Loading, empty, and first-load error states remain page
+    panels; sorting, pagination, history-game selection, PIN redirect, claim
+    entry, parser, repository, and navigation behavior were unchanged. Focused
+    widget coverage was run; no screenshot tests were added.
   - Lucky-board compact grid parity advanced under the UX/UI-first test-light
     cadence: the Flutter number board now follows Nuxt's 5-column/4-column
     rhythm for 2-digit and 3-digit boards, drops to 4/3 columns only on very
@@ -3511,13 +4029,17 @@ Recent verified work:
     prompt. This was visual/layout-only; no widget or screenshot tests were
     added under the test-light cadence.
   - Activity detail hero-shell parity advanced under the UX/UI-first,
-    test-light cadence: `/activities/:slug` now uses the same runtime-themed
-    blue band and Nuxt `BlueHeader min-height="214px"` combined header rhythm
-    as current/history activities, lifts the detail sheet by 24px like Nuxt's
-    `activity-detail-sheet`, keeps the 640px rail with 16px sheet padding, and
-    routes loading/error/missing states through the same rounded white surface.
-    No award loading, claim, PIN, number-entry, parser, or repository behavior
-    changed.
+    test-light cadence: `/activities/:slug` now uses the shared expanded
+    `AppShell` BlueHeader directly instead of stacking a short Flutter AppBar
+    above a second page-local blue band. The shared header keeps the Nuxt
+    `BlueHeader min-height="214px"` rhythm, lifts the detail sheet by 24px like
+    Nuxt's `activity-detail-sheet`, keeps the 640px rail with 16px sheet
+    padding, and routes loading/error/missing states through the same rounded
+    white surface. No award loading, claim, PIN, number-entry, parser, or
+    repository behavior changed. Verification: `dart format`, focused
+    `flutter analyze`, focused `flutter test test/app_shell_test.dart`, and
+    `git diff --check`; no screenshot automation, DB, clear worktree, prompt
+    generation, commit, or push process was run.
   - Activity detail hero-meta parity corrected under the stronger UX/UI-first
     reduced-test cadence: Flutter code now actually uses the Nuxt 214px
     detail hero height, removes the remaining Flutter-only rotated hero
@@ -3642,6 +4164,18 @@ Recent verified work:
     News loading/empty/error states, article rendering, safe external-link
     policy, announcement modal suppression, parsing, and routing behavior were
     unchanged; no widget/screenshot tests were added.
+  - News list/detail shell correction advanced: `/news` and `/news/:slug` now
+    use the shared expanded `AppShell` BlueHeader directly instead of rendering
+    a short Flutter AppBar above a second page-local blue band. `NewsPageShell`
+    now owns only the flush rounded white sheet, matching Nuxt's `BlueHeader`
+    plus `content-sheet flush` composition more closely. Shared BottomNav route
+    grouping also now selects the Home tab for `/buy`, `/stores`, `/result`,
+    `/waiting-result`, `/news`, and `/activities`, so News matches Nuxt's
+    `active-nav="home"` without changing tab destinations or feature gating.
+    Verification: `dart format`, focused `flutter analyze`, focused
+    `flutter test test/app_shell_test.dart`, and `git diff --check`; no
+    screenshot automation, DB, clear worktree, prompt generation, commit, or
+    push process was run.
   - News list/detail content-sheet parity advanced again: `/news` and
     `/news/:slug` now share a Flutter `NewsPageShell` with the actual Nuxt-like
     rounded white `content-sheet` surface, 54px lift over the blue hero, 620px
@@ -3649,17 +4183,22 @@ Recent verified work:
     detail article. This removes the remaining floating-card-only shell drift
     while leaving news data, external-link, modal suppression, and route
     behavior unchanged.
-  - News list/detail error-state parity advanced under the stronger
-    feature/UX-first reduced-test cadence: `/news` list failures now stay in
-    the Nuxt-style white state card with an error-tone icon, localized/API
-    payload message, and runtime-themed retry outline pill instead of falling
-    through to generic copy. `/news/:slug` now separates true missing/news
-    not-found responses from load failures: 404/not-found keeps the existing
-    missing-news action, while network/API failures show a dedicated error card
-    with retry that invalidates the detail provider. News cards, article
-    rendering, safe external-link policy, modal suppression, parsing, and route
-    behavior were unchanged. No widget/screenshot tests were added for this
-    visual/state slice.
+  - News list gap parity advanced under the UX/UI-first reduced-test cadence:
+    `/news` now renders the compact news cards with a Nuxt-like 12px separated
+    list gap instead of adding Flutter-only bottom padding after every row,
+    removing extra trailing space after the final card. The shared
+    `NewsSideCard`, safe external-link policy, loading/empty/error states,
+    parsing, and routes were unchanged. Focused widget coverage was run; no
+    screenshot tests were added.
+  - News/Home error and rail parity corrected against the Nuxt source: Home now
+    renders every loaded news item like the Nuxt `v-for="newsItems"` rail instead
+    of a Flutter-only first-8 slice, and the card width follows
+    `min(72vw, 238px)` without an extra Flutter minimum. `/news` list failures
+    now follow Nuxt's catch path by showing the same empty-news card instead of
+    a retry/error panel, while `/news/:slug` load failures fall back to the same
+    localized missing-news card as Nuxt detail catch. News safe-link routing,
+    modal suppression, parsing, article rendering, and external-link feedback
+    were unchanged.
   - Announcement modal visual parity advanced under the test-light cadence:
     the Flutter overlay now matches Nuxt's dismiss-on-backdrop behavior, 8px
     image radius, elevated image shadow, circular close-button sizing/offset,
@@ -3915,6 +4454,17 @@ Recent verified work:
     blue literals. Provider brand colors and all password auth, registration OTP,
     reset OTP/token, social launch/callback/link-phone, safe redirect/PIN handoff,
     parser, and API error behavior were unchanged.
+  - Auth/Social input-surface parity advanced under the UX/UI-first
+    reduced-test cadence: login, register, forgot-password, reset-password, and
+    social link-phone fields now share a Nuxt-like auth input decoration with
+    54px touch rhythm, 12/16px radius variants, runtime-themed prefix icons,
+    light border/focus accents, white login/register fill, soft forgot/reset/
+    link-phone fill, and circular light-blue password visibility buttons where
+    the Nuxt login/register/reset forms use them. Social link-phone still keeps
+    runtime provider accent colors for focused fields. Auth submission, OTP,
+    provider launch/callback, redirect/PIN handoff, parser, and API behavior
+    were unchanged. Focused widget coverage was run; no screenshot tests were
+    added.
   - Social callback/link-phone visual parity advanced under the UX/UI-first
     reduced-test cadence: the social callback route now uses the Nuxt
     `login-hero` style full-screen hero with provider badge, title, and status
@@ -4200,6 +4750,21 @@ Recent verified work:
     privacy/account deletion. Language save failures now stay visible inside
     the language card as an inline notice, and member-code copy feedback uses
     the hero check-icon state instead of a transient Flutter SnackBar.
+  - Profile main shell parity advanced again from the `8-อื่นๆ` design
+    reference: `/profile` now runs full-screen without the remaining generic
+    Flutter AppBar/refresh action above the hero, uses safe-area BlueHeader
+    padding, keeps the Nuxt identity area, and restores diagonal
+    light-streak plus blue/yellow hero accents before the white content sheet.
+    Pull-to-refresh, member-code copy, menu routing, logout, and profile API
+    behavior were unchanged; no screenshot automation was added.
+  - Profile content-sheet/menu micro-parity advanced from the same `8-อื่นๆ`
+    reference: the white sheet now visually overlaps the hero like Nuxt's
+    `content-sheet`, uses Nuxt-like 18px horizontal / 23px top / 120px bottom
+    padding, restores the 24px section cadence, keeps a divider after every
+    menu row, keeps non-link rows the same visual tone as linked rows, and
+    places badges next to the label inside the row main area instead of near
+    the chevron. Profile routing, logout, pull-to-refresh, and API behavior
+    were unchanged; no screenshot automation or widget tests were added.
   - Profile About menu parity advanced under the UX/UI-first reduced-test
     cadence: Flutter now restores Nuxt's non-link
     "วิธีซื้อขายสลากฯ และการติดต่อ" row after lottery knowledge while
@@ -4215,6 +4780,42 @@ Recent verified work:
     action styling; and reward-bank fields/buttons use the Nuxt filled
     12px-input plus primary-pill treatment. No new widget/screenshot tests were
     added for this visual-only slice.
+  - Profile `8-อื่นๆ` first-viewport parity advanced again: `/profile` now
+    uses the Nuxt `profile-sheet` 24px top rhythm and source
+    `profile-identity` avatar/text scale so the hero and first menu rows match
+    the screenshot more closely. The shared bottom navigation now spans the
+    full mobile viewport like Nuxt `.bottom-nav` instead of keeping the earlier
+    Flutter-only 16px side inset, while desktop still caps to the shared
+    content rail. Profile routes, member-code copy, locale, logout,
+    pull-to-refresh, and bottom-nav route gating were unchanged.
+  - Profile `8-อื่นๆ` scale correction advanced again: `/profile` now restores
+    the Nuxt `profile-hero` 268px baseline, keeps the `profile-sheet` flush
+    with the hero instead of applying a Flutter-only negative overlap, uses the
+    source 66px white avatar, 24px sheet side padding, divider-after-every-row
+    menu rhythm, and flat light-blue recommendation badges. Member-code copy,
+    route filtering, locale/logout, pull-to-refresh, and profile API behavior
+    were unchanged. Verification: `dart format`, focused `flutter analyze`,
+    and the focused profile route-link widget test.
+  - Profile `8-อื่นๆ` menu-order/copy cleanup advanced again: `/profile` now
+    follows the Nuxt menu data order with wallet as the first history row, news
+    as the first about row, and the Nuxt/reference
+    `ประวัติขึ้นเงินรางวัลสลากดิจิทัล` and `ช่องทางรับเงินรางวัล` labels for
+    the main menu. Privacy/account-deletion remain store-readiness rows after
+    the source-visible about rows, and profile menu rows keep plain no-ripple
+    link behavior like Nuxt rows. Route gating, navigation, member-code copy,
+    locale/logout, pull-to-refresh, and profile API behavior were unchanged.
+    Verification: `dart format` and focused `flutter analyze`; no screenshot
+    automation or git process was run.
+  - Profile `8-อื่นๆ` theme-backbone parity advanced: the main `/profile`
+    hero now reuses the shared `CustomerBlueHeroBackdrop` wave/yellow BlueHeader
+    treatment instead of carrying a one-off profile gradient/circle treatment,
+    keeps a compact identity rhythm even on devices with shorter status-bar
+    insets, and rounds the first white sheet to 18px to match the Nuxt
+    content-sheet feel. Member-code copy, menu routing, locale switching,
+    logout, pull-to-refresh, profile API loading/error behavior, and feature
+    gating were unchanged. Verification: `dart format` and focused
+    `flutter analyze`; no screenshot automation or new broad widget tests were
+    added.
   - Profile main runtime-theme parity advanced: the content sheet, language
     card, inline error notice, section labels, menu group surfaces, dividers,
     menu text, chevrons, disabled menu rows, language segmented-control states,
@@ -4267,6 +4868,13 @@ Recent verified work:
     white/blue-gray/green/red literals. Reward-bank form hydration,
     account-number sanitizing, PIN/biometric submission, redirect return, and
     API payload behavior were unchanged.
+  - Shared PIN confirmation shell parity advanced: `PinConfirmationStep` now
+    follows Nuxt's `PinKeypadScreen` rhythm with a full-screen white surface,
+    42px top bar, filled/empty 9px dot indicators, Nuxt-like numeric keypad
+    spacing, disabled backspace while empty, and runtime-themed biometric and
+    loading affordances. Reward-bank PIN confirmation callbacks, biometric
+    assertion submission, and payload behavior were unchanged; no screenshot
+    automation was added.
   - Profile auto-reward now follows Nuxt's custom flow more closely: the intro
     uses the visual payout illustration, rounded information sheet, four
     condition bullets, and bottom CTA footer, while the select step uses a blue
@@ -4894,31 +5502,467 @@ Recent verified work:
     direct/admin reset links submit `admin_reset_link`, missing tokens block
     submission, API payload error copy with internal-error fallback, and
     successful resets return customers to login.
+  - Auth form-rhythm micro-parity advanced under the UX/UI-first test-light
+    cadence: login/register fields now use the Nuxt 16px/600 input rhythm,
+    forgot/reset password fields use the source 16px/800 filled-input rhythm,
+    login/register primary/social buttons step down to the Nuxt
+    `primary-pill`/LINE weights, and forgot/reset lifted sheets now use the
+    white `content-sheet` surface with 18px top radius. Password auth,
+    registration OTP, forgot/reset OTP/token submission, social launch,
+    redirects, affiliate referral, and PIN handoff behavior were unchanged.
   - Full Flutter widget-test gate is green again after tightening the Home and
     root security test harnesses: Home assertions now allow the Nuxt buy label
     to appear on multiple intentional action surfaces, and CustomerApp security
     tests isolate `SaleClosureGuard` with a no-op result repository so widget
     tests do not leak real Dio timers/network work.
+- Global PIN verification micro-parity advanced. The `/pin` screen now follows
+  Nuxt `PinKeypadScreen` keypad spacing more closely with runtime brand topbar
+  weight, softer empty dots, fixed 340px keypad width, Nuxt-like key gaps and
+  key heights, and disabled empty backspace while preserving redirect return,
+  hardware keyboard entry, and status-refresh digit retention.
+- PIN `3_1` visual rhythm advanced again. Global `/pin` and shared inline
+  `PinConfirmationStep` now reserve Nuxt's main vertical padding, keep
+  biometric/forgot actions inside a stable 32px action row, and reduce the
+  backspace glyph toward the Nuxt `bi-backspace` scale. PIN digit retention,
+  verify/setup/reset submission, biometric fallback, redirect return, hardware
+  keyboard entry, and backend payloads were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, focused global PIN keypad test,
+  and focused setup-mode test. No screenshot automation or git process was run.
+- PIN `3_1` reference-scale cleanup advanced: global `/pin` and shared
+  `PinConfirmationStep` now enlarge the runtime brand wordmark, title/subtitle
+  gap, PIN-dot gap, numeric keypad text, and delete glyph toward the provided
+  `3_1-ยืนยันชำระเงิน` reference while preserving all existing digit,
+  backspace, auto-submit, verify/setup/reset, biometric, redirect, and hardware
+  keyboard behavior. PIN keypad and auxiliary action tap overlays are flattened
+  to read closer to Nuxt's plain keypad surface. Verification: `dart format`,
+  focused `flutter analyze`, and `git diff --check`; no screenshot automation,
+  widget-test expansion, DB, or git process was run.
+- Global PIN gate back-button correction: `/pin` now renders a brand-only
+  topbar with no chevron/back affordance, so customers cannot leave the PIN gate
+  by navigating back from the header. PIN digit entry, redirect return,
+  forgot-PIN reset, setup/reset submission, biometric fallback, and shared
+  inline `PinConfirmationStep` navigation were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, focused PIN keypad and large-screen
+  widget tests, and `git diff --check`; no screenshot automation, DB, clear
+  worktree, prompt generation, commit, or push process was run.
+- Shared PIN confirmation dot parity tightened: `PinConfirmationStep` now uses
+  the same runtime `onSurface` alpha empty-dot token as global `/pin`, keeping
+  reward/activity/profile confirmation PIN screens aligned with the
+  `3_1-ยืนยันชำระเงิน` reference without hardcoding the Paotang partner color.
+  Digit, backspace, auto-submit, biometric, redirect, and backend behavior were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`; no screenshot automation, widget-test expansion, DB, or
+  git process was run.
+- Auth/PIN token-refresh hotfix completed. Flutter `ApiClient` now refreshes an
+  expired access token with the stored refresh token on authenticated 401
+  responses, saves the rotated token pair, and retries the original request once.
+  This fixes login -> `/pin` failures where PIN verification surfaced
+  authentication-expired copy after the one-hour access-token TTL, while
+  preserving explicit logout, backend refresh-token expiry/revocation, PIN
+  verification payloads, and redirect behavior. Verification: `dart format`,
+  focused `flutter analyze`, focused API/auth tests, `git diff --check`,
+  `docker compose build customer`, `docker compose up -d customer`, and local
+  customer HTTP 200; no screenshot automation, DB, clear worktree, prompt
+  generation, commit, or push process was run.
+- PIN large-screen layout correction completed. Global `/pin` and shared
+  `PinConfirmationStep` now preserve Nuxt `PinKeypadScreen`'s vertical anchors
+  on desktop/tablet/web viewports: the brand header stays at the top,
+  title/dots/actions stay centered inside the flexible middle row, and the
+  numeric keypad stays pinned to the bottom. The previous capped centered frame
+  was removed because it squeezed the whole screen into the middle instead of
+  following Nuxt. Mobile PIN sizing, digit entry, reset PIN sheet keypad,
+  redirect return, and auth/API behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, `flutter test
+  test/auth_redirect_flow_test.dart --reporter compact`, and `flutter test
+  test/pin_reset_flow_test.dart --reporter compact`; no screenshot automation,
+  DB, clear worktree, prompt generation, commit, or push process was run.
+- Design-principles theme foundation tightened from
+  `docs/customer-flutter-design-principles.md` and Nuxt CSS source: `AppTheme`
+  now uses a Nuxt-like 12px default card radius, 12px default input radius,
+  14px/13px input padding, and shared no-splash/no-highlight/no-hover Material
+  overlays so pages read less like default Flutter Material. Auth visual input
+  tokens now also keep soft-fill inputs at the same 12px corner, pulling
+  login/register/forgot/reset/LINE link-phone fields closer to the source
+  `.login-input`/form-field rhythm. Runtime partner colors/fonts, routes, auth
+  behavior, payment behavior, and API payloads were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, and `git diff --check`; no
+  screenshot automation, widget-test expansion, DB, clear-worktree, staging,
+  commit, or push process was run.
+- Shared BlueHeader reference correction advanced from Nuxt `.blue-hero` CSS and
+  the supplied `1_0-หน้าแรก`/`3_0-ชำระเงิน` images: `CustomerBlueHeroBackdrop`
+  now paints the source-like light-to-deep runtime blue base, lower sky radial,
+  lower-right yellow radial, and paired diagonal white bands instead of the
+  earlier Flutter-only wave/wedge header painter. This updates the shared hero
+  used by Home, Buy/Search/Stores, Cart/Checkout, Profile, Wallet, Result, News,
+  Activities, and other BlueHeader pages while preserving tenant theme colors,
+  routes, payment/auth behavior, and API payloads. Verification: `dart format`,
+  focused `flutter analyze`, and `git diff --check`; no screenshot automation,
+  widget-test expansion, DB, clear-worktree, staging, commit, or push process
+  was run.
+- Buy/Search result micro-parity advanced against the `9_0`/`9_1` references.
+  Flutter search result rows now carry Nuxt-style digit highlighting from
+  runtime search digits or response highlight aliases, show draw/set metadata
+  beside the lottery number when width allows, and use slimmer select/filter
+  pills closer to the source CSS while keeping stock search, reservation,
+  realtime refresh, and route behavior unchanged.
+- Buy/Search initial-state parity advanced against the `9_0` reference.
+  `/buy/search` now shows the centered Nuxt helper copy under the primary
+  search pill before results are shown, backed by localized
+  `lottery.search.initial_hint`, while preserving digit entry, clear/search
+  routing, pagination, stock API calls, cart dock, and exact-search behavior.
+- Buy/Search flat-interaction tightening advanced against `9_0`/`9_1` and
+  `docs/customer-flutter-design-principles.md`: search CTA, clear/more text
+  links, refresh outline pill, stock select/remove pills, and filter/search
+  controls now suppress Flutter overlay feedback like Nuxt's flat button/link
+  surfaces, while the initial helper text uses a softer runtime-muted gray.
+  Search APIs, query restoration, stock pagination, reservation/cart dock
+  behavior, realtime refresh, and route aliases were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, full buy/search stock-card and
+  segment-tab widget tests, focused search-clear widget test, and
+  `git diff --check`. No screenshot automation or git process was run.
+- Buy/Search shell correction advanced against the `9_0` reference:
+  `/buy/search` now uses the Nuxt default 174px title-only BlueHeader and no
+  longer inherits `/buy`'s store segment tabs or 258px browse hero. Digit
+  entry, clear/search routing, stock results, cart dock, and `/search` alias
+  behavior were unchanged; focused widget coverage now locks the segment tabs
+  out of the search page without screenshot automation.
+- Buy/More `1_2_1` header typography parity advanced: `/buy/more` now tunes
+  the sheet header to the Nuxt `section-title` / `fs-5` rhythm with a
+  22px/700 "รายการสลากฯ" title, 20px number summary, blue 700-weight spaced
+  digits, a lighter close icon, and a tighter `mb-3`-style gap before the
+  first stock row. Stock search, pagination, realtime updates, reservation
+  toggles, cart dock, back routing, and API behavior were unchanged.
+  Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`; no screenshot automation, widget-test expansion, DB, or
+  git process was run.
+- Tickets current/history shell and stub visual parity advanced against the
+  `6_0`/`7` references. `/tickets` and `/tickets/history` now use the shared
+  `CustomerBlueHeroBackdrop` wave/yellow header treatment, and shared ticket
+  rows now look more like Nuxt `TicketStub`: runtime-themed diagonal texture,
+  left price block, compact L6/yellow product lockup, pale number strip,
+  draw/set metadata when available, responsive compact stacking, softer
+  border/shadow, 92px minimum row rhythm, and runtime-themed digital-label
+  rail without fixed color artwork. The history filter action now ellipsizes
+  inside narrow widths instead of overflowing. Current tickets, history,
+  detail, and claim entry keep the same open/detail and claim routing behavior.
+  Verification: `dart format`, focused `flutter analyze`, focused Tickets
+  widget tests, and no screenshot automation.
+- Tickets current/history interaction-scale micro-pass advanced under the
+  UX/UI-first cadence: route tabs, ticket rows, claim pills, and ticket-image
+  preview cards now suppress Material splash/overlay feedback to better match
+  Nuxt's flat tap surfaces, and shared ticket stubs enlarge the number strip,
+  number typography, status lane, brand label, and draw/set metadata toward the
+  `6_0-สลากของฉัน` and `7-สลากย้อนหลัง` references. Ticket image modal,
+  search/filtering, reward routing, claim entry, and API behavior were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`; no screenshot automation.
+- Tickets `6_0`/`7` TicketStub source re-tightening advanced after comparing
+  Nuxt `TicketStub.vue` and `.ticket-stub` CSS: shared current/history/detail
+  ticket stubs now remove the extra Flutter border, restore the Nuxt-like 60px
+  status lane, 24px digital side rail, 12px/500 product copy, 136px compact
+  number strip, and 700-weight number typography instead of the heavier
+  Flutter-style stub treatment. Ticket search/filtering, history pagination,
+  image preview/detail routing, reward routing, claim entry, API parsing, and
+  reward strip behavior were unchanged. Verification: `dart format`, focused
+  `flutter analyze`, and `git diff --check`; no screenshot automation,
+  widget-test expansion, DB, or git process was run.
+- Tickets `6_1` ticket-image modal product-mark parity advanced: ticket image
+  preview cards, the full ticket-image overlay, and claim processing receipts
+  now keep the Nuxt-style product mark visible by falling back from runtime
+  `lotteryProductLabel` to the localized `tickets.stub.series_label` when a
+  tenant does not provide a product label. Runtime partner labels still
+  override the fallback, and no provider/bank/product artwork was hardcoded.
+  Ticket image loading/fallbacks, sold watermarks, modal note copy, search,
+  history pagination, detail routing, reward routing, claim entry, and API
+  parsing were unchanged. Verification: `dart format`, focused
+  `flutter analyze`, and `git diff --check`; no screenshot automation,
+  widget-test expansion, DB, or git process was run.
+- Success receipt micro-parity advanced against the
+  `5-ชำระเงินสำเร็จ` reference: `/success` now uses Nuxt-like bottom padding
+  instead of a Flutter bottom-nav spacer, clips the diagonal receipt watermark
+  inside the 8px card radius, tightens the bottom-right yellow accent radius,
+  allows the runtime tenant logo to use the Nuxt `BrandLogo` 96px receipt
+  lockup, restores the Thai subtitle quotes around `สลากฯ ของฉัน`, and
+  increases save/primary CTA typography toward the source pill emphasis.
+  Receipt loading/error, clipboard save, Tickets route, payment data loading,
+  and checkout success fallback behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, the focused success receipt
+  loading widget test, and `git diff --check`.
+- Success receipt runtime-watermark parity advanced: `/success` now paints the
+  receipt background with repeated text from runtime `ticketImageWatermark`
+  (falling back to the runtime/localized product label) instead of the previous
+  generic diagonal stripe fill, bringing the card closer to the
+  `5-ชำระเงินสำเร็จ` watermark pattern without hardcoding `GLO` or any partner
+  mark. Save, primary, and error fallback receipt actions also suppress
+  Material overlay feedback like the Nuxt flat pills. Receipt loading/error,
+  clipboard save, Tickets route, payment data loading, and checkout success
+  fallback behavior were unchanged. Verification: `dart format`, focused
+  `flutter analyze`, focused success receipt widget test, and `git diff --check`.
+- Success receipt viewport anchoring advanced against the
+  `5-ชำระเงินสำเร็จ` reference: `/success` now keeps the receipt/save controls
+  at the top of the blue/yellow success background while a viewport-aware
+  spacer pushes the primary "ดูสลากฯ ของฉัน" pill to the bottom like Nuxt,
+  instead of relying on a fixed 238px gap that could float incorrectly on
+  different device heights. The page still scrolls on short screens. Receipt
+  loading/error, clipboard save, Tickets route, payment data loading, and
+  checkout success fallback behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, and `git diff --check`; no
+  screenshot automation, widget-test expansion, DB, or git process was run.
+- Success receipt bottom-nav parity advanced against the same reference:
+  `/success` now hides the Flutter customer bottom navigation so the receipt
+  viewport ends with the single primary "ดูสลากฯ ของฉัน" action, matching the
+  provided `5-ชำระเงินสำเร็จ` image. The lower CTA now keeps the Nuxt 30px
+  bottom rhythm plus the device safe-area inset, and the CTA font weight follows
+  Nuxt `.primary-pill` 700 instead of the heavier Flutter-only treatment.
+  Receipt data loading/error, clipboard save, Tickets routing, payment data, and
+  checkout success fallback behavior were unchanged. Verification: `dart format`,
+  focused `flutter analyze`, and `git diff --check`; no screenshot automation,
+  widget-test expansion, DB, or git process was run.
+- Checkout `3_0` micro-parity advanced again: `/checkout` now keeps Nuxt's
+  fixed `BlueHeader min-height="454px"` rhythm instead of shrinking the hero on
+  short viewports, and the summary total display now matches Nuxt `formatMoney`
+  by trimming `.00` for whole-baht totals while keeping the baht unit as a
+  separate text node. Cart/Wallet/global money formatting, checkout methods,
+  topup return, countdown, payment submission, and provider handoff were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, and
+  focused Checkout widget tests for wallet card, legacy Nuxt order payload, and
+  stock-realtime refresh. No screenshot automation or git process was run.
+- Checkout `3_0` payment-card micro-parity advanced: the selected wallet method
+  card now uses a stronger Nuxt-like 2px runtime-primary border and shadow, the
+  "เติมเงิน" outline pill uses heavier 17px copy with flat tap feedback, and the
+  light-blue note band has taller padding plus bolder wallet copy like the
+  reference. Wallet balance loading/error, payment method selection, topup
+  return, countdown, payment submission, and provider handoff were unchanged.
+  Verification: `dart format`, focused `flutter analyze`, focused Checkout
+  wallet-card widget test, and `git diff --check`; no screenshot automation or
+  git process was run.
+- Checkout `3_0` source-backed spacing re-tightening advanced after comparing
+  Nuxt `checkout.vue` and `.wallet-card` CSS: the payment-method heading now
+  sits directly in the white content sheet with the Nuxt `content-sheet`
+  horizontal rhythm instead of a thick Flutter-only gray band, wallet method
+  cards now start at the 18px sheet inset, the option body follows Nuxt `p-3`
+  spacing, and the blue wallet note returns to the source 12px/16px padding
+  with medium-weight copy. Wallet balance loading/error, payment selection,
+  topup return, countdown, submit/provider handoff, and API behavior were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`; no screenshot automation, widget-test expansion, DB, or
+  git process was run.
+- Cart `2_1` flat-tap micro-parity advanced: the reserved-ticket
+  "ดูเลขนี้เพิ่ม" text link, blue "เอาออก" pill, and shared revenue
+  PaymentDock CTA now suppress Material overlay feedback so Cart reads closer
+  to Nuxt's flat `LotteryItem`/`PaymentDock` surfaces. Reservation grouping,
+  release confirmation, checkout routing, countdown, payment submission, and
+  provider handoff were unchanged. Verification: `dart format`, focused
+  `flutter analyze`, focused Cart remove-confirmation widget test, and
+  `git diff --check`; no screenshot automation or git process was run.
+- Cart/Checkout `2_1`/`3_0` visual parity advanced under the no-screenshot,
+  reduced-test cadence: the Cart green "เลือกสลากฯ เพิ่ม" pill now also
+  suppresses Material overlay feedback, and the Checkout selected payment
+  wallet card uses a roomier Nuxt-like content rhythm with a larger check mark,
+  wider text/mark spacing, stronger top-up gap, and a taller blue note band.
+  Cart add-more routing, checkout wallet/top-up routing, payment selection,
+  countdown, and payment submission behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, focused Cart dock/add-more widget
+  test, focused Checkout wallet-card widget test, and `git diff --check`; no
+  screenshot automation or git process was run.
+- Result `1_1_1` prize-amount micro-parity advanced: `/result/full` reward
+  subtitles and gray prize bars now display whole-baht prize amounts without
+  the Flutter `.00` suffix, matching Nuxt/reference copy such as
+  `รางวัลละ 6,000,000 บาท`. The global money formatter, non-integer prize
+  amounts, result parsing, selected-game routing, realtime invalidation,
+  number rendering, and payout dock behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, and focused result screen widget
+  tests. No screenshot automation or git process was run.
+- Result `1_1_0` index micro-parity advanced: shared result summary cards now
+  behave more like Nuxt link surfaces by removing Material ripple feedback,
+  the featured info icon routes to `/term-reward`, the hero error state exposes
+  a compact outline retry pill, history empty state returns to centered muted
+  text instead of an icon card, and paired three-digit numbers use the wider
+  Nuxt inline spacing. Result APIs, selected-result routing, realtime
+  invalidation, payout dock behavior, and full-detail parsing were unchanged.
+  Verification: `dart format`, focused `flutter analyze`, and focused result
+  screen widget tests. No screenshot automation or git process was run.
+- Result reference theme tightening advanced after re-reading
+  `docs/customer-flutter-design-principles.md`: `/result` now keeps the
+  `1_1_0` Nuxt hero title rhythm at 22px/700, the result hero back control is
+  flat/no-ripple like the source `hero-back`, and `/result/full` no-additional
+  prize content now uses the compact centered Nuxt detail-state treatment
+  instead of a generic Flutter icon card. Result APIs, selected-game routing,
+  prize rendering, realtime invalidation, and payout dock behavior were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, focused
+  `flutter test test/result_screens_test.dart --reporter compact`, and
+  `git diff --check`. No screenshot automation or git process was run.
+- Result sticky payout-dock parity advanced against `1_1_0` and `1_1_1`:
+  `/result` and `/result/full` now keep the payout hint as a bottom overlay
+  like Nuxt's sticky `.payment-dock` rather than a normal scroll-list item.
+  History and full-detail content now reserve bottom padding so rows remain
+  readable behind the rounded white notice, and the dock copy weight is closer
+  to Nuxt muted text. Result APIs, selected-game routing, prize rendering,
+  realtime invalidation, loading/error behavior, and public route access were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`; no screenshot automation, widget-test expansion, DB, or
+  git process was run.
+- Home `1_0` first-viewport ordering advanced against the provided reference:
+  the scroll sheet now shows the quick-action panel, latest result summary, and
+  Home news rail immediately after the hero before guest/wallet and activity
+  content, matching the visible reference flow more closely while preserving the
+  existing Home providers, auth/wallet state, digit search handoff,
+  news/result/activity routing, cart dock, and reduced-test/no-screenshot
+  cadence. Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`; no screenshot automation, DB, prompt generation, clear
+  worktree, commit, or push process was run.
+- Topup `4-เติมเงิน` micro-parity advanced: `/topup` now uses a larger
+  Nuxt-like centered hero title, channel tiles and bank-instruction tiles use
+  plain no-ripple tap surfaces instead of Material `InkWell` feedback, bank
+  logo circles use a lighter reference-like shadow, and the generic
+  bank-transfer fallback mark adds a small wallet badge only when runtime
+  artwork is absent. Runtime labels/logos/provider config, create sheet
+  submission, bank/slip upload, waiting/cancel behavior, realtime refresh, and
+  back routing were unchanged. Verification: `dart format`, focused
+  `flutter analyze`, and the focused Topup launcher widget test. No screenshot
+  automation or git process was run.
+- Topup flat-control micro-parity advanced: the remaining visible Topup
+  controls now suppress Material overlay feedback too, including the hero back
+  action, optional history action, waiting-card payment/cancel actions,
+  create-sheet close action, submit pill, quick-amount chips, transfer-time
+  selector, slip attach/change/remove controls, and shared Topup outline pill.
+  Runtime payment labels/logos/provider config, amount validation,
+  create/cancel submission, bank/slip upload, realtime refresh, and back routing
+  were unchanged. Verification: `dart format`, focused `flutter analyze`,
+  focused Topup launcher widget test, and `git diff --check`. No screenshot
+  automation or git process was run.
+- Topup `4-เติมเงิน` channel-card scale advanced: the three launcher method
+  tiles now follow Nuxt `.topup-channel` proportions more closely by reducing
+  the oversized Flutter compact-card height, tightening the logo-to-label gap,
+  and using the source-like 16px/700 label rhythm while preserving runtime
+  payment labels/logos/provider config. Create sheet submission, bank/slip
+  upload, waiting/cancel behavior, realtime refresh, and back routing were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, focused
+  Topup launcher widget test, and `git diff --check`. No screenshot automation
+  or git process was run.
+- Topup `4-เติมเงิน` source-CSS rhythm advanced again: the main `/topup`
+  BlueHeader now uses the Nuxt 42px title row, 22px/700 centered title,
+  transparent 42px back affordance, 20px hero side inset, and tighter
+  safe-area-adjusted top/bottom padding instead of the heavier Flutter header
+  spacing. The three launcher method tiles now use the source 104px
+  `.topup-channel` minimum height, 8px logo-to-label rhythm, and smaller
+  runtime logo/icon mark, while the bank-instruction sheet keeps the reference
+  28px mobile side inset before widening on large screens. Runtime payment
+  labels/logos/provider config, bank grid data, create/cancel/slip upload,
+  waiting-card behavior, realtime refresh, and back routing were unchanged.
+  Verification: `dart format`, focused `flutter analyze`, and
+  `git diff --check`. No screenshot automation or git process was run.
+- Profile `8-อื่นๆ` profile-sheet exception parity advanced: `/profile` now
+  follows the Nuxt `profile-sheet` override instead of the generic
+  `.content-sheet` overlap; the white sheet starts after the 268px blue profile
+  hero with the source 24px/18px sheet padding, while language, member-code
+  copy, hero retry, and logout controls stay flat/no-overlay. Profile route
+  gating, member-code copy, locale persistence, logout, pull-to-refresh, and
+  profile API behavior were unchanged. Verification: `dart format`, focused
+  `flutter analyze`, and `git diff --check`. No screenshot automation or git
+  process was run.
+- Profile `8-อื่นๆ` image-order correction advanced: `/profile` now prioritizes
+  the supplied reference first viewport by starting the white sheet directly
+  with history rows, then reward-setting rows, then source-visible about rows.
+  The language selector and extended service rows such as wallet, activity
+  claims, activities, affiliate, LINE, biometric, news, privacy, and account
+  deletion remain available lower in the scroll under a localized services
+  section. Member-code copy, locale save, route gating, logout,
+  pull-to-refresh, and profile API behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, and `git diff --check`; no
+  screenshot automation, DB, clear worktree, prompt generation, commit, or push
+  process was run.
+- Stores `1_2_2_0`/`1_2_2_1` reference-shell tightening advanced:
+  `/stores` now uses the shared Nuxt responsive `content-sheet` overlap again,
+  rather than the temporary flush hero-to-sheet placement, and keeps the filter
+  rail/row CTA styling closer to Nuxt `filter-row` and `outline-pill`
+  behavior. `/stores/lotteries` draw-date copy now uses Nuxt `fs-5` scale while
+  preserving the compact number/meta/action stock rows. Store search,
+  pagination, store handoff, realtime refresh, reservation toggles, cart dock,
+  parsers, and API behavior were unchanged. Verification: `dart format`,
+  focused `flutter analyze`, and `git diff --check`; no screenshot automation,
+  widget-test expansion, DB, or git process was run.
+- Revenue reservation API hotfix: Flutter now resolves the reserve payload from
+  a virtual stock reference (`vstock:` via `local_stock_item_id`, `stock_ref`,
+  `id`, or `token`) before posting `/customer/reservations`, matching
+  platform-api's validator that rejects materialized local stock ids for new
+  reservations. The Buy/Search stock-list selected-state map now indexes both
+  virtual refs and materialized local ids from reservation/cart responses so the
+  UI switches to "เอาออก" after backend materializes the reserved row. Verification:
+  `dart format`, focused `flutter analyze`, focused repository reserve test,
+  focused stock-card materialized-id widget test, and `git diff --check`; the
+  broader `lottery_stock_card_test.dart` still has unrelated residual failures
+  around older dock/back-tooltip/overflow expectations from the active UI pass.
+  No screenshot automation, DB, clear worktree, prompt generation, commit, or
+  push process was run.
+- Tickets `6_0` content-sheet micro-parity advanced: the shared ticket list
+  shell now computes Nuxt `.content-sheet` overlap from `15vw` clamped to
+  34-64px, restores 18px mobile sheet padding for ticket content, and keeps
+  current search, hero search, history filter, retry, and load-more controls as
+  flat no-overlay surfaces. Ticket search/filtering, history pagination, detail
+  lookup, image modal, reward routing, claim entry, and API behavior were
+  unchanged. Verification: `dart format`, focused `flutter analyze`, focused
+  current Tickets widget test, focused history grouping/load-more widget test,
+  and `git diff --check`. No screenshot automation or git process was run.
+- Tickets `6_0`/`7` TicketStub source-shape parity advanced: shared current and
+  history ticket rows now render the lottery number as six centered digit cells
+  like Nuxt `LotteryNumber compact`, show draw/set metadata as two-line
+  reference columns, derive the digital side rail from runtime primary with a
+  Nuxt-like purple hue shift, soften route tab/summary/history/footer typography
+  toward the source `fw-semibold`/`fw-medium` rhythm, and keep the history
+  no-winning banner on the customer blue/yellow identity instead of green app
+  drift.
+  Ticket search/filtering, history pagination, image modal, reward routing,
+  claim entry, parser, and API behavior were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, and `git diff --check`; no
+  screenshot automation, DB, clear worktree, prompt generation, commit, or push
+  process was run.
+- Customer typography and Tickets tab behavior parity advanced: the default
+  customer theme now keeps Nuxt's Kanit baseline and Nuxt-like browser text
+  scale for common Material text roles instead of drifting to platform/default
+  Flutter sizing. `/tickets` now treats "งวดปัจจุบัน" and "งวดย้อนหลัง" as an
+  in-page segment tab interaction, so tapping history swaps the content without
+  navigating away from `/tickets`; `/tickets/history` remains available for
+  deep links and direct route entry. The Tickets hero title, search affordance,
+  and segment tabs were tightened toward Nuxt `BlueHeader`/`SegmentTabs`
+  rhythm, and the sheet no longer overlaps the hero tabs' hit area. Verification:
+  `dart format`, focused `flutter analyze`, full
+  `flutter test test/tickets_screen_test.dart --reporter compact`, and targeted
+  `git diff --check`; no screenshot automation, DB, clear worktree, prompt
+  generation, commit, or push process was run.
+
+- Shared ContentSheet rail parity advanced: `CustomerPageBody` now follows the
+  Nuxt `.content-sheet` defaults more closely by using the 23px/18px/120px sheet
+  padding rhythm, the base/tablet/desktop/wide `--content-max` breakpoints, and
+  padding outside the constrained content rail instead of shrinking the rail
+  from inside. Expanded `AppShell` BlueHeader content now uses the same shared
+  18px mobile rail so header title/actions and the sheet content line up closer
+  to Nuxt's `--content-pad` rhythm. This is a shared UX/UI foundation pass for
+  page shells that still rely on `CustomerPageBody`; page-specific overrides,
+  API behavior, payment behavior, and routing were unchanged. Verification:
+  `dart format`, focused `flutter analyze`, and focused
+  `flutter test test/app_shell_test.dart`; no screenshot automation, DB, clear
+  worktree, prompt generation, commit, or push process was run.
 
 ## Remaining Work By Area
 
 | Area | What remains | Remaining |
 | --- | --- | ---: |
-| UX/UI parity overall | Re-opened after owner visual feedback and source-level Nuxt comparison: removing raw Material widgets was not enough to prove structural parity. Flutter still needs a broader Nuxt-shell pass for `MobileShell`/`BlueHeader`/`content-sheet`/floating `PaymentDock`/`BottomNav` structure, page-level spacing, and manual device review across major screens. The revenue shell pass now covers Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery browsing, public no-image lottery item rows, store image lottery item rows, sold/unavailable lottery-row visual state, Cart, Checkout, pending payment, Success receipt, Home floating cart dock, browse review docks, fixed cart/checkout dock structure, shared BlueHeader rhythm including top-aligned hero content flow, shared bottom navigation shell, Buy/Search/Stores empty/alert/filter/refresh/infinite-scroll skeleton rhythm, `/buy/more` close/list-header micro-structure, Cart/Checkout sheet helper spacing, Cart empty sheet text/add-more rhythm, success/pending receipt micro-structure, Home sheet/guest/action/activity rail/link-surface micro-structure, Home digit-row/dock/section-spacing micro-parity, Buy/Search search CTA/text-link/filter token micro-parity, store row/search/list-control micro-parity, store-scoped hero/digit-redirect micro-parity, selection-dock title copy, Checkout summary-card product-row ordering, Cart/Checkout summary/dock micro-parity, and Login/Register `login-hero` accent micro-parity. | 13% |
+| UX/UI parity overall | Re-opened after owner visual feedback and source-level Nuxt comparison: removing raw Material widgets was not enough to prove structural parity. Flutter still needs a broader Nuxt-shell pass for `MobileShell`/`BlueHeader`/`content-sheet`/floating `PaymentDock`/`BottomNav` structure, page-level spacing, and manual device review across major screens. The revenue shell pass now covers Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery browsing, Nuxt-style Buy/Store `SegmentTabs`, public and store-scoped no-image lottery item rows, sold/unavailable lottery-row visual state, Cart, Checkout, pending payment, Success receipt, Home floating cart dock, browse review docks, fixed Cart dock plus in-sheet Checkout payment dock structure, shared BlueHeader rhythm including top-aligned hero content flow, shared bottom navigation shell, Buy/Search/Stores empty/alert/filter/refresh/infinite-scroll skeleton rhythm, `/buy/more` close/list-header micro-structure, Cart/Checkout sheet helper spacing, Cart empty sheet text/add-more rhythm, success/pending receipt micro-structure, Home sheet/guest/action/activity rail/link-surface micro-structure, Home digit-row/dock/section-spacing micro-parity, Buy/Search search CTA/text-link/filter token micro-parity, store row/search/list-control micro-parity, store-scoped hero/digit-redirect micro-parity, selection-dock title copy, Checkout summary-card product-row ordering, Cart/Checkout summary/dock micro-parity, and Login/Register `login-hero` accent micro-parity. | 13% |
 | Home | Final manual device/browser visual signoff and any last responsive polish; Home now uses a full-screen Nuxt-like hero/sheet structure instead of the generic AppBar, the home hero runtime brand lockup/price-badge row, sheet radius/padding/background, quick-action card rhythm, transparent no-ripple link surfaces, guest login/register action layout, activity rail/card proportions, digit-row max width/outline/shadow, section spacing, and floating cart dock width/placement are closer to Nuxt. An authenticated Home floating cart dock now appears above the bottom nav with Nuxt-like selection dock pill/timer treatment, responsive content max width, and Nuxt `bottom: 12%` placement when active reservations exist, and the shared bottom nav now follows Nuxt's anchored 98px shell. Home hero, price/sale badges, digit focus, quick/guest/activity/news/result surfaces, activity/news fallback media, loading marks, and shared result summary surfaces remain runtime-theme driven. | 2% |
-| Buy/Search | Manual owner/device signoff only; implementation parity is otherwise closed for current known Buy/Search/More/Stores revenue browsing surfaces. `/buy`, `/buy/search`, and `/buy/more` now use expanded Nuxt-style hero/content-sheet shells; `/buy/more` now keeps the sheet close action transparent/no-ripple and suppresses the duplicate stock-list heading so the list starts after the Nuxt-style number summary; `/stores` now keeps the store tab inside the blue hero and renders the search/recommended-store list inside a Nuxt-like content sheet; `/stores` recommended-store rows now keep the Nuxt `store-row` shell and hand off into `/stores/lotteries?store_id=...`; store-scoped lottery browsing now moves the store hero card into the blue hero and keeps read-only digit boxes plus stock rows inside the sheet; those store-scoped digit boxes now mirror Nuxt `DigitBoxes` by opening `/buy/search` with `store_id` instead of rendering a Flutter-only inline search/clear action row; public Buy/Search/More lottery rows now follow Nuxt `LotteryItem :show-image="false"` with number/action/seller-price ordering, while store-scoped rows keep the Nuxt default image variant, and sold/unavailable stock rows now apply Nuxt's faded/grayscale `is-unavailable` treatment; browse review docks align with Nuxt `PaymentDock` spacing, gradient CTA, title copy, shadow, width clamp, and safe-area treatment; Buy/Search/Stores empty, filter, sale-closed, refresh-action, section-title spacing, search CTA, text-link, infinite-scroll skeleton pagination, store row icon/name sizing, and store hero-card now follow Nuxt sheet rhythm more closely while filter/action colors derive from runtime theme tokens. | 0% |
-| Cart/Checkout | Manual owner/device signoff only; implementation parity is otherwise closed for current known Cart, Checkout, pending-payment, and Success receipt surfaces. Cart/Checkout now use the expanded `AppShell` blue hero directly instead of a nested page hero, and the shared BlueHeader flow now top-aligns the title row plus 24px hero-content slot like Nuxt instead of centering tall hero content vertically; Cart count/draw-date, Cart empty sheet text plus purchase-limit/add-more rhythm, Cart remove modal overlay/typography/action pills, fixed cart dock safe-area padding, Checkout summary-card starting with the product/logo row, runtime BrandLogo-like product marks in Checkout and Success, payment-method heading/wallet card, pending payment status surface/action pills, and Success receipt background/card/save/primary-action structure follow Nuxt `BlueHeader` + `content-sheet` + `PaymentDock` rhythm more closely while keeping payment/provider/route behavior unchanged. | 0% |
-| Tickets | Manual owner/device signoff only; implementation parity is otherwise closed for current known ticket current/history/detail/preview/reward-claim surfaces. Reward-claim handoff marker/link/badge accents, ticket prize labels, claim PIN keypad/dots/submitting mark, claim hero/confirm/processing receipt surfaces, current-ticket search/tabs/empty/error/detail/claim neutral surfaces, and ticket history/claim submit feedback now follow the converted Nuxt-style flow and runtime partner theme without transient SnackBars or Flutter Material progress bars. | 0% |
-| Wallet | Final manual responsive/device review, remaining provider realtime device smoke, remaining device failed/error review, and native/web sensitive-screen validation; nested wallet transaction/history payload aliases, object scalar wallet/ledger/customer-number rows, nested money value wrappers, and localized Thai cashback ledger titles are now covered in code, Wallet refresh failures stay inside the converted error surface, and Wallet card, ledger loading/error/empty/list, credit/debit/neutral row accents, and refresh/empty states now follow runtime partner `Theme.colorScheme` tokens. | 4% |
+| Buy/Search | Manual owner/device signoff only; implementation parity is otherwise closed for current known Buy/Search/More/Stores revenue browsing surfaces. `/buy`, `/buy/search`, and `/buy/more` now use expanded Nuxt-style hero/content-sheet shells; `/buy/more` now keeps the sheet close action transparent/no-ripple and suppresses the duplicate stock-list heading so the list starts after the Nuxt-style number summary; `/stores` now keeps the store tab inside the blue hero and renders the search/recommended-store list inside a Nuxt-like content sheet; `/stores` recommended-store rows now keep the Nuxt `store-row` shell and hand off into `/stores/lotteries?store_id=...`; store-scoped lottery browsing now moves the store hero card into the blue hero and keeps read-only digit boxes plus compact no-image stock rows inside the sheet; those store-scoped digit boxes now mirror Nuxt `DigitBoxes` by opening `/buy/search` with `store_id` instead of rendering a Flutter-only inline search/clear action row; public Buy/Search/More and store-scoped lottery rows now follow Nuxt/reference compact rows with number/action/seller-price ordering, and sold/unavailable stock rows now apply Nuxt's faded/grayscale `is-unavailable` treatment; browse review docks align with Nuxt `PaymentDock` spacing, gradient CTA, title copy, shadow, width clamp, and safe-area treatment; Buy/Search/Stores empty, filter, sale-closed, refresh-action, section-title spacing, search CTA, text-link, infinite-scroll skeleton pagination, store row icon/name sizing, and store hero-card now follow Nuxt sheet rhythm more closely while filter/action colors derive from runtime theme tokens. | 0% |
+| Cart/Checkout | Manual owner/device signoff only; implementation parity is otherwise closed for current known Cart, Checkout, pending-payment, and Success receipt surfaces. Cart/Checkout now use the expanded `AppShell` blue hero directly instead of a nested page hero, and the shared BlueHeader flow now top-aligns the title row plus 24px hero-content slot like Nuxt instead of centering tall hero content vertically; Cart count/draw-date, Cart empty sheet text plus purchase-limit/add-more rhythm, Cart remove modal overlay/typography/action pills, fixed Cart dock safe-area padding, Checkout's in-sheet confirm dock after the Nuxt 265px spacer, Checkout summary-card starting with the product/logo row, runtime BrandLogo-like product marks in Checkout and Success, payment-method heading/wallet card, pending payment status surface/action pills, and Success receipt background/card/save/primary-action structure, 96px runtime logo lockup, clipped watermark card, bottom CTA spacing, and Thai subtitle copy follow Nuxt `BlueHeader` + `content-sheet` + `PaymentDock` rhythm more closely while keeping payment/provider/route behavior unchanged. | 0% |
+| Tickets | Manual owner/device signoff and final responsive review only; implementation parity is otherwise closed for current known Tickets current/history/detail/claim-entry surfaces. Current/history ticket pages now use the Nuxt-like `BlueHeader` plus overlapped `.content-sheet` shell with 18px mobile sheet padding and flat search/filter/load controls. Shared ticket stubs now carry Nuxt-like diagonal texture, left L6/80-baht mark, pale compact number strip, draw/set metadata, soft price tone, runtime-themed digital rail, and compact 86px rhythm across current/history/detail/claim entry. Single-draw history views now rely on the top draw-date overview and skip the duplicate group heading so the banner flows into ticket rows like the `7-สลากย้อนหลัง` reference. Current/history ticket rows now open the ticket-image overlay directly like Nuxt while `/tickets/view` remains available for deep links/detail fallback, generated fallback ticket images scale down in compact dialogs, detail pages expose the ticket number near the top, and the ticket-image modal now matches the `6_1-ดูสลาก` reference more closely with Nuxt-like compact width, runtime logo/fallback brand lockup, centered product mark, overlay insets/header padding/close no-ripple hitbox, frame, sold watermarks, and note band. Reward-claim handoff marker/link/badge accents, ticket prize labels, claim PIN keypad/dots/submitting mark, claim hero/confirm/processing receipt surfaces, current-ticket search/tabs/empty/error/detail/claim neutral surfaces, history no-winning banner, and ticket history/claim submit feedback now follow the converted Nuxt-style flow and runtime partner theme without transient SnackBars or Flutter Material progress bars. | 0% |
+| Wallet | Final manual responsive/device review, remaining provider realtime device smoke, remaining device failed/error review, and native/web sensitive-screen validation; nested wallet transaction/history payload aliases, object scalar wallet/ledger/customer-number rows, nested money value wrappers, and localized Thai cashback ledger titles are now covered in code, Wallet refresh failures stay inside the converted error surface, Wallet QR/action/refresh controls now use Nuxt-flat no-ripple tap surfaces, Wallet card/loading/error/empty/list and refresh/empty states follow the converted Nuxt shell, and Wallet ledger credit/debit/neutral row accents now use the exact Nuxt semantic tones while runtime partner theming remains on the surrounding wallet/card chrome. | 3% |
 | Topup | Manual provider/device/create-sheet signoff only; implementation parity is otherwise closed for current known Topup overview, waiting-payment, create-sheet, slip, bank-transfer, QR/credit redirect, cancel, history, realtime-refresh, and inline-status surfaces. Nested provider-session redirect links are covered in code, Topup loading no longer uses Flutter Material progress indicators, and Topup notice/status/history success-warning-error-neutral tones now derive from runtime `Theme.colorScheme` tokens. | 0% |
-| Reward Claims | Final failed/error device review, remaining manual receipt/list review, and final native/web sensitive-screen device signoff; parent/pattern native callback coverage, hyphenated provider statuses, nested/object provider payout-channel resources, object scalar claim/status/payout rows, first-load/detail retry recovery, and runtime partner-themed list/empty/detail receipt/status/notice/admin-note accents are now covered in code. | 5% |
-| Activities | Remaining device edge review and final device/realtime QA; pre-result award hiding, inline lucky-board/cashback detail feedback, nested award-claim paid status resources, Activity list/detail link, badge, payout-option, status/login, cashback/result/award/number panels, runtime-themed loading/image states, and surface/shadow/neutral plus success/warning/info/error semantic theme accents are covered in code. | 3% |
-| Activity Claims | Remaining final claim modal/PIN device review, final device realtime QA, final manual receipt/list review, and final native/web sensitive-screen device signoff; compact activity-claim sheet CTA reachability, modal payout-settings loading/error recovery, parent/pattern native callback coverage, nested provider payout-channel resources, first-load/detail retry recovery, and runtime partner-themed list/empty/detail receipt/status/notice/admin-note accents are now covered in code. | 1% |
-| News/Announcements | Modal/list/detail shells and Home news rail are aligned to Nuxt, production wrapper/camelCase/nested media-target parsing is covered, list/detail image preference now follows Nuxt thumb-vs-full artwork behavior, detail body rendering now strips raw or entity-escaped basic HTML tags into readable paragraphs and skips a first paragraph that duplicates the summary, modal/Home runtime target links now share the safe news-card resolver, external-link failures now stay visible inline, and News list/card/detail/modal/fallback/loading accents now share runtime partner theme tokens without circular Flutter spinners or collapsed failed detail artwork; remaining device/browser behavior review and final manual visual signoff. | 9% |
+| Reward Claims | Final failed/error device review, remaining manual receipt/list review, and final native/web sensitive-screen device signoff; parent/pattern native callback coverage, hyphenated provider statuses, nested/object provider payout-channel resources, object scalar claim/status/payout rows, first-load/detail retry recovery, Nuxt-flat no-ripple history rows/empty CTA, and Nuxt-exact page-local history/detail row text, divider, chevron, empty trophy, status chip, transfer notice, admin note, primary pill, and outline pill colors are now covered in code. | 3% |
+| Activities | Remaining activity-detail/claim-modal device edge review and final device/realtime QA; pre-result award hiding, inline lucky-board/cashback detail feedback, nested award-claim paid status resources, Activity list/detail link, badge, payout-option, status/login, cashback/result/award/number panels, runtime-themed loading states, and Nuxt-exact current/history list card, history/filter strip, fallback image, empty/history CTA, badge, border, shadow, and text colors are covered in code. | 2% |
+| Activity Claims | Manual claim modal/PIN/device signoff only; implementation parity is otherwise closed for current known Activity Claims history/detail/claim-support surfaces. Compact activity-claim sheet CTA reachability, modal payout-settings loading/error recovery, parent/pattern native callback coverage, nested provider payout-channel resources, first-load/detail retry recovery, and Nuxt-exact page-local history/detail row text, divider, chevron, empty gift icon, status chip, transfer notice, admin note, primary pill, and outline pill colors are now covered in code. | 0% |
+| News/Announcements | Modal/list/detail shells and Home news rail are aligned to Nuxt, Home news now renders the full loaded rail without a Flutter-only first-8 cap, list/detail failure states now fall back to Nuxt empty/missing cards, production wrapper/camelCase/nested media-target parsing is covered, list/detail image preference now follows Nuxt thumb-vs-full artwork behavior, detail body rendering now strips raw or entity-escaped basic HTML tags into readable paragraphs and skips a first paragraph that duplicates the summary, modal/Home runtime target links now share the safe news-card resolver, external-link failures now stay visible inline, and News list/card/detail/modal/fallback/loading accents, modal shadows, and detail kicker copy now use exact Nuxt page-local source tones/copy instead of runtime theme tokens or Material defaults; remaining device/browser behavior review and final manual visual signoff. | 7% |
 | Public/System content | Terms, privacy, reward terms, lottery knowledge, maintenance, countdown, suspended-account, waiting-result live panel, and success receipt surfaces now follow Nuxt-like shells; legal/info cards, system gradients, icon panels, countdown cells/actions, success-receipt surfaces, inline notices, and suspended-account panels now derive surface/text/error/success accents from runtime `Theme.colorScheme` tokens instead of fixed white/blue/red/green literals; Terms/Privacy now render runtime legal raw/escaped HTML plus Markdown as readable paragraphs without raw tags/entities/markup; maintenance route blocking now follows Nuxt `allowed_routes`, `blocked_route_patterns`, and `mode` policy instead of a flat active flag; maintenance and account-suspended support CTAs now use the same runtime support path with phone, email, then HTTPS URL priority via the shared safe external-link launcher; privacy/live external-link failures now stay visible inline; success/waiting-result loading states now use the shared runtime-themed loading mark; remaining final manual device/browser review only. | 1% |
-| Profile | Main menu/member-code, affiliate self-service including inline PIN route handoff, runtime-themed PIN gate, and inline status panels, About menu, reward bank, LINE notification, auto reward, biometric device, account-deletion shells, purchase-history Nuxt content-sheet/list-divider/detail receipt gradient shells, runtime reviewer/provider copy, wrapped/camelCase profile payload parsing, runtime feature/plugin flag menu visibility, and runtime partner-themed main menu/language-card/avatar/badge/reward-bank/auto-reward/LINE-notification/account-deletion/affiliate/biometric-device/purchase-history accents are aligned; biometric enable PIN confirmation now uses the Nuxt-style keypad/dot rhythm with runtime-themed dialog scrim, biometric current-device badge/refresh recovery is wired through read-only native lookup, biometric enable/revoke plus LINE/reward-bank/auto-reward/account-deletion important statuses stay visible inline, and Profile loading/capability/save/connect states now use the shared converted loading mark instead of Flutter Material progress indicators; remaining native biometric/account-deletion device QA and final responsive review. | 1% |
-| Auth | Remaining final PIN reset manual/device review, residual OTP provider-device QA, and final manual visual review; login/register/password/PIN reset surfaces now use persistent inline Nuxt-toned error panels instead of transient SnackBars, Auth page/card/input/PIN gate/PIN reset neutral surfaces and the PIN reset modal scrim follow runtime partner theme tokens, login/register heroes now restore the Nuxt `login-hero` lower sky/yellow accents and diagonal overlay rhythm through runtime theme tokens, forgot/reset success/warning/hero accents and LINE reset provider button colors follow runtime provider/theme tokens, forgot-PIN OTP actions follow Nuxt's resend/back-to-PIN secondary rhythm, PIN reset keypad reachability is covered for shorter mobile viewports, and register/forgot/PIN-reset OTP parsers now accept broader production reset/register wrappers, recipient/contact masked-phone maps, delivery/channel cooldown maps, object-scalar verification tokens, cooldown aliases, phone-mask aliases, verification token aliases, and preflight coverage. | 5% |
-| Social Login | LINE/Google/Apple provider config is runtime filtered on login, grouped auth/social bootstrap wrappers plus aliases/keyed maps/status aliases are covered, social return paths preserve inline PIN routes, callback auth mode now follows initiating OAuth state from URL, fragment, payload, callback-return alias fields, JSON-string callback wrappers, and metadata/context/oauth/providerData callback envelopes, callback error/missing-state recovery returns to the sanitized login redirect, hyphen/dot provider aliases normalize before launch/callback and bootstrap filtering, nested password-reset/social-link callback resources are covered, production preflight now guards the callback wrapper parser hooks, provider-launch/link-phone/Profile-LINE errors now stay visible in converted inline surfaces, LINE LIFF/add-friend config can resolve from root/auth/social/mobile runtime maps, provider `brandColor`/button color aliases now drive login, LINE reset, social callback, and phone-link/profile-card accents, and social callback/link-phone neutral/helper surfaces plus profile-card tints now combine provider/runtime brand with runtime partner theme; remaining deep-link/device callback/linking review and store-compliance signoff. | 8% |
+| Profile | Main menu/member-code, `8-อื่นๆ` hero/content-sheet overlap, affiliate self-service including inline PIN route handoff, runtime-themed PIN gate, and inline status panels, About menu, reward bank, LINE notification, auto reward, biometric device, account-deletion shells, purchase-history Nuxt content-sheet/list-divider/detail receipt gradient shells, runtime reviewer/provider copy, wrapped/camelCase profile payload parsing, runtime feature/plugin flag menu visibility, and runtime partner-themed main menu/language-card/avatar/badge/reward-bank/auto-reward/LINE-notification/account-deletion/affiliate/biometric-device/purchase-history accents are aligned; biometric enable PIN confirmation now uses the Nuxt-style keypad/dot rhythm with runtime-themed dialog scrim, biometric current-device badge/refresh recovery is wired through read-only native lookup, biometric enable/revoke plus LINE/reward-bank/auto-reward/account-deletion important statuses stay visible inline, and Profile loading/capability/save/connect states now use the shared converted loading mark instead of Flutter Material progress indicators; remaining native biometric/account-deletion device QA and final responsive review. | 1% |
+| Auth | Remaining final PIN reset manual/device review, residual OTP provider-device QA, and final manual visual review; global PIN verification now follows the Nuxt keypad rhythm more closely while preserving redirect return and digit retention, login/register copy and register field stacking now match Nuxt source labels/terms/OTP action rhythm more closely, login/register/password/PIN reset surfaces now use persistent inline Nuxt-toned error panels instead of transient SnackBars, Auth page/card/input/PIN gate/PIN reset neutral surfaces and the PIN reset modal scrim follow runtime partner theme tokens, login/register heroes now restore the Nuxt `login-hero` lower sky/yellow accents and diagonal overlay rhythm through runtime theme tokens, forgot/reset success/warning/hero accents and LINE reset provider button colors follow runtime provider/theme tokens, forgot-PIN OTP actions follow Nuxt's resend/back-to-PIN secondary rhythm, PIN reset keypad reachability and global PIN compact-height content are covered for shorter mobile viewports, and register/forgot/PIN-reset OTP parsers now accept broader production reset/register wrappers, recipient/contact masked-phone maps, delivery/channel cooldown maps, object-scalar verification tokens, cooldown aliases, phone-mask aliases, verification token aliases, and preflight coverage. | 4% |
+| Social Login | LINE/Google/Apple provider config is runtime filtered on login, grouped auth/social bootstrap wrappers plus aliases/keyed maps/status aliases are covered, social return paths preserve inline PIN routes, callback auth mode now follows initiating OAuth state from URL, fragment, payload, callback-return alias fields, JSON-string callback wrappers, and metadata/context/oauth/providerData callback envelopes, callback error/missing-state recovery returns to the sanitized login redirect, hyphen/dot provider aliases normalize before launch/callback and bootstrap filtering, nested password-reset/social-link callback resources are covered, production preflight now guards the callback wrapper parser hooks, provider-launch/link-phone/Profile-LINE errors now stay visible in converted inline surfaces, LINE LIFF/add-friend config can resolve from root/auth/social/mobile runtime maps, provider `brandColor`/button color aliases now drive login, LINE reset, social callback, and phone-link/profile-card accents, social link-phone helper copy now names the active provider so LINE matches Nuxt wording, and social link-phone input accents now use the customer primary blue like Nuxt while provider color remains on the profile/hero surfaces; remaining deep-link/device callback/linking review and store-compliance signoff. | 7% |
 | Face ID/Biometric | Native key generation, challenge signing, PIN assertion token, fallback/revoke/device management QA; wrapper/nested challenge and assertion payload merging, JSON-string wrapper parsing for assertion and device-list payloads, object scalar native key/challenge/assertion/device rows, credential/native key/signature payload aliases including provider/passkey public-key/challenge/signature/assertion aliases, `rawId` device ids, object `publicKeyJwk` key rows, COSE/algorithm normalization into backend-supported `ES256`/`RS256`, WebAuthn-style `credential.response.signature` wrappers plus optional `credential_id`/`client_data_json`/`authenticator_data`/`user_handle`/algorithm verify metadata forwarding, WebAuthn `publicKey`/request-options challenge parsing plus native `signChallenge` option forwarding, extended WebAuthn `excludeCredentials`/`authenticatorSelection`/`attestation`/`mediation`/`hints`/`pubKeyCredParams` option forwarding, WebAuthn `allowCredentials` descriptor aliases such as `credentialId`/`rawId`/`credentialDescriptors`, nested provider credential containers, base64/base64url challenge and credential-id object scalars, nested `rp.id` and `user.id`, BO keyed/status platform allowlists, runtime prompt-copy aliases for setup/assertion purposes, device-list record/keyed-map aliases, metadata/attributes/platform/lifecycle device row wrappers, platform/status/timestamp metadata normalization, Android strong-biometric-only key policy, current-device revoke cleanup, stale native key/id cleanup after OS key invalidation, native create/sign metadata maps, inline device-management result surfaces, localized current-device badge/refreshable capability lookup, runtime-themed capability/loading/device metadata panels, Nuxt-style keypad PIN confirmation before biometric setup, and release preflight coverage for the Flutter/native biometric bridge are now covered in code. | 21% |
 | Native screen security | Android FLAG_SECURE validation, iOS screenshot/recording privacy overlay behavior, native smoke; nested native event payload plus JSON-string/nativePayload/arguments/userInfo/notification wrappers, grouped native route/event/capture-state wrapper merging, object scalar event/route/reason/capture-state rows including text/label/rawValue variants, full URL, fully encoded URL, double-encoded query URL, hashbang, ordered/unordered query, fragment-query, direct query-string, route-object, fullPath/returnUrl/redirectUrl/hash/fragment/navigation/view parsing, shared route-registry normalization for full URL/query/hash sensitive paths, capture-state changed event normalization, runtime-configured native privacy-overlay copy aliases, BO full-URL/hash/query/wrapper sensitive-route policy normalization, iOS native route/event/reason/policy/copy alias handling, native Android/iOS boolean aliases for screen-security policy flags, iOS notification names/raw state payloads, Android media projection/reportSecurityEvent aliases, Android 14 `ScreenCaptureCallback` screenshot events with `DETECT_SCREEN_CAPTURE`, BO object/keyed-map sensitive-route policies, and route-scoped app-lifecycle PIN locking are now covered in code and release-gated where static checks can verify them, Android app-backup disabling is enforced in the manifest and preflight, and Android release cleartext traffic is disabled and release-gated. | 17% |
 | Web security fallback | Sensitive-route privacy overlay, watermark/limited-mode validation; runtime web privacy mode aliases including truthy BO values plus browser visibility-state/pagehide/freeze/print-preview lifecycle events and initial `document.hasFocus()` checks now normalize before guard/watermark decisions, `watermark-only` now stays watermark-only instead of showing the full lifecycle cover, raw lifecycle/browser cover state is preserved across runtime mode switches through the shared `webPrivacyModeShouldShowCover` helper, shared route matching plus BO sensitive-route policy matching now recognizes full URL/fully encoded URL/query/hash/wrapper sensitive paths before web cover decisions and is release-gated for preflight, app-lifecycle PIN locking now follows the same sensitive-route scope instead of locking public web pages, Web privacy cover UI now uses runtime theme tokens and runtime-configured privacy-overlay copy, and production preflight now release-gates the Web privacy guard/browser-activity/runtime-copy/mode-policy files plus Web/PWA runtime config source aliases so sensitive-route cover and metadata plumbing cannot be removed silently. | 19% |
@@ -4968,6 +6012,10 @@ batch should normally include:
 - No automated screenshot capture requirement; visual signoff is manual by the
   user/owner, so conversion rounds should not spend time building screenshot
   capture flows unless explicitly requested later.
+- If the agent needs to see the real rendered screen or check visual layout,
+  inspect the already-running Flutter Web app in Chrome. Use Chrome/browser
+  visual inspection as the practical screen-review path, not automated
+  screenshot capture.
 
 When practical, one work round should close a whole customer feature cluster,
 including parsers, repositories, UI states, route handoffs, UX/UI polish, and
@@ -5133,6 +6181,7 @@ flutter test test/data_parsing_test.dart test/deep_link_association_files_test.d
 flutter test test/checkout_screen_test.dart test/customer_link_launcher_test.dart --reporter compact
 flutter test test/system_pages_test.dart --reporter compact
 flutter test test/waiting_result_screen_test.dart --reporter compact
+flutter test test/result_screens_test.dart --reporter compact
 flutter test test/result_realtime_monitor_test.dart test/customer_realtime_protocol_test.dart --reporter compact
 flutter test test/lottery_stock_realtime_monitor_test.dart test/customer_realtime_protocol_test.dart --reporter compact
 flutter test test/tickets_screen_test.dart test/ticket_repository_test.dart test/customer_routes_test.dart --reporter compact
@@ -5391,6 +6440,881 @@ flutter test test/production_preflight_test.dart --plain-name 'production prefli
 git diff --check -- apps/customer_flutter/lib/core/tenant/mobile_bootstrap_controller.dart apps/customer_flutter/test/data_parsing_test.dart apps/customer_flutter/tool/src/production_preflight.dart docs/customer-flutter-conversion-handoff.md docs/customer-flutter-ux-ui-parity-plan.md docs/customer-api-integration-map.md
 ```
 
+Legal/info shared BlueHeader UX correction:
+
+- `/terms`, `/privacy`, `/term-reward`, and `/lottery-knowledge` now run
+  through the shared expanded `AppShell` BlueHeader path instead of combining a
+  compact Flutter AppBar with the page-local `_InfoHeroBand`.
+- The Nuxt hero/sheet start positions are now encoded at the page boundary:
+  terms/privacy `330px` hero with `82px` sheet lift, reward terms `176px` hero
+  with `16px` sheet lift, and lottery knowledge `340px` hero with `88px` sheet
+  lift. `_InfoPageShell` now owns only the content sheet/list.
+- Lottery knowledge hero copy now follows Nuxt's BrandLogo + heading treatment
+  and no longer renders the Flutter-only subtitle in the blue hero.
+- `test/info_pages_test.dart` now checks legal runtime HTML/Markdown text with
+  offstage-aware finders so the test validates rendered content after the
+  taller Nuxt-like hero without requiring the text to be in the first viewport.
+
+Legal/info shared BlueHeader verification:
+
+```sh
+dart format lib/features/content/presentation/info_pages.dart test/info_pages_test.dart
+flutter analyze lib/features/content/presentation/info_pages.dart test/info_pages_test.dart
+flutter test test/info_pages_test.dart --reporter compact
+flutter test test/data_parsing_test.dart --plain-name 'mobile bootstrap accepts BO legal links and contact channel rows' --reporter compact
+```
+
+Shared primary action UX correction:
+
+- Added `lib/shared/widgets/customer_gradient_button.dart` as the shared
+  Nuxt-style primary pill action: runtime-themed blue gradient, 999px radius,
+  transparent Material overlay, disabled soft surface, and optional dock shadow.
+- Replaced the duplicated revenue private dock-button pattern in
+  `lottery_screens.dart` for Buy/search, Cart payment dock, checkout confirm,
+  checkout pending receipt/payment actions, and cart remove confirmation.
+- Home guest login now uses the same shared gradient primary action, while the
+  register action remains secondary soft-blue.
+- Route, cart reservation, checkout submit, payment-provider, and auth behavior
+  were intentionally unchanged.
+
+Shared primary action verification:
+
+```sh
+dart format lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/home/presentation/home_screen.dart
+flutter analyze lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/home/presentation/home_screen.dart test/checkout_screen_test.dart test/lottery_navigation_test.dart test/home_screen_test.dart
+flutter test test/lottery_navigation_test.dart --reporter compact
+```
+
+Known reduced-test-cadence notes from this pass:
+
+- `flutter test test/checkout_screen_test.dart test/lottery_navigation_test.dart
+  --reporter compact` was also attempted before the focused rerun. The navigation
+  cases passed, but the checkout suite still has pre-existing UI-harness/layout
+  failures: selected wallet card casts a `Padding` as `ColoredBox`, success
+  receipt hits `IntrinsicHeight` with `LayoutBuilder`, and back-action tap
+  finders miss the expanded BlueHeader hit target.
+- `flutter test test/home_screen_test.dart --reporter compact` currently has
+  existing post-shell-layout failures: wide rail expectation still caps at
+  `<=900` while current content rail is `920`, and route tap tests target
+  offscreen Home cards without scrolling them into hit-test range.
+
+Auth shared primary action UX correction:
+
+- Added `authPrimaryActionButton` in `auth_visual_tokens.dart` so auth submit
+  controls share the same `CustomerGradientButton` primary pill as the revenue
+  flow.
+- Login password submit, register/OTP submit, forgot-password step submit/back
+  to login, reset-password save, and social link-phone submit now use the shared
+  runtime-gradient primary action instead of local `FilledButton` styling.
+- Provider-specific LINE reset and social callback white hero actions remain
+  intentionally provider/surface-specific. Auth submit, OTP, reset source,
+  social launch/callback/link-phone, redirect/PIN handoff, and API error behavior
+  were unchanged.
+- `social_auth_screens_test.dart` was updated to assert the current custom
+  remember-me check icon instead of the old Flutter `Checkbox` widget.
+
+Auth shared primary action verification:
+
+```sh
+dart format lib/features/auth/presentation/auth_visual_tokens.dart lib/features/auth/presentation/login_screen.dart lib/features/auth/presentation/register_screen.dart lib/features/auth/presentation/forgot_password_screen.dart lib/features/auth/presentation/reset_password_screen.dart lib/features/auth/presentation/line_auth_screens.dart test/social_auth_screens_test.dart
+flutter analyze lib/shared/widgets/customer_gradient_button.dart lib/features/auth/presentation/auth_visual_tokens.dart lib/features/auth/presentation/login_screen.dart lib/features/auth/presentation/register_screen.dart lib/features/auth/presentation/forgot_password_screen.dart lib/features/auth/presentation/reset_password_screen.dart lib/features/auth/presentation/line_auth_screens.dart test/social_auth_screens_test.dart
+flutter test test/forgot_password_screen_test.dart --reporter compact
+flutter test test/reset_password_screen_test.dart --reporter compact
+flutter test test/social_auth_screens_test.dart --reporter compact
+```
+
+Post-login shared primary action UX correction:
+
+- Extended `CustomerGradientButton` coverage beyond revenue/auth into the
+  remaining user-facing primary CTA clusters touched in this UX pass: Topup
+  waiting-payment open-payment, slip upload, topup submit, Topup history
+  empty-state topup, Tickets search and reward-claim footers, Activities
+  history/detail/award/number-confirm/claim-next actions, Reward bank save,
+  shared app alert close, and native/Web security-lock unlock.
+- Destructive topup cancellation remains a semantic error button, and
+  provider/payment-specific actions remain surface-specific. Topup submission,
+  slip upload, ticket claim, activity claim, reward-bank PIN/save, alert close,
+  and security-lock behavior were intentionally unchanged.
+- Guardrails were preserved: no clear-worktree, staging, commit, push, prompt
+  generation, screenshot automation, or DB process was run for this pass.
+
+Post-login shared primary action verification:
+
+```sh
+dart format lib/features/topup/presentation/topup_screen.dart lib/features/topup/presentation/topup_history_screen.dart lib/features/tickets/presentation/tickets_screen.dart lib/features/activities/presentation/activities_screen.dart lib/features/activities/presentation/activity_detail_screen.dart lib/features/profile/presentation/reward_bank_screen.dart lib/shared/widgets/app_alert.dart lib/shared/widgets/security_lock_screen.dart test/activity_detail_screen_test.dart test/topup_screen_test.dart test/topup_history_screen_test.dart test/tickets_screen_test.dart
+flutter analyze lib/shared/widgets/customer_gradient_button.dart lib/features/topup/presentation/topup_screen.dart lib/features/topup/presentation/topup_history_screen.dart lib/features/tickets/presentation/tickets_screen.dart lib/features/activities/presentation/activities_screen.dart lib/features/activities/presentation/activity_detail_screen.dart lib/features/profile/presentation/reward_bank_screen.dart lib/shared/widgets/app_alert.dart lib/shared/widgets/security_lock_screen.dart test/activity_detail_screen_test.dart test/topup_screen_test.dart test/topup_history_screen_test.dart test/tickets_screen_test.dart test/app_alert_test.dart
+flutter test test/topup_screen_test.dart test/topup_history_screen_test.dart test/app_alert_test.dart --reporter compact
+flutter test test/tickets_screen_test.dart --plain-name 'ticket claim bank payout matches Nuxt labels and payload' --reporter compact
+```
+
+Known reduced-test-cadence notes from this pass:
+
+- A broader attempted run,
+  `flutter test test/topup_screen_test.dart test/topup_history_screen_test.dart
+  test/tickets_screen_test.dart test/activities_screen_test.dart
+  test/activity_detail_screen_test.dart test/app_alert_test.dart --reporter compact`,
+  still fails outside the CTA changes on existing layout/harness issues:
+  ticket overview stub metadata overflows and misses expected first-viewport
+  text in the compact test viewport; activities list text is not found in the
+  current async shell; activity detail claim tests cannot scroll/build the
+  offscreen award CTA through the current `AppShell` test scrollable.
+- The focused ticket claim CTA test and the topup/history/app-alert suites
+  passed after updating button finders to the shared `CustomerGradientButton`.
+
+Theme token role correction:
+
+- Flutter fallback theme now follows `docs/customer-flutter-design-principles.md`
+  more closely: `secondary` is Nuxt's sky accent (`#19B8EF`), while dark primary
+  gradient ends are produced by `AppTheme.primaryActionEnd` and
+  `AppTheme.heroGradientEnd` instead of assuming `secondary` means dark blue.
+- Default customer primary actions now resolve to Nuxt's `#149AF9 -> #0064D5`
+  gradient, and BlueHeader/hero surfaces resolve to the Nuxt
+  `#158FF6 -> #087FF0 -> #0564D1` rhythm. Runtime partner primary colors no
+  longer drive the default app identity; raw runtime brand colors are available
+  only through an explicit opt-in path for parser/variant checks.
+- Raw `primary -> secondary` dark-end gradients were replaced in shared
+  BlueHeader, shared primary buttons, auth/register/forgot/reset/social hero
+  surfaces, wallet, affiliate, home, profile/security, news/system hero
+  surfaces, and remaining lottery/store dock buttons. Low-mix `primary ->
+  secondary` accents remain where the intent is a sky highlight rather than a
+  dark primary surface.
+
+Theme token role verification:
+
+```sh
+dart format lib/core/theme/app_theme.dart lib/shared/widgets/app_shell.dart lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/stores/presentation/store_screens.dart lib/features/auth/presentation/login_screen.dart lib/features/auth/presentation/register_screen.dart lib/features/auth/presentation/forgot_password_screen.dart lib/features/auth/presentation/reset_password_screen.dart lib/features/auth/presentation/line_auth_screens.dart lib/features/wallet/presentation/wallet_screen.dart lib/features/affiliate/presentation/affiliate_screen.dart lib/features/home/presentation/home_screen.dart lib/features/news/presentation/news_visual_tokens.dart lib/features/system/presentation/system_pages.dart lib/features/profile/presentation/account_deletion_screen.dart lib/features/profile/presentation/biometric_devices_screen.dart lib/features/profile/presentation/line_notifications_screen.dart lib/features/profile/presentation/auto_reward_screen.dart lib/features/profile/presentation/reward_bank_screen.dart test/bootstrap_test.dart
+flutter analyze lib/core/theme/app_theme.dart lib/shared/widgets/app_shell.dart lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/stores/presentation/store_screens.dart lib/features/auth/presentation/login_screen.dart lib/features/auth/presentation/register_screen.dart lib/features/auth/presentation/forgot_password_screen.dart lib/features/auth/presentation/reset_password_screen.dart lib/features/auth/presentation/line_auth_screens.dart lib/features/wallet/presentation/wallet_screen.dart lib/features/affiliate/presentation/affiliate_screen.dart lib/features/home/presentation/home_screen.dart lib/features/news/presentation/news_visual_tokens.dart lib/features/system/presentation/system_pages.dart lib/features/profile/presentation/account_deletion_screen.dart lib/features/profile/presentation/biometric_devices_screen.dart lib/features/profile/presentation/line_notifications_screen.dart lib/features/profile/presentation/auto_reward_screen.dart lib/features/profile/presentation/reward_bank_screen.dart test/bootstrap_test.dart test/app_shell_test.dart
+flutter test test/bootstrap_test.dart test/app_shell_test.dart --reporter compact
+```
+
+Result shell micro-parity correction:
+
+- `AppShell` now accepts `heroContentTopGap` for expanded BlueHeader pages whose
+  Nuxt source has no hero slot content. This prevents empty hero content from
+  adding an extra 24px vertical gap to short source headers.
+- `/result/full` now uses the shorter Nuxt result-full hero rhythm
+  (`heroMinHeight: 121`, no empty hero gap), and `/result` shifts the hero back
+  chevron left like the source `.results-index-hero .hero-back` override.
+- Result data loading, result history filtering, payout dock placement, and
+  result navigation behavior were unchanged.
+
+Result shell micro-parity verification:
+
+```sh
+dart format lib/shared/widgets/app_shell.dart lib/features/results/presentation/result_screen.dart lib/features/results/presentation/result_detail_screen.dart
+flutter analyze lib/shared/widgets/app_shell.dart lib/features/results/presentation/result_screen.dart lib/features/results/presentation/result_detail_screen.dart test/app_shell_test.dart test/result_screens_test.dart
+flutter test test/result_screens_test.dart test/app_shell_test.dart --reporter compact
+```
+
+Compact claims shell parity correction:
+
+- Compact `AppShell` headers now use a tighter Nuxt-like back button lane:
+  `titleSpacing: 0`, 52px leading width, and a 36px transparent icon button for
+  compact headers. This keeps Reward/Activity claim compact headers closer to
+  the source `96px` BlueHeader rhythm without changing route behavior.
+- Shared `CustomerPageBody` now adds bottom safe-area padding by default, so
+  Reward Claims and Activity Claims index/detail bodies keep only their
+  Nuxt-mapped `22px`/`24px` content-sheet base padding while still matching the
+  source `env(safe-area-inset-bottom)` treatment.
+- Claims list/detail layout, 640px max content width, realtime refresh,
+  API/server error copy, and navigation behavior were unchanged.
+
+Compact claims shell parity verification:
+
+```sh
+dart format lib/shared/widgets/app_shell.dart lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart
+flutter analyze lib/shared/widgets/app_shell.dart lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/app_shell_test.dart test/reward_claims_screen_test.dart test/activity_claims_screen_test.dart
+flutter test test/reward_claims_screen_test.dart test/activity_claims_screen_test.dart test/app_shell_test.dart --reporter compact
+```
+
+Shared content-sheet safe-area correction:
+
+- `CustomerPageBody` now adds `MediaQuery.padding.bottom` to its bottom padding
+  by default, aligning the shared Flutter content sheet with the design
+  principles requirement to account for bottom nav/payment dock and device safe
+  area. An `includeBottomSafeArea` opt-out remains available for page-specific
+  special layouts.
+- Reward Claims and Activity Claims index/detail shells were simplified to pass
+  only their Nuxt base `22px`/`24px` bottom rhythm and let `CustomerPageBody`
+  own safe-area composition. This avoids duplicated one-off bottom inset
+  calculations while preserving the compact claims layout.
+
+Shared content-sheet safe-area verification:
+
+```sh
+dart format lib/shared/widgets/customer_page_body.dart lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/app_shell_test.dart
+flutter analyze lib/shared/widgets/customer_page_body.dart lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/app_shell_test.dart test/reward_claims_screen_test.dart test/activity_claims_screen_test.dart
+flutter test test/app_shell_test.dart test/reward_claims_screen_test.dart test/activity_claims_screen_test.dart --reporter compact
+```
+
+Customer blue identity correction:
+
+- `AppTheme.light` now locks default rendered primary, secondary, and accent
+  colors to the Nuxt customer identity: blue `#087FF0`, sky `#19B8EF`, and
+  yellow `#FFD10B`. This prevents bootstrap/runtime green or partner-primary
+  theme tokens from turning the whole Flutter customer app green.
+- Runtime theme parsing remains supported for BO/partner payload compatibility.
+  Background, text, and font tokens still apply automatically; raw runtime brand
+  colors require `useRuntimeBrandColors: true` and are kept for focused
+  parser/variant tests rather than production customer rendering.
+- Customer app smoke and AppShell tests now cover green runtime tokens and assert
+  that the visible app primary remains Nuxt blue.
+
+Customer blue identity verification:
+
+```sh
+dart format lib/core/theme/app_theme.dart test/bootstrap_test.dart test/app_shell_test.dart test/customer_app_smoke_test.dart
+flutter analyze lib/core/theme/app_theme.dart test/bootstrap_test.dart test/app_shell_test.dart test/customer_app_smoke_test.dart
+flutter test test/bootstrap_test.dart test/app_shell_test.dart test/customer_app_smoke_test.dart --reporter compact
+```
+
+Web/PWA blue identity correction:
+
+- `web/index.html` and `web/manifest.json` now use the Nuxt customer blue
+  `#087FF0` for `theme-color`/tile/PWA theme chrome and white `#FFFFFF` for the
+  manifest background.
+- Runtime Web metadata still supports app name, icons, SEO/social metadata,
+  URLs, locale, and manifest background keys, but Web/PWA `theme-color` no
+  longer accepts runtime `themeColor`/partner/provider color aliases. This keeps
+  provider/partner green values from tinting the installed Web app shell.
+- Production preflight source checks now require the fixed
+  `customerIdentityThemeColor` binding and fail if runtime theme-color bindings
+  are reintroduced. A focused test asserts the checked-in Web source keeps
+  customer blue theme-color identity.
+
+Web/PWA blue identity verification:
+
+```sh
+dart format tool/src/production_preflight.dart test/production_preflight_test.dart
+flutter analyze tool/src/production_preflight.dart test/production_preflight_test.dart
+flutter test test/production_preflight_test.dart --reporter compact
+```
+
+BottomNav Nuxt width correction:
+
+- The shared Flutter bottom navigation now follows Nuxt `.bottom-nav` width on
+  wide screens too: the white 98px surface spans the full viewport, while the
+  nav items receive internal Nuxt-like horizontal padding instead of constraining
+  the whole bar to the content rail. Mobile remains full-width. Route gating,
+  selected-route behavior, safe-area extension, icon/label sizing, and active
+  slab styling are unchanged.
+
+BottomNav Nuxt width verification:
+
+```sh
+dart format lib/shared/widgets/app_shell.dart test/app_shell_test.dart
+flutter analyze lib/shared/widgets/app_shell.dart test/app_shell_test.dart
+flutter test test/app_shell_test.dart --reporter compact
+```
+
+Native launch blue identity correction:
+
+- Android launch resources now use a shared `customer_launch_background` color
+  set to Nuxt blue `#087FF0` in both `drawable/launch_background.xml` and
+  `drawable-v21/launch_background.xml`.
+- iOS `LaunchScreen.storyboard` now uses the same Nuxt blue RGB background
+  instead of the default Flutter white launch screen.
+- Production preflight now checks Android and iOS launch resources so the app
+  cannot regress to a white, green, or runtime partner-colored first frame
+  before Flutter renders its themed splash.
+
+Native launch blue identity verification:
+
+```sh
+xmllint --noout android/app/src/main/res/values/colors.xml android/app/src/main/res/drawable/launch_background.xml android/app/src/main/res/drawable-v21/launch_background.xml ios/Runner/Base.lproj/LaunchScreen.storyboard
+dart format tool/src/production_preflight.dart
+flutter analyze tool/src/production_preflight.dart test/production_preflight_test.dart
+flutter test test/production_preflight_test.dart --reporter compact
+```
+
+Native system chrome blue identity correction:
+
+- `CustomerApp` now wraps the app tree in
+  `AnnotatedRegion<SystemUiOverlayStyle>` so native status-bar chrome uses the
+  Nuxt customer blue `#087FF0` with light icons, while the system navigation bar
+  stays on the white content surface with dark icons and the light border token.
+- Production preflight now checks the binding in `lib/app/customer_app.dart`,
+  preventing Android/iOS system chrome from drifting back to platform defaults,
+  green runtime partner colors, or other provider colors.
+
+Native system chrome blue identity verification:
+
+```sh
+dart format lib/app/customer_app.dart tool/src/production_preflight.dart
+flutter analyze lib/app/customer_app.dart tool/src/production_preflight.dart test/customer_app_smoke_test.dart test/production_preflight_test.dart
+flutter test test/customer_app_smoke_test.dart test/production_preflight_test.dart --reporter compact
+```
+
+Flutter splash Nuxt identity correction:
+
+- `AppSplashHost` now matches Nuxt `AppSplashScreen.vue`/`.app-splash` more
+  closely: the overlay uses the three-stop customer blue gradient
+  `#087FF0 -> #0C6FE0 -> #15AEEA`, bottom-right yellow triangle accent, centered
+  320px content rail, runtime logo/GLO brand lockup, white `L6` mark card,
+  156px animated loading bar, and 16px/700 preparing copy.
+- Runtime tenant logo/name support remains intact through bootstrap and the
+  asset URL resolver. Splash timing and failure close behavior are unchanged.
+- Production preflight now checks the Flutter splash identity snippets so the
+  first Flutter-rendered frame cannot regress to a generic loader or runtime
+  green partner theme.
+
+Flutter splash Nuxt identity verification:
+
+```sh
+dart format lib/shared/widgets/app_splash.dart test/app_splash_test.dart tool/src/production_preflight.dart
+flutter analyze lib/shared/widgets/app_splash.dart test/app_splash_test.dart tool/src/production_preflight.dart test/production_preflight_test.dart
+flutter test test/app_splash_test.dart test/production_preflight_test.dart --reporter compact
+```
+
+Tickets green-drift correction:
+
+- The Tickets history no-winning banner no longer hue-shifts the customer
+  primary color into green. Its helper now keeps the customer identity on the
+  Nuxt blue/sky/yellow palette by deriving the banner tone from
+  `colorScheme.primary` and `colorScheme.secondary`.
+- This was visual-only: ticket search/filtering, pagination, image modal,
+  reward routing, claim entry, parser, and API behavior were unchanged. No
+  screenshot automation was added.
+
+Tickets green-drift verification:
+
+```sh
+dart format lib/features/tickets/presentation/tickets_screen.dart
+flutter analyze lib/features/tickets/presentation/tickets_screen.dart
+rg -n "Colors\\.(green|lightGreen|teal)|Color\\(0xFF(00B900|22C55E|10B981|77C827|55B20E|4CAF50|16A34A|15803D|059669|0F766E|14B8A6|2E7D32|1B5E20)\\)|OptimisticGreen|greenSide|green" lib -S --glob '*.dart'
+```
+
+Revenue exact primary-pill/payment-dock correction:
+
+- Shared `CustomerGradientButton` now follows Nuxt `.primary-pill` source
+  values more closely: 700 default font weight, `#C6D3E3` disabled fill, white
+  disabled foreground, and 22px primary shadow blur instead of Flutter-heavy
+  `w900` text and soft-surface disabled styling.
+- Home, Buy/Search/More, and Store floating selection/review docks now render
+  selected ticket counts like Nuxt `selection-count`, emphasizing the number
+  separately from the unit. Buy/Store review docks use the Nuxt
+  `จำนวนที่เลือก` label, while Home keeps the Nuxt selection title.
+- Store and Home dock CTAs now use the shared Nuxt-derived primary pill instead
+  of page-local Material button styles. Revenue flow, reservation/cart
+  behavior, checkout routing, and API calls were unchanged.
+
+Revenue exact primary-pill/payment-dock verification:
+
+```sh
+dart format lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/stores/presentation/store_screens.dart lib/features/home/presentation/home_screen.dart
+flutter analyze lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/stores/presentation/store_screens.dart lib/features/home/presentation/home_screen.dart
+```
+
+Revenue exact pill/button color correction:
+
+- Nuxt revenue pill tokens from `apps/customer/assets/scss/main.css` are now
+  carried into Flutter theme/shared widgets: outline `#075EC9/#0B69DC`,
+  disabled outline `#CBD4DF/#8A8F98/#F2F4F7`, filter fill `#F7F7F7`,
+  active filter border `#086BDD`, blue link `#0068D8`, green add-more
+  `#77C827 -> #55B20E`, lottery number fill `#FFF9DF`, and payment count
+  emphasis `#006FE8`.
+- `CustomerGradientButton` now defaults to the Nuxt `.primary-pill` blue
+  gradient `#149AF9 -> #0064D5` instead of deriving from runtime/theme colors.
+  Runtime-specific gradients must be passed explicitly only where the Nuxt
+  source actually used runtime/provider styling.
+- Buy/Search/More and Store lottery rows now use the same Nuxt outline/remove
+  pill colors, disabled state, seller/price weights, blue link tone, and pale
+  number strip. Cart add-more now uses the Nuxt `.green-pill` values.
+- Review docks use the larger Nuxt `.review-payment-count span` number size
+  while Home selection dock keeps the smaller `.selection-count span` size.
+  Revenue API/reservation/cart/checkout behavior was unchanged.
+
+Revenue exact pill/button color verification:
+
+```sh
+dart format lib/core/theme/app_theme.dart lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/stores/presentation/store_screens.dart
+flutter analyze lib/core/theme/app_theme.dart lib/shared/widgets/customer_gradient_button.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/stores/presentation/store_screens.dart
+git diff --check
+```
+
+Chrome visual inspection:
+
+- Checked the already-running Flutter Web customer tab in Chrome at
+  `http://xn--42cl1cp5p.localhost/`.
+- The app title was `พบโชค (บริษัทหลัก)`, Flutter glass pane was present, and
+  no DOM-visible `FlutterError`/`RenderFlex`/assertion error text was detected.
+- This was a manual/browser status check only, not screenshot automation.
+
+Revenue Checkout/Success exact color and receipt correction:
+
+- Checkout wallet payment card now uses the exact Nuxt card constants from
+  `checkout.vue`/`main.css`: selected wallet border `#267FF2`, wallet note
+  `#DCEEFF/#065FCA`, wallet mark `#1E8BC2`, Nuxt outline-pill topup action,
+  and the same soft 12px card/shadow rhythm. Payment methods, wallet loading,
+  topup route, reservation expiry, and checkout submit behavior were unchanged.
+- Success receipt now follows Nuxt `success-bg`/`receipt-card` source values
+  more closely: blue-to-sky page gradient, yellow and deep-blue radial accents,
+  diagonal receipt texture instead of the Flutter-only watermark text, green
+  check mark `#71BF18`, L6 blue `#0C75D4` with yellow dot, Nuxt
+  `primary-pill` CTA, and Nuxt outline-pill fallback action.
+- This was a visual parity slice only. No screenshot automation was added and
+  no runtime DB access was performed.
+
+Revenue Checkout/Success exact verification:
+
+```sh
+dart format lib/core/theme/app_theme.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/system/presentation/system_pages.dart
+flutter analyze lib/core/theme/app_theme.dart lib/features/lottery/presentation/lottery_screens.dart lib/features/system/presentation/system_pages.dart
+git diff --check
+```
+
+Shared BottomNav fixed-bottom correction:
+
+- Flutter `AppShell` bottom navigation no longer adds the device bottom
+  safe-area inset into the nav height/padding, which made the nav content look
+  like it was floating above the bottom edge on real devices. The shared nav is
+  now fixed to the Nuxt `.bottom-nav` 98px height and flush-bottom placement.
+- Follow-up correction: `AppShell` no longer uses `Scaffold.bottomNavigationBar`
+  for the customer nav. The nav is rendered as a `Positioned(bottom: 0)` overlay
+  inside the shell body, matching Nuxt's absolute/fixed MobileShell placement
+  and avoiding Scaffold/system-inset behavior that could still make the bar
+  appear lifted.
+- Bottom nav visual tokens now match Nuxt source values: active `#0768D5`,
+  inactive `#8C8F93`, active background `#EEF8FF`, white 96% surface, 34px top
+  radius, and `0 -8px 24px rgba(20,35,58,.12)` shadow. Desktop horizontal
+  padding follows Nuxt `clamp(24px, 8vw, 96px)`.
+- This was shared shell visual-only. Route selection, allowed-route policy,
+  bottom-nav item set, and page flows were unchanged.
+
+Shared BottomNav fixed-bottom verification:
+
+```sh
+dart format lib/core/theme/app_theme.dart lib/shared/widgets/app_shell.dart
+flutter analyze lib/core/theme/app_theme.dart lib/shared/widgets/app_shell.dart
+git diff --check
+```
+
+Home Nuxt section-order parity correction:
+
+- Home first content sheet order now follows the Nuxt source order:
+  quick-action card, guest/wallet card, activities rail, current result, then
+  news rail. The previous Flutter order put result/news before guest/wallet and
+  activities, which made the first scroll path differ from `pages/index.vue`.
+- Home quick-card spacing now uses the Nuxt `mb-4` 24px gap, desktop quick-card
+  horizontal padding follows the Nuxt 1024px media rule, the activities section
+  owns its Nuxt-like 18px bottom margin only when activity data exists, and the
+  result-to-news gap now matches the Nuxt `home-news-section` rhythm more
+  closely.
+- Home activity/news fallback artwork now uses the same static gradient color
+  values as Nuxt CSS for missing media, instead of inheriting Material-derived
+  fallback gradients. Home providers, auth/wallet state, digit search handoff,
+  news/activity routes, cart dock behavior, and backend/API calls were
+  unchanged.
+
+Home Nuxt section-order parity verification:
+
+```sh
+dart format lib/features/home/presentation/home_screen.dart test/home_screen_test.dart
+flutter analyze lib/features/home/presentation/home_screen.dart
+flutter test test/home_screen_test.dart
+git diff --check
+```
+
+PIN Nuxt keypad visual parity correction:
+
+- Main `/pin` keypad and shared `PinConfirmationStep` now follow Nuxt
+  `PinKeypadScreen.vue` visual constants more closely: white full-screen shell,
+  28px/22px side padding rhythm, 42px topbar, 24px gray back chevron,
+  centered `เป๋าตัง` brand at `#8487F8`/16px instead of the previous large
+  runtime-primary brand text, 30px/20px title/subtitle copy with a 4px gap,
+  Nuxt dot colors/sizing, red helper/error message rhythm, and 20px keypad
+  digits with a 17px delete icon.
+- Main `/pin` now follows the Nuxt page default brand for `PinKeypadScreen`
+  (`pin.brand`) rather than injecting the runtime site name into this topbar,
+  because the Nuxt page does not pass a runtime brand prop to the component.
+- PIN verify/setup/reset state, digit entry, keyboard input, forgot-PIN reset
+  API flow, biometric capability gating, redirects, and submission payloads
+  were unchanged. The compact 600px test viewport keeps the Nuxt-like rhythm
+  without overflow by trimming only the reserved message min-height.
+
+Auth/Register and PIN compact parity correction:
+
+- Login identifier copy now matches the Nuxt phone-only label instead of the
+  older Flutter phone/email copy.
+- Register now follows Nuxt copy for terms/privacy consent, OTP title,
+  submit-with-OTP text, and consent-required validation. First/last name inputs
+  stay stacked like the Nuxt `.register-name-grid` source instead of switching
+  to a wide Flutter row.
+- Global `/pin` keeps the Nuxt default `PinKeypadScreen` brand (`เป๋าตัง`) and
+  now scales the centered content only when the vertical viewport is too short,
+  preventing the compact test/short-device overflow without changing PIN digit
+  state, redirect return, hardware keyboard input, setup/reset, or API payloads.
+
+Auth/Register and PIN compact verification:
+
+```sh
+dart format lib/core/i18n/customer_localizations.dart lib/features/auth/presentation/register_screen.dart lib/features/pin/presentation/pin_screen.dart test/auth_redirect_flow_test.dart
+flutter analyze lib/core/i18n/customer_localizations.dart lib/features/auth/presentation/register_screen.dart lib/features/pin/presentation/pin_screen.dart test/auth_redirect_flow_test.dart
+flutter test test/auth_redirect_flow_test.dart --reporter compact
+```
+
+PIN Nuxt keypad visual verification:
+
+```sh
+dart format lib/features/pin/presentation/pin_screen.dart lib/shared/widgets/pin_confirmation_step.dart
+flutter analyze lib/features/pin/presentation/pin_screen.dart lib/shared/widgets/pin_confirmation_step.dart
+flutter test test/pin_reset_flow_test.dart
+git diff --check
+```
+
+Shared BlueHeader back/title collision correction:
+
+- `AppShell` expanded BlueHeader titles now reserve a 54px horizontal inset on
+  both sides of the 42px hero row, so page titles cannot render underneath the
+  absolute back button or right-side hero actions. This mirrors Nuxt
+  `BlueHeader.vue`'s separated `hero-row`/`hero-back` structure while keeping
+  the centered one-line ellipsis title.
+- This shared fix covers the many Flutter screens using `AppShell.heroContent`
+  with `backPath` or `onBack`, including Buy/Search/Stores, Cart/Checkout,
+  Activities, Results, News, Wallet/Topup-related shell pages, Reward/Activity
+  Claims, legal/info pages, and other expanded hero screens. Page navigation,
+  route targets, hero heights, content-sheet overlap, and bottom-nav behavior
+  were unchanged.
+- `test/app_shell_test.dart` was also brought in line with the Nuxt bottom-nav
+  active token (`#0768D5`) so the focused shell gate reflects the current
+  shared BottomNav parity pass.
+
+Shared BlueHeader back/title collision verification:
+
+```sh
+dart format lib/shared/widgets/app_shell.dart test/app_shell_test.dart
+flutter analyze lib/shared/widgets/app_shell.dart
+flutter test test/app_shell_test.dart
+git diff --check
+```
+
+Auth custom header/back collision correction:
+
+- Forgot password and reset password now follow the Nuxt `BlueHeader` order
+  instead of overlaying the back button on top of centered hero content. The
+  Flutter auth hero uses a shared 42px `hero-row` with 54px title insets, a
+  31px chevron back slot, and then renders the page-specific shield/key hero
+  content below that row.
+- Social link-phone keeps Nuxt's special no-title hero treatment but uses the
+  same transparent 42px back slot and top-aligned hero content so the button
+  cannot collide with the provider title on narrow screens.
+- Social link-phone now matches the Nuxt LINE helper-note wording more closely
+  by injecting the active provider into the yellow note (`LINE` for the legacy
+  `/line/link-phone` route) instead of showing a generic "social account"
+  phrase. The phone/password/confirm-password input accents also fall back to
+  the customer primary blue like Nuxt `.line-link-input i`, while provider color
+  remains on the hero icon and profile card.
+- Auth/Social route behavior, payloads, backend error copy, redirect handling,
+  PIN handoff, and provider runtime config were unchanged.
+
+Auth custom header/back verification:
+
+```sh
+dart format lib/features/auth/presentation/auth_visual_tokens.dart lib/features/auth/presentation/forgot_password_screen.dart lib/features/auth/presentation/reset_password_screen.dart lib/features/auth/presentation/line_auth_screens.dart
+flutter analyze lib/features/auth/presentation/auth_visual_tokens.dart lib/features/auth/presentation/forgot_password_screen.dart lib/features/auth/presentation/reset_password_screen.dart lib/features/auth/presentation/line_auth_screens.dart
+flutter test test/forgot_password_screen_test.dart test/reset_password_screen_test.dart test/social_auth_screens_test.dart
+git diff --check
+```
+
+Social link-phone provider-note verification:
+
+```sh
+dart format lib/core/i18n/customer_localizations.dart lib/features/auth/presentation/line_auth_screens.dart test/social_auth_screens_test.dart
+flutter analyze lib/core/i18n/customer_localizations.dart lib/features/auth/presentation/line_auth_screens.dart test/social_auth_screens_test.dart
+flutter test test/social_auth_screens_test.dart --reporter compact
+git diff --check
+```
+
+Revenue Cart/Checkout dock/source correction:
+
+- Cart now keeps the Nuxt `BlueHeader min-height="294px"` rhythm on every
+  viewport instead of dropping to a shorter Flutter-only hero on sub-700px
+  screens.
+- Cart fixed PaymentDock no longer switches to compact Flutter
+  dimensions on short screens. Cart keeps the Nuxt-like 22px top padding, 28px
+  dock bottom padding, 16px timer/action gaps, 28px amount text, 58px CTA, and
+  20px CTA copy.
+- Checkout now follows the Nuxt `pages/checkout.vue` source more closely:
+  the confirm PaymentDock is back inside the `content-sheet` flow after the
+  265px spacer instead of being a fixed overlay. This preserves the Nuxt
+  `BlueHeader min-height="454px"` hero and 58px confirm CTA while keeping
+  payment-method/topup/external-payment controls tappable on compact viewports.
+- Checkout success fallback layout no longer uses `IntrinsicHeight` around a
+  `LayoutBuilder`, so the receipt page can render the Nuxt-style fallback
+  without Flutter intrinsic-layout exceptions.
+- Cart grouping, reservation release, countdown, checkout routing, wallet/
+  external payment selection, payment submission, pending handoff, topup
+  return path, and success receipt fallback behavior were verified.
+
+Revenue Cart/Checkout dock/source verification:
+
+```sh
+dart format lib/features/lottery/presentation/lottery_screens.dart lib/features/system/presentation/system_pages.dart test/checkout_screen_test.dart
+flutter analyze lib/features/lottery/presentation/lottery_screens.dart
+flutter analyze lib/features/system/presentation/system_pages.dart
+flutter analyze test/checkout_screen_test.dart
+flutter test test/checkout_screen_test.dart
+git diff --check
+```
+
+Reward Claims exact color parity:
+
+- Reward Claims history and detail now use the exact Nuxt page/global CSS tones
+  for row title/body/date text, list divider, footer chevron, empty trophy
+  icon, empty/action text, primary and outline pills, detail receipt
+  labels/values/dividers, paid/pending/rejected status chips, transfer-note
+  surfaces, discounted tax/fee helper copy, and neutral/rejected admin-note
+  panels. This replaces the remaining theme-derived Flutter accents on this
+  page-local claim surface while leaving runtime config for shell/brand
+  fallback behavior intact.
+- Reward Claims API parsing, payout routing, realtime refresh, PIN/native
+  handoff, and history/detail navigation were unchanged.
+
+Reward Claims exact color verification:
+
+```sh
+dart format lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart test/reward_claims_screen_test.dart
+flutter analyze lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart test/reward_claims_screen_test.dart
+flutter test test/reward_claims_screen_test.dart --reporter compact
+git diff --check
+```
+
+Reward Claims money display parity:
+
+- Reward Claims history/detail money copy now follows the Nuxt
+  `formatMoney(amount) + " บาท"` display for this claim surface: whole-baht
+  prize, tax, fee, waived-helper, and net rows render without `.00`
+  (`3,940 บาท`, `20 บาท`, `39 บาท`). This keeps the reward claim receipt and
+  list closer to the Nuxt source while leaving Wallet/Topup/global money
+  formatting unchanged until those pages get their own Nuxt pass.
+- Reward Claims API parsing, payout routing, realtime refresh, PIN/native
+  handoff, and history/detail navigation were unchanged.
+
+Reward Claims money display verification:
+
+```sh
+dart format lib/features/reward_claims/presentation/reward_claim_localization.dart lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart test/reward_claims_screen_test.dart
+flutter analyze lib/features/reward_claims/presentation/reward_claim_localization.dart lib/features/reward_claims/presentation/reward_claims_screen.dart lib/features/reward_claims/presentation/reward_claim_detail_screen.dart test/reward_claims_screen_test.dart
+flutter test test/reward_claims_screen_test.dart
+flutter test test/data_parsing_test.dart --plain-name "reward claim maps money, prizes, payout, and paid bank status"
+git diff --check
+```
+
+Tickets money display and stub stability:
+
+- TicketStub reward copy, ticket detail prize rows, claim select hero,
+  claim confirm receipt, and claim processing receipt now follow the Nuxt
+  ticket-surface `formatMoney(amount) + " บาท"` display: whole-baht values
+  render without `.00` (`2,000 บาท`, `1,000 บาท`, `10 บาท`, `20 บาท`).
+  This is scoped to Tickets and the ticket reward-claim flow; Wallet/Topup
+  global money formatting remains unchanged until those pages get their own
+  Nuxt pass.
+- TicketStub draw/set metadata now stacks below the lottery number when both
+  values are present, fixing the mobile row overflow found during the focused
+  Tickets suite. Ticket row keys now include id plus number so duplicate
+  provider ids during history pagination do not collide.
+- Ticket search, current/history filtering, image modal routing, payout
+  selection, PIN/biometric reward-claim submission, conflict reload, backend
+  error copy, and API payloads were unchanged.
+
+Tickets money/stub verification:
+
+```sh
+dart format lib/features/tickets/presentation/ticket_localization.dart lib/features/tickets/presentation/tickets_screen.dart test/tickets_screen_test.dart
+flutter analyze lib/features/tickets/presentation/ticket_localization.dart lib/features/tickets/presentation/tickets_screen.dart test/tickets_screen_test.dart
+flutter test test/tickets_screen_test.dart
+git diff --check
+```
+
+Topup amount display parity:
+
+- `/topup` and `/topup/history` now follow Nuxt `useTopup.formatMoney`:
+  whole-baht values render without `.00`, while fractional values can still
+  keep two decimals. Waiting amount/bonus, quick-amount buttons, runtime
+  minimum hints, cancel-confirm amount, and history amount/bonus rows now show
+  values such as `750 บาท`, `1,000`, and `โบนัส 25 บาท` instead of Flutter's
+  global two-decimal money copy.
+- Wallet balance and wallet ledger remain on Nuxt's WalletBalanceCard/ledger
+  two-decimal money style (`500.00 บาท`) and were not changed in this slice.
+- Topup create/cancel/upload behavior, payment-provider handoff, realtime
+  refresh, history pagination, back allowlist, parser behavior, and API
+  payloads were unchanged.
+
+Topup amount display verification:
+
+```sh
+dart format lib/features/topup/presentation/topup_money_format.dart lib/features/topup/presentation/topup_screen.dart lib/features/topup/presentation/topup_history_screen.dart test/topup_screen_test.dart test/topup_history_screen_test.dart
+flutter analyze lib/features/topup/presentation/topup_money_format.dart lib/features/topup/presentation/topup_screen.dart lib/features/topup/presentation/topup_history_screen.dart test/topup_screen_test.dart test/topup_history_screen_test.dart
+flutter test test/topup_screen_test.dart test/topup_history_screen_test.dart
+git diff --check
+```
+
+Activity Claims exact color parity:
+
+- `/activity-claims` and `/activity-claims/{claim_id}` now use the exact Nuxt
+  page/global CSS tones for history row title/body/date text, row divider,
+  footer chevron, empty gift icon, empty/action text, primary and outline
+  pills, detail receipt brand, labels/values/dividers, paid/pending/rejected
+  status chips, transfer-note surfaces, money rows, and neutral/rejected
+  admin-note panels. This removes the remaining theme-derived Flutter accents
+  from this page-local Activity Claims surface while keeping runtime reviewer
+  copy and API behavior intact.
+- Activity Claims API parsing, payout summaries, realtime refresh, route
+  handoffs, claim modal/PIN behavior, and payout submission were unchanged.
+
+Activity Claims exact color verification:
+
+```sh
+dart format lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/activity_claims_screen_test.dart
+flutter analyze lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/activity_claims_screen_test.dart
+flutter test test/activity_claims_screen_test.dart --reporter compact
+git diff --check
+```
+
+Activity Claims money display parity:
+
+- `/activity-claims` and `/activity-claims/{claim_id}` now follow the Nuxt
+  `formatMoney(amount) + " บาท"` display used by the activity-claim history and
+  receipt pages: whole-baht claim amounts render without `.00` (`1,500 บาท`)
+  and fractional values do not get forced trailing zeroes (`1,500.5 บาท`).
+  This is scoped to Activity Claims list/detail receipts; the activity-detail
+  claim modal keeps Nuxt's `formatBaht` two-decimal copy (`2,000.00 บาท`) and
+  global Wallet/Activity cashback money formatting was not changed.
+- Activity Claims API parsing, payout summaries, realtime refresh, route
+  handoffs, claim modal/PIN behavior, and payout submission were unchanged.
+
+Activity Claims money display verification:
+
+```sh
+dart format lib/features/activity_claims/presentation/activity_claim_localization.dart lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/activity_claims_screen_test.dart
+flutter analyze lib/features/activity_claims/presentation/activity_claim_localization.dart lib/features/activity_claims/presentation/activity_claims_screen.dart lib/features/activity_claims/presentation/activity_claim_detail_screen.dart test/activity_claims_screen_test.dart
+flutter test test/activity_claims_screen_test.dart
+git diff --check
+```
+
+Activities PIN redirect parity:
+
+- `/activities` and `/activities/history` now mirror Nuxt
+  `redirectToActivityPin`: logged-in customers with `pinRequired` or
+  `pinSetupRequired` are sent to `/pin?redirect=...` before activity rights are
+  loaded. The history route preserves the selected draw query, for example
+  `/activities/history?game_id=game_prev`, and the repository is not called
+  with public activity data while the session is PIN-blocked.
+- Guest activity browsing and PIN-cleared authenticated activity rights loading,
+  sorting, history draw selection, activity detail routing, claim entry,
+  realtime, and parser behavior were unchanged.
+
+Activities PIN redirect verification:
+
+```sh
+dart format lib/features/activities/presentation/activities_screen.dart test/activities_screen_test.dart
+flutter analyze lib/features/activities/presentation/activities_screen.dart test/activities_screen_test.dart
+flutter test test/activities_screen_test.dart
+git diff --check
+```
+
+News/Home source-state parity:
+
+- Home news rail now mirrors Nuxt `pages/index.vue` by rendering all loaded
+  `newsItems` instead of applying a Flutter-only first-8 cap, and its card width
+  follows the Nuxt `min(72vw, 238px)` sizing without a 212px lower clamp.
+- `/news` list failures now match Nuxt `loadNews` catch behavior by showing the
+  same empty-news card, and `/news/:slug` failures match the Nuxt detail catch
+  by showing the same missing-news card instead of a separate Flutter retry
+  error panel.
+- News safe external-link handling, internal URL precedence, modal suppression,
+  image parsing/preference, Home data hiding on failure, and detail article body
+  rendering were unchanged.
+
+News/Home source-state parity verification:
+
+```sh
+dart format lib/features/home/presentation/home_screen.dart lib/features/news/presentation/news_screen.dart lib/features/news/presentation/news_detail_screen.dart
+flutter analyze lib/features/home/presentation/home_screen.dart lib/features/news/presentation/news_screen.dart lib/features/news/presentation/news_detail_screen.dart
+flutter test test/home_screen_test.dart test/news_card_test.dart test/news_detail_screen_test.dart test/announcement_modal_host_test.dart test/news_repository_test.dart
+git diff --check
+```
+
+News/Announcements exact source-color parity:
+
+- News list cards, list loading/empty panels, detail article/state cards,
+  fallback artwork, loading marks, announcement modal overlay, close button,
+  image shadow, and modal image fallback now use the exact Nuxt page-local
+  colors from `apps/customer/pages/news/index.vue`,
+  `apps/customer/pages/news/[slug].vue`, and
+  `apps/customer/components/AnnouncementModal.vue` instead of runtime theme
+  accents that could drift away from the customer blue identity.
+- `/news/:slug` now uses the Nuxt detail kicker copy (`ข่าวสารและกิจกรรม`)
+  separately from the list category (`ข่าวประชาสัมพันธ์`). Routing, parser
+  wrappers, safe internal/external target handling, modal suppression, and
+  Home rail behavior were not changed.
+
+News/Announcements exact source-color verification:
+
+```sh
+dart format lib/core/i18n/customer_localizations.dart lib/features/news/presentation/news_visual_tokens.dart lib/features/news/presentation/news_card.dart lib/features/news/presentation/news_detail_screen.dart lib/features/news/presentation/announcement_modal_host.dart test/news_card_test.dart test/news_detail_screen_test.dart test/announcement_modal_host_test.dart
+flutter analyze lib/core/i18n/customer_localizations.dart lib/features/news/presentation/news_visual_tokens.dart lib/features/news/presentation/news_card.dart lib/features/news/presentation/news_detail_screen.dart lib/features/news/presentation/announcement_modal_host.dart test/news_card_test.dart test/news_detail_screen_test.dart test/announcement_modal_host_test.dart
+flutter test test/news_card_test.dart test/news_detail_screen_test.dart test/announcement_modal_host_test.dart --reporter compact
+git diff --check
+```
+
+Header source-of-truth correction:
+
+- Do not apply the Activities-style expanded BlueHeader globally to every
+  secondary `AppShell` route. Flutter must choose the header pattern from the
+  Nuxt source route-by-route: pages that render Nuxt `BlueHeader` should opt in
+  with `heroContent`, while pages with custom Nuxt headers/back buttons should
+  keep those route-specific treatments.
+- `AppShell` still resolves automatic back actions from the real `GoRouter`
+  route path, but it no longer turns that back action into an expanded
+  BlueHeader by itself.
+- `/purchase-history` now explicitly matches Nuxt
+  `BlueHeader title="ประวัติการซื้อสลากฯ" back-to="/profile" min-height="176px"`
+  with a flush content sheet and no bottom navigation.
+- `/purchase-history/{order_id}` now follows Nuxt
+  `pages/purchase-history/[order_id].vue`: fullscreen blue receipt background,
+  absolute chevron-back to `/purchase-history`, Nuxt-like receipt card, centered
+  plain meta text, white save pill, no bottom navigation, and no extra ticket
+  list below the receipt.
+
+Header source-of-truth verification:
+
+```sh
+dart format lib/shared/widgets/app_shell.dart lib/features/purchase_history/presentation/purchase_history_screen.dart lib/features/purchase_history/presentation/purchase_history_detail_screen.dart test/app_shell_test.dart
+flutter analyze lib/shared/widgets/app_shell.dart lib/features/purchase_history/presentation/purchase_history_screen.dart lib/features/purchase_history/presentation/purchase_history_detail_screen.dart test/app_shell_test.dart
+flutter test test/app_shell_test.dart --reporter compact
+git diff --check -- apps/customer_flutter/lib/shared/widgets/app_shell.dart apps/customer_flutter/lib/features/purchase_history/presentation/purchase_history_screen.dart apps/customer_flutter/lib/features/purchase_history/presentation/purchase_history_detail_screen.dart apps/customer_flutter/test/app_shell_test.dart
+```
+
+Store lottery reservation hotfix:
+
+- Store-scoped lottery rows now preserve raw stock aliases and use the same
+  virtual-reference reservation handoff as Buy/Search. New reservations send
+  the `vstock:` reference through `LotteryStockItem.reserveStockItemId`.
+- Store selected/busy state now indexes `local_stock_item_id`, `stock_ref`,
+  `id`, `token`, and the derived reserve id, so the row remains selected when
+  `/customer/reservations` returns a materialized local stock id with the
+  original virtual ref in `stock_ref`.
+- The store cart dock test was updated to the current dock copy
+  (`จำนวนที่เลือก` + count), and a focused regression now covers vstock
+  selection changing the row to `เอาออก`.
+- Flutter web nginx now serves `index.html`, `flutter_bootstrap.js`,
+  `main.dart.js`, service-worker/version files, and route fallbacks with
+  no-cache headers so Chrome does not keep an old revenue-flow bundle after a
+  Docker rebuild. Static hashed/media/font assets still use the longer asset
+  cache rule.
+
+Store lottery reservation verification:
+
+```sh
+dart format lib/features/stores/data/store_models.dart lib/features/stores/presentation/store_screens.dart test/store_lotteries_screen_test.dart
+flutter analyze lib/features/stores/data/store_models.dart lib/features/stores/presentation/store_screens.dart test/store_lotteries_screen_test.dart
+flutter test test/store_lotteries_screen_test.dart --plain-name "store lotteries keeps vstock ticket selected after reservation"
+flutter test test/store_lotteries_screen_test.dart --plain-name "store lotteries shows Nuxt-style selected-cart dock"
+docker exec newpaotang-customer-1 nginx -t
+git diff --check
+```
+
 ## Current Progress Summary For New Chat
 
 If starting a new chat, use this summary:
@@ -5407,6 +7331,10 @@ screens still need Nuxt-shell structure review against `apps/customer`.
 
 Do not touch runtime DB newpaotang unless explicitly requested in the current
 turn. Use newpaotang_test for database tests.
+
+If you need to see the real UI or validate visual layout, use Chrome with the
+already-running Flutter Web app. Do not create screenshot automation unless the
+user explicitly asks for it.
 
 Key docs:
 - docs/customer-flutter-conversion-handoff.md

@@ -70,6 +70,38 @@ void main() {
     expect(inkWell.onTap, isNull);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('news card uses exact Nuxt list colors', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: _NewsCardTestApp(
+          item: NewsItem(
+            id: 'news_visual',
+            title: 'ข่าวสีตรงต้นฉบับ',
+            summary: 'รายละเอียดตามการ์ดข่าว Nuxt',
+            body: '',
+            slug: 'news-visual',
+            url: '',
+            coverUrl: '',
+            publishedAt: '2026-06-08T13:14:00+07:00',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_textColor(tester, 'ข่าวประชาสัมพันธ์'), const Color(0xFF0B69DC));
+    expect(_textColor(tester, 'ข่าวสีตรงต้นฉบับ'), const Color(0xFF17335F));
+    expect(
+      _textColor(tester, 'รายละเอียดตามการ์ดข่าว Nuxt'),
+      const Color(0xFF64748B),
+    );
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Color? _textColor(WidgetTester tester, String text) {
+  return tester.widget<Text>(find.text(text)).style?.color;
 }
 
 class _NewsCardTestApp extends StatelessWidget {

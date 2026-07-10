@@ -45,23 +45,18 @@ class ActivityImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final start = Color.lerp(colorScheme.primary, colorScheme.surface, 0.86) ??
-        colorScheme.primary.withValues(alpha: 0.14);
-    final end = Color.lerp(colorScheme.primary, colorScheme.surface, 0.94) ??
-        colorScheme.primary.withValues(alpha: 0.06);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [start, end],
+          colors: [Color(0xFFE8F6FF), Color(0xFFF4FBFF)],
         ),
       ),
       child: Center(
         child: Icon(
-          isCashback ? Icons.savings_outlined : Icons.grid_view_rounded,
-          color: colorScheme.primary,
+          Icons.card_giftcard_outlined,
+          color: Color(0xFF0B7FE8),
           size: iconSize,
         ),
       ),

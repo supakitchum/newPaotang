@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/customer_localizations.dart';
+import 'customer_gradient_button.dart';
 
 final appAlertControllerProvider =
     StateNotifierProvider<AppAlertController, AppAlertState>((ref) {
@@ -96,7 +97,7 @@ class _AppAlertOverlay extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final foreground = switch (state.variant) {
       AppAlertVariant.error => colors.error,
-      AppAlertVariant.warning => Colors.orange.shade700,
+      AppAlertVariant.warning => colors.tertiary,
       AppAlertVariant.info => colors.primary,
     };
     final icon = switch (state.variant) {
@@ -111,7 +112,7 @@ class _AppAlertOverlay extends ConsumerWidget {
 
     return Positioned.fill(
       child: Material(
-        color: Colors.black.withValues(alpha: 0.48),
+        color: colors.scrim.withValues(alpha: 0.48),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -122,11 +123,11 @@ class _AppAlertOverlay extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: colors.surface,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x26000000),
+                      color: colors.shadow.withValues(alpha: 0.15),
                       blurRadius: 28,
-                      offset: Offset(0, 16),
+                      offset: const Offset(0, 16),
                     ),
                   ],
                 ),
@@ -162,12 +163,15 @@ class _AppAlertOverlay extends ConsumerWidget {
                     const SizedBox(height: 22),
                     SizedBox(
                       width: double.infinity,
-                      child: FilledButton(
+                      child: CustomerGradientButton.text(
                         key: const ValueKey('app-alert-close-button'),
                         onPressed: () {
                           ref.read(appAlertControllerProvider.notifier).close();
                         },
-                        child: Text(button),
+                        height: 47,
+                        fontSize: 15,
+                        shadow: false,
+                        label: button,
                       ),
                     ),
                   ],

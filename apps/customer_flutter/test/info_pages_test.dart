@@ -10,6 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  Finder infoText(String text) => find.text(text, skipOffstage: false);
+  Finder infoTextContaining(String text) =>
+      find.textContaining(text, skipOffstage: false);
+
   testWidgets('legal content pages render runtime html as readable text', (
     tester,
   ) async {
@@ -69,23 +73,23 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ข้อตกลงการใช้งาน'), findsWidgets);
-    expect(find.text('ซื้อผ่าน Alpha Shop เท่านั้น'), findsOneWidget);
+    expect(infoText('ข้อตกลงการใช้งาน'), findsWidgets);
+    expect(infoText('ซื้อผ่าน Alpha Shop เท่านั้น'), findsOneWidget);
     expect(
-      find.text('ค่าบริการ & เงื่อนไขเป็นไปตามร้านค้า'),
+      infoText('ค่าบริการ & เงื่อนไขเป็นไปตามร้านค้า'),
       findsOneWidget,
     );
-    expect(find.textContaining('<h1>'), findsNothing);
-    expect(find.textContaining('&lt;'), findsNothing);
-    expect(find.textContaining('&amp;'), findsNothing);
+    expect(infoTextContaining('<h1>'), findsNothing);
+    expect(infoTextContaining('&lt;'), findsNothing);
+    expect(infoTextContaining('&amp;'), findsNothing);
 
     router.go('/privacy');
     await tester.pumpAndSettle();
 
-    expect(find.text('นโยบายข้อมูลส่วนบุคคล'), findsOneWidget);
-    expect(find.text('ใช้ข้อมูลเพื่อให้บริการ'), findsOneWidget);
-    expect(find.text('ติดต่อ support@example.test'), findsOneWidget);
-    expect(find.textContaining('<p>'), findsNothing);
+    expect(infoText('นโยบายข้อมูลส่วนบุคคล'), findsOneWidget);
+    expect(infoText('ใช้ข้อมูลเพื่อให้บริการ'), findsOneWidget);
+    expect(infoText('ติดต่อ support@example.test'), findsOneWidget);
+    expect(infoTextContaining('<p>'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -148,19 +152,19 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('เงื่อนไขบริการ'), findsWidgets);
-    expect(find.text('อ่าน รายละเอียด ให้ครบ'), findsOneWidget);
-    expect(find.text('ยอมรับผ่าน ทีมงาน'), findsOneWidget);
-    expect(find.textContaining('**'), findsNothing);
-    expect(find.textContaining('[ทีมงาน]'), findsNothing);
+    expect(infoText('เงื่อนไขบริการ'), findsWidgets);
+    expect(infoText('อ่าน รายละเอียด ให้ครบ'), findsOneWidget);
+    expect(infoText('ยอมรับผ่าน ทีมงาน'), findsOneWidget);
+    expect(infoTextContaining('**'), findsNothing);
+    expect(infoTextContaining('[ทีมงาน]'), findsNothing);
 
     router.go('/privacy');
     await tester.pumpAndSettle();
 
-    expect(find.text('นโยบายข้อมูล'), findsOneWidget);
-    expect(find.text('ใช้ ข้อมูล เพื่อให้บริการ'), findsOneWidget);
-    expect(find.text('ติดต่อ privacy@example.test'), findsOneWidget);
-    expect(find.textContaining('`'), findsNothing);
+    expect(infoText('นโยบายข้อมูล'), findsOneWidget);
+    expect(infoText('ใช้ ข้อมูล เพื่อให้บริการ'), findsOneWidget);
+    expect(infoText('ติดต่อ privacy@example.test'), findsOneWidget);
+    expect(infoTextContaining('`'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

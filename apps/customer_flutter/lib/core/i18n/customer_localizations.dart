@@ -230,8 +230,12 @@ class CustomerLocalizations {
   }
 
   String get socialLinkPhoneTitle => _text('auth.social.link.phone_title');
-  String get socialLinkPhoneSubtitle =>
-      _text('auth.social.link.phone_subtitle');
+  String socialLinkPhoneSubtitle(String provider) {
+    return _text(
+      'auth.social.link.phone_subtitle',
+    ).replaceAll('{provider}', provider);
+  }
+
   String socialLinkHeroSubtitle(String provider) {
     return _text('auth.social.link.hero_subtitle').replaceAll(
       '{provider}',
@@ -275,6 +279,7 @@ class CustomerLocalizations {
   String get socialProfileReady => _text('auth.social.profile.ready');
   String get socialProfileStatus => _text('auth.social.profile.status');
 
+  String get pinBrand => _text('pin.brand');
   String get pinTitle => _text('pin.title');
   String get pinDescription => _text('pin.description');
   String get pinSetupTitle => _text('pin.setup.title');
@@ -384,6 +389,10 @@ class CustomerLocalizations {
   String get homeNewsSubtitle => _text('home.news_card.subtitle');
   String get resultTitle => _text('result.title');
   String get resultFullTitle => _text('result.full_title');
+  String resultFullHeader(String date) {
+    return _text('result.full_header').replaceAll('{date}', date);
+  }
+
   String get resultLoading => _text('result.loading');
   String get resultHistoryTitle => _text('result.history_title');
   String get resultNoLatest => _text('result.no_latest');
@@ -392,6 +401,7 @@ class CustomerLocalizations {
   String get resultPayoutHint => _text('result.payout_hint');
   String get resultPendingDrawDate => _text('result.pending_draw_date');
   String get resultUnofficial => _text('result.unofficial');
+  String get resultWaitingTitle => _text('result.waiting_title');
   String resultDrawDate(String value) {
     return _text('result.draw_date').replaceAll('{date}', value);
   }
@@ -512,6 +522,7 @@ class CustomerLocalizations {
   String get newsTitle => _text('news.title');
   String get newsDetailTitle => _text('news.detail_title');
   String get newsCategory => _text('news.category');
+  String get newsDetailCategory => _text('news.detail_category');
   String get newsFallbackTitle => _text('news.fallback_title');
   String get newsLoading => _text('news.loading');
   String get newsLoadFailedTitle => _text('news.load_failed.title');
@@ -618,6 +629,7 @@ class CustomerLocalizations {
   String get lotterySearchResultsTitle => _text('lottery.search.results_title');
   String get lotterySearchResultsSubtitle =>
       _text('lottery.search.results_subtitle');
+  String get lotterySearchInitialHint => _text('lottery.search.initial_hint');
   String get lotteryMoreTitle => _text('lottery.more.title');
   String get lotteryMoreSheetTitle => _text('lottery.more.sheet_title');
   String get lotteryMoreNumberPrefix => _text('lottery.more.number_prefix');
@@ -813,9 +825,11 @@ class CustomerLocalizations {
   String get profileSectionRewardSettings =>
       _text('profile.section.reward_settings');
   String get profileSectionAbout => _text('profile.section.about');
+  String get profileSectionServices => _text('profile.section.services');
   String get profileBadgeNew => _text('profile.badge.new');
   String get profileBadgeRecommended => _text('profile.badge.recommended');
   String get profileRewardBank => _text('profile.menu.reward_bank');
+  String get profileRewardBankMenu => _text('profile.menu.reward_bank_menu');
   String get profileHowToContact => _text('profile.menu.how_to_contact');
   String get profileRewardBankLoadFailed =>
       _text('profile.reward_bank.load_failed');
@@ -1220,6 +1234,9 @@ class CustomerLocalizations {
   String get topupChannelBankDescription =>
       _text('topup.channel.bank.description');
   String get topupChannelDisabled => _text('topup.channel.disabled');
+  String get topupBankInstructionTitle => _text('topup.bank_instruction.title');
+  String get topupBankInstructionUnavailable =>
+      _text('topup.bank_instruction.unavailable');
   String get topupBankAccountFallback => _text('topup.bank_account_fallback');
   String get topupStatusPendingPayment => _text('topup.status.pending_payment');
   String get topupStatusPendingReview => _text('topup.status.pending_review');
@@ -1953,6 +1970,7 @@ class CustomerLocalizations {
   String get storesEmptyTitle => _text('stores.empty.title');
   String get storesEmptyMessage => _text('stores.empty.message');
   String get storesFallbackStoreName => _text('stores.fallback_store_name');
+  String get storesViewStore => _text('stores.view_store');
   String storeCode(String code) {
     return _text('stores.code').replaceAll('{code}', code);
   }
@@ -2269,6 +2287,7 @@ class CustomerLocalizations {
 
   String get ticketImageGovernmentLotteryEnglish =>
       _text('tickets.image.government_lottery_english');
+  String get ticketImageBrandFallback => _text('tickets.image.brand_fallback');
   String get ticketImageDigitalWatermark =>
       _text('tickets.image.digital_watermark');
   String get ticketImageDigitalNumberLabel =>
@@ -2458,7 +2477,7 @@ const _localizedValues = <String, Map<String, String>>{
         'ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว',
     'auth.login.form_title': 'ยืนยันตัวตน',
     'auth.login.form_description': 'ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ',
-    'auth.login.identifier_label': 'เบอร์โทรศัพท์หรืออีเมล',
+    'auth.login.identifier_label': 'เบอร์โทรศัพท์',
     'auth.login.identifier_hint': 'กรอกเบอร์โทรศัพท์',
     'auth.login.password_label': 'รหัสผ่าน',
     'auth.login.password_hint': 'กรอกรหัสผ่าน',
@@ -2509,16 +2528,16 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.register.confirm_password_hint': 'กรอกรหัสผ่านอีกครั้ง',
     'auth.register.show_password': 'แสดงรหัสผ่าน',
     'auth.register.hide_password': 'ซ่อนรหัสผ่าน',
-    'auth.register.terms': 'ยอมรับข้อตกลงและเงื่อนไขการใช้งาน',
-    'auth.register.otp_title': 'ยืนยัน OTP',
+    'auth.register.terms': 'ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว',
+    'auth.register.otp_title': 'ยืนยันเบอร์โทรศัพท์',
     'auth.register.otp_hint': 'กรอกรหัส OTP',
     'auth.register.submit': 'สมัครใช้งาน',
-    'auth.register.submit_with_otp': 'ยืนยันและสมัครใช้งาน',
+    'auth.register.submit_with_otp': 'ยืนยัน OTP และสมัครใช้งาน',
     'auth.register.submitting': 'กำลังสมัครใช้งาน',
     'auth.register.login_link': 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',
     'auth.register.login_prompt': 'มีบัญชีอยู่แล้ว?',
     'auth.register.terms_required':
-        'กรุณายอมรับข้อตกลงและเงื่อนไขก่อนสมัครใช้งาน',
+        'ต้องยอมรับเงื่อนไขการใช้งานก่อนสมัครสมาชิก',
     'auth.register.failed':
         'สมัครใช้งานไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่',
     'auth.forgot.title': 'ลืมรหัสผ่าน',
@@ -2589,7 +2608,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.link.title': 'ผูกบัญชีด้วย {provider}',
     'auth.social.link.phone_title': 'ยืนยันเบอร์โทรศัพท์',
     'auth.social.link.phone_subtitle':
-        'หากเบอร์นี้มีบัญชีอยู่แล้ว ระบบจะตรวจรหัสผ่านเดิมและผูกบัญชีโซเชียลเข้ากับบัญชีนั้นทันที',
+        'หากเบอร์นี้มีบัญชีอยู่แล้ว ระบบจะตรวจรหัสผ่านเดิมและผูกบัญชี {provider} เข้ากับบัญชีนั้นทันที',
     'auth.social.link.hero_subtitle':
         'ยืนยันเบอร์โทรศัพท์เพื่อใช้งานบัญชีเดิม หรือสร้างบัญชีใหม่ด้วย {provider}',
     'auth.social.link.password_hint': 'รหัสผ่านบัญชีเดิม หรือรหัสผ่านใหม่',
@@ -2603,6 +2622,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.profile.fallback_name': 'ลูกค้า {provider}',
     'auth.social.profile.ready': 'พร้อมผูกบัญชีและเข้าสู่ระบบ',
     'auth.social.profile.status': 'พร้อมผูกบัญชี',
+    'pin.brand': 'เป๋าตัง',
     'pin.title': 'ใส่รหัส PIN 6 หลัก',
     'pin.description': 'เพื่อทำรายการต่อ',
     'pin.setup.title': 'ตั้งรหัส PIN 6 หลัก',
@@ -2686,6 +2706,7 @@ const _localizedValues = <String, Map<String, String>>{
     'home.news_card.subtitle': 'ประกาศและข่าวประชาสัมพันธ์จากร้านค้า',
     'result.title': 'ผลรางวัลสลากฯ',
     'result.full_title': 'ผลรางวัลแบบเต็ม',
+    'result.full_header': 'ผลรางวัลงวดวันที่ {date}',
     'result.loading': 'กำลังโหลดผลรางวัล...',
     'result.history_title': 'ผลรางวัลสลากฯ ย้อนหลัง',
     'result.no_latest': 'ยังไม่มีข้อมูลผลรางวัลล่าสุด',
@@ -2695,6 +2716,7 @@ const _localizedValues = <String, Map<String, String>>{
         'คุณสามารถขึ้นเงินรางวัลได้ที่ ธนาคารกรุงไทย ธ.ก.ส. ออมสิน ทุกสาขา หรือสำนักงานสลากกินแบ่งรัฐบาล',
     'result.pending_draw_date': 'รอข้อมูลวันออกผล',
     'result.unofficial': 'ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ',
+    'result.waiting_title': 'กำลังรอออกผล',
     'result.draw_date': 'งวดวันที่ {date}',
     'result.prize_each': 'รางวัลละ {amount}',
     'result.reward.reward_1': 'รางวัลที่ 1',
@@ -2756,7 +2778,7 @@ const _localizedValues = <String, Map<String, String>>{
     'success.title': 'ทำรายการสำเร็จ',
     'success.lottery_product_label': '',
     'success.purchase_title': 'ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ',
-    'success.purchase_subtitle': 'คุณสามารถดูสลากฯ ได้ที่เมนู สลากฯ ของฉัน',
+    'success.purchase_subtitle': 'คุณสามารถดูสลากฯ ได้ที่เมนู ‘สลากฯ ของฉัน’',
     'success.view_tickets': 'ดูสลากฯ ของฉัน',
     'success.save_receipt': 'บันทึก',
     'success.receipt_saved': 'บันทึกข้อมูลการชำระเงินแล้ว',
@@ -2770,6 +2792,7 @@ const _localizedValues = <String, Map<String, String>>{
     'news.title': 'ข่าวสาร',
     'news.detail_title': 'รายละเอียดข่าวสาร',
     'news.category': 'ข่าวประชาสัมพันธ์',
+    'news.detail_category': 'ข่าวสารและกิจกรรม',
     'news.fallback_title': 'ข่าวประชาสัมพันธ์',
     'news.loading': 'กำลังโหลดข่าวสาร',
     'news.load_failed.title': 'โหลดข่าวสารไม่สำเร็จ',
@@ -2882,6 +2905,8 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.search.results_title': 'ผลการค้นหาเลข',
     'lottery.search.results_subtitle':
         'กดดูเลขนี้เพิ่มเติมเพื่อค้นหาเลขเดียวกันอีกครั้ง',
+    'lottery.search.initial_hint':
+        'คุณสามารถกรอกเลขสลากฯ\nที่ต้องการค้นหาอย่างน้อย 1 หลัก',
     'lottery.more.title': 'ดูเลขนี้เพิ่มเติม',
     'lottery.more.sheet_title': 'รายการสลากฯ',
     'lottery.more.number_prefix': 'สลากฯ เลข',
@@ -3012,9 +3037,11 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.section.history': 'ประวัติ',
     'profile.section.reward_settings': 'ตั้งค่ารับเงินรางวัล',
     'profile.section.about': 'เกี่ยวกับแอปฯ',
+    'profile.section.services': 'บริการอื่นๆ',
     'profile.badge.new': 'ใหม่',
     'profile.badge.recommended': 'แนะนำ',
     'profile.menu.reward_bank': 'บัญชีรับเงินรางวัล',
+    'profile.menu.reward_bank_menu': 'ช่องทางรับเงินรางวัล',
     'profile.menu.how_to_contact': 'วิธีซื้อขายสลากฯ และการติดต่อ',
     'profile.reward_bank.load_failed': 'โหลดบัญชีรับเงินไม่สำเร็จ',
     'profile.reward_bank.incomplete':
@@ -3170,7 +3197,7 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.biometric.meta.last_used': 'ใช้งานล่าสุด',
     'profile.biometric.revoke_device': 'ยกเลิกอุปกรณ์นี้',
     'profile.biometric.load_failed': 'โหลดอุปกรณ์ biometric ไม่สำเร็จ',
-    'profile.menu.purchase_history': 'ประวัติการซื้อสลาก',
+    'profile.menu.purchase_history': 'ประวัติการซื้อสลากฯ',
     'profile.menu.news_all': 'ข่าวสารทั้งหมด',
     'profile.menu.terms': 'ข้อตกลงและเงื่อนไข',
     'profile.menu.privacy_policy': 'นโยบายความเป็นส่วนตัว',
@@ -3286,6 +3313,9 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.channel.bank.label': 'โอนธนาคาร',
     'topup.channel.bank.description': 'โอนเข้าบัญชีร้านค้าแล้วแนบสลิปภายหลัง',
     'topup.channel.disabled': 'ปิดบริการชั่วคราว',
+    'topup.bank_instruction.title': 'วิธีการเติมเงินผ่านธนาคาร',
+    'topup.bank_instruction.unavailable':
+        'ยังไม่มีข้อมูลบัญชีรับโอนสำหรับช่องทางนี้',
     'topup.bank_account_fallback': 'บัญชีรับโอน',
     'topup.status.pending_payment': 'รอชำระ',
     'topup.status.pending_review': 'รอตรวจสอบ',
@@ -3668,6 +3698,7 @@ const _localizedValues = <String, Map<String, String>>{
     'stores.empty.title': 'ไม่พบร้านค้า',
     'stores.empty.message': 'ลองเปลี่ยนคำค้นหา หรือกลับมาใหม่อีกครั้ง',
     'stores.fallback_store_name': 'ร้านสลากฯ',
+    'stores.view_store': 'ดูร้านค้า',
     'stores.code': 'รหัสร้าน {code}',
     'stores.lotteries.title': 'ร้านสลากหกหลักแบบดิจิทัล',
     'stores.lotteries.subtitle': 'ค้นหาเลขสลากฯ ในร้านค้า',
@@ -3896,6 +3927,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.image.close_preview': 'ปิดรูปสลากฯ',
     'tickets.image.alt': 'รูปสลากฯ เลข {number}',
     'tickets.image.government_lottery_english': 'THAI GOVERNMENT LOTTERY',
+    'tickets.image.brand_fallback': 'GLO',
     'tickets.image.digital_watermark': 'DIGITAL',
     'tickets.image.digital_number_label': 'เลขสลากฯ ดิจิทัล',
     'tickets.image.current_draw': 'งวดปัจจุบัน',
@@ -4007,7 +4039,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.form_title': 'Verify your identity',
     'auth.login.form_description':
         'Use the phone number linked to your account.',
-    'auth.login.identifier_label': 'Phone or email',
+    'auth.login.identifier_label': 'Phone number',
     'auth.login.identifier_hint': 'Enter your phone number',
     'auth.login.password_label': 'Password',
     'auth.login.password_hint': 'Enter your password',
@@ -4059,16 +4091,16 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.register.confirm_password_hint': 'Enter password again',
     'auth.register.show_password': 'Show password',
     'auth.register.hide_password': 'Hide password',
-    'auth.register.terms': 'Accept terms and conditions',
-    'auth.register.otp_title': 'Verify OTP',
+    'auth.register.terms': 'Accept terms of service and privacy policy',
+    'auth.register.otp_title': 'Verify phone number',
     'auth.register.otp_hint': 'Enter OTP',
     'auth.register.submit': 'Create account',
-    'auth.register.submit_with_otp': 'Verify and create account',
+    'auth.register.submit_with_otp': 'Verify OTP and create account',
     'auth.register.submitting': 'Creating account',
     'auth.register.login_link': 'Already have an account? Sign in',
     'auth.register.login_prompt': 'Already have an account?',
     'auth.register.terms_required':
-        'Please accept the terms and conditions before creating an account.',
+        'Please accept the terms before creating an account.',
     'auth.register.failed':
         'Could not create account. Please check your details and try again.',
     'auth.forgot.title': 'Forgot password',
@@ -4143,7 +4175,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.link.title': 'Link account with {provider}',
     'auth.social.link.phone_title': 'Verify phone number',
     'auth.social.link.phone_subtitle':
-        'If this phone already has an account, we will check the existing password and link this social account immediately.',
+        'If this phone already has an account, we will check the existing password and link this {provider} account immediately.',
     'auth.social.link.hero_subtitle':
         'Verify your phone number to use an existing account or create a new account with {provider}.',
     'auth.social.link.password_hint':
@@ -4159,6 +4191,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.profile.fallback_name': '{provider} customer',
     'auth.social.profile.ready': 'Ready to link account and sign in',
     'auth.social.profile.status': 'Ready to link',
+    'pin.brand': 'Paotang',
     'pin.title': 'Enter 6-digit PIN',
     'pin.description': 'Enter your 6-digit PIN to continue.',
     'pin.setup.title': 'Set 6-digit PIN',
@@ -4245,6 +4278,7 @@ const _localizedValues = <String, Map<String, String>>{
     'home.news_card.subtitle': 'Announcements and updates from this store',
     'result.title': 'Lottery results',
     'result.full_title': 'Full lottery results',
+    'result.full_header': 'Lottery results for {date}',
     'result.loading': 'Loading lottery results...',
     'result.history_title': 'Past lottery results',
     'result.no_latest': 'No latest lottery results yet',
@@ -4254,6 +4288,7 @@ const _localizedValues = <String, Map<String, String>>{
         'You can claim rewards at any Krungthai Bank, BAAC, Government Savings Bank branch, or the Government Lottery Office.',
     'result.pending_draw_date': 'Draw date pending',
     'result.unofficial': 'These are unofficial live results.',
+    'result.waiting_title': 'Waiting for result announcement',
     'result.draw_date': 'Draw date {date}',
     'result.prize_each': '{amount} per prize',
     'result.reward.reward_1': 'First prize',
@@ -4329,6 +4364,7 @@ const _localizedValues = <String, Map<String, String>>{
     'news.title': 'News',
     'news.detail_title': 'News details',
     'news.category': 'Announcement',
+    'news.detail_category': 'News and activities',
     'news.fallback_title': 'Announcement',
     'news.loading': 'Loading news',
     'news.load_failed.title': 'Could not load news',
@@ -4443,6 +4479,8 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.search.results_title': 'Search results',
     'lottery.search.results_subtitle':
         'Tap view more to search this number again.',
+    'lottery.search.initial_hint':
+        'Enter at least 1 lottery digit\nto start searching.',
     'lottery.more.title': 'View more like this',
     'lottery.more.sheet_title': 'Lottery list',
     'lottery.more.number_prefix': 'Lottery number',
@@ -4578,9 +4616,11 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.section.history': 'History',
     'profile.section.reward_settings': 'Reward payout settings',
     'profile.section.about': 'About this app',
+    'profile.section.services': 'Other services',
     'profile.badge.new': 'New',
     'profile.badge.recommended': 'Recommended',
     'profile.menu.reward_bank': 'Reward payout account',
+    'profile.menu.reward_bank_menu': 'Reward payout channel',
     'profile.menu.how_to_contact': 'How to buy/sell tickets and contact',
     'profile.reward_bank.load_failed': 'Could not load payout account.',
     'profile.reward_bank.incomplete':
@@ -4863,6 +4903,9 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.channel.bank.description':
         'Transfer to the store account and attach a slip afterward.',
     'topup.channel.disabled': 'Temporarily unavailable',
+    'topup.bank_instruction.title': 'How to top up through a bank',
+    'topup.bank_instruction.unavailable':
+        'Receiving account details are not available for this channel yet.',
     'topup.bank_account_fallback': 'Receiving account',
     'topup.status.pending_payment': 'Pending payment',
     'topup.status.pending_review': 'Pending review',
@@ -5255,6 +5298,7 @@ const _localizedValues = <String, Map<String, String>>{
     'stores.empty.title': 'No stores found',
     'stores.empty.message': 'Try another keyword or check back later.',
     'stores.fallback_store_name': 'Lottery store',
+    'stores.view_store': 'View store',
     'stores.code': 'Store code {code}',
     'stores.lotteries.title': 'Digital six-digit lottery store',
     'stores.lotteries.subtitle': 'Search lottery numbers in this store',
@@ -5497,6 +5541,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.image.close_preview': 'Close ticket image',
     'tickets.image.alt': 'Ticket image for number {number}',
     'tickets.image.government_lottery_english': 'THAI GOVERNMENT LOTTERY',
+    'tickets.image.brand_fallback': 'GLO',
     'tickets.image.digital_watermark': 'DIGITAL',
     'tickets.image.digital_number_label': 'Digital lottery number',
     'tickets.image.current_draw': 'Current draw',

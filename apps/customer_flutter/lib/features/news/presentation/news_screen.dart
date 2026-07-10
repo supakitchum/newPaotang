@@ -6,7 +6,6 @@ import '../../../shared/widgets/app_shell.dart';
 import '../data/news_models.dart';
 import '../data/news_repository.dart';
 import 'news_card.dart';
-import 'news_error_message.dart';
 import 'news_page_shell.dart';
 import 'news_visual_tokens.dart';
 
@@ -29,6 +28,9 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
       title: l10n.newsTitle,
       currentPath: '/news',
       backPath: '/profile',
+      heroMinHeight: NewsPageShell.heroMinHeight,
+      heroSheetOverlap: NewsPageShell.sheetOverlap,
+      heroContent: const SizedBox.shrink(),
       child: NewsPageShell(
         child: news.when(
           data: (items) {
@@ -40,24 +42,17 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                   NewsInlineNotice(message: _noticeMessage),
                   const SizedBox(height: 12),
                 ],
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _NewsListCard(
-                      item: item,
-                      onOpenFailed: () => setState(
-                        () => _noticeMessage = context.l10n.newsOpenFailed,
-                      ),
-                    ),
+                _NewsCardsList(
+                  items: items,
+                  onOpenFailed: () => setState(
+                    () => _noticeMessage = context.l10n.newsOpenFailed,
                   ),
+                ),
               ],
             );
           },
           loading: () => const _NewsListStatePanel.loading(),
-          error: (error, _) => _NewsListStatePanel.error(
-            message: newsErrorMessage(error, l10n.newsLoadFailedMessage),
-            onRetry: () => ref.invalidate(newsListProvider),
-          ),
+          error: (_, __) => const _EmptyNewsCard(),
         ),
       ),
     );
@@ -83,27 +78,17 @@ class _NewsListStatePanel extends StatelessWidget {
     required this.message,
     this.title,
     this.icon,
-  })  : onRetry = null,
-        loading = false;
+  }) : loading = false;
 
   const _NewsListStatePanel.loading()
       : message = '',
         title = null,
         icon = null,
-        onRetry = null,
         loading = true;
-
-  const _NewsListStatePanel.error({
-    required this.message,
-    required this.onRetry,
-  })  : title = null,
-        icon = Icons.error_outline,
-        loading = false;
 
   final IconData? icon;
   final String? title;
   final String message;
-  final VoidCallback? onRetry;
   final bool loading;
 
   @override
@@ -119,10 +104,8 @@ class _NewsListStatePanel extends StatelessWidget {
         : message.isEmpty
             ? l10n.commonLoadFailed
             : message;
-    final effectiveTitle =
-        icon == Icons.error_outline ? l10n.newsLoadFailedTitle : title;
-    final iconColor =
-        icon == Icons.error_outline ? colorScheme.error : colorScheme.primary;
+    final effectiveTitle = title;
+    final iconColor = colorScheme.primary;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -166,9 +149,7 @@ class _NewsListStatePanel extends StatelessWidget {
                 effectiveTitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: icon == Icons.error_outline
-                          ? colorScheme.error
-                          : titleColor,
+                      color: titleColor,
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                       height: 1.25,
@@ -186,17 +167,34 @@ class _NewsListStatePanel extends StatelessWidget {
                     height: 1.5,
                   ),
             ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 16),
-              OutlinedButton(
-                style: _newsOutlinePillStyle(context),
-                onPressed: onRetry,
-                child: Text(l10n.commonRetry),
-              ),
-            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NewsCardsList extends StatelessWidget {
+  const _NewsCardsList({
+    required this.items,
+    required this.onOpenFailed,
+  });
+
+  final List<NewsItem> items;
+  final VoidCallback onOpenFailed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < items.length; index++) ...[
+          _NewsListCard(
+            item: items[index],
+            onOpenFailed: onOpenFailed,
+          ),
+          if (index < items.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }
@@ -218,16 +216,4 @@ class _NewsListCard extends StatelessWidget {
       onOpenFailed: onOpenFailed,
     );
   }
-}
-
-ButtonStyle _newsOutlinePillStyle(BuildContext context) {
-  return OutlinedButton.styleFrom(
-    minimumSize: const Size(160, 44),
-    padding: const EdgeInsets.symmetric(horizontal: 18),
-    shape: const StadiumBorder(),
-    side: BorderSide(color: Theme.of(context).colorScheme.primary),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
-        ),
-  );
 }

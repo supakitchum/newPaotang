@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
@@ -224,8 +225,7 @@ class _AutoRewardVisual extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final top = Color.lerp(colorScheme.primary, colorScheme.secondary, 0.58) ??
-        colorScheme.primary;
+    final top = AppTheme.heroGradientEnd(colorScheme.primary);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -685,16 +685,9 @@ class _AutoRewardSelect extends StatelessWidget {
     return AppShell(
       title: l10n.profileAutoReward,
       currentPath: '/profile',
-      backPath: '/profile',
       sensitive: true,
+      fullScreen: true,
       showBottomNavigation: false,
-      actions: [
-        IconButton(
-          onPressed: onInfo,
-          icon: const Icon(Icons.info_outline),
-          tooltip: l10n.profileAutoRewardInfoTooltip,
-        ),
-      ],
       child: Column(
         children: [
           Expanded(
@@ -702,7 +695,10 @@ class _AutoRewardSelect extends StatelessWidget {
               padding: EdgeInsets.zero,
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                const _AutoRewardSelectHero(),
+                _AutoRewardSelectHero(
+                  onBack: () => context.go('/profile'),
+                  onInfo: onInfo,
+                ),
                 _AutoRewardSelectSheet(
                   child: CustomerPageBody(
                     top: 28,
@@ -812,11 +808,19 @@ class _AutoRewardSelect extends StatelessWidget {
 }
 
 class _AutoRewardSelectHero extends StatelessWidget {
-  const _AutoRewardSelectHero();
+  const _AutoRewardSelectHero({
+    required this.onBack,
+    required this.onInfo,
+  });
+
+  final VoidCallback onBack;
+  final VoidCallback onInfo;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final topInset = MediaQuery.paddingOf(context).top;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -824,12 +828,104 @@ class _AutoRewardSelectHero extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
+            AppTheme.heroGradientEnd(colorScheme.primary),
           ],
         ),
       ),
-      child: const SizedBox(height: 90),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, topInset + 58, 20, 34),
+            child: _AutoRewardHeroTitleRow(
+              title: l10n.profileAutoReward,
+              onBack: onBack,
+              onInfo: onInfo,
+              infoTooltip: l10n.profileAutoRewardInfoTooltip,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AutoRewardHeroTitleRow extends StatelessWidget {
+  const _AutoRewardHeroTitleRow({
+    required this.title,
+    required this.onBack,
+    required this.onInfo,
+    required this.infoTooltip,
+  });
+
+  final String title;
+  final VoidCallback onBack;
+  final VoidCallback onInfo;
+  final String infoTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 42,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 0,
+            child: IconButton(
+              tooltip: context.l10n.commonBack,
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
+              color: colorScheme.onPrimary,
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 54),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            child: IconButton(
+              tooltip: infoTooltip,
+              onPressed: onInfo,
+              icon: const Icon(Icons.info_outline, size: 27),
+              color: colorScheme.onPrimary,
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

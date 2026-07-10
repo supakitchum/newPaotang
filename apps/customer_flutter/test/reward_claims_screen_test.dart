@@ -39,8 +39,12 @@ void main() {
     expect(repository.listCalls, 1);
     expect(find.text('ประวัติขึ้นเงินรางวัลสลากดิจิทัล'), findsOneWidget);
     expect(find.text('เงินรางวัลสลากฯ'), findsOneWidget);
-    expect(find.text('3,940.00 บาท'), findsOneWidget);
+    expect(find.text('3,940 บาท'), findsOneWidget);
     expect(find.text('โอนเงินสำเร็จ'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('โอนเงินสำเร็จ')).style?.color,
+      const Color(0xFF28A81E),
+    );
     expect(find.text('รางวัลเลขท้าย 2 ตัว'), findsOneWidget);
     expect(find.text('รางวัลเลขหน้า 3 ตัว'), findsOneWidget);
     expect(find.text('รับผ่านบัญชีกรุงไทย'), findsOneWidget);
@@ -59,6 +63,10 @@ void main() {
       ),
       findsNothing,
     );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.chevron_right)).color,
+      const Color(0xFF3B9CFF),
+    );
 
     await tester.tap(find.text('โหลดเพิ่มเติม'));
     await tester.pumpAndSettle();
@@ -66,6 +74,10 @@ void main() {
     expect(repository.listCalls, 2);
     expect(repository.cursors, [null, 'cursor_2']);
     expect(find.text('ยกเลิกรายการ'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('ยกเลิกรายการ')).style?.color,
+      const Color(0xFFED2C25),
+    );
     expect(find.text('รับเข้า Primary wallet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -87,7 +99,7 @@ void main() {
 
     expect(find.text('ประวัติขึ้นเงินรางวัลสลากดิจิทัล'), findsOneWidget);
     expect(find.text('เงินรางวัลสลากฯ'), findsOneWidget);
-    expect(find.text('3,940.00 บาท'), findsOneWidget);
+    expect(find.text('3,940 บาท'), findsOneWidget);
     expect(find.text('โอนเงินสำเร็จ'), findsOneWidget);
     expect(find.byIcon(Icons.chevron_right), findsOneWidget);
     expect(find.byType(Card), findsNothing);
@@ -248,18 +260,31 @@ void main() {
       find.text('โอนเงินรางวัลเข้าบัญชีผู้รับเงินเรียบร้อยแล้ว'),
       findsOneWidget,
     );
+    expect(
+      tester
+          .widget<Text>(
+            find.text('โอนเงินรางวัลเข้าบัญชีผู้รับเงินเรียบร้อยแล้ว'),
+          )
+          .style
+          ?.color,
+      const Color(0xFF28A81E),
+    );
     expect(find.text('สลากฯ งวดวันที่'), findsOneWidget);
     expect(find.text('740000'), findsOneWidget);
     expect(find.textContaining('รางวัลเลขท้าย 2 ตัว'), findsOneWidget);
     expect(find.text('ค่าภาษีถอนเงิน (0.5%)'), findsOneWidget);
-    expect(find.text('20.00 บาท'), findsOneWidget);
-    expect(find.text('ลดให้ 20.00 บาท'), findsOneWidget);
+    expect(find.text('20 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 20 บาท'), findsOneWidget);
     expect(find.text('ค่าธรรมเนียม (1%)'), findsOneWidget);
-    expect(find.text('39.00 บาท'), findsOneWidget);
-    expect(find.text('ลดให้ 39.00 บาท'), findsOneWidget);
+    expect(find.text('39 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 39 บาท'), findsOneWidget);
     expect(find.text('0 บาท'), findsNWidgets(2));
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(find.text('ตรวจสอบเอกสารแล้ว'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('ตรวจสอบเอกสารแล้ว')).style?.color,
+      const Color(0xFF475569),
+    );
     expect(find.byType(Card), findsNothing);
 
     await tester.tap(find.byTooltip('ย้อนกลับ'));

@@ -112,9 +112,7 @@ class NewsSideCard extends ConsumerWidget {
                                         .textTheme
                                         .labelSmall
                                         ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
+                                          color: newsCategoryColor(context),
                                           fontSize: 11,
                                           fontWeight: FontWeight.w900,
                                           height: 1,
@@ -179,7 +177,7 @@ class NewsSideCard extends ConsumerWidget {
                           width: resolvedChevronWidth,
                           child: Icon(
                             Icons.chevron_right,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: newsCategoryColor(context),
                             size: 22,
                           ),
                         ),

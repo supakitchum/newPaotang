@@ -342,9 +342,9 @@ class _WaitingResultInlineNotice extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F5),
+        color: colorScheme.errorContainer.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFECACA)),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.18)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -441,12 +441,12 @@ BoxDecoration _waitingResultSurfaceDecoration(
 }) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
-    color: Colors.white,
+    color: colorScheme.surface,
     borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
+    border: Border.all(color: colorScheme.outlineVariant),
     boxShadow: [
       BoxShadow(
-        color: colorScheme.primary.withValues(alpha: 0.08),
+        color: colorScheme.shadow.withValues(alpha: 0.08),
         blurRadius: 24,
         offset: const Offset(0, 10),
       ),

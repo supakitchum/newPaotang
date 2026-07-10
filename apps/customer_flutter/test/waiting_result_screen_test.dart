@@ -64,21 +64,25 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('หมดเวลาจำหน่ายสลากแล้ว'), findsOneWidget);
-    expect(find.text('L6'), findsOneWidget);
-    expect(find.text('รอประกาศผลรางวัล'), findsOneWidget);
-    expect(find.text('xxxxxx'), findsOneWidget);
-    expect(find.text('xx'), findsOneWidget);
+    expect(_text('หมดเวลาจำหน่ายสลากแล้ว'), findsOneWidget);
+    expect(_text('L6'), findsOneWidget);
+    expect(_text('รอประกาศผลรางวัล'), findsOneWidget);
+    expect(_text('xxxxxx'), findsOneWidget);
+    expect(_text('xx'), findsOneWidget);
     expect(
-      find.text('ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ'),
+      _text('ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ'),
       findsNothing,
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.drag(
+      find.byType(ListView),
+      const Offset(0, -500),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('ถ่ายทอดสดประกาศผล'), findsOneWidget);
-    expect(find.text('เปิดถ่ายทอดสด'), findsOneWidget);
+    expect(_text('ถ่ายทอดสดประกาศผล'), findsOneWidget);
+    expect(_text('เปิดถ่ายทอดสด'), findsOneWidget);
   });
 
   testWidgets('waiting result shows live empty state when not configured', (
@@ -117,13 +121,17 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('xxxxxx'), findsOneWidget);
+    expect(_text('xxxxxx'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.drag(
+      find.byType(ListView),
+      const Offset(0, -500),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('ระบบจะแสดงถ่ายทอดสดเมื่อพร้อมใช้งาน'), findsOneWidget);
-    expect(find.text('เปิดถ่ายทอดสด'), findsNothing);
+    expect(_text('ระบบจะแสดงถ่ายทอดสดเมื่อพร้อมใช้งาน'), findsOneWidget);
+    expect(_text('เปิดถ่ายทอดสด'), findsNothing);
   });
 
   testWidgets('waiting result consumes sale closed query like Nuxt', (
@@ -182,9 +190,9 @@ void main() {
       router.routeInformationProvider.value.uri.toString(),
       '/waiting-result',
     );
-    expect(find.text('หมดเวลาจำหน่ายสลากแล้ว'), findsNWidgets(2));
+    expect(_text('หมดเวลาจำหน่ายสลากแล้ว'), findsNWidgets(2));
     expect(
-      find.text('ระบบพาไปหน้ารอออกผลแล้ว กรุณาตรวจผลรางวัลหลังประกาศผล'),
+      _text('ระบบพาไปหน้ารอออกผลแล้ว กรุณาตรวจผลรางวัลหลังประกาศผล'),
       findsOneWidget,
     );
     expect(
@@ -193,3 +201,5 @@ void main() {
     );
   });
 }
+
+Finder _text(String value) => find.text(value, skipOffstage: false);

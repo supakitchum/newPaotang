@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -111,6 +112,15 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       data: (data) => AppTheme.light(tokens: data.theme),
       orElse: AppTheme.light,
     );
+    final systemUiOverlayStyle = SystemUiOverlayStyle(
+      statusBarColor: AppTheme.appBlue,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: AppTheme.appSheet,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarDividerColor: AppTheme.appBorder,
+      systemNavigationBarContrastEnforced: false,
+    );
     final screenSecurityEnabled = bootstrap.maybeWhen(
       data: (data) =>
           mobileNativeScreenSecurityAllowedForPlatform(data, platformKey),
@@ -130,31 +140,34 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       routerConfig: router,
       builder: (context, child) {
         final appChild = child ?? const SizedBox.shrink();
-        return CustomerDeepLinkListener(
-          child: AppSplashHost(
-            child: CustomerRealtimeMonitor(
-              child: ResultRealtimeMonitor(
-                child: LotteryStockRealtimeMonitor(
-                  child: CustomerRevenueRealtimeMonitor(
-                    child: CustomerTopupRealtimeMonitor(
-                      child: CustomerClaimRealtimeMonitor(
-                        child: PublicVisitMonitor(
-                          router: router,
-                          child: AffiliateReferralMonitor(
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: systemUiOverlayStyle,
+          child: CustomerDeepLinkListener(
+            child: AppSplashHost(
+              child: CustomerRealtimeMonitor(
+                child: ResultRealtimeMonitor(
+                  child: LotteryStockRealtimeMonitor(
+                    child: CustomerRevenueRealtimeMonitor(
+                      child: CustomerTopupRealtimeMonitor(
+                        child: CustomerClaimRealtimeMonitor(
+                          child: PublicVisitMonitor(
                             router: router,
-                            child: AppAlertHost(
-                              child: AnnouncementModalHost(
-                                router: router,
-                                child: SaleClosureGuard(
+                            child: AffiliateReferralMonitor(
+                              router: router,
+                              child: AppAlertHost(
+                                child: AnnouncementModalHost(
                                   router: router,
-                                  child: _CustomerRuntimeSecurityLayer(
+                                  child: SaleClosureGuard(
                                     router: router,
-                                    bootstrap: bootstrap,
-                                    platformKey: platformKey,
-                                    screenSecurityEnabled:
-                                        screenSecurityEnabled,
-                                    webPrivacyEnabled: webPrivacyEnabled,
-                                    child: appChild,
+                                    child: _CustomerRuntimeSecurityLayer(
+                                      router: router,
+                                      bootstrap: bootstrap,
+                                      platformKey: platformKey,
+                                      screenSecurityEnabled:
+                                          screenSecurityEnabled,
+                                      webPrivacyEnabled: webPrivacyEnabled,
+                                      child: appChild,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -240,7 +253,7 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
           child: WebPrivacyGuard(
             enabled: webPrivacyEnabled && routeSensitive,
             mode: screenSecurity?.webSensitiveScreenMode ?? 'limited',
-            watermarkEnabled: screenSecurity?.webWatermarkEnabled ?? true,
+            watermarkEnabled: false,
             privacyOverlayTitle: screenSecurity?.privacyOverlayTitle,
             privacyOverlayDescription:
                 screenSecurity?.privacyOverlayDescription,

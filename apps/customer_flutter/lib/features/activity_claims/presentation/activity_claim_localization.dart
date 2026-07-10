@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
@@ -133,6 +134,16 @@ String localizedActivityClaimReviewedOrPaidAt(
     claim.paidAt ?? claim.reviewedAt,
     context.l10n.locale.toLanguageTag(),
   );
+}
+
+String localizedActivityClaimMoney(BuildContext context, num amount) {
+  final amountText = amount.isFinite
+      ? NumberFormat.decimalPattern(
+          context.l10n.locale.toLanguageTag().replaceAll('-', '_'),
+        ).format(amount)
+      : '0';
+  final suffix = context.l10n.commonBahtSuffix.trim();
+  return suffix.isEmpty ? amountText : '$amountText $suffix';
 }
 
 String _normalizedBankName(CustomerLocalizations l10n, String value) {

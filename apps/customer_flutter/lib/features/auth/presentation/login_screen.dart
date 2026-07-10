@@ -10,8 +10,10 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
+import 'auth_visual_tokens.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -239,8 +241,7 @@ class _LoginHeroSection extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [
               colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
+              AppTheme.heroGradientEnd(colorScheme.primary),
             ],
           ),
         ),
@@ -284,7 +285,7 @@ class _LoginHeroSection extends StatelessWidget {
                                     context.l10n.loginHeroBadge,
                                     style: textTheme.labelLarge?.copyWith(
                                       color: colorScheme.onPrimary,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                       letterSpacing: 0,
                                     ),
                                   ),
@@ -298,7 +299,7 @@ class _LoginHeroSection extends StatelessWidget {
                             style: textTheme.headlineLarge?.copyWith(
                               color: colorScheme.onPrimary,
                               fontSize: 34,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w800,
                               height: 1.1,
                             ),
                           ),
@@ -309,7 +310,6 @@ class _LoginHeroSection extends StatelessWidget {
                               color:
                                   colorScheme.onPrimary.withValues(alpha: 0.9),
                               fontSize: 17,
-                              fontWeight: FontWeight.w600,
                               height: 1.45,
                             ),
                           ),
@@ -486,7 +486,7 @@ class _LoginFormCard extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontSize: 23,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 4),
@@ -507,6 +507,7 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: username,
+              style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
               inputFormatters: [
@@ -524,6 +525,7 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: password,
+              style: authInputTextStyle(context),
               obscureText: !showPassword,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) {
@@ -533,13 +535,12 @@ class _LoginFormCard extends StatelessWidget {
                 context,
                 hintText: l10n.loginPasswordHint,
                 prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
+                suffixIcon: authInputActionButton(
+                  context,
                   onPressed: busy ? null : onTogglePassword,
-                  icon: Icon(
-                    showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+                  icon: showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   tooltip: showPassword
                       ? l10n.loginHidePassword
                       : l10n.loginShowPassword,
@@ -554,21 +555,12 @@ class _LoginFormCard extends StatelessWidget {
               onForgotPassword: onForgotPassword,
             ),
             const SizedBox(height: 12),
-            SizedBox(
+            authPrimaryActionButton(
+              onPressed: busy ? null : onLogin,
               height: 54,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                onPressed: busy ? null : onLogin,
-                child: passwordSubmitting
-                    ? Text(l10n.loginSubmitting)
-                    : Text(l10n.loginSubmit),
-              ),
+              fontSize: 18,
+              label:
+                  passwordSubmitting ? l10n.loginSubmitting : l10n.loginSubmit,
             ),
             _SocialLoginPanel(
               providers: socialProviders,
@@ -641,19 +633,11 @@ class _LoginOptionsRow extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Checkbox(
-                      value: rememberMe,
-                      onChanged: enabled
-                          ? (value) => onRememberMeChanged(value ?? false)
-                          : null,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1.5),
+                    child: _LoginRememberBox(
+                      checked: rememberMe,
+                      disabled: !enabled,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -695,8 +679,48 @@ class _LoginFieldLabel extends StatelessWidget {
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
             color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
+    );
+  }
+}
+
+class _LoginRememberBox extends StatelessWidget {
+  const _LoginRememberBox({
+    required this.checked,
+    required this.disabled,
+  });
+
+  final bool checked;
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final borderColor = disabled
+        ? colorScheme.outlineVariant
+        : checked
+            ? colorScheme.primary
+            : colorScheme.outlineVariant;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      width: 17,
+      height: 17,
+      decoration: BoxDecoration(
+        color: checked && !disabled ? colorScheme.primary : colorScheme.surface,
+        border: Border.all(color: borderColor, width: 1.4),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: checked
+          ? Icon(
+              Icons.check,
+              color: disabled
+                  ? colorScheme.onSurfaceVariant
+                  : colorScheme.onPrimary,
+              size: 13,
+            )
+          : null,
     );
   }
 }
@@ -754,30 +778,11 @@ InputDecoration _loginInputDecoration(
   required Widget prefixIcon,
   Widget? suffixIcon,
 }) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return InputDecoration(
+  return authInputDecoration(
+    context,
     hintText: hintText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
-    filled: true,
-    fillColor: colorScheme.surface,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.86),
-      ),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: colorScheme.primary),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-      ),
-    ),
   );
 }
 
@@ -874,7 +879,7 @@ class _SocialLoginButton extends StatelessWidget {
           shape: const StadiumBorder(),
           textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontSize: 17,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
               ),
         ),
         onPressed: loading ? null : onPressed,

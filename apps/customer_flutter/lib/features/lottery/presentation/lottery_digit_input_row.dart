@@ -16,6 +16,7 @@ class LotteryDigitInputStyle {
     this.shadowBlurRadius = 0,
     this.shadowOffset = Offset.zero,
     this.maxDigitWidth,
+    this.fontWeight = FontWeight.w900,
   });
 
   final Color? fillColor;
@@ -31,6 +32,7 @@ class LotteryDigitInputStyle {
   final double shadowBlurRadius;
   final Offset shadowOffset;
   final double? maxDigitWidth;
+  final FontWeight fontWeight;
 }
 
 class LotteryDigitInputRow extends StatelessWidget {
@@ -53,7 +55,7 @@ class LotteryDigitInputRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final fillColor = style.fillColor ?? Colors.white;
+    final fillColor = style.fillColor ?? colorScheme.surface;
     final focusedBorderColor = style.focusedBorderColor ?? colorScheme.primary;
     final enabledBorderSide = style.enabledBorderColor == null
         ? BorderSide.none
@@ -82,13 +84,13 @@ class LotteryDigitInputRow extends StatelessWidget {
         ],
         style: theme.textTheme.titleLarge?.copyWith(
           color: textColor,
-          fontWeight: FontWeight.w900,
+          fontWeight: style.fontWeight,
         ),
         decoration: InputDecoration(
           hintText: '${index + 1}',
           hintStyle: TextStyle(
             color: hintColor,
-            fontWeight: FontWeight.w900,
+            fontWeight: style.fontWeight,
           ),
           contentPadding: EdgeInsets.symmetric(vertical: style.verticalPadding),
           filled: true,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_controller.dart';
 import '../../core/i18n/customer_localizations.dart';
+import 'customer_gradient_button.dart';
 
 class SecurityLockScreen extends ConsumerWidget {
   const SecurityLockScreen({super.key});
@@ -32,10 +33,16 @@ class SecurityLockScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: () =>
-                      ref.read(authControllerProvider).dismissSecurityLock(),
-                  child: Text(l10n.securityUnlockAgain),
+                SizedBox(
+                  width: 240,
+                  child: CustomerGradientButton.text(
+                    onPressed: () =>
+                        ref.read(authControllerProvider).dismissSecurityLock(),
+                    height: 48,
+                    fontSize: 15,
+                    shadow: false,
+                    label: l10n.securityUnlockAgain,
+                  ),
                 ),
               ],
             ),

@@ -9,6 +9,7 @@ import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/activities/data/activity_models.dart';
@@ -34,7 +35,7 @@ import '../../../features/results/presentation/result_widgets.dart';
 import '../../../features/wallet/data/wallet_repository.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
-import '../../../shared/widgets/customer_loading_indicator.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/customer_wallet_card.dart';
@@ -102,7 +103,6 @@ class HomeScreen extends ConsumerWidget {
                 ],
                 const SizedBox(height: 24),
                 _ActivitiesRail(value: activities),
-                const SizedBox(height: 20),
                 _HomeResultSection(value: result),
                 _NewsRail(value: news),
               ],
@@ -176,19 +176,17 @@ class _HomeFloatingCartDock extends StatelessWidget {
                         Text(
                           l10n.cartSelectionTitle,
                           style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: _homeTitleColor(context),
-                                    fontWeight: FontWeight.w700,
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppTheme.appInk,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
                                   ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          l10n.ticketsCount(cart.itemCount),
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                        CustomerPaymentSelectionCountText(
+                          count: cart.itemCount,
+                          countText: l10n.ticketsCount(cart.itemCount),
                         ),
                       ],
                     ),
@@ -200,22 +198,19 @@ class _HomeFloatingCartDock extends StatelessWidget {
                       maxWidth: 176,
                       minHeight: 58,
                     ),
-                    child: DecoratedBox(
-                      decoration: _homeDockButtonDecoration(context),
-                      child: SizedBox(
-                        height: 58,
-                        child: FilledButton(
-                          onPressed: onCheckout,
-                          style: _homeDockButtonStyle(context),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(l10n.cartCheckout),
-                              if (deadline != null)
-                                _HomeCartCountdownText(deadline: deadline),
-                            ],
-                          ),
-                        ),
+                    child: CustomerGradientButton(
+                      onPressed: onCheckout,
+                      height: 58,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      horizontalPadding: 18,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(l10n.cartCheckout),
+                          if (deadline != null)
+                            _HomeCartCountdownText(deadline: deadline),
+                        ],
                       ),
                     ),
                   ),
@@ -309,15 +304,16 @@ class _HomePageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final heroHeight = _homeHeroHeightFor(context);
     return ListView(
       padding: EdgeInsets.zero,
       children: [
         Stack(
           children: [
-            SizedBox(height: _homeHeroHeight, child: hero),
+            SizedBox(height: heroHeight, child: hero),
             Padding(
-              padding: const EdgeInsets.only(
-                top: _homeHeroHeight - _homeSheetOverlap,
+              padding: EdgeInsets.only(
+                top: heroHeight - _homeSheetOverlap,
               ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -371,194 +367,147 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final homeDigitWidth =
+        (MediaQuery.sizeOf(context).width * 0.10).clamp(36.0, 58.0).toDouble();
     final currentGame = widget.value.maybeWhen(
       data: (bundle) => bundle.currentGame,
       orElse: () => null,
     );
     final drawText = _drawText(context, currentGame);
+    final heroHeight = _homeHeroHeightFor(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.48) ??
-                colorScheme.primary,
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -28,
-            bottom: -20,
-            child: Container(
-              width: 144,
-              height: 144,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.tertiary.withValues(alpha: 0.86),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -58,
-            top: 18,
-            child: Transform.rotate(
-              angle: -0.55,
-              child: Container(
-                width: 260,
-                height: 92,
-                decoration: BoxDecoration(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(50),
+    return CustomerBlueHeroBackdrop(
+      primary: colorScheme.primary,
+      secondary: colorScheme.secondary,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: heroHeight),
+        child: CustomerPageBody(
+          top: MediaQuery.paddingOf(context).top + 12,
+          bottom: 32,
+          mobileHorizontal: 20,
+          wideHorizontal: 28,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _HomeHeroTopRow(),
+              const SizedBox(height: 22),
+              Text(
+                l10n.homeProductTitle,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: colorScheme.onPrimary,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  height: 1.02,
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            right: 34,
-            top: 112,
-            child: Transform.rotate(
-              angle: 0.22,
-              child: Container(
-                width: 150,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(28),
-                ),
-              ),
-            ),
-          ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: _homeHeroHeight),
-            child: CustomerPageBody(
-              top: MediaQuery.paddingOf(context).top + 12,
-              bottom: 56,
-              mobileHorizontal: 20,
-              wideHorizontal: 28,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _HomeHeroTopRow(),
-                  const SizedBox(height: 22),
-                  Text(
-                    l10n.homeProductTitle,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w900,
-                      height: 1.02,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 320;
-                      final searchCopy = Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 320;
+                  final searchCopy = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  l10n.lotterySearchHeroTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: colorScheme.onPrimary,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
+                          Flexible(
+                            child: Text(
+                              l10n.lotterySearchHeroTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onPrimary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                height: 1.12,
                               ),
-                              const SizedBox(width: 5),
-                              Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: colorScheme.onPrimary
-                                    .withValues(alpha: 0.88),
-                              ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            drawText,
-                            maxLines: compact ? 2 : 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color:
-                                  colorScheme.onPrimary.withValues(alpha: 0.90),
-                              fontWeight: FontWeight.w700,
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.info_outline,
+                            size: 18,
+                            color: colorScheme.onPrimary.withValues(
+                              alpha: 0.88,
                             ),
                           ),
                         ],
-                      );
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        drawText,
+                        maxLines: compact ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.90),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  );
 
-                      if (compact) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            searchCopy,
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: _HomeSaleBadge(
-                                label: l10n.homeSaleLabel,
-                                amount: l10n.homeSaleAmount,
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: searchCopy),
-                          const SizedBox(width: 12),
-                          _HomeSaleBadge(
+                  if (compact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        searchCopy,
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _HomeSaleBadge(
                             label: l10n.homeSaleLabel,
                             amount: l10n.homeSaleAmount,
                           ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 620),
-                      child: LotteryDigitInputRow(
-                        controllers: _digits,
-                        readOnly: true,
-                        onTap: _goSearch,
-                        onSubmitted: _goSearch,
-                        style: LotteryDigitInputStyle(
-                          borderRadius: 8,
-                          spacing: 8,
-                          fillColor: colorScheme.surface,
-                          enabledBorderColor: colorScheme.outlineVariant
-                              .withValues(alpha: 0.92),
-                          shadowColor:
-                              colorScheme.shadow.withValues(alpha: 0.12),
-                          shadowBlurRadius: 5,
-                          shadowOffset: const Offset(0, 2),
-                          hintColor:
-                              colorScheme.onSurface.withValues(alpha: 0.20),
-                          focusedBorderColor: colorScheme.tertiary,
-                          maxDigitWidth: 58,
                         ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: searchCopy),
+                      const SizedBox(width: 12),
+                      _HomeSaleBadge(
+                        label: l10n.homeSaleLabel,
+                        amount: l10n.homeSaleAmount,
                       ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 27),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: LotteryDigitInputRow(
+                    controllers: _digits,
+                    readOnly: true,
+                    onTap: _goSearch,
+                    onSubmitted: _goSearch,
+                    style: LotteryDigitInputStyle(
+                      borderRadius: 8,
+                      spacing: 0,
+                      verticalPadding: 8,
+                      fillColor: colorScheme.surface,
+                      enabledBorderColor:
+                          colorScheme.outlineVariant.withValues(alpha: 0.92),
+                      shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
+                      shadowBlurRadius: 5,
+                      shadowOffset: const Offset(0, 2),
+                      hintColor: colorScheme.onSurface.withValues(alpha: 0.20),
+                      focusedBorderColor: colorScheme.tertiary,
+                      maxDigitWidth: homeDigitWidth,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -591,7 +540,6 @@ class _HomeHeroTopRow extends StatelessWidget {
     final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const SizedBox(
           width: 96,
@@ -600,6 +548,7 @@ class _HomeHeroTopRow extends StatelessWidget {
             child: _HomeHeroBrandLockup(),
           ),
         ),
+        const Spacer(),
         Padding(
           padding: const EdgeInsets.only(right: 48),
           child: _HomePriceBadge(
@@ -607,7 +556,38 @@ class _HomeHeroTopRow extends StatelessWidget {
             unit: l10n.homePriceUnit,
           ),
         ),
+        const _HomeHeroCloseButton(),
       ],
+    );
+  }
+}
+
+class _HomeHeroCloseButton extends StatelessWidget {
+  const _HomeHeroCloseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    return IconButton(
+      tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+      onPressed: () {
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) {
+          navigator.maybePop();
+        }
+      },
+      icon: const Icon(Icons.close, size: 34),
+      color: onPrimary,
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(44),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: Colors.transparent,
+        foregroundColor: onPrimary,
+        padding: EdgeInsets.zero,
+        shape: const CircleBorder(),
+      ).copyWith(
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
     );
   }
 }
@@ -704,6 +684,13 @@ class _HomePriceBadge extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: colorScheme.tertiary,
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.16),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -714,7 +701,7 @@ class _HomePriceBadge extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: colorScheme.onTertiary,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 0.92,
                 ),
           ),
@@ -724,7 +711,7 @@ class _HomePriceBadge extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: colorScheme.onTertiary,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1.05,
                 ),
           ),
@@ -744,10 +731,14 @@ class _HomeSaleBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      constraints: const BoxConstraints(minWidth: 122),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      constraints: const BoxConstraints(minWidth: 136),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       decoration: BoxDecoration(
-        color: colorScheme.scrim.withValues(alpha: 0.24),
+        color: Color.lerp(
+          colorScheme.primary,
+          colorScheme.scrim,
+          0.50,
+        )?.withValues(alpha: 0.56),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -759,7 +750,8 @@ class _HomeSaleBadge extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: colorScheme.onPrimary,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
                   height: 1.05,
                 ),
           ),
@@ -770,7 +762,8 @@ class _HomeSaleBadge extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: colorScheme.tertiary,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
                   height: 1.05,
                 ),
           ),
@@ -786,15 +779,24 @@ class _HomeQuickActionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final horizontalPadding =
+        MediaQuery.sizeOf(context).width >= 1024 ? 26.0 : 16.0;
     return DecoratedBox(
-      decoration: _homeSurfaceDecoration(context, radius: 16),
+      decoration: _homeSurfaceDecoration(
+        context,
+        radius: 16,
+        outlined: false,
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: 22,
+        ),
         child: Row(
           children: [
             Expanded(
               child: _HomeQuickAction(
-                icon: Icons.phone_iphone,
+                kind: _HomeQuickActionKind.buy,
                 label: l10n.homeBuyLotteryTitle,
                 path: '/buy',
               ),
@@ -802,7 +804,7 @@ class _HomeQuickActionPanel extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _HomeQuickAction(
-                icon: Icons.qr_code_scanner,
+                kind: _HomeQuickActionKind.scan,
                 label: l10n.homeScanLotteryTitle,
                 path: '/stores',
               ),
@@ -816,18 +818,17 @@ class _HomeQuickActionPanel extends StatelessWidget {
 
 class _HomeQuickAction extends StatelessWidget {
   const _HomeQuickAction({
-    required this.icon,
+    required this.kind,
     required this.label,
     required this.path,
   });
 
-  final IconData icon;
+  final _HomeQuickActionKind kind;
   final String label;
   final String path;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return _HomeLinkGesture(
       onTap: () => context.go(path),
       child: Padding(
@@ -838,18 +839,8 @@ class _HomeQuickAction extends StatelessWidget {
             Container(
               width: 70,
               height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    colorScheme.primary.withValues(alpha: 0.12),
-                    colorScheme.primary.withValues(alpha: 0.34),
-                  ],
-                ),
-              ),
-              child: Icon(icon, color: colorScheme.primary, size: 28),
+              alignment: Alignment.center,
+              child: _HomeQuickIllustration(kind: kind),
             ),
             const SizedBox(height: 10),
             Text(
@@ -864,6 +855,239 @@ class _HomeQuickAction extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+enum _HomeQuickActionKind { buy, scan }
+
+class _HomeQuickIllustration extends StatelessWidget {
+  const _HomeQuickIllustration({required this.kind});
+
+  final _HomeQuickActionKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return CustomPaint(
+      size: const Size(70, 60),
+      painter: _HomeQuickIllustrationPainter(
+        kind: kind,
+        primary: colorScheme.primary,
+        secondary: colorScheme.secondary,
+        accent: colorScheme.tertiary,
+        ink: _homeTitleColor(context),
+        surface: colorScheme.surface,
+      ),
+    );
+  }
+}
+
+class _HomeQuickIllustrationPainter extends CustomPainter {
+  const _HomeQuickIllustrationPainter({
+    required this.kind,
+    required this.primary,
+    required this.secondary,
+    required this.accent,
+    required this.ink,
+    required this.surface,
+  });
+
+  final _HomeQuickActionKind kind;
+  final Color primary;
+  final Color secondary;
+  final Color accent;
+  final Color ink;
+  final Color surface;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _paintBase(canvas, size);
+    switch (kind) {
+      case _HomeQuickActionKind.buy:
+        _paintBuy(canvas, size);
+      case _HomeQuickActionKind.scan:
+        _paintScan(canvas, size);
+    }
+  }
+
+  void _paintBase(Canvas canvas, Size size) {
+    final basePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.lerp(surface, secondary, 0.20) ?? surface,
+          Color.lerp(surface, primary, 0.28) ?? surface,
+        ],
+      ).createShader(
+        Rect.fromLTWH(size.width * 0.10, 9, size.width * 0.80, size.height - 9),
+      );
+    canvas.drawOval(
+      Rect.fromLTWH(size.width * 0.10, 9, size.width * 0.80, size.height - 9),
+      basePaint,
+    );
+
+    canvas.drawOval(
+      Rect.fromLTWH(size.width * 0.25, size.height - 8, size.width * 0.50, 6),
+      Paint()..color = primary.withValues(alpha: 0.12),
+    );
+  }
+
+  void _paintBuy(Canvas canvas, Size size) {
+    final phoneRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width * 0.31, 11, 22, 34),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(
+      phoneRect.shift(const Offset(0, 2)),
+      Paint()..color = ink.withValues(alpha: 0.08),
+    );
+    canvas.drawRRect(
+      phoneRect,
+      Paint()..color = Color.lerp(surface, primary, 0.10)!,
+    );
+    canvas.drawRRect(
+      phoneRect,
+      Paint()
+        ..color = primary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(size.width * 0.35, 17, 14, 15),
+      Paint()..color = primary.withValues(alpha: 0.18),
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.36, 37),
+      Offset(size.width * 0.55, 37),
+      Paint()
+        ..color = primary
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round,
+    );
+
+    final ticket = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width * 0.49, 6, 28, 20),
+      const Radius.circular(4),
+    );
+    canvas.drawRRect(
+      ticket.shift(const Offset(0, 2)),
+      Paint()..color = ink.withValues(alpha: 0.08),
+    );
+    canvas.drawRRect(ticket, Paint()..color = surface);
+    canvas.drawRRect(
+      ticket,
+      Paint()
+        ..color = primary.withValues(alpha: 0.68)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+    final digitPaint = Paint()
+      ..color = primary
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    for (var index = 0; index < 4; index += 1) {
+      final x = size.width * 0.54 + (index * 4.6);
+      canvas.drawLine(Offset(x, 15), Offset(x + 1.6, 15), digitPaint);
+    }
+    canvas.drawCircle(
+      Offset(size.width * 0.65, 8),
+      5,
+      Paint()..color = accent,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.70, 17),
+      3.5,
+      Paint()..color = accent.withValues(alpha: 0.90),
+    );
+  }
+
+  void _paintScan(Canvas canvas, Size size) {
+    final device = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width * 0.30, 15, 20, 30),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(
+      device.shift(const Offset(0, 2)),
+      Paint()..color = ink.withValues(alpha: 0.08),
+    );
+    canvas.drawRRect(
+      device,
+      Paint()..color = Color.lerp(surface, primary, 0.14)!,
+    );
+    canvas.drawRRect(
+      device,
+      Paint()
+        ..color = primary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+
+    final ticketRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width * 0.48, 7, 24, 30),
+      const Radius.circular(4),
+    );
+    canvas.drawRRect(
+      ticketRect.shift(const Offset(0, 2)),
+      Paint()..color = ink.withValues(alpha: 0.08),
+    );
+    canvas.drawRRect(ticketRect, Paint()..color = surface);
+    canvas.drawRRect(
+      ticketRect,
+      Paint()
+        ..color = primary.withValues(alpha: 0.74)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    final qrPaint = Paint()..color = ink.withValues(alpha: 0.78);
+    const cell = 2.7;
+    final left = size.width * 0.525;
+    const top = 13.0;
+    final blocks = <Offset>[
+      const Offset(0, 0),
+      const Offset(1, 0),
+      const Offset(0, 1),
+      const Offset(3, 0),
+      const Offset(4, 0),
+      const Offset(4, 1),
+      const Offset(1, 3),
+      const Offset(2, 2),
+      const Offset(3, 3),
+      const Offset(0, 4),
+      const Offset(2, 4),
+      const Offset(4, 4),
+    ];
+    for (final block in blocks) {
+      canvas.drawRect(
+        Rect.fromLTWH(left + block.dx * cell, top + block.dy * cell, 2, 2),
+        qrPaint,
+      );
+    }
+
+    canvas.drawLine(
+      Offset(size.width * 0.31, 33),
+      Offset(size.width * 0.58, 25),
+      Paint()
+        ..color = secondary.withValues(alpha: 0.65)
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.68, 40),
+      4.5,
+      Paint()..color = accent.withValues(alpha: 0.92),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HomeQuickIllustrationPainter oldDelegate) {
+    return oldDelegate.kind != kind ||
+        oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary ||
+        oldDelegate.accent != accent ||
+        oldDelegate.ink != ink ||
+        oldDelegate.surface != surface;
   }
 }
 
@@ -977,13 +1201,6 @@ class _HomeGuestActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final primaryStyle = FilledButton.styleFrom(
-      minimumSize: const Size(118, 42),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      shape: const StadiumBorder(),
-      textStyle: const TextStyle(fontWeight: FontWeight.w900),
-      visualDensity: VisualDensity.compact,
-    );
     final secondaryStyle = FilledButton.styleFrom(
       backgroundColor: colorScheme.primary.withValues(alpha: 0.10),
       foregroundColor: colorScheme.primary,
@@ -993,10 +1210,13 @@ class _HomeGuestActions extends StatelessWidget {
       textStyle: const TextStyle(fontWeight: FontWeight.w900),
       visualDensity: VisualDensity.compact,
     );
-    final login = FilledButton(
-      style: primaryStyle,
+    final login = CustomerGradientButton.text(
       onPressed: onLogin,
-      child: Text(l10n.loginTitle),
+      height: 42,
+      fontSize: 15,
+      horizontalPadding: 16,
+      shadow: false,
+      label: l10n.loginTitle,
     );
     final register = FilledButton(
       style: secondaryStyle,
@@ -1038,38 +1258,41 @@ class _ActivitiesRail extends StatelessWidget {
     return value.maybeWhen(
       data: (items) {
         if (items.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CustomerSectionHeader(
-              title: context.l10n.homeActivities,
-              actionLabel: context.l10n.commonViewAll,
-              onAction: () => context.go('/activities'),
-            ),
-            const SizedBox(height: 10),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cardWidth = _activityCardWidth(constraints.maxWidth);
-                return SizedBox(
-                  height: constraints.maxWidth < 380 ? 142 : 148,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    primary: false,
-                    padding: EdgeInsets.zero,
-                    itemCount: items.length.clamp(0, 8),
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final activity = items[index];
-                      return _ActivityCard(
-                        activity: activity,
-                        width: cardWidth,
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CustomerSectionHeader(
+                title: context.l10n.homeActivities,
+                actionLabel: context.l10n.commonViewAll,
+                onAction: () => context.go('/activities'),
+              ),
+              const SizedBox(height: 10),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardWidth = _activityCardWidth(constraints.maxWidth);
+                  return SizedBox(
+                    height: constraints.maxWidth < 380 ? 142 : 148,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      primary: false,
+                      padding: EdgeInsets.zero,
+                      itemCount: items.length.clamp(0, 8),
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final activity = items[index];
+                        return _ActivityCard(
+                          activity: activity,
+                          width: cardWidth,
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         );
       },
       orElse: () => const SizedBox.shrink(),
@@ -1242,9 +1465,8 @@ class _ActivityImageFallback extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.48) ??
-                colorScheme.primary,
+            Color(0xFF0B84ED),
+            Color(0xFF11A584),
           ],
         ),
       ),
@@ -1258,7 +1480,7 @@ class _ActivityImageFallback extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.tertiary.withValues(alpha: 0.78),
+                color: const Color(0xFFFFD240).withValues(alpha: 0.82),
               ),
             ),
           ),
@@ -1286,31 +1508,21 @@ class _HomeResultSection extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: value.when(
         loading: () {
-          final colorScheme = Theme.of(context).colorScheme;
           return DecoratedBox(
-            decoration: _homeSurfaceDecoration(context, radius: 14),
+            decoration: _homeSurfaceDecoration(
+              context,
+              radius: 8,
+              outlined: false,
+            ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-              child: Row(
-                children: [
-                  CustomerLoadingMark(
-                    width: 30,
-                    height: 20,
-                    color: colorScheme.primary,
-                    trackColor: colorScheme.primary.withValues(alpha: 0.14),
-                    semanticLabel: context.l10n.resultLoading,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      context.l10n.resultLoading,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: _homeBodyColor(context),
-                            fontWeight: FontWeight.w800,
-                          ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+              child: Text(
+                context.l10n.resultLoading,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: _homeMutedColor(context),
+                      fontWeight: FontWeight.w400,
                     ),
-                  ),
-                ],
               ),
             ),
           );
@@ -1365,7 +1577,7 @@ class _NewsRailState extends State<_NewsRail> {
         final l10n = context.l10n;
         if (items.isEmpty) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 12),
+          padding: const EdgeInsets.only(top: 6, bottom: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1381,11 +1593,10 @@ class _NewsRailState extends State<_NewsRail> {
               const SizedBox(height: 12),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final visibleItems = items.take(8).toList(growable: false);
                   final viewportWidth = MediaQuery.sizeOf(context).width;
                   final railInset = viewportWidth >= 720 ? 28.0 : 16.0;
                   final cardWidth =
-                      (viewportWidth * 0.72).clamp(212.0, 238.0).toDouble();
+                      (viewportWidth * 0.72).clamp(0.0, 238.0).toDouble();
                   return SizedBox(
                     height: _homeNewsRailHeight,
                     child: OverflowBox(
@@ -1409,17 +1620,17 @@ class _NewsRailState extends State<_NewsRail> {
                             child: Row(
                               children: [
                                 for (var index = 0;
-                                    index < visibleItems.length;
+                                    index < items.length;
                                     index += 1) ...[
                                   _HomeNewsCard(
-                                    item: visibleItems[index],
+                                    item: items[index],
                                     width: cardWidth,
                                     onOpenFailed: () => setState(
                                       () => _noticeMessage =
                                           context.l10n.newsOpenFailed,
                                     ),
                                   ),
-                                  if (index < visibleItems.length - 1)
+                                  if (index < items.length - 1)
                                     const SizedBox(width: 12),
                                 ],
                               ],
@@ -1624,16 +1835,14 @@ class _HomeNewsImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
+            Color(0xFF0A87F5),
+            Color(0xFF20385F),
           ],
         ),
       ),
@@ -1647,7 +1856,7 @@ class _HomeNewsImageFallback extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colorScheme.tertiary.withValues(alpha: 0.78),
+                color: const Color(0xFFFFD240).withValues(alpha: 0.72),
               ),
             ),
           ),
@@ -1784,23 +1993,26 @@ List<CustomerWalletCardAction> _walletCardActions(BuildContext context) {
 Color _homeSheetColor(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
   return Color.lerp(
-        colorScheme.surfaceContainerLowest,
         colorScheme.surfaceContainerHighest,
-        0.42,
+        AppTheme.appSoft,
+        0.68,
       ) ??
-      colorScheme.surfaceContainerHighest;
+      AppTheme.appSoft;
 }
 
 BoxDecoration _homeSurfaceDecoration(
   BuildContext context, {
   required double radius,
+  bool outlined = true,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
     color: Theme.of(context).cardTheme.color ?? colorScheme.surface,
-    border: Border.all(
-      color: colorScheme.outlineVariant.withValues(alpha: 0.74),
-    ),
+    border: outlined
+        ? Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.74),
+          )
+        : null,
     borderRadius: BorderRadius.circular(radius),
     boxShadow: [
       BoxShadow(
@@ -1812,50 +2024,22 @@ BoxDecoration _homeSurfaceDecoration(
   );
 }
 
-BoxDecoration _homeDockButtonDecoration(BuildContext context) {
+Color _homeTitleColor(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
-  return BoxDecoration(
-    gradient: LinearGradient(
-      colors: [
-        colorScheme.primary,
-        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
-            colorScheme.primary,
-      ],
-    ),
-    borderRadius: BorderRadius.circular(999),
-    boxShadow: [
-      BoxShadow(
-        color: colorScheme.primary.withValues(alpha: 0.22),
-        blurRadius: 20,
-        offset: const Offset(0, 10),
-      ),
-    ],
-  );
+  return Color.lerp(colorScheme.primary, AppTheme.appInk, 0.58) ??
+      AppTheme.appInk;
 }
-
-ButtonStyle _homeDockButtonStyle(BuildContext context) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return FilledButton.styleFrom(
-    backgroundColor: Colors.transparent,
-    foregroundColor: colorScheme.onPrimary,
-    shadowColor: Colors.transparent,
-    padding: const EdgeInsets.symmetric(horizontal: 18),
-    shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w900,
-          height: 1.1,
-        ),
-  );
-}
-
-Color _homeTitleColor(BuildContext context) =>
-    Theme.of(context).colorScheme.onSurface;
 
 Color _homeBodyColor(BuildContext context) =>
-    Theme.of(context).colorScheme.onSurfaceVariant;
+    Color.lerp(AppTheme.appMuted, AppTheme.appInk, 0.10) ?? AppTheme.appMuted;
 
 Color _homeMutedColor(BuildContext context) =>
     Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
-const _homeHeroHeight = 352.0;
-const _homeSheetOverlap = 60.0;
+
+double _homeHeroHeightFor(BuildContext context) {
+  return _homeHeroBaseHeight + MediaQuery.paddingOf(context).top;
+}
+
+const _homeHeroBaseHeight = 352.0;
+const _homeSheetOverlap = 34.0;
 const _homeNewsRailHeight = 256.0;

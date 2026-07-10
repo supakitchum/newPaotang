@@ -74,6 +74,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.textContaining('+500.00').first).style?.color,
+      const Color(0xFF078254),
+    );
     expect(find.byType(Card), findsNothing);
 
     await tester.tap(find.byTooltip('โหลดรายการใหม่'));

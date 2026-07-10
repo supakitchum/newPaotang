@@ -2,11 +2,38 @@ import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/payment/checkout_payment_config.dart';
+import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('lottery reserve sends virtual stock reference required by backend',
+      () async {
+    final api = _CheckoutApiClient();
+    final repository = LotteryRepository(api);
+
+    await repository.reserve(
+      gameId: 'game_1',
+      item: LotteryStockItem.fromJson(const {
+        'id': 'local_stock_1',
+        'local_stock_item_id': 'local_stock_1',
+        'stock_ref': 'vstock:tenant_1:game_1:273707:1',
+        'full_number': '273707',
+      }),
+    );
+
+    expect(api.path, '/customer/reservations');
+    expect(api.payload['game_id'], 'game_1');
+    expect(api.payload['local_stock_item_ids'], [
+      'vstock:tenant_1:game_1:273707:1',
+    ]);
+    expect(
+      api.headers['Idempotency-Key'],
+      startsWith('customer-reservation_'),
+    );
+  });
+
   test('lottery checkout sends the configured payment method', () async {
     final api = _CheckoutApiClient();
     final repository = LotteryRepository(api);
@@ -113,6 +140,27 @@ class _CheckoutApiClient extends ApiClient {
     this.path = path;
     payload = Map<String, dynamic>.from(data! as Map);
     this.headers = Map<String, String>.from(headers);
+
+    if (path == '/customer/reservations') {
+      return Response<T>(
+        requestOptions: RequestOptions(path: path),
+        data: {
+          'id': 'res_1',
+          'game_id': payload['game_id'],
+          'status': 'active',
+          'expires_at': '2026-07-01T12:15:00+07:00',
+          'items': [
+            {
+              'id': 'local_stock_1',
+              'stock_ref': payload['local_stock_item_ids'].first,
+              'full_number': '273707',
+              'price': {'amount': 8000, 'currency': 'THB'},
+            },
+          ],
+          'total': {'amount': 8000, 'currency': 'THB'},
+        } as T,
+      );
+    }
 
     return Response<T>(
       requestOptions: RequestOptions(path: path),

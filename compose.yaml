@@ -289,28 +289,16 @@ services:
 
   customer:
     build:
-      context: apps/customer
+      context: ./apps/customer_flutter
       dockerfile: Dockerfile
-      target: development
-    working_dir: /app
-    command: sh -lc "mkdir -p /tmp/newpaotang-customer-nuxt && ln -sfn /app/node_modules /tmp/node_modules && ln -sfn /app/node_modules /tmp/newpaotang-customer-nuxt/node_modules && node scripts/prepare-nuxt-build-dir.mjs && npm run dev -- --host 0.0.0.0 --port 3000"
-    environment:
-      NUXT_PUBLIC_API_BASE_URL: /api/v1
-      NUXT_PLATFORM_API_INTERNAL_BASE_URL: http://platform-api:8000/api/v1
-      NUXT_PUBLIC_SITE_URL: http://localhost:3000
-      NUXT_PUBLIC_CUSTOMER_REALTIME_URL: http://localhost:8080
-      NUXT_PUBLIC_CUSTOMER_REALTIME_KEY: newpaotang-admin
-      NUXT_BUILD_DIR: /tmp/newpaotang-customer-nuxt
-      NITRO_NO_UNIX_SOCKET: "1"
-      NODE_OPTIONS: --no-deprecation
+      args:
+        API_BASE_URL: /api/v1
+        APP_LOCALE: th-TH
+    image: customer_flutter-customer-flutter-web
     ports:
-      - "3000:3000"
-    volumes:
-      - ./apps/customer:/app
-      - ./apps:/apps:ro
-      - ./apps/platform-api:/platform-api:ro
-      - customer-node-modules:/app/node_modules
-      - customer-nuxt:/app/.nuxt
+      - "3000:80"
+    depends_on:
+      - platform-api
 
   back-office:
     build:

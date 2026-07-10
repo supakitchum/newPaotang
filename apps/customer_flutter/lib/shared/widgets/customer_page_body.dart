@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 const double customerContentMaxWidthAuto = -1;
+const double customerContentMaxWidthMobile = 960;
+const double customerContentMaxWidthTablet = 720;
+const double customerContentMaxWidthDesktop = 920;
+const double customerContentMaxWidthWide = 1080;
+const double customerSheetTopPadding = 23;
+const double customerSheetBottomPadding = 120;
+const double customerSheetMobileHorizontalPadding = 18;
+const double customerSheetWideHorizontalPadding = 24;
 
 double customerContentMaxWidthFor(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width;
-  if (width >= 1280) return 1080;
-  if (width >= 1024) return 920;
-  return 960;
+  if (width >= 1280) return customerContentMaxWidthWide;
+  if (width >= 1024) return customerContentMaxWidthDesktop;
+  if (width >= 768) return customerContentMaxWidthTablet;
+  return customerContentMaxWidthMobile;
 }
 
 class CustomerPageBody extends StatelessWidget {
@@ -14,10 +23,11 @@ class CustomerPageBody extends StatelessWidget {
     required this.child,
     super.key,
     this.maxWidth = customerContentMaxWidthAuto,
-    this.top = 16,
-    this.bottom = 128,
-    this.mobileHorizontal = 16,
-    this.wideHorizontal = 28,
+    this.top = customerSheetTopPadding,
+    this.bottom = customerSheetBottomPadding,
+    this.mobileHorizontal = customerSheetMobileHorizontalPadding,
+    this.wideHorizontal = customerSheetWideHorizontalPadding,
+    this.includeBottomSafeArea = true,
   });
 
   final Widget child;
@@ -26,6 +36,7 @@ class CustomerPageBody extends StatelessWidget {
   final double bottom;
   final double mobileHorizontal;
   final double wideHorizontal;
+  final bool includeBottomSafeArea;
 
   @override
   Widget build(BuildContext context) {
@@ -35,11 +46,18 @@ class CustomerPageBody extends StatelessWidget {
             constraints.maxWidth >= 720 ? wideHorizontal : mobileHorizontal;
         final effectiveMaxWidth =
             maxWidth >= 0 ? maxWidth : customerContentMaxWidthFor(context);
-        return Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom),
+        final effectiveBottom = bottom +
+            (includeBottomSafeArea ? MediaQuery.paddingOf(context).bottom : 0);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontal,
+            top,
+            horizontal,
+            effectiveBottom,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
               child: child,
             ),
           ),

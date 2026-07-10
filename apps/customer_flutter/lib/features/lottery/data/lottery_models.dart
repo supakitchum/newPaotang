@@ -200,6 +200,28 @@ class LotteryStockItem {
       remainingCount > 0 && !_unavailableStockStatuses.contains(status);
 
   bool get isReserved => reservationId.isNotEmpty;
+
+  String get reserveStockItemId {
+    for (final value in [
+      localStockItemId,
+      stockRef,
+      id,
+      token,
+      raw['local_stock_item_id'],
+      raw['stock_ref'],
+      raw['virtual_stock_ref'],
+      raw['stock_item_id'],
+      raw['token'],
+    ]) {
+      final text = value?.toString().trim() ?? '';
+      if (_isVirtualStockRef(text)) return text;
+    }
+    for (final value in [localStockItemId, stockRef, id, token]) {
+      final text = value.trim();
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
 }
 
 const _unavailableStockStatuses = {
@@ -221,6 +243,8 @@ const _unavailableStockStatuses = {
   'hold',
   'held',
 };
+
+bool _isVirtualStockRef(String value) => value.startsWith('vstock:');
 
 class LotteryReservation {
   const LotteryReservation({

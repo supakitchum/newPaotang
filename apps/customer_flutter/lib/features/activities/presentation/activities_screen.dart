@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,41 @@ import '../data/activity_repository.dart';
 import 'activity_error_message.dart';
 import 'activity_localization.dart';
 import 'activity_visual_tokens.dart';
+
+const _activitiesSurface = Color(0xFFFFFFFF);
+const _activitiesPanelBorder = Color(0xFFE8EEF7);
+const _activitiesCardBorder = Color(0xFFEDF1F7);
+const _activitiesPanelShadow = Color(0x14083068);
+const _activitiesCardShadow = Color(0x1A083068);
+const _activitiesMutedText = Color(0xFF94A3B8);
+const _activitiesPanelTitle = Color(0xFF1F2F54);
+const _activitiesCardTitle = Color(0xFF1F2937);
+const _activitiesBodyText = Color(0xFF6B7280);
+const _activitiesSecondaryText = Color(0xFF64748B);
+const _activitiesPrimary = Color(0xFF0B7FE8);
+const _activitiesActionBackground = Color(0xFFE8F4FF);
+const _activitiesActionText = Color(0xFF0875DF);
+const _activitiesSuccessBackground = Color(0xFFDCFCE7);
+const _activitiesSuccessText = Color(0xFF15803D);
+const _activitiesUsedBackground = Color(0xFFEEF2FF);
+const _activitiesUsedText = Color(0xFF3157C8);
+const _activitiesNeutralBackground = Color(0xFFF1F5F9);
+const _activitiesNumberBackground = Color(0xFFF8FAFC);
+const _activitiesNumberBorder = Color(0xFFDBE6F3);
+const _activitiesNumberText = Color(0xFF475569);
+const _activitiesDeadlineBackground = Color(0xFFFFF7ED);
+const _activitiesDeadlineBorder = Color(0xFFFED7AA);
+const _activitiesDeadlineText = Color(0xFFC2410C);
+const _activitiesClosedBackground = Color(0xFFFEF2F2);
+const _activitiesClosedBadgeBackground = Color(0xFFFEE2E2);
+const _activitiesClosedBorder = Color(0xFFFECACA);
+const _activitiesClosedText = Color(0xFFB42318);
+const _activitiesCurrentLinkBackground = Color(0xFF0B7FE8);
+const _activitiesOutlineBorder = Color(0xFF0B69DC);
+const _activitiesOutlineText = Color(0xFF075EC9);
+const _activitiesOutlineDisabledBorder = Color(0xFFCBD4DF);
+const _activitiesOutlineDisabledText = Color(0xFF8A8F98);
+const _activitiesOutlineDisabledBackground = Color(0xFFF2F4F7);
 
 class ActivitiesScreen extends ConsumerStatefulWidget {
   const ActivitiesScreen({super.key});
@@ -45,6 +82,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       title: l10n.homeActivities,
       currentPath: '/activities',
       backPath: '/',
+      heroMinHeight: _ActivitiesPageList.heroMinHeight,
+      heroSheetOverlap: _ActivitiesPageList.sheetOverlap,
+      heroContent: const SizedBox.shrink(),
       child: _ActivitiesPageList(
         children: [
           if (_loading)
@@ -60,26 +100,30 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             ],
             if (_items.isEmpty)
               const _EmptyActivitiesCard()
-            else ...[
-              if (_refreshError.isNotEmpty) ...[
-                _ActivityInlineError(message: _refreshError, onRetry: _refresh),
-                const SizedBox(height: 12),
-              ],
-              for (final activity in _items)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ActivityListCard(
-                    activity: activity,
-                    rightsAccess: rightsAccess,
-                  ),
-                ),
-            ],
-            if (_loadMoreError.isNotEmpty)
-              _ActivityInlineError(message: _loadMoreError, onRetry: _loadMore),
-            if (_meta.hasMore || _loadingMore)
-              _ActivityLoadMoreButton(
-                loading: _loadingMore,
-                onPressed: _loadMore,
+            else
+              _ActivityCardsRail(
+                children: [
+                  if (_refreshError.isNotEmpty)
+                    _ActivityInlineError(
+                      message: _refreshError,
+                      onRetry: _refresh,
+                    ),
+                  for (final activity in _items)
+                    _ActivityListCard(
+                      activity: activity,
+                      rightsAccess: rightsAccess,
+                    ),
+                  if (_loadMoreError.isNotEmpty)
+                    _ActivityInlineError(
+                      message: _loadMoreError,
+                      onRetry: _loadMore,
+                    ),
+                  if (_meta.hasMore || _loadingMore)
+                    _ActivityLoadMoreButton(
+                      loading: _loadingMore,
+                      onPressed: _loadMore,
+                    ),
+                ],
               ),
           ],
         ],
@@ -102,6 +146,13 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }) async {
     if (_loadingMore || (_loading && !reset) || (reset && _refreshing)) return;
     if (!reset && (!_meta.hasMore || (_meta.nextCursor ?? '').isEmpty)) return;
+
+    if (_redirectToActivityPinIfNeeded(
+      context,
+      ref.read(authControllerProvider),
+    )) {
+      return;
+    }
 
     if (reset) _refreshing = true;
     final shouldShowBlockingLoading = reset && (showLoading || _items.isEmpty);
@@ -175,8 +226,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 class _ActivitiesPageList extends StatelessWidget {
   const _ActivitiesPageList({required this.children});
 
-  static const _heroHeight = 214.0;
-  static const _sheetOverlap = 42.0;
+  static const heroMinHeight = 214.0;
+  static const sheetOverlap = 42.0;
   static const _bottomPadding = 118.0;
 
   final List<Widget> children;
@@ -186,53 +237,18 @@ class _ActivitiesPageList extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const _ActivitiesHeroBand(),
-            Padding(
-              padding: const EdgeInsets.only(top: _heroHeight - _sheetOverlap),
-              child: CustomerPageBody(
-                maxWidth: 640,
-                top: 8,
-                bottom: _bottomPadding,
-                mobileHorizontal: 12,
-                wideHorizontal: 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ActivitiesHeroBand extends StatelessWidget {
-  const _ActivitiesHeroBand();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: _ActivitiesPageList._heroHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
-            ],
+        CustomerPageBody(
+          maxWidth: 640,
+          top: 8,
+          bottom: _bottomPadding,
+          mobileHorizontal: 12,
+          wideHorizontal: 0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
           ),
         ),
-        child: const SizedBox.expand(),
-      ),
+      ],
     );
   }
 }
@@ -245,10 +261,11 @@ class _ActivityHistoryLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     return _ActivityPanelSurface(
       child: InkWell(
         onTap: onPressed,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         borderRadius: BorderRadius.circular(18),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -261,7 +278,7 @@ class _ActivityHistoryLink extends StatelessWidget {
                   Text(
                     l10n.activitiesHistoryTitle,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                          color: _activitiesMutedText,
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
                         ),
@@ -272,7 +289,7 @@ class _ActivityHistoryLink extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colorScheme.onSurface,
+                          color: _activitiesPanelTitle,
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
@@ -316,11 +333,9 @@ class _ActivityHistoryActionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.10),
+        color: _activitiesActionBackground,
         borderRadius: BorderRadius.circular(999),
       ),
       child: SizedBox(
@@ -337,7 +352,7 @@ class _ActivityHistoryActionPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: colorScheme.primary,
+                        color: _activitiesActionText,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
@@ -346,7 +361,7 @@ class _ActivityHistoryActionPill extends StatelessWidget {
               const SizedBox(width: 4),
               Icon(
                 Icons.chevron_right,
-                color: colorScheme.primary,
+                color: _activitiesActionText,
                 size: 18,
               ),
             ],
@@ -364,17 +379,14 @@ class _ActivityPanelSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
+        color: _activitiesSurface,
+        border: Border.all(color: _activitiesPanelBorder),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.08),
+            color: _activitiesPanelShadow,
             blurRadius: 26,
             offset: const Offset(0, 12),
           ),
@@ -395,14 +407,13 @@ class _ActivityStateSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: _activitiesSurface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.10),
+            color: _activitiesCardShadow,
             blurRadius: 30,
             offset: const Offset(0, 14),
           ),
@@ -456,6 +467,9 @@ class _ActivitiesHistoryScreenState
       title: l10n.activitiesHistoryTitle,
       currentPath: '/activities',
       backPath: '/activities',
+      heroMinHeight: _ActivitiesPageList.heroMinHeight,
+      heroSheetOverlap: _ActivitiesPageList.sheetOverlap,
+      heroContent: const SizedBox.shrink(),
       child: _ActivitiesPageList(
         children: [
           if (_loading)
@@ -481,30 +495,34 @@ class _ActivitiesHistoryScreenState
             const SizedBox(height: 12),
             if (_items.isEmpty)
               const _EmptyHistoryActivitiesCard()
-            else ...[
-              if (_refreshError.isNotEmpty) ...[
-                _ActivityInlineError(message: _refreshError, onRetry: _refresh),
-                const SizedBox(height: 12),
-              ],
-              for (final activity in _items)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ActivityListCard(
-                    activity: activity,
-                    rightsAccess: rightsAccess,
-                    historyGameId: _selectedHistoryGameId(
-                      meta: _meta,
-                      requestedGameId: queryGameId,
+            else
+              _ActivityCardsRail(
+                children: [
+                  if (_refreshError.isNotEmpty)
+                    _ActivityInlineError(
+                      message: _refreshError,
+                      onRetry: _refresh,
                     ),
-                  ),
-                ),
-            ],
-            if (_loadMoreError.isNotEmpty)
-              _ActivityInlineError(message: _loadMoreError, onRetry: _loadMore),
-            if (_meta.hasMore || _loadingMore)
-              _ActivityLoadMoreButton(
-                loading: _loadingMore,
-                onPressed: _loadMore,
+                  for (final activity in _items)
+                    _ActivityListCard(
+                      activity: activity,
+                      rightsAccess: rightsAccess,
+                      historyGameId: _selectedHistoryGameId(
+                        meta: _meta,
+                        requestedGameId: queryGameId,
+                      ),
+                    ),
+                  if (_loadMoreError.isNotEmpty)
+                    _ActivityInlineError(
+                      message: _loadMoreError,
+                      onRetry: _loadMore,
+                    ),
+                  if (_meta.hasMore || _loadingMore)
+                    _ActivityLoadMoreButton(
+                      loading: _loadingMore,
+                      onPressed: _loadMore,
+                    ),
+                ],
               ),
           ],
         ],
@@ -527,6 +545,13 @@ class _ActivitiesHistoryScreenState
   }) async {
     if (_loadingMore || (_loading && !reset) || (reset && _refreshing)) return;
     if (!reset && (!_meta.hasMore || (_meta.nextCursor ?? '').isEmpty)) return;
+
+    if (_redirectToActivityPinIfNeeded(
+      context,
+      ref.read(authControllerProvider),
+    )) {
+      return;
+    }
 
     final gameId = _loadedQueryGameId ?? '';
     if (reset) _refreshing = true;
@@ -600,6 +625,36 @@ class _ActivitiesHistoryScreenState
   }
 }
 
+class _ActivityCardsRail extends StatelessWidget {
+  const _ActivityCardsRail({required this.children});
+
+  static const _viewportOffset = 226.0;
+  static const _minHeight = 280.0;
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    final maxHeight = math.max(
+      _minHeight,
+      MediaQuery.sizeOf(context).height - _viewportOffset,
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: ListView.separated(
+        primary: false,
+        shrinkWrap: true,
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.only(top: 2),
+        itemCount: children.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) => children[index],
+      ),
+    );
+  }
+}
+
 List<ActivityItem> _sortActivitiesByRights(
   List<ActivityItem> items, {
   required bool authenticated,
@@ -627,6 +682,22 @@ _ActivityRightsAccess _activityRightsAccess(AuthController auth) {
     return _ActivityRightsAccess.pin;
   }
   return _ActivityRightsAccess.ready;
+}
+
+bool _redirectToActivityPinIfNeeded(
+  BuildContext context,
+  AuthController auth,
+) {
+  if (_activityRightsAccess(auth) != _ActivityRightsAccess.pin) return false;
+
+  final redirect = GoRouterState.of(context).uri.toString();
+  context.go(
+    Uri(
+      path: '/pin',
+      queryParameters: {'redirect': redirect},
+    ).toString(),
+  );
+  return true;
 }
 
 bool _hasCurrentActivityRight(ActivityItem activity) {
@@ -700,7 +771,6 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     final selectedLabel = games
         .where((game) => game.id == selectedGameId)
         .map((game) => game.label)
@@ -717,7 +787,7 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
                 Text(
                   l10n.activitiesHistorySelectLabel,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                        color: _activitiesMutedText,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
@@ -728,7 +798,7 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSurface,
+                        color: _activitiesPanelTitle,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
@@ -745,24 +815,24 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
                   borderSide: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.9),
+                    color: _activitiesNumberBorder,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
                   borderSide: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.9),
+                    color: _activitiesNumberBorder,
                   ),
                 ),
                 disabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
                   borderSide: BorderSide(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.9),
+                    color: _activitiesNumberBorder,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide(color: colorScheme.primary),
+                  borderSide: BorderSide(color: _activitiesPrimary),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -772,7 +842,7 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
               ),
               hint: Text(l10n.activitiesHistoryNoGames),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onSurface,
+                    color: _activitiesPanelTitle,
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
@@ -965,17 +1035,24 @@ class _ActivityLoadMoreButton extends StatelessWidget {
           child: OutlinedButton(
             onPressed: loading ? null : onPressed,
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(160, 44),
+              backgroundColor: _activitiesSurface,
+              disabledBackgroundColor: _activitiesOutlineDisabledBackground,
+              disabledForegroundColor: _activitiesOutlineDisabledText,
+              foregroundColor: _activitiesOutlineText,
+              minimumSize: const Size(160, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               shape: const StadiumBorder(),
-              side: BorderSide(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.9),
-              ),
               textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
+            ).copyWith(
+              side: WidgetStateProperty.resolveWith(
+                (states) => BorderSide(
+                  color: states.contains(WidgetState.disabled)
+                      ? _activitiesOutlineDisabledBorder
+                      : _activitiesOutlineBorder,
+                ),
+              ),
             ),
             child: Text(
               loading
@@ -1000,14 +1077,14 @@ class _EmptyActivitiesCard extends StatelessWidget {
         Icon(
           Icons.card_giftcard,
           size: 38,
-          color: Theme.of(context).colorScheme.primary,
+          color: _activitiesPrimary,
         ),
         const SizedBox(height: 12),
         Text(
           l10n.activitiesEmptyTitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
+                color: _activitiesCardTitle,
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
               ),
@@ -1017,7 +1094,7 @@ class _EmptyActivitiesCard extends StatelessWidget {
           l10n.activitiesEmptyMessage,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: _activitiesSecondaryText,
               ),
         ),
       ],
@@ -1036,14 +1113,14 @@ class _EmptyHistoryActivitiesCard extends StatelessWidget {
         Icon(
           Icons.history,
           size: 38,
-          color: Theme.of(context).colorScheme.primary,
+          color: _activitiesPrimary,
         ),
         const SizedBox(height: 12),
         Text(
           l10n.activitiesHistoryEmptyTitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
+                color: _activitiesCardTitle,
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
               ),
@@ -1053,26 +1130,67 @@ class _EmptyHistoryActivitiesCard extends StatelessWidget {
           l10n.activitiesHistoryEmptyMessage,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: _activitiesSecondaryText,
               ),
         ),
         const SizedBox(height: 14),
         SizedBox(
           width: 230,
-          child: FilledButton(
+          child: _ActivityCurrentLinkPill(
             onPressed: () => context.go('/activities'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(42),
-              shape: const StadiumBorder(),
-              textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            child: Text(l10n.activitiesBackToCurrent),
+            label: l10n.activitiesBackToCurrent,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ActivityCurrentLinkPill extends StatelessWidget {
+  const _ActivityCurrentLinkPill({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(999);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _activitiesCurrentLinkBackground,
+        borderRadius: radius,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          onTap: onPressed,
+          child: SizedBox(
+            height: 42,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Center(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                      ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1091,7 +1209,6 @@ class _ActivityListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     final entryClosed = activityEntryClosed(activity);
     final rightsState = _activityRightsState(
       activity,
@@ -1107,14 +1224,12 @@ class _ActivityListCard extends StatelessWidget {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.70),
-        ),
+        color: _activitiesSurface,
+        border: Border.all(color: _activitiesCardBorder),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.10),
+            color: _activitiesCardShadow,
             blurRadius: 30,
             offset: const Offset(0, 14),
           ),
@@ -1125,6 +1240,8 @@ class _ActivityListCard extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             onTap: activity.slug.isEmpty
                 ? null
                 : () => context.go(detailUri.toString()),
@@ -1178,7 +1295,7 @@ class _ActivityListCard extends StatelessWidget {
                                       .textTheme
                                       .titleMedium
                                       ?.copyWith(
-                                        color: colorScheme.onSurface,
+                                        color: _activitiesCardTitle,
                                         fontWeight: FontWeight.w900,
                                         height: 1.25,
                                       ),
@@ -1192,7 +1309,7 @@ class _ActivityListCard extends StatelessWidget {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
+                                        color: _activitiesBodyText,
                                         fontWeight: FontWeight.w700,
                                         height: 1.35,
                                       ),
@@ -1256,17 +1373,13 @@ class _ActivityNumberBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
         Flexible(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color:
-                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.40),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.88),
-              ),
+              color: _activitiesNumberBackground,
+              border: Border.all(color: _activitiesNumberBorder),
               borderRadius: BorderRadius.circular(999),
             ),
             child: ConstrainedBox(
@@ -1279,7 +1392,7 @@ class _ActivityNumberBadge extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.grid_view_rounded,
-                      color: colorScheme.onSurfaceVariant,
+                      color: _activitiesNumberText,
                       size: 14,
                     ),
                     const SizedBox(width: 6),
@@ -1289,7 +1402,7 @@ class _ActivityNumberBadge extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: _activitiesNumberText,
                               fontSize: compact ? 11 : 12,
                               fontWeight: FontWeight.w900,
                               height: 1,
@@ -1320,16 +1433,10 @@ class _ActivityDeadlinePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final background = closed
-        ? activityErrorTint(colorScheme)
-        : activityWarningTint(colorScheme);
-    final border = closed
-        ? activityErrorBorder(colorScheme)
-        : activityWarningBorder(colorScheme);
-    final foreground = closed
-        ? activityErrorForeground(colorScheme)
-        : activityWarningForeground(colorScheme);
+    final background =
+        closed ? _activitiesClosedBackground : _activitiesDeadlineBackground;
+    final border = closed ? _activitiesClosedBorder : _activitiesDeadlineBorder;
+    final foreground = closed ? _activitiesClosedText : _activitiesDeadlineText;
 
     return Row(
       children: [
@@ -1385,11 +1492,9 @@ class _ActivityTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.10),
+        color: _activitiesActionBackground,
         borderRadius: BorderRadius.circular(999),
       ),
       child: ConstrainedBox(
@@ -1401,7 +1506,7 @@ class _ActivityTypeBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.primary,
+                  color: _activitiesActionText,
                   fontSize: compact ? 11 : 12,
                   fontWeight: FontWeight.w900,
                   height: 1,
@@ -1426,31 +1531,30 @@ class _ActivityRightsBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final colors = switch (state) {
       'available' => (
-          background: activitySuccessTint(colorScheme),
-          foreground: activitySuccessForeground(colorScheme),
+          background: _activitiesSuccessBackground,
+          foreground: _activitiesSuccessText,
           icon: Icons.check_circle,
         ),
       'used' => (
-          background: activityInfoTint(colorScheme),
-          foreground: activityInfoForeground(colorScheme),
+          background: _activitiesUsedBackground,
+          foreground: _activitiesUsedText,
           icon: Icons.check_circle_outline,
         ),
       'closed' => (
-          background: activityErrorTint(colorScheme),
-          foreground: activityErrorForeground(colorScheme),
+          background: _activitiesClosedBadgeBackground,
+          foreground: _activitiesClosedText,
           icon: Icons.access_time_filled,
         ),
       'guest' || 'pin' => (
-          background: colorScheme.surfaceContainerHighest,
-          foreground: colorScheme.onSurfaceVariant,
+          background: _activitiesNeutralBackground,
+          foreground: _activitiesSecondaryText,
           icon: Icons.lock,
         ),
       _ => (
-          background: colorScheme.surfaceContainerHighest,
-          foreground: colorScheme.onSurfaceVariant,
+          background: _activitiesNeutralBackground,
+          foreground: _activitiesSecondaryText,
           icon: Icons.info,
         ),
     };

@@ -10,12 +10,16 @@ import 'package:customer_flutter/features/topup/data/topup_models.dart';
 import 'package:customer_flutter/features/topup/data/topup_repository.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_realtime_monitor.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_screen.dart';
+import 'package:customer_flutter/shared/widgets/customer_gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+const _runtimeTopupLogo =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
 
 void main() {
   test('safeTopupBackPath follows the Nuxt return allowlist', () {
@@ -39,15 +43,19 @@ void main() {
     expect(find.text('checkout route'), findsOneWidget);
   });
 
-  testWidgets('topup launcher shows Nuxt-style history row and channel buttons',
-      (
+  testWidgets('topup launcher follows the reference hero and bank sheet', (
     tester,
   ) async {
     await _pumpTopupRoute(tester, '/topup');
 
     expect(find.text('เติมเงินเข้า G-Wallet'), findsWidgets);
-    expect(find.text('ดูประวัติเติมเงิน'), findsOneWidget);
+    expect(find.text('ดูประวัติเติมเงิน'), findsNothing);
     expect(find.text('เลือกช่องทางการเติมเงิน'), findsOneWidget);
+    expect(find.text('วิธีการเติมเงินผ่านธนาคาร'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topup-channel-method-logo-qr')),
+      findsOneWidget,
+    );
     expect(
       find.ancestor(
         of: find.text('เลือกช่องทางการเติมเงิน'),
@@ -62,11 +70,6 @@ void main() {
       ),
       findsNothing,
     );
-
-    await tester.tap(find.text('ดูประวัติเติมเงิน'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('topup history route'), findsOneWidget);
   });
 
   testWidgets('topup screen refreshes waiting request on realtime tick', (
@@ -130,8 +133,8 @@ void main() {
     expect(loads, 2);
     expect(find.text('รายการเติมเงินที่ยังไม่เสร็จ'), findsOneWidget);
     expect(find.text('รายการ #top_realtime_pending'), findsOneWidget);
-    expect(find.text('750.00 บาท'), findsOneWidget);
-    expect(find.text('โบนัส 35.00 บาท'), findsOneWidget);
+    expect(find.text('750 บาท'), findsOneWidget);
+    expect(find.text('โบนัส 35 บาท'), findsOneWidget);
     expect(find.text('สลิปชำระเงิน'), findsOneWidget);
     expect(find.text('แนบสลิปชำระเงิน'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -148,6 +151,18 @@ void main() {
           accountName: 'ร้านทดสอบ',
           accountNumber: '123-4-56789-0',
         ),
+        banks: const [
+          TopupBankAccount(
+            bankName: 'ธนาคารทดสอบ',
+            accountName: 'ร้านทดสอบ',
+            accountNumber: '123-4-56789-0',
+          ),
+          TopupBankAccount(
+            bankName: 'ธนาคารสำรอง',
+            accountName: 'ร้านทดสอบ',
+            accountNumber: '987-6-54321-0',
+          ),
+        ],
         paymentMethods: const [
           TopupPaymentMethod(
             key: 'qr',
@@ -180,18 +195,24 @@ void main() {
     expect(find.text('Credit QR Code'), findsOneWidget);
     expect(find.text('โอนธนาคาร'), findsOneWidget);
     expect(find.text('ปิดบริการชั่วคราว'), findsNWidgets(2));
-    expect(find.text('ธนาคารทดสอบ'), findsNothing);
+    expect(find.text('วิธีการเติมเงินผ่านธนาคาร'), findsOneWidget);
+    expect(find.text('ธนาคารทดสอบ'), findsOneWidget);
+    expect(find.text('ธนาคารสำรอง'), findsOneWidget);
+    expect(find.text('123-4-56789-0'), findsNothing);
 
-    final bankTile = find.ancestor(
-      of: find.text('โอนธนาคาร'),
-      matching: find.byType(InkWell),
-    );
+    final bankTile = find
+        .ancestor(
+          of: find.text('โอนธนาคาร'),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
     await tester.ensureVisible(bankTile);
     await tester.pumpAndSettle();
     await tester.tap(bankTile);
     await tester.pumpAndSettle();
 
-    expect(find.text('ธนาคารทดสอบ'), findsOneWidget);
+    expect(find.text('ธนาคารทดสอบ'), findsNWidgets(2));
+    expect(find.text('123-4-56789-0'), findsOneWidget);
     expect(find.text('ยืนยันการชำระเงิน'), findsOneWidget);
   });
 
@@ -238,15 +259,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('จำนวนเงินที่ต้องการเติม'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, '100.00'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, '1,000.00'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '100'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '1,000'), findsOneWidget);
     expect(find.byType(ActionChip), findsNothing);
     expect(
       find.text('สร้าง QR Code แล้วแนบสลิปหลังชำระเงินเพื่อให้ร้านค้าตรวจสอบ'),
       findsOneWidget,
     );
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '1,000.00'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '1,000'));
     await tester.pump();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller?.text,
@@ -264,7 +285,10 @@ void main() {
       find.text('ช่องทางนี้จะแสดงเป็น QR Code และแนบสลิปหลังชำระเงินได้'),
       findsOneWidget,
     );
-    expect(find.widgetWithText(FilledButton, 'สร้าง QR Code'), findsOneWidget);
+    expect(
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
+      findsOneWidget,
+    );
     expect(find.text('สร้าง Credit QR Code'), findsNothing);
   });
 
@@ -321,11 +345,13 @@ void main() {
 
     expect(find.text('ขั้นต่ำตาม provider ของร้านค้า'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'สร้าง QR Code'));
+    await tester.tap(
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.createCalls, 0);
-    expect(find.text('Credit Runtime QR ขั้นต่ำ 750.00 บาท'), findsOneWidget);
+    expect(find.text('Credit Runtime QR ขั้นต่ำ 750 บาท'), findsOneWidget);
     expect(
       find.textContaining('should not submit below runtime minimum'),
       findsNothing,
@@ -400,8 +426,11 @@ void main() {
     await tester.tap(find.text('ยกเลิก').last);
     await tester.pumpAndSettle();
 
-    final submit = find.widgetWithText(FilledButton, 'ยืนยันการชำระเงิน');
-    final submitButton = tester.widget<FilledButton>(submit);
+    final submit = find.widgetWithText(
+      CustomerGradientButton,
+      'ยืนยันการชำระเงิน',
+    );
+    final submitButton = tester.widget<CustomerGradientButton>(submit);
     submitButton.onPressed!();
     await tester.pump();
 
@@ -467,8 +496,8 @@ void main() {
 
     expect(find.text('รายการเติมเงินที่ยังไม่เสร็จ'), findsOneWidget);
     expect(find.text('รายการ #top_waiting_qr'), findsOneWidget);
-    expect(find.text('500.00 บาท'), findsOneWidget);
-    expect(find.text('โบนัส 25.00 บาท'), findsOneWidget);
+    expect(find.text('500 บาท'), findsOneWidget);
+    expect(find.text('โบนัส 25 บาท'), findsOneWidget);
     expect(find.text('สแกน QR Code เพื่อชำระเงิน'), findsOneWidget);
     expect(find.textContaining('26 มิ.ย.'), findsOneWidget);
     expect(find.textContaining('QR Code •'), findsNothing);
@@ -524,8 +553,8 @@ void main() {
 
     expect(find.text('รายการเติมเงินที่ยังไม่เสร็จ'), findsOneWidget);
     expect(find.text('รายการ #top_waiting_compact_bank'), findsOneWidget);
-    expect(find.text('1,200.00 บาท'), findsOneWidget);
-    expect(find.text('โบนัส 80.00 บาท'), findsOneWidget);
+    expect(find.text('1,200 บาท'), findsOneWidget);
+    expect(find.text('โบนัส 80 บาท'), findsOneWidget);
     expect(find.text('สลิปชำระเงิน'), findsOneWidget);
     expect(find.text('ส่งแล้ว'), findsOneWidget);
     expect(find.text('อัพโหลดสลิปใหม่'), findsOneWidget);
@@ -599,7 +628,10 @@ void main() {
       find.text('กรุณาชำระหรือยกเลิกรายการเดิมก่อนสร้างรายการใหม่'),
       findsOneWidget,
     );
-    expect(find.widgetWithText(FilledButton, 'สร้าง QR Code'), findsNothing);
+    expect(
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
+      findsNothing,
+    );
 
     await tester.ensureVisible(find.text('โอนธนาคาร'));
     await tester.pumpAndSettle();
@@ -625,7 +657,9 @@ void main() {
 
     await tester.tap(find.text('QR Code'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'สร้าง QR Code'));
+    await tester.tap(
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.createCalls, 1);
@@ -653,7 +687,9 @@ void main() {
 
     await tester.tap(find.text('QR Code'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'สร้าง QR Code'));
+    await tester.tap(
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.createCalls, 1);
@@ -808,7 +844,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('ยอดเติมเงิน'), findsWidgets);
-    expect(find.text('800.00 บาท'), findsWidgets);
+    expect(find.text('800 บาท'), findsWidgets);
     expect(find.widgetWithText(OutlinedButton, 'ไม่ยกเลิก'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'ยืนยันยกเลิก'), findsOneWidget);
 
@@ -956,6 +992,7 @@ TopupOverview _emptyTopupOverview() {
         label: 'QR Code',
         enabled: true,
         description: '',
+        iconUrl: _runtimeTopupLogo,
       ),
       TopupPaymentMethod(
         key: 'credit_card',

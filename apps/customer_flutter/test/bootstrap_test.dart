@@ -1439,7 +1439,44 @@ void main() {
     expect(hslTheme.accentColor, const Color(0xFFFF7A00));
   });
 
-  test('app theme applies partner runtime color tokens', () {
+  test('app theme fallback matches Nuxt customer visual tokens', () {
+    final theme = AppTheme.light();
+
+    expect(theme.colorScheme.primary, AppTheme.appBlue);
+    expect(theme.colorScheme.secondary, AppTheme.appSky);
+    expect(theme.colorScheme.tertiary, AppTheme.appYellow);
+    expect(theme.scaffoldBackgroundColor, AppTheme.appSheet);
+    expect(
+      AppTheme.primaryActionStart(AppTheme.appBlue),
+      AppTheme.appActionStart,
+    );
+    expect(AppTheme.primaryActionEnd(AppTheme.appBlue), AppTheme.appActionEnd);
+    expect(AppTheme.heroGradientStart(AppTheme.appBlue), AppTheme.appHeroStart);
+    expect(AppTheme.heroGradientEnd(AppTheme.appBlue), AppTheme.appHeroEnd);
+  });
+
+  test('app theme keeps Nuxt blue identity with runtime color tokens', () {
+    final theme = AppTheme.light(
+      tokens: const AppThemeTokens(
+        primaryColor: Color(0xFF10B981),
+        secondaryColor: Color(0xFF22C55E),
+        accentColor: Color(0xFF55B20E),
+        backgroundColor: Color(0xFFFAFBFC),
+        textColor: Color(0xFF111827),
+        fontFamily: 'Prompt',
+      ),
+    );
+
+    expect(theme.colorScheme.primary, AppTheme.appBlue);
+    expect(theme.colorScheme.secondary, AppTheme.appSky);
+    expect(theme.colorScheme.tertiary, AppTheme.appYellow);
+    expect(theme.colorScheme.onSurface, const Color(0xFF111827));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFFAFBFC));
+    expect(theme.textTheme.bodyMedium?.color, const Color(0xFF111827));
+    expect(theme.inputDecorationTheme.fillColor, Colors.white);
+  });
+
+  test('app theme can opt into partner runtime color tokens', () {
     final theme = AppTheme.light(
       tokens: const AppThemeTokens(
         primaryColor: Color(0xFF123456),
@@ -1449,6 +1486,7 @@ void main() {
         textColor: Color(0xFF111827),
         fontFamily: 'Prompt',
       ),
+      useRuntimeBrandColors: true,
     );
 
     expect(theme.colorScheme.primary, const Color(0xFF123456));
@@ -1457,7 +1495,6 @@ void main() {
     expect(theme.colorScheme.onSurface, const Color(0xFF111827));
     expect(theme.scaffoldBackgroundColor, const Color(0xFFFAFBFC));
     expect(theme.textTheme.bodyMedium?.color, const Color(0xFF111827));
-    expect(theme.inputDecorationTheme.fillColor, Colors.white);
   });
 }
 

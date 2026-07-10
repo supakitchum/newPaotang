@@ -20,6 +20,7 @@ import 'package:customer_flutter/features/activities/presentation/activity_detai
 import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_repository.dart';
 import 'package:customer_flutter/features/reward_claims/presentation/claim_realtime_monitor.dart';
+import 'package:customer_flutter/shared/widgets/customer_gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -159,9 +160,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'), findsOneWidget);
+    expect(
+      find.widgetWithText(CustomerGradientButton, 'ยืนยันเลือกเลข'),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'));
+    await tester.tap(
+      find.widgetWithText(CustomerGradientButton, 'ยืนยันเลือกเลข'),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.createEntryCount, 1);
@@ -283,7 +289,9 @@ void main() {
 
     await _tapLuckyNumber(tester, '04');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'));
+    await tester.tap(
+      find.widgetWithText(CustomerGradientButton, 'ยืนยันเลือกเลข'),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.createEntryCount, 1);
@@ -308,11 +316,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final claimButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'รับเงิน'),
-    );
-    claimButton.onPressed!();
-    await tester.pumpAndSettle();
+    await _pressGradientButton(tester, 'รับเงิน');
 
     expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
     expect(find.text('รับเงินรางวัลกิจกรรม'), findsOneWidget);
@@ -328,7 +332,10 @@ void main() {
     expect(find.text('โอนเข้าบัญชีธนาคาร'), findsOneWidget);
     expect(find.text('ยังไม่ได้ตั้งค่าบัญชีรับเงิน'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'ถัดไป'), findsOneWidget);
+    expect(
+      find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('ตั้งค่าบัญชีรับเงิน'));
     await tester.pumpAndSettle();
@@ -354,11 +361,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final claimButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'รับเงิน'),
-    );
-    claimButton.onPressed!();
-    await tester.pumpAndSettle();
+    await _pressGradientButton(tester, 'รับเงิน');
 
     expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
     expect(find.text('รับเงินรางวัลกิจกรรม'), findsOneWidget);
@@ -386,11 +389,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final claimButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'รับเงิน'),
-    );
-    claimButton.onPressed!();
-    await tester.pumpAndSettle();
+    await _pressGradientButton(tester, 'รับเงิน');
 
     expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
     expect(find.text('G Wallet x 123'), findsOneWidget);
@@ -414,7 +413,7 @@ void main() {
     expect(find.text('ธนาคารกสิกรไทย'), findsOneWidget);
     expect(find.text('Demo Customer · ******7890'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ถัดไป'));
+    await tester.tap(find.widgetWithText(CustomerGradientButton, 'ถัดไป'));
     await tester.pumpAndSettle();
 
     expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
@@ -460,17 +459,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final claimButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'รับเงิน'),
-    );
-    claimButton.onPressed!();
-    await tester.pumpAndSettle();
+    await _pressGradientButton(tester, 'รับเงิน');
 
     expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
     expect(find.text('ยอดที่รับได้'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'ถัดไป'), findsOneWidget);
+    expect(
+      find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ถัดไป'));
+    await tester.tap(find.widgetWithText(CustomerGradientButton, 'ถัดไป'));
     await tester.pumpAndSettle();
 
     expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
@@ -511,13 +509,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final claimButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'รับเงิน'),
-    );
-    claimButton.onPressed!();
-    await tester.pumpAndSettle();
+    await _pressGradientButton(tester, 'รับเงิน');
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ถัดไป'));
+    await tester.tap(find.widgetWithText(CustomerGradientButton, 'ถัดไป'));
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
@@ -673,6 +667,20 @@ Future<void> _tapLuckyNumber(WidgetTester tester, String number) async {
   );
   await tester.pumpAndSettle();
   await tester.tap(finder);
+}
+
+Future<void> _pressGradientButton(WidgetTester tester, String label) async {
+  final finder = find.widgetWithText(CustomerGradientButton, label);
+  if (!tester.any(finder)) {
+    await tester.scrollUntilVisible(
+      finder,
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+  }
+  tester.widget<CustomerGradientButton>(finder).onPressed!();
+  await tester.pumpAndSettle();
 }
 
 class _PendingActivityRepository extends ActivityRepository {

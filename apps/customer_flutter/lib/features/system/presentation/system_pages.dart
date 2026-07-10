@@ -14,6 +14,7 @@ import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/purchase_history/data/purchase_history_models.dart';
@@ -23,6 +24,7 @@ import '../../../features/results/data/result_models.dart';
 import '../../../features/results/data/result_repository.dart';
 import 'success_receipt_state.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/flexible_image.dart';
@@ -457,12 +459,15 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
   Widget build(BuildContext context) {
     final id = widget.orderId ?? '';
     final receiptBoundaryKey = GlobalKey();
-    final bootstrapProductLabel =
-        ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
-            '';
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final bootstrapProductLabel = bootstrap?.lotteryProductLabel ?? '';
     final productLabel = _successProductLabel(
       context,
       bootstrapProductLabel,
+    );
+    final watermarkLabel = _successReceiptWatermarkLabel(
+      bootstrap,
+      productLabel,
     );
     final fallbackOrder = successReceiptFallbackForOrderId(
       ref.watch(successReceiptFallbackOrderProvider),
@@ -475,12 +480,18 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
             .whenData((value) => value);
     Widget content(PurchaseHistoryOrder? item, {Widget? statusContent}) {
       return _SuccessPageList(
+        onBack: () => context.go('/tickets'),
+        footer: _SuccessPrimaryActionButton(
+          onPressed: () => context.go('/tickets'),
+          label: context.l10n.successViewTickets,
+        ),
         children: [
           RepaintBoundary(
             key: receiptBoundaryKey,
             child: _SuccessReceiptCard(
               item: item,
               productLabel: productLabel,
+              watermarkLabel: watermarkLabel,
               statusContent: statusContent,
             ),
           ),
@@ -510,11 +521,6 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
               },
             ),
           ],
-          const SizedBox(height: 238),
-          _SuccessPrimaryActionButton(
-            onPressed: () => context.go('/tickets'),
-            label: context.l10n.successViewTickets,
-          ),
         ],
       );
     }
@@ -522,6 +528,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
     return AppShell(
       title: context.l10n.successTitle,
       currentPath: '/tickets',
+      showBottomNavigation: false,
       sensitive: true,
       fullScreen: true,
       child: order.when(
@@ -559,75 +566,70 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
 }
 
 class _SuccessPageList extends StatelessWidget {
-  const _SuccessPageList({required this.children});
+  const _SuccessPageList({
+    required this.children,
+    required this.footer,
+    required this.onBack,
+  });
 
   final List<Widget> children;
+  final Widget footer;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
+        const topPadding = 54.0;
+        const baseBottomPadding = 30.0;
+        final safePadding = MediaQuery.paddingOf(context);
+        final bottomPadding = baseBottomPadding + safePadding.bottom;
+        final contentMinHeight = constraints.maxHeight -
+            safePadding.top -
+            topPadding -
+            bottomPadding;
         return ListView(
           padding: EdgeInsets.zero,
           children: [
             ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colorScheme.primary,
-                      Color.lerp(
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                            0.72,
-                          ) ??
-                          colorScheme.secondary,
-                    ],
-                  ),
+              child: CustomPaint(
+                painter: _SuccessBackgroundPainter(
+                  primary: colorScheme.primary,
+                  secondary: colorScheme.secondary,
+                  accent: colorScheme.tertiary,
                 ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: -74,
-                      bottom: 18,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colorScheme.tertiary.withValues(alpha: 0.88),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const SizedBox.square(dimension: 210),
+                child: SafeArea(
+                  bottom: false,
+                  child: CustomerPageBody(
+                    maxWidth: 430,
+                    top: topPadding,
+                    bottom: bottomPadding,
+                    mobileHorizontal: 18,
+                    wideHorizontal: 0,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: contentMinHeight < 0 ? 0 : contentMinHeight,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _SuccessHeaderRow(onBack: onBack),
+                              const SizedBox(height: 24),
+                              ...children,
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                          footer,
+                        ],
                       ),
                     ),
-                    Positioned(
-                      right: 34,
-                      bottom: 132,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.36),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const SizedBox.square(dimension: 220),
-                      ),
-                    ),
-                    SafeArea(
-                      bottom: false,
-                      child: CustomerPageBody(
-                        maxWidth: 430,
-                        top: 54,
-                        bottom: 142,
-                        mobileHorizontal: 18,
-                        wideHorizontal: 0,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: children,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -635,6 +637,105 @@ class _SuccessPageList extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _SuccessHeaderRow extends StatelessWidget {
+  const _SuccessHeaderRow({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 42,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: -8,
+            child: IconButton(
+              tooltip: context.l10n.commonBack,
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
+              color: colorScheme.onPrimary,
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 54),
+            child: Text(
+              context.l10n.successTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuccessBackgroundPainter extends CustomPainter {
+  const _SuccessBackgroundPainter({
+    required this.primary,
+    required this.secondary,
+    required this.accent,
+  });
+
+  final Color primary;
+  final Color secondary;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = ui.Gradient.linear(
+        rect.topLeft,
+        rect.bottomRight,
+        [
+          AppTheme.appBlue,
+          AppTheme.appSuccessGradientEnd,
+        ],
+      );
+    canvas.drawRect(rect, paint);
+
+    canvas.drawCircle(
+      Offset(size.width, size.height * 0.94),
+      size.shortestSide * 0.244,
+      Paint()..color = AppTheme.appYellow.withValues(alpha: 0.98),
+    );
+
+    canvas.drawCircle(
+      Offset(size.width * 0.70, size.height * 0.78),
+      size.shortestSide * 0.314,
+      Paint()..color = AppTheme.appSuccessRadialBlue.withValues(alpha: 0.54),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SuccessBackgroundPainter oldDelegate) {
+    return oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary ||
+        oldDelegate.accent != accent;
   }
 }
 
@@ -660,7 +761,12 @@ class _SuccessReceiptSaveAction extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               shape: const StadiumBorder(),
               side: BorderSide.none,
-              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              textStyle: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             ),
             icon: const Icon(Icons.download_outlined, size: 25),
             label: Text(context.l10n.successSaveReceipt),
@@ -679,6 +785,15 @@ String _successProductLabel(BuildContext context, String configuredLabel) {
   return context.l10n.ticketStubSeriesLabel.trim();
 }
 
+String _successReceiptWatermarkLabel(
+  MobileBootstrap? bootstrap,
+  String productLabel,
+) {
+  final configured = bootstrap?.ticketImageWatermark.trim() ?? '';
+  if (configured.isNotEmpty) return configured;
+  return productLabel.trim();
+}
+
 class _SuccessPrimaryActionButton extends StatelessWidget {
   const _SuccessPrimaryActionButton({
     required this.onPressed,
@@ -690,41 +805,11 @@ class _SuccessPrimaryActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final secondary =
-        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.72) ??
-            colorScheme.secondary;
-    return SizedBox(
-      height: 56,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [secondary, colorScheme.primary]),
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.22),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: FilledButton(
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            foregroundColor: colorScheme.onPrimary,
-            shadowColor: Colors.transparent,
-            minimumSize: const Size.fromHeight(56),
-            shape: const StadiumBorder(),
-            textStyle: const TextStyle(fontWeight: FontWeight.w900),
-          ).copyWith(
-            overlayColor: WidgetStatePropertyAll(
-              colorScheme.onPrimary.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Text(label, textAlign: TextAlign.center),
-        ),
-      ),
+    return CustomerGradientButton.text(
+      onPressed: onPressed,
+      height: 54,
+      fontSize: 17,
+      label: label,
     );
   }
 }
@@ -733,11 +818,13 @@ class _SuccessReceiptCard extends StatelessWidget {
   const _SuccessReceiptCard({
     required this.item,
     required this.productLabel,
+    required this.watermarkLabel,
     this.statusContent,
   });
 
   final PurchaseHistoryOrder? item;
   final String productLabel;
+  final String watermarkLabel;
   final Widget? statusContent;
 
   @override
@@ -746,57 +833,63 @@ class _SuccessReceiptCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: _successReceiptSurfaceDecoration(context),
-      child: CustomPaint(
-        painter: _SuccessReceiptStripePainter(
-          color: colorScheme.primary.withValues(alpha: 0.035),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-          child: Column(
-            children: [
-              _SuccessReceiptHeader(productLabel: productLabel),
-              if (item != null) ...[
-                const Divider(height: 30),
-                _ReceiptRow(
-                  label: l10n.purchaseHistoryTicketCountLabel,
-                  value: l10n.purchaseHistoryTicketCount(item!.ticketCount),
-                  highlighted: true,
-                ),
-                _ReceiptRow(
-                  label: l10n.purchaseHistoryDrawDateLabel,
-                  value: localizedPurchaseDrawDate(context, item!),
-                  highlighted: true,
-                ),
-                const Divider(height: 24),
-                _ReceiptRow(
-                  label: l10n.purchaseHistoryPayeeLabel,
-                  value: localizedPurchaseStoreName(context, item!),
-                ),
-                _ReceiptRow(
-                  label: l10n.purchaseHistoryPaymentChannelLabel,
-                  value: _successPaymentChannelText(context, item!),
-                ),
-                const Divider(height: 24),
-                _SuccessTotalRow(total: item!.total),
-                const SizedBox(height: 8),
-                Text(
-                  [
-                    '${l10n.successTransactionAtLabel} '
-                        '${localizedPurchaseTransactionDate(context, item!)}',
-                    '${l10n.purchaseHistoryReferenceLabel} '
-                        '${item!.displayReference}',
-                  ].join('\n'),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ] else if (statusContent != null) ...[
-                const Divider(height: 30),
-                statusContent!,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CustomPaint(
+          painter: _SuccessReceiptWatermarkPainter(
+            color: colorScheme.primary.withValues(alpha: 0.035),
+            label: watermarkLabel,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            child: Column(
+              children: [
+                _SuccessReceiptHeader(productLabel: productLabel),
+                if (item != null) ...[
+                  const Divider(height: 30),
+                  _ReceiptRow(
+                    label: l10n.purchaseHistoryTicketCountLabel,
+                    value: l10n.purchaseHistoryTicketCount(item!.ticketCount),
+                    highlighted: true,
+                  ),
+                  _ReceiptRow(
+                    label: l10n.purchaseHistoryDrawDateLabel,
+                    value: localizedPurchaseDrawDate(context, item!),
+                    highlighted: true,
+                  ),
+                  const Divider(height: 24),
+                  _ReceiptRow(
+                    label: l10n.purchaseHistoryPayeeLabel,
+                    value: localizedPurchaseStoreName(context, item!),
+                  ),
+                  _ReceiptRow(
+                    label: l10n.purchaseHistoryPaymentChannelLabel,
+                    value: _successPaymentChannelText(context, item!),
+                  ),
+                  const Divider(height: 24),
+                  _SuccessTotalRow(total: item!.total),
+                  const SizedBox(height: 8),
+                  Text(
+                    [
+                      '${l10n.successTransactionAtLabel} '
+                          '${localizedPurchaseTransactionDate(context, item!)}',
+                      '${l10n.purchaseHistoryReferenceLabel} '
+                          '${item!.displayReference}',
+                    ].join('\n'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          height: 1.45,
+                        ),
+                  ),
+                ] else if (statusContent != null) ...[
+                  const Divider(height: 30),
+                  statusContent!,
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -812,33 +905,35 @@ BoxDecoration _successReceiptSurfaceDecoration(BuildContext context) {
   );
 }
 
-class _SuccessReceiptStripePainter extends CustomPainter {
-  const _SuccessReceiptStripePainter({required this.color});
+class _SuccessReceiptWatermarkPainter extends CustomPainter {
+  const _SuccessReceiptWatermarkPainter({
+    required this.color,
+    required this.label,
+  });
 
   final Color color;
+  final String label;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    const stripeWidth = 28.0;
-    const stripeStep = 66.0;
-    final slant = size.height * 0.58;
-    for (var x = -slant - stripeWidth;
-        x < size.width + slant;
-        x += stripeStep) {
-      final path = Path()
-        ..moveTo(x, 0)
-        ..lineTo(x + stripeWidth, 0)
-        ..lineTo(x + stripeWidth + slant, size.height)
-        ..lineTo(x + slant, size.height)
-        ..close();
-      canvas.drawPath(path, paint);
+    final stripePaint = Paint()
+      ..color = AppTheme.appBlue.withValues(alpha: 0.035)
+      ..strokeWidth = 28;
+    canvas.save();
+    canvas.rotate(-0.523599);
+    for (var x = -size.height; x < size.width + size.height; x += 66) {
+      canvas.drawLine(
+        Offset(x, -size.height),
+        Offset(x, size.height * 2),
+        stripePaint,
+      );
     }
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_SuccessReceiptStripePainter oldDelegate) {
-    return oldDelegate.color != color;
+  bool shouldRepaint(_SuccessReceiptWatermarkPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.label != label;
   }
 }
 
@@ -876,14 +971,14 @@ class _SuccessReceiptHeader extends StatelessWidget {
         const SizedBox(height: 16),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: colorScheme.tertiary,
+            color: AppTheme.appSuccessCheck,
             shape: BoxShape.circle,
           ),
           child: SizedBox.square(
             dimension: 62,
             child: Icon(
               Icons.check_rounded,
-              color: colorScheme.onTertiary,
+              color: AppTheme.appSheet,
               size: 38,
             ),
           ),
@@ -891,16 +986,23 @@ class _SuccessReceiptHeader extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           l10n.successPurchaseTitle,
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w900),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 6),
         Text(
           l10n.successPurchaseSubtitle,
           textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+              ),
         ),
       ],
     );
@@ -914,8 +1016,9 @@ class _SuccessReceiptBrandLogo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final bootstrap = ref.watch(mobileBootstrapProvider);
-    return SizedBox.square(
-      dimension: 44,
+    return SizedBox(
+      width: 96,
+      height: 40,
       child: Center(
         child: bootstrap.maybeWhen(
           data: (data) {
@@ -930,8 +1033,8 @@ class _SuccessReceiptBrandLogo extends ConsumerWidget {
             return FlexibleImage(
               key: const ValueKey('success-receipt-brand-logo'),
               source: _resolveSuccessReceiptLogoUrl(ref, rawLogoUrl),
-              width: 36,
-              height: 36,
+              width: 96,
+              height: 38,
               fit: BoxFit.contain,
               errorIcon: Icons.storefront_outlined,
             );
@@ -966,7 +1069,6 @@ class _SuccessProductMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -974,8 +1076,8 @@ class _SuccessProductMark extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: colorScheme.primary,
-                fontSize: 30,
+                color: AppTheme.appLotterySix,
+                fontSize: 32,
                 fontWeight: FontWeight.w800,
                 height: 1,
                 letterSpacing: 0,
@@ -985,7 +1087,7 @@ class _SuccessProductMark extends StatelessWidget {
           offset: const Offset(-5, 1),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: colorScheme.tertiary,
+              color: AppTheme.appYellow,
               shape: BoxShape.circle,
             ),
             child: const SizedBox.square(dimension: 8),
@@ -1032,13 +1134,15 @@ class _SuccessReceiptStatusMessage extends StatelessWidget {
                   color: loading
                       ? colorScheme.onSurfaceVariant
                       : colorScheme.error,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
+                  height: 1.45,
                 ),
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 14),
             OutlinedButton(
               onPressed: onAction,
+              style: _successReceiptOutlinePillButtonStyle(context),
               child: Text(actionLabel!),
             ),
           ],
@@ -1046,6 +1150,30 @@ class _SuccessReceiptStatusMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+ButtonStyle _successReceiptOutlinePillButtonStyle(BuildContext context) {
+  return OutlinedButton.styleFrom(
+    foregroundColor: AppTheme.appOutlinePillText,
+    disabledForegroundColor: AppTheme.appOutlinePillDisabledText,
+    minimumSize: const Size(0, 40),
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+    backgroundColor: AppTheme.appSheet,
+    disabledBackgroundColor: AppTheme.appOutlinePillDisabledFill,
+    shape: const StadiumBorder(),
+    side: const BorderSide(color: AppTheme.appOutlinePillBorder),
+    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+  ).copyWith(
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    side: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return const BorderSide(color: AppTheme.appOutlinePillDisabledBorder);
+      }
+      return const BorderSide(color: AppTheme.appOutlinePillBorder);
+    }),
+  );
 }
 
 class _SuccessReceiptInlineNotice extends StatelessWidget {
@@ -1930,6 +2058,7 @@ class _ReceiptRow extends StatelessWidget {
                     color: highlighted
                         ? colorScheme.primary
                         : colorScheme.onSurface,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
@@ -1944,6 +2073,7 @@ class _ReceiptRow extends StatelessWidget {
 TextStyle? _successReceiptLabelStyle(BuildContext context) {
   return Theme.of(context).textTheme.bodyMedium?.copyWith(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 16,
         fontWeight: FontWeight.w500,
         height: 1.25,
       );

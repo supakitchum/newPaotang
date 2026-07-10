@@ -2,6 +2,22 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../data/ticket_models.dart';
 
+String formatTicketBaht(CustomerLocalizations l10n, num value) {
+  final formatted = l10n.formatBaht(value);
+  final unit = l10n.commonBahtSuffix.trim();
+  final amount = unit.isEmpty
+      ? formatted.trim()
+      : formatted
+          .replaceFirst(RegExp('\\s*${RegExp.escape(unit)}\$'), '')
+          .trim();
+  final numericValue = value.toDouble();
+  final cleanAmount = numericValue.isFinite &&
+          (numericValue - numericValue.roundToDouble()).abs() <= 0.000001
+      ? amount.replaceFirst(RegExp(r'[\.,]00$'), '')
+      : amount;
+  return unit.isEmpty ? cleanAmount : '$cleanAmount $unit';
+}
+
 String ticketStatusLabel(CustomerLocalizations l10n, CustomerTicket ticket) {
   final status = ticket.rewardStatus.status;
   final claimStatus = ticket.rewardStatus.claimStatus;

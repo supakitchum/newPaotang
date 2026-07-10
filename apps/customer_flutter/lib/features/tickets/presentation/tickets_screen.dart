@@ -12,15 +12,14 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/asset_url.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../features/profile/data/profile_settings_models.dart';
 import '../../../features/profile/data/profile_settings_repository.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 import '../data/ticket_models.dart';
 import '../data/ticket_repository.dart';
@@ -29,6 +28,64 @@ import 'ticket_localization.dart';
 Color _ticketPrimaryTint(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
     colorScheme.primary.withValues(alpha: 0.12);
+
+Color _ticketTone(ColorScheme colorScheme, Color color, double surfaceMix) =>
+    Color.lerp(color, colorScheme.surface, surfaceMix) ?? color;
+
+Color _ticketWarmText(ColorScheme colorScheme, double surfaceMix) =>
+    Color.lerp(
+      colorScheme.onTertiaryContainer,
+      colorScheme.onSurface,
+      surfaceMix,
+    ) ??
+    colorScheme.onTertiaryContainer;
+
+Color _ticketHueShifted(
+  Color base, {
+  required double hueShift,
+  required double saturation,
+  required double lightness,
+}) {
+  final hsl = HSLColor.fromColor(base);
+  return hsl
+      .withHue((hsl.hue + hueShift) % 360)
+      .withSaturation(saturation.clamp(0, 1).toDouble())
+      .withLightness(lightness.clamp(0, 1).toDouble())
+      .toColor();
+}
+
+Color _ticketDigitalRailTone(ColorScheme colorScheme) {
+  final primaryHsl = HSLColor.fromColor(colorScheme.primary);
+  return _ticketHueShifted(
+    colorScheme.primary,
+    hueShift: 52,
+    saturation: (primaryHsl.saturation + 0.08).clamp(0.52, 0.78).toDouble(),
+    lightness: 0.54,
+  );
+}
+
+Color _ticketOptimisticBlue(ColorScheme colorScheme) =>
+    Color.lerp(colorScheme.primary, colorScheme.secondary, 0.18) ??
+    colorScheme.primary;
+
+Color _ticketSoftTone(ColorScheme colorScheme, Color color, double mix) =>
+    Color.lerp(color, colorScheme.surface, mix) ?? color;
+
+const double _ticketContentSheetOverlapMin = 34;
+const double _ticketContentSheetOverlapMax = 64;
+
+double _ticketContentSheetOverlapFor(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  return (width * 0.15)
+      .clamp(_ticketContentSheetOverlapMin, _ticketContentSheetOverlapMax)
+      .toDouble();
+}
+
+ButtonStyle _ticketFlatButtonStyle(ButtonStyle style) {
+  return style.copyWith(
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+  );
+}
 
 class TicketsScreen extends ConsumerStatefulWidget {
   const TicketsScreen({super.key});
@@ -39,6 +96,7 @@ class TicketsScreen extends ConsumerStatefulWidget {
 
 class _TicketsScreenState extends ConsumerState<TicketsScreen> {
   final _searchController = TextEditingController();
+  _TicketRouteTab _currentTab = _TicketRouteTab.current;
   bool _showSearch = false;
   String _activeSearch = '';
 
@@ -50,6 +108,13 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_currentTab == _TicketRouteTab.history) {
+      return TicketHistoryScreen(
+        embedded: true,
+        onCurrentTab: _showCurrentTab,
+      );
+    }
+
     final tickets = ref.watch(currentTicketsProvider);
     final l10n = context.l10n;
 
@@ -57,15 +122,16 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
       title: l10n.ticketsTitle,
       currentPath: '/tickets',
       sensitive: true,
-      actions: [
-        IconButton(
-          tooltip: l10n.ticketsSearchNumbers,
-          onPressed: () => setState(() => _showSearch = !_showSearch),
-          icon: Icon(_showSearch ? Icons.search_off : Icons.search),
-        ),
-      ],
+      fullScreen: true,
       child: _TicketPageList(
-        hero: const _TicketRouteTabs(current: _TicketRouteTab.current),
+        hero: _TicketRouteHeroContent(
+          title: l10n.ticketsTitle,
+          current: _TicketRouteTab.current,
+          searchActive: _showSearch,
+          searchTooltip: l10n.ticketsSearchNumbers,
+          onSearch: () => setState(() => _showSearch = !_showSearch),
+          onHistoryTab: _showHistoryTab,
+        ),
         children: [
           if (_showSearch) ...[
             _TicketSearchForm(
@@ -104,7 +170,10 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                     for (final ticket in displayTickets)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: _TicketTile(ticket: ticket),
+                        child: _TicketTile(
+                          ticket: ticket,
+                          openImagePreview: true,
+                        ),
                       ),
                     const SizedBox(height: 2),
                     const _TicketAllLoadedText(),
@@ -153,6 +222,17 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
     setState(() {
       _searchController.clear();
       _activeSearch = '';
+    });
+  }
+
+  void _showCurrentTab() {
+    setState(() => _currentTab = _TicketRouteTab.current);
+  }
+
+  void _showHistoryTab() {
+    setState(() {
+      _currentTab = _TicketRouteTab.history;
+      _showSearch = false;
     });
   }
 
@@ -237,27 +317,24 @@ class _TicketSearchForm extends StatelessWidget {
                       foregroundColor: colorScheme.onSurfaceVariant,
                       shape: const CircleBorder(),
                       padding: EdgeInsets.zero,
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
                     ),
                     onPressed: onClear,
                     icon: const Icon(Icons.close, size: 18),
                   );
                 },
               ),
-              FilledButton(
+              CustomerGradientButton.text(
                 key: const ValueKey('ticket-search-submit'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: const StadiumBorder(),
-                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
                 onPressed: onSubmit,
-                child: Text(l10n.ticketsSearchSubmit),
+                height: 34,
+                fontSize: 13,
+                horizontalPadding: 12,
+                shadow: false,
+                label: l10n.ticketsSearchSubmit,
               ),
             ],
           ),
@@ -292,14 +369,14 @@ class _CurrentTicketSummary extends StatelessWidget {
           l10n.ticketsDrawDateLabel,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
         ),
         const SizedBox(height: 3),
         Text(
           drawDate,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
         ),
         const SizedBox(height: 3),
@@ -307,7 +384,7 @@ class _CurrentTicketSummary extends StatelessWidget {
           l10n.ticketsTotalCount(totalTicketCount),
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
         ),
         if (activeSearch.isNotEmpty) ...[
@@ -316,7 +393,7 @@ class _CurrentTicketSummary extends StatelessWidget {
             l10n.ticketsSearchResult(activeSearch),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
           ),
         ],
@@ -341,20 +418,21 @@ class _WinningTicketBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Color(0xFFFFF4BF),
-            Color(0xFFFFE28A),
+            _ticketTone(colorScheme, colorScheme.tertiary, 0.76),
+            _ticketTone(colorScheme, colorScheme.tertiary, 0.58),
           ],
         ),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFB0790D).withValues(alpha: 0.12),
+            color: colorScheme.tertiary.withValues(alpha: 0.12),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -373,7 +451,7 @@ class _WinningTicketBanner extends StatelessWidget {
                     Text(
                       l10n.ticketsWinningBannerTitle,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: const Color(0xFFA56800),
+                            color: colorScheme.onTertiaryContainer,
                             fontWeight: FontWeight.w900,
                             height: 1.05,
                           ),
@@ -382,7 +460,7 @@ class _WinningTicketBanner extends StatelessWidget {
                     Text(
                       l10n.ticketsWinningBannerMessage(count),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF7A5509),
+                            color: _ticketWarmText(colorScheme, 0.16),
                             fontWeight: FontWeight.w700,
                           ),
                     ),
@@ -393,12 +471,12 @@ class _WinningTicketBanner extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.48),
+                  color: colorScheme.surface.withValues(alpha: 0.48),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.monetization_on_outlined,
-                  color: Color(0xFFF4A900),
+                  color: colorScheme.tertiary,
                   size: 32,
                 ),
               ),
@@ -423,10 +501,123 @@ class _TicketSearchEmptyCard extends StatelessWidget {
 
 enum _TicketRouteTab { current, history }
 
+class _TicketRouteHeroContent extends StatelessWidget {
+  const _TicketRouteHeroContent({
+    required this.title,
+    required this.current,
+    this.searchActive = false,
+    this.searchTooltip,
+    this.onSearch,
+    this.onBack,
+    this.onCurrentTab,
+    this.onHistoryTab,
+  });
+
+  final String title;
+  final _TicketRouteTab current;
+  final bool searchActive;
+  final String? searchTooltip;
+  final VoidCallback? onSearch;
+  final VoidCallback? onBack;
+  final VoidCallback? onCurrentTab;
+  final VoidCallback? onHistoryTab;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 42,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (onBack != null)
+                Positioned(
+                  left: 0,
+                  child: IconButton(
+                    tooltip: context.l10n.commonBack,
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 31),
+                    color: colorScheme.onPrimary,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(42),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: colorScheme.onPrimary,
+                      shape: const CircleBorder(),
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                    ),
+                  ),
+                ),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                    ),
+              ),
+              if (onSearch != null)
+                Positioned(
+                  right: 0,
+                  child: IconButton(
+                    tooltip: searchTooltip,
+                    onPressed: onSearch,
+                    icon: Icon(
+                      searchActive ? Icons.search_off : Icons.search,
+                      size: searchActive ? 28 : 31,
+                    ),
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(42),
+                      backgroundColor:
+                          colorScheme.surface.withValues(alpha: 0.92),
+                      foregroundColor: colorScheme.primary,
+                      shadowColor: colorScheme.shadow.withValues(alpha: 0.16),
+                      elevation: 10,
+                      shape: const CircleBorder(),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _TicketRouteTabs(
+          current: current,
+          onCurrentTab: onCurrentTab,
+          onHistoryTab: onHistoryTab,
+        ),
+      ],
+    );
+  }
+}
+
 class _TicketRouteTabs extends StatelessWidget {
-  const _TicketRouteTabs({required this.current});
+  const _TicketRouteTabs({
+    required this.current,
+    this.onCurrentTab,
+    this.onHistoryTab,
+  });
 
   final _TicketRouteTab current;
+  final VoidCallback? onCurrentTab;
+  final VoidCallback? onHistoryTab;
 
   @override
   Widget build(BuildContext context) {
@@ -447,7 +638,12 @@ class _TicketRouteTabs extends StatelessWidget {
                 selected: current == _TicketRouteTab.current,
                 onTap: () {
                   if (current != _TicketRouteTab.current) {
-                    context.go('/tickets');
+                    final callback = onCurrentTab;
+                    if (callback == null) {
+                      context.go('/tickets');
+                    } else {
+                      callback();
+                    }
                   }
                 },
               ),
@@ -458,7 +654,12 @@ class _TicketRouteTabs extends StatelessWidget {
                 selected: current == _TicketRouteTab.history,
                 onTap: () {
                   if (current != _TicketRouteTab.history) {
-                    context.go('/tickets/history');
+                    final callback = onHistoryTab;
+                    if (callback == null) {
+                      context.go('/tickets/history');
+                    } else {
+                      callback();
+                    }
                   }
                 },
               ),
@@ -494,15 +695,7 @@ class _TicketRouteTabButton extends StatelessWidget {
               ? LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [
-                    Color.lerp(
-                          colorScheme.primary,
-                          colorScheme.surface,
-                          0.08,
-                        ) ??
-                        colorScheme.primary,
-                    colorScheme.primary,
-                  ],
+                  colors: [Color(0xFF1495F5), Color(0xFF0066D6)],
                 )
               : null,
           boxShadow: selected
@@ -517,6 +710,8 @@ class _TicketRouteTabButton extends StatelessWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           onTap: onTap,
           child: Center(
             child: Text(
@@ -524,10 +719,11 @@ class _TicketRouteTabButton extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: 16,
                     color: selected
                         ? colorScheme.onPrimary
                         : colorScheme.onSurface,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     height: 1,
                   ),
             ),
@@ -551,32 +747,68 @@ class _TicketHistoryFilterHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    return CustomerSectionHeader(
-      title: l10n.ticketHistoryListTitle,
-      action: TextButton.icon(
-        onPressed: onToggle,
-        style: TextButton.styleFrom(
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          minimumSize: const Size(0, 32),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          foregroundColor: theme.colorScheme.primary,
-          textStyle: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w900,
+    final colorScheme = theme.colorScheme;
+    final actionLabel = showOnlyWinning
+        ? l10n.ticketHistoryShowAll
+        : l10n.ticketHistoryShowWinning;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            l10n.ticketHistoryListTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: colorScheme.onSurface,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
           ),
         ),
-        icon: Icon(
-          showOnlyWinning ? Icons.list_alt : Icons.playlist_add_check,
-          size: 18,
+        const SizedBox(width: 12),
+        Flexible(
+          child: TextButton(
+            onPressed: onToggle,
+            style: _ticketFlatButtonStyle(
+              TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: colorScheme.primary,
+                textStyle: theme.textTheme.titleSmall?.copyWith(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  showOnlyWinning ? Icons.list_alt : Icons.playlist_add_check,
+                  size: 22,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    actionLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      decoration: TextDecoration.underline,
+                      decorationColor: colorScheme.primary,
+                      decorationThickness: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        label: Text(
-          showOnlyWinning
-              ? l10n.ticketHistoryShowAll
-              : l10n.ticketHistoryShowWinning,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
+      ],
     );
   }
 }
@@ -598,6 +830,9 @@ class _TicketHistoryOverview extends StatelessWidget {
             ? l10n.ticketHistoryCompletedDrawFallback
             : groups.first.drawDate)
         : l10n.ticketHistoryAllDraws(groups.length);
+    final label = groups.length == 1
+        ? l10n.ticketLabelLotteryDrawDate
+        : l10n.ticketHistoryPastTicketsLabel;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,10 +842,10 @@ class _TicketHistoryOverview extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.ticketHistoryPastTicketsLabel,
+                label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
               ),
@@ -621,38 +856,40 @@ class _TicketHistoryOverview extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       height: 1.18,
                     ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: _ticketPrimaryTint(Theme.of(context).colorScheme),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withValues(
-                    alpha: 0.16,
-                  ),
+        if (groups.length > 1) ...[
+          const SizedBox(width: 12),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _ticketPrimaryTint(Theme.of(context).colorScheme),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withValues(
+                      alpha: 0.16,
+                    ),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Text(
+                l10n.ticketHistoryItemCount(itemCount),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+              ),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Text(
-              l10n.ticketHistoryItemCount(itemCount),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-            ),
-          ),
-        ),
+        ],
       ],
     );
   }
@@ -663,43 +900,170 @@ class _TicketHistoryNoWinningBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Color(0xFFDFFFE9),
-            Color(0xFFFFF6CF),
-          ],
+    final colorScheme = Theme.of(context).colorScheme;
+    final successTone = _ticketOptimisticBlue(colorScheme);
+    final blueSide = Color.lerp(successTone, colorScheme.surface, 0.72) ??
+        colorScheme.primaryContainer;
+    final yellowSide =
+        Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.70) ??
+            colorScheme.tertiaryContainer;
+    final handColor =
+        Color.lerp(colorScheme.error, colorScheme.surface, 0.42) ??
+            colorScheme.errorContainer;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [blueSide, yellowSide],
+          ),
         ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.ticketHistoryNoWinningSummary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF15803D),
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
+        child: CustomPaint(
+          painter: _TicketHistoryNoWinningBannerPainter(
+            slashColor: colorScheme.surface.withValues(alpha: 0.62),
+            starColor: colorScheme.tertiary.withValues(alpha: 0.28),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 126),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(26, 18, 18, 18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.ticketHistoryNoWinningSummary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Color.lerp(
+                                  successTone,
+                                  colorScheme.onSurface,
+                                  0.16,
+                                ) ??
+                                successTone,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w700,
+                            height: 1.32,
+                          ),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 126,
+                    height: 90,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          right: 58,
+                          top: 5,
+                          child: Icon(
+                            Icons.auto_awesome_rounded,
+                            color: colorScheme.tertiary,
+                            size: 54,
+                          ),
+                        ),
+                        Positioned(
+                          right: 16,
+                          top: 21,
+                          child: Transform.rotate(
+                            angle: -0.22,
+                            child: Icon(
+                              Icons.back_hand_rounded,
+                              color: handColor,
+                              size: 62,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: _TicketBannerSpark(
+                            color: colorScheme.tertiary,
+                            size: 7,
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 35,
+                          child: _TicketBannerSpark(
+                            color: colorScheme.tertiary,
+                            size: 5,
+                          ),
+                        ),
+                        Positioned(
+                          right: 56,
+                          bottom: 8,
+                          child: _TicketBannerSpark(
+                            color: colorScheme.primary,
+                            size: 6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            const Icon(
-              Icons.auto_awesome,
-              color: Color(0xFFEAB308),
-              size: 38,
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _TicketHistoryNoWinningBannerPainter extends CustomPainter {
+  const _TicketHistoryNoWinningBannerPainter({
+    required this.slashColor,
+    required this.starColor,
+  });
+
+  final Color slashColor;
+  final Color starColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final slashPaint = Paint()..color = slashColor;
+    final slash = Path()
+      ..moveTo(size.width * 0.56, 0)
+      ..lineTo(size.width * 0.69, 0)
+      ..lineTo(size.width * 0.51, size.height)
+      ..lineTo(size.width * 0.38, size.height)
+      ..close();
+    canvas.drawPath(slash, slashPaint);
+
+    final starPaint = Paint()..color = starColor;
+    canvas.drawCircle(
+      Offset(size.width * 0.83, size.height * 0.18),
+      size.shortestSide * 0.08,
+      starPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.91, size.height * 0.67),
+      size.shortestSide * 0.05,
+      starPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TicketHistoryNoWinningBannerPainter old) {
+    return old.slashColor != slashColor || old.starColor != starColor;
+  }
+}
+
+class _TicketBannerSpark extends StatelessWidget {
+  const _TicketBannerSpark({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: SizedBox.square(dimension: size),
     );
   }
 }
@@ -712,13 +1076,15 @@ class _TicketPageList extends StatelessWidget {
     this.top = 23,
     this.bottom = _bottomPadding,
     this.heroHeight = _heroHeight,
+    this.sheetOverlap = _sheetOverlap,
     this.controller,
     this.physics,
   });
 
-  static const _heroHeight = 189.0;
-  static const _sheetOverlap = 41.0;
+  static const _heroHeight = 253.0;
+  static const _sheetOverlap = -1.0;
   static const _bottomPadding = 120.0;
+  static const _cacheExtent = 900.0;
 
   final List<Widget> children;
   final Widget? hero;
@@ -726,6 +1092,7 @@ class _TicketPageList extends StatelessWidget {
   final double top;
   final double bottom;
   final double heroHeight;
+  final double sheetOverlap;
   final ScrollController? controller;
   final ScrollPhysics? physics;
 
@@ -736,11 +1103,14 @@ class _TicketPageList extends StatelessWidget {
       return ListView(
         controller: controller,
         physics: physics,
+        // ignore: deprecated_member_use
+        cacheExtent: _cacheExtent,
         children: [
           CustomerPageBody(
             maxWidth: maxWidth,
             top: top,
             bottom: bottom,
+            mobileHorizontal: 18,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: children,
@@ -751,10 +1121,15 @@ class _TicketPageList extends StatelessWidget {
     }
 
     final colorScheme = Theme.of(context).colorScheme;
+    final effectiveSheetOverlap = sheetOverlap < 0
+        ? _ticketContentSheetOverlapFor(context)
+        : sheetOverlap;
     return ListView(
       padding: EdgeInsets.zero,
       controller: controller,
       physics: physics,
+      // ignore: deprecated_member_use
+      cacheExtent: _cacheExtent,
       children: [
         Stack(
           clipBehavior: Clip.none,
@@ -765,7 +1140,7 @@ class _TicketPageList extends StatelessWidget {
               child: hero,
             ),
             Padding(
-              padding: EdgeInsets.only(top: heroHeight - _sheetOverlap),
+              padding: EdgeInsets.only(top: heroHeight - effectiveSheetOverlap),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: colorScheme.surface,
@@ -774,7 +1149,7 @@ class _TicketPageList extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF213755).withValues(alpha: 0.07),
+                      color: colorScheme.shadow.withValues(alpha: 0.07),
                       blurRadius: 24,
                       offset: const Offset(0, -6),
                     ),
@@ -784,6 +1159,7 @@ class _TicketPageList extends StatelessWidget {
                   maxWidth: maxWidth,
                   top: top,
                   bottom: bottom,
+                  mobileHorizontal: 18,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: children,
@@ -813,62 +1189,22 @@ class _TicketHeroBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLargeHero = height > 260;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final topPadding = topInset + 14 < 58 ? 58.0 : topInset + 14;
     return SizedBox(
       height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
-            ],
+      child: CustomerBlueHeroBackdrop(
+        primary: colorScheme.primary,
+        secondary: colorScheme.secondary,
+        child: CustomerPageBody(
+          maxWidth: maxWidth,
+          top: isLargeHero ? topInset + 32 : topPadding,
+          bottom: isLargeHero ? 30 : 24,
+          child: Align(
+            alignment:
+                isLargeHero ? Alignment.bottomCenter : Alignment.topCenter,
+            child: child,
           ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: -52,
-              top: 24,
-              child: Transform.rotate(
-                angle: -0.52,
-                child: Container(
-                  width: 250,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -28,
-              bottom: 46,
-              child: Transform.rotate(
-                angle: 0.26,
-                child: Container(
-                  width: 180,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                ),
-              ),
-            ),
-            CustomerPageBody(
-              maxWidth: maxWidth,
-              top: isLargeHero ? 52 : 78,
-              bottom: isLargeHero ? 34 : 56,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: child,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -898,7 +1234,7 @@ class _TicketFooterNote extends StatelessWidget {
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
       ),
     );
@@ -917,7 +1253,7 @@ class _TicketAllLoadedText extends StatelessWidget {
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               height: 1.35,
             ),
       ),
@@ -971,14 +1307,17 @@ class _TicketNoticePanel extends StatelessWidget {
               const SizedBox(width: 8),
               TextButton(
                 onPressed: onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: foreground,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(0, 34),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                style: _ticketFlatButtonStyle(
+                  TextButton.styleFrom(
+                    foregroundColor: foreground,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 34),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle:
+                        Theme.of(context).textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                  ),
                 ),
                 child: Text(context.l10n.commonRetry),
               ),
@@ -1040,6 +1379,7 @@ class _TicketEmptyState extends StatelessWidget {
             const SizedBox(height: 14),
             OutlinedButton(
               onPressed: onRetry,
+              style: _ticketFlatButtonStyle(OutlinedButton.styleFrom()),
               child: Text(context.l10n.commonRetry),
             ),
           ],
@@ -1054,11 +1394,13 @@ class _TicketTile extends StatelessWidget {
     required this.ticket,
     this.fromHistory = false,
     this.openDetail = true,
+    this.openImagePreview = false,
   });
 
   final CustomerTicket ticket;
   final bool fromHistory;
   final bool openDetail;
+  final bool openImagePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1072,14 +1414,37 @@ class _TicketTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final claimPath = _ticketStubClaimPath(ticket, fromHistory: fromHistory);
-    final openTicket = !openDetail || ticket.id.isEmpty
-        ? null
-        : () => context.go(
-              '/tickets/view?id=${Uri.encodeComponent(ticket.id)}'
-              '${fromHistory ? '&from=history' : ''}',
-            );
+    final railTone = _ticketDigitalRailTone(colorScheme);
+    final sideRailTextColor =
+        Color.lerp(railTone, colorScheme.onSurface, 0.10) ?? railTone;
+    final sideRailColors = isWinning
+        ? [
+            _ticketSoftTone(colorScheme, colorScheme.tertiary, 0.78),
+            _ticketSoftTone(colorScheme, railTone, 0.70),
+          ]
+        : [
+            _ticketSoftTone(colorScheme, railTone, 0.82),
+            _ticketSoftTone(colorScheme, railTone, 0.88),
+          ];
+    final VoidCallback? openTicket;
+    if (!openDetail) {
+      openTicket = null;
+    } else if (openImagePreview) {
+      openTicket = () => _showTicketImageDialog(context, ticket);
+    } else if (ticket.id.isEmpty) {
+      openTicket = null;
+    } else {
+      openTicket = () => context.go(
+            '/tickets/view?id=${Uri.encodeComponent(ticket.id)}'
+            '${fromHistory ? '&from=history' : ''}',
+          );
+    }
 
     return Semantics(
+      key: ValueKey(
+        'ticket-tile-${fromHistory ? 'history' : 'current'}-'
+        '${ticket.id.isNotEmpty ? ticket.id : number}-$number',
+      ),
       button: openTicket != null,
       label: '${l10n.ticketLabelGovernmentLottery} $number',
       child: Material(
@@ -1088,16 +1453,11 @@ class _TicketTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isWinning
-                  ? statusColor.withValues(alpha: 0.28)
-                  : colorScheme.outlineVariant.withValues(alpha: 0.52),
-            ),
             boxShadow: [
               BoxShadow(
                 color: (isWinning ? statusColor : colorScheme.shadow)
-                    .withValues(alpha: isWinning ? 0.16 : 0.1),
-                blurRadius: isWinning ? 20 : 16,
+                    .withValues(alpha: isWinning ? 0.18 : 0.12),
+                blurRadius: isWinning ? 22 : 18,
                 offset: const Offset(0, 8),
               ),
             ],
@@ -1106,59 +1466,60 @@ class _TicketTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _TicketStubPatternPainter(
+                      color: colorScheme.primary.withValues(alpha: 0.055),
+                    ),
+                  ),
+                ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
+                        splashFactory: NoSplash.splashFactory,
+                        overlayColor: const WidgetStatePropertyAll(
+                          Colors.transparent,
+                        ),
                         onTap: openTicket,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 30, 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const SizedBox(
-                                width: 48,
-                                child: _TicketStubMark(),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      l10n.ticketLabelGovernmentLottery,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: textTheme.labelMedium?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w800,
-                                        height: 1,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    _TicketStubNumber(number: number),
-                                  ],
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 86),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 30, 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: 48,
+                                  child: _TicketStubPriceBlock(),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              SizedBox(
-                                width: 60,
-                                child: Text(
-                                  ticketStatusLabel(l10n, ticket),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.15,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _TicketStubBody(
+                                    ticket: ticket,
+                                    number: number,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 60,
+                                  child: Text(
+                                    ticketStatusLabel(l10n, ticket),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: textTheme.labelMedium?.copyWith(
+                                      fontSize: 13,
+                                      color: statusColor,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1181,15 +1542,7 @@ class _TicketTile extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: isWinning
-                              ? const [
-                                  Color(0xFFF7F1FF),
-                                  Color(0xFFD9CCFF),
-                                ]
-                              : const [
-                                  Color(0xFFF5F0FF),
-                                  Color(0xFFF0E9FF),
-                                ],
+                          colors: sideRailColors,
                         ),
                       ),
                       child: RotatedBox(
@@ -1198,8 +1551,9 @@ class _TicketTile extends StatelessWidget {
                           l10n.ticketStubDigitalLabel,
                           maxLines: 1,
                           style: textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFF7547C8),
-                            fontWeight: FontWeight.w800,
+                            color: sideRailTextColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                             height: 1,
                           ),
                         ),
@@ -1216,38 +1570,255 @@ class _TicketTile extends StatelessWidget {
   }
 }
 
-class _TicketStubMark extends StatelessWidget {
-  const _TicketStubMark();
+class _TicketStubBody extends StatelessWidget {
+  const _TicketStubBody({
+    required this.ticket,
+    required this.number,
+  });
+
+  final CustomerTicket ticket;
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final hasDrawNumber = ticket.displayDrawNumber.trim().isNotEmpty;
+    final hasSetNumber = ticket.displaySetNumber.trim().isNotEmpty;
+    final hasMeta = hasDrawNumber || hasSetNumber;
+    final hasBothMeta = hasDrawNumber && hasSetNumber;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l10n.ticketLabelGovernmentLottery,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.labelMedium?.copyWith(
+            color: colorScheme.onSurface,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final numberBox = _TicketStubNumber(number: number);
+            if (!hasMeta) return numberBox;
+
+            final meta = _TicketStubMeta(ticket: ticket);
+            if (hasBothMeta || constraints.maxWidth < 174) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  numberBox,
+                  const SizedBox(height: 7),
+                  meta,
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Flexible(flex: 5, child: numberBox),
+                const SizedBox(width: 9),
+                Flexible(flex: 3, child: meta),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _TicketStubProductMark extends StatelessWidget {
+  const _TicketStubProductMark();
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
+
+    return SizedBox(
+      width: 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l10n.ticketStubSeriesLabel,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.primary,
+                fontSize: 23,
+                fontWeight: FontWeight.w900,
+                height: 1,
+                letterSpacing: 0,
+              ),
+            ),
+            Transform.translate(
+              offset: const Offset(-3, 4),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.tertiary,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox.square(dimension: 6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketStubPriceBlock extends StatelessWidget {
+  const _TicketStubPriceBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final priceColor =
+        Color.lerp(colorScheme.error, colorScheme.surface, 0.24) ??
+            colorScheme.error;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 62),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const _TicketStubProductMark(),
+          const SizedBox(height: 3),
+          Text(
+            context.l10n.ticketStubPriceLabel,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: priceColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 0.92,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TicketStubMeta extends StatelessWidget {
+  const _TicketStubMeta({required this.ticket});
+
+  final CustomerTicket ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final drawNumber = ticket.displayDrawNumber.trim();
+    final setNumber = ticket.displaySetNumber.trim();
+
+    if (drawNumber.isEmpty && setNumber.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (drawNumber.isNotEmpty) ...[
+          _TicketStubMetaColumn(
+            label: l10n.ticketLabelDrawNumber,
+            value: drawNumber,
+          ),
+        ],
+        if (drawNumber.isNotEmpty && setNumber.isNotEmpty)
+          const SizedBox(width: 12),
+        if (setNumber.isNotEmpty) ...[
+          _TicketStubMetaColumn(
+            label: l10n.ticketLabelSetNumber,
+            value: setNumber,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TicketStubMetaColumn extends StatelessWidget {
+  const _TicketStubMetaColumn({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.ticketStubSeriesLabel,
-          style: textTheme.titleLarge?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w900,
-            height: 1,
-            letterSpacing: 0,
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 11.4,
+            fontWeight: FontWeight.w500,
+            height: 1.05,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
-          l10n.ticketStubPriceLabel,
-          textAlign: TextAlign.center,
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: textTheme.labelMedium?.copyWith(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.w900,
-            height: 0.96,
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1,
           ),
         ),
       ],
     );
+  }
+}
+
+class _TicketStubPatternPainter extends CustomPainter {
+  const _TicketStubPatternPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    for (var start = -size.height; start < size.width; start += 7) {
+      canvas.drawLine(
+        Offset(start, size.height),
+        Offset(start + size.height, 0),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TicketStubPatternPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -1259,29 +1830,55 @@ class _TicketStubNumber extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final numberFill =
+        Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.84) ??
+            colorScheme.tertiaryContainer;
+    final digits = number.replaceAll(RegExp(r'\D'), '');
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
+        color: numberFill,
+        borderRadius: BorderRadius.circular(7),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: FittedBox(
-          alignment: Alignment.centerLeft,
-          fit: BoxFit.scaleDown,
-          child: Text(
-            number,
-            maxLines: 1,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: number.length > 1 ? 3 : 0,
-                  height: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 119, maxWidth: 119),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: digits.length == 6
+              ? Row(
+                  children: [
+                    for (final digit in digits.split(''))
+                      Expanded(
+                        child: Text(
+                          digit,
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0,
+                                    height: 1,
+                                  ),
+                        ),
+                      ),
+                  ],
+                )
+              : FittedBox(
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    number,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                          height: 1,
+                        ),
+                  ),
                 ),
-          ),
         ),
       ),
     );
@@ -1300,14 +1897,18 @@ class _TicketStubRewardStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFF1B6), Color(0xFFFFDA68)],
+          colors: [
+            _ticketTone(colorScheme, colorScheme.tertiary, 0.74),
+            _ticketTone(colorScheme, colorScheme.tertiary, 0.48),
+          ],
         ),
       ),
       child: Padding(
@@ -1324,7 +1925,7 @@ class _TicketStubRewardStrip extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF8E5A03),
+                      color: colorScheme.onTertiaryContainer,
                       fontWeight: FontWeight.w900,
                       height: 1.15,
                     ),
@@ -1333,11 +1934,11 @@ class _TicketStubRewardStrip extends StatelessWidget {
                     for (final prize in ticket.prizes)
                       Text(
                         '${ticketPrizeTypeLabel(l10n, prize.prizeType)} '
-                        '${formatBaht(prize.amount)}',
+                        '${formatTicketBaht(l10n, prize.amount)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.labelSmall?.copyWith(
-                          color: const Color(0xFF8A5A00),
+                          color: _ticketWarmText(colorScheme, 0.08),
                           fontWeight: FontWeight.w800,
                           height: 1.2,
                         ),
@@ -1345,12 +1946,12 @@ class _TicketStubRewardStrip extends StatelessWidget {
                   else if (ticket.prizeAmount > 0)
                     Text(
                       l10n.ticketStubPrizeAmount(
-                        formatBaht(ticket.prizeAmount),
+                        formatTicketBaht(l10n, ticket.prizeAmount),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFFB17309),
+                        color: _ticketWarmText(colorScheme, 0.20),
                         fontWeight: FontWeight.w800,
                         height: 1.2,
                       ),
@@ -1387,12 +1988,15 @@ class _TicketClaimPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Opacity(
       opacity: enabled ? 1 : 0.62,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           onTap: onPressed,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 78, minHeight: 28),
@@ -1400,14 +2004,17 @@ class _TicketClaimPill extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFFFFD95A), Color(0xFFEDB717)],
+                  colors: [
+                    _ticketTone(colorScheme, colorScheme.tertiary, 0.36),
+                    colorScheme.tertiary,
+                  ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFB37906).withValues(alpha: 0.22),
+                    color: colorScheme.tertiary.withValues(alpha: 0.22),
                     blurRadius: 12,
                     offset: const Offset(0, 5),
                   ),
@@ -1419,7 +2026,7 @@ class _TicketClaimPill extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF6D4900),
+                      color: colorScheme.onTertiaryContainer,
                       fontWeight: FontWeight.w900,
                       height: 1,
                     ),
@@ -1450,7 +2057,14 @@ String _ticketStubClaimPath(
 }
 
 class TicketHistoryScreen extends ConsumerStatefulWidget {
-  const TicketHistoryScreen({super.key});
+  const TicketHistoryScreen({
+    super.key,
+    this.embedded = false,
+    this.onCurrentTab,
+  });
+
+  final bool embedded;
+  final VoidCallback? onCurrentTab;
 
   @override
   ConsumerState<TicketHistoryScreen> createState() =>
@@ -1497,10 +2111,16 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
       title: l10n.ticketHistoryTitle,
       currentPath: '/tickets',
       sensitive: true,
+      fullScreen: true,
       child: RefreshIndicator(
         onRefresh: _loadInitial,
         child: _TicketPageList(
-          hero: const _TicketRouteTabs(current: _TicketRouteTab.history),
+          hero: _TicketRouteHeroContent(
+            title: l10n.ticketsTitle,
+            current: _TicketRouteTab.history,
+            onBack: widget.embedded ? null : () => context.go('/tickets'),
+            onCurrentTab: widget.onCurrentTab,
+          ),
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
@@ -1536,7 +2156,10 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
                 for (final group in visibleTicketGroups)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: _TicketHistoryDrawGroup(group: group),
+                    child: _TicketHistoryDrawGroup(
+                      group: group,
+                      showHeader: visibleTicketGroups.length > 1,
+                    ),
                   ),
               if (_loadMoreError.isNotEmpty) ...[
                 _TicketNoticePanel(
@@ -1551,6 +2174,9 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
                     height: 48,
                     child: OutlinedButton(
                       onPressed: _loadingMore ? null : _loadMore,
+                      style: _ticketFlatButtonStyle(
+                        OutlinedButton.styleFrom(),
+                      ),
                       child: Text(
                         _loadingMore
                             ? l10n.commonLoadingMore
@@ -1691,9 +2317,13 @@ List<_TicketHistoryDrawGroupData> _groupTicketsByDraw(
 }
 
 class _TicketHistoryDrawGroup extends StatelessWidget {
-  const _TicketHistoryDrawGroup({required this.group});
+  const _TicketHistoryDrawGroup({
+    required this.group,
+    this.showHeader = true,
+  });
 
   final _TicketHistoryDrawGroupData group;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -1705,39 +2335,41 @@ class _TicketHistoryDrawGroup extends StatelessWidget {
       key: ValueKey('ticket-history-group-${group.key}'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
-          child: Row(
-            children: [
-              Text(
-                l10n.ticketLabelLotteryDrawDate,
-                style: textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  group.drawDate,
-                  key: ValueKey('ticket-history-group-date-${group.key}'),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
+        if (showHeader)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+            child: Row(
+              children: [
+                Text(
+                  l10n.ticketLabelLotteryDrawDate,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    group.drawDate,
+                    key: ValueKey('ticket-history-group-date-${group.key}'),
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
         for (final ticket in group.tickets)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _TicketTile(
               ticket: ticket,
               fromHistory: true,
+              openImagePreview: true,
             ),
           ),
       ],
@@ -1957,6 +2589,8 @@ class _TicketDetailContent extends StatelessWidget {
         current:
             fromHistory ? _TicketRouteTab.history : _TicketRouteTab.current,
       ),
+      heroHeight: 189,
+      sheetOverlap: 41,
       children: [
         _TicketDetailSummary(ticket: ticket),
         const SizedBox(height: 12),
@@ -1998,6 +2632,29 @@ class _TicketDetailSummary extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w900,
               ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          l10n.ticketImageDigitalNumberLabel,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            _ticketDisplayNumber(ticket),
+            maxLines: 1,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                  height: 1,
+                ),
+          ),
         ),
         const SizedBox(height: 3),
         Text(
@@ -2086,7 +2743,7 @@ class _TicketDetailInfoSheet extends StatelessWidget {
             if (ticket.prizeAmount > 0)
               _TicketInfoRow(
                 label: l10n.ticketLabelPrizeAmount,
-                value: formatBaht(ticket.prizeAmount),
+                value: formatTicketBaht(l10n, ticket.prizeAmount),
                 emphasize: true,
               ),
             if (ticket.prizes.isNotEmpty) ...[
@@ -2099,7 +2756,7 @@ class _TicketDetailInfoSheet extends StatelessWidget {
                     _TicketStatusPill(
                       color: colorScheme.primary,
                       label: '${ticketPrizeTypeLabel(l10n, prize.prizeType)} '
-                          '${formatBaht(prize.amount)}',
+                          '${formatTicketBaht(l10n, prize.amount)}',
                     ),
                 ],
               ),
@@ -2590,14 +3247,12 @@ class _ExistingRewardClaimCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            FilledButton(
+            CustomerGradientButton.text(
               onPressed: onOpen,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                shape: const StadiumBorder(),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-              child: Text(l10n.ticketClaimViewClaim),
+              height: 48,
+              fontSize: 15,
+              shadow: false,
+              label: l10n.ticketClaimViewClaim,
             ),
           ],
         ),
@@ -2745,7 +3400,7 @@ class _ClaimTicketHeroCard extends StatelessWidget {
             Divider(height: 18, color: colorScheme.outlineVariant),
             _ClaimHeroInfoRow(
               label: l10n.ticketLabelPrizeAmount,
-              value: formatBaht(ticket.prizeAmount),
+              value: formatTicketBaht(l10n, ticket.prizeAmount),
               valueColor: colorScheme.primary,
               valueSize: 20,
             ),
@@ -2876,14 +3531,12 @@ class _ClaimSelectStep extends StatelessWidget {
     final bank = profile?.bankAccount;
     final l10n = context.l10n;
     return _ClaimStepScaffold(
-      footer: FilledButton(
+      footer: CustomerGradientButton.text(
         onPressed: onNext,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        child: Text(l10n.commonNext),
+        height: 48,
+        fontSize: 15,
+        shadow: false,
+        label: l10n.commonNext,
       ),
       child: _TicketPageList(
         hero: _ClaimTicketHeroCard(ticket: ticket),
@@ -3039,14 +3692,14 @@ String _ticketPrizeLinesWithAmounts(
     return ticket.prizes
         .map(
           (prize) => '${ticketPrizeTypeLabel(l10n, prize.prizeType)} '
-              '${formatBaht(prize.amount)}',
+              '${formatTicketBaht(l10n, prize.amount)}',
         )
         .join('\n');
   }
 
   final summary = ticketPrizeSummary(l10n, ticket);
   if (ticket.prizeAmount > 0) {
-    return '$summary ${formatBaht(ticket.prizeAmount)}';
+    return '$summary ${formatTicketBaht(l10n, ticket.prizeAmount)}';
   }
   return summary;
 }
@@ -3111,14 +3764,12 @@ class _ClaimConfirmStep extends StatelessWidget {
     final taxAmount = (ticket.prizeAmount * 0.005).round();
     final feeAmount = (ticket.prizeAmount * 0.01).round();
     return _ClaimStepScaffold(
-      footer: FilledButton(
+      footer: CustomerGradientButton.text(
         onPressed: submitting ? null : onConfirm,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        child: Text(l10n.commonConfirm),
+        height: 48,
+        fontSize: 15,
+        shadow: false,
+        label: l10n.commonConfirm,
       ),
       child: _TicketPageList(
         bottom: _ClaimStepScaffold.footerSpace,
@@ -3231,27 +3882,31 @@ class _ClaimConfirmCard extends StatelessWidget {
             Divider(height: 24, color: colorScheme.outlineVariant),
             _TicketInfoRow(
               label: l10n.ticketLabelPrizeAmount,
-              value: formatBaht(ticket.prizeAmount),
+              value: formatTicketBaht(l10n, ticket.prizeAmount),
               emphasize: true,
             ),
             _TicketInfoRow(
               label: l10n.rewardClaimTaxLabel,
               value: l10n.rewardClaimZeroBaht,
-              discountOriginal: formatBaht(taxAmount),
-              helper: l10n.rewardClaimWaived(formatBaht(taxAmount)),
+              discountOriginal: formatTicketBaht(l10n, taxAmount),
+              helper: l10n.rewardClaimWaived(
+                formatTicketBaht(l10n, taxAmount),
+              ),
               positive: true,
             ),
             _TicketInfoRow(
               label: l10n.rewardClaimFeeLabel,
               value: l10n.rewardClaimZeroBaht,
-              discountOriginal: formatBaht(feeAmount),
-              helper: l10n.rewardClaimWaived(formatBaht(feeAmount)),
+              discountOriginal: formatTicketBaht(l10n, feeAmount),
+              helper: l10n.rewardClaimWaived(
+                formatTicketBaht(l10n, feeAmount),
+              ),
               positive: true,
             ),
             Divider(height: 24, color: colorScheme.outlineVariant),
             _TicketInfoRow(
               label: l10n.ticketLabelNetAmount,
-              value: formatBaht(ticket.prizeAmount),
+              value: formatTicketBaht(l10n, ticket.prizeAmount),
               emphasize: true,
             ),
           ],
@@ -3534,20 +4189,18 @@ class _ClaimProcessingStep extends ConsumerWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
-    final productMarker = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final productMarker = _ticketProductMarkerLabel(context, bootstrap);
     final taxAmount = (ticket.prizeAmount * 0.005).round();
     final feeAmount = (ticket.prizeAmount * 0.01).round();
     final drawNumber = ticket.displayDrawNumber;
     final setNumber = ticket.displaySetNumber;
     return _ClaimStepScaffold(
-      footer: FilledButton(
+      footer: CustomerGradientButton.text(
         onPressed: () => context.go('/tickets'),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        child: Text(l10n.ticketClaimViewMyTickets),
+        height: 48,
+        fontSize: 15,
+        shadow: false,
+        label: l10n.ticketClaimViewMyTickets,
       ),
       child: _TicketPageList(
         bottom: _ClaimStepScaffold.footerSpace,
@@ -3627,27 +4280,31 @@ class _ClaimProcessingStep extends ConsumerWidget {
                   Divider(height: 22, color: colorScheme.outlineVariant),
                   _TicketInfoRow(
                     label: l10n.ticketLabelPrizeAmount,
-                    value: formatBaht(ticket.prizeAmount),
+                    value: formatTicketBaht(l10n, ticket.prizeAmount),
                     emphasize: true,
                   ),
                   _TicketInfoRow(
                     label: l10n.rewardClaimTaxLabel,
                     value: l10n.rewardClaimZeroBaht,
-                    discountOriginal: formatBaht(taxAmount),
-                    helper: l10n.rewardClaimWaived(formatBaht(taxAmount)),
+                    discountOriginal: formatTicketBaht(l10n, taxAmount),
+                    helper: l10n.rewardClaimWaived(
+                      formatTicketBaht(l10n, taxAmount),
+                    ),
                     positive: true,
                   ),
                   _TicketInfoRow(
                     label: l10n.rewardClaimFeeLabel,
                     value: l10n.rewardClaimZeroBaht,
-                    discountOriginal: formatBaht(feeAmount),
-                    helper: l10n.rewardClaimWaived(formatBaht(feeAmount)),
+                    discountOriginal: formatTicketBaht(l10n, feeAmount),
+                    helper: l10n.rewardClaimWaived(
+                      formatTicketBaht(l10n, feeAmount),
+                    ),
                     positive: true,
                   ),
                   Divider(height: 22, color: colorScheme.outlineVariant),
                   _TicketInfoRow(
                     label: l10n.ticketLabelNetAmount,
-                    value: formatBaht(ticket.prizeAmount),
+                    value: formatTicketBaht(l10n, ticket.prizeAmount),
                     emphasize: true,
                   ),
                   if (submittedClaim != null) ...[
@@ -3935,7 +4592,7 @@ class _TicketImageCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final resolver = ref.watch(assetUrlResolverProvider);
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
-    final productMarker = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final productMarker = _ticketProductMarkerLabel(context, bootstrap);
     final ticketImageWatermark =
         bootstrap?.ticketImageWatermark.trim() ?? productMarker;
     final url = resolver(ticket.primaryImageUrl);
@@ -3948,10 +4605,9 @@ class _TicketImageCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => showDialog<void>(
-            context: context,
-            builder: (dialogContext) => _TicketImageDialog(ticket: ticket),
-          ),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          onTap: () => _showTicketImageDialog(context, ticket),
           child: Ink(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
@@ -3997,6 +4653,17 @@ class _TicketImageCard extends ConsumerWidget {
   }
 }
 
+Future<void> _showTicketImageDialog(
+  BuildContext context,
+  CustomerTicket ticket,
+) {
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.68),
+    builder: (dialogContext) => _TicketImageDialog(ticket: ticket),
+  );
+}
+
 class _TicketImageDialog extends ConsumerWidget {
   const _TicketImageDialog({required this.ticket});
 
@@ -4006,10 +4673,14 @@ class _TicketImageDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final resolver = ref.watch(assetUrlResolverProvider);
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
-    final productMarker = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final productMarker = _ticketProductMarkerLabel(context, bootstrap);
     final ticketImageWatermark =
         bootstrap?.ticketImageWatermark.trim() ?? productMarker;
     final siteName = bootstrap?.siteName.trim() ?? '';
+    final brandLogoSource = bootstrap?.brand.logoUrl.trim() ?? '';
+    final brandLogoUrl =
+        brandLogoSource.isEmpty ? '' : resolver(brandLogoSource);
+    final supportLabel = bootstrap?.supportPhone.trim() ?? '';
     final url = resolver(ticket.primaryImageUrl);
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
@@ -4018,104 +4689,299 @@ class _TicketImageDialog extends ConsumerWidget {
     final horizontalPadding = isCompact ? 18.0 : 24.0;
     final topPadding = isCompact ? 20.0 : 24.0;
     final markerMaxWidth = isCompact ? 96.0 : 150.0;
+    final dialogHorizontalInset = isCompact ? 14.0 : 20.0;
+    final dialogVerticalInset = isCompact ? 14.0 : 20.0;
+    final maxDialogHeight =
+        MediaQuery.sizeOf(context).height - (dialogVerticalInset * 2);
 
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 14 : 20,
-        vertical: 24,
+        horizontal: dialogHorizontalInset,
+        vertical: dialogVerticalInset,
       ),
       clipBehavior: Clip.antiAlias,
       backgroundColor: colorScheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 530),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                topPadding,
-                8,
-                16,
-              ),
-              child: SizedBox(
-                height: 46,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const TenantBrandHeader(
-                          showName: false,
-                          size: 46,
-                          icon: Icons.confirmation_number_outlined,
-                        ),
-                        if (productMarker.isNotEmpty) ...[
-                          const SizedBox(width: 14),
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: markerMaxWidth,
+        constraints: BoxConstraints(
+          maxWidth: 530,
+          maxHeight: maxDialogHeight,
+        ),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  topPadding,
+                  horizontalPadding,
+                  16,
+                ),
+                child: SizedBox(
+                  height: 46,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _TicketModalBrandLockup(
+                            logoUrl: brandLogoUrl,
+                            fallbackLabel: l10n.ticketImageBrandFallback,
+                            siteName: siteName,
+                            supportLabel: supportLabel.isEmpty
+                                ? l10n.ticketImageGovernmentLotteryEnglish
+                                : supportLabel,
+                          ),
+                          if (productMarker.isNotEmpty) ...[
+                            const SizedBox(width: 14),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: markerMaxWidth,
+                              ),
+                              child: _TicketModalProductMark(
+                                label: productMarker,
+                                fontSize: isCompact ? 30 : 34,
+                              ),
                             ),
-                            child: Text(
-                              productMarker,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                    color: colorScheme.primary,
-                                    fontSize: isCompact ? 30 : 34,
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                          ],
+                        ],
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          tooltip: l10n.ticketImageClosePreview,
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size.square(32),
+                            foregroundColor: colorScheme.onSurface,
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ).copyWith(
+                            overlayColor: const WidgetStatePropertyAll(
+                              Colors.transparent,
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: IconButton(
-                        tooltip: l10n.ticketImageClosePreview,
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                        iconSize: 30,
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                          iconSize: 30,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  0,
+                  horizontalPadding,
+                  18,
+                ),
+                child: AspectRatio(
+                  aspectRatio: 5 / 2.8,
+                  child: _TicketImageFrame(
+                    ticket: ticket,
+                    imageUrl: url,
+                    showRemoteImage: _canShowTicketRemoteImage(ticket, url),
+                    productMarker: productMarker,
+                    ticketImageWatermark: ticketImageWatermark,
+                  ),
+                ),
+              ),
+              _TicketImageNote(
+                siteName: siteName.isEmpty
+                    ? l10n.ticketImageTenantFallback
+                    : siteName,
+                productName: productMarker.isEmpty
+                    ? l10n.ticketLabelGovernmentLottery
+                    : productMarker,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketModalBrandLockup extends StatelessWidget {
+  const _TicketModalBrandLockup({
+    required this.logoUrl,
+    required this.fallbackLabel,
+    required this.siteName,
+    required this.supportLabel,
+  });
+
+  final String logoUrl;
+  final String fallbackLabel;
+  final String siteName;
+  final String supportLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedLogoUrl = logoUrl.trim();
+    if (normalizedLogoUrl.isNotEmpty) {
+      return SizedBox(
+        width: 96,
+        height: 46,
+        child: _TicketModalBrandImage(
+          logoUrl: normalizedLogoUrl,
+          fallbackLabel: fallbackLabel,
+          siteName: siteName,
+          supportLabel: supportLabel,
+        ),
+      );
+    }
+
+    return _TicketModalBrandFallback(
+      label: fallbackLabel,
+      siteName: siteName,
+      supportLabel: supportLabel,
+    );
+  }
+}
+
+class _TicketModalBrandImage extends StatelessWidget {
+  const _TicketModalBrandImage({
+    required this.logoUrl,
+    required this.fallbackLabel,
+    required this.siteName,
+    required this.supportLabel,
+  });
+
+  final String logoUrl;
+  final String fallbackLabel;
+  final String siteName;
+  final String supportLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _dataImageBytes(logoUrl);
+    final fallback = _TicketModalBrandFallback(
+      label: fallbackLabel,
+      siteName: siteName,
+      supportLabel: supportLabel,
+    );
+
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => fallback,
+      );
+    }
+
+    return Image.network(
+      logoUrl,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
+  }
+}
+
+class _TicketModalBrandFallback extends StatelessWidget {
+  const _TicketModalBrandFallback({
+    required this.label,
+    required this.siteName,
+    required this.supportLabel,
+  });
+
+  final String label;
+  final String siteName;
+  final String supportLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final secondaryLines = [
+      if (siteName.trim().isNotEmpty) siteName.trim(),
+      if (supportLabel.trim().isNotEmpty) supportLabel.trim(),
+    ];
+
+    return Semantics(
+      label: label,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 96),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontSize: 31,
+                    fontWeight: FontWeight.w800,
+                    height: 0.82,
+                    letterSpacing: 0,
+                  ),
+            ),
+            if (secondaryLines.isNotEmpty)
+              Text(
+                secondaryLines.join('\n'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontSize: 5.5,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                      letterSpacing: 0,
                     ),
-                  ],
-                ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                18,
-              ),
-              child: AspectRatio(
-                aspectRatio: 5 / 2.8,
-                child: _TicketImageFrame(
-                  ticket: ticket,
-                  imageUrl: url,
-                  showRemoteImage: _canShowTicketRemoteImage(ticket, url),
-                  productMarker: productMarker,
-                  ticketImageWatermark: ticketImageWatermark,
-                ),
-              ),
-            ),
-            _TicketImageNote(
-              siteName:
-                  siteName.isEmpty ? l10n.ticketImageTenantFallback : siteName,
-              productName: productMarker.isEmpty
-                  ? l10n.ticketLabelGovernmentLottery
-                  : productMarker,
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TicketModalProductMark extends StatelessWidget {
+  const _TicketModalProductMark({
+    required this.label,
+    required this.fontSize,
+  });
+
+  final String label;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w900,
+                  height: 0.95,
+                  letterSpacing: 0,
+                ),
+          ),
+          Transform.translate(
+            offset: const Offset(-5, -1),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.tertiary,
+                shape: BoxShape.circle,
+              ),
+              child: const SizedBox.square(dimension: 8),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4233,17 +5099,18 @@ class _GeneratedTicketImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final digits = _ticketDisplayNumber(ticket).split('');
-    final primary = Theme.of(context).colorScheme.primary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final primary = colorScheme.primary;
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFF7FCFF),
-            Color(0xFFFFF8DC),
+            colorScheme.surface,
+            _ticketTone(colorScheme, colorScheme.primary, 0.96),
+            _ticketTone(colorScheme, colorScheme.tertiary, 0.82),
           ],
         ),
       ),
@@ -4251,7 +5118,10 @@ class _GeneratedTicketImage extends StatelessWidget {
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: _TicketImagePatternPainter(primary),
+              painter: _TicketImagePatternPainter(
+                primary: colorScheme.primary,
+                tertiary: colorScheme.tertiary,
+              ),
             ),
           ),
           if (ticketImageWatermark.isNotEmpty)
@@ -4271,151 +5141,184 @@ class _GeneratedTicketImage extends StatelessWidget {
                 ),
               ),
             ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
+          Positioned.fill(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: 460,
+                height: 248,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          l10n.ticketLabelGovernmentLottery,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w900,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.ticketLabelGovernmentLottery,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                               ),
+                              Text(
+                                l10n.ticketImageGovernmentLotteryEnglish,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                        Text(
-                          l10n.ticketImageGovernmentLotteryEnglish,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (productMarker.isNotEmpty)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 110),
-                      child: Text(
-                        productMarker,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                      ),
-                    ),
-                ],
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: 0.22),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.confirmation_number_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          l10n.ticketImageDigitalNumberLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                        if (productMarker.isNotEmpty)
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 110),
+                            child: Text(
+                              productMarker,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                     fontWeight: FontWeight.w900,
                                   ),
-                        ),
-                        const SizedBox(height: 4),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFF4A8), Color(0xFFFFE46E)],
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFCCA400)),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                      ],
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface.withValues(alpha: 0.78),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.22),
                             ),
-                            child: Row(
-                              children: [
-                                for (final digit in digits)
-                                  Expanded(
-                                    child: Text(
-                                      digit,
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                            color: Colors.black87,
-                                            fontWeight: FontWeight.w900,
-                                          ),
+                          ),
+                          child: Icon(
+                            Icons.confirmation_number_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                l10n.ticketImageDigitalNumberLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelLarge
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      _ticketTone(
+                                        colorScheme,
+                                        colorScheme.tertiary,
+                                        0.70,
+                                      ),
+                                      _ticketTone(
+                                        colorScheme,
+                                        colorScheme.tertiary,
+                                        0.44,
+                                      ),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: colorScheme.tertiary.withValues(
+                                      alpha: 0.50,
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      for (final digit in digits)
+                                        Expanded(
+                                          child: Text(
+                                            digit,
+                                            textAlign: TextAlign.center,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleLarge
+                                                ?.copyWith(
+                                                  color: colorScheme.onSurface,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 3,
+                                children: [
+                                  _TicketImageMetaPill(
+                                    label: l10n.ticketImageCurrentDraw,
+                                  ),
+                                  _TicketImageMetaPill(
+                                    label: l10n.ticketImageDigitalType,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 3,
-                          children: [
-                            _TicketImageMetaPill(
-                              label: l10n.ticketImageCurrentDraw,
-                            ),
-                            _TicketImageMetaPill(
-                              label: l10n.ticketImageDigitalType,
-                            ),
-                          ],
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
           if (_ticketImageFallbackMessage(l10n, ticket).isNotEmpty)
             Align(
@@ -4431,9 +5334,13 @@ class _GeneratedTicketImage extends StatelessWidget {
 }
 
 class _TicketImagePatternPainter extends CustomPainter {
-  const _TicketImagePatternPainter(this.primary);
+  const _TicketImagePatternPainter({
+    required this.primary,
+    required this.tertiary,
+  });
 
   final Color primary;
+  final Color tertiary;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -4441,7 +5348,7 @@ class _TicketImagePatternPainter extends CustomPainter {
       ..color = primary.withValues(alpha: 0.10)
       ..style = PaintingStyle.fill;
     final warmPaint = Paint()
-      ..color = const Color(0xFFFFD200).withValues(alpha: 0.16)
+      ..color = tertiary.withValues(alpha: 0.16)
       ..style = PaintingStyle.fill;
     final stripePaint = Paint()
       ..color = primary.withValues(alpha: 0.05)
@@ -4469,7 +5376,7 @@ class _TicketImagePatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TicketImagePatternPainter oldDelegate) {
-    return oldDelegate.primary != primary;
+    return oldDelegate.primary != primary || oldDelegate.tertiary != tertiary;
   }
 }
 
@@ -4480,12 +5387,13 @@ class _TicketImageMetaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
+        color: colorScheme.surface.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
+          color: colorScheme.outlineVariant,
         ),
       ),
       child: Padding(
@@ -4493,7 +5401,7 @@ class _TicketImageMetaPill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w800,
               ),
         ),
@@ -4664,6 +5572,17 @@ String _ticketDisplayNumber(CustomerTicket ticket) {
   final digits = ticket.number.replaceAll(RegExp(r'\D'), '');
   final padded = digits.padLeft(6, '0');
   return padded.substring(padded.length - 6);
+}
+
+String _ticketProductMarkerLabel(
+  BuildContext context,
+  MobileBootstrap? bootstrap,
+) {
+  final configured = bootstrap?.lotteryProductLabel.trim() ?? '';
+  if (configured.isNotEmpty) return configured;
+  final localized = context.l10n.ticketStubSeriesLabel.trim();
+  if (localized.isNotEmpty) return localized;
+  return context.l10n.ticketImageDigitalType.trim();
 }
 
 Uint8List? _dataImageBytes(String value) {

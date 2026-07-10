@@ -8,9 +8,11 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/pin_confirmation_step.dart';
@@ -97,6 +99,7 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
             title: l10n.profileRewardBank,
             currentPath: '/profile',
             sensitive: true,
+            fullScreen: true,
             child: RefreshIndicator(
               onRefresh: () async =>
                   ref.invalidate(customerProfileSettingsProvider),
@@ -104,7 +107,7 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
                 padding: EdgeInsets.zero,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const _RewardBankHero(),
+                  _RewardBankHero(onBack: () => context.go('/profile')),
                   _RewardBankContentSheet(
                     child: CustomerPageBody(
                       top: 16,
@@ -311,12 +314,15 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
 }
 
 class _RewardBankHero extends StatelessWidget {
-  const _RewardBankHero();
+  const _RewardBankHero({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final topInset = MediaQuery.paddingOf(context).top;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -324,8 +330,7 @@ class _RewardBankHero extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
+            AppTheme.heroGradientEnd(colorScheme.primary),
           ],
         ),
       ),
@@ -336,58 +341,72 @@ class _RewardBankHero extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(horizontal, 18, horizontal, 38),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: EdgeInsets.fromLTRB(
+                  horizontal,
+                  topInset + 58,
+                  horizontal,
+                  38,
+                ),
+                child: Column(
                   children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: SizedBox.square(
-                        dimension: 48,
-                        child: Icon(
-                          Icons.account_balance_outlined,
-                          color: colorScheme.primary,
-                          size: 24,
-                        ),
-                      ),
+                    _RewardBankHeroTitleRow(
+                      title: l10n.profileRewardBank,
+                      onBack: onBack,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.profileRewardBankHeroTitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  color: colorScheme.onPrimary,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.3,
-                                ),
+                    const SizedBox(height: 22),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface,
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            l10n.profileRewardBankHeroSubtitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colorScheme.onPrimary.withValues(
-                                alpha: 0.92,
-                              ),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              height: 1.35,
+                          child: SizedBox.square(
+                            dimension: 48,
+                            child: Icon(
+                              Icons.account_balance_outlined,
+                              color: colorScheme.primary,
+                              size: 24,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.profileRewardBankHeroTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      color: colorScheme.onPrimary,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.3,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.profileRewardBankHeroSubtitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onPrimary.withValues(
+                                    alpha: 0.92,
+                                  ),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -395,6 +414,63 @@ class _RewardBankHero extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _RewardBankHeroTitleRow extends StatelessWidget {
+  const _RewardBankHeroTitleRow({
+    required this.title,
+    required this.onBack,
+  });
+
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 42,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 0,
+            child: IconButton(
+              tooltip: context.l10n.commonBack,
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
+              color: colorScheme.onPrimary,
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 54),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -528,13 +604,11 @@ class _RewardBankForm extends StatelessWidget {
             const SizedBox(height: 16),
             _RewardBankPreview(account: preview),
             const SizedBox(height: 16),
-            FilledButton(
+            CustomerGradientButton(
               onPressed: saving ? null : onSubmit,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(47),
-                shape: const StadiumBorder(),
-                textStyle: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+              height: 47,
+              fontSize: 15,
+              shadow: false,
               child: saving
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,

@@ -8,6 +8,7 @@ import 'package:customer_flutter/features/topup/data/topup_models.dart';
 import 'package:customer_flutter/features/topup/data/topup_repository.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_history_screen.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_realtime_monitor.dart';
+import 'package:customer_flutter/shared/widgets/customer_gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -43,13 +44,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
-    expect(find.text('500.00'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
     expect(find.text('บาท'), findsOneWidget);
-    expect(find.text('500.00 บาท'), findsNothing);
+    expect(find.text('500 บาท'), findsNothing);
     expect(find.text('อนุมัติแล้ว'), findsOneWidget);
     expect(find.text('รายการ #top_1'), findsOneWidget);
     expect(find.text('QR Code'), findsNothing);
-    expect(find.text('โบนัส 25.00 บาท'), findsOneWidget);
+    expect(find.text('โบนัส 25 บาท'), findsOneWidget);
     expect(
       find.textContaining(formatLocalizedDateTime(transferAt, 'th-TH')),
       findsOneWidget,
@@ -97,7 +98,7 @@ void main() {
     expect(find.text('รายการ #top_page_1'), findsNothing);
     expect(find.text('รายการ #top_page_2'), findsOneWidget);
     expect(find.text('รอตรวจสอบ'), findsOneWidget);
-    expect(find.text('700.00'), findsOneWidget);
+    expect(find.text('700'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -156,7 +157,7 @@ void main() {
     expect(find.text('รายการ #top_before_realtime'), findsNothing);
     expect(find.text('รายการ #top_after_realtime'), findsOneWidget);
     expect(find.text('รอตรวจสอบ'), findsOneWidget);
-    expect(find.text('700.00'), findsOneWidget);
+    expect(find.text('700'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -189,8 +190,8 @@ void main() {
     expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
     expect(find.text('รายการ #top_compact_1'), findsOneWidget);
     expect(find.text('ไม่อนุมัติ'), findsOneWidget);
-    expect(find.text('1,234.00'), findsOneWidget);
-    expect(find.text('โบนัส 50.00 บาท'), findsOneWidget);
+    expect(find.text('1,234'), findsOneWidget);
+    expect(find.text('โบนัส 50 บาท'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -297,7 +298,11 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'เติมเงิน'));
+    final topupButton = find.widgetWithText(CustomerGradientButton, 'เติมเงิน');
+    await tester.ensureVisible(topupButton);
+    await tester.pumpAndSettle();
+
+    await tester.tap(topupButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Topup route'), findsOneWidget);

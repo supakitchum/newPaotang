@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
@@ -12,9 +11,29 @@ import '../../reward_claims/presentation/claim_realtime_monitor.dart';
 import 'activity_claim_error_message.dart';
 import 'activity_claim_localization.dart';
 
-Color _activityClaimPrimaryTint(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
-    colorScheme.primary.withValues(alpha: 0.12);
+const _activityClaimHeadTextColor = Color(0xFF202938);
+const _activityClaimBodyTextColor = Color(0xFF4B5563);
+const _activityClaimMutedTextColor = Color(0xFF94A3B8);
+const _activityClaimDividerColor = Color(0xFFEEF2F7);
+const _activityClaimChevronColor = Color(0xFF3B9CFF);
+const _activityClaimEmptyIconColor = Color(0xFF0B69DC);
+const _activityClaimEmptyIconBackground = Color(0xFFEEF7FF);
+const _activityClaimEmptyTitleColor = Color(0xFF111827);
+const _activityClaimEmptyTextColor = Color(0xFF64748B);
+const _activityClaimPaidColor = Color(0xFF28A81E);
+const _activityClaimPaidBackground = Color(0xFFE5F8DF);
+const _activityClaimPendingColor = Color(0xFFE29300);
+const _activityClaimPendingBackground = Color(0xFFFFF3D0);
+const _activityClaimRejectedColor = Color(0xFFED2C25);
+const _activityClaimRejectedBackground = Color(0xFFFFE1DF);
+const _activityClaimPrimaryStart = Color(0xFF149AF9);
+const _activityClaimPrimaryEnd = Color(0xFF0064D5);
+const _activityClaimPrimaryShadow = Color(0x380066D5);
+const _activityClaimOutlineBorder = Color(0xFF0B69DC);
+const _activityClaimOutlineText = Color(0xFF075EC9);
+const _activityClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
+const _activityClaimOutlineDisabledText = Color(0xFF8A8F98);
+const _activityClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
 
 class ActivityClaimsScreen extends ConsumerStatefulWidget {
   const ActivityClaimsScreen({super.key});
@@ -228,7 +247,7 @@ class _ActivityClaimsPageBody extends StatelessWidget {
             ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: ColoredBox(
-                color: Theme.of(context).colorScheme.surface,
+                color: Colors.white,
                 child: CustomerPageBody(
                   maxWidth: 640,
                   top: 0,
@@ -259,19 +278,20 @@ class _ActivityClaimTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(context, claim);
+    final color = _statusColor(claim);
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Material(
-      color: colorScheme.surface,
+      color: Colors.white,
       child: InkWell(
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: showDivider
                 ? Border(
-                    bottom: BorderSide(color: colorScheme.outlineVariant),
+                    bottom: BorderSide(color: _activityClaimDividerColor),
                   )
                 : null,
           ),
@@ -286,17 +306,17 @@ class _ActivityClaimTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurface,
+                      color: _activityClaimHeadTextColor,
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
                       height: 1.25,
                     ),
                   ),
                   trailing: Text(
-                    formatBaht(claim.amount),
+                    localizedActivityClaimMoney(context, claim.amount),
                     textAlign: TextAlign.right,
                     style: textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurface,
+                      color: _activityClaimHeadTextColor,
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
                       height: 1.25,
@@ -313,7 +333,7 @@ class _ActivityClaimTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                          color: _activityClaimBodyTextColor,
                           fontSize: 15,
                           height: 1.32,
                         ),
@@ -323,7 +343,7 @@ class _ActivityClaimTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                          color: _activityClaimBodyTextColor,
                           fontSize: 15,
                           height: 1.32,
                         ),
@@ -333,7 +353,7 @@ class _ActivityClaimTile extends StatelessWidget {
                   trailing: _StatusChip(
                     label: localizedActivityClaimStatusLabel(context, claim),
                     color: color,
-                    backgroundColor: _statusBackgroundColor(context, claim),
+                    backgroundColor: _statusBackgroundColor(claim),
                   ),
                   trailingMaxWidthFactor: 0.56,
                 ),
@@ -343,7 +363,7 @@ class _ActivityClaimTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    color: _activityClaimBodyTextColor,
                     fontSize: 15,
                     height: 1.32,
                   ),
@@ -355,9 +375,7 @@ class _ActivityClaimTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.72,
-                      ),
+                      color: _activityClaimMutedTextColor,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       height: 1.32,
@@ -365,7 +383,7 @@ class _ActivityClaimTile extends StatelessWidget {
                   ),
                   trailing: Icon(
                     Icons.chevron_right,
-                    color: colorScheme.primary,
+                    color: _activityClaimChevronColor,
                     size: 23,
                   ),
                   trailingMaxWidthFactor: 0.2,
@@ -457,7 +475,6 @@ class _ActivityClaimsEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 54),
       child: Column(
@@ -466,20 +483,20 @@ class _ActivityClaimsEmpty extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: _activityClaimPrimaryTint(colorScheme),
+              color: _activityClaimEmptyIconBackground,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.card_giftcard_outlined,
               size: 30,
-              color: colorScheme.primary,
+              color: _activityClaimEmptyIconColor,
             ),
           ),
           const SizedBox(height: 10),
           Text(
             l10n.activityClaimsEmptyTitle,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
+                  color: _activityClaimEmptyTitleColor,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
@@ -489,7 +506,7 @@ class _ActivityClaimsEmpty extends StatelessWidget {
           Text(
             l10n.activityClaimsEmptySubtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                  color: _activityClaimEmptyTextColor,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   height: 1.45,
@@ -518,7 +535,6 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(999);
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 190, minHeight: 47),
@@ -528,15 +544,11 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.18) ??
-                  colorScheme.primary,
-              colorScheme.primary,
-            ],
+            colors: [_activityClaimPrimaryStart, _activityClaimPrimaryEnd],
           ),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.22),
+              color: _activityClaimPrimaryShadow,
               blurRadius: 22,
               offset: const Offset(0, 10),
             ),
@@ -546,6 +558,8 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: radius,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             onTap: onPressed,
             child: SizedBox(
               height: 47,
@@ -557,9 +571,9 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onPrimary,
+                          color: Colors.white,
                           fontSize: 14,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
                   ),
@@ -728,33 +742,37 @@ class _ActivityClaimsStatePanel extends StatelessWidget {
   }
 }
 
-Color _statusColor(BuildContext context, ActivityClaimItem claim) {
-  final colorScheme = Theme.of(context).colorScheme;
-  if (claim.isPaid) {
-    return Color.lerp(colorScheme.tertiary, colorScheme.primary, 0.12) ??
-        colorScheme.tertiary;
-  }
-  if (claim.isRejected) return colorScheme.error;
-  return Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.32) ??
-      colorScheme.primary;
+Color _statusColor(ActivityClaimItem claim) {
+  if (claim.isPaid) return _activityClaimPaidColor;
+  if (claim.isRejected) return _activityClaimRejectedColor;
+  return _activityClaimPendingColor;
 }
 
-Color _statusBackgroundColor(BuildContext context, ActivityClaimItem claim) {
-  final colorScheme = Theme.of(context).colorScheme;
-  final statusColor = _statusColor(context, claim);
-  final alpha = claim.isRejected ? 0.10 : 0.13;
-  return Color.lerp(colorScheme.surface, statusColor, alpha) ??
-      statusColor.withValues(alpha: alpha);
+Color _statusBackgroundColor(ActivityClaimItem claim) {
+  if (claim.isPaid) return _activityClaimPaidBackground;
+  if (claim.isRejected) return _activityClaimRejectedBackground;
+  return _activityClaimPendingBackground;
 }
 
 ButtonStyle _claimOutlinePillStyle(BuildContext context) {
   return OutlinedButton.styleFrom(
-    minimumSize: const Size(160, 44),
-    padding: const EdgeInsets.symmetric(horizontal: 18),
+    backgroundColor: Colors.white,
+    disabledBackgroundColor: _activityClaimOutlineDisabledBackground,
+    disabledForegroundColor: _activityClaimOutlineDisabledText,
+    foregroundColor: _activityClaimOutlineText,
+    minimumSize: const Size(160, 40),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    side: BorderSide(color: Theme.of(context).colorScheme.primary),
     textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
         ),
+  ).copyWith(
+    side: WidgetStateProperty.resolveWith(
+      (states) => BorderSide(
+        color: states.contains(WidgetState.disabled)
+            ? _activityClaimOutlineDisabledBorder
+            : _activityClaimOutlineBorder,
+      ),
+    ),
   );
 }

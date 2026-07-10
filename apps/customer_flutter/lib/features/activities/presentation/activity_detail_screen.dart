@@ -12,6 +12,7 @@ import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../activity_claims/data/activity_claim_models.dart';
 import '../../activity_claims/data/activity_claim_repository.dart';
@@ -56,6 +57,9 @@ class ActivityDetailScreen extends ConsumerWidget {
       currentPath: '/activities',
       backPath: backPath,
       showBottomNavigation: showBottomNavigation,
+      heroMinHeight: _ActivityDetailPageList.heroMinHeight,
+      heroSheetOverlap: _ActivityDetailPageList.sheetOverlap,
+      heroContent: const SizedBox.shrink(),
       child: activity.when(
         data: (item) {
           if (item.id.isEmpty) {
@@ -425,9 +429,12 @@ class _NumberConfirmDialog extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: FilledButton(
+                      child: CustomerGradientButton.text(
                         onPressed: () => Navigator.of(context).pop(true),
-                        child: Text(l10n.activityConfirmNumberSubmit),
+                        height: 40,
+                        fontSize: 14,
+                        shadow: false,
+                        label: l10n.activityConfirmNumberSubmit,
                       ),
                     ),
                   ],
@@ -459,8 +466,8 @@ bool _activityResultHasArrived(ActivityItem activity, {DateTime? now}) {
 class _ActivityDetailPageList extends StatelessWidget {
   const _ActivityDetailPageList({required this.children});
 
-  static const _heroHeight = 214.0;
-  static const _sheetOverlap = 24.0;
+  static const heroMinHeight = 214.0;
+  static const sheetOverlap = 24.0;
   static const _bottomPadding = 112.0;
 
   final List<Widget> children;
@@ -471,27 +478,18 @@ class _ActivityDetailPageList extends StatelessWidget {
       padding: EdgeInsets.zero,
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const _ActivityDetailHeroBand(),
-            Padding(
-              padding: const EdgeInsets.only(top: _heroHeight - _sheetOverlap),
-              child: _ActivityDetailContentSheet(
-                child: CustomerPageBody(
-                  maxWidth: 640,
-                  top: 6,
-                  bottom: _bottomPadding,
-                  mobileHorizontal: 16,
-                  wideHorizontal: 16,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
-                  ),
-                ),
-              ),
+        _ActivityDetailContentSheet(
+          child: CustomerPageBody(
+            maxWidth: 640,
+            top: 6,
+            bottom: _bottomPadding,
+            mobileHorizontal: 16,
+            wideHorizontal: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -514,32 +512,6 @@ class _ActivityDetailContentSheet extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 620),
         child: child,
-      ),
-    );
-  }
-}
-
-class _ActivityDetailHeroBand extends StatelessWidget {
-  const _ActivityDetailHeroBand();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: _ActivityDetailPageList._heroHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
-            ],
-          ),
-        ),
-        child: const SizedBox.expand(),
       ),
     );
   }
@@ -1356,16 +1328,13 @@ class _AwardRow extends StatelessWidget {
             );
             if (!award.isClaimable) return copy;
 
-            final action = FilledButton(
+            final action = CustomerGradientButton.text(
               onPressed: () => onClaim(award),
-              style: FilledButton.styleFrom(
-                shape: const StadiumBorder(),
-                minimumSize: const Size(104, 42),
-                textStyle: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              child: Text(l10n.activityAwardClaimButton),
+              height: 42,
+              fontSize: 14,
+              horizontalPadding: 14,
+              shadow: false,
+              label: l10n.activityAwardClaimButton,
             );
             if (narrow) {
               return Column(
@@ -1383,7 +1352,7 @@ class _AwardRow extends StatelessWidget {
               children: [
                 Expanded(child: copy),
                 const SizedBox(width: 12),
-                action,
+                SizedBox(width: 104, child: action),
               ],
             );
           },
@@ -2482,10 +2451,13 @@ class _LoginToJoinCard extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 12),
-            FilledButton(
+            CustomerGradientButton.text(
               onPressed: () => context.go('/login?redirect=/activities/$slug'),
-              style: FilledButton.styleFrom(shape: const StadiumBorder()),
-              child: Text(l10n.activityLoginToJoinButton),
+              height: 42,
+              fontSize: 14,
+              horizontalPadding: 18,
+              shadow: false,
+              label: l10n.activityLoginToJoinButton,
             ),
           ],
         ),
@@ -3374,16 +3346,12 @@ class _ClaimActionButtons extends StatelessWidget {
       ),
       child: Text(context.l10n.commonCancel),
     );
-    final next = FilledButton(
+    final next = CustomerGradientButton.text(
       onPressed: submitting ? null : onContinue,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(42),
-        shape: const StadiumBorder(),
-        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-      ),
-      child: Text(context.l10n.commonNext),
+      height: 42,
+      fontSize: 14,
+      shadow: false,
+      label: context.l10n.commonNext,
     );
 
     return LayoutBuilder(

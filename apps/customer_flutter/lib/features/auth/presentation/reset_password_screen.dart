@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import 'auth_visual_tokens.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, required this.token, this.source});
@@ -141,20 +143,22 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _password,
+              style: authInputTextStyle(context, fontWeight: FontWeight.w800),
               obscureText: !_showPassword,
               decoration: _resetPasswordInputDecoration(
                 context,
                 hintText: l10n.resetPasswordNewPasswordHint,
                 prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(
-                    () => _showPassword = !_showPassword,
-                  ),
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _saving
+                      ? null
+                      : () => setState(
+                            () => _showPassword = !_showPassword,
+                          ),
+                  icon: _showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   tooltip: _showPassword
                       ? l10n.resetPasswordHidePassword
                       : l10n.resetPasswordShowPassword,
@@ -168,20 +172,22 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _confirmPassword,
+              style: authInputTextStyle(context, fontWeight: FontWeight.w800),
               obscureText: !_showConfirmPassword,
               decoration: _resetPasswordInputDecoration(
                 context,
                 hintText: l10n.resetPasswordConfirmNewPasswordHint,
                 prefixIcon: const Icon(Icons.shield_outlined),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(
-                    () => _showConfirmPassword = !_showConfirmPassword,
-                  ),
-                  icon: Icon(
-                    _showConfirmPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _saving
+                      ? null
+                      : () => setState(
+                            () => _showConfirmPassword = !_showConfirmPassword,
+                          ),
+                  icon: _showConfirmPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   tooltip: _showConfirmPassword
                       ? l10n.resetPasswordHidePassword
                       : l10n.resetPasswordShowPassword,
@@ -189,21 +195,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               ),
             ),
             const SizedBox(height: 22),
-            SizedBox(
-              height: 52,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                onPressed: _saving || widget.token.isEmpty ? null : _submit,
-                child: _saving
-                    ? Text(l10n.resetPasswordSubmitting)
-                    : Text(l10n.resetPasswordSave),
-              ),
+            authPrimaryActionButton(
+              onPressed: _saving || widget.token.isEmpty ? null : _submit,
+              label: _saving
+                  ? l10n.resetPasswordSubmitting
+                  : l10n.resetPasswordSave,
             ),
           ],
         ),
@@ -327,61 +323,54 @@ class _ResetPasswordHeroSection extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [
               colorScheme.primary,
-              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                  colorScheme.primary,
+              AppTheme.heroGradientEnd(colorScheme.primary),
             ],
           ),
         ),
-        child: Stack(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Positioned(
-              left: 16,
-              top: 10,
-              child: IconButton(
-                onPressed: onBack,
-                tooltip: context.l10n.commonBack,
-                color: colorScheme.onPrimary,
-                disabledColor: colorScheme.onPrimary.withValues(alpha: 0.54),
-                icon: const Icon(Icons.arrow_back_ios_new),
-              ),
+            authBlueHeroTopRow(
+              context,
+              title: context.l10n.resetPasswordTitle,
+              tooltip: context.l10n.commonBack,
+              onBack: onBack,
             ),
-            Center(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 42),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 330),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 52, 20, 76),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.key_outlined,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.key_outlined,
+                      color: colorScheme.onPrimary,
+                      size: 34,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      context.l10n.resetPasswordTitle,
+                      textAlign: TextAlign.center,
+                      style: textTheme.headlineSmall?.copyWith(
                         color: colorScheme.onPrimary,
-                        size: 34,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        context.l10n.resetPasswordTitle,
-                        textAlign: TextAlign.center,
-                        style: textTheme.headlineSmall?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          height: 1.2,
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      description,
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.55,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        description,
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.55,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -404,8 +393,8 @@ class _ResetPasswordSheet extends StatelessWidget {
       offset: const Offset(0, -34),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLowest,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 22, 16, 34),
@@ -439,33 +428,12 @@ InputDecoration _resetPasswordInputDecoration(
   required Widget prefixIcon,
   Widget? suffixIcon,
 }) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return InputDecoration(
+  return authInputDecoration(
+    context,
     hintText: hintText,
-    prefixIcon: IconTheme(
-      data: IconThemeData(color: colorScheme.primary, size: 22),
-      child: prefixIcon,
-    ),
+    prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
-    filled: true,
-    fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.86),
-      ),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: colorScheme.primary),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-      ),
-    ),
+    softFill: true,
   );
 }
 

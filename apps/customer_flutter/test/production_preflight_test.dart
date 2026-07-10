@@ -2181,8 +2181,8 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
 <html>
   <head>
     <meta name="description" content="Customer application.">
-    <meta name="theme-color" content="#0175C2">
-    <meta name="msapplication-TileColor" content="#0175C2">
+    <meta name="theme-color" content="#087FF0">
+    <meta name="msapplication-TileColor" content="#087FF0">
     <meta name="apple-mobile-web-app-title" content="Customer">
     <link rel="icon" href="favicon.png">
     <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -2194,7 +2194,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       const appName = runtimeConfig.appName || "Customer";
       const shortName = runtimeConfig.shortName || appName;
       const description = runtimeConfig.description || "Customer application.";
-      const themeColor = runtimeConfig.themeColor || "#0175C2";
+      const themeColor = runtimeConfig.themeColor || "#087FF0";
       const icon192Url = runtimeConfig.icon192Url || "icons/Icon-192.png";
       const icon512Url = runtimeConfig.icon512Url || "icons/Icon-512.png";
       const maskableIcon192Url = runtimeConfig.maskableIcon192Url || "icons/Icon-maskable-192.png";
@@ -2264,8 +2264,8 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
 <html>
   <head>
     <meta name="description" content="Customer application.">
-    <meta name="theme-color" content="#0175C2">
-    <meta name="msapplication-TileColor" content="#0175C2">
+    <meta name="theme-color" content="#087FF0">
+    <meta name="msapplication-TileColor" content="#087FF0">
     <meta name="apple-mobile-web-app-title" content="Customer">
     <meta property="og:title" content="Customer">
     <meta property="og:description" content="Customer application.">
@@ -2283,7 +2283,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       const appName = runtimeConfig.appName || "Customer";
       const shortName = runtimeConfig.shortName || appName;
       const description = runtimeConfig.description || "Customer application.";
-      const themeColor = runtimeConfig.themeColor || "#0175C2";
+      const themeColor = runtimeConfig.themeColor || "#087FF0";
       const icon192Url = runtimeConfig.icon192Url || "icons/Icon-192.png";
       const icon512Url = runtimeConfig.icon512Url || "icons/Icon-512.png";
       const maskableIcon192Url = runtimeConfig.maskableIcon192Url || "icons/Icon-maskable-192.png";
@@ -2363,8 +2363,8 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
 <html>
   <head>
     <meta name="description" content="Customer application.">
-    <meta name="theme-color" content="#0175C2">
-    <meta name="msapplication-TileColor" content="#0175C2">
+    <meta name="theme-color" content="#087FF0">
+    <meta name="msapplication-TileColor" content="#087FF0">
     <meta property="og:title" content="Customer">
     <meta property="og:description" content="Customer application.">
     <meta property="og:url" content=".">
@@ -2415,8 +2415,8 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       const appName = firstConfigValue(["appName", "webAppName", "web_app_name"], "Customer");
       const shortName = firstConfigValue(["shortName", "short_name", "webShortName", "web_short_name"], appName);
       const description = firstConfigValue(["description", "webDescription", "web_description"], "Customer application.");
-      const themeColor = firstConfigValue(["themeColor", "theme_color"], "#0175C2");
-      const backgroundColor = firstConfigValue(["backgroundColor", "background_color"], themeColor);
+      const customerIdentityThemeColor = "#087FF0";
+      const backgroundColor = firstConfigValue(["manifestBackgroundColor", "manifest_background_color", "backgroundColor", "background_color"], "#FFFFFF");
       const faviconUrl = firstConfigValue(["faviconUrl", "favicon_url"], "favicon.png");
       const appleTouchIconUrl = firstConfigValue(["appleTouchIconUrl", "apple_touch_icon_url"], "icons/Icon-192.png");
       const icon192Url = firstConfigValue(["icon192Url", "icon_192_url"], "icons/Icon-192.png");
@@ -2438,8 +2438,8 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       if (htmlLang) document.documentElement.setAttribute("lang", htmlLang);
       if (htmlDir) document.documentElement.setAttribute("dir", htmlDir);
       document.querySelector('meta[name="description"]').setAttribute("content", description);
-      document.querySelector('meta[name="theme-color"]').setAttribute("content", themeColor);
-      document.querySelector('meta[name="msapplication-TileColor"]').setAttribute("content", themeColor);
+      document.querySelector('meta[name="theme-color"]').setAttribute("content", customerIdentityThemeColor);
+      document.querySelector('meta[name="msapplication-TileColor"]').setAttribute("content", customerIdentityThemeColor);
       document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute("content", shortName);
       document.querySelector('meta[property="og:title"]').setAttribute("content", socialTitle);
       document.querySelector('meta[property="og:description"]').setAttribute("content", socialDescription);
@@ -2460,7 +2460,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
         scope: manifestScope,
         display: manifestDisplay,
         background_color: backgroundColor,
-        theme_color: themeColor,
+        theme_color: customerIdentityThemeColor,
         description: description,
         orientation: manifestOrientation,
         icons: [
@@ -2501,6 +2501,32 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     } finally {
       root.deleteSync(recursive: true);
     }
+  });
+
+  test('web runtime manifest keeps customer blue theme-color identity', () {
+    final indexSource = File('web/index.html').readAsStringSync();
+    final manifestSource = File('web/manifest.json').readAsStringSync();
+
+    expect(indexSource, contains('content="#087FF0"'));
+    expect(
+      indexSource,
+      contains(
+        'const customerIdentityThemeColor = "#087FF0";',
+      ),
+    );
+    expect(
+      indexSource,
+      isNot(contains('firstConfigValue(["themeColor"')),
+    );
+    expect(indexSource, isNot(contains('runtimeConfig.themeColor')));
+    expect(indexSource, isNot(contains('"manifestThemeColor"')));
+    expect(
+      indexSource,
+      isNot(contains('"primaryColor", "primary_color", "brandColor"')),
+    );
+    expect(indexSource, contains('"#FFFFFF"'));
+    expect(manifestSource, contains('"theme_color": "#087FF0"'));
+    expect(manifestSource, contains('"background_color": "#FFFFFF"'));
   });
 
   test('web production preflight rejects missing runtime locale metadata', () {

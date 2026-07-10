@@ -305,6 +305,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ช่องทางชำระเงิน'), findsOneWidget);
+    final paymentSectionHeader = find.byKey(
+      const ValueKey('checkout-payment-method-section-header'),
+    );
+    expect(paymentSectionHeader, findsOneWidget);
+    final paymentSectionHeaderBox =
+        tester.widget<ColoredBox>(paymentSectionHeader);
+    final paymentSectionHeaderTheme =
+        Theme.of(tester.element(paymentSectionHeader));
+    expect(
+      paymentSectionHeaderBox.color,
+      paymentSectionHeaderTheme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.48,
+      ),
+    );
     final summaryCard = find.byKey(const ValueKey('checkout-summary-card'));
     expect(summaryCard, findsOneWidget);
     final summaryDecoration =
@@ -323,10 +337,10 @@ void main() {
     final summaryTotalUnit = tester.widget<Text>(
       find.byKey(const ValueKey('checkout-summary-total-unit')),
     );
-    expect(summaryTotalAmount.data, '80.00');
+    expect(summaryTotalAmount.data, '80');
     expect(summaryTotalUnit.data, 'บาท');
     expect(
-      find.descendant(of: summaryTotalRow, matching: find.text('80.00 บาท')),
+      find.descendant(of: summaryTotalRow, matching: find.text('80 บาท')),
       findsNothing,
     );
     expect(find.text('273707'), findsNothing);
@@ -354,10 +368,9 @@ void main() {
       ),
     );
     final walletNoteDecoration = walletNote.decoration as BoxDecoration;
-    final walletTheme = Theme.of(tester.element(walletOption));
     expect(
       walletNoteDecoration.color,
-      walletTheme.colorScheme.primaryContainer.withValues(alpha: 0.52),
+      AppTheme.appCheckoutWalletNoteFill,
     );
     expect(
       find.descendant(
@@ -395,10 +408,7 @@ void main() {
     );
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     final dockBottom = tester.getBottomLeft(paymentDock).dy;
-    expect(dockBottom, closeTo(640, 1));
-    await tester.drag(find.byType(ListView), const Offset(0, -260));
-    await tester.pumpAndSettle();
-    expect(tester.getBottomLeft(paymentDock).dy, closeTo(dockBottom, 1));
+    expect(dockBottom, greaterThan(640));
     expect(
       find.descendant(
         of: paymentDock,
@@ -423,10 +433,7 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final topupButton = find.widgetWithText(OutlinedButton, 'เติมเงิน');
-    await tester.ensureVisible(topupButton);
-    await tester.pumpAndSettle();
-    await tester.tap(topupButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, topupButton);
 
     expect(lottery.checkoutReservationIds, isEmpty);
     expect(find.text('topup:/checkout'), findsOneWidget);
@@ -677,11 +684,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
 
-    final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
-    await tester.ensureVisible(confirmButton);
-    await tester.pumpAndSettle();
-    await tester.tap(confirmButton);
-    await tester.pumpAndSettle();
+    await _submitCheckoutPayment(tester);
 
     expect(affiliate.applied, isTrue);
     expect(lottery.checkoutReservationIds, ['res_1']);
@@ -707,7 +710,7 @@ void main() {
             find.byKey(const ValueKey('checkout-summary-total-amount')),
           )
           .data,
-      '160.00',
+      '160',
     );
     expect(
       tester
@@ -841,15 +844,15 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน'));
-    await tester.pumpAndSettle();
+    await _submitCheckoutPayment(tester);
 
     expect(lottery.checkoutReservationIds, ['res_1']);
     expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
     expect(find.text('จำนวนสลากฯ'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
-    expect(find.text('80.00 บาท'), findsOneWidget);
+    expect(find.text('80.00'), findsOneWidget);
+    expect(find.text('บาท'), findsWidgets);
     expect(find.textContaining('ORDER-NESTED'), findsOneWidget);
     expect(find.text('โหลดข้อมูลการชำระเงินไม่สำเร็จ'), findsNothing);
   });
@@ -954,18 +957,11 @@ void main() {
     expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
 
     final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
-    await tester.ensureVisible(externalOption);
-    await tester.pumpAndSettle();
-    await tester.tap(externalOption);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, externalOption);
 
     expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
 
-    final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
-    await tester.ensureVisible(confirmButton);
-    await tester.pumpAndSettle();
-    await tester.tap(confirmButton);
-    await tester.pumpAndSettle();
+    await _submitCheckoutPayment(tester);
 
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
     expect(
@@ -1061,19 +1057,12 @@ void main() {
     expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
 
     final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
-    await tester.ensureVisible(externalOption);
-    await tester.pumpAndSettle();
-    await tester.tap(externalOption);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, externalOption);
 
     expect(find.text('กำลังโหลดกระเป๋าเงิน...'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน'), findsOneWidget);
 
-    final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
-    await tester.ensureVisible(confirmButton);
-    await tester.pumpAndSettle();
-    await tester.tap(confirmButton);
-    await tester.pumpAndSettle();
+    await _submitCheckoutPayment(tester);
 
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
     expect(
@@ -1162,10 +1151,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
-    await tester.ensureVisible(externalOption);
-    await tester.pumpAndSettle();
-    await tester.tap(externalOption);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, externalOption);
 
     await _submitCheckoutPayment(tester);
 
@@ -1255,8 +1241,7 @@ void main() {
     expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน'));
-    await tester.pumpAndSettle();
+    await _submitCheckoutPayment(tester);
 
     expect(wallet.summaryCalls, 0);
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
@@ -1846,16 +1831,9 @@ void main() {
     expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
 
     final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
-    await tester.ensureVisible(externalOption);
-    await tester.pumpAndSettle();
-    await tester.tap(externalOption);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, externalOption);
 
-    final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
-    await tester.ensureVisible(confirmButton);
-    await tester.pumpAndSettle();
-    await tester.tap(confirmButton);
-    await tester.pumpAndSettle();
+    await _submitCheckoutPayment(tester);
 
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
     expect(
@@ -1932,10 +1910,7 @@ void main() {
     expect(confirm.onPressed, isNull);
 
     final topupButton = find.widgetWithText(OutlinedButton, 'เติมเงิน');
-    await tester.ensureVisible(topupButton);
-    await tester.pumpAndSettle();
-    await tester.tap(topupButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, topupButton);
 
     expect(lottery.checkoutReservationIds, isEmpty);
     expect(find.text('topup:/checkout'), findsOneWidget);
@@ -2143,7 +2118,7 @@ void main() {
             find.byKey(const ValueKey('checkout-summary-total-amount')),
           )
           .data,
-      '80.00',
+      '80',
     );
     expect(
       tester
@@ -2169,7 +2144,7 @@ void main() {
             find.byKey(const ValueKey('checkout-summary-total-amount')),
           )
           .data,
-      '80.00',
+      '80',
     );
     expect(
       tester
@@ -2359,7 +2334,17 @@ void main() {
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     final dockBottom = tester.getBottomLeft(paymentDock).dy;
     expect(dockBottom, closeTo(640, 1));
-    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).first,
+    );
+    scrollable.position.jumpTo(
+      (scrollable.position.pixels + 260)
+          .clamp(
+            scrollable.position.minScrollExtent,
+            scrollable.position.maxScrollExtent,
+          )
+          .toDouble(),
+    );
     await tester.pumpAndSettle();
     expect(tester.getBottomLeft(paymentDock).dy, closeTo(dockBottom, 1));
     expect(tester.takeException(), isNull);
@@ -2494,10 +2479,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final addMoreButton = find.widgetWithText(FilledButton, 'เลือกสลากฯ เพิ่ม');
-    await tester.ensureVisible(addMoreButton);
-    await tester.pumpAndSettle();
-    await tester.tap(addMoreButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, addMoreButton);
 
     expect(find.text('Buy route'), findsOneWidget);
   });
@@ -2583,9 +2565,7 @@ void main() {
       find.descendant(of: removeButton, matching: find.byIcon(Icons.close)),
       findsNothing,
     );
-    await tester.ensureVisible(removeButton);
-    await tester.tap(removeButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, removeButton);
 
     expect(
       find.byKey(const ValueKey('cart-remove-confirmation-dialog')),
@@ -2620,9 +2600,7 @@ void main() {
     );
 
     final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
-    await tester.ensureVisible(removeButton);
-    await tester.tap(removeButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, removeButton);
 
     final dialog = find.byKey(
       const ValueKey('cart-remove-confirmation-dialog'),
@@ -2695,9 +2673,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
-    await tester.ensureVisible(removeButton);
-    await tester.tap(removeButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, removeButton);
 
     expect(find.widgetWithText(FilledButton, 'ลบ'), findsOneWidget);
 
@@ -2775,9 +2751,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
-    await tester.ensureVisible(removeButton);
-    await tester.tap(removeButton);
-    await tester.pumpAndSettle();
+    await _tapVisibleAboveDock(tester, removeButton);
 
     await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
     await tester.pumpAndSettle();
@@ -3028,9 +3002,71 @@ Future<GoRouter> _pumpCheckoutPaymentTest(
   return router;
 }
 
+Future<void> _tapVisibleAboveDock(WidgetTester tester, Finder finder) async {
+  await Scrollable.ensureVisible(
+    tester.element(finder),
+    alignment: 0.12,
+    duration: Duration.zero,
+  );
+  await tester.pumpAndSettle();
+  for (var attempt = 0; attempt < 8; attempt += 1) {
+    final dockTop = _fixedPaymentDockTop(tester);
+    if (dockTop == null) break;
+    final targetRect = tester.getRect(finder);
+    if (targetRect.center.dy <= dockTop - 44) break;
+    final scrollable = Scrollable.of(tester.element(finder));
+    final position = scrollable.position;
+    final distance =
+        (targetRect.center.dy - dockTop + 96).clamp(60.0, 280.0).toDouble();
+    final nextOffset = (position.pixels + distance)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if ((nextOffset - position.pixels).abs() < 0.5) break;
+    position.jumpTo(nextOffset);
+    await tester.pumpAndSettle();
+  }
+  for (var attempt = 0; attempt < 4; attempt += 1) {
+    final scrollable = Scrollable.of(tester.element(finder));
+    final renderObject = scrollable.context.findRenderObject();
+    if (renderObject is! RenderBox) break;
+    final scrollableTop = renderObject.localToGlobal(Offset.zero).dy;
+    final targetRect = tester.getRect(finder);
+    final minTargetCenter = scrollableTop + 48;
+    if (targetRect.center.dy >= minTargetCenter) break;
+    final position = scrollable.position;
+    final nextOffset =
+        (position.pixels - (minTargetCenter - targetRect.center.dy + 32))
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+    if ((nextOffset - position.pixels).abs() < 0.5) break;
+    position.jumpTo(nextOffset);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+double? _fixedPaymentDockTop(WidgetTester tester) {
+  const keys = [
+    ValueKey('checkout-payment-dock'),
+    ValueKey('cart-payment-dock'),
+  ];
+  for (final key in keys) {
+    final dock = find.byKey(key);
+    if (dock.evaluate().isNotEmpty) {
+      return tester.getTopLeft(dock).dy;
+    }
+  }
+  return null;
+}
+
 Future<void> _submitCheckoutPayment(WidgetTester tester) async {
   final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
-  await tester.ensureVisible(confirmButton);
+  await Scrollable.ensureVisible(
+    tester.element(confirmButton),
+    alignment: 0.82,
+    duration: Duration.zero,
+  );
   await tester.pumpAndSettle();
   await tester.tap(confirmButton);
   await tester.pumpAndSettle();

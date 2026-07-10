@@ -14,12 +14,20 @@ import 'package:customer_flutter/features/profile/data/profile_settings_reposito
 import 'package:customer_flutter/features/tickets/data/ticket_models.dart';
 import 'package:customer_flutter/features/tickets/data/ticket_repository.dart';
 import 'package:customer_flutter/features/tickets/presentation/tickets_screen.dart';
+import 'package:customer_flutter/shared/widgets/customer_gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+Finder _ticketTile(String id, String number, {bool history = false}) =>
+    find.byKey(
+      ValueKey(
+        'ticket-tile-${history ? 'history' : 'current'}-$id-$number',
+      ),
+    );
 
 void main() {
   testWidgets('current tickets show search summary and winning banner', (
@@ -71,10 +79,11 @@ void main() {
     expect(find.text('L6'), findsNWidgets(3));
     expect(find.text('80\nบาท'), findsNWidgets(3));
     expect(find.text('สลากดิจิทัล'), findsNWidgets(3));
-    expect(find.text('740000'), findsWidgets);
-    expect(find.text('880000'), findsOneWidget);
+    expect(_ticketTile('current_1', '740000'), findsOneWidget);
+    expect(_ticketTile('current_2', '880000'), findsOneWidget);
+    expect(_ticketTile('current_3', '123456'), findsOneWidget);
     expect(find.text('ขึ้นรางวัล'), findsOneWidget);
-    expect(find.text('รับเงินรางวัล 2,000.00 บาท'), findsOneWidget);
+    expect(find.text('รับเงินรางวัล 2,000 บาท'), findsOneWidget);
     expect(
       find.text(
         'เมนู ‘สลากฯ ของฉัน’ เป็นการบันทึกเลขสลากฯ หากถูกรางวัล ระบบจะแจ้งผลรางวัลในหน้านี้',
@@ -97,14 +106,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ผลการค้นหา "740000"'), findsOneWidget);
-    expect(find.text('740000'), findsWidgets);
-    expect(find.text('880000'), findsNothing);
+    expect(_ticketTile('current_1', '740000'), findsOneWidget);
+    expect(_ticketTile('current_2', '880000'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('ticket-search-clear')));
     await tester.pumpAndSettle();
 
-    expect(find.text('880000'), findsOneWidget);
+    expect(_ticketTile('current_2', '880000'), findsOneWidget);
     expect(find.byKey(const ValueKey('ticket-search-clear')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('history tab switches in place without navigating route', (
+    tester,
+  ) async {
+    final repository = _TicketCurrentWithHistoryRepository(
+      currentTickets: [_ticket('current_inline', '111111')],
+      historyTickets: [_ticket('history_inline', '990000')],
+    );
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    final router = GoRouter.of(tester.element(find.byType(TicketsScreen)));
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/tickets');
+    expect(repository.currentAllCalls, 1);
+    expect(repository.historyCalls, 0);
+    expect(_ticketTile('current_inline', '111111'), findsOneWidget);
+
+    await tester.tap(find.text('งวดย้อนหลัง'));
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/tickets');
+    expect(repository.historyCalls, 1);
+    expect(find.text('Ticket history'), findsNothing);
+    expect(
+      _ticketTile('history_inline', '990000', history: true),
+      findsOneWidget,
+    );
+    expect(_ticketTile('current_inline', '111111'), findsNothing);
+
+    await tester.tap(find.text('งวดปัจจุบัน'));
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/tickets');
+    expect(_ticketTile('current_inline', '111111'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -152,6 +199,45 @@ void main() {
       find.text('Ticket claim: current_claimable from current'),
       findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current ticket row opens image overlay directly like Nuxt', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketCurrentRepository([
+      _ticket(
+        'current_preview',
+        '740000',
+        imageStatus: 'pending_assets',
+      ),
+    ]);
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ticket detail'), findsNothing);
+
+    await tester.tap(_ticketTile('current_preview', '740000'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Customer'), findsOneWidget);
+    expect(tester.getSize(find.byType(Dialog)).width, greaterThan(350));
+    expect(
+      find.text('สลากดิจิทัลนี้จัดเก็บใน Customer สำหรับ L6'),
+      findsOneWidget,
+    );
+    expect(find.text('Ticket detail'), findsNothing);
+
+    await tester.tap(find.byTooltip('ปิดรูปสลากฯ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Customer'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -253,15 +339,18 @@ void main() {
       find.text('แสดงเฉพาะงวดที่ออกผลแล้วและมีงวดใหม่กว่าแล้ว'),
       findsNothing,
     );
-    expect(find.text('740000'), findsOneWidget);
-    expect(find.text('880000'), findsNothing);
+    expect(_ticketTile('history_0', '740000', history: true), findsOneWidget);
+    expect(_ticketTile('history_2', '880000', history: true), findsNothing);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -1800));
+    await tester.drag(
+      _ticketTile('history_0', '740000', history: true),
+      const Offset(0, -1800),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.historyCalls, 2);
     expect(repository.cursors, [null, 'cursor_2']);
-    expect(find.text('880000'), findsOneWidget);
+    expect(_ticketTile('history_2', '880000', history: true), findsOneWidget);
     expect(find.text('โหลดเพิ่มเติม'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -373,7 +462,10 @@ void main() {
 
     await _pumpHistory(tester, repository);
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -1800));
+    await tester.drag(
+      _ticketTile('history_0', '740000', history: true),
+      const Offset(0, -1800),
+    );
     await tester.pumpAndSettle();
 
     expect(repository.historyCalls, 2);
@@ -417,22 +509,28 @@ void main() {
     expect(find.text('รายการสลากฯ'), findsOneWidget);
     expect(find.text('ดูสลากฯ ที่ถูกรางวัล'), findsOneWidget);
     expect(find.text('คุณถูกรางวัล 2 ใบ'), findsOneWidget);
-    expect(find.text('740000'), findsOneWidget);
-    expect(find.text('880000'), findsOneWidget);
+    expect(_ticketTile('history_win', '740000', history: true), findsOneWidget);
+    expect(
+      _ticketTile('history_lost', '880000', history: true),
+      findsOneWidget,
+    );
 
     await tester.tap(find.widgetWithText(TextButton, 'ดูสลากฯ ที่ถูกรางวัล'));
     await tester.pumpAndSettle();
 
     expect(find.text('ดูสลากฯ ทั้งหมด'), findsOneWidget);
-    expect(find.text('740000'), findsOneWidget);
-    expect(find.text('880000'), findsNothing);
+    expect(_ticketTile('history_win', '740000', history: true), findsOneWidget);
+    expect(_ticketTile('history_lost', '880000', history: true), findsNothing);
     expect(repository.historyCalls, 1);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.widgetWithText(TextButton, 'ดูสลากฯ ทั้งหมด'));
     await tester.pumpAndSettle();
 
-    expect(find.text('880000'), findsOneWidget);
+    expect(
+      _ticketTile('history_lost', '880000', history: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ticket view resolves current ticket from Nuxt query parameters',
@@ -465,8 +563,8 @@ void main() {
 
     expect(repository.currentAllCalls, 1);
     expect(repository.detailCalls, 0);
-    expect(find.text('740000'), findsOneWidget);
-    expect(find.text('880000'), findsNothing);
+    expect(find.text('740000', skipOffstage: false), findsWidgets);
+    expect(find.text('880000', skipOffstage: false), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -494,7 +592,7 @@ void main() {
     expect(repository.historyCalls, 1);
     expect(repository.historyGameIds, ['game_previous']);
     expect(repository.detailCalls, 0);
-    expect(find.text('880000'), findsOneWidget);
+    expect(find.text('880000', skipOffstage: false), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -525,14 +623,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsOneWidget);
-    expect(find.text('ขายแล้ว'), findsWidgets);
+    _expectTicketDetailImagePreview();
+
+    expect(
+      find.text('รูปสลากกำลังเตรียมพร้อม', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('ขายแล้ว', skipOffstage: false), findsWidgets);
+
+    _expectTicketDetailImagePreview();
 
     tester
         .widget<InkWell>(
           find.descendant(
-            of: find.byTooltip('ดูรูปสลากฯ'),
-            matching: find.byType(InkWell),
+            of: find.byTooltip('ดูรูปสลากฯ', skipOffstage: false),
+            matching: find.byType(InkWell, skipOffstage: false),
+            skipOffstage: false,
           ),
         )
         .onTap!();
@@ -542,6 +648,7 @@ void main() {
     expect(find.text('L6'), findsWidgets);
     expect(find.text('แบบดิจิทัล'), findsWidgets);
     expect(find.text('Customer'), findsOneWidget);
+    expect(tester.getSize(find.byType(Dialog)).width, greaterThan(350));
     expect(
       find.text('สลากดิจิทัลนี้จัดเก็บใน Customer สำหรับ L6'),
       findsOneWidget,
@@ -578,20 +685,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsOneWidget);
+    expect(
+      find.text('ภาพสลากยังไม่พร้อมจากระบบ', skipOffstage: false),
+      findsOneWidget,
+    );
     expect(find.byType(Image), findsNothing);
 
     tester
         .widget<InkWell>(
           find.descendant(
-            of: find.byTooltip('ดูรูปสลากฯ'),
-            matching: find.byType(InkWell),
+            of: find.byTooltip('ดูรูปสลากฯ', skipOffstage: false),
+            matching: find.byType(InkWell, skipOffstage: false),
+            skipOffstage: false,
           ),
         )
         .onTap!();
     await tester.pumpAndSettle();
 
-    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsNWidgets(2));
+    expect(
+      find.text('ภาพสลากยังไม่พร้อมจากระบบ', skipOffstage: false),
+      findsNWidgets(2),
+    );
     expect(find.byType(Image), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -678,8 +792,8 @@ void main() {
     expect(find.text('สลากใบนี้ไม่ถูกรางวัลในงวดนี้'), findsOneWidget);
     expect(find.text('123456'), findsOneWidget);
 
-    final nextButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'ถัดไป'),
+    final nextButton = tester.widget<CustomerGradientButton>(
+      find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
     );
 
     expect(nextButton.onPressed, isNull);
@@ -761,18 +875,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final nextButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'ถัดไป'),
+    final nextButton = tester.widget<CustomerGradientButton>(
+      find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
     );
     nextButton.onPressed!();
     await tester.pumpAndSettle();
 
     expect(find.text('ค่าภาษีถอนเงิน (0.5%)'), findsOneWidget);
-    expect(find.text('10.00 บาท'), findsOneWidget);
-    expect(find.text('ลดให้ 10.00 บาท'), findsOneWidget);
+    expect(find.text('10 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 10 บาท'), findsOneWidget);
     expect(find.text('ค่าธรรมเนียม (1%)'), findsOneWidget);
-    expect(find.text('20.00 บาท'), findsOneWidget);
-    expect(find.text('ลดให้ 20.00 บาท'), findsOneWidget);
+    expect(find.text('20 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 20 บาท'), findsOneWidget);
     expect(find.text('0 บาท'), findsNWidgets(2));
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(repository.createRewardClaimCalls, 0);
@@ -829,7 +943,9 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -837,7 +953,9 @@ void main() {
     expect(find.text('หมายเลขบัญชี x xxx7890'), findsOneWidget);
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ยืนยัน'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -897,14 +1015,18 @@ void main() {
     expect(find.text('G Wallet x 321'), findsOneWidget);
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
     expect(find.text('G Wallet x 321'), findsOneWidget);
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ยืนยัน'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -952,12 +1074,16 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ยืนยัน'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -979,13 +1105,13 @@ void main() {
     expect(find.text('16'), findsOneWidget);
     expect(find.text('ชุดที่'), findsOneWidget);
     expect(find.text('42'), findsOneWidget);
-    expect(find.text('รางวัลเลขท้าย 3 ตัว 1,000.00 บาท'), findsOneWidget);
+    expect(find.text('รางวัลเลขท้าย 3 ตัว 1,000 บาท'), findsOneWidget);
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(find.text('วันที่ทำรายการ'), findsOneWidget);
-    expect(find.text('5.00 บาท'), findsOneWidget);
-    expect(find.text('ลดให้ 5.00 บาท'), findsOneWidget);
-    expect(find.text('10.00 บาท'), findsOneWidget);
-    expect(find.text('ลดให้ 10.00 บาท'), findsOneWidget);
+    expect(find.text('5 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 5 บาท'), findsOneWidget);
+    expect(find.text('10 บาท'), findsOneWidget);
+    expect(find.text('ลดให้ 10 บาท'), findsOneWidget);
     expect(find.text('0 บาท'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
@@ -1026,12 +1152,16 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ยืนยัน'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -1097,12 +1227,16 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ยืนยัน'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -1170,12 +1304,16 @@ void main() {
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ถัดไป'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
     tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .widget<CustomerGradientButton>(
+          find.widgetWithText(CustomerGradientButton, 'ยืนยัน'),
+        )
         .onPressed!();
     await tester.pumpAndSettle();
 
@@ -1264,6 +1402,9 @@ Future<void> _pumpCurrent(
             defaultLocale: 'th-TH',
           ),
         ),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _ticketMobileBootstrap(),
+        ),
         ticketRepositoryProvider.overrideWithValue(repository),
       ],
       child: MaterialApp.router(
@@ -1328,6 +1469,9 @@ Future<void> _pumpHistory(
             apiBaseUrl: 'https://partner.example.test/api/v1',
             defaultLocale: 'th-TH',
           ),
+        ),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => _ticketMobileBootstrap(),
         ),
         ticketRepositoryProvider.overrideWithValue(repository),
       ],
@@ -1422,6 +1566,11 @@ Future<void> _pumpTicketView(
       ),
     ),
   );
+}
+
+void _expectTicketDetailImagePreview() {
+  final preview = find.byTooltip('ดูรูปสลากฯ', skipOffstage: false);
+  expect(preview, findsOneWidget);
 }
 
 Future<void> _pumpTicketClaim(
@@ -1537,6 +1686,32 @@ class _TicketCurrentRepository extends TicketRepository {
   }) async {
     currentAllCalls++;
     return _tickets;
+  }
+}
+
+class _TicketCurrentWithHistoryRepository extends _TicketCurrentRepository {
+  _TicketCurrentWithHistoryRepository({
+    required List<CustomerTicket> currentTickets,
+    required List<CustomerTicket> historyTickets,
+  })  : _historyTickets = historyTickets,
+        super(currentTickets);
+
+  final List<CustomerTicket> _historyTickets;
+  int historyCalls = 0;
+
+  @override
+  Future<TicketPage> history({
+    int limit = 20,
+    String? cursor,
+    String? gameId,
+  }) async {
+    historyCalls++;
+    return TicketPage(
+      items: _historyTickets,
+      nextCursor: null,
+      hasMore: false,
+      total: _historyTickets.length,
+    );
   }
 }
 

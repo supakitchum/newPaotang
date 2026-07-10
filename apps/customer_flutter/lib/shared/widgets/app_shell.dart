@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/i18n/customer_localizations.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../core/tenant/mobile_runtime_policy.dart';
+import '../../core/theme/app_theme.dart';
 import 'customer_page_body.dart';
 
 class AppShell extends StatelessWidget {
@@ -22,6 +23,7 @@ class AppShell extends StatelessWidget {
     this.heroContent,
     this.heroMinHeight = 174,
     this.heroSheetOverlap = _defaultHeroSheetOverlap,
+    this.heroContentTopGap = 24,
     this.actions = const [],
   });
 
@@ -37,63 +39,65 @@ class AppShell extends StatelessWidget {
   final Widget? heroContent;
   final double heroMinHeight;
   final double heroSheetOverlap;
+  final double heroContentTopGap;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final routePath = _routePathFor(context);
+    final resolvedBack = _resolvedBackAction(context, routePath);
     final expandedHero = heroContent;
 
     if (fullScreen) {
       return Scaffold(
-        extendBody: showBottomNavigation,
-        body: child,
-        bottomNavigationBar: showBottomNavigation
-            ? _CustomerBottomNav(currentPath: currentPath)
-            : null,
+        body: _AppShellBottomNavOverlay(
+          currentPath: currentPath,
+          showBottomNavigation: showBottomNavigation,
+          child: child,
+        ),
       );
     }
 
     if (expandedHero != null) {
       return Scaffold(
-        extendBody: showBottomNavigation,
-        body: ColoredBox(
-          color: colorScheme.surface,
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                right: 0,
-                left: 0,
-                child: _CustomerBlueHeroHeader(
-                  title: title,
-                  minHeight: heroMinHeight,
-                  backPath: backPath,
-                  onBack: onBack,
-                  actions: actions,
-                  compactHeader: compactHeader,
-                  child: expandedHero,
+        body: _AppShellBottomNavOverlay(
+          currentPath: currentPath,
+          showBottomNavigation: showBottomNavigation,
+          child: ColoredBox(
+            color: colorScheme.surface,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  left: 0,
+                  child: _CustomerBlueHeroHeader(
+                    title: title,
+                    minHeight: heroMinHeight,
+                    onBack: resolvedBack,
+                    actions: actions,
+                    compactHeader: compactHeader,
+                    heroContentTopGap: heroContentTopGap,
+                    child: expandedHero,
+                  ),
                 ),
-              ),
-              Positioned.fill(
-                top:
-                    (heroMinHeight - _effectiveHeroSheetOverlap(context)).clamp(
-                  0,
-                  double.infinity,
+                Positioned.fill(
+                  top: (heroMinHeight - _effectiveHeroSheetOverlap(context))
+                      .clamp(
+                    0,
+                    double.infinity,
+                  ),
+                  child: SafeArea(top: false, child: child),
                 ),
-                child: SafeArea(top: false, child: child),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        bottomNavigationBar: showBottomNavigation
-            ? _CustomerBottomNav(currentPath: currentPath)
-            : null,
       );
     }
 
     return Scaffold(
-      extendBody: showBottomNavigation,
       appBar: AppBar(
         title: Text(
           title,
@@ -101,37 +105,53 @@ class AppShell extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         centerTitle: true,
+        titleSpacing: 0,
         titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
+              color: colorScheme.onPrimary,
               fontSize: compactHeader ? 16 : 20,
               fontWeight: compactHeader ? FontWeight.w900 : FontWeight.w700,
               height: 1.25,
             ),
         actions: actions,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: colorScheme.onPrimary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: compactHeader ? 72 : 64,
-        leading: backPath == null && onBack == null
+        leadingWidth: compactHeader ? 52 : null,
+        leading: resolvedBack == null
             ? null
             : IconButton(
                 tooltip: context.l10n.commonBack,
-                onPressed: onBack ?? () => context.go(backPath!),
+                onPressed: resolvedBack,
                 icon: Icon(
                   Icons.arrow_back_ios_new,
                   size: compactHeader ? 27 : 24,
                 ),
+                style: compactHeader
+                    ? IconButton.styleFrom(
+                        fixedSize: const Size.square(36),
+                        minimumSize: const Size.square(36),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: colorScheme.onPrimary,
+                      ).copyWith(
+                        overlayColor: const WidgetStatePropertyAll(
+                          Colors.transparent,
+                        ),
+                      )
+                    : null,
               ),
         flexibleSpace: _CustomerHeroAppBarBackground(
           primary: colorScheme.primary,
           secondary: colorScheme.secondary,
         ),
       ),
-      body: SafeArea(child: child),
-      bottomNavigationBar: showBottomNavigation
-          ? _CustomerBottomNav(currentPath: currentPath)
-          : null,
+      body: _AppShellBottomNavOverlay(
+        currentPath: currentPath,
+        showBottomNavigation: showBottomNavigation,
+        child: SafeArea(child: child),
+      ),
     );
   }
 
@@ -140,9 +160,129 @@ class AppShell extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     return (width * 0.15).clamp(34.0, 64.0);
   }
+
+  String _routePathFor(BuildContext context) {
+    try {
+      return GoRouterState.of(context).uri.path;
+    } catch (_) {
+      return currentPath ?? '';
+    }
+  }
+
+  VoidCallback? _resolvedBackAction(BuildContext context, String routePath) {
+    final explicitOnBack = onBack;
+    if (explicitOnBack != null) return explicitOnBack;
+
+    final explicitBackPath = backPath;
+    if (explicitBackPath != null) return () => context.go(explicitBackPath);
+
+    if (!_shouldShowAutoBack(routePath)) return null;
+    return () => _goBackFrom(context, routePath);
+  }
+
+  bool _shouldShowAutoBack(String path) {
+    if (path.isEmpty) return false;
+    return !_customerRootRoutes.contains(path);
+  }
+
+  void _goBackFrom(BuildContext context, String path) {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go(customerDefaultBackPathFor(path));
+  }
 }
 
 const double _defaultHeroSheetOverlap = -1;
+
+const _customerRootRoutes = {'/', '/tickets', '/profile'};
+
+String customerDefaultBackPathFor(String path) {
+  final normalized = path.isEmpty ? '/' : path;
+  if (normalized == '/') return '/';
+  if (normalized == '/tickets' || normalized == '/profile') return '/';
+  if (normalized.startsWith('/buy/search') ||
+      normalized == '/search' ||
+      normalized.startsWith('/search')) {
+    return '/buy';
+  }
+  if (normalized.startsWith('/buy/more')) return '/buy';
+  if (normalized == '/buy') return '/';
+  if (normalized.startsWith('/stores/lotteries')) return '/stores';
+  if (normalized.startsWith('/stores')) return '/buy';
+  if (normalized.startsWith('/cart')) return '/buy';
+  if (normalized.startsWith('/checkout/pending')) return '/checkout';
+  if (normalized.startsWith('/checkout')) return '/cart';
+  if (normalized.startsWith('/success')) return '/tickets';
+  if (normalized.startsWith('/tickets/history')) return '/tickets';
+  if (normalized.startsWith('/tickets/view')) return '/tickets';
+  if (normalized.startsWith('/tickets/claim')) return '/tickets';
+  if (normalized.startsWith('/my-wallet')) return '/profile';
+  if (normalized.startsWith('/topup/history')) return '/topup';
+  if (normalized.startsWith('/topup')) return '/profile';
+  if (normalized.startsWith('/purchase-history/')) return '/purchase-history';
+  if (normalized.startsWith('/purchase-history')) return '/profile';
+  if (normalized.startsWith('/reward-claims/')) return '/reward-claims';
+  if (normalized.startsWith('/reward-claims')) return '/profile';
+  if (normalized.startsWith('/activity-claims/')) return '/activity-claims';
+  if (normalized.startsWith('/activity-claims')) return '/profile';
+  if (normalized.startsWith('/activities/history')) return '/activities';
+  if (normalized.startsWith('/activities/')) return '/activities';
+  if (normalized.startsWith('/activities')) return '/';
+  if (normalized.startsWith('/affiliate')) return '/profile';
+  if (normalized.startsWith('/news/')) return '/news';
+  if (normalized.startsWith('/news')) return '/profile';
+  if (normalized.startsWith('/result/full') ||
+      normalized.startsWith('/results/full')) {
+    return '/result';
+  }
+  if (normalized.startsWith('/result') || normalized.startsWith('/results')) {
+    return '/';
+  }
+  if (normalized.startsWith('/waiting-result')) return '/tickets';
+  if (normalized.startsWith('/profile/')) return '/profile';
+  if (normalized == '/terms' ||
+      normalized == '/privacy' ||
+      normalized == '/term-reward' ||
+      normalized == '/lottery-knowledge') {
+    return '/profile';
+  }
+  return '/';
+}
+
+class _AppShellBottomNavOverlay extends StatelessWidget {
+  const _AppShellBottomNavOverlay({
+    required this.child,
+    required this.showBottomNavigation,
+    this.currentPath,
+  });
+
+  final Widget child;
+  final bool showBottomNavigation;
+  final String? currentPath;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showBottomNavigation) return child;
+    return SizedBox.expand(
+      child: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: child),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            left: 0,
+            child: _CustomerBottomNav(currentPath: currentPath),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _CustomerHeroAppBarBackground extends StatelessWidget {
   const _CustomerHeroAppBarBackground({
@@ -157,62 +297,124 @@ class _CustomerHeroAppBarBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return CustomerBlueHeroBackdrop(
+      primary: primary,
+      secondary: secondary,
+      child: child,
+    );
+  }
+}
+
+class CustomerBlueHeroBackdrop extends StatelessWidget {
+  const CustomerBlueHeroBackdrop({
+    required this.primary,
+    required this.secondary,
+    super.key,
+    this.child,
+  });
+
+  final Color primary;
+  final Color secondary;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final heroStart = AppTheme.heroGradientStart(primary);
+    final heroEnd = AppTheme.heroGradientEnd(primary);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
+            heroStart,
             primary,
-            Color.lerp(primary, secondary, 0.46) ?? primary,
+            heroEnd,
           ],
+          stops: const [0, 0.54, 1],
         ),
       ),
       child: Stack(
         children: [
-          Positioned(
-            right: -76,
-            bottom: -138,
-            child: Container(
-              width: 340,
-              height: 340,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: secondary.withValues(alpha: 0.34),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _CustomerBlueHeaderPainter(
+                sky: secondary,
+                yellow: colorScheme.tertiary,
+                highlight: colorScheme.onPrimary,
               ),
             ),
           ),
-          Positioned(
-            right: 38,
-            bottom: -48,
-            child: Container(
-              width: 118,
-              height: 118,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFFD629).withValues(alpha: 0.82),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -44,
-            top: -40,
-            child: Transform.rotate(
-              angle: -0.58,
-              child: Container(
-                width: 240,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(44),
-                ),
-              ),
-            ),
-          ),
-          if (child != null) child!,
+          child ?? const SizedBox.expand(),
         ],
       ),
     );
+  }
+}
+
+class _CustomerBlueHeaderPainter extends CustomPainter {
+  const _CustomerBlueHeaderPainter({
+    required this.sky,
+    required this.yellow,
+    required this.highlight,
+  });
+
+  final Color sky;
+  final Color yellow;
+  final Color highlight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final rect = Offset.zero & size;
+
+    final skyRadius = (size.width * 0.44).clamp(152.0, 230.0);
+    final skyCenter = Offset(size.width * 0.64, size.height * 1.28);
+    final skyPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          sky.withValues(alpha: 0.80),
+          sky.withValues(alpha: 0),
+        ],
+      ).createShader(Rect.fromCircle(center: skyCenter, radius: skyRadius));
+    canvas.drawRect(rect, skyPaint);
+
+    final yellowRadius = (size.width * 0.14).clamp(55.0, 86.0);
+    final yellowCenter = Offset(size.width * 0.78, size.height * 0.98);
+    final yellowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          yellow.withValues(alpha: 0.96),
+          yellow.withValues(alpha: 0),
+        ],
+      ).createShader(
+        Rect.fromCircle(center: yellowCenter, radius: yellowRadius),
+      );
+    canvas.drawRect(rect, yellowPaint);
+
+    void drawDiagonalBand(double dx, double alpha) {
+      final band = Paint()
+        ..color = highlight.withValues(alpha: alpha)
+        ..style = PaintingStyle.fill;
+      final path = Path()
+        ..moveTo(size.width * 0.20 + dx, 0)
+        ..lineTo(size.width * 0.38 + dx, 0)
+        ..lineTo(size.width * 0.72 + dx, size.height)
+        ..lineTo(size.width * 0.52 + dx, size.height)
+        ..close();
+      canvas.drawPath(path, band);
+    }
+
+    drawDiagonalBand(0, 0.11);
+    drawDiagonalBand(54, 0.05);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CustomerBlueHeaderPainter oldDelegate) {
+    return sky != oldDelegate.sky ||
+        yellow != oldDelegate.yellow ||
+        highlight != oldDelegate.highlight;
   }
 }
 
@@ -223,7 +425,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
     required this.child,
     required this.actions,
     required this.compactHeader,
-    this.backPath,
+    required this.heroContentTopGap,
     this.onBack,
   });
 
@@ -232,7 +434,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
   final Widget child;
   final List<Widget> actions;
   final bool compactHeader;
-  final String? backPath;
+  final double heroContentTopGap;
   final VoidCallback? onBack;
 
   @override
@@ -248,7 +450,12 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
         primary: colorScheme.primary,
         secondary: colorScheme.secondary,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20, topPadding, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            customerSheetMobileHorizontalPadding,
+            topPadding,
+            customerSheetMobileHorizontalPadding,
+            24,
+          ),
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -263,29 +470,38 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        if (backPath != null || onBack != null)
+                        if (onBack != null)
                           Positioned(
                             left: 0,
                             child: _HeroCircleButton(
                               tooltip: l10n.commonBack,
                               icon: Icons.arrow_back_ios_new,
-                              onPressed: onBack ?? () => context.go(backPath!),
+                              onPressed: onBack!,
                             ),
                           ),
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontSize: compactHeader ? 18 : 22,
-                                    fontWeight: compactHeader
-                                        ? FontWeight.w800
-                                        : FontWeight.w700,
-                                    height: 1.15,
-                                  ),
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 54),
+                            child: Center(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: colorScheme.onPrimary,
+                                      fontSize: compactHeader ? 18 : 22,
+                                      fontWeight: compactHeader
+                                          ? FontWeight.w800
+                                          : FontWeight.w700,
+                                      height: 1.15,
+                                    ),
+                              ),
+                            ),
+                          ),
                         ),
                         if (actions.isNotEmpty)
                           Positioned(
@@ -298,10 +514,13 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: child,
-                  ),
+                  if (heroContentTopGap > 0)
+                    Padding(
+                      padding: EdgeInsets.only(top: heroContentTopGap),
+                      child: child,
+                    )
+                  else
+                    child,
                 ],
               ),
             ),
@@ -325,16 +544,17 @@ class _HeroCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon, size: 31),
-      color: Colors.white,
+      color: onPrimary,
       style: IconButton.styleFrom(
         fixedSize: const Size.square(42),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: onPrimary,
         shape: const CircleBorder(),
       ),
     );
@@ -377,66 +597,67 @@ class _CustomerBottomNav extends ConsumerWidget {
         .where((item) => mobileCustomerRouteAllowed(bootstrap, item.path))
         .toList(growable: false);
     final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
-    return DecoratedBox(
-      key: bottomNavKey,
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.96),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        height: 98 + bottomInset,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontal = constraints.maxWidth >= 768
-                  ? constraints.maxWidth * 0.08
-                  : 0.0;
-              return Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: horizontal.clamp(0.0, 96.0),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return MediaQuery.removePadding(
+          context: context,
+          removeBottom: true,
+          child: DecoratedBox(
+            key: bottomNavKey,
+            decoration: BoxDecoration(
+              color: AppTheme.appSheet.withValues(alpha: 0.96),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(34),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.appBottomNavShadow.withValues(alpha: 0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, -8),
                 ),
-                child: Row(
-                  children: [
-                    for (final item in visibleItems)
-                      Expanded(
-                        child: _CustomerBottomNavButton(
-                          item: item,
-                          selected: _isSelected(item, location),
-                          label: item.label(l10n),
-                          selectedColor: colorScheme.primary,
-                          unselectedColor: colorScheme.onSurfaceVariant,
-                          onTap: () {
-                            final target = item.path;
-                            if (target != location) context.go(target);
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
+              ],
+            ),
+            child: SizedBox(
+              height: 98,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontal = constraints.maxWidth >= 768
+                      ? (constraints.maxWidth * 0.08).clamp(24.0, 96.0)
+                      : 0.0;
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontal),
+                    child: Row(
+                      children: [
+                        for (final item in visibleItems)
+                          Expanded(
+                            child: _CustomerBottomNavButton(
+                              item: item,
+                              selected: _isSelected(item, location),
+                              label: item.label(l10n),
+                              selectedColor: AppTheme.appBottomNavActive,
+                              unselectedColor: AppTheme.appBottomNavInactive,
+                              onTap: () {
+                                final target = item.path;
+                                if (target != location) context.go(target);
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   bool _isSelected(_BottomNavItem item, String location) {
     return switch (item.labelKey) {
-      _BottomNavLabel.home => location == '/',
+      _BottomNavLabel.home => _isHomeRoute(location),
       _BottomNavLabel.tickets => location.startsWith('/tickets'),
       _BottomNavLabel.more => location.startsWith('/profile') ||
           location.startsWith('/my-wallet') ||
@@ -446,6 +667,23 @@ class _CustomerBottomNav extends ConsumerWidget {
           location.startsWith('/affiliate') ||
           location.startsWith('/purchase-history'),
     };
+  }
+
+  bool _isHomeRoute(String location) {
+    if (location == '/') return true;
+    const homePrefixes = [
+      '/buy',
+      '/stores',
+      '/cart',
+      '/checkout',
+      '/result',
+      '/waiting-result',
+      '/news',
+      '/activities',
+    ];
+    return homePrefixes.any(
+      (prefix) => location == prefix || location.startsWith('$prefix/'),
+    );
   }
 }
 
@@ -479,6 +717,8 @@ class _CustomerBottomNavButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
         child: SizedBox(
           height: 98,
           child: LayoutBuilder(
@@ -496,7 +736,7 @@ class _CustomerBottomNavButton extends StatelessWidget {
                         width: highlightWidth,
                         height: 98,
                         decoration: BoxDecoration(
-                          color: selectedColor.withValues(alpha: 0.08),
+                          color: AppTheme.appBottomNavActiveFill,
                           borderRadius: const BorderRadius.vertical(
                             bottom: Radius.circular(70),
                           ),

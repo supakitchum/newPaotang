@@ -11,8 +11,10 @@ import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
+import 'auth_visual_tokens.dart';
 
 const _socialCallbackWrapperKeys = [
   'social_callback',
@@ -375,7 +377,11 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                   ),
                   _SocialLinkSheet(
                     minHeight: sheetMinHeight,
-                    child: _buildPhoneLinkCard(context, providerColor),
+                    child: _buildPhoneLinkCard(
+                      context,
+                      providerColor,
+                      providerLabel,
+                    ),
                   ),
                 ],
               ),
@@ -386,7 +392,11 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     );
   }
 
-  Widget _buildPhoneLinkCard(BuildContext context, Color providerColor) {
+  Widget _buildPhoneLinkCard(
+    BuildContext context,
+    Color providerColor,
+    String providerLabel,
+  ) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
@@ -435,7 +445,6 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                   decoration: _socialInputDecoration(
                     hintText: l10n.registerPhoneHint,
                     icon: Icons.phone_android_outlined,
-                    color: providerColor,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -447,7 +456,6 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                   decoration: _socialInputDecoration(
                     hintText: l10n.socialLinkPasswordHint,
                     icon: Icons.lock_outline,
-                    color: providerColor,
                     suffixIcon: IconButton(
                       onPressed: () => setState(
                         () => _showPassword = !_showPassword,
@@ -474,29 +482,20 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                   decoration: _socialInputDecoration(
                     hintText: l10n.socialLinkConfirmPasswordHint,
                     icon: Icons.shield_outlined,
-                    color: providerColor,
                   ),
                 ),
                 const SizedBox(height: 18),
-                _SocialLinkNote(text: l10n.socialLinkPhoneSubtitle),
+                _SocialLinkNote(
+                  text: l10n.socialLinkPhoneSubtitle(providerLabel),
+                ),
                 const SizedBox(height: 18),
-                SizedBox(
+                authPrimaryActionButton(
+                  onPressed: _saving ? null : _submit,
                   height: 54,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      shape: const StadiumBorder(),
-                      textStyle:
-                          Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                              ),
-                    ),
-                    child: Text(
-                      _saving
-                          ? l10n.socialLinkSubmitting
-                          : l10n.socialLinkSubmit,
-                    ),
-                  ),
+                  fontSize: 18,
+                  label: _saving
+                      ? l10n.socialLinkSubmitting
+                      : l10n.socialLinkSubmit,
                 ),
               ],
             ),
@@ -509,39 +508,20 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
   InputDecoration _socialInputDecoration({
     required String hintText,
     required IconData icon,
-    required Color color,
     Widget? suffixIcon,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    const radius = BorderRadius.all(Radius.circular(14));
-    return InputDecoration(
+    return authInputDecoration(
+      context,
       hintText: hintText,
-      filled: true,
-      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-      prefixIcon: Icon(icon, color: color),
+      prefixIcon: Icon(icon),
       suffixIcon: suffixIcon == null
           ? null
           : IconTheme(
               data: IconThemeData(color: colorScheme.onSurfaceVariant),
               child: suffixIcon,
             ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: radius,
-        borderSide: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.86),
-        ),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: radius,
-        borderSide: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.86),
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: radius,
-        borderSide: BorderSide(color: color, width: 1.6),
-      ),
+      softFill: true,
     );
   }
 
@@ -685,8 +665,7 @@ class _SocialCallbackHero extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.7) ??
-                colorScheme.primary,
+            AppTheme.heroGradientEnd(colorScheme.primary),
           ],
         ),
       ),
@@ -809,8 +788,7 @@ class _SocialLinkHero extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.64) ??
-                colorScheme.primary,
+            AppTheme.heroGradientEnd(colorScheme.primary),
           ],
         ),
       ),
@@ -820,17 +798,17 @@ class _SocialLinkHero extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(16, topPadding + 12, 16, 24),
           child: Stack(
             children: [
-              Align(
-                alignment: Alignment.topLeft,
-                child: IconButton(
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                child: authHeroBackButton(
+                  context,
+                  tooltip: context.l10n.commonBack,
                   onPressed: saving ? null : onBack,
-                  color: colorScheme.onPrimary,
-                  disabledColor: colorScheme.onPrimary.withValues(alpha: 0.42),
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 18),
                 ),
               ),
               Align(
-                alignment: Alignment.center,
+                alignment: Alignment.topCenter,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 360),
                   child: Padding(

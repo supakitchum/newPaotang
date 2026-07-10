@@ -80,6 +80,8 @@ class StoreLotteryTicket {
     required this.localStockItemId,
     required this.stockRef,
     required this.number,
+    required this.drawNumber,
+    required this.setNumber,
     required this.sellerName,
     required this.storeName,
     required this.price,
@@ -90,6 +92,7 @@ class StoreLotteryTicket {
     required this.thumbUrl,
     required this.imageStatus,
     required this.imageError,
+    this.raw = const {},
     this.priceTrend = '',
     this.priceFlashKey = 0,
   });
@@ -119,6 +122,27 @@ class StoreLotteryTicket {
           (json['stock_ref'] ?? json['virtual_stock_ref'] ?? id)?.toString() ??
               '',
       number: number,
+      drawNumber: _storeLotteryMetaText([
+        json['draw_no'],
+        json['drawNo'],
+        json['draw_number'],
+        json['drawNumber'],
+        json['game_no'],
+        json['gameNo'],
+        json['lottery_draw_no'],
+        json['lotteryDrawNo'],
+        json['draw'],
+      ]),
+      setNumber: _storeLotteryMetaText([
+        json['set'],
+        json['set_no'],
+        json['setNo'],
+        json['set_number'],
+        json['setNumber'],
+        json['lottery_set'],
+        json['lottery_set_no'],
+        json['lotterySetNo'],
+      ]),
       sellerName: sellerName,
       storeName: (json['store_name'] ?? sellerName).toString(),
       price: moneyToDisplayNumber(json['price'], fallback: 80),
@@ -143,6 +167,7 @@ class StoreLotteryTicket {
           .toString(),
       imageStatus: (json['image_status'] ?? '').toString(),
       imageError: (json['image_error'] ?? '').toString(),
+      raw: Map<String, dynamic>.unmodifiable(json),
       priceTrend: (json['priceTrend'] ?? json['price_trend'] ?? '')
           .toString()
           .trim()
@@ -159,6 +184,8 @@ class StoreLotteryTicket {
   final String localStockItemId;
   final String stockRef;
   final String number;
+  final String drawNumber;
+  final String setNumber;
   final String sellerName;
   final String storeName;
   final double price;
@@ -169,6 +196,7 @@ class StoreLotteryTicket {
   final String thumbUrl;
   final String imageStatus;
   final String imageError;
+  final Map<String, dynamic> raw;
   final String priceTrend;
   final int priceFlashKey;
 
@@ -189,6 +217,8 @@ class StoreLotteryTicket {
       localStockItemId: localStockItemId,
       stockRef: stockRef,
       number: number,
+      drawNumber: drawNumber,
+      setNumber: setNumber,
       sellerName: sellerName,
       storeName: storeName,
       price: price ?? this.price,
@@ -199,6 +229,7 @@ class StoreLotteryTicket {
       thumbUrl: thumbUrl ?? this.thumbUrl,
       imageStatus: imageStatus ?? this.imageStatus,
       imageError: imageError ?? this.imageError,
+      raw: raw,
       priceTrend: priceTrend ?? this.priceTrend,
       priceFlashKey: priceFlashKey ?? this.priceFlashKey,
     );
@@ -285,6 +316,28 @@ String _normalizeStoreLotteryNumber(Object? value) {
     return digits.substring(digits.length - 6);
   }
   return digits.padLeft(6, '0');
+}
+
+String _storeLotteryMetaText(List<Object?> values) {
+  for (final value in values) {
+    final text = _storeLotteryScalarText(value);
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
+String _storeLotteryScalarText(Object? value) {
+  if (value == null) return '';
+  if (value is Map) {
+    for (final key in const ['value', 'number', 'no', 'code', 'key', 'label']) {
+      final text = _storeLotteryScalarText(value[key]);
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+  final text = value.toString().trim();
+  if (text.isEmpty || text.toLowerCase() == 'null') return '';
+  return text;
 }
 
 bool _storeLotteryPageCanReserve(Object? value) {

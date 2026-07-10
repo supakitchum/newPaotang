@@ -105,6 +105,7 @@ class TopupPaymentMethod {
     required this.enabled,
     required this.description,
     this.minimumAmount,
+    this.iconUrl = '',
   });
 
   factory TopupPaymentMethod.fromJson(Map<String, dynamic> json) {
@@ -143,6 +144,24 @@ class TopupPaymentMethod {
         json['details'],
         json['note'],
       ]),
+      iconUrl: _firstTopupText([
+        json['icon_url'],
+        json['iconUrl'],
+        json['logo_url'],
+        json['logoUrl'],
+        json['image_url'],
+        json['imageUrl'],
+        json['asset_url'],
+        json['assetUrl'],
+        meta['icon_url'],
+        meta['iconUrl'],
+        meta['logo_url'],
+        meta['logoUrl'],
+        meta['image_url'],
+        meta['imageUrl'],
+        meta['asset_url'],
+        meta['assetUrl'],
+      ]),
       minimumAmount: _optionalTopupMoney([
         json['minimum_amount'],
         json['minimumAmount'],
@@ -175,6 +194,7 @@ class TopupPaymentMethod {
   final bool enabled;
   final String description;
   final double? minimumAmount;
+  final String iconUrl;
 }
 
 class TopupBankAccount {
@@ -182,6 +202,7 @@ class TopupBankAccount {
     required this.bankName,
     required this.accountName,
     required this.accountNumber,
+    this.iconUrl = '',
   });
 
   factory TopupBankAccount.fromJson(Map<String, dynamic> json) {
@@ -223,12 +244,35 @@ class TopupBankAccount {
         json['bank_account_no'],
         json['bankAccountNo'],
       ]),
+      iconUrl: _firstTopupText([
+        bank['icon_url'],
+        bank['iconUrl'],
+        bank['logo_url'],
+        bank['logoUrl'],
+        bank['image_url'],
+        bank['imageUrl'],
+        json['bank_icon_url'],
+        json['bankIconUrl'],
+        json['bank_logo_url'],
+        json['bankLogoUrl'],
+        json['icon_url'],
+        json['iconUrl'],
+        json['logo_url'],
+        json['logoUrl'],
+      ]),
     );
   }
 
   final String bankName;
   final String accountName;
   final String accountNumber;
+  final String iconUrl;
+
+  bool get hasDisplayValue {
+    return bankName.isNotEmpty ||
+        accountName.isNotEmpty ||
+        accountNumber.isNotEmpty;
+  }
 
   bool get isConfigured => accountNumber.isNotEmpty || accountName.isNotEmpty;
 }
@@ -462,6 +506,7 @@ class TopupOverview {
     required this.histories,
     required this.currentPage,
     required this.lastPage,
+    this.banks = const [],
   });
 
   factory TopupOverview.fromJson(Map<String, dynamic> json) {
@@ -519,17 +564,42 @@ class TopupOverview {
           payload['pending_requests'] ??
           payload['pendingRequests'],
     );
+    final bank = TopupBankAccount.fromJson(
+      asMap(
+        payload['bank'] ??
+            payload['website_bank'] ??
+            payload['websiteBank'] ??
+            payload['bank_account'] ??
+            payload['bankAccount'],
+      ),
+    );
+    final banks = _topupBankRows(
+      payload['banks'] ??
+          payload['website_banks'] ??
+          payload['websiteBanks'] ??
+          payload['bank_accounts'] ??
+          payload['bankAccounts'] ??
+          payload['receiving_banks'] ??
+          payload['receivingBanks'] ??
+          payment['banks'] ??
+          payment['website_banks'] ??
+          payment['websiteBanks'] ??
+          payment['bank_accounts'] ??
+          payment['bankAccounts'] ??
+          payment['receiving_banks'] ??
+          payment['receivingBanks'],
+    )
+        .map(TopupBankAccount.fromJson)
+        .where((bank) => bank.hasDisplayValue)
+        .toList(growable: false);
 
     return TopupOverview(
-      bank: TopupBankAccount.fromJson(
-        asMap(
-          payload['bank'] ??
-              payload['website_bank'] ??
-              payload['websiteBank'] ??
-              payload['bank_account'] ??
-              payload['bankAccount'],
-        ),
-      ),
+      bank: bank,
+      banks: banks.isNotEmpty
+          ? banks
+          : bank.hasDisplayValue
+              ? [bank]
+              : const [],
       paymentMethods: _normalizePaymentMethods(paymentMethods, enabled),
       enabledPaymentMethods: enabled,
       waiting: waitingPayload == null
@@ -559,6 +629,7 @@ class TopupOverview {
   }
 
   final TopupBankAccount bank;
+  final List<TopupBankAccount> banks;
   final List<TopupPaymentMethod> paymentMethods;
   final Set<String> enabledPaymentMethods;
   final TopupRequestItem? waiting;
@@ -611,6 +682,7 @@ class TopupOverview {
             : method.enabled,
         description: method.description,
         minimumAmount: method.minimumAmount,
+        iconUrl: method.iconUrl,
       );
     }
 
@@ -802,6 +874,54 @@ List<Map<String, dynamic>> _topupPaymentMethodRows(Object? value) {
     }
     return <String, dynamic>{'key': entry.key, ...row};
   }).toList(growable: false);
+}
+
+List<Map<String, dynamic>> _topupBankRows(Object? value) {
+  if (value is List) {
+    return value
+        .map((entry) {
+          if (entry is Map) return Map<String, dynamic>.from(entry);
+          final label = entry.toString().trim();
+          if (label.isEmpty) return null;
+          return <String, dynamic>{'bank_label': label};
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+  }
+
+  final rows = asMapList(value);
+  if (rows.isNotEmpty || value is List) return rows;
+
+  final map = asMap(value);
+  if (map.isEmpty) return const [];
+
+  final looksLikeSingleBank = _firstTopupText([
+        map['bank_name'],
+        map['bankName'],
+        map['bank_label'],
+        map['bankLabel'],
+        map['account_name'],
+        map['accountName'],
+        map['account_number'],
+        map['accountNumber'],
+        map['bank_deposit_number'],
+        map['bankDepositNumber'],
+      ]).isNotEmpty ||
+      asMap(map['bank']).isNotEmpty;
+  if (looksLikeSingleBank) return [map];
+
+  return map.entries
+      .map((entry) {
+        final row = asMap(entry.value);
+        if (row.isEmpty) {
+          final label = entry.value?.toString().trim() ?? '';
+          if (label.isEmpty) return null;
+          return <String, dynamic>{'bank_label': label};
+        }
+        return <String, dynamic>{'bank_label': entry.key, ...row};
+      })
+      .whereType<Map<String, dynamic>>()
+      .toList(growable: false);
 }
 
 double? _optionalTopupMoney(Iterable<Object?> values) {

@@ -15,10 +15,6 @@ import '../../../shared/widgets/customer_page_body.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
 
-Color _profilePrimaryTint(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
-    colorScheme.primary.withValues(alpha: 0.12);
-
 Color _profileSoftSurface(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.surface, colorScheme.primaryContainer, 0.08) ??
     colorScheme.surface;
@@ -26,6 +22,8 @@ Color _profileSoftSurface(ColorScheme colorScheme) =>
 Color _profileSoftOutline(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.outlineVariant, colorScheme.primary, 0.16) ??
     colorScheme.outlineVariant;
+
+const double _profileHeroMinHeight = 268;
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -40,11 +38,6 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     final historyItems = [
-      if (routeEnabled('/my-wallet'))
-        _ProfileMenuItem(
-          title: l10n.customerRouteTitle('my_wallet'),
-          path: '/my-wallet',
-        ),
       if (routeEnabled('/purchase-history'))
         _ProfileMenuItem(
           title: l10n.profilePurchaseHistory,
@@ -52,8 +45,15 @@ class ProfileScreen extends ConsumerWidget {
         ),
       if (routeEnabled('/reward-claims'))
         _ProfileMenuItem(
-          title: l10n.customerRouteTitle('reward_claims'),
+          title: l10n.rewardClaimsHeaderTitle,
           path: '/reward-claims',
+        ),
+    ];
+    final serviceItems = [
+      if (routeEnabled('/my-wallet'))
+        _ProfileMenuItem(
+          title: l10n.customerRouteTitle('my_wallet'),
+          path: '/my-wallet',
         ),
       if (routeEnabled('/activity-claims'))
         _ProfileMenuItem(
@@ -71,19 +71,6 @@ class ProfileScreen extends ConsumerWidget {
           title: l10n.customerRouteTitle('affiliate'),
           path: '/affiliate',
         ),
-    ];
-    final rewardSettingItems = [
-      if (routeEnabled('/profile/reward-bank'))
-        _ProfileMenuItem(
-          title: l10n.profileRewardBank,
-          path: '/profile/reward-bank',
-        ),
-      if (routeEnabled('/profile/auto-reward'))
-        _ProfileMenuItem(
-          title: l10n.profileAutoReward,
-          path: '/profile/auto-reward',
-          badge: l10n.profileBadgeRecommended,
-        ),
       if (routeEnabled('/profile/line-notifications'))
         _ProfileMenuItem(
           title: l10n.profileLineNotifications,
@@ -94,13 +81,35 @@ class ProfileScreen extends ConsumerWidget {
           title: l10n.profileBiometrics,
           path: '/profile/biometrics',
         ),
-    ];
-    final aboutItems = [
       if (routeEnabled('/news'))
         _ProfileMenuItem(
           title: l10n.profileNewsAll,
           path: '/news',
         ),
+      _ProfileMenuItem(
+        title: l10n.profilePrivacyPolicy,
+        path: '/privacy',
+      ),
+      if (routeEnabled('/profile/account-deletion'))
+        _ProfileMenuItem(
+          title: l10n.profileAccountDeletion,
+          path: '/profile/account-deletion',
+        ),
+    ];
+    final rewardSettingItems = [
+      if (routeEnabled('/profile/reward-bank'))
+        _ProfileMenuItem(
+          title: l10n.profileRewardBankMenu,
+          path: '/profile/reward-bank',
+        ),
+      if (routeEnabled('/profile/auto-reward'))
+        _ProfileMenuItem(
+          title: l10n.profileAutoReward,
+          path: '/profile/auto-reward',
+          badge: l10n.profileBadgeRecommended,
+        ),
+    ];
+    final aboutItems = [
       _ProfileMenuItem(
         title: l10n.profileTerms,
         path: '/terms',
@@ -113,28 +122,13 @@ class ProfileScreen extends ConsumerWidget {
         title: l10n.profileHowToContact,
         path: '',
       ),
-      _ProfileMenuItem(
-        title: l10n.profilePrivacyPolicy,
-        path: '/privacy',
-      ),
-      if (routeEnabled('/profile/account-deletion'))
-        _ProfileMenuItem(
-          title: l10n.profileAccountDeletion,
-          path: '/profile/account-deletion',
-        ),
     ];
 
     return AppShell(
       title: l10n.profileTitle,
       currentPath: '/profile',
       sensitive: true,
-      actions: [
-        IconButton(
-          onPressed: () => ref.invalidate(customerProfileSettingsProvider),
-          icon: const Icon(Icons.refresh),
-          tooltip: l10n.profileRefreshTooltip,
-        ),
-      ],
+      fullScreen: true,
       child: RefreshIndicator(
         onRefresh: () async => ref.invalidate(customerProfileSettingsProvider),
         child: ListView(
@@ -148,27 +142,33 @@ class ProfileScreen extends ConsumerWidget {
             _ProfileContentSheet(
               child: CustomerPageBody(
                 top: 24,
-                bottom: 128,
+                bottom: 120,
+                mobileHorizontal: 18,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _ProfileLanguageCard(),
-                    const SizedBox(height: 10),
                     if (historyItems.isNotEmpty) ...[
                       _ProfileSectionTitle(label: l10n.profileSectionHistory),
                       _ProfileMenuGroup(children: historyItems),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                     ],
                     if (rewardSettingItems.isNotEmpty) ...[
                       _ProfileSectionTitle(
                         label: l10n.profileSectionRewardSettings,
                       ),
                       _ProfileMenuGroup(children: rewardSettingItems),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                     ],
                     _ProfileSectionTitle(label: l10n.profileSectionAbout),
                     _ProfileMenuGroup(children: aboutItems),
                     const SizedBox(height: 16),
+                    const _ProfileLanguageCard(),
+                    if (serviceItems.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _ProfileSectionTitle(label: l10n.profileSectionServices),
+                      _ProfileMenuGroup(children: serviceItems),
+                    ],
+                    const SizedBox(height: 24),
                     _ProfileLogoutButton(
                       onPressed: () async {
                         await ref.read(authControllerProvider).logout();
@@ -198,41 +198,41 @@ class _ProfileHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.46) ??
-                colorScheme.primary,
-          ],
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 720 ? 28.0 : 18.0;
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 920),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(horizontal, 38, horizontal, 34),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 132),
+    final topInset = MediaQuery.paddingOf(context).top;
+    const height = _profileHeroMinHeight;
+    return SizedBox(
+      height: height,
+      child: CustomerBlueHeroBackdrop(
+        primary: colorScheme.primary,
+        secondary: colorScheme.secondary,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontal = constraints.maxWidth >= 720 ? 28.0 : 20.0;
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 920),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontal,
+                    topInset + 42,
+                    horizontal,
+                    34,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: profile.when(
                       data: (data) => _ProfileIdentityHeader(profile: data),
                       loading: () => const _ProfileHeroLoading(),
-                      error: (_, __) => _ProfileHeroError(onRetry: onRetry),
+                      error: (_, __) => _ProfileHeroError(
+                        onRetry: onRetry,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -247,13 +247,16 @@ class _ProfileContentSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.primary),
+      decoration: BoxDecoration(color: colorScheme.surface),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
-        child: child,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 620),
+          child: child,
+        ),
       ),
     );
   }
@@ -502,6 +505,8 @@ class _LanguageButton extends StatelessWidget {
           minimumSize: const Size(72, 36),
           shape: const StadiumBorder(),
           textStyle: const TextStyle(fontWeight: FontWeight.w900),
+        ).copyWith(
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         ),
         child: Text(label),
       ),
@@ -517,7 +522,7 @@ class _ProfileSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
       child: Text(
         label,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -555,12 +560,12 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
           height: 66,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _profilePrimaryTint(colorScheme),
+            color: colorScheme.onPrimary,
           ),
           child: Icon(
             Icons.person,
             color: colorScheme.primary.withValues(alpha: 0.42),
-            size: 36,
+            size: 35,
           ),
         ),
         const SizedBox(width: 14),
@@ -577,11 +582,12 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: colorScheme.onPrimary,
+                      fontSize: 24,
                       fontWeight: FontWeight.w900,
-                      height: 1.18,
+                      height: 1.25,
                     ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Row(
                 children: [
                   Expanded(
@@ -594,6 +600,7 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color:
                                 colorScheme.onPrimary.withValues(alpha: 0.92),
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
                             height: 1.25,
                           ),
@@ -613,6 +620,10 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                                 colorScheme.onPrimary.withValues(alpha: 0.28),
                           ),
                           padding: EdgeInsets.zero,
+                        ).copyWith(
+                          overlayColor: const WidgetStatePropertyAll(
+                            Colors.transparent,
+                          ),
                         ),
                         onPressed: _copyMemberCode,
                         tooltip: l10n.profileCopyMemberCode,
@@ -701,10 +712,12 @@ class _ProfileHeroError extends StatelessWidget {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: onRetry,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: colorScheme.onPrimary,
-            side: BorderSide(
-              color: colorScheme.onPrimary.withValues(alpha: 0.42),
+          style: _profileFlatButtonStyle(
+            OutlinedButton.styleFrom(
+              foregroundColor: colorScheme.onPrimary,
+              side: BorderSide(
+                color: colorScheme.onPrimary.withValues(alpha: 0.42),
+              ),
             ),
           ),
           icon: const Icon(Icons.refresh),
@@ -729,8 +742,10 @@ class _ProfileMenuGroup extends StatelessWidget {
         children: [
           for (var index = 0; index < children.length; index++) ...[
             children[index],
-            if (index < children.length - 1)
-              Divider(height: 1, color: colorScheme.outlineVariant),
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.78),
+            ),
           ],
         ],
       ),
@@ -755,44 +770,56 @@ class _ProfileMenuItem extends StatelessWidget {
     final targetPath = path.trim();
     final enabled = targetPath.isNotEmpty;
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: enabled ? () => context.go(targetPath) : null,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 72),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: enabled
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurfaceVariant,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                        ),
+    final row = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 72),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                          ),
+                    ),
                   ),
-                ),
-                if (badgeText.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Flexible(child: _ProfileMenuBadge(label: badgeText)),
+                  if (badgeText.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    _ProfileMenuBadge(label: badgeText),
+                  ],
                 ],
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  size: 30,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right,
+              size: 30,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!enabled) return row;
+
+    return Semantics(
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => context.go(targetPath),
+          child: row,
         ),
       ),
     );
@@ -809,17 +836,26 @@ class _ProfileLogoutButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return OutlinedButton.icon(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
-        foregroundColor: colorScheme.error,
-        side: BorderSide(color: colorScheme.error.withValues(alpha: 0.32)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w900),
+      style: _profileFlatButtonStyle(
+        OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          foregroundColor: colorScheme.error,
+          side: BorderSide(color: colorScheme.error.withValues(alpha: 0.32)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+        ),
       ),
       icon: const Icon(Icons.logout),
       label: Text(context.l10n.profileLogout),
     );
   }
+}
+
+ButtonStyle _profileFlatButtonStyle(ButtonStyle style) {
+  return style.copyWith(
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+  );
 }
 
 class _ProfileMenuBadge extends StatelessWidget {
@@ -832,7 +868,11 @@ class _ProfileMenuBadge extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _profilePrimaryTint(colorScheme),
+        color: Color.lerp(
+          colorScheme.primaryContainer,
+          colorScheme.surface,
+          0.16,
+        ),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(

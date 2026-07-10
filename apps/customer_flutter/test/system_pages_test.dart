@@ -456,7 +456,8 @@ void main() {
     expect(find.text('ช่องทางชำระเงิน'), findsOneWidget);
     expect(find.textContaining('G Wallet'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
-    expect(find.text('80.00 บาท'), findsOneWidget);
+    expect(find.text('80.00'), findsOneWidget);
+    expect(find.text('บาท'), findsOneWidget);
     expect(find.textContaining('วันที่ทำรายการ'), findsOneWidget);
     expect(find.textContaining('รหัสอ้างอิง'), findsOneWidget);
     expect(find.textContaining('ORD-25690701-0001'), findsOneWidget);
@@ -514,7 +515,7 @@ void main() {
 
     expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
     expect(
-      find.text('คุณสามารถดูสลากฯ ได้ที่เมนู สลากฯ ของฉัน'),
+      find.text('คุณสามารถดูสลากฯ ได้ที่เมนู ‘สลากฯ ของฉัน’'),
       findsOneWidget,
     );
     expect(find.byType(CustomerLoadingMark), findsOneWidget);
@@ -573,7 +574,9 @@ void main() {
     expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
     expect(find.text('โหลดข้อมูลการชำระเงินไม่สำเร็จ'), findsOneWidget);
     expect(
-        find.widgetWithText(OutlinedButton, 'ดูสลากฯ ของฉัน'), findsOneWidget);
+      find.widgetWithText(OutlinedButton, 'ดูสลากฯ ของฉัน'),
+      findsOneWidget,
+    );
     final fallbackButton = find.widgetWithText(FilledButton, 'ดูสลากฯ ของฉัน');
     expect(fallbackButton, findsOneWidget);
 
@@ -583,6 +586,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tickets fallback'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('success receipt header back returns to tickets', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/success?order_id=ord_1',
+      routes: [
+        GoRoute(
+          path: '/success',
+          builder: (context, state) => SuccessScreen(
+            orderId: state.uri.queryParameters['order_id'],
+          ),
+        ),
+        GoRoute(
+          path: '/tickets',
+          builder: (context, state) => const Scaffold(
+            body: Center(child: Text('Tickets route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseHistoryDetailProvider('ord_1').overrideWith(
+            (_) async => _successOrder(),
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tickets route'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

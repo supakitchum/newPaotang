@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
@@ -12,9 +11,31 @@ import '../../reward_claims/presentation/claim_realtime_monitor.dart';
 import 'activity_claim_error_message.dart';
 import 'activity_claim_localization.dart';
 
-Color _activityClaimDetailPrimaryTint(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
-    colorScheme.primary.withValues(alpha: 0.12);
+const _activityClaimDetailSurface = Color(0xFFFFFFFF);
+const _activityClaimDetailText = Color(0xFF111827);
+const _activityClaimDetailMuted = Color(0xFF64748B);
+const _activityClaimDetailDivider = Color(0xFFEEF2F7);
+const _activityClaimDetailBlue = Color(0xFF086BDD);
+const _activityClaimDetailLogoBlue = Color(0xFF0B69DC);
+const _activityClaimDetailLogoBorder = Color(0xFFDBEAFE);
+const _activityClaimDetailSuccess = Color(0xFF28A81E);
+const _activityClaimDetailSuccessBackground = Color(0xFFEFFCE8);
+const _activityClaimDetailPending = Color(0xFFE29300);
+const _activityClaimDetailPendingText = Color(0xFFB36A00);
+const _activityClaimDetailPendingBackground = Color(0xFFFFF7DC);
+const _activityClaimDetailRejected = Color(0xFFED2C25);
+const _activityClaimDetailRejectedBackground = Color(0xFFFFE1DF);
+const _activityClaimAdminNoteBackground = Color(0xFFF8FAFC);
+const _activityClaimAdminNoteBorder = Color(0xFFE2E8F0);
+const _activityClaimAdminNoteText = Color(0xFF475569);
+const _activityClaimAdminNoteRejectedBackground = Color(0xFFFFF1F2);
+const _activityClaimAdminNoteRejectedBorder = Color(0xFFFECdd3);
+const _activityClaimAdminNoteRejectedText = Color(0xFFB91C1C);
+const _activityClaimOutlineBorder = Color(0xFF0B69DC);
+const _activityClaimOutlineText = Color(0xFF075EC9);
+const _activityClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
+const _activityClaimOutlineDisabledText = Color(0xFF8A8F98);
+const _activityClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
 
 class ActivityClaimDetailScreen extends ConsumerWidget {
   const ActivityClaimDetailScreen({required this.claimId, super.key});
@@ -79,7 +100,7 @@ class _ActivityClaimDetailPageBody extends StatelessWidget {
             ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: ColoredBox(
-                color: Theme.of(context).colorScheme.surface,
+                color: _activityClaimDetailSurface,
                 child: CustomerPageBody(
                   maxWidth: 640,
                   top: 12,
@@ -108,11 +129,10 @@ class _ActivityClaimReceipt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(context, claim);
+    final statusColor = _statusColor(claim);
     final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: colorScheme.surface,
+      color: _activityClaimDetailSurface,
       child: Padding(
         padding: EdgeInsets.zero,
         child: Column(
@@ -128,12 +148,12 @@ class _ActivityClaimReceipt extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _activityClaimDetailPrimaryTint(colorScheme),
+                      color: _activityClaimDetailLogoBorder,
                     ),
                   ),
                   child: Icon(
                     Icons.card_giftcard_outlined,
-                    color: colorScheme.primary,
+                    color: _activityClaimDetailLogoBlue,
                     size: 20,
                   ),
                 ),
@@ -146,7 +166,7 @@ class _ActivityClaimReceipt extends StatelessWidget {
                         l10n.activityClaimRewardTitle,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurface,
+                                  color: _activityClaimDetailText,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -155,7 +175,7 @@ class _ActivityClaimReceipt extends StatelessWidget {
                       Text(
                         localizedActivityClaimActivityName(context, claim),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: _activityClaimDetailMuted,
                               fontWeight: FontWeight.w800,
                               height: 1.35,
                             ),
@@ -198,8 +218,8 @@ class _ActivityClaimReceipt extends StatelessWidget {
                 claim,
                 reviewerName: reviewerName,
               ),
-              color: statusColor,
-              backgroundColor: _noticeBackgroundColor(context, claim),
+              color: _noticeTextColor(claim),
+              backgroundColor: _noticeBackgroundColor(claim),
             ),
             const SizedBox(height: 14),
             _ReceiptSection(
@@ -252,16 +272,14 @@ class _ReceiptSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        Divider(height: 1, color: colorScheme.outlineVariant),
+        const Divider(height: 1, color: _activityClaimDetailDivider),
         const SizedBox(height: 12),
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: row,
-          ),
+        for (var index = 0; index < rows.length; index++) ...[
+          rows[index],
+          if (index < rows.length - 1) const SizedBox(height: 8),
+        ],
       ],
     );
   }
@@ -284,21 +302,20 @@ class _ReceiptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final valueLines = value
         .split('\n')
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList(growable: false);
     final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
+          color: _activityClaimDetailMuted,
           fontSize: 15,
           fontWeight: FontWeight.w500,
           height: 1.35,
         );
     final valueStyle = TextStyle(
       color: valueColor ??
-          (highlighted ? colorScheme.primary : colorScheme.onSurface),
+          (highlighted ? _activityClaimDetailBlue : _activityClaimDetailText),
       fontSize: valueFontSize ?? 17,
       fontWeight: FontWeight.w900,
       height: 1.35,
@@ -383,19 +400,21 @@ class _MoneySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     return Column(
       children: [
-        Divider(height: 1, color: colorScheme.outlineVariant),
+        const Divider(height: 1, color: _activityClaimDetailDivider),
         const SizedBox(height: 12),
-        _MoneyRow(l10n.activityClaimAmountLabel, formatBaht(claim.amount)),
+        _MoneyRow(
+          l10n.activityClaimAmountLabel,
+          localizedActivityClaimMoney(context, claim.amount),
+        ),
         const SizedBox(height: 8),
-        Divider(height: 1, color: colorScheme.outlineVariant),
+        const Divider(height: 1, color: _activityClaimDetailDivider),
         const SizedBox(height: 10),
         _MoneyRow(
           l10n.activityClaimNetAmountLabel,
-          formatBaht(claim.amount),
+          localizedActivityClaimMoney(context, claim.amount),
           total: true,
         ),
       ],
@@ -412,15 +431,14 @@ class _MoneyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: total ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+          color: total ? _activityClaimDetailText : _activityClaimDetailMuted,
           fontSize: total ? 19 : 15,
           fontWeight: FontWeight.w500,
           height: 1.35,
         );
     final valueStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurface,
+          color: _activityClaimDetailText,
           fontSize: total ? 19 : 17,
           fontWeight: total ? FontWeight.w500 : FontWeight.w900,
           height: 1.35,
@@ -510,16 +528,15 @@ class _AdminNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final color = rejected ? colorScheme.error : colorScheme.onSurfaceVariant;
+    final color = rejected
+        ? _activityClaimAdminNoteRejectedText
+        : _activityClaimAdminNoteText;
     final backgroundColor = rejected
-        ? Color.lerp(colorScheme.surface, colorScheme.error, 0.08) ??
-            colorScheme.error.withValues(alpha: 0.08)
-        : colorScheme.surfaceContainerHighest;
+        ? _activityClaimAdminNoteRejectedBackground
+        : _activityClaimAdminNoteBackground;
     final borderColor = rejected
-        ? Color.lerp(colorScheme.outlineVariant, colorScheme.error, 0.34) ??
-            colorScheme.error.withValues(alpha: 0.34)
-        : colorScheme.outlineVariant;
+        ? _activityClaimAdminNoteRejectedBorder
+        : _activityClaimAdminNoteBorder;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -591,31 +608,41 @@ class _ActivityClaimDetailState extends StatelessWidget {
 
 ButtonStyle _activityClaimDetailOutlinePillStyle(BuildContext context) {
   return OutlinedButton.styleFrom(
-    minimumSize: const Size(160, 44),
-    padding: const EdgeInsets.symmetric(horizontal: 18),
+    backgroundColor: Colors.white,
+    disabledBackgroundColor: _activityClaimOutlineDisabledBackground,
+    disabledForegroundColor: _activityClaimOutlineDisabledText,
+    foregroundColor: _activityClaimOutlineText,
+    minimumSize: const Size(160, 40),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    side: BorderSide(color: Theme.of(context).colorScheme.primary),
     textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
         ),
+  ).copyWith(
+    side: WidgetStateProperty.resolveWith(
+      (states) => BorderSide(
+        color: states.contains(WidgetState.disabled)
+            ? _activityClaimOutlineDisabledBorder
+            : _activityClaimOutlineBorder,
+      ),
+    ),
   );
 }
 
-Color _statusColor(BuildContext context, ActivityClaimItem claim) {
-  final colorScheme = Theme.of(context).colorScheme;
-  if (claim.isPaid) {
-    return Color.lerp(colorScheme.tertiary, colorScheme.primary, 0.12) ??
-        colorScheme.tertiary;
-  }
-  if (claim.isRejected) return colorScheme.error;
-  return Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.32) ??
-      colorScheme.primary;
+Color _statusColor(ActivityClaimItem claim) {
+  if (claim.isPaid) return _activityClaimDetailSuccess;
+  if (claim.isRejected) return _activityClaimDetailRejected;
+  return _activityClaimDetailPending;
 }
 
-Color _noticeBackgroundColor(BuildContext context, ActivityClaimItem claim) {
-  final colorScheme = Theme.of(context).colorScheme;
-  final statusColor = _statusColor(context, claim);
-  final alpha = claim.isRejected ? 0.10 : 0.13;
-  return Color.lerp(colorScheme.surface, statusColor, alpha) ??
-      statusColor.withValues(alpha: alpha);
+Color _noticeBackgroundColor(ActivityClaimItem claim) {
+  if (claim.isPaid) return _activityClaimDetailSuccessBackground;
+  if (claim.isRejected) return _activityClaimDetailRejectedBackground;
+  return _activityClaimDetailPendingBackground;
+}
+
+Color _noticeTextColor(ActivityClaimItem claim) {
+  if (claim.isPaid) return _activityClaimDetailSuccess;
+  if (claim.isRejected) return _activityClaimDetailRejected;
+  return _activityClaimDetailPendingText;
 }

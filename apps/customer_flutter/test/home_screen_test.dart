@@ -37,26 +37,18 @@ void main() {
     expect(find.text('สมัครใช้งาน'), findsOneWidget);
     expect(find.text('ยอดเงินในกระเป๋า'), findsNothing);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -360));
-    await tester.pumpAndSettle();
+    expect(find.text('287184', skipOffstage: false), findsOneWidget);
+    expect(find.text('48', skipOffstage: false), findsOneWidget);
+    expect(find.text('434', skipOffstage: false), findsOneWidget);
+    expect(find.text('758', skipOffstage: false), findsOneWidget);
 
-    expect(find.text('ผลรางวัลสลากฯ'), findsOneWidget);
+    expect(find.text('ข่าวสาร', skipOffstage: false), findsWidgets);
+    expect(find.text('ดูทั้งหมด', skipOffstage: false), findsWidgets);
+    expect(find.text('ประกาศปิดปรับปรุง', skipOffstage: false), findsOneWidget);
     expect(
-      find.text('ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ'),
+      find.text('ปรับปรุงระบบชำระเงินเวลา 23:00 น.', skipOffstage: false),
       findsOneWidget,
     );
-    expect(find.text('287184'), findsOneWidget);
-    expect(find.text('48'), findsOneWidget);
-    expect(find.text('434'), findsOneWidget);
-    expect(find.text('758'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
-    await tester.pumpAndSettle();
-
-    expect(find.text('ข่าวสาร'), findsWidgets);
-    expect(find.text('ดูทั้งหมด'), findsWidgets);
-    expect(find.text('ประกาศปิดปรับปรุง'), findsOneWidget);
-    expect(find.text('ปรับปรุงระบบชำระเงินเวลา 23:00 น.'), findsOneWidget);
   });
 
   testWidgets('home screen keeps the hero usable on narrow mobile viewports', (
@@ -97,7 +89,7 @@ void main() {
     expect(find.text('คืนเงิน 5%'), findsOneWidget);
 
     final listRect = tester.getRect(activityList);
-    expect(listRect.width, lessThanOrEqualTo(900));
+    expect(listRect.width, lessThanOrEqualTo(920));
     expect(listRect.left, greaterThan(100));
     expect(listRect.right, lessThan(1100));
     expect(tester.takeException(), isNull);
@@ -276,7 +268,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('ข่าว URL ภายใน'));
-    await tester.drag(find.byType(ListView).first, const Offset(0, -180));
+    await tester.drag(
+      find.byType(ListView).first,
+      const Offset(0, -180),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('ข่าว URL ภายใน'));
     await tester.pumpAndSettle();

@@ -37,6 +37,8 @@ void main() {
 
     expect(find.text('ซื้อสลากดิจิทัล'), findsOneWidget);
     expect(find.text('ค้นหาเลขสลากฯในร้านค้า'), findsOneWidget);
+    expect(find.text('สลากฯ ทั้งหมด'), findsNothing);
+    expect(find.text('ร้านค้า'), findsNothing);
     expect(find.textContaining('งวดวันที่'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'ล้างค่า'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ล้างค่า'), findsNothing);
@@ -287,6 +289,33 @@ void main() {
     expect(find.text('เอาออก'), findsNothing);
   });
 
+  testWidgets('stock card stays selected after backend materializes stock id', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _MaterializedReservationLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    expect(selectButton, findsOneWidget);
+
+    await tester.tap(selectButton);
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 1);
+    expect(lottery.lastReservedItemId, 'vstock:tenant_1:game_1:273707:1');
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.text('เลือก'), findsNothing);
+    expect(find.text('เอาออก'), findsOneWidget);
+  });
+
   testWidgets('guest stock selection keeps Nuxt-style login redirect', (
     tester,
   ) async {
@@ -412,7 +441,7 @@ void main() {
     expect(closedButton.onPressed, isNull);
     expect(
       tester.getSize(find.widgetWithText(OutlinedButton, 'ปิดรับซื้อ')).height,
-      42,
+      40,
     );
     expect(
       tester.getTopLeft(find.text('ขณะนี้ไม่สามารถซื้อสลากได้')).dy,
@@ -1170,19 +1199,22 @@ class _FakeLotteryRepository extends LotteryRepository {
   }
 
   LotteryStockItem _stockItem({
+    String id = '',
+    String token = '',
     String reservationId = '',
     String number = '273707',
     String localStockItemId = 'local-stock-1',
+    String stockRef = 'vstock-ref-1',
     String imageUrl = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=',
     String thumbUrl = '',
     String imageStatus = 'ready',
     String imageError = '',
   }) {
     return LotteryStockItem(
-      id: 'vstock:game_1:$number:1',
-      token: 'stock-token-$number',
+      id: id.isEmpty ? 'vstock:game_1:$number:1' : id,
+      token: token.isEmpty ? 'stock-token-$number' : token,
       localStockItemId: localStockItemId,
-      stockRef: 'vstock-ref-1',
+      stockRef: stockRef,
       number: number,
       sellerName: 'ร้านทดสอบ',
       storeName: 'ร้านทดสอบ',
@@ -1256,6 +1288,72 @@ class _FailedImageLotteryRepository extends _FakeLotteryRepository {
       nextCursor: '',
       hasMore: false,
       sellerName: 'ร้านทดสอบ',
+    );
+  }
+}
+
+class _MaterializedReservationLotteryRepository extends _FakeLotteryRepository {
+  String lastReservedItemId = '';
+
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    const virtualRef = 'vstock:tenant_1:game_1:273707:1';
+    return LotteryStockPage(
+      gameId: gameId,
+      items: [
+        _stockItem(
+          id: virtualRef,
+          token: virtualRef,
+          localStockItemId: virtualRef,
+          stockRef: virtualRef,
+        ),
+      ],
+      nextCursor: '',
+      hasMore: false,
+      sellerName: 'ร้านทดสอบ',
+    );
+  }
+
+  @override
+  Future<LotteryReservation> reserve({
+    required String gameId,
+    required LotteryStockItem item,
+  }) async {
+    reserveCount++;
+    _reserved = true;
+    lastReservedItemId = item.reserveStockItemId;
+    const virtualRef = 'vstock:tenant_1:game_1:273707:1';
+    return LotteryReservation(
+      id: 'reservation_1',
+      gameId: gameId,
+      status: 'active',
+      expiresAt: '2026-06-29T12:30:00+07:00',
+      expiresInSeconds: 900,
+      serverTime: '2026-06-29T12:15:00+07:00',
+      items: [
+        _stockItem(
+          id: 'local_stock_1',
+          token: 'local_stock_1',
+          localStockItemId: 'local_stock_1',
+          stockRef: virtualRef,
+          reservationId: 'reservation_1',
+        ),
+      ],
+      total: 80,
     );
   }
 }

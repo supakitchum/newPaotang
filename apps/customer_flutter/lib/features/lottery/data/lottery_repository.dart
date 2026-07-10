@@ -73,7 +73,7 @@ class LotteryRepository {
       '/customer/reservations',
       data: {
         'game_id': gameId,
-        'local_stock_item_ids': [item.localStockItemId],
+        'local_stock_item_ids': [item.reserveStockItemId],
       },
       headers: {'Idempotency-Key': newIdempotencyKey('customer-reservation')},
     );

@@ -19,8 +19,8 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Customer application.">
-  <meta name="theme-color" content="#0175C2">
-  <meta name="msapplication-TileColor" content="#0175C2">
+  <meta name="theme-color" content="#087FF0">
+  <meta name="msapplication-TileColor" content="#087FF0">
   <meta property="og:title" content="Customer">
   <meta property="og:description" content="Customer application.">
   <meta property="og:type" content="website">
@@ -162,8 +162,8 @@
       const appName = firstConfigValue(["appName", "webAppName", "siteName", "name", "title", "app_name", "web_app_name", "site_name", "displayName", "display_name"], "Customer");
       const shortName = firstConfigValue(["shortName", "webShortName", "appShortName", "short_name", "web_short_name", "app_short_name"], appName);
       const description = firstConfigValue(["description", "webDescription", "appDescription", "siteDescription", "web_description", "app_description", "site_description", "summary"], "Customer application.");
-      const themeColor = firstConfigValue(["themeColor", "theme_color", "primaryColor", "primary_color", "brandColor", "brand_color", "primary", "accent"], "#0175C2");
-      const backgroundColor = firstConfigValue(["backgroundColor", "background_color", "manifestBackgroundColor", "manifest_background_color", "background", "surface"], themeColor);
+      const customerIdentityThemeColor = "#087FF0";
+      const backgroundColor = firstConfigValue(["manifestBackgroundColor", "manifest_background_color", "backgroundColor", "background_color"], "#FFFFFF");
       const icon192Url = firstConfigValue(["icon192Url", "icon192URL", "iconUrl", "iconURL", "icon_192_url", "icon_url", "icon192", "icon_192"], "icons/Icon-192.png");
       const icon512Url = firstConfigValue(["icon512Url", "icon512URL", "iconUrl", "iconURL", "icon_512_url", "icon_url", "icon512", "icon_512"], "icons/Icon-512.png");
       const maskableIcon192Url = firstConfigValue(["maskableIcon192Url", "maskableIcon192URL", "maskableIconUrl", "maskableIconURL", "maskable_icon_192_url", "maskable_icon_url", "maskable192", "maskable_192"], "icons/Icon-maskable-192.png");
@@ -198,8 +198,8 @@
       }
 
       updateMeta('meta[name="description"]', description);
-      updateMeta('meta[name="theme-color"]', themeColor);
-      updateMeta('meta[name="msapplication-TileColor"]', themeColor);
+      updateMeta('meta[name="theme-color"]', customerIdentityThemeColor);
+      updateMeta('meta[name="msapplication-TileColor"]', customerIdentityThemeColor);
       updateMeta('meta[name="apple-mobile-web-app-title"]', shortName);
       updateMeta('meta[property="og:title"]', socialTitle);
       updateMeta('meta[property="og:description"]', socialDescription);
@@ -229,7 +229,7 @@
         scope: manifestScope,
         display: manifestDisplay,
         background_color: backgroundColor,
-        theme_color: themeColor,
+        theme_color: customerIdentityThemeColor,
         description: description,
         orientation: manifestOrientation,
         prefer_related_applications: false,

@@ -6,6 +6,7 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/activities/data/activity_models.dart';
 import 'package:customer_flutter/features/activities/data/activity_repository.dart';
@@ -37,6 +38,24 @@ void main() {
     expect(find.text('ทุก 10 ใบ ได้ 1 สิทธิ์'), findsOneWidget);
     expect(find.text('ซื้อครบ 50 ใบ รับเงินคืน 5%'), findsOneWidget);
     expect(find.text('กิจกรรมงวดย้อนหลัง'), findsOneWidget);
+    expect(find.text('ดูงวดที่แล้ว'), findsOneWidget);
+    expect(find.text('แผงเลขนำโชค'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('ดูงวดที่แล้ว')).style?.color,
+      const Color(0xFF0875DF),
+    );
+    expect(
+      tester.widget<Text>(find.text('กิจกรรมทายเลข 2 ตัว')).style?.color,
+      const Color(0xFF1F2937),
+    );
+    expect(
+      tester.widget<Text>(find.text('ทุก 10 ใบ ได้ 1 สิทธิ์')).style?.color,
+      const Color(0xFF6B7280),
+    );
+    expect(
+      tester.widget<Text>(find.text('แผงเลขนำโชค')).style?.color,
+      const Color(0xFF0875DF),
+    );
     expect(tester.takeException(), isNull);
 
     final titleRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
@@ -55,6 +74,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
+  });
+
+  testWidgets('ActivitiesScreen redirects PIN-required users before loading', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository();
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _pinRequiredController(),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, isEmpty);
+    expect(find.text('Pin redirect: /activities'), findsOneWidget);
+  });
+
+  testWidgets('ActivitiesHistoryScreen preserves game query through PIN', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository();
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _pinRequiredController(setupRequired: true),
+      initialLocation: '/activities/history?game_id=game_prev',
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, isEmpty);
+    expect(
+      find.text('Pin redirect: /activities/history?game_id=game_prev'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ActivitiesScreen uses Nuxt current loading copy', (
@@ -202,6 +257,11 @@ void main() {
     final cashbackTop = tester.getTopLeft(find.text('คืนเงิน 5%')).dy;
 
     expect(luckyTop, lessThan(cashbackTop));
+    expect(find.text('มีสิทธิ์ 2 สิทธิ์'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('มีสิทธิ์ 2 สิทธิ์')).style?.color,
+      const Color(0xFF15803D),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -226,6 +286,10 @@ void main() {
     expect(openTop, lessThan(closedTop));
     expect(find.text('หมดเวลาเข้าร่วมแล้ว'), findsOneWidget);
     expect(find.text('หมดเวลาเข้าร่วม'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('หมดเวลาเข้าร่วม')).style?.color,
+      const Color(0xFFB42318),
+    );
     expect(tester.takeException(), isNull);
   });
 }
@@ -271,6 +335,16 @@ Future<void> _pumpActivities(
           body: Center(child: Text('Profile')),
         ),
       ),
+      GoRoute(
+        path: '/pin',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text(
+              'Pin redirect: ${state.uri.queryParameters['redirect'] ?? ''}',
+            ),
+          ),
+        ),
+      ),
     ],
   );
 
@@ -284,6 +358,7 @@ Future<void> _pumpActivities(
           ),
         ),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
         activityRepositoryProvider.overrideWithValue(repository),
         if (authController != null)
           authControllerProvider.overrideWith((_) => authController),
@@ -356,6 +431,28 @@ AuthController _authenticatedController() {
   )
     ..isAuthenticated = true
     ..pinRequired = false;
+}
+
+AuthController _pinRequiredController({bool setupRequired = false}) {
+  final tokenStore = AuthTokenStore();
+  final api = _testApiClient(tokenStore);
+  return AuthController(
+    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  )
+    ..isAuthenticated = true
+    ..pinRequired = true
+    ..pinSetupRequired = setupRequired;
+}
+
+MobileBootstrap _mobileBootstrap() {
+  return MobileBootstrap.fromJson(
+    const {
+      'site': {'display_name': 'กิจกรรมดี'},
+    },
+    defaultSiteName: 'กิจกรรมดี',
+  );
 }
 
 class _ActivityCall {
