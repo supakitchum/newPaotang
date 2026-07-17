@@ -88,16 +88,18 @@ jobs:
           cache-from: type=gha,scope=platform-api
           cache-to: type=gha,scope=platform-api,mode=max
 
-      - name: Build and push customer
+      - name: Build and push customer Flutter web
         uses: docker/build-push-action@v6
         with:
-          context: apps/customer
-          file: apps/customer/Dockerfile
-          target: runner
+          context: apps/customer_flutter
+          file: apps/customer_flutter/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.customer_image }}
-          cache-from: type=gha,scope=customer
-          cache-to: type=gha,scope=customer,mode=max
+          build-args: |
+            API_BASE_URL=/api/v1
+            APP_LOCALE=th-TH
+          cache-from: type=gha,scope=customer-flutter-web
+          cache-to: type=gha,scope=customer-flutter-web,mode=max
 
       - name: Build and push back office
         uses: docker/build-push-action@v6
