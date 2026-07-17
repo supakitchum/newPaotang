@@ -88,6 +88,62 @@ paths:
           $ref: "#/components/responses/TenantNotFound"
         "409":
           $ref: "#/components/responses/DomainNotActive"
+  /public/mobile/bootstrap:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Resolve the runtime customer mobile and Web bootstrap
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Tenant site configuration plus customer runtime policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileBootstrapResponse"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          $ref: "#/components/responses/DomainNotActive"
+  /public/translations:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load the active runtime translation bundle and locale catalog
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: locale
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Requested BCP 47 locale. X-Locale and Accept-Language are fallbacks.
+        - name: surface
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [customer, back-office, api]
+            default: customer
+        - name: preview_token
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Runtime translation messages and active locale options
+          headers:
+            Content-Language:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranslationBundle"
   /public/seo/page:
     get:
       tags: [Public Tenant]
@@ -126,6 +182,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NewsListResponse"
+  /public/news/modal:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load the current customer announcement modal
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Current announcement or an empty resource
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/NewsItem"
+                  - type: object
+                    maxProperties: 0
+  /public/news/{slug}:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load a published customer news article
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Published news article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsItem"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /public/activities:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: List tenant customer activities
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: history
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: game_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Public activities ordered by tenant activity policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityListResponse"
+  /public/activities/{slug}:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load a public activity by slug
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public activity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /public/stores:
     get:
       tags: [Public Tenant]
@@ -238,6 +387,105 @@ paths:
                 $ref: "#/components/schemas/LocalStockSearchResponse"
         "503":
           $ref: "#/components/responses/MaintenanceActive"
+  /public/stock/images/{token}.webp:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Serve a tenant-scoped generated lottery image
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Generated WebP lottery image
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /public/assets/{path}:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Serve a committed tenant public asset
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Slash-containing public asset path.
+      responses:
+        "200":
+          description: Public asset bytes with the stored content type
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /public/monitor/visit:
+    post:
+      tags: [Public Tenant]
+      security: []
+      summary: Upsert the current tenant-scoped public visit session
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicVisitRequest"
+      responses:
+        "200":
+          description: Visit tracking result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicVisitResponse"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /public/affiliate/referrals/click:
+    post:
+      tags: [Public Tenant]
+      security: []
+      summary: Track a tenant affiliate referral click before authentication
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AffiliateReferralClickRequest"
+      responses:
+        "200":
+          description: Existing referral visit refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateReferralClickResponse"
+        "201":
+          description: Referral visit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateReferralClickResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /auth/admin/login:
     post:
       tags: [System Auth]
@@ -560,6 +808,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CustomerAuthResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/otp/request:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Request an SMS OTP for customer registration or password reset
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerOtpRequest"
+      responses:
+        "202":
+          description: OTP request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOtpRequestResult"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /customer/auth/otp/verify:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Verify a customer SMS OTP
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerOtpVerifyRequest"
+      responses:
+        "200":
+          description: OTP verification token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOtpVerifyResult"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /customer/auth/password/forgot:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Request a customer password reset link
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPasswordForgotRequest"
+      responses:
+        "202":
+          description: Password reset request accepted
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/password/reset:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Reset a customer password with an admin or provider token
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPasswordResetRequest"
+      responses:
+        "200":
+          description: Customer password reset completed
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/password/reset/otp:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Reset a customer password with a verified SMS OTP token
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPasswordOtpResetRequest"
+      responses:
+        "200":
+          description: Customer password reset completed
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /customer/auth/refresh:
     post:
       tags: [Customer Auth]
@@ -648,6 +1011,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CustomerProfile"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/line-notifications:
+    get:
+      tags: [Customer]
+      summary: Load LINE notification availability and customer connection state
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: LINE notification settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineNotificationSettings"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    patch:
+      tags: [Customer]
+      summary: Update the current customer's LINE notification preference
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LineNotificationUpdateRequest"
+      responses:
+        "200":
+          description: Updated LINE notification settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineNotificationSettings"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      tags: [Customer]
+      summary: Disconnect the current customer's LINE notification identity
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      responses:
+        "200":
+          description: LINE identity disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineNotificationSettings"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
   /customer/affiliate:
@@ -866,6 +1287,350 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CustomerAuthResponse"
+  /customer/auth/line/link-phone:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Complete first-time LINE login by linking a customer phone
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSocialLinkPhoneRequest"
+      responses:
+        "200":
+          description: Customer auth session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAuthResponse"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/social/{provider}/login:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Create a runtime-configured social login redirect
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/SocialProviderPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSocialLoginRequest"
+      responses:
+        "200":
+          description: Provider authorization URL and OAuth state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalLoginRedirect"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /customer/auth/social/{provider}/callback:
+    get:
+      tags: [Customer Auth]
+      security: []
+      summary: Complete a social provider callback supplied as query data
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/SocialProviderPath"
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer session or first-time phone-link handoff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSocialCallbackResponse"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Complete a social provider callback supplied as JSON data
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/SocialProviderPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSocialCallbackRequest"
+      responses:
+        "200":
+          description: Customer session or first-time phone-link handoff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSocialCallbackResponse"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/social/{provider}/link-phone:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Complete first-time social login by linking a customer phone
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/SocialProviderPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSocialLinkPhoneRequest"
+      responses:
+        "200":
+          description: Customer auth session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAuthResponse"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/pin/status:
+    get:
+      tags: [Customer Auth]
+      summary: Load customer PIN setup and verification state
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: PIN state for the current customer session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPinStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/auth/pin/setup:
+    post:
+      tags: [Customer Auth]
+      summary: Create the current customer's six-digit PIN
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPinSetupRequest"
+      responses:
+        "200":
+          description: Updated PIN state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPinStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/pin/verify:
+    post:
+      tags: [Customer Auth]
+      summary: Verify a customer PIN or short-lived PIN assertion token
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPinVerifyRequest"
+      responses:
+        "200":
+          description: Updated PIN verification state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPinStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/pin/change:
+    post:
+      tags: [Customer Auth]
+      summary: Change the current customer's PIN
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPinChangeRequest"
+      responses:
+        "200":
+          description: Updated PIN state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPinStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/pin/reset/verify-password:
+    post:
+      tags: [Customer Auth]
+      summary: Verify the customer password before the legacy PIN reset flow
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Password verified for PIN reset
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/pin/reset:
+    post:
+      tags: [Customer Auth]
+      summary: Reset the customer PIN with a password-reset proof
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPinResetRequest"
+      responses:
+        "200":
+          description: Updated PIN state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPinStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/pin/reset/request-otp:
+    post:
+      tags: [Customer Auth]
+      summary: Send a PIN-reset OTP to the authenticated customer's phone
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "202":
+          description: OTP request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOtpRequestResult"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/pin/reset/verify-otp:
+    post:
+      tags: [Customer Auth]
+      summary: Verify the authenticated customer's PIN-reset OTP
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp:
+                  type: string
+                  pattern: "^[0-9]{6}$"
+      responses:
+        "200":
+          description: OTP verification token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOtpVerifyResult"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/pin/reset/confirm-otp:
+    post:
+      tags: [Customer Auth]
+      summary: Replace the customer PIN after OTP verification
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPinOtpResetRequest"
+      responses:
+        "200":
+          description: PIN reset completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPinStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /customer/realtime/auth:
     post:
       tags: [Realtime]
@@ -1014,6 +1779,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WalletListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/wallet/ledger:
+    get:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: List customer wallet movements
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: direction
+          in: query
+          required: false
+          description: Filter movements by signed amount.
+          schema:
+            type: string
+            enum: [incoming, outgoing]
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor returned by the preceding page.
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer wallet movements ordered newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletLedgerListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/orders:
+    get:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: List the current customer's purchase history
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer orders ordered newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
   /customer/orders/{order_id}:
@@ -1226,6 +2053,208 @@ paths:
           $ref: "#/components/responses/AuthenticationRequired"
         "404":
           $ref: "#/components/responses/NotFound"
+  /customer/activities:
+    get:
+      tags: [Customer]
+      summary: List customer activities with rights and progress
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: history
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: game_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer activities with customer-specific state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "503":
+          $ref: "#/components/responses/MaintenanceActive"
+  /customer/activities/{activity_id}:
+    get:
+      tags: [Customer]
+      summary: Load customer-specific activity detail
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/ActivityIdPath"
+      responses:
+        "200":
+          description: Activity detail with rights, progress, entries, and result state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /customer/activities/{activity_id}/rights:
+    get:
+      tags: [Customer]
+      summary: Load customer rights for a lucky-board activity
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/ActivityIdPath"
+      responses:
+        "200":
+          description: Customer activity-right summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityRights"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /customer/activities/{activity_id}/entries:
+    post:
+      tags: [Customer]
+      summary: Submit a selected lucky-board prediction
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - $ref: "#/components/parameters/ActivityIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityEntryRequest"
+      responses:
+        "201":
+          description: Activity entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityEntry"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/activity-awards:
+    get:
+      tags: [Customer]
+      summary: List the current customer's activity awards
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer activity awards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityAwardListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/activity-claims:
+    get:
+      tags: [Customer]
+      summary: List the current customer's activity claims
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer activity claims
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityClaimListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      tags: [Customer]
+      summary: Create an activity award payout claim
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityClaimRequest"
+      responses:
+        "201":
+          description: Activity claim created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityClaim"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/activity-claims/{claim_id}:
+    get:
+      tags: [Customer]
+      summary: Load an activity claim receipt
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: claim_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer activity claim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityClaim"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /customer/topups:
     get:
       tags: [Customer]
@@ -1342,6 +2371,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Topup"
+  /customer/topups/{topup_id}/slip:
+    post:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Upload a transfer slip for an existing topup
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: topup_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [slip]
+              properties:
+                slip:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Topup updated with submitted slip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Topup"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /public/results/latest:
     get:
       tags: [Public Tenant]
@@ -1361,6 +2431,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RewardSummary"
+        "503":
+          $ref: "#/components/responses/MaintenanceActive"
+  /public/results/live/latest:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load the latest in-progress or published tenant result
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Latest live result state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardSummary"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/MaintenanceActive"
+  /public/results/live/{game_id}:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load an in-progress or published result for one game
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Live result state for the requested game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardSummary"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "503":
           $ref: "#/components/responses/MaintenanceActive"
   /public/results/{game_id}:
@@ -8441,6 +9554,19 @@ components:
       required: true
       schema:
         type: string
+    SocialProviderPath:
+      name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [line, google, apple]
+    ActivityIdPath:
+      name: activity_id
+      in: path
+      required: true
+      schema:
+        type: string
   responses:
     AuthenticationRequired:
       description: Authentication token is missing, invalid, expired, or revoked
@@ -10194,6 +11320,18 @@ components:
           type: string
           format: uri
           nullable: true
+        preferred_locale:
+          type: string
+          description: Active runtime locale selected by the customer.
+        reward_payout_bank_account:
+          $ref: "#/components/schemas/CustomerBankAccount"
+        auto_reward_claim:
+          $ref: "#/components/schemas/CustomerAutoRewardSetting"
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_assertion_token:
+          type: string
     CustomerAuthResponse:
       type: object
       required: [token, user]
@@ -10206,6 +11344,12 @@ components:
         expires_in:
           type: integer
           nullable: true
+        pin_verified:
+          type: boolean
+        pin_setup_required:
+          type: boolean
+        pin_required:
+          type: boolean
         user:
           $ref: "#/components/schemas/CustomerProfile"
         order_id:
@@ -10219,6 +11363,15 @@ components:
         url:
           type: string
           format: uri
+        state:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          nullable: true
+        redirect:
+          type: string
+          nullable: true
     CustomerProfile:
       type: object
       required: [id]
@@ -10244,6 +11397,319 @@ components:
           type: string
           format: uri
           nullable: true
+        preferred_locale:
+          type: string
+          nullable: true
+        pin_setup_required:
+          type: boolean
+        pin_verified:
+          type: boolean
+        reward_payout_bank_account:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerBankAccount"
+            - type: "null"
+        auto_reward_claim:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerAutoRewardSetting"
+            - type: "null"
+      additionalProperties: true
+    CustomerBankAccount:
+      type: object
+      required: [bank_name, account_name, account_number]
+      properties:
+        bank_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+        branch:
+          type: string
+          nullable: true
+    CustomerAutoRewardSetting:
+      type: object
+      required: [enabled, payout_method]
+      properties:
+        enabled:
+          type: boolean
+        type:
+          type: string
+          nullable: true
+        payout_method:
+          type: string
+          enum: [wallet_credit, bank_transfer]
+    CustomerOtpRequest:
+      type: object
+      required: [phone, purpose]
+      properties:
+        phone:
+          type: string
+        purpose:
+          type: string
+          description: Runtime-supported OTP purpose such as registration or password_reset.
+    CustomerOtpRequestResult:
+      type: object
+      properties:
+        message:
+          type: string
+          nullable: true
+        phone_masked:
+          type: string
+          nullable: true
+        resend_after_seconds:
+          type: integer
+          minimum: 0
+        expires_in:
+          type: integer
+          minimum: 0
+      additionalProperties: true
+    CustomerOtpVerifyRequest:
+      type: object
+      required: [phone, purpose, otp]
+      properties:
+        phone:
+          type: string
+        purpose:
+          type: string
+        otp:
+          type: string
+          pattern: "^[0-9]{6}$"
+    CustomerOtpVerifyResult:
+      type: object
+      required: [otp_verification_token]
+      properties:
+        otp_verification_token:
+          type: string
+        phone_masked:
+          type: string
+          nullable: true
+        expires_in:
+          type: integer
+          minimum: 0
+      additionalProperties: true
+    CustomerPasswordForgotRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+    CustomerPasswordResetRequest:
+      type: object
+      required: [token, password, password_confirmation]
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          format: password
+        password_confirmation:
+          type: string
+          format: password
+        source:
+          type: string
+          enum: [admin_reset_link, line_login]
+    CustomerPasswordOtpResetRequest:
+      type: object
+      required: [phone, otp_verification_token, password, password_confirmation]
+      properties:
+        phone:
+          type: string
+        otp_verification_token:
+          type: string
+        password:
+          type: string
+          format: password
+        password_confirmation:
+          type: string
+          format: password
+    CustomerSocialLoginRequest:
+      type: object
+      properties:
+        purpose:
+          type: string
+          default: login
+        client:
+          type: string
+        callback_path:
+          type: string
+        redirect:
+          type: string
+    CustomerSocialCallbackRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        state:
+          type: string
+        error:
+          type: string
+        error_description:
+          type: string
+      additionalProperties: true
+    CustomerSocialCallbackResponse:
+      oneOf:
+        - $ref: "#/components/schemas/CustomerAuthResponse"
+        - $ref: "#/components/schemas/CustomerSocialLinkPhoneHandoff"
+    CustomerSocialLinkPhoneHandoff:
+      type: object
+      required: [link_token]
+      properties:
+        link_token:
+          type: string
+        provider:
+          type: string
+        profile:
+          type: object
+          additionalProperties: true
+        redirect:
+          type: string
+          nullable: true
+      additionalProperties: true
+    CustomerSocialLinkPhoneRequest:
+      type: object
+      required: [link_token, phone, password, password_confirmation]
+      properties:
+        link_token:
+          type: string
+        phone:
+          type: string
+        password:
+          type: string
+          format: password
+        password_confirmation:
+          type: string
+          format: password
+        redirect:
+          type: string
+    CustomerPinStatus:
+      type: object
+      properties:
+        pin_setup_required:
+          type: boolean
+        pin_required:
+          type: boolean
+        pin_verified:
+          type: boolean
+        verified_until:
+          type: string
+          format: date-time
+          nullable: true
+        attempts_remaining:
+          type: integer
+          minimum: 0
+        retry_after_seconds:
+          type: integer
+          minimum: 0
+          nullable: true
+        user:
+          $ref: "#/components/schemas/CustomerProfile"
+      additionalProperties: true
+    CustomerPinSetupRequest:
+      type: object
+      required: [pin, pin_confirmation]
+      properties:
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_confirmation:
+          type: string
+          pattern: "^[0-9]{6}$"
+    CustomerPinVerifyRequest:
+      type: object
+      properties:
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_assertion_token:
+          type: string
+      anyOf:
+        - required: [pin]
+        - required: [pin_assertion_token]
+    CustomerPinChangeRequest:
+      type: object
+      required: [current_pin, pin, pin_confirmation]
+      properties:
+        current_pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_confirmation:
+          type: string
+          pattern: "^[0-9]{6}$"
+    CustomerPinResetRequest:
+      type: object
+      required: [reset_token, pin, pin_confirmation]
+      properties:
+        reset_token:
+          type: string
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_confirmation:
+          type: string
+          pattern: "^[0-9]{6}$"
+    CustomerPinOtpResetRequest:
+      type: object
+      required: [otp_verification_token, pin, pin_confirmation]
+      properties:
+        otp_verification_token:
+          type: string
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_confirmation:
+          type: string
+          pattern: "^[0-9]{6}$"
+    LineNotificationSettings:
+      type: object
+      required: [line_available]
+      properties:
+        line_available:
+          type: boolean
+        bot_basic_id:
+          type: string
+          nullable: true
+        bot_display_name:
+          type: string
+          nullable: true
+        add_friend_url:
+          type: string
+          format: uri
+          nullable: true
+        liff_id:
+          type: string
+          nullable: true
+        identity:
+          oneOf:
+            - $ref: "#/components/schemas/LineNotificationIdentity"
+            - type: "null"
+      additionalProperties: true
+    LineNotificationIdentity:
+      type: object
+      required: [id, friend_flag, notification_enabled]
+      properties:
+        id:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        picture_url:
+          type: string
+          format: uri
+          nullable: true
+        friend_flag:
+          type: boolean
+        notification_enabled:
+          type: boolean
+      additionalProperties: true
+    LineNotificationUpdateRequest:
+      type: object
+      required: [notification_enabled]
+      properties:
+        notification_enabled:
+          type: boolean
     CustomerAffiliateRegisterRequest:
       type: object
       properties:
@@ -10618,15 +12084,273 @@ components:
       properties:
         id:
           type: string
+        slug:
+          type: string
+          nullable: true
         title:
           type: string
+        summary:
+          type: string
+          nullable: true
+        content:
+          type: string
+          nullable: true
+        html:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
         cover_url:
+          type: string
+          format: uri
+          nullable: true
+        image_thumb_url:
+          type: string
+          format: uri
+          nullable: true
+        image_full_url:
           type: string
           format: uri
           nullable: true
         url:
           type: string
           nullable: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        display_start_at:
+          type: string
+          format: date-time
+          nullable: true
+        display_end_at:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: true
+    MobileBootstrapResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [tenant_id, site, mobile]
+          properties:
+            tenant_id:
+              type: string
+            partner_id:
+              type: string
+            site:
+              type: object
+              additionalProperties: true
+            brand:
+              type: object
+              additionalProperties: true
+            theme:
+              type: object
+              additionalProperties: true
+            payment:
+              type: object
+              additionalProperties: true
+            maintenance:
+              type: object
+              additionalProperties: true
+            features:
+              type: object
+              additionalProperties:
+                type: boolean
+            mobile:
+              $ref: "#/components/schemas/MobileRuntimeConfig"
+          additionalProperties: true
+    MobileRuntimeConfig:
+      type: object
+      required: [app_key, supported_platforms, auth_providers, line, realtime, feature_flags]
+      properties:
+        app_key:
+          type: string
+        supported_platforms:
+          type: array
+          items:
+            type: string
+            enum: [ios, android, web]
+        lottery_product_label:
+          type: string
+          nullable: true
+        ticket_image_watermark:
+          type: string
+          nullable: true
+        auth_providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SocialAuthProvider"
+        line:
+          type: object
+          additionalProperties: true
+        realtime:
+          type: object
+          additionalProperties: true
+        biometric:
+          type: object
+          additionalProperties: true
+        screen_security:
+          type: object
+          additionalProperties: true
+        feature_flags:
+          type: object
+          additionalProperties:
+            type: boolean
+      additionalProperties: true
+    SocialAuthProvider:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: string
+          enum: [line, google, apple]
+        enabled:
+          type: boolean
+        display_name:
+          type: string
+          nullable: true
+        brand_color:
+          type: string
+          nullable: true
+        button_background_color:
+          type: string
+          nullable: true
+        button_foreground_color:
+          type: string
+          nullable: true
+      additionalProperties: true
+    TranslationBundle:
+      type: object
+      required: [locale, surface, messages, available_locales]
+      properties:
+        locale:
+          type: string
+        surface:
+          type: string
+        messages:
+          type: object
+          additionalProperties:
+            type: string
+        available_locales:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranslationLocale"
+    TranslationLocale:
+      type: object
+      required: [locale, name, native_name, status, sort_order]
+      properties:
+        locale:
+          type: string
+        name:
+          type: string
+        native_name:
+          type: string
+        status:
+          type: string
+          enum: [active]
+        is_default:
+          type: boolean
+        sort_order:
+          type: integer
+    PublicVisitRequest:
+      type: object
+      required: [visitor_id, session_id]
+      properties:
+        visitor_id:
+          type: string
+          maxLength: 128
+        session_id:
+          type: string
+          maxLength: 128
+        source:
+          type: string
+        channel:
+          type: string
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        referrer:
+          type: string
+          nullable: true
+        screen:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+        route_name:
+          type: string
+          nullable: true
+    PublicVisitResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [ok, tracked]
+          properties:
+            ok:
+              type: boolean
+            tracked:
+              type: boolean
+            visitor_id:
+              type: string
+              nullable: true
+            session_id:
+              type: string
+              nullable: true
+            expires_at:
+              type: string
+              format: date-time
+              nullable: true
+            reason:
+              type: string
+              nullable: true
+    AffiliateReferralClickRequest:
+      type: object
+      required: [ref]
+      properties:
+        ref:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[A-Za-z0-9]{6}$"
+        visitor_id:
+          type: string
+          nullable: true
+        session_id:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        landing_path:
+          type: string
+          nullable: true
+        referrer:
+          type: string
+          nullable: true
+    AffiliateReferralClickResponse:
+      type: object
+      required: [ref]
+      properties:
+        ref:
+          type: string
+        visit_id:
+          type: string
+          nullable: true
+        tracked:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: true
     SiteConfigResponse:
       type: object
       required: [data]
@@ -10719,6 +12443,15 @@ components:
               format: email
             support_phone:
               type: string
+            support_url:
+              type: string
+              format: uri
+            lottery_product_label:
+              type: string
+              maxLength: 32
+            ticket_image_watermark:
+              type: string
+              maxLength: 64
         domain:
           type: object
           required: [host, canonical_url, type, status, https_required, cloudflare_proxy_required]
@@ -10755,16 +12488,22 @@ components:
           properties:
             primary_color:
               type: string
+              default: '#087FF0'
             secondary_color:
               type: string
+              default: '#19B8EF'
             accent_color:
               type: string
+              default: '#FFD10B'
             background_color:
               type: string
+              default: '#FFFFFF'
             text_color:
               type: string
+              default: '#242833'
             font_family:
               type: string
+              default: Kanit
         features:
           type: object
           additionalProperties:
@@ -10794,6 +12533,30 @@ components:
               type: boolean
         maintenance:
           $ref: "#/components/schemas/SiteConfigMaintenance"
+        payment:
+          type: object
+          properties:
+            methods:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            enabled_methods:
+              type: array
+              items:
+                type: string
+            checkout_payment_methods:
+              type: array
+              items:
+                type: string
+                enum: [wallet, external_payment]
+            checkout_payment_method:
+              type: string
+              enum: [wallet, external_payment]
+            checkout_payment_method_labels:
+              type: object
+              additionalProperties:
+                type: string
         api:
           type: object
           properties:
@@ -10907,6 +12670,256 @@ components:
           nullable: true
         has_more:
           type: boolean
+    ActivityListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/CursorMeta"
+            - type: object
+              properties:
+                game_id:
+                  type: string
+                  nullable: true
+                draw_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+    Activity:
+      type: object
+      required: [id, type, status]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [lucky_board, cashback]
+        status:
+          type: string
+        game_id:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        cover_url:
+          type: string
+          format: uri
+          nullable: true
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        entry_closes_at:
+          type: string
+          format: date-time
+          nullable: true
+        rights:
+          oneOf:
+            - $ref: "#/components/schemas/ActivityRights"
+            - type: "null"
+        cashback_progress:
+          type: object
+          nullable: true
+          additionalProperties: true
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityEntry"
+        result_summary:
+          type: object
+          nullable: true
+          additionalProperties: true
+      additionalProperties: true
+    ActivityRights:
+      type: object
+      properties:
+        total_count:
+          type: integer
+          minimum: 0
+        used_count:
+          type: integer
+          minimum: 0
+        remaining_count:
+          type: integer
+          minimum: 0
+        earned_count:
+          type: integer
+          minimum: 0
+      additionalProperties: true
+    CreateActivityEntryRequest:
+      type: object
+      required: [prediction_type, selected_number]
+      properties:
+        prediction_type:
+          type: string
+          enum: [first_prize_last3, last2]
+        selected_number:
+          type: string
+          pattern: "^[0-9]{2,3}$"
+    ActivityEntry:
+      type: object
+      required: [id, activity_id, prediction_type, selected_number, status]
+      properties:
+        id:
+          type: string
+        activity_id:
+          type: string
+        game_id:
+          type: string
+          nullable: true
+        prediction_type:
+          type: string
+        selected_number:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: true
+    ActivityAwardListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityAward"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    ActivityAward:
+      type: object
+      required: [id, activity_id, type, status, amount]
+      properties:
+        id:
+          type: string
+        activity_id:
+          type: string
+        activity_name:
+          type: string
+          nullable: true
+        game_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [lucky_board, cashback]
+        prediction_type:
+          type: string
+          nullable: true
+        status:
+          type: string
+        amount:
+          $ref: "#/components/schemas/Money"
+        claim:
+          oneOf:
+            - $ref: "#/components/schemas/ActivityClaim"
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: true
+    ActivityClaimListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityClaim"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    CreateActivityClaimRequest:
+      type: object
+      required: [award_id, payout_method]
+      properties:
+        award_id:
+          type: string
+        payout_method:
+          type: string
+          enum: [wallet_credit, bank_transfer]
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+        pin_assertion_token:
+          type: string
+        bank_account:
+          $ref: "#/components/schemas/CustomerBankAccount"
+        note:
+          type: string
+    ActivityClaim:
+      type: object
+      required: [id, reference, status, payout_method, claim_amount]
+      properties:
+        id:
+          type: string
+        reference:
+          type: string
+        activity_id:
+          type: string
+          nullable: true
+        activity_award_id:
+          type: string
+          nullable: true
+        activity_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [submitted, approved, paid, rejected, cancelled]
+        payout_method:
+          type: string
+          enum: [wallet_credit, bank_transfer]
+        claim_amount:
+          $ref: "#/components/schemas/Money"
+        bank_account:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerBankAccount"
+            - type: "null"
+        customer_note:
+          type: string
+          nullable: true
+        admin_note:
+          type: string
+          nullable: true
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: true
     CreateReservationRequest:
       type: object
       required: [game_id, local_stock_item_ids]
@@ -10959,6 +12972,18 @@ components:
         payment_method:
           type: string
           enum: [wallet, external_payment]
+    OrderListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        meta:
+          oneOf:
+            - $ref: "#/components/schemas/CursorMeta"
+            - $ref: "#/components/schemas/PageMeta"
     Order:
       type: object
       required: [id, status, total]
@@ -11010,6 +13035,34 @@ components:
           enum: [primary, bonus, affiliate, other]
         balance:
           $ref: "#/components/schemas/Money"
+    WalletLedgerListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletLedgerEntry"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    WalletLedgerEntry:
+      type: object
+      required: [id, wallet_id, customer_id, entry_type, amount, balance_after, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        wallet_id: { type: string }
+        customer_id: { type: string }
+        entry_type: { type: string }
+        status: { type: string }
+        amount:
+          $ref: "#/components/schemas/Money"
+        balance_after:
+          $ref: "#/components/schemas/Money"
+        reason: { type: string }
+        reference_type: { type: string, nullable: true }
+        reference_id: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
     TopupOverview:
       type: object
       required: [bank, waiting, histories, meta]

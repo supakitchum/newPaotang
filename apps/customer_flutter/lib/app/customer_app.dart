@@ -55,6 +55,8 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final platformKey = ref.read(customerPlatformKeyProvider);
+    if (platformKey.trim().toLowerCase() == 'web') return;
     if (_shouldLockForLifecycleState(state) && _currentRouteIsSensitive()) {
       ref.read(authControllerProvider).lockForAppLifecycle();
     }
@@ -70,7 +72,9 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
   bool _currentRouteIsSensitive() {
     final router = ref.read(appRouterProvider);
     final path = router.routeInformationProvider.value.uri.path;
-    final extraSensitiveRoutes = ref.read(mobileBootstrapProvider).maybeWhen(
+    final extraSensitiveRoutes = ref
+        .read(mobileBootstrapProvider)
+        .maybeWhen(
           data: (data) => data.screenSecurity.sensitiveRoutes,
           orElse: () => const <String>[],
         );
@@ -87,18 +91,21 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
     final platformKey = ref.watch(customerPlatformKeyProvider);
     final config = ref.watch(appConfigProvider);
     final bootstrap = ref.watch(mobileBootstrapProvider);
-    final runtimeTranslations =
-        ref.watch(customerTranslationBundleProvider).maybeWhen(
-              data: (messages) => messages,
-              orElse: () => const <String, String>{},
-            );
-    ref.listen<AsyncValue<MobileBootstrap>>(
-      mobileBootstrapProvider,
-      (_, next) {
-        next.whenData(
-          (data) => syncCustomerLocaleFromBootstrap(ref, data.locale),
-        );
-      },
+    final translationBundle =
+        ref.watch(customerTranslationBundleProvider).valueOrNull ??
+        const CustomerTranslationBundle();
+    final runtimeTranslations = translationBundle.messages;
+    final runtimeLocaleOptions = ref.watch(
+      customerSupportedLocaleOptionsProvider,
+    );
+    ref.listen<AsyncValue<MobileBootstrap>>(mobileBootstrapProvider, (_, next) {
+      next.whenData(
+        (data) => syncCustomerLocaleFromBootstrap(ref, data.locale),
+      );
+    });
+    ref.listen<AuthController>(
+      authControllerProvider,
+      (_, next) => syncCustomerLocaleFromProfile(ref, next.preferredLocale),
     );
     final appTitle = bootstrap.maybeWhen(
       data: (data) => data.siteName.trim().isEmpty
@@ -107,30 +114,23 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       orElse: () => config.runtimeDisplayName,
     );
     final appLocale = runtimeLocale;
+    final appSupportedLocales = customerAppSupportedLocales(
+      runtimeLocaleOptions,
+      activeLocale: appLocale,
+    );
     Intl.defaultLocale = localeTag(appLocale).replaceAll('-', '_');
     final appTheme = bootstrap.maybeWhen(
-      data: (data) => AppTheme.light(tokens: data.theme),
+      data: (data) =>
+          AppTheme.light(tokens: data.theme, useRuntimeBrandColors: true),
       orElse: AppTheme.light,
     );
-    final systemUiOverlayStyle = SystemUiOverlayStyle(
-      statusBarColor: AppTheme.appBlue,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-      systemNavigationBarColor: AppTheme.appSheet,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      systemNavigationBarDividerColor: AppTheme.appBorder,
-      systemNavigationBarContrastEnforced: false,
-    );
+    final systemUiOverlayStyle = _systemUiOverlayStyleFor(appTheme);
     final screenSecurityEnabled = bootstrap.maybeWhen(
       data: (data) =>
           mobileNativeScreenSecurityAllowedForPlatform(data, platformKey),
       orElse: () => mobileNativeScreenSecurityFallbackForPlatform(platformKey),
     );
-    final webPrivacyEnabled = bootstrap.maybeWhen(
-      data: (data) =>
-          mobileWebPrivacyGuardAllowedForPlatform(data, platformKey),
-      orElse: () => mobileWebPrivacyGuardFallbackForPlatform(platformKey),
-    );
+    const webPrivacyEnabled = false;
 
     return MaterialApp.router(
       title: appTitle,
@@ -141,6 +141,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       builder: (context, child) {
         final appChild = child ?? const SizedBox.shrink();
         return AnnotatedRegion<SystemUiOverlayStyle>(
+          key: const ValueKey('customer-system-ui-overlay'),
           value: systemUiOverlayStyle,
           child: CustomerDeepLinkListener(
             child: AppSplashHost(
@@ -183,7 +184,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
           ),
         );
       },
-      supportedLocales: const [Locale('th', 'TH'), Locale('en', 'US')],
+      supportedLocales: appSupportedLocales,
       localizationsDelegates: [
         RuntimeCustomerLocalizationsDelegate(runtimeTranslations),
         GlobalMaterialLocalizations.delegate,
@@ -195,6 +196,36 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       },
     );
   }
+}
+
+SystemUiOverlayStyle _systemUiOverlayStyleFor(ThemeData theme) {
+  final statusBarColor = theme.colorScheme.primary;
+  final navigationBarColor = theme.scaffoldBackgroundColor;
+  final statusBarBackgroundBrightness = ThemeData.estimateBrightnessForColor(
+    statusBarColor,
+  );
+  final navigationBarBackgroundBrightness =
+      ThemeData.estimateBrightnessForColor(navigationBarColor);
+
+  return SystemUiOverlayStyle(
+    statusBarColor: statusBarColor,
+    statusBarIconBrightness: _contrastingBrightness(
+      statusBarBackgroundBrightness,
+    ),
+    statusBarBrightness: statusBarBackgroundBrightness,
+    systemNavigationBarColor: navigationBarColor,
+    systemNavigationBarIconBrightness: _contrastingBrightness(
+      navigationBarBackgroundBrightness,
+    ),
+    systemNavigationBarDividerColor: theme.colorScheme.outlineVariant,
+    systemNavigationBarContrastEnforced: false,
+  );
+}
+
+Brightness _contrastingBrightness(Brightness backgroundBrightness) {
+  return backgroundBrightness == Brightness.dark
+      ? Brightness.light
+      : Brightness.dark;
 }
 
 class _CustomerRuntimeSecurityLayer extends StatelessWidget {

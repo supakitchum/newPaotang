@@ -29,6 +29,10 @@ void main() {
     expect(api.payload['pin'], '123456');
     expect(api.payload.containsKey('pin_assertion_token'), isFalse);
     expect(api.payload['bank_account'], containsPair('bank_name', 'Kasikorn'));
+    expect(
+      api.headers['Idempotency-Key'],
+      startsWith('customer_activity_claim_'),
+    );
   });
 
   test('create can use biometric assertion token instead of PIN', () async {
@@ -83,6 +87,7 @@ class _ActivityClaimApiClient extends ApiClient {
 
   String path = '';
   Map<String, dynamic> payload = {};
+  Map<String, String> headers = {};
   final paths = <String>[];
 
   @override
@@ -133,6 +138,7 @@ class _ActivityClaimApiClient extends ApiClient {
   }) async {
     this.path = path;
     payload = Map<String, dynamic>.from(data! as Map);
+    this.headers = Map<String, String>.from(headers);
 
     return Response<T>(
       requestOptions: RequestOptions(path: path),

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
@@ -15,8 +17,6 @@ const _activityClaimDetailSurface = Color(0xFFFFFFFF);
 const _activityClaimDetailText = Color(0xFF111827);
 const _activityClaimDetailMuted = Color(0xFF64748B);
 const _activityClaimDetailDivider = Color(0xFFEEF2F7);
-const _activityClaimDetailBlue = Color(0xFF086BDD);
-const _activityClaimDetailLogoBlue = Color(0xFF0B69DC);
 const _activityClaimDetailLogoBorder = Color(0xFFDBEAFE);
 const _activityClaimDetailSuccess = Color(0xFF28A81E);
 const _activityClaimDetailSuccessBackground = Color(0xFFEFFCE8);
@@ -31,8 +31,6 @@ const _activityClaimAdminNoteText = Color(0xFF475569);
 const _activityClaimAdminNoteRejectedBackground = Color(0xFFFFF1F2);
 const _activityClaimAdminNoteRejectedBorder = Color(0xFFFECdd3);
 const _activityClaimAdminNoteRejectedText = Color(0xFFB91C1C);
-const _activityClaimOutlineBorder = Color(0xFF0B69DC);
-const _activityClaimOutlineText = Color(0xFF075EC9);
 const _activityClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
 const _activityClaimOutlineDisabledText = Color(0xFF8A8F98);
 const _activityClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
@@ -48,6 +46,11 @@ class ActivityClaimDetailScreen extends ConsumerWidget {
       activityClaimRealtimeTickProvider,
       (_, __) => ref.invalidate(activityClaimDetailProvider(claimId)),
     );
+    listenForCustomerOperationalError<ActivityClaimItem>(
+      ref: ref,
+      context: context,
+      provider: activityClaimDetailProvider(claimId),
+    );
     final claim = ref.watch(activityClaimDetailProvider(claimId));
     final l10n = context.l10n;
     final reviewerName = ref.watch(mobileBootstrapProvider).maybeWhen(
@@ -62,6 +65,10 @@ class ActivityClaimDetailScreen extends ConsumerWidget {
       sensitive: true,
       showBottomNavigation: false,
       compactHeader: true,
+      heroContent: const SizedBox.shrink(),
+      heroMinHeight: 96,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
       child: _ActivityClaimDetailPageBody(
         child: claim.when(
           data: (item) => _ActivityClaimReceipt(
@@ -131,6 +138,11 @@ class _ActivityClaimReceipt extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(claim);
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final logoBorder = colorScheme.primary == AppTheme.appBlue
+        ? _activityClaimDetailLogoBorder
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.84) ??
+            colorScheme.primaryContainer;
     return ColoredBox(
       color: _activityClaimDetailSurface,
       child: Padding(
@@ -148,12 +160,12 @@ class _ActivityClaimReceipt extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _activityClaimDetailLogoBorder,
+                      color: logoBorder,
                     ),
                   ),
                   child: Icon(
                     Icons.card_giftcard_outlined,
-                    color: _activityClaimDetailLogoBlue,
+                    color: AppTheme.primaryOutlineBorder(colorScheme.primary),
                     size: 20,
                   ),
                 ),
@@ -302,6 +314,7 @@ class _ReceiptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     final valueLines = value
         .split('\n')
         .map((line) => line.trim())
@@ -315,7 +328,9 @@ class _ReceiptRow extends StatelessWidget {
         );
     final valueStyle = TextStyle(
       color: valueColor ??
-          (highlighted ? _activityClaimDetailBlue : _activityClaimDetailText),
+          (highlighted
+              ? AppTheme.detailKicker(primary)
+              : _activityClaimDetailText),
       fontSize: valueFontSize ?? 17,
       fontWeight: FontWeight.w900,
       height: 1.35,
@@ -607,11 +622,12 @@ class _ActivityClaimDetailState extends StatelessWidget {
 }
 
 ButtonStyle _activityClaimDetailOutlinePillStyle(BuildContext context) {
+  final primary = Theme.of(context).colorScheme.primary;
   return OutlinedButton.styleFrom(
     backgroundColor: Colors.white,
     disabledBackgroundColor: _activityClaimOutlineDisabledBackground,
     disabledForegroundColor: _activityClaimOutlineDisabledText,
-    foregroundColor: _activityClaimOutlineText,
+    foregroundColor: AppTheme.primaryOutlineText(primary),
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
@@ -623,7 +639,7 @@ ButtonStyle _activityClaimDetailOutlinePillStyle(BuildContext context) {
       (states) => BorderSide(
         color: states.contains(WidgetState.disabled)
             ? _activityClaimOutlineDisabledBorder
-            : _activityClaimOutlineBorder,
+            : AppTheme.primaryOutlineBorder(primary),
       ),
     ),
   );

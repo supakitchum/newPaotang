@@ -27,6 +27,7 @@ use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationServic
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
+use App\Shared\Idempotency\IdempotencyService;
 use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -52,6 +53,7 @@ class TenantActivityService
         private readonly AuditLogger $auditLogger,
         private readonly CustomerAuthService $customerAuth,
         private readonly CommerceService $commerce,
+        private readonly IdempotencyService $idempotency,
         private readonly TenantLineNotificationService $lineNotifications,
         private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
@@ -387,9 +389,36 @@ class TenantActivityService
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
      */
-    public function createCustomerEntry(string $tenantId, CustomerSessionContext $customer, string $activityId, array $payload): array
+    public function createCustomerEntry(string $tenantId, CustomerSessionContext $customer, string $activityId, array $payload, ?Request $request = null): array
     {
-        return DB::transaction(function () use ($tenantId, $customer, $activityId, $payload): array {
+        $normalized = [
+            'prediction_type' => trim((string) ($payload['prediction_type'] ?? '')),
+            'selected_number' => preg_replace('/\D+/', '', trim((string) ($payload['selected_number'] ?? ''))) ?? '',
+        ];
+        $idempotencyKey = trim((string) $request?->header('Idempotency-Key'));
+
+        return DB::transaction(function () use ($tenantId, $customer, $activityId, $normalized, $idempotencyKey): array {
+            $routeKey = 'customer.activity_entries.store:'.$activityId;
+            if ($idempotencyKey !== '') {
+                $replay = $this->idempotency->replayOrConflict(
+                    $tenantId,
+                    'customer',
+                    $customer->customerId(),
+                    $routeKey,
+                    $idempotencyKey,
+                    $normalized,
+                    lock: true,
+                );
+
+                if (is_array($replay)) {
+                    return ['resource' => $replay['body'] ?? [], 'status' => $replay['status']];
+                }
+
+                if ($replay !== null) {
+                    return ['error' => $replay];
+                }
+            }
+
             $activity = $this->activeQuery($tenantId)
                 ->where('id', $activityId)
                 ->where('type', 'lucky_board')
@@ -404,8 +433,8 @@ class TenantActivityService
                 return ['error' => 'activity_entry_closed'];
             }
 
-            $predictionType = trim((string) ($payload['prediction_type'] ?? ''));
-            $selectedNumber = preg_replace('/\D+/', '', trim((string) ($payload['selected_number'] ?? ''))) ?? '';
+            $predictionType = $normalized['prediction_type'];
+            $selectedNumber = $normalized['selected_number'];
             $errors = [];
 
             if (! in_array($predictionType, self::PREDICTION_TYPES, true) || ! $this->predictionEnabled($activity->luckyConfig, $predictionType)) {
@@ -471,6 +500,18 @@ class TenantActivityService
             ]);
 
             $resource = $this->entryResource(TenantActivityEntry::query()->whereKey($entryId)->first());
+            if ($idempotencyKey !== '') {
+                $this->idempotency->storeResponse(
+                    $tenantId,
+                    'customer',
+                    $customer->customerId(),
+                    $routeKey,
+                    $idempotencyKey,
+                    $normalized,
+                    201,
+                    $resource,
+                );
+            }
             $this->lineNotifications->enqueue($tenantId, $customer->customerId(), 'activity.entry.created', 'tenant_activity_entry', $entryId, $this->lineActivityEntryVariables($tenantId, $activity, $resource));
             $this->telegramNotifications->enqueue($tenantId, 'activity.entry.created', 'tenant_activity_entry', $entryId, $this->telegramActivityEntryVariables($tenantId, $customer->customerId(), $activity, $resource));
 
@@ -585,15 +626,33 @@ class TenantActivityService
             'bank_account' => $this->normalizeBankAccount($payload['bank_account'] ?? null),
             'note' => trim((string) ($payload['note'] ?? '')),
         ];
+        if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($normalized['bank_account'])) {
+            $normalized['bank_account'] = $this->customerRewardPayoutBankAccount($tenantId, $customer->customerId());
+        }
         $idempotencyKey = (string) $request->header('Idempotency-Key');
 
         return DB::transaction(function () use ($tenantId, $customer, $normalized, $payload, $idempotencyKey): array {
-            if (! in_array($normalized['payout_method'], ['wallet_credit', 'bank_transfer'], true) || $normalized['award_id'] === '') {
-                return ['error' => 'validation_failed'];
+            $routeKey = 'customer.activity_claims.store';
+            $replay = $this->idempotency->replayOrConflict(
+                $tenantId,
+                'customer',
+                $customer->customerId(),
+                $routeKey,
+                $idempotencyKey,
+                $normalized,
+                lock: true,
+            );
+
+            if (is_array($replay)) {
+                return ['resource' => $replay['body'] ?? [], 'status' => $replay['status']];
             }
 
-            if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($normalized['bank_account'])) {
-                $normalized['bank_account'] = $this->customerRewardPayoutBankAccount($tenantId, $customer->customerId());
+            if ($replay !== null) {
+                return ['error' => $replay];
+            }
+
+            if (! in_array($normalized['payout_method'], ['wallet_credit', 'bank_transfer'], true) || $normalized['award_id'] === '') {
+                return ['error' => 'validation_failed'];
             }
 
             if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($normalized['bank_account'])) {
@@ -647,17 +706,28 @@ class TenantActivityService
                 'customer_note' => $payload['note'] ?? null,
                 'admin_note' => null,
                 'idempotency_key' => $idempotencyKey,
-                'payload_hash' => sha1(json_encode($normalized, JSON_THROW_ON_ERROR)),
+                'payload_hash' => $this->idempotency->payloadHash($normalized),
                 'submitted_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
             TenantActivityAward::query()->whereKey((string) $award->id)->update(['status' => 'claimed', 'updated_at' => $now]);
+            $resource = $this->claimResource(ActivityClaim::query()->with(['award', 'activity'])->whereKey($claimId)->first());
+            $this->idempotency->storeResponse(
+                $tenantId,
+                'customer',
+                $customer->customerId(),
+                $routeKey,
+                $idempotencyKey,
+                $normalized,
+                201,
+                $resource,
+            );
             $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
             $this->queueActivityClaimUpdatedBroadcast($tenantId, $claimId);
 
             return [
-                'resource' => $this->claimResource(ActivityClaim::query()->with(['award', 'activity'])->whereKey($claimId)->first()),
+                'resource' => $resource,
                 'status' => 201,
             ];
         });

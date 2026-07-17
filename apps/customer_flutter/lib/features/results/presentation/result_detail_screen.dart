@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -10,23 +12,46 @@ import '../data/result_models.dart';
 import '../data/result_repository.dart';
 import 'result_widgets.dart';
 
+String resultDetailBackPathFor(String routePath) {
+  return routePath.startsWith('/results/') ? '/results' : '/result';
+}
+
 class ResultDetailScreen extends ConsumerWidget {
-  const ResultDetailScreen({this.gameId, super.key});
+  const ResultDetailScreen({
+    this.gameId,
+    this.backPath = '/result',
+    super.key,
+  });
 
   final String? gameId;
+  final String backPath;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final result = ref.watch(resultDetailProvider(gameId));
-    final title = _resultDetailHeroTitle(context, result.valueOrNull);
+    final legacyDatedHeader = backPath == '/results';
+    final resultProvider = legacyDatedHeader
+        ? publishedResultDetailProvider(gameId)
+        : resultDetailProvider(gameId);
+    listenForCustomerOperationalError<RewardResultBundle>(
+      ref: ref,
+      context: context,
+      provider: resultProvider,
+    );
+    final result = ref.watch(resultProvider);
+    final title = _resultDetailHeroTitle(
+      context,
+      result.valueOrNull,
+      legacyDatedHeader: legacyDatedHeader,
+    );
 
     return AppShell(
       title: title,
-      currentPath: '/result',
-      backPath: '/result',
+      currentPath: backPath,
+      backPath: backPath,
       showBottomNavigation: false,
       heroMinHeight: 121,
-      heroSheetOverlap: 0,
+      heroSheetOverlap: 16,
+      heroSheetTopRadius: 12,
       heroContentTopGap: 0,
       heroContent: const SizedBox.shrink(),
       child: Stack(
@@ -36,7 +61,11 @@ class ResultDetailScreen extends ConsumerWidget {
               padding: EdgeInsets.zero,
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                _ResultFullSheet(result: result),
+                _ResultFullSheet(
+                  result: result,
+                  showDrawDate: !legacyDatedHeader,
+                  onRetry: () => ref.invalidate(resultProvider),
+                ),
               ],
             ),
           ),
@@ -54,9 +83,15 @@ class ResultDetailScreen extends ConsumerWidget {
 }
 
 class _ResultFullSheet extends StatelessWidget {
-  const _ResultFullSheet({required this.result});
+  const _ResultFullSheet({
+    required this.result,
+    required this.showDrawDate,
+    required this.onRetry,
+  });
 
   final AsyncValue<RewardResultBundle> result;
+  final bool showDrawDate;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +143,11 @@ class _ResultFullSheet extends StatelessWidget {
                           padding: EdgeInsets.fromLTRB(24, 0, 24, 14),
                           child: _ResultUnofficialNotice(),
                         ),
+                      if (showDrawDate)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                          child: _ResultDrawDate(drawDate: drawDate),
+                        ),
                       if (waiting)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
@@ -134,8 +174,13 @@ class _ResultFullSheet extends StatelessWidget {
             );
           },
           loading: () => _ResultDetailState.loading(context.l10n.resultLoading),
-          error: (_, __) => _ResultDetailState.error(
-            context.l10n.commonLoadFailed,
+          error: (error, __) => _ResultDetailState.error(
+            title: context.l10n.resultLoadFailedTitle,
+            message: customerErrorMessage(
+              error,
+              context.l10n.commonLoadFailed,
+            ),
+            onRetry: onRetry,
           ),
         ),
       ),
@@ -151,6 +196,7 @@ class _ResultDetailState extends StatelessWidget {
     this.loading = false,
     this.error = false,
     this.minHeight = 420,
+    this.onRetry,
   });
 
   const _ResultDetailState.noResult()
@@ -159,7 +205,8 @@ class _ResultDetailState extends StatelessWidget {
         icon = Icons.hourglass_empty,
         loading = false,
         error = false,
-        minHeight = 420;
+        minHeight = 420,
+        onRetry = null;
 
   factory _ResultDetailState.loading(String title) {
     return _ResultDetailState(
@@ -169,11 +216,17 @@ class _ResultDetailState extends StatelessWidget {
     );
   }
 
-  factory _ResultDetailState.error(String title) {
+  factory _ResultDetailState.error({
+    required String title,
+    required String message,
+    required VoidCallback onRetry,
+  }) {
     return _ResultDetailState(
       title: title,
+      subtitle: message,
       icon: Icons.error_outline,
       error: true,
+      onRetry: onRetry,
     );
   }
 
@@ -199,6 +252,7 @@ class _ResultDetailState extends StatelessWidget {
   final bool loading;
   final bool error;
   final double minHeight;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -257,9 +311,51 @@ class _ResultDetailState extends StatelessWidget {
                     ),
               ),
             ],
+            if (onRetry != null) ...[
+              const SizedBox(height: 22),
+              OutlinedButton(
+                onPressed: onRetry,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      AppTheme.primaryOutlineText(colorScheme.primary),
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  side: BorderSide(
+                    color: AppTheme.primaryOutlineBorder(colorScheme.primary),
+                  ),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                ).copyWith(
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                ),
+                child: Text(l10n.commonRetry),
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ResultDrawDate extends StatelessWidget {
+  const _ResultDrawDate({required this.drawDate});
+
+  final String drawDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      context.l10n.resultDrawDate(drawDate),
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: const Color(0xFF20385F),
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            height: 1.3,
+          ),
     );
   }
 }
@@ -324,8 +420,10 @@ String _resultDrawDateText(BuildContext context, RewardResultGame result) {
 
 String _resultDetailHeroTitle(
   BuildContext context,
-  RewardResultBundle? bundle,
-) {
+  RewardResultBundle? bundle, {
+  required bool legacyDatedHeader,
+}) {
+  if (!legacyDatedHeader) return context.l10n.resultTitle;
   final selected = bundle?.selectedResult;
   if (selected == null) return context.l10n.resultTitle;
   final drawDate = _resultDrawDateText(context, selected);

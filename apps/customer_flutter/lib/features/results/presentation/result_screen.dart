@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/result_repository.dart';
@@ -11,32 +13,59 @@ import 'result_visual_tokens.dart';
 import 'result_widgets.dart';
 
 class ResultScreen extends ConsumerWidget {
-  const ResultScreen({super.key});
+  const ResultScreen({
+    super.key,
+    this.routePath = '/result',
+  });
+
+  final String routePath;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final result = ref.watch(currentResultProvider);
     final l10n = context.l10n;
+    final indexPath = resultIndexPathFor(routePath);
+    final resultProvider =
+        indexPath == '/results' ? legacyResultProvider : currentResultProvider;
+    listenForCustomerOperationalError<RewardResultBundle>(
+      ref: ref,
+      context: context,
+      provider: resultProvider,
+    );
+    final result = ref.watch(resultProvider);
+    final hasFeaturedResult = result.valueOrNull?.selectedResult != null;
+    final heroHeight =
+        hasFeaturedResult && MediaQuery.sizeOf(context).width <= 520
+            ? 570.0
+            : 386.0;
 
     return AppShell(
       title: l10n.resultTitle,
-      currentPath: '/result',
+      currentPath: indexPath,
       showBottomNavigation: false,
       fullScreen: true,
       child: Stack(
         children: [
           Positioned.fill(
-            child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(currentResultProvider),
-              child: ListView(
+            child: CustomerFixedHeaderLayout(
+              headerKey: const ValueKey('result-fixed-header'),
+              contentRegionKey: const ValueKey('result-content-region'),
+              headerHeight: heroHeight,
+              contentTopRadius: 12,
+              contentBackdropColor: resultHeroPrimary(context),
+              header: _ResultIndexHero(
+                result: result,
+                indexPath: indexPath,
+                onRetry: () => ref.invalidate(resultProvider),
+              ),
+              content: ListView(
+                key: const ValueKey('result-content-scroll'),
                 padding: EdgeInsets.zero,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  _ResultIndexHero(
+                  _ResultsHistorySheet(
                     result: result,
-                    onRetry: () => ref.invalidate(currentResultProvider),
+                    indexPath: indexPath,
                   ),
-                  _ResultsHistorySheet(result: result),
                 ],
               ),
             ),
@@ -56,22 +85,25 @@ class ResultScreen extends ConsumerWidget {
 class _ResultIndexHero extends StatelessWidget {
   const _ResultIndexHero({
     required this.result,
+    required this.indexPath,
     required this.onRetry,
   });
 
   final AsyncValue<RewardResultBundle> result;
+  final String indexPath;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    final topPadding = topInset + 14 < 58 ? 58.0 : topInset + 14;
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 386),
       child: CustomerBlueHeroBackdrop(
-        primary: resultNuxtHeroPrimary,
-        secondary: resultNuxtHeroSecondary,
+        primary: resultHeroPrimary(context),
+        secondary: resultHeroSecondary(context),
         child: CustomerPageBody(
-          top: topInset + 58,
+          top: topPadding,
           bottom: 24,
           mobileHorizontal: 20,
           wideHorizontal: 24,
@@ -84,6 +116,7 @@ class _ResultIndexHero extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     Positioned(
+                      top: 2,
                       left: -16,
                       child: IconButton(
                         tooltip: context.l10n.commonBack,
@@ -105,23 +138,30 @@ class _ResultIndexHero extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      context.l10n.resultTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: resultNuxtSurface,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            height: 1.12,
-                          ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 54),
+                      child: Text(
+                        context.l10n.resultTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: resultNuxtSurface,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              height: 1.12,
+                            ),
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              _ResultHeroContent(result: result, onRetry: onRetry),
+              _ResultHeroContent(
+                result: result,
+                indexPath: indexPath,
+                onRetry: onRetry,
+              ),
             ],
           ),
         ),
@@ -133,10 +173,12 @@ class _ResultIndexHero extends StatelessWidget {
 class _ResultHeroContent extends StatelessWidget {
   const _ResultHeroContent({
     required this.result,
+    required this.indexPath,
     required this.onRetry,
   });
 
   final AsyncValue<RewardResultBundle> result;
+  final String indexPath;
   final VoidCallback onRetry;
 
   @override
@@ -154,19 +196,20 @@ class _ResultHeroContent extends StatelessWidget {
           }
           return ResultSummaryCard(
             result: selected,
-            featured: true,
-            link: selected.id.isEmpty
-                ? '/result/full'
-                : '/result/full?game_id=${selected.id}',
+            variant: ResultSummaryCardVariant.featured,
+            link: resultFullPathFor(indexPath, selected.id),
           );
         },
         loading: () => _ResultInlineState(
           loading: true,
           title: context.l10n.resultLoading,
         ),
-        error: (_, __) => _ResultInlineState(
+        error: (error, __) => _ResultInlineState(
           icon: Icons.error_outline,
-          title: context.l10n.commonLoadFailed,
+          title: customerErrorMessage(
+            error,
+            context.l10n.commonLoadFailed,
+          ),
           error: true,
           onRetry: onRetry,
         ),
@@ -176,9 +219,13 @@ class _ResultHeroContent extends StatelessWidget {
 }
 
 class _ResultsHistorySheet extends StatelessWidget {
-  const _ResultsHistorySheet({required this.result});
+  const _ResultsHistorySheet({
+    required this.result,
+    required this.indexPath,
+  });
 
   final AsyncValue<RewardResultBundle> result;
+  final String indexPath;
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +264,8 @@ class _ResultsHistorySheet extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 24),
                             child: ResultSummaryCard(
                               result: item,
-                              link: '/result/full?game_id=${item.id}',
+                              variant: ResultSummaryCardVariant.history,
+                              link: resultFullPathFor(indexPath, item.id),
                             ),
                           ),
                     ],
@@ -231,12 +279,17 @@ class _ResultsHistorySheet extends StatelessWidget {
                     _ResultMutedMessage(message: context.l10n.resultLoading),
                   ],
                 ),
-                error: (_, __) => Column(
+                error: (error, __) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _ResultHistoryTitle(label: context.l10n.resultHistoryTitle),
                     const SizedBox(height: 24),
-                    _ResultMutedMessage(message: context.l10n.commonLoadFailed),
+                    _ResultMutedMessage(
+                      message: customerErrorMessage(
+                        error,
+                        context.l10n.commonLoadFailed,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -246,6 +299,18 @@ class _ResultsHistorySheet extends StatelessWidget {
       ),
     );
   }
+}
+
+String resultIndexPathFor(String routePath) {
+  return routePath.startsWith('/results') ? '/results' : '/result';
+}
+
+String resultFullPathFor(String indexPath, String? gameId) {
+  final normalizedIndex = resultIndexPathFor(indexPath);
+  final path = normalizedIndex == '/results' ? '/results/full' : '/result/full';
+  final id = gameId?.trim() ?? '';
+  if (normalizedIndex == '/results' || id.isEmpty) return path;
+  return Uri(path: path, queryParameters: {'game_id': id}).toString();
 }
 
 class _ResultHistoryTitle extends StatelessWidget {
@@ -372,7 +437,7 @@ class _ResultRetryPill extends StatelessWidget {
         onTap: onPressed,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            border: Border.all(color: resultNuxtOutlineBorder),
+            border: Border.all(color: resultOutlineBorder(context)),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Padding(
@@ -380,7 +445,7 @@ class _ResultRetryPill extends StatelessWidget {
             child: Text(
               context.l10n.commonRetry,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: resultNuxtOutlineText,
+                    color: resultOutlineText(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     height: 1.15,

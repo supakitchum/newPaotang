@@ -33,18 +33,21 @@ class _CustomerRealtimeMonitorState
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
   final Set<String> _presenceMemberIds = {};
+  final CustomerRealtimeSubscriptionTracker _subscriptionTracker =
+      CustomerRealtimeSubscriptionTracker();
+  Future<void> _syncQueue = Future<void>.value();
   String _signature = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
   void didUpdateWidget(covariant CustomerRealtimeMonitor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
@@ -58,13 +61,21 @@ class _CustomerRealtimeMonitorState
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MobileBootstrap>>(
       mobileBootstrapProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     ref.listen<AuthController>(
       authControllerProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     return widget.child;
+  }
+
+  void _scheduleSync() {
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _sync();
+    });
   }
 
   Future<void> _sync() async {
@@ -101,6 +112,8 @@ class _CustomerRealtimeMonitorState
     }
 
     await _stop();
+    if (!mounted) return;
+    _subscriptionTracker.updateChannels(channels);
     _signature = signature;
     final client =
         ref.read(customerRealtimeClientFactoryProvider)(bootstrap.realtime);
@@ -116,6 +129,7 @@ class _CustomerRealtimeMonitorState
     await _client?.dispose();
     _client = null;
     _presenceMemberIds.clear();
+    _subscriptionTracker.clear();
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
@@ -138,7 +152,14 @@ class _CustomerRealtimeMonitorState
     }
 
     if (event.name == 'pusher_internal:subscription_succeeded') {
-      _syncPresenceCount(event.payload);
+      final reconnected = _subscriptionTracker.register(event);
+      final channel = event.channel.trim();
+      if (channel.endsWith('.customers')) {
+        _syncPresenceCount(event.payload);
+      }
+      if (reconnected && channel.endsWith('.site-config')) {
+        ref.invalidate(mobileBootstrapProvider);
+      }
     }
   }
 

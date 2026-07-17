@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_repository.dart';
 import 'auth_token_store.dart';
 import '../security/biometric_auth_service.dart';
+import '../utils/api_errors.dart';
 
 final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
   return AuthController(
@@ -11,6 +12,10 @@ final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
     tokenStore: ref.watch(authTokenStoreProvider),
     biometricAuth: ref.watch(biometricAuthServiceProvider),
   );
+});
+
+final authSessionStartupProvider = FutureProvider<void>((ref) async {
+  await ref.read(authControllerProvider).restoreSession();
 });
 
 class AuthController extends ChangeNotifier {
@@ -21,7 +26,7 @@ class AuthController extends ChangeNotifier {
   })  : _authRepository = authRepository,
         _tokenStore = tokenStore,
         _biometricAuth = biometricAuth {
-    isAuthenticated = _tokenStore.hasAccessToken;
+    isAuthenticated = _tokenStore.hasSessionCredential;
     pinRequired = isAuthenticated;
   }
 
@@ -33,6 +38,68 @@ class AuthController extends ChangeNotifier {
   bool pinRequired = false;
   bool pinSetupRequired = false;
   bool isSecurityLocked = false;
+  String preferredLocale = '';
+  String startupRedirectPath = '';
+  Future<void>? _sessionRestoreInFlight;
+
+  Future<void> restoreSession() {
+    final pending = _sessionRestoreInFlight;
+    if (pending != null) return pending;
+    final future = _restoreSessionNow();
+    _sessionRestoreInFlight = future;
+    return future;
+  }
+
+  Future<void> _restoreSessionNow() async {
+    if (!_tokenStore.hasSessionCredential) {
+      return;
+    }
+
+    try {
+      if (!_tokenStore.hasAccessToken) {
+        final session = await _authRepository.refresh();
+        isAuthenticated = session.accessToken.isNotEmpty;
+        pinRequired = isAuthenticated;
+        pinSetupRequired = session.pinSetupRequired;
+        preferredLocale = session.preferredLocale;
+      }
+
+      final identity = await _authRepository.currentIdentity();
+      isAuthenticated = _tokenStore.hasAccessToken;
+      pinSetupRequired = identity.pinSetupRequired || !identity.hasPin;
+      // Nuxt keeps the PIN unlock in sessionStorage. A fresh Flutter process
+      // likewise starts locked even if the backend session was PIN-verified.
+      pinRequired = isAuthenticated;
+      preferredLocale = identity.preferredLocale;
+      startupRedirectPath = '';
+      notifyListeners();
+    } catch (error) {
+      final info = ApiErrorInfo.fromObject(error);
+      if (info.isAuthenticationExpired || info.isCustomerSuspended) {
+        await _authRepository.clearLocalSession();
+        _setGuestSession(
+          redirectPath:
+              info.isCustomerSuspended ? info.customerSuspendedPath : '',
+        );
+        return;
+      }
+
+      // Network and server failures must not discard a refreshable session.
+      isAuthenticated = _tokenStore.hasSessionCredential;
+      pinRequired = isAuthenticated;
+      notifyListeners();
+    }
+  }
+
+  void _setGuestSession({String redirectPath = ''}) {
+    isAuthenticated = false;
+    pinRequired = false;
+    pinSetupRequired = false;
+    isSecurityLocked = false;
+    preferredLocale = '';
+    startupRedirectPath = redirectPath;
+    notifyListeners();
+  }
 
   Future<void> loginWithPassword(String username, String password) async {
     final session = await _authRepository.login(
@@ -42,6 +109,8 @@ class AuthController extends ChangeNotifier {
     isAuthenticated = session.accessToken.isNotEmpty;
     pinRequired = session.pinRequired;
     pinSetupRequired = session.pinSetupRequired;
+    preferredLocale = session.preferredLocale;
+    startupRedirectPath = '';
     notifyListeners();
   }
 
@@ -64,6 +133,8 @@ class AuthController extends ChangeNotifier {
     isAuthenticated = session.accessToken.isNotEmpty;
     pinRequired = session.pinRequired;
     pinSetupRequired = session.pinSetupRequired;
+    preferredLocale = session.preferredLocale;
+    startupRedirectPath = '';
     notifyListeners();
   }
 
@@ -72,6 +143,8 @@ class AuthController extends ChangeNotifier {
     pinRequired = session.pinRequired;
     pinSetupRequired = session.pinSetupRequired;
     isSecurityLocked = false;
+    preferredLocale = session.preferredLocale;
+    startupRedirectPath = '';
     notifyListeners();
   }
 
@@ -82,18 +155,16 @@ class AuthController extends ChangeNotifier {
       // Local logout must still succeed when the server rejects an expired
       // token or the network is unavailable.
     } finally {
-      isAuthenticated = false;
-      pinRequired = false;
-      pinSetupRequired = false;
-      isSecurityLocked = false;
-      notifyListeners();
+      _setGuestSession();
     }
   }
 
   Future<void> verifyPin(String pin) async {
-    await _authRepository.verifyPin(pin);
-    pinRequired = false;
-    pinSetupRequired = false;
+    final status = await _authRepository.verifyPin(pin);
+    isAuthenticated = isAuthenticated || _tokenStore.hasAccessToken;
+    pinRequired = status.pinRequired;
+    pinSetupRequired = status.pinSetupRequired;
+    isSecurityLocked = false;
     notifyListeners();
   }
 

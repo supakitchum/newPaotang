@@ -34,6 +34,35 @@ void main() {
     expect(issues, isEmpty);
   });
 
+  test('store release branding gate rejects a missing hash manifest', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_release_branding_preflight_',
+    );
+    try {
+      final issues = runCustomerFlutterProductionPreflight(
+        ProductionPreflightInput(
+          target: CustomerFlutterTarget.web,
+          production: true,
+          checkFiles: false,
+          androidRequireSigning: false,
+          projectRoot: root.path,
+          apiBaseUrl: '/api/v1',
+          appDisplayName: 'Partner Lottery',
+          webShortName: 'Partner',
+          webDescription: 'Partner digital lottery customer portal.',
+          requireReleaseBranding: true,
+        ),
+      );
+
+      expect(
+        issues.map((issue) => issue.code),
+        contains('release_branding_invalid'),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
+  });
+
   test('production preflight rejects default display names', () {
     final issues = runCustomerFlutterProductionPreflight(
       const ProductionPreflightInput(
@@ -57,6 +86,45 @@ void main() {
       issues.map((issue) => issue.code),
       contains('app_display_name_not_partner_specific'),
     );
+  });
+
+  test('production preflight requires runtime customer theme binding', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_identity_preflight_',
+    );
+    try {
+      _writeFile(
+        root,
+        'lib/core/theme/app_theme.dart',
+        File('lib/core/theme/app_theme.dart').readAsStringSync(),
+      );
+      final appSource = File(
+        'lib/app/customer_app.dart',
+      ).readAsStringSync().replaceFirst('useRuntimeBrandColors: true', '');
+      _writeFile(root, 'lib/app/customer_app.dart', appSource);
+
+      final issues = runCustomerFlutterProductionPreflight(
+        ProductionPreflightInput(
+          target: CustomerFlutterTarget.web,
+          production: true,
+          checkFiles: true,
+          androidRequireSigning: false,
+          projectRoot: root.path,
+          apiBaseUrl: '/api/v1',
+          appDisplayName: 'Partner Lottery',
+          webAppName: 'Partner Lottery',
+          webShortName: 'Partner',
+          webDescription: 'Partner digital lottery customer portal.',
+        ),
+      );
+
+      expect(
+        issues.map((issue) => issue.code),
+        contains('flutter_runtime_theme_binding_missing'),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
   });
 
   test('store submission preflight can require listing metadata URLs', () {
@@ -183,9 +251,7 @@ void main() {
   });
 
   test('production preflight validates deep-link association artifacts', () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_links_',
-    );
+    final root = Directory.systemTemp.createTempSync('customer_flutter_links_');
     try {
       _writeFile(
         root,
@@ -279,36 +345,7 @@ void main() {
 
       expect(
         issues.map((issue) => issue.code),
-        containsAll({
-          'android_assetlinks_missing',
-          'ios_aasa_missing',
-        }),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
-
-  test('production preflight requires privacy and account deletion surfaces',
-      () {
-    final root = Directory.systemTemp.createTempSync('customer_preflight_');
-    try {
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.web,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: '/api/v1',
-          appDisplayName: 'Partner Lottery',
-          socialAuthProviders: const ['line'],
-        ),
-      );
-
-      expect(
-        issues.map((issue) => issue.code),
-        contains('store_account_readiness_missing'),
+        containsAll({'android_assetlinks_missing', 'ios_aasa_missing'}),
       );
     } finally {
       root.deleteSync(recursive: true);
@@ -316,61 +353,81 @@ void main() {
   });
 
   test(
-      'production preflight requires store account surfaces without social login',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_preflight_store_required_',
-    );
-    try {
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.android,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          androidPackage: 'com.partner.customer',
-          androidCallbackScheme: 'partnerlottery',
-          androidCallbackHost: 'partner.example.com',
-        ),
-      );
+    'production preflight requires privacy and account deletion surfaces',
+    () {
+      final root = Directory.systemTemp.createTempSync('customer_preflight_');
+      try {
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: '/api/v1',
+            appDisplayName: 'Partner Lottery',
+            socialAuthProviders: const ['line'],
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('store_account_readiness_missing'),
+        expect(
+          issues.map((issue) => issue.code),
+          contains('store_account_readiness_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'production preflight requires store account surfaces without social login',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_preflight_store_required_',
       );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+      try {
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: '/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
+
+        expect(
+          issues.map((issue) => issue.code),
+          contains('store_account_readiness_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight requires runtime legal config binding', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_preflight_legal_runtime_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/app/customer_routes.dart',
-        '''
+      _writeFile(root, 'lib/app/customer_routes.dart', '''
 const routes = [
   (path: '/privacy'),
   (path: '/profile/account-deletion'),
 ];
-''',
-      );
-      _writeFile(
-        root,
-        'lib/app/router.dart',
-        '''
+''');
+      _writeFile(root, 'lib/app/router.dart', '''
 final routes = [
   GoRoute(path: '/privacy', builder: PrivacyPolicyScreen.new),
   GoRoute(path: '/profile/account-deletion', builder: AccountDeletionScreen.new),
 ];
-''',
-      );
+''');
       _writeFile(
         root,
         'lib/features/profile/presentation/profile_screen.dart',
@@ -418,57 +475,51 @@ final menu = [
     }
   });
 
-  test('ios release guard script rejects missing or default release settings',
-      () async {
-    final script = 'ios/scripts/validate_release_config.sh';
+  test(
+    'ios release guard script rejects missing or default release settings',
+    () async {
+      final script = 'ios/scripts/validate_release_config.sh';
 
-    final debug = await Process.run(
-      'sh',
-      [
-        script,
-      ],
-      environment: {
-        'CONFIGURATION': 'Debug',
-      },
-    );
-    expect(debug.exitCode, 0);
+      final debug = await Process.run(
+        'sh',
+        [script],
+        environment: {'CONFIGURATION': 'Debug'},
+      );
+      expect(debug.exitCode, 0);
 
-    final bad = await Process.run(
-      'sh',
-      [
-        script,
-      ],
-      environment: {
-        'CONFIGURATION': 'Release',
-        'APP_DISPLAY_NAME': 'NewPaotang',
-        'CUSTOMER_FLUTTER_URL_SCHEME': 'newpaotang',
-        'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN': 'applinks:localhost',
-        'PRODUCT_BUNDLE_IDENTIFIER': 'com.newpaotang.customerFlutter',
-        'DEVELOPMENT_TEAM': 'ABCDE12345',
-      },
-    );
-    expect(bad.exitCode, isNot(0));
-    expect(bad.stderr.toString(), contains('APP_DISPLAY_NAME'));
-    expect(bad.stderr.toString(), contains('CUSTOMER_FLUTTER_URL_SCHEME'));
-    expect(bad.stderr.toString(), contains('production domain'));
-    expect(bad.stderr.toString(), contains('partner-specific'));
+      final bad = await Process.run(
+        'sh',
+        [script],
+        environment: {
+          'CONFIGURATION': 'Release',
+          'APP_DISPLAY_NAME': 'NewPaotang',
+          'CUSTOMER_FLUTTER_URL_SCHEME': 'newpaotang',
+          'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN': 'applinks:localhost',
+          'PRODUCT_BUNDLE_IDENTIFIER': 'com.newpaotang.customerFlutter',
+          'DEVELOPMENT_TEAM': 'ABCDE12345',
+        },
+      );
+      expect(bad.exitCode, isNot(0));
+      expect(bad.stderr.toString(), contains('APP_DISPLAY_NAME'));
+      expect(bad.stderr.toString(), contains('CUSTOMER_FLUTTER_URL_SCHEME'));
+      expect(bad.stderr.toString(), contains('production domain'));
+      expect(bad.stderr.toString(), contains('partner-specific'));
 
-    final good = await Process.run(
-      'sh',
-      [
-        script,
-      ],
-      environment: {
-        'CONFIGURATION': 'Release',
-        'APP_DISPLAY_NAME': 'Partner Lottery',
-        'CUSTOMER_FLUTTER_URL_SCHEME': 'partnerlottery',
-        'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN': 'applinks:partner.example.com',
-        'PRODUCT_BUNDLE_IDENTIFIER': 'com.partner.customer',
-        'DEVELOPMENT_TEAM': 'ABCDE12345',
-      },
-    );
-    expect(good.exitCode, 0);
-  });
+      final good = await Process.run(
+        'sh',
+        [script],
+        environment: {
+          'CONFIGURATION': 'Release',
+          'APP_DISPLAY_NAME': 'Partner Lottery',
+          'CUSTOMER_FLUTTER_URL_SCHEME': 'partnerlottery',
+          'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN': 'applinks:partner.example.com',
+          'PRODUCT_BUNDLE_IDENTIFIER': 'com.partner.customer',
+          'DEVELOPMENT_TEAM': 'ABCDE12345',
+        },
+      );
+      expect(good.exitCode, 0);
+    },
+  );
 
   test('production preflight rejects missing native security hooks', () {
     final root = Directory.systemTemp.createTempSync(
@@ -480,16 +531,8 @@ final menu = [
         'android/app/src/main/kotlin/com/example/MainActivity.kt',
         'class MainActivity',
       );
-      _writeFile(
-        root,
-        'ios/Runner/Info.plist',
-        '<plist><dict></dict></plist>',
-      );
-      _writeFile(
-        root,
-        'ios/Runner/AppDelegate.swift',
-        'class AppDelegate',
-      );
+      _writeFile(root, 'ios/Runner/Info.plist', '<plist><dict></dict></plist>');
+      _writeFile(root, 'ios/Runner/AppDelegate.swift', 'class AppDelegate');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -544,10 +587,7 @@ final menu = [
       'customer_flutter_preflight_flutter_biometric_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/core/security/biometric_auth_service.dart',
-        '''
+      _writeFile(root, 'lib/core/security/biometric_auth_service.dart', '''
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -566,8 +606,7 @@ class BiometricAuthService {
     return signature;
   }
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -602,16 +641,13 @@ class BiometricAuthService {
   });
 
   test(
-      'production preflight rejects missing Flutter social callback wrapper parsing',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_social_callback_',
-    );
-    try {
-      _writeFile(
-        root,
-        'lib/core/auth/auth_repository.dart',
-        '''
+    'production preflight rejects missing Flutter social callback wrapper parsing',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_social_callback_',
+      );
+      try {
+        _writeFile(root, 'lib/core/auth/auth_repository.dart', '''
 class AuthRepository {
   Future<void> socialCallback({
     required Map<String, dynamic> query,
@@ -620,56 +656,94 @@ class AuthRepository {
     await Future<void>.value(normalizedQuery);
   }
 }
-''',
-      );
-      _writeFile(
-        root,
-        'lib/features/auth/presentation/line_auth_screens.dart',
-        '''
+''');
+        _writeFile(
+          root,
+          'lib/features/auth/presentation/line_auth_screens.dart',
+          '''
 Map<String, String> normalizedSocialCallbackQuery(
   Map<String, String> query,
 ) {
   return Map<String, String>.from(query);
 }
 ''',
-      );
+        );
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.web,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          webShortName: 'Partner',
-          webDescription: 'Partner digital lottery customer portal.',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('flutter_social_callback_wrapper_binding_missing'),
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_social_callback_wrapper_binding_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'production preflight rejects missing social callback fragment route binding',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_social_fragment_',
       );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+      try {
+        _writeFile(root, 'lib/core/navigation/customer_deep_link.dart', '''
+Map<String, String> customerAuthRouteParameters(Uri uri) {
+  return uri.queryParameters;
+}
+''');
+        _writeFile(root, 'lib/app/router.dart', '''
+Map<String, String> callbackParameters(Uri uri) {
+  return uri.queryParameters;
+}
+''');
+
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
+
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_social_callback_fragment_route_binding_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight requires auth OTP reset/register aliases', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_auth_otp_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/core/auth/auth_repository.dart',
-        '''
+      _writeFile(root, 'lib/core/auth/auth_repository.dart', '''
 class OtpRequestResult {}
 class OtpVerifyResult {}
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -694,49 +768,25 @@ class OtpVerifyResult {}
     }
   });
 
-  test('production preflight requires runtime social provider color binding',
-      () {
+  test('production preflight requires tenant-scoped auth storage wiring', () {
     final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_social_colors_',
+      'customer_flutter_preflight_tenant_auth_storage_',
     );
     try {
       _writeFile(
         root,
-        'lib/core/tenant/mobile_bootstrap_controller.dart',
-        '''
-class SocialAuthProvider {
-  const SocialAuthProvider({required this.provider});
-  final String provider;
+        'lib/main.dart',
+        'final authTokenStore = AuthTokenStore();',
+      );
+      _writeFile(root, 'lib/core/auth/auth_token_store.dart', '''
+class AuthTokenStore {
+  final accessKey = 'customer_access_token';
 }
-''',
-      );
+''');
       _writeFile(
         root,
-        'lib/features/auth/presentation/login_screen.dart',
-        '''
-const lineGreen = Color(0xFF06C755);
-''',
-      );
-      _writeFile(
-        root,
-        'lib/features/auth/presentation/forgot_password_screen.dart',
-        '''
-final buttonColor = Color(0xFF00C300);
-''',
-      );
-      _writeFile(
-        root,
-        'lib/features/auth/presentation/line_auth_screens.dart',
-        '''
-Color providerColor(String provider) => const Color(0xFF4285F4);
-''',
-      );
-      _writeFile(
-        root,
-        'lib/features/profile/presentation/line_notifications_screen.dart',
-        '''
-final accent = Color(0xFF06C755);
-''',
+        'lib/core/tenant/customer_tenant_host.dart',
+        'String normalizeCustomerTenantHost(String value) => value;',
       );
 
       final issues = runCustomerFlutterProductionPreflight(
@@ -755,22 +805,81 @@ final accent = Color(0xFF06C755);
 
       expect(
         issues.map((issue) => issue.code),
-        contains('flutter_social_provider_runtime_color_binding_missing'),
+        contains('flutter_tenant_scoped_auth_storage_missing'),
       );
     } finally {
       root.deleteSync(recursive: true);
     }
   });
 
+  test(
+    'production preflight requires runtime social provider color binding',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_social_colors_',
+      );
+      try {
+        _writeFile(root, 'lib/core/tenant/mobile_bootstrap_controller.dart', '''
+class SocialAuthProvider {
+  const SocialAuthProvider({required this.provider});
+  final String provider;
+}
+''');
+        _writeFile(root, 'lib/features/auth/presentation/login_screen.dart', '''
+const lineGreen = Color(0xFF06C755);
+''');
+        _writeFile(
+          root,
+          'lib/features/auth/presentation/forgot_password_screen.dart',
+          '''
+final buttonColor = Color(0xFF00C300);
+''',
+        );
+        _writeFile(
+          root,
+          'lib/features/auth/presentation/line_auth_screens.dart',
+          '''
+Color providerColor(String provider) => const Color(0xFF4285F4);
+''',
+        );
+        _writeFile(
+          root,
+          'lib/features/profile/presentation/line_notifications_screen.dart',
+          '''
+final accent = Color(0xFF06C755);
+''',
+        );
+
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
+
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_social_provider_runtime_color_binding_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
+
   test('production preflight requires realtime bridge/outbox aliases', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_realtime_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/core/realtime/customer_realtime_protocol.dart',
-        '''
+      _writeFile(root, 'lib/core/realtime/customer_realtime_protocol.dart', '''
 Map<String, dynamic> normalizeRealtimePayload(Map<String, dynamic> payload) {
   return payload;
 }
@@ -783,8 +892,7 @@ String normalizeRealtimeEventNameWithPayload({
 }
 
 const _realtimePayloadWrapperKeys = ['data', 'payload'];
-''',
-      );
+''');
       _writeFile(
         root,
         'lib/features/topup/presentation/topup_realtime_monitor.dart',
@@ -821,16 +929,17 @@ bool shouldRefreshTopupsFromRealtimeEvent(event) {
     }
   });
 
-  test('production preflight requires realtime object-scalar event aliases',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_realtime_scalar_',
-    );
-    try {
-      _writeFile(
-        root,
-        'lib/core/realtime/customer_realtime_protocol.dart',
-        '''
+  test(
+    'production preflight requires realtime object-scalar event aliases',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_realtime_scalar_',
+      );
+      try {
+        _writeFile(
+          root,
+          'lib/core/realtime/customer_realtime_protocol.dart',
+          '''
 Map<String, dynamic> normalizeRealtimePayload(Map<String, dynamic> payload) {
   return payload;
 }
@@ -869,40 +978,38 @@ const _realtimePayloadWrapperKeys = [
 ];
 const _isCanonicalRealtimeEvent = true;
 ''',
-      );
+        );
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.web,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          webShortName: 'Partner',
-          webDescription: 'Partner digital lottery customer portal.',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('flutter_realtime_protocol_alias_binding_missing'),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_realtime_protocol_alias_binding_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight requires realtime socket URL normalization', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_realtime_socket_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/core/realtime/customer_realtime_protocol.dart',
-        r'''
+      _writeFile(root, 'lib/core/realtime/customer_realtime_protocol.dart', r'''
 Uri buildRealtimeSocketUri({
   required String baseUrl,
   required String key,
@@ -950,8 +1057,7 @@ const _realtimePayloadWrapperKeys = [
 String _realtimeEventScalarText(Object? value) => '';
 const _realtimeScalarWrapperKeys = ['value', 'code', 'key'];
 bool _isCanonicalRealtimeEvent(String eventName) => false;
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -976,16 +1082,14 @@ bool _isCanonicalRealtimeEvent(String eventName) => false;
     }
   });
 
-  test('production preflight rejects Android security reports without callback',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_android_security_',
-    );
-    try {
-      _writeFile(
-        root,
-        'android/app/src/main/AndroidManifest.xml',
-        r'''
+  test(
+    'production preflight rejects Android security reports without callback',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_android_security_',
+      );
+      try {
+        _writeFile(root, 'android/app/src/main/AndroidManifest.xml', r'''
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <application android:label="${appLabel}">
@@ -1002,12 +1106,8 @@ bool _isCanonicalRealtimeEvent(String eventName) => false;
     </activity>
   </application>
 </manifest>
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/build.gradle.kts',
-        '''
+''');
+        _writeFile(root, 'android/app/build.gradle.kts', '''
 val appId = providers.gradleProperty("CUSTOMER_FLUTTER_APPLICATION_ID")
 val appLabel = providers.gradleProperty("CUSTOMER_FLUTTER_APP_LABEL")
 val scheme = providers.gradleProperty("CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME")
@@ -1020,12 +1120,11 @@ android {
     manifestPlaceholders["authCallbackHost"] = host.get()
   }
 }
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/src/main/kotlin/com/example/MainActivity.kt',
-        '''
+''');
+        _writeFile(
+          root,
+          'android/app/src/main/kotlin/com/example/MainActivity.kt',
+          '''
 class MainActivity {
   val flag = "WindowManager.LayoutParams.FLAG_SECURE"
   fun marker() = "override fun onCreate"
@@ -1052,41 +1151,39 @@ class MainActivity {
   val boolAliases = "enabled active allowed supported disabled blocked unsupported not_allowed"
 }
 ''',
-      );
+        );
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.android,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          androidPackage: 'com.partner.customer',
-          androidCallbackScheme: 'partnerlottery',
-          androidCallbackHost: 'partner.example.com',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.android,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            androidPackage: 'com.partner.customer',
+            androidCallbackScheme: 'partnerlottery',
+            androidCallbackHost: 'partner.example.com',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('android_screen_security_event_callback_missing'),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          contains('android_screen_security_event_callback_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight rejects missing Flutter security audit hooks', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_audit_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/core/security/screen_security_service.dart',
-        '''
+      _writeFile(root, 'lib/core/security/screen_security_service.dart', '''
 import 'dart:async';
 import 'package:flutter/services.dart';
 
@@ -1106,12 +1203,8 @@ class ScreenSecurityService {
   final _events = StreamController<ScreenSecurityEvent>.broadcast();
   Stream<ScreenSecurityEvent> get events => _events.stream;
 }
-''',
-      );
-      _writeFile(
-        root,
-        'lib/shared/widgets/sensitive_screen_guard.dart',
-        '''
+''');
+      _writeFile(root, 'lib/shared/widgets/sensitive_screen_guard.dart', '''
 class SensitiveScreenGuard {
   void bind(ScreenSecurityService service, AuthController auth) {
     service.events.listen((event) {
@@ -1120,8 +1213,7 @@ class SensitiveScreenGuard {
     });
   }
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -1151,16 +1243,14 @@ class SensitiveScreenGuard {
     }
   });
 
-  test('production preflight requires normalized screen-security audit routes',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_audit_route_',
-    );
-    try {
-      _writeFile(
-        root,
-        'lib/core/security/screen_security_service.dart',
-        '''
+  test(
+    'production preflight requires normalized screen-security audit routes',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_audit_route_',
+      );
+      try {
+        _writeFile(root, 'lib/core/security/screen_security_service.dart', '''
 import 'dart:async';
 import 'package:flutter/services.dart';
 
@@ -1189,12 +1279,8 @@ class ScreenSecurityService {
   final _events = StreamController<ScreenSecurityEvent>.broadcast();
   Stream<ScreenSecurityEvent> get events => _events.stream;
 }
-''',
-      );
-      _writeFile(
-        root,
-        'lib/shared/widgets/sensitive_screen_guard.dart',
-        '''
+''');
+        _writeFile(root, 'lib/shared/widgets/sensitive_screen_guard.dart', '''
 class SensitiveScreenGuard {
   void bind(ScreenSecurityService service, AuthController auth) {
     service.events.listen((event) {
@@ -1204,65 +1290,62 @@ class SensitiveScreenGuard {
     });
   }
 }
-''',
-      );
+''');
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.android,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          androidPackage: 'com.partner.customer',
-          androidCallbackScheme: 'partnerlottery',
-          androidCallbackHost: 'partner.example.com',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.android,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            androidPackage: 'com.partner.customer',
+            androidCallbackScheme: 'partnerlottery',
+            androidCallbackHost: 'partner.example.com',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        containsAll({
-          'flutter_route_registry_missing',
-          'flutter_screen_security_audit_binding_missing',
-          'flutter_screen_security_fragment_route_normalization_missing',
-          'flutter_screen_security_route_object_normalization_missing',
-        }),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          containsAll({
+            'flutter_route_registry_missing',
+            'flutter_screen_security_audit_binding_missing',
+            'flutter_screen_security_fragment_route_normalization_missing',
+            'flutter_screen_security_route_object_normalization_missing',
+          }),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
-  test('production preflight rejects missing Android runtime manifest config',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_android_',
-    );
-    try {
-      _writeFile(
-        root,
-        'android/app/src/main/AndroidManifest.xml',
-        '''
+  test(
+    'production preflight rejects missing Android runtime manifest config',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_android_',
+      );
+      try {
+        _writeFile(root, 'android/app/src/main/AndroidManifest.xml', '''
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET"/>
   <application android:label="Hardcoded">
     <activity android:name=".MainActivity"/>
   </application>
 </manifest>
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/build.gradle.kts',
-        'android { defaultConfig { applicationId = "com.example.app" } }',
-      );
-      _writeFile(
-        root,
-        'android/app/src/main/kotlin/com/example/MainActivity.kt',
-        '''
+''');
+        _writeFile(
+          root,
+          'android/app/build.gradle.kts',
+          'android { defaultConfig { applicationId = "com.example.app" } }',
+        );
+        _writeFile(
+          root,
+          'android/app/src/main/kotlin/com/example/MainActivity.kt',
+          '''
 class MainActivity {
   val flag = "WindowManager.LayoutParams.FLAG_SECURE"
   fun marker() = "override fun onCreate"
@@ -1289,47 +1372,45 @@ class MainActivity {
   val boolAliases = "enabled active allowed supported disabled blocked unsupported not_allowed"
 }
 ''',
-      );
+        );
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.android,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          androidPackage: 'com.partner.customer',
-          androidCallbackScheme: 'partnerlottery',
-          androidCallbackHost: 'partner.example.com',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.android,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            androidPackage: 'com.partner.customer',
+            androidCallbackScheme: 'partnerlottery',
+            androidCallbackHost: 'partner.example.com',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        containsAll({
-          'android_biometric_permission_missing',
-          'android_screen_capture_permission_missing',
-          'android_custom_scheme_callback_missing',
-          'android_app_links_missing',
-          'android_runtime_config_missing',
-        }),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          containsAll({
+            'android_biometric_permission_missing',
+            'android_screen_capture_permission_missing',
+            'android_custom_scheme_callback_missing',
+            'android_app_links_missing',
+            'android_runtime_config_missing',
+          }),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight rejects Android backup-enabled manifests', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_android_backup_',
     );
     try {
-      _writeFile(
-        root,
-        'android/app/src/main/AndroidManifest.xml',
-        r'''
+      _writeFile(root, 'android/app/src/main/AndroidManifest.xml', r'''
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <application android:label="${appLabel}">
@@ -1346,12 +1427,8 @@ class MainActivity {
     </activity>
   </application>
 </manifest>
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/build.gradle.kts',
-        '''
+''');
+      _writeFile(root, 'android/app/build.gradle.kts', '''
 val appId = providers.gradleProperty("CUSTOMER_FLUTTER_APPLICATION_ID")
 val appLabel = providers.gradleProperty("CUSTOMER_FLUTTER_APP_LABEL")
 val scheme = providers.gradleProperty("CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME")
@@ -1364,8 +1441,7 @@ android {
     manifestPlaceholders["authCallbackHost"] = host.get()
   }
 }
-''',
-      );
+''');
       _writeFile(
         root,
         'android/app/src/main/kotlin/com/example/MainActivity.kt',
@@ -1433,10 +1509,7 @@ class MainActivity {
       'customer_flutter_preflight_android_cleartext_',
     );
     try {
-      _writeFile(
-        root,
-        'android/app/src/main/AndroidManifest.xml',
-        r'''
+      _writeFile(root, 'android/app/src/main/AndroidManifest.xml', r'''
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <application
@@ -1456,17 +1529,12 @@ class MainActivity {
     </activity>
   </application>
 </manifest>
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/src/release/AndroidManifest.xml',
-        r'''
+''');
+      _writeFile(root, 'android/app/src/release/AndroidManifest.xml', r'''
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application android:usesCleartextTraffic="true"/>
 </manifest>
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -1492,16 +1560,14 @@ class MainActivity {
     }
   });
 
-  test('production preflight rejects Android biometric credential fallback',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_android_biometric_',
-    );
-    try {
-      _writeFile(
-        root,
-        'android/app/src/main/AndroidManifest.xml',
-        r'''
+  test(
+    'production preflight rejects Android biometric credential fallback',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_android_biometric_',
+      );
+      try {
+        _writeFile(root, 'android/app/src/main/AndroidManifest.xml', r'''
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <application android:label="${appLabel}">
@@ -1518,12 +1584,8 @@ class MainActivity {
     </activity>
   </application>
 </manifest>
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/build.gradle.kts',
-        '''
+''');
+        _writeFile(root, 'android/app/build.gradle.kts', '''
 val appId = providers.gradleProperty("CUSTOMER_FLUTTER_APPLICATION_ID")
 val appLabel = providers.gradleProperty("CUSTOMER_FLUTTER_APP_LABEL")
 val scheme = providers.gradleProperty("CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME")
@@ -1536,12 +1598,11 @@ android {
     manifestPlaceholders["authCallbackHost"] = host.get()
   }
 }
-''',
-      );
-      _writeFile(
-        root,
-        'android/app/src/main/kotlin/com/example/MainActivity.kt',
-        '''
+''');
+        _writeFile(
+          root,
+          'android/app/src/main/kotlin/com/example/MainActivity.kt',
+          '''
 class MainActivity {
   val flag = "WindowManager.LayoutParams.FLAG_SECURE"
   fun marker() = "override fun onCreate"
@@ -1575,41 +1636,39 @@ class MainActivity {
   val boolAliases = "enabled active allowed supported disabled blocked unsupported not_allowed"
 }
 ''',
-      );
+        );
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.android,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          androidPackage: 'com.partner.customer',
-          androidCallbackScheme: 'partnerlottery',
-          androidCallbackHost: 'partner.example.com',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.android,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            androidPackage: 'com.partner.customer',
+            androidCallbackScheme: 'partnerlottery',
+            androidCallbackHost: 'partner.example.com',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('android_biometric_device_credential_allowed'),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          contains('android_biometric_device_credential_allowed'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight rejects missing iOS runtime config', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_ios_',
     );
     try {
-      _writeFile(
-        root,
-        'ios/Runner/Info.plist',
-        '''
+      _writeFile(root, 'ios/Runner/Info.plist', '''
 <plist>
   <dict>
     <key>CFBundleDisplayName</key>
@@ -1625,22 +1684,14 @@ class MainActivity {
     <string>Use Face ID</string>
   </dict>
 </plist>
-''',
-      );
+''');
       _writeFile(root, 'ios/Flutter/Debug.xcconfig', 'APP_DISPLAY_NAME=Demo');
-      _writeFile(
-        root,
-        'ios/Flutter/Release.xcconfig',
-        '''
+      _writeFile(root, 'ios/Flutter/Release.xcconfig', '''
 APP_DISPLAY_NAME=Demo
 CUSTOMER_FLUTTER_URL_SCHEME=demo
 CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:demo.test
-''',
-      );
-      _writeFile(
-        root,
-        'ios/Runner/AppDelegate.swift',
-        '''
+''');
+      _writeFile(root, 'ios/Runner/AppDelegate.swift', '''
 class AppDelegate {
   let screen = "customer_flutter/screen_security"
   let screenshot = "UIApplication.userDidTakeScreenshotNotification"
@@ -1681,8 +1732,7 @@ class AppDelegate {
   let sign = "SecKeyCreateSignature"
   let runtimeNamespace = "Bundle.main.bundleIdentifier"
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -1723,18 +1773,14 @@ class AppDelegate {
     );
     try {
       _writeValidIosSecurityFixture(root);
-      _writeFile(
-        root,
-        'lib/features/topup/presentation/topup_screen.dart',
-        '''
+      _writeFile(root, 'lib/features/topup/presentation/topup_screen.dart', '''
 import 'package:image_picker/image_picker.dart';
 
 Future<void> pickSlip() async {
   await ImagePicker().pickImage(source: ImageSource.gallery);
   await ImagePicker().pickImage(source: ImageSource.camera);
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -1769,14 +1815,10 @@ Future<void> pickSlip() async {
       'customer_flutter_preflight_source_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/core/config/dev_leak.dart',
-        '''
+      _writeFile(root, 'lib/core/config/dev_leak.dart', '''
 const badApi = 'http://localhost:8000/api/v1';
 const badCdn = 'https://assets.example.com/file.webp';
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -1842,28 +1884,20 @@ const badCdn = 'https://assets.example.com/file.webp';
       'customer_flutter_preflight_external_link_',
     );
     try {
-      _writeFile(
-        root,
-        'lib/features/system/direct_launcher.dart',
-        '''
+      _writeFile(root, 'lib/features/system/direct_launcher.dart', '''
 import 'package:url_launcher/url_launcher.dart';
 
 Future<void> open(Uri uri) async {
   await launchUrl(uri);
 }
-''',
-      );
-      _writeFile(
-        root,
-        'lib/core/navigation/customer_link_launcher.dart',
-        '''
+''');
+      _writeFile(root, 'lib/core/navigation/customer_link_launcher.dart', '''
 import 'package:url_launcher/url_launcher.dart';
 
 Future<void> open(Uri uri) async {
   await launchUrl(uri);
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -1894,102 +1928,98 @@ Future<void> open(Uri uri) async {
     }
   });
 
-  test('production preflight scans release xcconfig but ignores debug defaults',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_xcconfig_',
-    );
-    try {
-      _writeFile(
-        root,
-        'ios/Flutter/Debug.xcconfig',
-        'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:localhost',
+  test(
+    'production preflight scans release xcconfig but ignores debug defaults',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_xcconfig_',
       );
-      _writeFile(
-        root,
-        'ios/Flutter/Release.xcconfig',
-        'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:localhost',
-      );
+      try {
+        _writeFile(
+          root,
+          'ios/Flutter/Debug.xcconfig',
+          'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:localhost',
+        );
+        _writeFile(
+          root,
+          'ios/Flutter/Release.xcconfig',
+          'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:localhost',
+        );
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.ios,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          iosTeamId: 'ABCDE12345',
-          iosBundleId: 'com.partner.customer',
-          iosUrlScheme: 'partnerlottery',
-          iosAssociatedDomain: 'applinks:partner.example.com',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.ios,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            iosTeamId: 'ABCDE12345',
+            iosBundleId: 'com.partner.customer',
+            iosUrlScheme: 'partnerlottery',
+            iosAssociatedDomain: 'applinks:partner.example.com',
+          ),
+        );
 
-      final forbidden = issues.where(
-        (issue) => issue.code == 'forbidden_production_source_reference',
-      );
-      expect(forbidden, hasLength(1));
-      expect(
-        forbidden.single.message,
-        contains('ios/Flutter/Release.xcconfig'),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        final forbidden = issues.where(
+          (issue) => issue.code == 'forbidden_production_source_reference',
+        );
+        expect(forbidden, hasLength(1));
+        expect(
+          forbidden.single.message,
+          contains('ios/Flutter/Release.xcconfig'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
-  test('production preflight rejects hardcoded iOS release branding settings',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_ios_release_hardcode_',
-    );
-    try {
-      _writeValidIosSecurityFixture(root);
-      _writeFile(
-        root,
-        'ios/Flutter/Debug.xcconfig',
-        '''
+  test(
+    'production preflight rejects hardcoded iOS release branding settings',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_ios_release_hardcode_',
+      );
+      try {
+        _writeValidIosSecurityFixture(root);
+        _writeFile(root, 'ios/Flutter/Debug.xcconfig', '''
 APP_DISPLAY_NAME=NewPaotang
 CUSTOMER_FLUTTER_URL_SCHEME=newpaotang
 CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:localhost
-''',
-      );
-      _writeFile(
-        root,
-        'ios/Flutter/Release.xcconfig',
-        '''
+''');
+        _writeFile(root, 'ios/Flutter/Release.xcconfig', '''
 APP_DISPLAY_NAME=NewPaotang
 CUSTOMER_FLUTTER_URL_SCHEME=newpaotang
 CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
-''',
-      );
+''');
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.ios,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: 'https://partner.example.com/api/v1',
-          appDisplayName: 'Partner Lottery',
-          iosTeamId: 'ABCDE12345',
-          iosBundleId: 'com.partner.customer',
-          iosUrlScheme: 'partnerlottery',
-          iosAssociatedDomain: 'applinks:partner.example.com',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.ios,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            iosTeamId: 'ABCDE12345',
+            iosBundleId: 'com.partner.customer',
+            iosUrlScheme: 'partnerlottery',
+            iosAssociatedDomain: 'applinks:partner.example.com',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('ios_release_xcconfig_hardcoded'),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          contains('ios_release_xcconfig_hardcoded'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('web production preflight allows same-origin API path', () {
     final issues = runCustomerFlutterProductionPreflight(
@@ -2056,10 +2086,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       'customer_flutter_preflight_web_metadata_',
     );
     try {
-      _writeFile(
-        root,
-        'web/index.html',
-        '''
+      _writeFile(root, 'web/index.html', '''
 <html>
   <head>
     <meta name="description" content="A new Flutter project.">
@@ -2069,19 +2096,14 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
   </head>
   <body></body>
 </html>
-''',
-      );
-      _writeFile(
-        root,
-        'web/manifest.json',
-        '''
+''');
+      _writeFile(root, 'web/manifest.json', '''
 {
   "name": "customer_flutter",
   "short_name": "customer_flutter",
   "description": "A new Flutter project."
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2107,16 +2129,14 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     }
   });
 
-  test('web production preflight rejects missing runtime icon/theme config',
-      () {
-    final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_web_icons_',
-    );
-    try {
-      _writeFile(
-        root,
-        'web/index.html',
-        '''
+  test(
+    'web production preflight rejects missing runtime icon/theme config',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_web_icons_',
+      );
+      try {
+        _writeFile(root, 'web/index.html', '''
 <html>
   <head>
     <meta name="description" content="Customer application.">
@@ -2143,41 +2163,38 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     </script>
   </body>
 </html>
-''',
-      );
+''');
 
-      final issues = runCustomerFlutterProductionPreflight(
-        ProductionPreflightInput(
-          target: CustomerFlutterTarget.web,
-          production: true,
-          checkFiles: true,
-          androidRequireSigning: false,
-          projectRoot: root.path,
-          apiBaseUrl: '/api/v1',
-          appDisplayName: 'Partner Lottery',
-          webShortName: 'Partner',
-          webDescription: 'Partner digital lottery customer portal.',
-        ),
-      );
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: '/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
 
-      expect(
-        issues.map((issue) => issue.code),
-        contains('web_runtime_metadata_config_missing'),
-      );
-    } finally {
-      root.deleteSync(recursive: true);
-    }
-  });
+        expect(
+          issues.map((issue) => issue.code),
+          contains('web_runtime_metadata_config_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('web production preflight rejects missing runtime social metadata', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_web_social_',
     );
     try {
-      _writeFile(
-        root,
-        'web/index.html',
-        '''
+      _writeFile(root, 'web/index.html', '''
 <html>
   <head>
     <meta name="description" content="Customer application.">
@@ -2226,8 +2243,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     </script>
   </body>
 </html>
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2257,10 +2273,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       'customer_flutter_preflight_web_canonical_',
     );
     try {
-      _writeFile(
-        root,
-        'web/index.html',
-        '''
+      _writeFile(root, 'web/index.html', '''
 <html>
   <head>
     <meta name="description" content="Customer application.">
@@ -2325,8 +2338,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     </script>
   </body>
 </html>
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2356,10 +2368,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       'customer_flutter_preflight_web_manifest_aliases_',
     );
     try {
-      _writeFile(
-        root,
-        'web/index.html',
-        r'''
+      _writeFile(root, 'web/index.html', r'''
 <html>
   <head>
     <meta name="description" content="Customer application.">
@@ -2476,8 +2485,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     </script>
   </body>
 </html>
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2510,14 +2518,9 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     expect(indexSource, contains('content="#087FF0"'));
     expect(
       indexSource,
-      contains(
-        'const customerIdentityThemeColor = "#087FF0";',
-      ),
+      contains('const customerIdentityThemeColor = "#087FF0";'),
     );
-    expect(
-      indexSource,
-      isNot(contains('firstConfigValue(["themeColor"')),
-    );
+    expect(indexSource, isNot(contains('firstConfigValue(["themeColor"')));
     expect(indexSource, isNot(contains('runtimeConfig.themeColor')));
     expect(indexSource, isNot(contains('"manifestThemeColor"')));
     expect(
@@ -2527,6 +2530,48 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     expect(indexSource, contains('"#FFFFFF"'));
     expect(manifestSource, contains('"theme_color": "#087FF0"'));
     expect(manifestSource, contains('"background_color": "#FFFFFF"'));
+  });
+
+  test('web production preflight rejects stale deployment cache binding', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_preflight_web_freshness_',
+    );
+    try {
+      _writeFile(root, 'web/flutter_bootstrap.js', '''
+{{flutter_js}}
+{{flutter_build_config}}
+_flutter.loader.load({
+  serviceWorkerSettings: { serviceWorkerVersion: "old" }
+});
+''');
+      _writeFile(root, 'docker/nginx.conf', '''
+location ~* \\.js\$ {
+  add_header Cache-Control "public, max-age=2592000";
+}
+''');
+
+      final issues = runCustomerFlutterProductionPreflight(
+        ProductionPreflightInput(
+          target: CustomerFlutterTarget.web,
+          production: true,
+          checkFiles: true,
+          androidRequireSigning: false,
+          projectRoot: root.path,
+          apiBaseUrl: '/api/v1',
+          appDisplayName: 'Partner Lottery',
+          webAppName: 'Partner Lottery',
+          webShortName: 'Partner',
+          webDescription: 'Partner digital lottery customer portal.',
+        ),
+      );
+
+      expect(
+        issues.map((issue) => issue.code),
+        contains('flutter_web_deployment_freshness_missing'),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
   });
 
   test('web production preflight rejects missing runtime locale metadata', () {
@@ -2570,17 +2615,69 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     }
   });
 
-  test('web production preflight rejects missing privacy lifecycle binding',
-      () {
+  test(
+    'web production preflight rejects missing privacy lifecycle binding',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_web_privacy_',
+      );
+      try {
+        _writeFile(
+          root,
+          'web/index.html',
+          File('web/index.html').readAsStringSync(),
+        );
+
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: '/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webAppName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
+
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_web_privacy_binding_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test('web production preflight rejects re-enabled focus privacy cover', () {
     final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_web_privacy_',
+      'customer_flutter_preflight_web_privacy_opt_out_',
     );
     try {
-      _writeFile(
-        root,
+      const paths = [
+        'lib/app/customer_app.dart',
+        'lib/shared/widgets/web_privacy_guard.dart',
+        'lib/shared/widgets/web_privacy_browser_activity.dart',
+        'lib/shared/widgets/web_privacy_browser_activity_web.dart',
+        'lib/shared/widgets/web_privacy_browser_activity_state.dart',
+        'lib/shared/widgets/web_privacy_browser_activity_stub.dart',
+        'lib/core/security/web_privacy_mode.dart',
         'web/index.html',
-        File('web/index.html').readAsStringSync(),
-      );
+      ];
+      for (final path in paths) {
+        var source = File(path).readAsStringSync();
+        if (path == 'lib/app/customer_app.dart') {
+          source = source.replaceFirst(
+            'const webPrivacyEnabled = false;',
+            'const webPrivacyEnabled = true;',
+          );
+        }
+        _writeFile(root, path, source);
+      }
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2606,50 +2703,97 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     }
   });
 
-  test('web production preflight requires route registry URL normalization',
-      () {
+  test('production preflight rejects page-local Affiliate biometric PIN', () {
     final root = Directory.systemTemp.createTempSync(
-      'customer_flutter_preflight_web_route_registry_',
+      'customer_flutter_preflight_affiliate_pin_',
     );
     try {
+      _writeFile(root, 'lib/app/router.dart', '''
+void buildRouter() {
+  const path = '/affiliate';
+  customerRedirectPath(path: path);
+}
+''');
+      _writeFile(root, 'lib/core/navigation/customer_redirect.dart', '''
+String customerPinRouteForRedirect(String path) => '/pin?redirect=\$path';
+''');
       _writeFile(
         root,
-        'web/index.html',
-        File('web/index.html').readAsStringSync(),
-      );
-      _writeFile(
-        root,
-        'lib/app/customer_routes.dart',
+        'lib/features/affiliate/presentation/affiliate_screen.dart',
         '''
-bool isSensitiveCustomerPath(String path) {
-  return path == '/my-wallet';
+String affiliatePrompt() {
+  mobileBiometricPromptReason(purpose: 'pin_unlock');
+  return 'affiliate';
 }
 ''',
       );
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
-          target: CustomerFlutterTarget.web,
+          target: CustomerFlutterTarget.android,
           production: true,
           checkFiles: true,
           androidRequireSigning: false,
           projectRoot: root.path,
-          apiBaseUrl: '/api/v1',
+          apiBaseUrl: 'https://partner.example.com/api/v1',
           appDisplayName: 'Partner Lottery',
-          webAppName: 'Partner Lottery',
-          webShortName: 'Partner',
-          webDescription: 'Partner digital lottery customer portal.',
+          androidPackage: 'com.partner.customer',
+          androidCallbackScheme: 'partnerlottery',
+          androidCallbackHost: 'partner.example.com',
         ),
       );
 
       expect(
         issues.map((issue) => issue.code),
-        contains('flutter_route_registry_url_normalization_missing'),
+        contains('flutter_affiliate_central_pin_binding_missing'),
       );
     } finally {
       root.deleteSync(recursive: true);
     }
   });
+
+  test(
+    'web production preflight requires route registry URL normalization',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_web_route_registry_',
+      );
+      try {
+        _writeFile(
+          root,
+          'web/index.html',
+          File('web/index.html').readAsStringSync(),
+        );
+        _writeFile(root, 'lib/app/customer_routes.dart', '''
+bool isSensitiveCustomerPath(String path) {
+  return path == '/my-wallet';
+}
+''');
+
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.web,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: '/api/v1',
+            appDisplayName: 'Partner Lottery',
+            webAppName: 'Partner Lottery',
+            webShortName: 'Partner',
+            webDescription: 'Partner digital lottery customer portal.',
+          ),
+        );
+
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_route_registry_url_normalization_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 
   test('production preflight requires maintenance route-policy binding', () {
     final root = Directory.systemTemp.createTempSync(
@@ -2661,10 +2805,7 @@ bool isSensitiveCustomerPath(String path) {
         'web/index.html',
         File('web/index.html').readAsStringSync(),
       );
-      _writeFile(
-        root,
-        'lib/core/tenant/mobile_bootstrap_controller.dart',
-        '''
+      _writeFile(root, 'lib/core/tenant/mobile_bootstrap_controller.dart', '''
 class MobileBootstrap {
   final maintenance = MaintenanceConfig(active: true);
 }
@@ -2673,12 +2814,8 @@ class MaintenanceConfig {
   const MaintenanceConfig({required this.active});
   final bool active;
 }
-''',
-      );
-      _writeFile(
-        root,
-        'lib/app/router.dart',
-        '''
+''');
+      _writeFile(root, 'lib/app/router.dart', '''
 String? customerRedirectPath({
   required String path,
   required bool maintenanceActive,
@@ -2686,8 +2823,7 @@ String? customerRedirectPath({
   if (maintenanceActive && path != '/maintenance') return '/maintenance';
   return null;
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2726,32 +2862,20 @@ String? customerRedirectPath({
         'web/index.html',
         File('web/index.html').readAsStringSync(),
       );
-      _writeFile(
-        root,
-        'lib/core/tenant/mobile_bootstrap_controller.dart',
-        '''
+      _writeFile(root, 'lib/core/tenant/mobile_bootstrap_controller.dart', '''
 class MobileFeatureFlags {
   const MobileFeatureFlags(this.values);
   final Map<String, bool> values;
   bool enabled(String key, {bool fallback = false}) => values[key] ?? fallback;
 }
-''',
-      );
-      _writeFile(
-        root,
-        'lib/core/tenant/mobile_runtime_policy.dart',
-        '''
+''');
+      _writeFile(root, 'lib/core/tenant/mobile_runtime_policy.dart', '''
 bool mobileBiometricAllowedForPlatform(bootstrap, platform) => true;
 bool mobileNativeScreenSecurityAllowedForPlatform(bootstrap, platform) => true;
-''',
-      );
-      _writeFile(
-        root,
-        'lib/app/router.dart',
-        '''
+''');
+      _writeFile(root, 'lib/app/router.dart', '''
 String? customerRedirectPath({required String path}) => null;
-''',
-      );
+''');
       _writeFile(
         root,
         'lib/features/profile/presentation/profile_screen.dart',
@@ -2761,15 +2885,11 @@ class ProfileScreen {
 }
 ''',
       );
-      _writeFile(
-        root,
-        'lib/shared/widgets/app_shell.dart',
-        '''
+      _writeFile(root, 'lib/shared/widgets/app_shell.dart', '''
 class AppShell {
   static const items = ['/', '/tickets', '/profile'];
 }
-''',
-      );
+''');
 
       final issues = runCustomerFlutterProductionPreflight(
         ProductionPreflightInput(
@@ -2958,21 +3078,20 @@ class AppShell {
     );
   });
 
-  test('android release build requires explicit signing or local smoke opt-in',
-      () {
-    final source = File('android/app/build.gradle.kts').readAsStringSync();
+  test(
+    'android release build requires explicit signing or local smoke opt-in',
+    () {
+      final source = File('android/app/build.gradle.kts').readAsStringSync();
 
-    expect(
-      source,
-      contains('CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING'),
-    );
-    expect(source, contains('Release signing inputs are required'));
-    expect(source, contains('allowDebugReleaseSigning'));
-    expect(source, contains('releaseTaskRequested'));
-    expect(source, contains('hasReleaseSigning -> signingConfigs'));
-    expect(source, contains('allowDebugReleaseSigning -> signingConfigs'));
-    expect(source, contains('!releaseTaskRequested -> signingConfigs'));
-  });
+      expect(source, contains('CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING'));
+      expect(source, contains('Release signing inputs are required'));
+      expect(source, contains('allowDebugReleaseSigning'));
+      expect(source, contains('releaseTaskRequested'));
+      expect(source, contains('hasReleaseSigning -> signingConfigs'));
+      expect(source, contains('allowDebugReleaseSigning -> signingConfigs'));
+      expect(source, contains('!releaseTaskRequested -> signingConfigs'));
+    },
+  );
 
   test('android release build always requires partner runtime config', () {
     final source = File('android/app/build.gradle.kts').readAsStringSync();
@@ -2989,14 +3108,8 @@ class AppShell {
       source,
       contains('CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING only'),
     );
-    expect(
-      source,
-      contains('partner runtime'),
-    );
-    expect(
-      source,
-      contains('identifiers are still required'),
-    );
+    expect(source, contains('partner runtime'));
+    expect(source, contains('identifiers are still required'));
     expect(
       source,
       isNot(contains('!releaseTaskRequested || allowDebugReleaseSigning ||')),
@@ -3023,10 +3136,7 @@ class AppShell {
       ),
     );
 
-    expect(
-      issues.map((issue) => issue.code),
-      contains('ios_team_id_invalid'),
-    );
+    expect(issues.map((issue) => issue.code), contains('ios_team_id_invalid'));
     expect(
       issues.map((issue) => issue.code),
       contains('ios_bundle_id_invalid'),
@@ -3130,12 +3240,7 @@ class AppShell {
         iosBundleId: 'com.partner.customer',
         iosUrlScheme: 'partnerlottery',
         iosAssociatedDomain: 'applinks:partner.example.com',
-        socialAuthProviders: [
-          'LINE',
-          'google_oauth2',
-          'apple_login',
-          'google',
-        ],
+        socialAuthProviders: ['LINE', 'google_oauth2', 'apple_login', 'google'],
       ),
     );
 
@@ -3161,10 +3266,7 @@ String _realSha256Fingerprint() {
 }
 
 void _writeValidIosSecurityFixture(Directory root) {
-  _writeFile(
-    root,
-    'ios/Runner/Info.plist',
-    r'''
+  _writeFile(root, 'ios/Runner/Info.plist', r'''
 <plist>
   <dict>
     <key>CFBundleDisplayName</key>
@@ -3182,24 +3284,16 @@ void _writeValidIosSecurityFixture(Directory root) {
     <string>Use Face ID</string>
   </dict>
 </plist>
-''',
-  );
-  _writeFile(
-    root,
-    'ios/Runner/Runner.entitlements',
-    r'''
+''');
+  _writeFile(root, 'ios/Runner/Runner.entitlements', r'''
 <plist>
   <dict>
     <key>com.apple.developer.associated-domains</key>
     <array><string>$(CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN)</string></array>
   </dict>
 </plist>
-''',
-  );
-  _writeFile(
-    root,
-    'ios/Runner/AppDelegate.swift',
-    '''
+''');
+  _writeFile(root, 'ios/Runner/AppDelegate.swift', '''
 class AppDelegate {
   let screen = "customer_flutter/screen_security"
   let screenshot = "UIApplication.userDidTakeScreenshotNotification"
@@ -3240,29 +3334,20 @@ class AppDelegate {
   let sign = "SecKeyCreateSignature"
   let runtimeNamespace = "Bundle.main.bundleIdentifier"
 }
-''',
-  );
-  _writeFile(
-    root,
-    'ios/Runner.xcodeproj/project.pbxproj',
-    r'''
+''');
+  _writeFile(root, 'ios/Runner.xcodeproj/project.pbxproj', r'''
 CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 Validate Release Config
 scripts/validate_release_config.sh
 PRODUCT_BUNDLE_IDENTIFIER = "$(CUSTOMER_FLUTTER_IOS_BUNDLE_ID)";
 DEVELOPMENT_TEAM = "$(CUSTOMER_FLUTTER_IOS_TEAM_ID)";
-''',
-  );
-  _writeFile(
-    root,
-    'ios/scripts/validate_release_config.sh',
-    '''
+''');
+  _writeFile(root, 'ios/scripts/validate_release_config.sh', '''
 require_value "APP_DISPLAY_NAME"
 require_value "CUSTOMER_FLUTTER_URL_SCHEME"
 require_value "CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN"
 require_value "PRODUCT_BUNDLE_IDENTIFIER"
 require_value "DEVELOPMENT_TEAM"
 com.newpaotang.customerFlutter
-''',
-  );
+''');
 }

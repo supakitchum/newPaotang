@@ -39,47 +39,60 @@ class CurrentGame {
   factory CurrentGame.fromJson(Map<String, dynamic> json) {
     final payload = _currentGamePayload(json);
     return CurrentGame(
-      id: (payload['id'] ?? payload['game_id'] ?? payload['gameId'])
-              ?.toString() ??
-          '',
-      name: (payload['name'] ??
-                  payload['game_name'] ??
-                  payload['gameName'] ??
-                  payload['draw_label'] ??
-                  payload['drawLabel'])
-              ?.toString() ??
-          '',
-      status: (payload['status'] ??
-                  payload['game_status'] ??
-                  payload['gameStatus'] ??
-                  payload['status_code'] ??
-                  payload['statusCode'])
-              ?.toString() ??
-          '',
-      drawAt: payload['draw_at'] ?? payload['drawAt'] ?? payload['draw_date'],
-      saleStartAt: payload['sale_start_at'] ??
-          payload['sales_start_at'] ??
-          payload['saleStartAt'] ??
-          payload['salesStartAt'] ??
-          payload['start_at'] ??
-          payload['startAt'],
-      saleCloseAt: payload['sale_close_at'] ??
-          payload['sales_close_at'] ??
-          payload['saleCloseAt'] ??
-          payload['salesCloseAt'] ??
-          payload['close_at'] ??
-          payload['closeAt'] ??
-          payload['end_at'] ??
-          payload['endAt'] ??
-          payload['sale_end_at'] ??
-          payload['saleEndAt'] ??
-          payload['sales_end_at'] ??
-          payload['salesEndAt'],
-      serverTime: payload['server_time'] ??
-          payload['serverTime'] ??
-          payload['current_time'] ??
-          payload['currentTime'] ??
-          payload['now'],
+      id: _firstResultText([
+        payload['id'],
+        payload['game_id'],
+        payload['gameId'],
+      ]),
+      name: _firstResultText([
+        payload['name'],
+        payload['game_name'],
+        payload['gameName'],
+        payload['draw_label'],
+        payload['drawLabel'],
+      ]),
+      status: _firstResultText([
+        payload['status'],
+        payload['game_status'],
+        payload['gameStatus'],
+        payload['status_code'],
+        payload['statusCode'],
+      ]),
+      drawAt: _firstResultValue([
+        payload['draw_at'],
+        payload['drawAt'],
+        payload['draw_date'],
+        payload['drawDate'],
+      ]),
+      saleStartAt: _firstResultValue([
+        payload['sale_start_at'],
+        payload['sales_start_at'],
+        payload['saleStartAt'],
+        payload['salesStartAt'],
+        payload['start_at'],
+        payload['startAt'],
+      ]),
+      saleCloseAt: _firstResultValue([
+        payload['sale_close_at'],
+        payload['sales_close_at'],
+        payload['saleCloseAt'],
+        payload['salesCloseAt'],
+        payload['close_at'],
+        payload['closeAt'],
+        payload['end_at'],
+        payload['endAt'],
+        payload['sale_end_at'],
+        payload['saleEndAt'],
+        payload['sales_end_at'],
+        payload['salesEndAt'],
+      ]),
+      serverTime: _firstResultValue([
+        payload['server_time'],
+        payload['serverTime'],
+        payload['current_time'],
+        payload['currentTime'],
+        payload['now'],
+      ]),
     );
   }
 
@@ -158,45 +171,122 @@ class RewardResultGame {
   });
 
   factory RewardResultGame.fromPublicSummary(Map<String, dynamic> json) {
+    final payload = _rewardResultPayload(json);
+    final game = _firstResultMap([
+      payload['game'],
+      payload['current_game'],
+      payload['currentGame'],
+      payload['reward_game'],
+      payload['rewardGame'],
+      payload['lottery_game'],
+      payload['lotteryGame'],
+    ]);
     final grouped = <String, RewardValue>{};
-    for (final prize in asMapList(json['prizes'])) {
-      final slug = rewardTypeToSlug(prize['prize_type'] ?? prize['slug']);
+    for (final prize in _rewardPrizeRows(payload)) {
+      final slug = rewardTypeToSlug(
+        _firstResultValue([
+          prize['prize_type'],
+          prize['prizeType'],
+          prize['reward_type'],
+          prize['rewardType'],
+          prize['type'],
+          prize['slug'],
+          prize['code'],
+        ]),
+      );
+      if (slug.isEmpty) continue;
       final existing = grouped[slug] ??
           RewardValue(
             slug: slug,
-            title: prize['name']?.toString() ?? '',
+            title: _firstResultText([
+              prize['name'],
+              prize['title'],
+              prize['label'],
+              prize['prize_name'],
+              prize['prizeName'],
+            ]),
             amount: moneyToDisplayNumber(
-              prize['amount'] ?? prize['reward'],
+              _firstPresentResultValue([
+                prize['amount'],
+                prize['reward'],
+                prize['prize_amount'],
+                prize['prizeAmount'],
+                prize['reward_amount'],
+                prize['rewardAmount'],
+              ]),
               fallback: (rewardDefinitions[slug]?.amount ?? 0).toDouble(),
             ),
             numbers: const [],
           );
-      final number = (prize['prize_number'] ?? prize['number'])?.toString();
       grouped[slug] = existing.copyWith(
         numbers: [
           ...existing.numbers,
-          if (number != null && number.trim().isNotEmpty) number.trim(),
+          ..._rewardPrizeNumbers(prize),
         ],
       );
     }
 
-    final resultStatus = json['status']?.toString().toLowerCase() ?? '';
-    final officialStatus =
-        (json['official_status'] ?? resultStatus).toString().toLowerCase();
+    final resultStatus = _firstResultText([
+      payload['status'],
+      payload['result_status'],
+      payload['resultStatus'],
+      payload['presentation_status'],
+      payload['presentationStatus'],
+    ]).toLowerCase();
+    final officialStatus = _firstResultText([
+      payload['official_status'],
+      payload['officialStatus'],
+      payload['publication_status'],
+      payload['publicationStatus'],
+      resultStatus,
+    ]).toLowerCase();
     final isPublished =
         officialStatus == 'published' || resultStatus == 'published';
+    final completionText = _firstResultText([
+      payload['completion_percent'],
+      payload['completionPercent'],
+      payload['progress_percent'],
+      payload['progressPercent'],
+      payload['completion'],
+      payload['progress'],
+      0,
+    ]).replaceAll('%', '');
 
     return RewardResultGame(
-      id: json['game_id']?.toString() ?? json['id']?.toString() ?? '',
-      name: (json['game_name'] ?? json['draw_label'] ?? json['name'])
-              ?.toString() ??
-          '',
+      id: _firstResultText([
+        payload['game_id'],
+        payload['gameId'],
+        payload['id'],
+        game['id'],
+        game['game_id'],
+        game['gameId'],
+      ]),
+      name: _firstResultText([
+        payload['game_name'],
+        payload['gameName'],
+        payload['draw_label'],
+        payload['drawLabel'],
+        payload['name'],
+        game['name'],
+        game['game_name'],
+        game['gameName'],
+        game['draw_label'],
+        game['drawLabel'],
+      ]),
       status: isPublished ? 'published' : resultStatus,
       resultStatus: resultStatus,
       officialStatus: officialStatus,
-      completionPercent:
-          double.tryParse((json['completion_percent'] ?? 0).toString()) ?? 0,
-      drawAt: json['draw_at'],
+      completionPercent: double.tryParse(completionText) ?? 0,
+      drawAt: _firstResultValue([
+        payload['draw_at'],
+        payload['drawAt'],
+        payload['draw_date'],
+        payload['drawDate'],
+        game['draw_at'],
+        game['drawAt'],
+        game['draw_date'],
+        game['drawDate'],
+      ]),
       rewards: grouped.values.toList(growable: false),
     );
   }
@@ -332,31 +422,246 @@ class RewardGroup {
 }
 
 String rewardTypeToSlug(Object? value) {
-  return switch (value?.toString()) {
+  final normalized =
+      _resultScalarText(value).toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  return switch (normalized) {
     'first' || 'first_prize' || 'reward_1' => 'reward_1',
     'two_digit' ||
+    'last_2' ||
     'last2' ||
     'back2' ||
+    'back_2' ||
     'reward_two_digit' =>
       'reward_two_digit',
-    'front3' || 'reward_three_digit_1' => 'reward_three_digit_1',
-    'back3' || 'last3' || 'reward_three_digit_2' => 'reward_three_digit_2',
+    'front3' ||
+    'front_3' ||
+    'front_three' ||
+    'reward_three_digit_1' =>
+      'reward_three_digit_1',
+    'back3' ||
+    'back_3' ||
+    'last3' ||
+    'last_3' ||
+    'back_three' ||
+    'reward_three_digit_2' =>
+      'reward_three_digit_2',
     'beside_first' ||
     'near_first_prize' ||
     'reward_beside_1' =>
       'reward_beside_1',
-    'second_prize' => 'reward_2',
-    'third_prize' => 'reward_3',
-    'fourth_prize' => 'reward_4',
-    'fifth_prize' => 'reward_5',
-    final raw? => raw,
-    _ => '',
+    'second' || 'second_prize' || 'reward_2' => 'reward_2',
+    'third' || 'third_prize' || 'reward_3' => 'reward_3',
+    'fourth' || 'fourth_prize' || 'reward_4' => 'reward_4',
+    'fifth' || 'fifth_prize' || 'reward_5' => 'reward_5',
+    _ => normalized,
   };
 }
 
 String rewardPlaceholder(String slug) {
   final digits = rewardDefinitions[slug]?.digits ?? 6;
   return 'x' * digits;
+}
+
+Map<String, dynamic> _rewardResultPayload(
+  Map<String, dynamic> json, [
+  int depth = 0,
+]) {
+  if (depth >= 6) return json;
+
+  for (final key in const [
+    'reward_result',
+    'rewardResult',
+    'result_summary',
+    'resultSummary',
+    'reward_summary',
+    'rewardSummary',
+    'summary',
+    'result',
+    'resource',
+    'data',
+  ]) {
+    final nested = asMap(json[key]);
+    if (nested.isEmpty) continue;
+    return _mergeRewardResultWrapper(
+      json,
+      _rewardResultPayload(nested, depth + 1),
+    );
+  }
+
+  return json;
+}
+
+Map<String, dynamic> _mergeRewardResultWrapper(
+  Map<String, dynamic> wrapper,
+  Map<String, dynamic> nested,
+) {
+  final merged = Map<String, dynamic>.from(wrapper);
+  for (final key in const [
+    'reward_result',
+    'rewardResult',
+    'result_summary',
+    'resultSummary',
+    'reward_summary',
+    'rewardSummary',
+    'summary',
+    'result',
+    'resource',
+    'data',
+  ]) {
+    merged.remove(key);
+  }
+  merged.addAll(nested);
+  return merged;
+}
+
+List<Map<String, dynamic>> _rewardPrizeRows(
+  Map<String, dynamic> payload, [
+  int depth = 0,
+]) {
+  for (final key in const [
+    'prizes',
+    'rewards',
+    'reward_items',
+    'rewardItems',
+    'prize_items',
+    'prizeItems',
+    'items',
+    'rows',
+  ]) {
+    final rows = asMapList(payload[key]);
+    if (rows.isNotEmpty) return rows;
+  }
+  if (depth >= 5) return const [];
+
+  for (final key in const [
+    'reward_result',
+    'rewardResult',
+    'result',
+    'resource',
+    'data',
+  ]) {
+    final nested = asMap(payload[key]);
+    if (nested.isEmpty) continue;
+    final rows = _rewardPrizeRows(nested, depth + 1);
+    if (rows.isNotEmpty) return rows;
+  }
+  return const [];
+}
+
+List<String> _rewardPrizeNumbers(Map<String, dynamic> prize) {
+  for (final key in const [
+    'prize_numbers',
+    'prizeNumbers',
+    'winning_numbers',
+    'winningNumbers',
+    'numbers',
+    'values',
+  ]) {
+    final values = prize[key];
+    if (values is! Iterable || values is String) continue;
+    final numbers = values
+        .map(_resultScalarText)
+        .where((number) => number.isNotEmpty)
+        .toList(growable: false);
+    if (numbers.isNotEmpty) return numbers;
+  }
+
+  final number = _firstResultText([
+    prize['prize_number'],
+    prize['prizeNumber'],
+    prize['winning_number'],
+    prize['winningNumber'],
+    prize['number'],
+    prize['value'],
+  ]);
+  return number.isEmpty ? const [] : [number];
+}
+
+Map<String, dynamic> _firstResultMap(Iterable<Object?> values) {
+  for (final value in values) {
+    final map = asMap(value);
+    if (map.isNotEmpty) return map;
+  }
+  return const <String, dynamic>{};
+}
+
+String _firstResultText(Iterable<Object?> values) {
+  for (final value in values) {
+    final text = _resultScalarText(value);
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
+Object? _firstResultValue(Iterable<Object?> values) {
+  for (final value in values) {
+    final scalar = _resultScalarValue(value);
+    if (scalar != null && _resultScalarText(scalar).isNotEmpty) return scalar;
+  }
+  return null;
+}
+
+Object? _firstPresentResultValue(Iterable<Object?> values) {
+  for (final value in values) {
+    if (value == null) continue;
+    if (value is String && value.trim().isEmpty) continue;
+    return value;
+  }
+  return null;
+}
+
+String _resultScalarText(Object? value, [int depth = 0]) {
+  final scalar = _resultScalarValue(value, depth);
+  if (scalar == null) return '';
+  final text = scalar.toString().trim();
+  if (text.isEmpty ||
+      text.toLowerCase() == 'null' ||
+      text.toLowerCase() == 'undefined') {
+    return '';
+  }
+  return text;
+}
+
+Object? _resultScalarValue(Object? value, [int depth = 0]) {
+  if (value == null || depth > 5) return null;
+  if (value is Map) {
+    for (final key in const [
+      'value',
+      'raw_value',
+      'rawValue',
+      'number',
+      'amount',
+      'percent',
+      'percentage',
+      'date',
+      'datetime',
+      'timestamp',
+      'iso',
+      'code',
+      'key',
+      'id',
+      'uuid',
+      'name',
+      'label',
+      'text',
+    ]) {
+      final nested = _resultScalarValue(value[key], depth + 1);
+      if (nested != null && _resultScalarText(nested, depth + 1).isNotEmpty) {
+        return nested;
+      }
+    }
+    return null;
+  }
+  if (value is Iterable && value is! String) {
+    for (final item in value) {
+      final nested = _resultScalarValue(item, depth + 1);
+      if (nested != null && _resultScalarText(nested, depth + 1).isNotEmpty) {
+        return nested;
+      }
+    }
+    return null;
+  }
+  return value;
 }
 
 bool isDisplayableRewardNumber(Object? number) {

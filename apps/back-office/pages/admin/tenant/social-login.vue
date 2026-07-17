@@ -44,6 +44,34 @@
               <i class="ri-line-line me-1" />
               Open LINE Notifications
             </button>
+
+            <form class="np-appearance-form" @submit.prevent="saveProvider(provider.provider)">
+              <div class="np-appearance-heading">
+                <div>
+                  <div class="fw-semibold">Customer button appearance</div>
+                  <div class="text-muted fs-12">Optional runtime values used by Customer Web, iOS, and Android.</div>
+                </div>
+              </div>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Display label</label>
+                  <input v-model.trim="forms.line.display_label" class="form-control" maxlength="80" :placeholder="provider.label || 'LINE'">
+                </div>
+                <div v-for="field in appearanceColorFields" :key="field.key" class="col-md-4">
+                  <label class="form-label">{{ field.label }}</label>
+                  <div class="input-group np-color-control">
+                    <input class="form-control form-control-color" type="color" :aria-label="`${field.label} swatch`" :value="pickerColor(forms.line[field.key])" @input="setProviderColor('line', field.key, $event)">
+                    <input v-model.trim="forms.line[field.key]" class="form-control" inputmode="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#RRGGBB">
+                  </div>
+                </div>
+              </div>
+              <div class="np-card-actions is-appearance-only">
+                <button class="btn btn-primary btn-wave" type="submit" :disabled="saving.line || !tenantId">
+                  <span v-if="saving.line" class="spinner-border spinner-border-sm me-2" />
+                  Save customer appearance
+                </button>
+              </div>
+            </form>
           </div>
 
           <form v-else class="np-provider-form" @submit.prevent="saveProvider(provider.provider)">
@@ -84,6 +112,30 @@
                   <div v-if="provider.private_key_configured" class="form-text">Saved and encrypted.</div>
                 </div>
               </template>
+
+              <div class="col-12">
+                <div class="np-appearance-form">
+                  <div class="np-appearance-heading">
+                    <div>
+                      <div class="fw-semibold">Customer button appearance</div>
+                      <div class="text-muted fs-12">Optional runtime values used by Customer Web, iOS, and Android.</div>
+                    </div>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label class="form-label">Display label</label>
+                      <input v-model.trim="forms[provider.provider].display_label" class="form-control" maxlength="80" :placeholder="provider.label">
+                    </div>
+                    <div v-for="field in appearanceColorFields" :key="field.key" class="col-md-4">
+                      <label class="form-label">{{ field.label }}</label>
+                      <div class="input-group np-color-control">
+                        <input class="form-control form-control-color" type="color" :aria-label="`${field.label} swatch`" :value="pickerColor(forms[provider.provider][field.key])" @input="setProviderColor(provider.provider, field.key, $event)">
+                        <input v-model.trim="forms[provider.provider][field.key]" class="form-control" inputmode="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#RRGGBB">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div class="col-12">
                 <div class="np-callback-box">
@@ -130,11 +182,26 @@ const providers = ref<any[]>([])
 const callbackUrls = ref<Record<string, string>>({})
 const saving = ref<Record<string, boolean>>({})
 const disconnecting = ref<Record<string, boolean>>({})
+const appearanceColorFields = [
+  { key: 'brand_color', label: 'Brand color' },
+  { key: 'button_background_color', label: 'Button background' },
+  { key: 'button_foreground_color', label: 'Button text' },
+]
 const forms = reactive<Record<string, any>>({
+  line: {
+    display_label: '',
+    brand_color: '',
+    button_background_color: '',
+    button_foreground_color: '',
+  },
   google: {
     status: 'inactive',
     client_id: '',
     client_secret: '',
+    display_label: '',
+    brand_color: '',
+    button_background_color: '',
+    button_foreground_color: '',
   },
   apple: {
     status: 'inactive',
@@ -142,6 +209,10 @@ const forms = reactive<Record<string, any>>({
     team_id: '',
     key_id: '',
     private_key: '',
+    display_label: '',
+    brand_color: '',
+    button_background_color: '',
+    button_foreground_color: '',
   },
 })
 
@@ -217,9 +288,16 @@ const disconnectProvider = async (provider: string) => {
 }
 
 const applyProviderToForm = (provider: any) => {
-  if (!provider || provider.provider === 'line' || !forms[provider.provider]) return
-  forms[provider.provider].status = provider.status || 'inactive'
-  forms[provider.provider].client_id = ''
+  if (!provider || !forms[provider.provider]) return
+  const form = forms[provider.provider]
+  form.display_label = provider.display_label || ''
+  form.brand_color = provider.brand_color || ''
+  form.button_background_color = provider.button_background_color || ''
+  form.button_foreground_color = provider.button_foreground_color || ''
+  if (provider.provider === 'line') return
+
+  form.status = provider.status || 'inactive'
+  form.client_id = ''
   if (provider.provider === 'google') {
     forms.google.client_secret = ''
   }
@@ -228,6 +306,14 @@ const applyProviderToForm = (provider: any) => {
     forms.apple.key_id = ''
     forms.apple.private_key = ''
   }
+}
+
+const pickerColor = (value: any) => /^#[0-9a-fA-F]{6}$/.test(String(value || '')) ? String(value) : '#000000'
+
+const setProviderColor = (provider: string, field: string, event: Event) => {
+  const value = (event.target as HTMLInputElement | null)?.value || ''
+  if (!forms[provider] || !appearanceColorFields.some(item => item.key === field)) return
+  forms[provider][field] = value.toUpperCase()
 }
 
 const goLineSettings = () => navigateTo('/admin/tenant/line-notifications')
@@ -307,6 +393,27 @@ onMounted(loadSettings)
   max-width: 980px;
 }
 
+.np-appearance-form {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--default-border);
+}
+
+.np-appearance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.np-color-control .form-control-color {
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  padding: .35rem;
+}
+
 .np-callback-box {
   padding: .85rem 1rem;
   border: 1px solid var(--default-border);
@@ -332,6 +439,13 @@ onMounted(loadSettings)
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid var(--default-border);
+}
+
+.np-card-actions.is-appearance-only {
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: 0;
 }
 
 @media (max-width: 575.98px) {

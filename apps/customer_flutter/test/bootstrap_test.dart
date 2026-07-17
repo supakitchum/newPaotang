@@ -43,6 +43,52 @@ void main() {
     expect(bootstrap.siteName, 'Partner Lottery');
   });
 
+  test('mobile bootstrap maps runtime asset CDN configuration', () {
+    final bootstrap = MobileBootstrap.fromJson(
+      const {
+        'api': {
+          'asset_cdn_base_url': 'https://cdn.partner.example/assets',
+        },
+      },
+    );
+
+    expect(
+      bootstrap.assetCdnBaseUrl,
+      'https://cdn.partner.example/assets',
+    );
+  });
+
+  test('mobile bootstrap maps runtime tenant domain identity', () {
+    final bootstrap = MobileBootstrap.fromJson(
+      const {
+        'domain': {
+          'host': 'partner.example.com',
+          'canonical_url': 'https://partner.example.com',
+        },
+      },
+    );
+
+    expect(bootstrap.tenantHost, 'partner.example.com');
+    expect(bootstrap.canonicalUrl, 'https://partner.example.com');
+  });
+
+  test('mobile bootstrap accepts mobile asset CDN aliases', () {
+    final bootstrap = MobileBootstrap.fromJson(
+      const {
+        'mobileConfig': {
+          'apiConfig': {
+            'assetCdnBaseUrl': 'https://media.partner.example',
+          },
+        },
+      },
+    );
+
+    expect(
+      bootstrap.assetCdnBaseUrl,
+      'https://media.partner.example',
+    );
+  });
+
   test('mobile bootstrap maps waiting result live configuration', () {
     final bootstrap = MobileBootstrap.fromJson(
       const {
@@ -537,15 +583,18 @@ void main() {
     expect(localeTag(parseCustomerLocale('th')), 'th-TH');
     expect(localeTag(parseCustomerLocale('th_TH')), 'th-TH');
     expect(localeTag(parseCustomerLocale('en')), 'en-US');
+    expect(localeTag(parseCustomerLocale('en-GB')), 'en-US');
     expect(localeTag(parseCustomerLocale('en-US')), 'en-US');
+    expect(localeTag(parseCustomerLocale('ja-JP')), 'ja-JP');
+    expect(localeTag(parseCustomerLocale('vi')), 'vi');
   });
 
-  test('customer locale parser falls back for unsupported tags', () {
+  test('customer locale parser falls back for malformed tags', () {
     final fallback = parseCustomerLocale('en-US');
 
-    expect(localeTag(parseCustomerLocale('ja-JP')), 'th-TH');
+    expect(localeTag(parseCustomerLocale('japanese')), 'th-TH');
     expect(
-      localeTag(parseCustomerLocale('ja-JP', fallback: fallback)),
+      localeTag(parseCustomerLocale('zh-Hant-TW', fallback: fallback)),
       'en-US',
     );
   });
@@ -575,6 +624,8 @@ void main() {
     expect(english.socialLoginLabel('Google'), 'Continue with Google');
     expect(thai.registerTitle, 'สมัครใช้งาน');
     expect(english.registerTitle, 'Create account');
+    expect(thai.registerOtpLabel, 'รหัส OTP');
+    expect(english.registerOtpLabel, 'OTP code');
     expect(thai.authOtpResendIn(12), 'ส่งใหม่ได้ใน 12 วินาที');
     expect(english.authOtpResendIn(12), 'Resend in 12s');
     expect(thai.forgotPasswordTitle, 'ลืมรหัสผ่าน');
@@ -631,8 +682,8 @@ void main() {
     expect(english.successTransactionAtLabel, 'Transaction date');
     expect(thai.newsTitle, 'ข่าวสาร');
     expect(english.newsTitle, 'News');
-    expect(thai.newsEmptyTitle, 'ยังไม่มีข่าวสาร');
-    expect(english.newsEmptyTitle, 'No news yet');
+    expect(thai.newsEmptyTitle, 'ยังไม่มีข่าวสารในขณะนี้');
+    expect(english.newsEmptyTitle, 'No news right now');
     expect(thai.newsModalClose, 'ปิดข่าวประชาสัมพันธ์');
     expect(english.newsModalClose, 'Close announcement');
     expect(thai.contentTermsTitle, 'ข้อตกลงและเงื่อนไข');
@@ -757,8 +808,8 @@ void main() {
     expect(english.profileBiometricStatusActive, 'Active');
     expect(thai.walletBalanceAfter('100.00 บาท'), 'คงเหลือ 100.00 บาท');
     expect(english.walletBalanceAfter('100.00 THB'), 'Balance 100.00 THB');
-    expect(thai.topupTitle, 'เติมเงินเข้า G-Wallet');
-    expect(english.topupTitle, 'Top up G-Wallet');
+    expect(thai.topupTitle, 'เติมเงินเข้า กระเป๋าเงิน');
+    expect(english.topupTitle, 'Top up Wallet');
     expect(thai.topupOpenPayment, 'เปิดหน้าชำระเงิน');
     expect(english.topupOpenPayment, 'Open payment page');
     expect(thai.topupStatusPendingReview, 'รอตรวจสอบ');
@@ -856,6 +907,94 @@ void main() {
     expect(localeTag(bootstrap.locale), 'en-US');
   });
 
+  test('mobile bootstrap resolves runtime localized config text', () {
+    final english = MobileBootstrap.fromJson(
+      const {
+        'site': {
+          'locale': 'th-TH',
+          'display_name': 'ชื่อสำรอง',
+          'display_name_i18n': {
+            'th-TH': 'ร้านสลากตัวอย่าง',
+            'en-US': 'Demo Lottery',
+          },
+        },
+        'legal': {
+          'terms_content': 'เงื่อนไขสำรอง',
+          'terms_content_i18n': {
+            'th-TH': 'เงื่อนไขภาษาไทย',
+            'en-US': 'English terms',
+          },
+          'privacy_content': 'ความเป็นส่วนตัวสำรอง',
+          'privacy_content_i18n': [
+            {'locale': 'th-TH', 'content': 'ความเป็นส่วนตัวภาษาไทย'},
+            {'locale': 'en-US', 'content': 'English privacy'},
+          ],
+        },
+        'maintenance': {
+          'active': true,
+          'message': 'ข้อความสำรอง',
+          'message_i18n': {
+            'th-TH': 'ปิดปรับปรุงชั่วคราว',
+            'en-US': 'Temporarily unavailable',
+          },
+        },
+      },
+      contentLocale: 'en-US',
+    );
+
+    expect(english.siteName, 'Demo Lottery');
+    expect(english.termsContent, 'English terms');
+    expect(english.privacyContent, 'English privacy');
+    expect(english.maintenance.message, 'Temporarily unavailable');
+
+    final thai = MobileBootstrap.fromJson(
+      const {
+        'site': {
+          'locale': 'th-TH',
+          'display_name_i18n': {
+            'th-TH': 'ร้านสลากตัวอย่าง',
+            'en-US': 'Demo Lottery',
+          },
+        },
+      },
+      contentLocale: 'th',
+    );
+
+    expect(thai.siteName, 'ร้านสลากตัวอย่าง');
+  });
+
+  test('mobile bootstrap provider reloads when customer locale changes',
+      () async {
+    late ProviderContainer container;
+    final api = _LocaleAwareBootstrapApiClient(
+      () => localeTag(container.read(customerLocaleProvider)),
+    );
+    container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+        ),
+        mobileBootstrapRepositoryProvider.overrideWithValue(
+          MobileBootstrapRepository(api),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final thai = await container.read(mobileBootstrapProvider.future);
+    expect(thai.siteName, 'ร้านสลากตัวอย่าง');
+
+    container.read(customerLocaleProvider.notifier).state =
+        const Locale('en', 'US');
+    final english = await container.read(mobileBootstrapProvider.future);
+
+    expect(english.siteName, 'Demo Lottery');
+    expect(api.requestedLocales, ['th-TH', 'en-US']);
+  });
+
   test('mobile bootstrap maps checkout payment config with safe fallback', () {
     final bootstrap = MobileBootstrap.fromJson({
       'mobile': {
@@ -865,6 +1004,9 @@ void main() {
             checkoutPaymentMethodExternalPayment,
           ],
           'checkout_payment_method': checkoutPaymentMethodExternalPayment,
+          'checkout_payment_method_labels': {
+            checkoutPaymentMethodExternalPayment: 'Partner Gateway',
+          },
         },
       },
     });
@@ -879,6 +1021,12 @@ void main() {
     expect(
       bootstrap.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
+    );
+    expect(
+      bootstrap.payment.checkoutPaymentMethodLabels,
+      {
+        checkoutPaymentMethodExternalPayment: 'Partner Gateway',
+      },
     );
 
     final defaultOnly = MobileBootstrap.fromJson({
@@ -932,6 +1080,12 @@ void main() {
             },
           ],
           'defaultCheckoutPaymentMethod': checkoutPaymentMethodExternalPayment,
+          'checkoutPaymentMethodOptions': [
+            {
+              'paymentMethod': checkoutPaymentMethodExternalPayment,
+              'displayName': 'Runtime Pay',
+            },
+          ],
         },
       },
     });
@@ -943,6 +1097,12 @@ void main() {
     expect(
       objectRows.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
+    );
+    expect(
+      objectRows.payment.checkoutPaymentMethodLabels,
+      {
+        checkoutPaymentMethodExternalPayment: 'Runtime Pay',
+      },
     );
   });
 
@@ -1030,6 +1190,7 @@ void main() {
     final topLevel = MobileBootstrap.fromJson(
       const {
         'supportPhone': '021111111',
+        'supportUrl': 'https://support.top-level.example.test/help',
       },
     );
     final nestedContact = MobileBootstrap.fromJson(
@@ -1038,14 +1199,23 @@ void main() {
           'supportConfig': {
             'phoneNumber': '022222222',
             'emailAddress': 'support@example.test',
+            'helpUrl': 'https://support.nested.example.test/contact',
           },
         },
       },
     );
 
     expect(topLevel.supportPhone, '021111111');
+    expect(
+      topLevel.supportUrl,
+      'https://support.top-level.example.test/help',
+    );
     expect(nestedContact.supportPhone, '022222222');
     expect(nestedContact.supportEmail, 'support@example.test');
+    expect(
+      nestedContact.supportUrl,
+      'https://support.nested.example.test/contact',
+    );
   });
 
   test('api client follows active runtime customer locale', () {
@@ -1148,6 +1318,19 @@ void main() {
     expect(bootstrap.theme.backgroundColor, const Color(0xFFFAFBFC));
     expect(bootstrap.theme.textColor, const Color(0xFF111827));
     expect(bootstrap.theme.fontFamily, 'Prompt');
+  });
+
+  test('mobile bootstrap accepts site customer identity fields', () {
+    final bootstrap = MobileBootstrap.fromJson({
+      'site': {
+        'display_name': 'Partner Site Identity',
+        'lottery_product_label': 'L6 Site',
+        'ticket_image_watermark': 'Site Lottery Office',
+      },
+    });
+
+    expect(bootstrap.lotteryProductLabel, 'L6 Site');
+    expect(bootstrap.ticketImageWatermark, 'Site Lottery Office');
   });
 
   test('mobile bootstrap maps camelCase partner brand and theme payload', () {
@@ -1451,6 +1634,125 @@ void main() {
       AppTheme.appActionStart,
     );
     expect(AppTheme.primaryActionEnd(AppTheme.appBlue), AppTheme.appActionEnd);
+    expect(
+      AppTheme.primaryOutlineText(AppTheme.appBlue),
+      AppTheme.appOutlinePillText,
+    );
+    expect(
+      AppTheme.primaryOutlineBorder(AppTheme.appBlue),
+      AppTheme.appOutlinePillBorder,
+    );
+    expect(AppTheme.primaryLink(AppTheme.appBlue), AppTheme.appBlueLink);
+    expect(
+      AppTheme.bottomNavigationActive(AppTheme.appBlue),
+      AppTheme.appBottomNavActive,
+    );
+    expect(
+      AppTheme.bottomNavigationActiveFill(AppTheme.appBlue),
+      AppTheme.appBottomNavActiveFill,
+    );
+    expect(
+      AppTheme.successGradientEnd(AppTheme.appBlue, AppTheme.appSky),
+      AppTheme.appSuccessGradientEnd,
+    );
+    expect(
+      AppTheme.homeActivityFallbackStart(AppTheme.appBlue),
+      const Color(0xFF0B84ED),
+    );
+    expect(
+      AppTheme.homeActivityFallbackEnd(AppTheme.appBlue, AppTheme.appSky),
+      const Color(0xFF11A584),
+    );
+    expect(
+      AppTheme.homeNewsFallbackStart(AppTheme.appBlue),
+      const Color(0xFF0A87F5),
+    );
+    expect(
+      AppTheme.newsCardFallbackEnd(AppTheme.appBlue, AppTheme.appInk),
+      const Color(0xFF174783),
+    );
+    expect(
+      AppTheme.activityActionFill(AppTheme.appBlue),
+      AppTheme.appActivityActionFill,
+    );
+    expect(
+      AppTheme.activityActionText(AppTheme.appBlue),
+      AppTheme.appActivityActionText,
+    );
+    expect(
+      AppTheme.activityFallbackStart(AppTheme.appBlue),
+      AppTheme.appActivityFallbackStart,
+    );
+    expect(
+      AppTheme.activityFallbackEnd(AppTheme.appBlue, AppTheme.appSky),
+      AppTheme.appActivityFallbackEnd,
+    );
+    expect(
+      AppTheme.activityFallbackIcon(AppTheme.appBlue),
+      AppTheme.appActivityFallbackIcon,
+    );
+    expect(AppTheme.pinAction(AppTheme.appBlue), AppTheme.appPinAction);
+    expect(
+      AppTheme.pinGradientStart(AppTheme.appBlue),
+      AppTheme.appPinGradientStart,
+    );
+    expect(
+      AppTheme.pinGradientEnd(AppTheme.appBlue),
+      AppTheme.appPinGradientEnd,
+    );
+    expect(
+      AppTheme.ticketTabStart(AppTheme.appBlue),
+      AppTheme.appTicketTabStart,
+    );
+    expect(
+      AppTheme.ticketTabEnd(AppTheme.appBlue),
+      AppTheme.appTicketTabEnd,
+    );
+    expect(
+      AppTheme.ticketCountText(AppTheme.appBlue),
+      AppTheme.appTicketCountText,
+    );
+    expect(
+      AppTheme.claimChevron(AppTheme.appBlue),
+      AppTheme.appClaimChevron,
+    );
+    expect(AppTheme.lotterySix(AppTheme.appBlue), AppTheme.appLotterySix);
+    expect(
+      AppTheme.maintenanceGradientEnd(AppTheme.appBlue, AppTheme.appInk),
+      AppTheme.appMaintenanceGradientEnd,
+    );
+    expect(
+      AppTheme.suspendedGradientStart(AppTheme.appBlue),
+      AppTheme.appSuspendedGradientStart,
+    );
+    expect(
+      AppTheme.suspendedGradientMid(AppTheme.appBlue),
+      AppTheme.appSuspendedGradientMid,
+    );
+    expect(
+      AppTheme.suspendedGradientEnd(AppTheme.appBlue, AppTheme.appSky),
+      AppTheme.appSuspendedGradientEnd,
+    );
+    expect(
+      AppTheme.suspendedRadialAccent(AppTheme.appYellow),
+      AppTheme.appSuspendedRadialAccent,
+    );
+    expect(
+      AppTheme.countdownGradientMid(AppTheme.appBlue),
+      AppTheme.appCountdownGradientMid,
+    );
+    expect(
+      AppTheme.countdownGradientEnd(AppTheme.appBlue, AppTheme.appInk),
+      AppTheme.appCountdownGradientEnd,
+    );
+    expect(
+      AppTheme.systemActionStart(AppTheme.appBlue),
+      AppTheme.appSystemActionStart,
+    );
+    expect(
+      AppTheme.systemActionEnd(AppTheme.appBlue),
+      AppTheme.appSystemActionEnd,
+    );
     expect(AppTheme.heroGradientStart(AppTheme.appBlue), AppTheme.appHeroStart);
     expect(AppTheme.heroGradientEnd(AppTheme.appBlue), AppTheme.appHeroEnd);
   });
@@ -1495,6 +1797,119 @@ void main() {
     expect(theme.colorScheme.onSurface, const Color(0xFF111827));
     expect(theme.scaffoldBackgroundColor, const Color(0xFFFAFBFC));
     expect(theme.textTheme.bodyMedium?.color, const Color(0xFF111827));
+    final primary = theme.colorScheme.primary;
+    final secondary = theme.colorScheme.secondary;
+    expect(
+      AppTheme.primaryActionStart(primary),
+      isNot(AppTheme.appActionStart),
+    );
+    expect(AppTheme.primaryActionEnd(primary), isNot(AppTheme.appActionEnd));
+    expect(
+      AppTheme.primaryOutlineText(primary),
+      isNot(AppTheme.appOutlinePillText),
+    );
+    expect(
+      AppTheme.primaryOutlineBorder(primary),
+      isNot(AppTheme.appOutlinePillBorder),
+    );
+    expect(
+      AppTheme.bottomNavigationActive(primary),
+      isNot(AppTheme.appBottomNavActive),
+    );
+    expect(
+      AppTheme.successGradientEnd(primary, secondary),
+      isNot(AppTheme.appSuccessGradientEnd),
+    );
+    expect(
+      AppTheme.homeActivityFallbackStart(primary),
+      isNot(const Color(0xFF0B84ED)),
+    );
+    expect(
+      AppTheme.newsCardFallbackEnd(primary, theme.colorScheme.onSurface),
+      isNot(const Color(0xFF174783)),
+    );
+    expect(
+      AppTheme.activityActionFill(primary),
+      isNot(AppTheme.appActivityActionFill),
+    );
+    expect(
+      AppTheme.activityActionText(primary),
+      isNot(AppTheme.appActivityActionText),
+    );
+    expect(
+      AppTheme.activityFallbackStart(primary),
+      isNot(AppTheme.appActivityFallbackStart),
+    );
+    expect(
+      AppTheme.activityFallbackEnd(primary, secondary),
+      isNot(AppTheme.appActivityFallbackEnd),
+    );
+    expect(
+      AppTheme.activityFallbackIcon(primary),
+      isNot(AppTheme.appActivityFallbackIcon),
+    );
+    expect(AppTheme.pinAction(primary), isNot(AppTheme.appPinAction));
+    expect(
+      AppTheme.pinGradientStart(primary),
+      isNot(AppTheme.appPinGradientStart),
+    );
+    expect(
+      AppTheme.pinGradientEnd(primary),
+      isNot(AppTheme.appPinGradientEnd),
+    );
+    expect(
+      AppTheme.ticketTabStart(primary),
+      isNot(AppTheme.appTicketTabStart),
+    );
+    expect(
+      AppTheme.ticketTabEnd(primary),
+      isNot(AppTheme.appTicketTabEnd),
+    );
+    expect(
+      AppTheme.ticketCountText(primary),
+      isNot(AppTheme.appTicketCountText),
+    );
+    expect(
+      AppTheme.claimChevron(primary),
+      isNot(AppTheme.appClaimChevron),
+    );
+    expect(AppTheme.lotterySix(primary), isNot(AppTheme.appLotterySix));
+    expect(
+      AppTheme.maintenanceGradientEnd(primary, theme.colorScheme.onSurface),
+      isNot(AppTheme.appMaintenanceGradientEnd),
+    );
+    expect(
+      AppTheme.suspendedGradientStart(primary),
+      isNot(AppTheme.appSuspendedGradientStart),
+    );
+    expect(
+      AppTheme.suspendedGradientMid(primary),
+      isNot(AppTheme.appSuspendedGradientMid),
+    );
+    expect(
+      AppTheme.suspendedGradientEnd(primary, secondary),
+      isNot(AppTheme.appSuspendedGradientEnd),
+    );
+    expect(
+      AppTheme.suspendedRadialAccent(theme.colorScheme.tertiary),
+      isNot(AppTheme.appSuspendedRadialAccent),
+    );
+    expect(
+      AppTheme.countdownGradientMid(primary),
+      isNot(AppTheme.appCountdownGradientMid),
+    );
+    expect(
+      AppTheme.countdownGradientEnd(primary, theme.colorScheme.onSurface),
+      isNot(AppTheme.appCountdownGradientEnd),
+    );
+    expect(
+      AppTheme.systemActionStart(primary),
+      isNot(AppTheme.appSystemActionStart),
+    );
+    expect(
+      AppTheme.systemActionEnd(primary),
+      isNot(AppTheme.appSystemActionEnd),
+    );
   });
 }
 
@@ -1517,6 +1932,48 @@ class _BootstrapApiClient extends ApiClient {
     Map<String, dynamic>? query,
     bool auth = true,
   }) async {
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: response as T,
+    );
+  }
+}
+
+class _LocaleAwareBootstrapApiClient extends ApiClient {
+  _LocaleAwareBootstrapApiClient(String Function() localeResolver)
+      : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+          localeTagResolver: localeResolver,
+        );
+
+  final List<String> requestedLocales = [];
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    final locale = currentLocaleTag;
+    requestedLocales.add(locale);
+    final english = locale.toLowerCase().startsWith('en');
+    final response = {
+      'data': {
+        'site': {
+          'locale': 'th-TH',
+          'display_name': english ? 'Demo Lottery' : 'ร้านสลากตัวอย่าง',
+          'display_name_i18n': {
+            'th-TH': 'ร้านสลากตัวอย่าง',
+            'en-US': 'Demo Lottery',
+          },
+        },
+      },
+    };
     return Response<T>(
       requestOptions: RequestOptions(path: path),
       data: response as T,

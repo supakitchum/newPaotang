@@ -22,16 +22,18 @@ class ResultPageBody extends StatelessWidget {
   }
 }
 
+enum ResultSummaryCardVariant { standard, featured, history }
+
 class ResultSummaryCard extends StatelessWidget {
   const ResultSummaryCard({
     required this.result,
     super.key,
-    this.featured = false,
+    this.variant = ResultSummaryCardVariant.standard,
     this.link,
   });
 
   final RewardResultGame result;
-  final bool featured;
+  final ResultSummaryCardVariant variant;
   final String? link;
 
   @override
@@ -39,7 +41,17 @@ class ResultSummaryCard extends StatelessWidget {
     final l10n = context.l10n;
     final drawDate = result.drawDateText(localeTag(l10n.locale));
     final summary = result.summary;
+    final featured = variant == ResultSummaryCardVariant.featured;
+    final history = variant == ResultSummaryCardVariant.history;
     final radius = BorderRadius.circular(featured ? 10 : 8);
+    final wide = MediaQuery.sizeOf(context).width >= 1024;
+    final padding = wide
+        ? const EdgeInsets.symmetric(horizontal: 26, vertical: 25)
+        : featured
+            ? const EdgeInsets.fromLTRB(24, 24, 24, 26)
+            : history
+                ? const EdgeInsets.fromLTRB(24, 26, 24, 31)
+                : const EdgeInsets.symmetric(horizontal: 18, vertical: 20);
     const mutedForeground = resultNuxtMuted;
 
     final content = ClipRRect(
@@ -47,21 +59,16 @@ class ResultSummaryCard extends StatelessWidget {
       child: ColoredBox(
         color: resultNuxtSurface,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            featured ? 24 : 24,
-            featured ? 24 : 26,
-            featured ? 24 : 24,
-            featured ? 26 : 31,
-          ),
+          padding: padding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (featured)
+              if (!history)
                 _ResultFeaturedHeader(
                   drawDate:
                       drawDate.isEmpty ? l10n.resultPendingDrawDate : drawDate,
                   link: link,
-                  unofficial: result.isUnofficial,
+                  boldDate: featured,
                 )
               else
                 _ResultHistoryHeader(
@@ -69,7 +76,7 @@ class ResultSummaryCard extends StatelessWidget {
                       drawDate.isEmpty ? l10n.resultPendingDrawDate : drawDate,
                   link: link,
                 ),
-              if (!featured)
+              if (history)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 22),
                   child: Divider(
@@ -77,78 +84,38 @@ class ResultSummaryCard extends StatelessWidget {
                     color: resultNuxtDivider,
                   ),
                 )
-              else ...[
-                if (result.isUnofficial) ...[
-                  const SizedBox(height: 12),
-                  _UnofficialBadge(featured: featured),
-                ],
-                const SizedBox(height: 18),
-              ],
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 330;
-                  final topRow = [
-                    _ResultNumberBlock(
+              else
+                const SizedBox(height: 16),
+              Column(
+                children: [
+                  _ResultSummaryRow(
+                    left: _ResultNumberBlock(
                       label: l10n.resultRewardTitle('reward_1'),
                       number: summary.first,
                       prominent: true,
                       labelColor: mutedForeground,
                     ),
-                    _ResultNumberBlock(
+                    right: _ResultNumberBlock(
                       label: l10n.resultRewardTitle('reward_two_digit'),
                       number: summary.last2,
                       prominent: true,
                       labelColor: mutedForeground,
                     ),
-                  ];
-                  final bottomRow = [
-                    _ResultNumberBlock(
-                      label: l10n.resultRewardTitle(
-                        'reward_three_digit_1',
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  _ResultSummaryRow(
+                    left: _ResultNumberBlock(
+                      label: l10n.resultRewardTitle('reward_three_digit_1'),
                       numbers: summary.front3,
                       labelColor: mutedForeground,
                     ),
-                    _ResultNumberBlock(
-                      label: l10n.resultRewardTitle(
-                        'reward_three_digit_2',
-                      ),
+                    right: _ResultNumberBlock(
+                      label: l10n.resultRewardTitle('reward_three_digit_2'),
                       numbers: summary.last3,
                       labelColor: mutedForeground,
                     ),
-                  ];
-
-                  if (compact) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ...topRow,
-                        ...bottomRow,
-                      ]
-                          .map(
-                            (child) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: child,
-                            ),
-                          )
-                          .toList(growable: false),
-                    );
-                  }
-
-                  return Column(
-                    children: [
-                      _ResultSummaryRow(
-                        left: topRow[0],
-                        right: topRow[1],
-                      ),
-                      const SizedBox(height: 18),
-                      _ResultSummaryRow(
-                        left: bottomRow[0],
-                        right: bottomRow[1],
-                      ),
-                    ],
-                  );
-                },
+                  ),
+                ],
               ),
             ],
           ),
@@ -162,22 +129,19 @@ class ResultSummaryCard extends StatelessWidget {
         radius: featured ? 10 : 8,
         border: false,
         shadow: !featured,
+        historyShadow: history,
       ),
       child: content,
     );
 
-    if (link == null) return card;
+    if (!result.isUnofficial) return card;
 
-    return Semantics(
-      button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => context.go(link!),
-          child: card,
-        ),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        card,
+        const _UnofficialBadge(),
+      ],
     );
   }
 }
@@ -185,12 +149,12 @@ class ResultSummaryCard extends StatelessWidget {
 class _ResultFeaturedHeader extends StatelessWidget {
   const _ResultFeaturedHeader({
     required this.drawDate,
-    required this.unofficial,
+    required this.boldDate,
     this.link,
   });
 
   final String drawDate;
-  final bool unofficial;
+  final bool boldDate;
   final String? link;
 
   @override
@@ -213,7 +177,7 @@ class _ResultFeaturedHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: resultNuxtSectionTitle,
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.w700,
                         height: 1.18,
                       ),
@@ -221,14 +185,6 @@ class _ResultFeaturedHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   const _ResultInfoLink(),
-                  if (unofficial) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      size: 18,
-                      color: resultNuxtUnofficialIcon,
-                    ),
-                  ],
                 ],
               ),
               const SizedBox(height: 6),
@@ -238,7 +194,10 @@ class _ResultFeaturedHeader extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: drawDate,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontWeight:
+                            boldDate ? FontWeight.w700 : FontWeight.w400,
+                      ),
                     ),
                   ],
                 ),
@@ -247,7 +206,7 @@ class _ResultFeaturedHeader extends StatelessWidget {
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: resultNuxtMuted,
                   fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                   height: 1.25,
                 ),
               ),
@@ -256,11 +215,7 @@ class _ResultFeaturedHeader extends StatelessWidget {
         ),
         if (link != null) ...[
           const SizedBox(width: 10),
-          Icon(
-            Icons.chevron_right,
-            size: 32,
-            color: resultNuxtLink,
-          ),
+          _ResultCardChevron(link: link!),
         ],
       ],
     );
@@ -290,7 +245,7 @@ class _ResultHistoryHeader extends StatelessWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: resultNuxtMuted,
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                     height: 1.25,
                   ),
                 ),
@@ -309,12 +264,7 @@ class _ResultHistoryHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (link != null)
-            Icon(
-              Icons.chevron_right,
-              size: 32,
-              color: resultNuxtLink,
-            ),
+          if (link != null) _ResultCardChevron(link: link!),
         ],
       ),
     );
@@ -340,6 +290,35 @@ class _ResultSummaryRow extends StatelessWidget {
   }
 }
 
+class _ResultCardChevron extends StatelessWidget {
+  const _ResultCardChevron({required this.link});
+
+  final String link;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: context.l10n.resultFullTitle,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => context.go(link),
+          child: const Padding(
+            padding: EdgeInsets.all(2),
+            child: Icon(
+              Icons.chevron_right,
+              size: 30,
+              color: resultNuxtLink,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ResultDetailGroupCard extends StatelessWidget {
   const ResultDetailGroupCard({required this.group, super.key});
 
@@ -350,6 +329,7 @@ class ResultDetailGroupCard extends StatelessWidget {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final besideFirst = group.slug == 'reward_beside_1';
     final barColor =
         Color.lerp(colorScheme.surface, colorScheme.outlineVariant, 0.34) ??
             colorScheme.surfaceContainerHighest;
@@ -394,7 +374,7 @@ class ResultDetailGroupCard extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 14, 24, 22),
+          padding: EdgeInsets.fromLTRB(24, besideFirst ? 18 : 14, 24, 22),
           child: _ResultNumberGrid(numbers: group.numbers),
         ),
       ],
@@ -550,6 +530,7 @@ class _ResultDetailHighlightBlock extends StatelessWidget {
           numbers: numbers,
           columns: numbers.length <= 1 ? 1 : 2,
           prominent: firstPrize,
+          highlight: true,
           horizontalGap: firstPrize ? 0 : 18,
           rowGap: 8,
         ),
@@ -563,6 +544,7 @@ class _ResultNumberGrid extends StatelessWidget {
     required this.numbers,
     this.columns,
     this.prominent = false,
+    this.highlight = false,
     this.horizontalGap = 18,
     this.rowGap = 14,
   });
@@ -570,6 +552,7 @@ class _ResultNumberGrid extends StatelessWidget {
   final List<String> numbers;
   final int? columns;
   final bool prominent;
+  final bool highlight;
   final double horizontalGap;
   final double rowGap;
 
@@ -578,14 +561,11 @@ class _ResultNumberGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final effectiveColumns = columns ??
-            (width < 390
-                ? (numbers.length <= 2 ? 2 : 3)
-                : (numbers.length <= 2 ? 4 : 5));
+        final effectiveColumns = columns ?? 4;
         final gapTotal = horizontalGap * (effectiveColumns - 1);
         final itemWidth = ((width - gapTotal) / effectiveColumns)
             .clamp(
-              44.0,
+              0.0,
               width,
             )
             .toDouble();
@@ -598,7 +578,13 @@ class _ResultNumberGrid extends StatelessWidget {
                 width: itemWidth,
                 child: _ResultNumberPill(
                   number: number,
-                  prominent: prominent,
+                  fontSize: prominent ? 37 : (highlight ? 22 : 17),
+                  fontWeight: prominent || highlight
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  lineHeight: prominent || highlight ? 1 : 1.2,
+                  color:
+                      prominent ? resultNuxtStateText : resultNuxtSmallNumber,
                   align: TextAlign.left,
                 ),
               ),
@@ -691,6 +677,7 @@ BoxDecoration _resultSurfaceDecoration(
   required double radius,
   bool border = true,
   bool shadow = true,
+  bool historyShadow = false,
 }) {
   return BoxDecoration(
     color: resultNuxtSurface,
@@ -699,10 +686,11 @@ BoxDecoration _resultSurfaceDecoration(
     boxShadow: [
       if (shadow)
         BoxShadow(
-          color:
-              radius == 8 ? resultNuxtHistoryCardShadow : resultNuxtCardShadow,
+          color: historyShadow
+              ? resultNuxtHistoryCardShadow
+              : resultNuxtCardShadow,
           blurRadius: 24,
-          offset: radius == 8 ? const Offset(0, 13) : const Offset(0, 10),
+          offset: historyShadow ? const Offset(0, 13) : const Offset(0, 8),
         ),
     ],
   );
@@ -733,10 +721,11 @@ class _ResultNumberBlock extends StatelessWidget {
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: labelColor,
-                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 1.5,
               ),
         ),
-        const SizedBox(height: 6),
         Wrap(
           spacing: prominent ? 8 : 20,
           runSpacing: prominent ? 8 : 2,
@@ -744,7 +733,10 @@ class _ResultNumberBlock extends StatelessWidget {
             for (final item in displayNumbers)
               _ResultNumberPill(
                 number: item,
-                prominent: prominent,
+                fontSize: prominent ? 31 : 21,
+                fontWeight: FontWeight.w700,
+                lineHeight: 1.5,
+                color: prominent ? resultNuxtStateText : resultNuxtSmallNumber,
               ),
           ],
         ),
@@ -772,7 +764,7 @@ class _ResultInfoLink extends StatelessWidget {
               padding: const EdgeInsets.all(2),
               child: Icon(
                 Icons.info_outline,
-                size: 22,
+                size: 16,
                 color: resultNuxtMuted,
               ),
             ),
@@ -786,25 +778,30 @@ class _ResultInfoLink extends StatelessWidget {
 class _ResultNumberPill extends StatelessWidget {
   const _ResultNumberPill({
     required this.number,
-    this.prominent = false,
+    required this.fontSize,
+    required this.fontWeight,
+    required this.lineHeight,
+    required this.color,
     this.align = TextAlign.start,
   });
 
   final String number;
-  final bool prominent;
+  final double fontSize;
+  final FontWeight fontWeight;
+  final double lineHeight;
+  final Color color;
   final TextAlign align;
 
   @override
   Widget build(BuildContext context) {
-    final numberColor = prominent ? resultNuxtStateText : resultNuxtSmallNumber;
     return Text(
       number,
       textAlign: align,
       style: TextStyle(
-        color: numberColor,
-        fontSize: prominent ? 31 : 21,
-        fontWeight: prominent ? FontWeight.w700 : FontWeight.w700,
-        height: 1.08,
+        color: color,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        height: lineHeight,
         letterSpacing: 0,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
@@ -813,9 +810,7 @@ class _ResultNumberPill extends StatelessWidget {
 }
 
 class _UnofficialBadge extends StatelessWidget {
-  const _UnofficialBadge({required this.featured});
-
-  final bool featured;
+  const _UnofficialBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -839,7 +834,9 @@ class _UnofficialBadge extends StatelessWidget {
               context.l10n.resultUnofficial,
               style: TextStyle(
                 color: resultNuxtUnofficialText,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
+                height: 1.35,
               ),
             ),
           ),

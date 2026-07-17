@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_wallet_card.dart';
 import '../../profile/data/profile_settings_repository.dart';
@@ -39,6 +41,8 @@ Color _walletPanelBorder(ColorScheme colorScheme) =>
 Color _walletPanelShadow(ColorScheme colorScheme) =>
     colorScheme.primary.withValues(alpha: 0.08);
 
+enum _WalletLedgerFilter { latest, incoming, outgoing }
+
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -50,6 +54,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   final _transactionsKey = GlobalKey();
   bool _transactionsScrollScheduled = false;
   String _lastHandledFragment = '';
+  _WalletLedgerFilter _selectedFilter = _WalletLedgerFilter.latest;
 
   void _scheduleTransactionsScroll() {
     if (_transactionsScrollScheduled) return;
@@ -103,6 +108,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     _syncTransactionsFragment(context);
+    listenForCustomerOperationalError<WalletSummary>(
+      ref: ref,
+      context: context,
+      provider: walletSummaryProvider,
+    );
     final summary = ref.watch(walletSummaryProvider);
     final l10n = context.l10n;
     Future<void> refreshWallet() async {
@@ -120,53 +130,172 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       currentPath: '/my-wallet',
       backPath: '/profile',
       sensitive: true,
-      child: RefreshIndicator(
-        onRefresh: refreshWallet,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
+      showBottomNavigation: true,
+      heroContent: const SizedBox.shrink(),
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _WalletPageSheet(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _WalletHeroCard(
+                  summary: summary,
+                  onOpenWallet: () => context.go('/my-wallet'),
+                  actions: _walletCardActions(
+                    context,
+                    onShowTransactions: _openTransactions,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Column(
+                  key: _transactionsKey,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _WalletLedgerHeader(
+                      loading: summary.isLoading,
+                      onRefresh: refreshWallet,
+                    ),
+                    const SizedBox(height: 14),
+                    _WalletLedgerFilterTabs(
+                      selected: _selectedFilter,
+                      onSelected: (filter) {
+                        setState(() => _selectedFilter = filter);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    summary.when(
+                      data: (data) {
+                        if (data.ledgerLoadFailed) {
+                          return _WalletLedgerLoadFailed(
+                            message: data.ledgerErrorMessage,
+                            onRetry: refreshWallet,
+                          );
+                        }
+                        return Column(
+                          children: [
+                            for (final filter in _WalletLedgerFilter.values)
+                              Offstage(
+                                offstage: filter != _selectedFilter,
+                                child: _WalletLedgerFeed(
+                                  key: ValueKey(
+                                    'wallet-ledger-feed-${filter.name}',
+                                  ),
+                                  filter: filter,
+                                  active: filter == _selectedFilter,
+                                  seedEntries: data.ledger,
+                                  seedNextCursor: data.ledgerNextCursor,
+                                  seedHasMore: data.ledgerHasMore,
+                                  walletName: data.primaryWallet?.name ?? '',
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                      loading: () => const _WalletLedgerLoading(),
+                      error: (_, __) => _WalletLedgerLoadFailed(
+                        message: l10n.walletLedgerLoadFailedMessage,
+                        onRetry: refreshWallet,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+extension on _WalletLedgerFilter {
+  WalletLedgerDirection get direction => switch (this) {
+        _WalletLedgerFilter.latest => WalletLedgerDirection.all,
+        _WalletLedgerFilter.incoming => WalletLedgerDirection.incoming,
+        _WalletLedgerFilter.outgoing => WalletLedgerDirection.outgoing,
+      };
+}
+
+List<WalletLedgerEntry> _filterWalletLedger(
+  List<WalletLedgerEntry> entries,
+  _WalletLedgerFilter filter,
+) {
+  return switch (filter) {
+    _WalletLedgerFilter.latest => entries,
+    _WalletLedgerFilter.incoming =>
+      entries.where((entry) => entry.isCredit).toList(growable: false),
+    _WalletLedgerFilter.outgoing =>
+      entries.where((entry) => entry.isDebit).toList(growable: false),
+  };
+}
+
+class _WalletPageSheet extends StatelessWidget {
+  const _WalletPageSheet({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final minHeight = viewport.width <= 520
+        ? (viewport.height - customerReferenceCompactHeroHeight)
+            .clamp(0.0, double.infinity)
+        : 620.0;
+    return DecoratedBox(
+      key: const ValueKey('wallet-content-sheet'),
+      decoration: const BoxDecoration(
+        color: AppTheme.appWalletSheet,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(18),
+        ),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight),
+        child: CustomerPageBody(
+          top: 20,
+          bottom: 112,
+          mobileHorizontal: 16,
+          wideHorizontal: 16,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _WalletLedgerFilterTabs extends StatelessWidget {
+  const _WalletLedgerFilterTabs({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _WalletLedgerFilter selected;
+  final ValueChanged<_WalletLedgerFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey('wallet-ledger-filter-tabs'),
+      decoration: BoxDecoration(
+        color: _walletPrimaryTint(Theme.of(context).colorScheme),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
           children: [
-            _WalletHeroSection(
-              child: _WalletHeroCard(
-                summary: summary,
-                onOpenWallet: () => context.go('/my-wallet'),
-                actions: _walletCardActions(
-                  context,
-                  onShowTransactions: _openTransactions,
+            for (final filter in _WalletLedgerFilter.values)
+              Expanded(
+                child: _WalletLedgerFilterTab(
+                  filter: filter,
+                  selected: selected == filter,
+                  onPressed: () => onSelected(filter),
                 ),
               ),
-            ),
-            _WalletLedgerSheet(
-              key: _transactionsKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _WalletLedgerHeader(
-                    loading: summary.isLoading,
-                    onRefresh: refreshWallet,
-                  ),
-                  const SizedBox(height: 12),
-                  summary.when(
-                    data: (data) {
-                      if (data.ledgerLoadFailed) {
-                        return _WalletLedgerLoadFailed(
-                          message: data.ledgerErrorMessage,
-                          onRetry: refreshWallet,
-                        );
-                      }
-                      if (data.ledger.isEmpty) {
-                        return const _WalletEmptyLedger();
-                      }
-                      return _WalletLedgerList(entries: data.ledger);
-                    },
-                    loading: () => const _WalletLedgerLoading(),
-                    error: (_, __) => _WalletLedgerLoadFailed(
-                      message: l10n.walletLedgerLoadFailedMessage,
-                      onRetry: refreshWallet,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -174,40 +303,69 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 }
 
-class _WalletHeroSection extends StatelessWidget {
-  const _WalletHeroSection({required this.child});
+class _WalletLedgerFilterTab extends StatelessWidget {
+  const _WalletLedgerFilterTab({
+    required this.filter,
+    required this.selected,
+    required this.onPressed,
+  });
 
-  final Widget child;
+  final _WalletLedgerFilter filter;
+  final bool selected;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
-        ),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 304),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontal = constraints.maxWidth >= 720 ? 28.0 : 18.0;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 920),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 34),
-                  child: child,
-                ),
-              ),
-            );
-          },
+    final label = switch (filter) {
+      _WalletLedgerFilter.latest => l10n.walletFilterLatest,
+      _WalletLedgerFilter.incoming => l10n.walletFilterIncoming,
+      _WalletLedgerFilter.outgoing => l10n.walletFilterOutgoing,
+    };
+    final radius = BorderRadius.circular(11);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('wallet-filter-${filter.name}'),
+          onTap: onPressed,
+          borderRadius: radius,
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? colorScheme.primary : Colors.transparent,
+              borderRadius: radius,
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: 0.18),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color:
+                        selected ? colorScheme.onPrimary : colorScheme.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+            ),
+          ),
         ),
       ),
     );
@@ -278,33 +436,256 @@ class _WalletHeroCard extends ConsumerWidget {
   }
 }
 
-class _WalletLedgerSheet extends StatelessWidget {
-  const _WalletLedgerSheet({super.key, required this.child});
+class _WalletLedgerFeed extends ConsumerStatefulWidget {
+  const _WalletLedgerFeed({
+    required this.filter,
+    required this.active,
+    required this.seedEntries,
+    required this.seedNextCursor,
+    required this.seedHasMore,
+    required this.walletName,
+    super.key,
+  });
 
-  final Widget child;
+  final _WalletLedgerFilter filter;
+  final bool active;
+  final List<WalletLedgerEntry> seedEntries;
+  final String seedNextCursor;
+  final bool seedHasMore;
+  final String walletName;
+
+  @override
+  ConsumerState<_WalletLedgerFeed> createState() => _WalletLedgerFeedState();
+}
+
+class _WalletLedgerFeedState extends ConsumerState<_WalletLedgerFeed> {
+  List<WalletLedgerEntry> _entries = const [];
+  String _nextCursor = '';
+  bool _hasMore = false;
+  bool _initialLoaded = false;
+  bool _initialLoading = false;
+  bool _loadingMore = false;
+  String _initialError = '';
+  String _loadMoreError = '';
+  bool _loadScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetFromSeed();
+    _scheduleInitialLoad();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WalletLedgerFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final seedChanged = !identical(oldWidget.seedEntries, widget.seedEntries) ||
+        oldWidget.seedNextCursor != widget.seedNextCursor ||
+        oldWidget.seedHasMore != widget.seedHasMore;
+    if (seedChanged) _resetFromSeed();
+    if (seedChanged || (!oldWidget.active && widget.active)) {
+      _scheduleInitialLoad();
+    }
+  }
+
+  void _resetFromSeed() {
+    final seedIsComplete =
+        widget.filter == _WalletLedgerFilter.latest || !widget.seedHasMore;
+    _entries = seedIsComplete
+        ? _filterWalletLedger(widget.seedEntries, widget.filter)
+        : const [];
+    _nextCursor = widget.filter == _WalletLedgerFilter.latest
+        ? widget.seedNextCursor
+        : '';
+    _hasMore = widget.filter == _WalletLedgerFilter.latest &&
+        widget.seedHasMore &&
+        widget.seedNextCursor.trim().isNotEmpty;
+    _initialLoaded = seedIsComplete;
+    _initialLoading = false;
+    _loadingMore = false;
+    _initialError = '';
+    _loadMoreError = '';
+  }
+
+  void _scheduleInitialLoad() {
+    if (!widget.active || _initialLoaded || _initialLoading || _loadScheduled) {
+      return;
+    }
+    _loadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadScheduled = false;
+      if (!mounted || !widget.active || _initialLoaded || _initialLoading) {
+        return;
+      }
+      _loadInitial();
+    });
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _initialLoading = true;
+      _initialError = '';
+    });
+    try {
+      final page = await ref.read(walletRepositoryProvider).ledgerPage(
+            direction: widget.filter.direction,
+          );
+      if (!mounted) return;
+      setState(() {
+        _entries = page.entries;
+        _nextCursor = page.nextCursor;
+        _hasMore = page.hasMore && page.nextCursor.trim().isNotEmpty;
+        _initialLoaded = true;
+        _initialLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _initialLoading = false;
+        _initialError = customerErrorMessage(
+          error,
+          context.l10n.walletLedgerLoadFailedMessage,
+        );
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _nextCursor.trim().isEmpty) return;
+    setState(() {
+      _loadingMore = true;
+      _loadMoreError = '';
+    });
+    try {
+      final page = await ref.read(walletRepositoryProvider).ledgerPage(
+            cursor: _nextCursor,
+            direction: widget.filter.direction,
+          );
+      if (!mounted) return;
+      final knownIds = _entries
+          .map((entry) => entry.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      final additions = page.entries.where((entry) {
+        final id = entry.id.trim();
+        return id.isEmpty || knownIds.add(id);
+      });
+      setState(() {
+        _entries = [..._entries, ...additions];
+        _nextCursor = page.nextCursor;
+        _hasMore = page.hasMore && page.nextCursor.trim().isNotEmpty;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _loadingMore = false;
+        _loadMoreError = customerErrorMessage(
+          error,
+          context.l10n.walletLedgerLoadFailedMessage,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_initialLoading || !_initialLoaded && _initialError.isEmpty) {
+      return const _WalletLedgerLoading();
+    }
+    if (_initialError.isNotEmpty) {
+      return _WalletLedgerLoadFailed(
+        message: _initialError,
+        onRetry: _loadInitial,
+      );
+    }
+    if (_entries.isEmpty) {
+      return _WalletEmptyLedger(filter: widget.filter);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _WalletLedgerList(
+          entries: _entries,
+          walletName: widget.walletName,
+        ),
+        if (_hasMore || _loadingMore || _loadMoreError.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _WalletLedgerLoadMore(
+            loading: _loadingMore,
+            errorMessage: _loadMoreError,
+            onPressed: _loadMore,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WalletLedgerLoadMore extends StatelessWidget {
+  const _WalletLedgerLoadMore({
+    required this.loading,
+    required this.errorMessage,
+    required this.onPressed,
+  });
+
+  final bool loading;
+  final String errorMessage;
+  final Future<void> Function() onPressed;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final sheetColor = Color.lerp(
-          colorScheme.surfaceContainerHigh,
-          colorScheme.surface,
-          0.16,
-        ) ??
-        colorScheme.surfaceContainerHigh;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.primary),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: sheetColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+    return Column(
+      children: [
+        if (errorMessage.isNotEmpty) ...[
+          Text(
+            errorMessage,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton(
+          key: const ValueKey('wallet-ledger-load-more'),
+          style: _walletOutlinePillStyle(context),
+          onPressed: loading ? null : () => onPressed(),
+          child: loading
+              ? CustomerLoadingMark(
+                  width: 26,
+                  height: 16,
+                  color: colorScheme.primary,
+                  trackColor: colorScheme.primary.withValues(alpha: 0.18),
+                  semanticLabel: context.l10n.walletLedgerLoading,
+                )
+              : Text(
+                  errorMessage.isEmpty
+                      ? context.l10n.commonLoadMore
+                      : context.l10n.commonRetry,
+                ),
         ),
-        child: CustomerPageBody(
-          top: 26,
-          bottom: 112,
-          child: child,
-        ),
-      ),
+      ],
     );
   }
 }
@@ -489,7 +870,11 @@ class _WalletLedgerHeader extends StatelessWidget {
 }
 
 class _WalletEmptyLedger extends StatelessWidget {
-  const _WalletEmptyLedger();
+  const _WalletEmptyLedger({
+    this.filter = _WalletLedgerFilter.latest,
+  });
+
+  final _WalletLedgerFilter filter;
 
   @override
   Widget build(BuildContext context) {
@@ -528,7 +913,14 @@ class _WalletEmptyLedger extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                context.l10n.walletEmptyLedgerTitle,
+                switch (filter) {
+                  _WalletLedgerFilter.latest =>
+                    context.l10n.walletEmptyLedgerTitle,
+                  _WalletLedgerFilter.incoming =>
+                    context.l10n.walletEmptyIncoming,
+                  _WalletLedgerFilter.outgoing =>
+                    context.l10n.walletEmptyOutgoing,
+                },
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: colorScheme.onSurface,
@@ -554,9 +946,13 @@ class _WalletEmptyLedger extends StatelessWidget {
 }
 
 class _WalletLedgerList extends StatelessWidget {
-  const _WalletLedgerList({required this.entries});
+  const _WalletLedgerList({
+    required this.entries,
+    required this.walletName,
+  });
 
   final List<WalletLedgerEntry> entries;
+  final String walletName;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +973,10 @@ class _WalletLedgerList extends StatelessWidget {
       child: Column(
         children: [
           for (var index = 0; index < entries.length; index++) ...[
-            _WalletLedgerTile(entry: entries[index]),
+            _WalletLedgerTile(
+              entry: entries[index],
+              walletName: walletName,
+            ),
             if (index < entries.length - 1)
               Divider(height: 1, color: _walletPanelBorder(colorScheme)),
           ],
@@ -617,9 +1016,13 @@ List<CustomerWalletCardAction> _walletCardActions(
 }
 
 class _WalletLedgerTile extends StatelessWidget {
-  const _WalletLedgerTile({required this.entry});
+  const _WalletLedgerTile({
+    required this.entry,
+    required this.walletName,
+  });
 
   final WalletLedgerEntry entry;
+  final String walletName;
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +1040,7 @@ class _WalletLedgerTile extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 360;
+        final compact = MediaQuery.sizeOf(context).width <= 360;
         final amount = _WalletLedgerAmount(
           entry: entry,
           color: amountColor,
@@ -663,7 +1066,11 @@ class _WalletLedgerTile extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        walletLedgerTitle(context.l10n, entry),
+                        walletLedgerTitle(
+                          context.l10n,
+                          entry,
+                          walletName: walletName,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(

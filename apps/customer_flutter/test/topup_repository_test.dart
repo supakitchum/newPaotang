@@ -25,6 +25,18 @@ void main() {
     expect(item.message, 'สแกน QR Code เพื่อชำระเงินรายการนี้');
   });
 
+  test('detail loads a customer topup by id', () async {
+    final api = _TopupApiClient();
+    final repository = TopupRepository(api);
+
+    final item = await repository.detail('topup_1');
+
+    expect(api.getPath, '/customer/topups/topup_1');
+    expect(item.id, 'topup_1');
+    expect(item.status, TopupStatus.pendingReview);
+    expect(item.qrCode, 'data:image/png;base64,WRAPPED');
+  });
+
   test('create sends multipart slip for bank transfer request', () async {
     final api = _TopupApiClient();
     final repository = TopupRepository(api);
@@ -117,6 +129,20 @@ class _TopupApiClient extends ApiClient {
   String multipartPath = '';
   FormData? multipartData;
   Map<String, String> multipartHeaders = {};
+  String getPath = '';
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    getPath = path;
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: _topupResponse('qr') as T,
+    );
+  }
 
   @override
   Future<Response<T>> postWithHeaders<T>(

@@ -126,9 +126,20 @@ REVERB_APP_SECRET=newpaotang-admin-secret
 REVERB_HOST=platform-api-reverb
 REVERB_PORT=8080
 REVERB_SCHEME=http
+CUSTOMER_REALTIME_URL=http://localhost:8080
+CUSTOMER_REALTIME_CLIENT=customer-flutter
+CUSTOMER_REALTIME_AUTH_ENDPOINT=/customer/realtime/auth
+CUSTOMER_REALTIME_PROTOCOL=7
 ```
 
 If the PHP server child only shows `APP_ENV=local`, the HTTP process is not using Reverb even if the container parent env is correct.
+
+Mobile bootstrap and customer private-channel authorization both use the
+configured Reverb app identity from `REVERB_APP_KEY` and
+`REVERB_APP_SECRET`. A tenant `Realtime URL` saved in BO overrides only the
+public socket URL; blank tenant values fall back to `CUSTOMER_REALTIME_URL`
+and cannot replace the server-owned key, secret, auth endpoint, protocol, or
+client identifier.
 
 5. Confirm an actual websocket event.
 

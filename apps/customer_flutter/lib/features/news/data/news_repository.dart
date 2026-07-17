@@ -13,14 +13,13 @@ final newsRepositoryProvider = Provider<NewsRepository>((ref) {
   );
 });
 
-final newsListProvider = FutureProvider<List<NewsItem>>((ref) async {
+final newsListProvider =
+    FutureProvider.autoDispose<List<NewsItem>>((ref) async {
   return ref.watch(newsRepositoryProvider).listAll();
 });
 
-final newsDetailProvider = FutureProvider.family<NewsItem, String>((
-  ref,
-  slug,
-) async {
+final newsDetailProvider =
+    FutureProvider.autoDispose.family<NewsItem, String>((ref, slug) async {
   return ref.watch(newsRepositoryProvider).detail(slug);
 });
 
@@ -74,8 +73,9 @@ class NewsRepository {
   }
 
   Future<NewsItem> detail(String slug) async {
+    final encodedSlug = Uri.encodeComponent(slug.trim());
     final response = await _api.get<Map<String, dynamic>>(
-      '/public/news/$slug',
+      '/public/news/$encodedSlug',
       auth: false,
     );
     return NewsItem.fromJson(
@@ -93,6 +93,6 @@ class NewsRepository {
     if (payload.isEmpty) return null;
 
     final item = NewsItem.fromJson(payload, resolveAssetUrl: _resolveAssetUrl);
-    return item.coverUrl.isEmpty ? null : item;
+    return item.coverUrl.isEmpty && item.detailImageUrl.isEmpty ? null : item;
   }
 }

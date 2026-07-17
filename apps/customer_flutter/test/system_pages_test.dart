@@ -8,11 +8,13 @@ import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/features/purchase_history/data/purchase_history_models.dart';
 import 'package:customer_flutter/features/purchase_history/data/purchase_history_repository.dart';
+import 'package:customer_flutter/features/purchase_history/presentation/purchase_history_detail_screen.dart';
+import 'package:customer_flutter/features/content/presentation/info_pages.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/system/presentation/system_pages.dart';
 import 'package:customer_flutter/shared/widgets/customer_loading_indicator.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +56,112 @@ void main() {
     expect(systemSupportEmailUri('bad email@example.test'), isNull);
     expect(systemSupportEmailUri('support.example.test'), isNull);
     expect(systemSupportEmailUri('   '), isNull);
+  });
+
+  test('shared customer contact URIs reject unsafe runtime values', () {
+    expect(
+      customerHttpsUri('https://support.example.test/help')?.toString(),
+      'https://support.example.test/help',
+    );
+    expect(customerHttpsUri('http://support.example.test/help'), isNull);
+    expect(customerHttpsUri('https://user@support.example.test/help'), isNull);
+    expect(customerPhoneUri('02-111-2222')?.toString(), 'tel:021112222');
+    expect(
+      customerEmailUri('support@example.test')?.toString(),
+      'mailto:support@example.test',
+    );
+  });
+
+  testWidgets('lottery knowledge uses runtime support website and phone', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final launcher = _RecordingLinkLauncher();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {
+                'name': 'Alpha Shop',
+                'support_phone': '02-111-2222',
+                'support_url': 'https://support.alpha.example.test/lottery',
+              },
+            }),
+          ),
+          customerLinkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const LotteryKnowledgeScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final website = find.text('support.alpha.example.test');
+    await tester.ensureVisible(website);
+    await tester.tap(website);
+    await tester.pump();
+
+    expect(
+      launcher.openedUri?.toString(),
+      'https://support.alpha.example.test/lottery',
+    );
+
+    final phone = find.text('02-111-2222');
+    await tester.ensureVisible(phone);
+    await tester.tap(phone);
+    await tester.pump();
+
+    expect(launcher.openedUri?.toString(), 'tel:021112222');
+    expect(find.textContaining('glo.or.th'), findsNothing);
+    expect(find.text('02-528-9682'), findsNothing);
+  });
+
+  testWidgets('lottery knowledge hides contact footer without runtime config', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'name': 'Alpha Shop'},
+            }),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const LotteryKnowledgeScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ศึกษารายละเอียดเพิ่มเติม ได้ที่'), findsNothing);
+    expect(find.textContaining('glo.or.th'), findsNothing);
+    expect(find.text('02-528-9682'), findsNothing);
   });
 
   testWidgets('maintenance support button uses shared external link policy', (
@@ -139,7 +247,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ติดต่อฝ่ายบริการผ่านเว็บไซต์'), findsOneWidget);
+    expect(find.text('ติดต่อฝ่ายบริการ'), findsOneWidget);
     await tester.tap(find.byType(OutlinedButton));
     await tester.pump();
 
@@ -189,7 +297,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ติดต่อฝ่ายบริการ support@example.test'), findsOneWidget);
+    expect(find.text('ติดต่อฝ่ายบริการ'), findsOneWidget);
     await tester.ensureVisible(find.byType(OutlinedButton));
     await tester.tap(find.byType(OutlinedButton));
     await tester.pump();
@@ -244,58 +352,9 @@ void main() {
     expect(launcher.openedUri?.toString(), 'tel:025289682');
   });
 
-  testWidgets(
-    'account suspended support button falls back to runtime support URL',
-    (tester) async {
-      final launcher = _RecordingLinkLauncher();
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            mobileBootstrapProvider.overrideWith(
-              (_) async => MobileBootstrap.fromJson({
-                'site': {'name': 'Alpha Shop'},
-                'supportConfig': {
-                  'supportUrl': 'https://partner.example.com/support',
-                },
-              }),
-            ),
-            customerLinkLauncherProvider.overrideWithValue(launcher),
-          ],
-          child: MaterialApp(
-            locale: fallbackCustomerLocale,
-            supportedLocales: supportedCustomerLocales,
-            localizationsDelegates: const [
-              CustomerLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            theme: AppTheme.light(),
-            home: const AccountSuspendedScreen(reason: 'Risk review'),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      expect(find.text('ติดต่อฝ่ายบริการผ่านเว็บไซต์'), findsOneWidget);
-      await tester.ensureVisible(find.byType(OutlinedButton));
-      await tester.tap(find.byType(OutlinedButton));
-      await tester.pump();
-
-      expect(
-        launcher.openedUri?.toString(),
-        'https://partner.example.com/support',
-      );
-    },
-  );
-
-  testWidgets(
-      'account suspended support button prefers callable phone over URL',
-      (tester) async {
-    final launcher = _RecordingLinkLauncher();
-
+  testWidgets('account suspended follows the Nuxt single-action card', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -310,7 +369,6 @@ void main() {
               },
             }),
           ),
-          customerLinkLauncherProvider.overrideWithValue(launcher),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -329,12 +387,43 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ติดต่อฝ่ายบริการ 02-528-9682'), findsOneWidget);
-    await tester.ensureVisible(find.byType(OutlinedButton));
-    await tester.tap(find.byType(OutlinedButton));
-    await tester.pump();
+    expect(find.text('กลับไปหน้าเข้าสู่ระบบ'), findsOneWidget);
+    expect(find.text('ติดต่อฝ่ายบริการ'), findsNothing);
+    expect(find.byType(OutlinedButton), findsNothing);
+  });
 
-    expect(launcher.openedUri?.toString(), 'tel:025289682');
+  test('account suspension duration matches Nuxt permanent fallback', () {
+    const l10n = CustomerLocalizations(fallbackCustomerLocale);
+
+    expect(
+      accountSuspensionDurationText(
+        l10n,
+        permanent: false,
+        suspendedUntil: null,
+      ),
+      'ระงับถาวร',
+    );
+    expect(
+      accountSuspensionDurationText(
+        l10n,
+        permanent: false,
+        suspendedUntil: 'not-a-date',
+      ),
+      'ระงับชั่วคราว',
+    );
+  });
+
+  test('system schedule timestamps are rendered in Bangkok time', () {
+    const l10n = CustomerLocalizations(fallbackCustomerLocale);
+
+    expect(
+      accountSuspensionDurationText(
+        l10n,
+        permanent: false,
+        suspendedUntil: '2026-07-01T17:30:00Z',
+      ),
+      'ถึง 2 ก.ค. 2569 00:30',
+    );
   });
 
   test('countdown stays while open game sale start is still in the future', () {
@@ -382,23 +471,7 @@ void main() {
   testWidgets('success screen renders receipt details from purchase history', (
     tester,
   ) async {
-    String? clipboardText;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'Clipboard.setData') {
-        clipboardText = (call.arguments as Map?)?['text']?.toString();
-        return null;
-      }
-      if (call.method == 'Clipboard.getData') {
-        return {'text': clipboardText};
-      }
-      return null;
-    });
-    addTearDown(() {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, null);
-    });
-
+    final exportCoordinator = _RecordingReceiptExportCoordinator();
     final order = PurchaseHistoryOrder.fromJson({
       'id': 'ord_1',
       'reference': 'ORD-25690701-0001',
@@ -427,6 +500,9 @@ void main() {
           ),
           purchaseHistoryDetailProvider('ord_1').overrideWith(
             (_) async => order,
+          ),
+          receiptExportCoordinatorProvider.overrideWithValue(
+            exportCoordinator,
           ),
         ],
         child: MaterialApp(
@@ -470,10 +546,68 @@ void main() {
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('บันทึกข้อมูลการชำระเงินแล้ว'), findsOneWidget);
-    final clipboard = await Clipboard.getData('text/plain');
-    expect(clipboard?.text, contains('ORD-25690701-0001'));
-    expect(clipboard?.text, contains('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'));
+    expect(find.text('เปิดตัวเลือกการแชร์แล้ว'), findsOneWidget);
+    expect(exportCoordinator.calls, 1);
+    expect(exportCoordinator.text, contains('ORD-25690701-0001'));
+    expect(exportCoordinator.text, contains('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'));
+    expect(exportCoordinator.imageFileName, 'receipt-ord-25690701-0001.png');
+    expect(exportCoordinator.pdfFileName, 'receipt-ord-25690701-0001.pdf');
+    expect(exportCoordinator.boundaryKey?.currentContext, isNotNull);
+  });
+
+  testWidgets('success screen keeps Nuxt receipt vertical rhythm', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(const {
+              'site': {'display_name': 'ร้านค้าสลากฯ เดโม'},
+              'brand': {'logo_url': _receiptLogoDataUri},
+              'mobile': {'lottery_product_label': 'L6'},
+            }),
+          ),
+          purchaseHistoryDetailProvider('ord_1').overrideWith(
+            (_) async => _successOrder(),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const SuccessScreen(orderId: 'ord_1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final receipt = find.byKey(const ValueKey('success-receipt-card'));
+    final saveAction = find.byKey(const ValueKey('success-save-action'));
+    final primaryAction = find.byKey(const ValueKey('success-primary-action'));
+    expect(receipt, findsOneWidget);
+    expect(saveAction, findsOneWidget);
+    expect(primaryAction, findsOneWidget);
+
+    final receiptRect = tester.getRect(receipt);
+    final saveRect = tester.getRect(saveAction);
+    final primaryRect = tester.getRect(primaryAction);
+
+    expect(receiptRect.top, closeTo(54, 1));
+    expect(saveRect.top - receiptRect.bottom, closeTo(24, 1));
+    expect(primaryRect.top - saveRect.bottom, closeTo(238, 1));
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
   });
 
   testWidgets('success receipt loading state uses Nuxt payment copy', (
@@ -520,6 +654,7 @@ void main() {
     );
     expect(find.byType(CustomerLoadingMark), findsOneWidget);
     expect(find.text('กำลังโหลดข้อมูลการชำระเงิน...'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'บันทึก'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'ดูสลากฯ ของฉัน'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -589,7 +724,146 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('success receipt header back returns to tickets', (tester) async {
+  testWidgets(
+      'purchase history detail forwards maintenance errors to shared route flow',
+      (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/purchase-history/ord_maintenance',
+      routes: [
+        GoRoute(
+          path: '/purchase-history/:orderId',
+          builder: (context, state) => PurchaseHistoryDetailScreen(
+            orderId: state.pathParameters['orderId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (context, state) => const Scaffold(
+            body: Center(child: Text('Maintenance route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
+            (_) async => throw DioException(
+              requestOptions: RequestOptions(
+                path: '/customer/orders/ord_maintenance',
+              ),
+              response: Response<Map<String, dynamic>>(
+                requestOptions: RequestOptions(
+                  path: '/customer/orders/ord_maintenance',
+                ),
+                statusCode: 503,
+                data: const {
+                  'error': {
+                    'code': 'maintenance_active',
+                    'message': 'ระบบอยู่ระหว่างปรับปรุง',
+                  },
+                },
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'success receipt forwards maintenance errors to shared route flow', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/success?order_id=ord_maintenance',
+      routes: [
+        GoRoute(
+          path: '/success',
+          builder: (context, state) => SuccessScreen(
+            orderId: state.uri.queryParameters['order_id'],
+          ),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (context, state) => const Scaffold(
+            body: Center(child: Text('Maintenance route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
+            (_) async => throw DioException(
+              requestOptions: RequestOptions(
+                path: '/customer/orders/ord_maintenance',
+              ),
+              response: Response<Map<String, dynamic>>(
+                requestOptions: RequestOptions(
+                  path: '/customer/orders/ord_maintenance',
+                ),
+                statusCode: 503,
+                data: const {
+                  'error': {
+                    'code': 'maintenance_active',
+                    'message': 'ระบบอยู่ระหว่างปรับปรุง',
+                  },
+                },
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('success receipt primary action returns to tickets', (
+    tester,
+  ) async {
     final router = GoRouter(
       initialLocation: '/success?order_id=ord_1',
       routes: [
@@ -633,9 +907,13 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    final primaryAction = find.widgetWithText(FilledButton, 'ดูสลากฯ ของฉัน');
+    expect(primaryAction, findsOneWidget);
+    await tester.ensureVisible(primaryAction);
+    await tester.pumpAndSettle();
+    await tester.tap(primaryAction);
     await tester.pumpAndSettle();
 
     expect(find.text('Tickets route'), findsOneWidget);
@@ -669,6 +947,31 @@ void main() {
   });
 }
 
+class _RecordingReceiptExportCoordinator implements ReceiptExportCoordinator {
+  int calls = 0;
+  GlobalKey? boundaryKey;
+  String text = '';
+  String imageFileName = '';
+  String pdfFileName = '';
+
+  @override
+  Future<ReceiptExportResult> exportReceipt({
+    required GlobalKey boundaryKey,
+    required String text,
+    required String subject,
+    required String imageFileName,
+    required String pdfFileName,
+    Rect? sharePositionOrigin,
+  }) async {
+    calls += 1;
+    this.boundaryKey = boundaryKey;
+    this.text = text;
+    this.imageFileName = imageFileName;
+    this.pdfFileName = pdfFileName;
+    return ReceiptExportResult.shared;
+  }
+}
+
 const _transparentPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+p5qgoAAAAABJRU5ErkJggg==';
 
@@ -688,6 +991,7 @@ PurchaseHistoryOrder _successOrder() {
 
 class _RecordingLinkLauncher extends CustomerLinkLauncher {
   Uri? openedUri;
+  final openedUris = <Uri>[];
 
   @override
   Future<bool> openExternal(
@@ -695,6 +999,7 @@ class _RecordingLinkLauncher extends CustomerLinkLauncher {
     bool preferSameWindowInLine = false,
   }) async {
     openedUri = uri;
+    openedUris.add(uri);
     return true;
   }
 }

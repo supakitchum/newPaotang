@@ -28,10 +28,14 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
       title: l10n.newsTitle,
       currentPath: '/news',
       backPath: '/profile',
+      showBottomNavigation: true,
       heroMinHeight: NewsPageShell.heroMinHeight,
       heroSheetOverlap: NewsPageShell.sheetOverlap,
       heroContent: const SizedBox.shrink(),
       child: NewsPageShell(
+        topPadding: 24,
+        mobileHorizontal: 16,
+        wideHorizontal: 24,
         child: news.when(
           data: (items) {
             if (items.isEmpty) return const _EmptyNewsCard();
@@ -74,17 +78,14 @@ class _EmptyNewsCard extends StatelessWidget {
 }
 
 class _NewsListStatePanel extends StatelessWidget {
-  const _NewsListStatePanel({
-    required this.message,
-    this.title,
-    this.icon,
-  }) : loading = false;
+  const _NewsListStatePanel({required this.message, this.title, this.icon})
+    : loading = false;
 
   const _NewsListStatePanel.loading()
-      : message = '',
-        title = null,
-        icon = null,
-        loading = true;
+    : message = '',
+      title = null,
+      icon = null,
+      loading = true;
 
   final IconData? icon;
   final String? title;
@@ -102,8 +103,8 @@ class _NewsListStatePanel extends StatelessWidget {
     final effectiveMessage = loading
         ? l10n.newsLoading
         : message.isEmpty
-            ? l10n.commonLoadFailed
-            : message;
+        ? l10n.commonLoadFailed
+        : message;
     final effectiveTitle = title;
     final iconColor = colorScheme.primary;
 
@@ -131,11 +132,7 @@ class _NewsListStatePanel extends StatelessWidget {
                 size: 46,
               )
             else if (icon != null)
-              Icon(
-                icon,
-                size: 42,
-                color: iconColor,
-              ),
+              Icon(icon, size: 42, color: iconColor),
             if (loading) ...[
               const SizedBox(height: 12),
               const NewsProgressLine(
@@ -149,11 +146,11 @@ class _NewsListStatePanel extends StatelessWidget {
                 effectiveTitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: titleColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      height: 1.25,
-                    ),
+                  color: titleColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  height: 1.25,
+                ),
               ),
             ],
             const SizedBox(height: 10),
@@ -161,11 +158,11 @@ class _NewsListStatePanel extends StatelessWidget {
               effectiveMessage,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: bodyColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    height: 1.5,
-                  ),
+                color: bodyColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -175,10 +172,7 @@ class _NewsListStatePanel extends StatelessWidget {
 }
 
 class _NewsCardsList extends StatelessWidget {
-  const _NewsCardsList({
-    required this.items,
-    required this.onOpenFailed,
-  });
+  const _NewsCardsList({required this.items, required this.onOpenFailed});
 
   final List<NewsItem> items;
   final VoidCallback onOpenFailed;
@@ -188,11 +182,8 @@ class _NewsCardsList extends StatelessWidget {
     return Column(
       children: [
         for (var index = 0; index < items.length; index++) ...[
-          _NewsListCard(
-            item: items[index],
-            onOpenFailed: onOpenFailed,
-          ),
-          if (index < items.length - 1) const SizedBox(height: 12),
+          _NewsListCard(item: items[index], onOpenFailed: onOpenFailed),
+          if (index < items.length - 1) const SizedBox(height: 16),
         ],
       ],
     );
@@ -200,10 +191,7 @@ class _NewsCardsList extends StatelessWidget {
 }
 
 class _NewsListCard extends StatelessWidget {
-  const _NewsListCard({
-    required this.item,
-    required this.onOpenFailed,
-  });
+  const _NewsListCard({required this.item, required this.onOpenFailed});
 
   final NewsItem item;
   final VoidCallback onOpenFailed;

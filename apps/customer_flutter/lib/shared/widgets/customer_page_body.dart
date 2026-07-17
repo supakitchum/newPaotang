@@ -28,6 +28,7 @@ class CustomerPageBody extends StatelessWidget {
     this.mobileHorizontal = customerSheetMobileHorizontalPadding,
     this.wideHorizontal = customerSheetWideHorizontalPadding,
     this.includeBottomSafeArea = true,
+    this.alignment = Alignment.topCenter,
   });
 
   final Widget child;
@@ -37,6 +38,7 @@ class CustomerPageBody extends StatelessWidget {
   final double mobileHorizontal;
   final double wideHorizontal;
   final bool includeBottomSafeArea;
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +57,8 @@ class CustomerPageBody extends StatelessWidget {
             horizontal,
             effectiveBottom,
           ),
-          child: Center(
+          child: Align(
+            alignment: alignment,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
               child: child,

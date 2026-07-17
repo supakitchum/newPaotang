@@ -31,6 +31,74 @@ List<String> normalizeCheckoutPaymentMethods(Object? value) {
   return methods.isEmpty ? const [checkoutPaymentMethodWallet] : methods;
 }
 
+Map<String, String> normalizeCheckoutPaymentMethodLabels(Object? value) {
+  final labels = <String, String>{};
+
+  void addLabel(Object? keyValue, Object? labelValue) {
+    final key = _canonicalCheckoutPaymentMethod(
+      keyValue?.toString().trim(),
+    );
+    final label = _checkoutPaymentMethodLabel(labelValue);
+    if (key == null ||
+        !supportedCheckoutPaymentMethods.contains(key) ||
+        label.isEmpty) {
+      return;
+    }
+    labels[key] = label;
+  }
+
+  void collect(Object? raw) {
+    if (raw == null) return;
+    if (raw is Iterable) {
+      for (final item in raw) {
+        collect(item);
+      }
+      return;
+    }
+    if (raw is! Map) return;
+
+    final directKey = _checkoutPaymentMethodKey(raw);
+    if (directKey != null && directKey.isNotEmpty) {
+      addLabel(directKey, raw);
+      return;
+    }
+
+    for (final nestedKey in const [
+      'labels',
+      'method_labels',
+      'methodLabels',
+      'checkout_payment_method_labels',
+      'checkoutPaymentMethodLabels',
+      'options',
+      'method_options',
+      'methodOptions',
+      'checkout_payment_method_options',
+      'checkoutPaymentMethodOptions',
+    ]) {
+      collect(raw[nestedKey]);
+    }
+
+    for (final entry in raw.entries) {
+      final key = _canonicalCheckoutPaymentMethod(
+        entry.key.toString().trim(),
+      );
+      if (key == null || !supportedCheckoutPaymentMethods.contains(key)) {
+        continue;
+      }
+      if (entry.value is Map) {
+        final row = Map<String, dynamic>.from(entry.value as Map);
+        row.putIfAbsent('key', () => entry.key.toString());
+        addLabel(key, row);
+      } else {
+        addLabel(key, entry.value);
+      }
+    }
+  }
+
+  collect(value);
+  return Map.unmodifiable(labels);
+}
+
 Iterable<Object?> _checkoutPaymentMethodRows(Object? value) sync* {
   if (value == null) return;
   if (value is String || value is num || value is bool) {
@@ -136,6 +204,36 @@ bool _hasCheckoutPaymentMethodKey(Map value) {
     'slug',
     'name',
   ].any((key) => value.containsKey(key));
+}
+
+String _checkoutPaymentMethodLabel(Object? value) {
+  if (value == null) return '';
+  if (value is Map) {
+    for (final key in const [
+      'label',
+      'display_label',
+      'displayLabel',
+      'display_name',
+      'displayName',
+      'title',
+      'name',
+      'text',
+      'value',
+    ]) {
+      final label = _checkoutPaymentMethodLabel(value[key]);
+      if (label.isNotEmpty) return label;
+    }
+    return '';
+  }
+  if (value is Iterable) {
+    for (final item in value) {
+      final label = _checkoutPaymentMethodLabel(item);
+      if (label.isNotEmpty) return label;
+    }
+    return '';
+  }
+  if (value is bool || value is num) return '';
+  return value.toString().trim();
 }
 
 String? _canonicalCheckoutPaymentMethod(String? value) {

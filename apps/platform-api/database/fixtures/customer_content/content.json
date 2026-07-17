@@ -1,0 +1,176 @@
+{
+  "activities": [
+    {
+      "slug": "lucky-six-prediction",
+      "type": "lucky_board",
+      "sort_order": 10,
+      "cover": "activity-lucky-six.png",
+      "name": {"th-TH": "ทายเลขท้าย 2 ตัว ลุ้นรับรางวัล", "en-US": "Predict the last 2 digits"},
+      "config": {"prediction_type": "first_prize_last2", "threshold_tickets": 1, "first_prize_last2_amount": 10000}
+    },
+    {
+      "slug": "cashback-every-ticket",
+      "type": "cashback",
+      "sort_order": 20,
+      "cover": "activity-cashback.png",
+      "name": {"th-TH": "ซื้อครบรับเงินคืนเข้ากระเป๋า", "en-US": "Ticket purchase cashback"},
+      "config": {"cashback_type": "percent", "cashback_percent_bps": 500, "min_ticket_count": 2, "min_purchase_amount": 16000}
+    },
+    {
+      "slug": "lucky-two-digit",
+      "type": "lucky_board",
+      "sort_order": 30,
+      "cover": "activity-number-pick.png",
+      "name": {"th-TH": "เลขเด่นสองตัวประจำงวด", "en-US": "Draw two-digit pick"},
+      "config": {"prediction_type": "last2", "threshold_tickets": 2, "last2_amount": 8000}
+    },
+    {
+      "slug": "weekly-lucky-draw",
+      "type": "cashback",
+      "sort_order": 40,
+      "cover": "activity-lucky-draw.png",
+      "name": {"th-TH": "โบนัสนักเสี่ยงโชครายสัปดาห์", "en-US": "Weekly player bonus"},
+      "config": {"cashback_type": "fixed", "fixed_amount": 2000, "min_ticket_count": 3, "min_purchase_amount": 24000}
+    },
+    {
+      "slug": "member-star-rewards",
+      "type": "cashback",
+      "sort_order": 50,
+      "cover": "activity-membership.png",
+      "name": {"th-TH": "สมาชิกดาวเด่นรับเงินคืน", "en-US": "Member star cashback"},
+      "config": {"cashback_type": "percent", "cashback_percent_bps": 300, "min_ticket_count": 1, "min_purchase_amount": 8000}
+    },
+    {
+      "slug": "scan-and-win",
+      "type": "lucky_board",
+      "sort_order": 60,
+      "cover": "activity-scan.png",
+      "name": {"th-TH": "สแกนสลากแล้วทายเลขรับโชค", "en-US": "Scan and predict"},
+      "config": {"prediction_type": "first_prize_last3", "threshold_tickets": 1, "first_prize_last3_amount": 15000}
+    },
+    {
+      "slug": "golden-ticket-bonus",
+      "type": "cashback",
+      "sort_order": 70,
+      "cover": "activity-cashback.png",
+      "name": {"th-TH": "สลากทองรับโบนัสพิเศษ", "en-US": "Golden ticket bonus"},
+      "config": {"cashback_type": "fixed", "fixed_amount": 3000, "min_ticket_count": 5, "min_purchase_amount": 40000}
+    },
+    {
+      "slug": "lucky-streak",
+      "type": "lucky_board",
+      "sort_order": 80,
+      "cover": "activity-lucky-six.png",
+      "name": {"th-TH": "ซื้อสลากต่อเนื่อง ทายเลขฟรี", "en-US": "Lucky purchase streak"},
+      "config": {"prediction_type": "first_prize_last2", "threshold_tickets": 4, "first_prize_last2_amount": 12000}
+    },
+    {
+      "slug": "jackpot-countdown",
+      "type": "lucky_board",
+      "sort_order": 90,
+      "cover": "activity-lucky-draw.png",
+      "name": {"th-TH": "นับถอยหลังลุ้นเลขท้ายสามตัว", "en-US": "Jackpot countdown prediction"},
+      "config": {"prediction_type": "first_prize_last3", "threshold_tickets": 3, "first_prize_last3_amount": 20000}
+    },
+    {
+      "slug": "welcome-back-cashback",
+      "type": "cashback",
+      "sort_order": 100,
+      "cover": "activity-membership.png",
+      "name": {"th-TH": "กลับมาซื้อ รับเงินคืนทันที", "en-US": "Welcome back cashback"},
+      "config": {"cashback_type": "percent", "cashback_percent_bps": 700, "min_ticket_count": 2, "min_purchase_amount": 16000}
+    }
+  ],
+  "news": [
+    {
+      "slug": "scheduled-maintenance",
+      "sort_order": 10,
+      "cover": "news-maintenance.png",
+      "important": true,
+      "title": {"th-TH": "แจ้งปรับปรุงระบบตามกำหนด", "en-US": "Scheduled system maintenance"},
+      "summary": {"th-TH": "ระบบจะปิดปรับปรุงชั่วคราวเพื่อเพิ่มประสิทธิภาพการให้บริการ", "en-US": "A scheduled maintenance window will improve service reliability."},
+      "body": {"th-TH": "ระหว่างการปรับปรุง ลูกค้าอาจไม่สามารถซื้อสลากหรือเติมเงินได้ชั่วคราว กรุณาทำรายการให้เสร็จก่อนช่วงเวลาที่ประกาศ", "en-US": "Purchases and top-ups may be temporarily unavailable during maintenance. Please complete important transactions beforehand."}
+    },
+    {
+      "slug": "payment-channel-update",
+      "sort_order": 20,
+      "cover": "activity-cashback.png",
+      "important": false,
+      "title": {"th-TH": "อัปเดตช่องทางการเติมเงิน", "en-US": "Top-up channel update"},
+      "summary": {"th-TH": "ตรวจสอบช่องทางชำระเงินและสถานะรายการได้ง่ายขึ้น", "en-US": "Payment channels and top-up statuses are now easier to review."},
+      "body": {"th-TH": "ลูกค้าสามารถเลือกยอดเงิน ดูข้อมูลชำระ และติดตามสถานะคำร้องจากหน้ารายละเอียดเติมเงินได้ในที่เดียว", "en-US": "Choose an amount, review payment details, and track each request from the top-up detail page."}
+    },
+    {
+      "slug": "new-activities-now-live",
+      "sort_order": 30,
+      "cover": "activity-lucky-draw.png",
+      "important": false,
+      "title": {"th-TH": "กิจกรรมใหม่เปิดให้ร่วมสนุกแล้ว", "en-US": "New activities are now live"},
+      "summary": {"th-TH": "ใช้สิทธิ์จากการซื้อสลากเพื่อร่วมทายผลและรับเงินคืน", "en-US": "Use ticket purchase rights for predictions and cashback."},
+      "body": {"th-TH": "เข้าไปที่หน้ากิจกรรมเพื่อตรวจสอบสิทธิ์ เงื่อนไข และระยะเวลาของแต่ละกิจกรรมก่อนร่วมรายการ", "en-US": "Open Activities to review eligibility, conditions, and deadlines before joining."}
+    },
+    {
+      "slug": "account-security-tips",
+      "sort_order": 40,
+      "cover": "news-security.png",
+      "important": true,
+      "title": {"th-TH": "ดูแลบัญชีให้ปลอดภัย", "en-US": "Keep your account secure"},
+      "summary": {"th-TH": "อย่าเปิดเผย OTP หรือ PIN ให้บุคคลอื่นทราบ", "en-US": "Never share your OTP or PIN with anyone."},
+      "body": {"th-TH": "เจ้าหน้าที่จะไม่ขอรหัส OTP หรือ PIN ผ่านโทรศัพท์และช่องทางแชต หากพบความผิดปกติให้เปลี่ยนรหัสและติดต่อฝ่ายบริการลูกค้า", "en-US": "Staff will never request an OTP or PIN by phone or chat. Change your credentials and contact support if anything looks suspicious."}
+    },
+    {
+      "slug": "holiday-service-hours",
+      "sort_order": 50,
+      "cover": "news-support.png",
+      "important": false,
+      "title": {"th-TH": "เวลาบริการในช่วงวันหยุด", "en-US": "Holiday service hours"},
+      "summary": {"th-TH": "ตรวจสอบช่วงเวลาตอบกลับของทีมบริการลูกค้าในวันหยุด", "en-US": "Review customer support response times during holidays."},
+      "body": {"th-TH": "ระบบซื้อสลากยังเปิดตามเวลาปกติ แต่การตรวจสอบสลิปและการตอบกลับบางรายการอาจใช้เวลานานกว่าปกติ", "en-US": "Ticket purchases remain available, while slip reviews and support replies may take slightly longer."}
+    },
+    {
+      "slug": "latest-draw-results",
+      "sort_order": 60,
+      "cover": "activity-number-pick.png",
+      "important": false,
+      "title": {"th-TH": "ติดตามผลสลากงวดล่าสุด", "en-US": "Check the latest draw results"},
+      "summary": {"th-TH": "ดูผลรางวัลและตรวจสลากของฉันได้จากหน้าเดียว", "en-US": "Review results and check your tickets in one place."},
+      "body": {"th-TH": "เมื่อประกาศผลแล้ว ระบบจะแสดงรางวัลทุกประเภท พร้อมเชื่อมไปยังสลากของลูกค้าเพื่อช่วยตรวจผลได้รวดเร็วขึ้น", "en-US": "After results are published, all prize tiers appear with quick access to your tickets."}
+    },
+    {
+      "slug": "topup-status-guide",
+      "sort_order": 70,
+      "cover": "activity-scan.png",
+      "important": false,
+      "title": {"th-TH": "ทำความเข้าใจสถานะการเติมเงิน", "en-US": "Understanding top-up statuses"},
+      "summary": {"th-TH": "รู้ความหมายของรายการรอตรวจสอบ อนุมัติ และไม่สำเร็จ", "en-US": "Learn what pending, approved, and failed statuses mean."},
+      "body": {"th-TH": "รายการรอตรวจสอบกำลังอยู่ระหว่างยืนยันหลักฐาน เมื่ออนุมัติแล้วยอดจะเข้ากระเป๋าอัตโนมัติ หากไม่สำเร็จให้ดูหมายเหตุในรายละเอียด", "en-US": "Pending requests await verification. Approved funds are credited automatically; failed requests include a note in the detail view."}
+    },
+    {
+      "slug": "app-experience-update",
+      "sort_order": 80,
+      "cover": "news-app-update.png",
+      "important": false,
+      "title": {"th-TH": "อัปเดตประสบการณ์ใช้งานแอป", "en-US": "App experience update"},
+      "summary": {"th-TH": "ปรับหน้าซื้อสลาก ตะกร้า และชำระเงินให้ใช้งานต่อเนื่องขึ้น", "en-US": "Ticket buying, cart, and checkout flows now feel more consistent."},
+      "body": {"th-TH": "การอัปเดตครั้งนี้เน้นความชัดเจนของข้อมูล ปุ่มดำเนินการ และสถานะระหว่างทำรายการ โดยยังคงขั้นตอนการใช้งานที่ลูกค้าคุ้นเคย", "en-US": "This update improves information hierarchy, actions, and transaction states while preserving familiar steps."}
+    },
+    {
+      "slug": "responsible-lottery-guide",
+      "sort_order": 90,
+      "cover": "activity-membership.png",
+      "important": false,
+      "title": {"th-TH": "ซื้อสลากอย่างพอดีและมีความรับผิดชอบ", "en-US": "A responsible lottery guide"},
+      "summary": {"th-TH": "กำหนดงบประมาณและตรวจสอบยอดใช้จ่ายก่อนซื้อทุกครั้ง", "en-US": "Set a budget and review spending before every purchase."},
+      "body": {"th-TH": "สลากเป็นกิจกรรมเพื่อความบันเทิง ควรซื้อเท่าที่พร้อมจ่าย ไม่กู้ยืมเพื่อซื้อ และพักการใช้งานเมื่อรู้สึกว่าควบคุมการใช้จ่ายได้ยาก", "en-US": "Lottery play is entertainment. Spend only what you can afford, never borrow to play, and take a break when spending feels difficult to control."}
+    },
+    {
+      "slug": "customer-support-channels",
+      "sort_order": 100,
+      "cover": "news-support.png",
+      "important": false,
+      "title": {"th-TH": "ช่องทางติดต่อฝ่ายบริการลูกค้า", "en-US": "Customer support channels"},
+      "summary": {"th-TH": "เตรียมเลขที่รายการก่อนติดต่อเพื่อให้ตรวจสอบได้รวดเร็ว", "en-US": "Have your transaction reference ready for faster support."},
+      "body": {"th-TH": "เมื่อต้องการความช่วยเหลือเกี่ยวกับการซื้อ เติมเงิน หรือรับรางวัล กรุณาแจ้งเลขที่รายการและรายละเอียดปัญหาโดยไม่ส่ง OTP หรือ PIN", "en-US": "For purchase, top-up, or reward support, provide the transaction reference and issue details, but never send an OTP or PIN."}
+    }
+  ]
+}

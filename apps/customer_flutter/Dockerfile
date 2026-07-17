@@ -16,8 +16,14 @@ RUN flutter build web \
 FROM nginx:1.27-alpine AS runtime
 WORKDIR /usr/share/nginx/html
 
+RUN apk add --no-cache jq
+
 COPY --from=build /app/build/web .
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/40-render-runtime-config.sh /docker-entrypoint.d/40-render-runtime-config.sh
+RUN mkdir -p /etc/customer \
+  && cp /usr/share/nginx/html/index.html /etc/customer/index.html.template \
+  && chmod +x /docker-entrypoint.d/40-render-runtime-config.sh
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

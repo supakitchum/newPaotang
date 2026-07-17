@@ -18,6 +18,16 @@ void syncCustomerLocaleFromBootstrap(WidgetRef ref, Locale locale) {
   ref.read(customerLocaleProvider.notifier).state = locale;
 }
 
+void syncCustomerLocaleFromProfile(WidgetRef ref, String? value) {
+  final locale = tryParseCustomerLocale(value);
+  if (locale == null) return;
+
+  ref.read(customerLocaleOverriddenProvider.notifier).state = true;
+  final current = ref.read(customerLocaleProvider);
+  if (localeTag(current) == localeTag(locale)) return;
+  ref.read(customerLocaleProvider.notifier).state = locale;
+}
+
 void setCustomerLocale(WidgetRef ref, Locale locale) {
   ref.read(customerLocaleOverriddenProvider.notifier).state = true;
   ref.read(customerLocaleProvider.notifier).state = locale;

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
-import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
@@ -42,21 +41,34 @@ class ActivityDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
+    if (activityDetailRequiresPin(auth)) {
+      final redirectPath = activityDetailPinRedirectPath(
+        GoRouterState.of(context).uri,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go(redirectPath);
+      });
+      return const SizedBox.shrink();
+    }
+
     final request = ActivityDetailRequest(
       slug: slug,
-      authenticated: auth.isAuthenticated && !auth.pinRequired,
+      authenticated:
+          auth.isAuthenticated && !auth.pinRequired && !auth.pinSetupRequired,
     );
-    final activity = ref.watch(activityDetailProvider(request));
-    final showBottomNavigation = activity.maybeWhen(
-      data: (item) => item.id.isNotEmpty,
-      orElse: () => false,
+    final detailProvider = activityDetailProvider(request);
+    listenForCustomerOperationalError<ActivityItem>(
+      ref: ref,
+      context: context,
+      provider: detailProvider,
     );
+    final activity = ref.watch(detailProvider);
 
     return AppShell(
       title: context.l10n.activityDetailTitle,
       currentPath: '/activities',
       backPath: backPath,
-      showBottomNavigation: showBottomNavigation,
+      showBottomNavigation: true,
       heroMinHeight: _ActivityDetailPageList.heroMinHeight,
       heroSheetOverlap: _ActivityDetailPageList.sheetOverlap,
       heroContent: const SizedBox.shrink(),
@@ -82,6 +94,17 @@ class ActivityDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+bool activityDetailRequiresPin(AuthController auth) {
+  return auth.isAuthenticated && (auth.pinRequired || auth.pinSetupRequired);
+}
+
+String activityDetailPinRedirectPath(Uri currentUri) {
+  return Uri(
+    path: '/pin',
+    queryParameters: {'redirect': currentUri.toString()},
+  ).toString();
 }
 
 String activityDetailBackPath({
@@ -134,104 +157,91 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
         resultAnnounced || _activityResultHasArrived(activity);
     final canLoadAwards =
         widget.authenticated && activity.id.isNotEmpty && resultHasArrived;
-    final awards = canLoadAwards
-        ? ref.watch(activityAwardListProvider(activity.id))
-        : const AsyncValue<List<ActivityAwardItem>>.data([]);
+    final awardsProvider =
+        canLoadAwards ? activityAwardListProvider(activity.id) : null;
+    if (awardsProvider != null) {
+      listenForCustomerOperationalError<List<ActivityAwardItem>>(
+        ref: ref,
+        context: context,
+        provider: awardsProvider,
+      );
+    }
+    final awards = awardsProvider == null
+        ? const AsyncValue<List<ActivityAwardItem>>.data([])
+        : ref.watch(awardsProvider);
 
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      child: _ActivityDetailPageList(
-        children: [
-          _ActivityHeroCard(activity: activity),
-          const SizedBox(height: 8),
-          if (activity.resultSummary?.isAnnounced == true) ...[
-            _ActivityResultCard(summary: activity.resultSummary!),
-            const SizedBox(height: 12),
-          ],
-          _ActivityStatusCard(activity: activity),
-          const SizedBox(height: 12),
-          if (_activityNoticeMessage.isNotEmpty) ...[
-            _ActivityNoticePanel(
-              message: _activityNoticeMessage,
-              isError: _activityNoticeIsError,
-            ),
-            const SizedBox(height: 12),
-          ],
+    return _ActivityDetailPageList(
+      children: [
+        _ActivityHeroCard(activity: activity),
+        const SizedBox(height: 14),
+        if (_activityNoticeMessage.isNotEmpty) ...[
+          _ActivityNoticePanel(
+            message: _activityNoticeMessage,
+            isError: _activityNoticeIsError,
+          ),
+          const SizedBox(height: 14),
+        ],
+        awards.when(
+          data: (items) => _ActivityAwardStatusPanel(
+            activity: activity,
+            awards: items,
+            authenticated: widget.authenticated,
+            resultAnnounced: resultHasArrived,
+            onClaim: _startClaim,
+          ),
+          loading: () => _ActivityAwardStatusPanel(
+            activity: activity,
+            awards: const [],
+            authenticated: widget.authenticated,
+            resultAnnounced: resultHasArrived,
+            loading: true,
+            onClaim: _startClaim,
+          ),
+          error: (_, __) => _ActivityAwardStatusPanel(
+            activity: activity,
+            awards: const [],
+            authenticated: widget.authenticated,
+            resultAnnounced: resultHasArrived,
+            onClaim: _startClaim,
+          ),
+        ),
+        if (activity.isCashback) ...[
           awards.when(
-            data: (items) => _ActivityAwardStatusPanel(
+            data: (items) => _CashbackPanel(
               activity: activity,
-              awards: items,
-              authenticated: widget.authenticated,
-              resultAnnounced: resultHasArrived,
-              onClaim: _startClaim,
+              claimableAward: items
+                  .where((award) => award.isCashback)
+                  .where((award) => award.isClaimable)
+                  .firstOrNull,
+              onManualClaim: _startCashbackManualClaim,
+              onAutoReward: _goAutoReward,
             ),
-            loading: () => _ActivityAwardStatusPanel(
+            loading: () => _CashbackPanel(
               activity: activity,
-              awards: const [],
-              authenticated: widget.authenticated,
-              resultAnnounced: resultHasArrived,
-              loading: true,
-              onClaim: _startClaim,
+              onManualClaim: _startCashbackManualClaim,
+              onAutoReward: _goAutoReward,
             ),
-            error: (_, __) => _ActivityAwardStatusPanel(
+            error: (_, __) => _CashbackPanel(
               activity: activity,
-              awards: const [],
-              authenticated: widget.authenticated,
-              resultAnnounced: resultHasArrived,
-              onClaim: _startClaim,
+              onManualClaim: _startCashbackManualClaim,
+              onAutoReward: _goAutoReward,
             ),
           ),
-          _ConditionCard(activity: activity),
-          if (activity.isCashback) ...[
-            const SizedBox(height: 12),
-            awards.when(
-              data: (items) => _CashbackPanel(
-                activity: activity,
-                claimableAward: items
-                    .where((award) => award.isCashback)
-                    .where((award) => award.isClaimable)
-                    .firstOrNull,
-                onManualClaim: _startCashbackManualClaim,
-                onAutoReward: _goAutoReward,
-              ),
-              loading: () => _CashbackPanel(
-                activity: activity,
-                onManualClaim: _startCashbackManualClaim,
-                onAutoReward: _goAutoReward,
-              ),
-              error: (_, __) => _CashbackPanel(
-                activity: activity,
-                onManualClaim: _startCashbackManualClaim,
-                onAutoReward: _goAutoReward,
-              ),
-            ),
-          ],
-          if (activity.isLuckyBoard) ...[
-            const SizedBox(height: 12),
-            if (widget.authenticated) ...[
-              _RightsCard(activity: activity),
-              const SizedBox(height: 12),
-              _SelectedNumbersPanel(activity: activity),
-              const SizedBox(height: 12),
-              _NumberBoardCard(
-                activity: activity,
-                submitting: _submittingEntry,
-                onSelect: _confirmNumber,
-              ),
-            ] else
-              _LoginToJoinCard(slug: widget.request.slug),
-          ],
-        ],
-      ),
+        ] else if (activity.isLuckyBoard)
+          _LuckyBoardPanel(
+            activity: activity,
+            authenticated: widget.authenticated,
+            submitting: _submittingEntry,
+            onSelect: _confirmNumber,
+            onLogin: () {
+              final redirect = Uri.encodeComponent(
+                GoRouterState.of(context).uri.toString(),
+              );
+              context.go('/login?redirect=$redirect');
+            },
+          ),
+      ],
     );
-  }
-
-  Future<void> _refresh() async {
-    ref.invalidate(activityDetailProvider(widget.request));
-    if (activity.id.isNotEmpty) {
-      ref.invalidate(activityAwardListProvider(activity.id));
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 120));
   }
 
   Future<void> _confirmNumber(String number) async {
@@ -466,8 +476,8 @@ bool _activityResultHasArrived(ActivityItem activity, {DateTime? now}) {
 class _ActivityDetailPageList extends StatelessWidget {
   const _ActivityDetailPageList({required this.children});
 
-  static const heroMinHeight = 214.0;
-  static const sheetOverlap = 24.0;
+  static const heroMinHeight = customerReferenceCompactHeroHeight;
+  static const sheetOverlap = 0.0;
   static const _bottomPadding = 112.0;
 
   final List<Widget> children;
@@ -480,7 +490,6 @@ class _ActivityDetailPageList extends StatelessWidget {
       children: [
         _ActivityDetailContentSheet(
           child: CustomerPageBody(
-            maxWidth: 640,
             top: 6,
             bottom: _bottomPadding,
             mobileHorizontal: 16,
@@ -581,9 +590,9 @@ class _ActivityNoticePanel extends StatelessWidget {
         ? activityErrorTint(colorScheme)
         : activitySuccessTint(colorScheme);
     return _ActivityDetailSurface(
+      shadow: false,
       background: background,
       borderColor: border,
-      shadow: false,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
@@ -625,15 +634,16 @@ class _ActivityHeroCard extends StatelessWidget {
     final l10n = context.l10n;
     final entryClosed = activityEntryClosed(activity);
     final colorScheme = Theme.of(context).colorScheme;
+    final imageUrl = activity.detailImageUrl;
     return _ActivityDetailSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (activity.imageUrl.isNotEmpty)
+          if (imageUrl.isNotEmpty)
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: Image.network(
-                activity.imageUrl,
+                imageUrl,
                 width: double.infinity,
                 fit: BoxFit.cover,
                 frameBuilder: (
@@ -819,68 +829,6 @@ class _PanelHeading extends StatelessWidget {
   }
 }
 
-class _ActivityStatusCard extends StatelessWidget {
-  const _ActivityStatusCard({required this.activity});
-
-  final ActivityItem activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final title = activity.isCashback
-        ? l10n.activityStatusCashbackTitle
-        : l10n.activityStatusNumberTitle;
-    final value = activity.isCashback
-        ? (activity.estimatedCashbackAmount > 0
-            ? formatBaht(activity.estimatedCashbackAmount)
-            : l10n.activityStatusCalculating)
-        : l10n.activityStatusRemainingNumbers(activity.remainingNumbers);
-    final subtitle = activity.isCashback
-        ? l10n.activityStatusCashbackSubtitle
-        : activity.rights.entryClosed
-            ? l10n.activityStatusBoardClosed
-            : l10n.activityStatusBoardAvailable;
-
-    return _ActivityDetailSurface(
-      borderColor: colorScheme.primary.withValues(alpha: 0.18),
-      background: colorScheme.primary.withValues(alpha: 0.03),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: colorScheme.onSurface,
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.45,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ActivityResultCard extends StatelessWidget {
   const _ActivityResultCard({required this.summary});
 
@@ -901,6 +849,7 @@ class _ActivityResultCard extends StatelessWidget {
         ? [summary.winningNumber].where((number) => number.isNotEmpty).toList()
         : summary.winningNumbers;
     return _ActivityDetailSurface(
+      shadow: false,
       borderColor: won
           ? colorScheme.primary.withValues(alpha: 0.24)
           : lost
@@ -912,21 +861,47 @@ class _ActivityResultCard extends StatelessWidget {
               ? activityWarningTint(colorScheme)
               : colorScheme.primary.withValues(alpha: 0.03),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PanelHeading(
-              title: l10n.activityResultTitle,
-              trailing: won
-                  ? l10n.activityResultCustomerWon(
-                      formatBaht(summary.customerAwardAmount),
-                    )
-                  : lost
-                      ? l10n.activityResultCustomerLost
-                      : l10n.activityResultWinnerCount(summary.winnerCount),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.activityResultTitle,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    won
+                        ? l10n.activityResultCustomerWon(
+                            formatBaht(summary.customerAwardAmount),
+                          )
+                        : lost
+                            ? l10n.activityResultCustomerLost
+                            : l10n.activityResultWinnerCount(
+                                summary.winnerCount,
+                              ),
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          height: 1.25,
+                        ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -945,8 +920,9 @@ class _ActivityResultCard extends StatelessWidget {
               ),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    height: 1.4,
+                    height: 1.45,
                   ),
             ),
             if (summary.customerWinningNumbers.isNotEmpty) ...[
@@ -961,29 +937,34 @@ class _ActivityResultCard extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        l10n.activityResultCustomerWinningNumbers,
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: activitySuccessForeground(colorScheme),
-                                  fontWeight: FontWeight.w900,
-                                ),
+                      Expanded(
+                        child: Text(
+                          l10n.activityResultCustomerWinningNumbers,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final number in summary.customerWinningNumbers)
-                            _ActivityResultNumberPill(
-                              number: number,
-                              color: activitySuccessForeground(colorScheme),
-                              compact: true,
-                            ),
-                        ],
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          summary.customerWinningNumbers.join(', '),
+                          textAlign: TextAlign.right,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: activitySuccessForeground(
+                                      colorScheme,
+                                    ),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
                       ),
                     ],
                   ),
@@ -1001,35 +982,326 @@ class _ActivityResultNumberPill extends StatelessWidget {
   const _ActivityResultNumberPill({
     required this.number,
     required this.color,
-    this.compact = false,
   });
 
   final String number;
   final Color color;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(compact ? 12 : 16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 12 : 16,
-          vertical: compact ? 7 : 10,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: 92,
+          minHeight: 52,
         ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+          child: Text(
+            number,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                  height: 1,
+                ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LuckyBoardPanel extends StatelessWidget {
+  const _LuckyBoardPanel({
+    required this.activity,
+    required this.authenticated,
+    required this.submitting,
+    required this.onSelect,
+    required this.onLogin,
+  });
+
+  final ActivityItem activity;
+  final bool authenticated;
+  final bool submitting;
+  final ValueChanged<String> onSelect;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final rights = activity.rights;
+    final closed = activityEntryClosed(activity);
+    final selectedEntries = _activeBoardEntries(activity).toList();
+    final summary = closed
+        ? l10n.activityLuckyPanelClosedSummary(activity.remainingNumbers)
+        : l10n.activityLuckyPanelOpenSummary(
+            rights.remainingCount,
+            activity.remainingNumbers,
+          );
+
+    return _ActivityDetailSurface(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _PanelHeading(
+              title: l10n.activityLuckyPanelTitle,
+              trailing: summary,
+            ),
+            const SizedBox(height: 16),
+            _LuckyRightsGrid(
+              metrics: [
+                MapEntry(
+                  l10n.activityLuckyRightsEarned,
+                  rights.earnedCount.toString(),
+                ),
+                MapEntry(
+                  l10n.activityLuckyRightsUsed,
+                  rights.usedCount.toString(),
+                ),
+                MapEntry(
+                  l10n.activityLuckyTicketCount,
+                  rights.ticketCount.toString(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _ActivityEntryDeadlineBanner(
+              closed: closed,
+              title: closed
+                  ? l10n.activityLuckyDeadlineClosedTitle
+                  : l10n.activityLuckyDeadlineOpenTitle,
+              detail: activityEntryDeadlineText(l10n, activity),
+            ),
+            if (activity.resultSummary?.isAnnounced == true) ...[
+              const SizedBox(height: 16),
+              _ActivityResultCard(summary: activity.resultSummary!),
+            ],
+            if (selectedEntries.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _SelectedNumbersPanel(activity: activity),
+            ],
+            if (activity.numberBoard.isReady) ...[
+              const SizedBox(height: 16),
+              _NumberBoardCard(
+                activity: activity,
+                submitting: submitting,
+                enabled: authenticated,
+                onSelect: onSelect,
+              ),
+            ],
+            if (closed) ...[
+              const SizedBox(height: 16),
+              _ActivityParticipationNote(
+                message: l10n.activityLuckyClosedNote,
+                danger: true,
+              ),
+            ] else if (!authenticated) ...[
+              const SizedBox(height: 16),
+              _ActivityLoginLink(
+                label: l10n.activityLuckyLoginLink,
+                onPressed: onLogin,
+              ),
+            ] else if (rights.remainingCount < 1) ...[
+              const SizedBox(height: 16),
+              _ActivityParticipationNote(
+                message: l10n.activityNumberBoardNoRights,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LuckyRightsGrid extends StatelessWidget {
+  const _LuckyRightsGrid({required this.metrics});
+
+  final List<MapEntry<String, String>> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = [
+      for (final metric in metrics)
+        _RightsMetric(label: metric.key, value: metric.value),
+    ];
+    if (MediaQuery.sizeOf(context).width <= 380) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            children[index],
+            if (index != children.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      );
+    }
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            Expanded(child: children[index]),
+            if (index != children.length - 1) const SizedBox(width: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityEntryDeadlineBanner extends StatelessWidget {
+  const _ActivityEntryDeadlineBanner({
+    required this.closed,
+    required this.title,
+    required this.detail,
+  });
+
+  final bool closed;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final background =
+        closed ? const Color(0xFFFEF2F2) : const Color(0xFFFFF7ED);
+    final border = closed ? const Color(0xFFFECACA) : const Color(0xFFFED7AA);
+    final foreground =
+        closed ? const Color(0xFFB42318) : const Color(0xFFC2410C);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.78),
+                shape: BoxShape.circle,
+              ),
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: Icon(
+                  closed ? Icons.access_time_filled : Icons.hourglass_top,
+                  color: foreground,
+                  size: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: foreground,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: foreground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityParticipationNote extends StatelessWidget {
+  const _ActivityParticipationNote({
+    required this.message,
+    this.danger = false,
+  });
+
+  final String message;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: danger ? const Color(0xFFFEF2F2) : const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Text(
-          number,
-          style: (compact
-                  ? Theme.of(context).textTheme.titleMedium
-                  : Theme.of(context).textTheme.displaySmall)
-              ?.copyWith(
-            fontWeight: FontWeight.w900,
-            color: color,
-            height: 1,
+          message,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color:
+                    danger ? const Color(0xFFB42318) : const Color(0xFFB76B00),
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                height: 1.45,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityLoginLink extends StatelessWidget {
+  const _ActivityLoginLink({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: activityBrandActionFill(colorScheme),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onPressed,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: activityBrandActionForeground(colorScheme),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  height: 1.45,
+                ),
           ),
         ),
       ),
@@ -1424,38 +1696,6 @@ class _AwardCopy extends StatelessWidget {
               ),
         ),
       ],
-    );
-  }
-}
-
-class _ConditionCard extends StatelessWidget {
-  const _ConditionCard({required this.activity});
-
-  final ActivityItem activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    return _ActivityDetailSurface(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _PanelHeading(title: l10n.activityConditionTitle),
-            const SizedBox(height: 10),
-            Text(
-              activityConditionText(l10n, activity),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1953,80 +2193,6 @@ class _CashbackActionButton extends StatelessWidget {
   }
 }
 
-class _RightsCard extends StatelessWidget {
-  const _RightsCard({required this.activity});
-
-  final ActivityItem activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final rights = activity.rights;
-    return _ActivityDetailSurface(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _PanelHeading(title: l10n.activityRightsTitle),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _RightsMetric(
-                    label: l10n.activityRightsEarned,
-                    value: rights.earnedCount.toString(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _RightsMetric(
-                    label: l10n.activityRightsUsed,
-                    value: rights.usedCount.toString(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _RightsMetric(
-                    label: l10n.activityRightsRemaining,
-                    value: rights.remainingCount.toString(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.activityRightsTicketSummary(
-                rights.ticketCount,
-                rights.consumedTicketCount,
-              ),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.45,
-                  ),
-            ),
-            if (rights.entryDeadlineAt != null) ...[
-              const SizedBox(height: 8),
-              _ActivityInfoRow(
-                icon: Icons.hourglass_bottom_rounded,
-                label: l10n.activityRightsDeadline(
-                  formatLocalizedDateTime(
-                    rights.entryDeadlineAt,
-                    localeTag(l10n.locale),
-                  ),
-                ),
-                danger: activityEntryClosed(activity),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _RightsMetric extends StatelessWidget {
   const _RightsMetric({required this.label, required this.value});
 
@@ -2112,7 +2278,7 @@ class _SelectedNumbersPanel extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                     child: Text(
-                      '${entries.length}',
+                      l10n.activitySelectedNumbersCount(entries.length),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w900,
@@ -2166,10 +2332,12 @@ class _NumberBoardCard extends StatelessWidget {
     required this.activity,
     required this.submitting,
     required this.onSelect,
+    this.enabled = true,
   });
 
   final ActivityItem activity;
   final bool submitting;
+  final bool enabled;
   final ValueChanged<String> onSelect;
 
   @override
@@ -2180,7 +2348,8 @@ class _NumberBoardCard extends StatelessWidget {
     if (!board.isReady) return const SizedBox.shrink();
 
     final selected = _selectedBoardNumbers(activity);
-    final canSelect = !submitting &&
+    final canSelect = enabled &&
+        !submitting &&
         !activity.rights.entryClosed &&
         activity.rights.remainingCount > 0;
 
@@ -2247,63 +2416,41 @@ class _NumberBoardCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              canSelect
-                  ? l10n.activityNumberBoardCanSelect
-                  : activity.rights.entryClosed
-                      ? l10n.activityNumberBoardClosed
-                      : l10n.activityNumberBoardNoRights,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    height: 1.4,
-                  ),
-            ),
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
                 final crossAxisCount = _numberBoardColumns(
-                  width: width,
+                  width: MediaQuery.sizeOf(context).width,
                   digits: board.digits,
                 );
-                final rows = (board.totalCount / crossAxisCount).ceil();
-                final visibleRows = board.digits == 3 ? 8 : 10;
                 final tileHeight = _numberBoardTileHeight(
                   width: width,
                   columns: crossAxisCount,
                 );
-                final maxHeight =
-                    (tileHeight * visibleRows) + (8 * (visibleRows - 1));
-                final contentHeight = (tileHeight * rows) + (8 * (rows - 1));
-                final height = contentHeight < maxHeight
-                    ? contentHeight.clamp(tileHeight, maxHeight)
-                    : maxHeight;
 
-                return SizedBox(
-                  height: height,
-                  child: GridView.builder(
-                    itemCount: board.totalCount,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      mainAxisExtent: tileHeight,
-                    ),
-                    itemBuilder: (context, index) {
-                      final number = board.numberAt(index);
-                      final isMine = selected.contains(number);
-                      final isReserved = board.isReserved(number) && !isMine;
-                      return _NumberTile(
-                        number: number,
-                        selected: isMine,
-                        reserved: isReserved,
-                        enabled: canSelect && !isReserved && !isMine,
-                        onTap: () => onSelect(number),
-                      );
-                    },
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: board.totalCount,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    mainAxisExtent: tileHeight,
                   ),
+                  itemBuilder: (context, index) {
+                    final number = board.numberAt(index);
+                    final isMine = selected.contains(number);
+                    final isReserved = board.isReserved(number) && !isMine;
+                    return _NumberTile(
+                      number: number,
+                      selected: isMine,
+                      reserved: isReserved,
+                      enabled: canSelect && !isReserved && !isMine,
+                      onTap: () => onSelect(number),
+                    );
+                  },
                 );
               },
             ),
@@ -2315,7 +2462,7 @@ class _NumberBoardCard extends StatelessWidget {
 }
 
 int _numberBoardColumns({required double width, required int digits}) {
-  final compact = width <= 340;
+  final compact = width <= 380;
   if (digits == 3) {
     return compact ? 3 : 4;
   }
@@ -2412,53 +2559,6 @@ class _NumberTile extends StatelessWidget {
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginToJoinCard extends StatelessWidget {
-  const _LoginToJoinCard({required this.slug});
-
-  final String slug;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return _ActivityDetailSurface(
-      borderColor: colorScheme.primary.withValues(alpha: 0.18),
-      background: colorScheme.primary.withValues(alpha: 0.03),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          children: [
-            Icon(
-              Icons.lock_outline,
-              size: 36,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              l10n.activityLoginToJoinTitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            CustomerGradientButton.text(
-              onPressed: () => context.go('/login?redirect=/activities/$slug'),
-              height: 42,
-              fontSize: 14,
-              horizontalPadding: 18,
-              shadow: false,
-              label: l10n.activityLoginToJoinButton,
-            ),
           ],
         ),
       ),
@@ -2572,6 +2672,7 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
                             method: _method,
                             bankAccount: settings.bankAccount,
                             walletId: settings.walletId,
+                            walletName: settings.walletName,
                             reviewerName: reviewerName,
                             returnPath: widget.returnPath,
                             error: _error,
@@ -2867,6 +2968,7 @@ class _ClaimSelectPanel extends StatelessWidget {
     required this.method,
     required this.bankAccount,
     required this.walletId,
+    required this.walletName,
     required this.reviewerName,
     required this.returnPath,
     required this.error,
@@ -2880,6 +2982,7 @@ class _ClaimSelectPanel extends StatelessWidget {
   final ActivityClaimPayoutMethod method;
   final RewardBankAccount bankAccount;
   final String walletId;
+  final String walletName;
   final String reviewerName;
   final String returnPath;
   final String error;
@@ -2981,7 +3084,11 @@ class _ClaimSelectPanel extends StatelessWidget {
           _PayoutOptionTile(
             method: ActivityClaimPayoutMethod.walletCredit,
             selected: method == ActivityClaimPayoutMethod.walletCredit,
-            title: _activityClaimWalletOptionTitle(l10n, walletId),
+            title: _activityClaimWalletOptionTitle(
+              l10n,
+              walletId,
+              walletName,
+            ),
             subtitle: l10n.activityClaimWalletSubtitle(reviewerName),
             icon: Icons.account_balance_wallet,
             onTap: onMethodChanged,
@@ -3090,10 +3197,14 @@ String _profileRewardBankRedirectPath(String returnPath) {
 String _activityClaimWalletOptionTitle(
   CustomerLocalizations l10n,
   String walletId,
+  String walletName,
 ) {
   final suffix = _activityClaimWalletSuffix(walletId);
-  if (suffix.isEmpty) return l10n.activityClaimWalletTitle;
-  return l10n.activityClaimWalletAccountTitle(suffix);
+  if (suffix.isEmpty) return l10n.activityClaimWalletTitleFor(walletName);
+  return l10n.activityClaimWalletAccountTitle(
+    suffix,
+    walletName: walletName,
+  );
 }
 
 String _activityClaimWalletSuffix(String value) {
@@ -3109,10 +3220,11 @@ String _activityClaimBankOptionTitle(
   RewardBankAccount bankAccount,
 ) {
   final bankName = bankAccount.bankName.trim();
-  final displayName = bankName.isEmpty
-      ? l10n.activityClaimBankTitle
-      : bankName.replaceFirst(RegExp(r'^ธนาคาร'), 'บัญชี');
-  return '$displayName x ${_activityClaimAccountLast4(bankAccount.accountNumber)}';
+  if (bankName.isEmpty) return l10n.activityClaimBankTitle;
+  return l10n.claimBankOptionTitle(
+    bankName,
+    _activityClaimAccountLast4(bankAccount.accountNumber),
+  );
 }
 
 String _activityClaimAccountLast4(String value) {
@@ -3597,7 +3709,7 @@ class _ActivityDetailStateView extends StatelessWidget {
       children: [
         _ActivityDetailSurface(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 54, 22, 36),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
             child: missing
                 ? Column(
                     mainAxisSize: MainAxisSize.min,

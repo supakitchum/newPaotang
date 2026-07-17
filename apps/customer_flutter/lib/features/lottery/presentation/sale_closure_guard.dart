@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_alert.dart';
 import '../../results/data/result_models.dart';
 import '../../results/data/result_repository.dart';
@@ -108,6 +109,16 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
       try {
         _currentGame = await ref.read(resultRepositoryProvider).currentGame();
         _currentGameFetchedAt = DateTime.now();
+      } catch (error) {
+        if (mounted) {
+          await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+            router: widget.router,
+          );
+        }
+        return;
       } finally {
         _loading = false;
       }
@@ -125,8 +136,9 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
       now: now,
     );
     if (saleClosed && _hasActiveCart == null) {
-      _hasActiveCart = await _loadHasActiveCart();
-      if (!mounted) return;
+      final hasActiveCart = await _loadHasActiveCart();
+      if (!mounted || hasActiveCart == null) return;
+      _hasActiveCart = hasActiveCart;
     }
 
     final redirect = saleClosureRedirectPath(
@@ -156,27 +168,38 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
     widget.router.go(redirect);
   }
 
-  Future<bool> _loadHasActiveCart() async {
+  Future<bool?> _loadHasActiveCart() async {
     try {
       final cart = await ref.read(lotteryRepositoryProvider).cart();
       final hasActiveCart = saleClosureCartHasActiveReservations(cart);
       if (!hasActiveCart) {
-        await _releaseExpiredCartReservations(cart);
+        final handled = await _releaseExpiredCartReservations(cart);
+        if (handled) return null;
       }
       return hasActiveCart;
-    } catch (_) {
+    } catch (error) {
+      if (mounted &&
+          await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+            router: widget.router,
+          )) {
+        return null;
+      }
       return false;
     }
   }
 
-  Future<void> _releaseExpiredCartReservations(LotteryCart cart) async {
+  Future<bool> _releaseExpiredCartReservations(LotteryCart cart) async {
     final reservationIds = cart.reservationIds;
-    if (reservationIds.isEmpty || _releasingExpiredCart) return;
+    if (reservationIds.isEmpty || _releasingExpiredCart) return false;
 
     final releaseKey = reservationIds.join('|');
-    if (_lastExpiredReleaseKey == releaseKey) return;
+    if (_lastExpiredReleaseKey == releaseKey) return false;
     _lastExpiredReleaseKey = releaseKey;
     _releasingExpiredCart = true;
+    var operationalHandled = false;
 
     try {
       for (final reservationId in reservationIds) {
@@ -184,18 +207,27 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
               reservationId,
             );
       }
-    } catch (_) {
+    } catch (error) {
+      if (mounted) {
+        operationalHandled = await handleCustomerOperationalError(
+          ref: ref,
+          context: context,
+          error: error,
+          router: widget.router,
+        );
+      }
       // Nuxt clears expired carts even when the release refresh cannot recover.
     } finally {
       _releasingExpiredCart = false;
     }
 
-    if (!mounted) return;
+    if (!mounted || operationalHandled) return operationalHandled;
     ref.read(appAlertControllerProvider.notifier).show(
           title: context.l10n.cartExpired,
           message: context.l10n.cartExpiredReleaseMessage,
           variant: AppAlertVariant.warning,
         );
+    return false;
   }
 }
 

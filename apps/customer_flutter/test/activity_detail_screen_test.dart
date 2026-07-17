@@ -48,6 +48,42 @@ void main() {
     );
   });
 
+  test('activityDetailPinRedirectPath preserves history route context', () {
+    expect(
+      activityDetailPinRedirectPath(
+        Uri.parse(
+          '/activities/lucky-board?from=history&game_id=game+prev%2F1',
+        ),
+      ),
+      '/pin?redirect=%2Factivities%2Flucky-board%3Ffrom%3Dhistory%26game_id%3Dgame%2Bprev%252F1',
+    );
+  });
+
+  testWidgets(
+      'ActivityDetailScreen redirects PIN setup before customer activity load',
+      (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+
+    await _pumpDetail(
+      tester,
+      repository,
+      authController: _pinGateController(setupRequired: true),
+      initialLocation: '/activities/lucky-board?from=history&game_id=game_prev',
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.detailCount, 0);
+    expect(
+      find.text(
+        'Pin redirect: /activities/lucky-board?from=history&game_id=game_prev',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ActivityDetailScreen hides awards before result announcement', (
     tester,
   ) async {
@@ -251,6 +287,43 @@ void main() {
     expect(find.byType(Card), findsNothing);
   });
 
+  testWidgets('ActivityDetailScreen follows detail maintenance redirect', (
+    tester,
+  ) async {
+    await _pumpDetail(
+      tester,
+      _ErrorActivityRepository(
+        error: _apiException(
+          'ร้านค้าปิดปรับปรุงชั่วคราว',
+          code: 'maintenance_active',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivityDetailScreen follows awards maintenance redirect', (
+    tester,
+  ) async {
+    await _pumpDetail(
+      tester,
+      _FakeActivityRepository(
+        resultAnnounced: true,
+        awardsError: _apiException(
+          'ร้านค้าปิดปรับปรุงชั่วคราว',
+          code: 'maintenance_active',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ActivityDetailScreen shows Nuxt missing state with CTA', (
     tester,
   ) async {
@@ -392,7 +465,7 @@ void main() {
     await _pressGradientButton(tester, 'รับเงิน');
 
     expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
-    expect(find.text('G Wallet x 123'), findsOneWidget);
+    expect(find.text('Runtime Blue Wallet x 123'), findsOneWidget);
     expect(
       find.ancestor(
         of: find.text('ยอดที่รับได้'),
@@ -413,8 +486,7 @@ void main() {
     expect(find.text('ธนาคารกสิกรไทย'), findsOneWidget);
     expect(find.text('Demo Customer · ******7890'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(CustomerGradientButton, 'ถัดไป'));
-    await tester.pumpAndSettle();
+    await _pressGradientButton(tester, 'ถัดไป');
 
     expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
     expect(find.text('กรอกแล้ว 0/6 หลัก'), findsOneWidget);
@@ -534,6 +606,7 @@ Future<void> _pumpDetail(
   ProfileSettingsRepository? profileRepository,
   ActivityClaimRepository? activityClaimRepository,
   BiometricAuthService? biometricAuth,
+  AuthController? authController,
   String? platformKey,
   bool biometricEnabled = false,
   String initialLocation = '/activities/lucky-board',
@@ -597,6 +670,22 @@ Future<void> _pumpDetail(
           body: Center(child: Text('Activity claim detail route')),
         ),
       ),
+      GoRoute(
+        path: '/pin',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text(
+              'Pin redirect: ${state.uri.queryParameters['redirect'] ?? ''}',
+            ),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const Scaffold(
+          body: Center(child: Text('Maintenance route')),
+        ),
+      ),
     ],
   );
 
@@ -610,7 +699,9 @@ Future<void> _pumpDetail(
           ),
         ),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
-        authControllerProvider.overrideWith((_) => _authenticatedController()),
+        authControllerProvider.overrideWith(
+          (_) => authController ?? _authenticatedController(),
+        ),
         activityRepositoryProvider.overrideWithValue(repository),
         mobileBootstrapProvider.overrideWith(
           (_) async => MobileBootstrap.fromJson({
@@ -795,6 +886,7 @@ class _CompleteRewardBankProfileRepository extends ProfileSettingsRepository {
       customerNo: 'C-001',
       phone: '0800000000',
       walletId: 'wallet_123',
+      walletName: 'Runtime Blue Wallet',
       bankAccount: RewardBankAccount(
         bankName: 'ธนาคารกสิกรไทย',
         accountName: 'Demo Customer',
@@ -876,11 +968,15 @@ class _FakeBiometricAuthService extends BiometricAuthService {
 }
 
 class _FakeActivityRepository extends ActivityRepository {
-  _FakeActivityRepository({required this.resultAnnounced, this.entryError})
-      : super(_testApiClient(), (value) => value);
+  _FakeActivityRepository({
+    required this.resultAnnounced,
+    this.entryError,
+    this.awardsError,
+  }) : super(_testApiClient(), (value) => value);
 
   final bool resultAnnounced;
   final Object? entryError;
+  final Object? awardsError;
   int detailCount = 0;
   int awardsAllCount = 0;
   int createEntryCount = 0;
@@ -901,6 +997,8 @@ class _FakeActivityRepository extends ActivityRepository {
     String? status,
   }) async {
     awardsAllCount++;
+    final error = awardsError;
+    if (error != null) throw error;
     return const [
       ActivityAwardItem(
         id: 'award_1',
@@ -1100,6 +1198,13 @@ AuthController _authenticatedController() {
   )
     ..isAuthenticated = true
     ..pinRequired = false;
+}
+
+AuthController _pinGateController({bool setupRequired = false}) {
+  final controller = _authenticatedController()
+    ..pinRequired = !setupRequired
+    ..pinSetupRequired = setupRequired;
+  return controller;
 }
 
 ApiClient _testApiClient([AuthTokenStore? tokenStore]) {

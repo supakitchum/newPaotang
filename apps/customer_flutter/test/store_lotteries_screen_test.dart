@@ -307,6 +307,69 @@ void main() {
     );
   });
 
+  testWidgets('store stock selection follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final store = _FakeStoreRepository();
+    final lottery = _MaintenanceReservationLotteryRepository();
+    final tokenStore = AuthTokenStore();
+    final authController = _authenticatedController(tokenStore);
+    final router = GoRouter(
+      initialLocation: '/stores/lotteries',
+      routes: [
+        GoRoute(
+          path: '/stores/lotteries',
+          builder: (context, state) => const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (context, state) =>
+              const Scaffold(body: Text('Maintenance')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(store),
+          lotteryRepositoryProvider.overrideWithValue(lottery),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 1);
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(find.text('Maintenance'), findsOneWidget);
+  });
+
   testWidgets('store lotteries refresh enters Nuxt-style cooldown', (
     tester,
   ) async {
@@ -1744,6 +1807,24 @@ class _SuccessfulReservationLotteryRepository extends LotteryRepository {
   }
 }
 
+class _MaintenanceReservationLotteryRepository extends LotteryRepository {
+  _MaintenanceReservationLotteryRepository() : super(_testApiClient());
+
+  int reserveCount = 0;
+
+  @override
+  Future<LotteryCart> cart() async => LotteryCart.empty();
+
+  @override
+  Future<LotteryReservation> reserve({
+    required String gameId,
+    required LotteryStockItem item,
+  }) async {
+    reserveCount++;
+    throw _maintenanceApiException(path: '/customer/reservations');
+  }
+}
+
 class _MaterializedReservationLotteryRepository extends LotteryRepository {
   _MaterializedReservationLotteryRepository() : super(_testApiClient());
 
@@ -1826,6 +1907,23 @@ DioException _apiException(String message, {required String path}) {
       requestOptions: request,
       statusCode: 422,
       data: {'message': message},
+    ),
+  );
+}
+
+DioException _maintenanceApiException({required String path}) {
+  final request = RequestOptions(path: path);
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 503,
+      data: const {
+        'error': {
+          'code': 'maintenance_active',
+          'message': 'ระบบอยู่ระหว่างปิดปรับปรุง',
+        },
+      },
     ),
   );
 }

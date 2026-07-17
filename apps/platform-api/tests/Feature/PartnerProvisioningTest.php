@@ -170,6 +170,9 @@ class PartnerProvisioningTest extends TestCase
                         'site_name' => 'Profile Shop',
                         'display_name' => 'Profile Shop BO',
                         'support_email' => 'support@profile.test',
+                        'support_url' => 'https://support.profile.test/help',
+                        'lottery_product_label' => 'L6 Profile',
+                        'ticket_image_watermark' => 'Profile Lottery Office',
                     ],
                     'seo' => [
                         'default_title' => 'Profile SEO',
@@ -191,6 +194,9 @@ class PartnerProvisioningTest extends TestCase
             ->assertOk()
             ->assertJsonPath('tenant_settings.site.site_name', 'Profile Shop')
             ->assertJsonPath('tenant_settings.site.display_name', 'Profile Shop BO')
+            ->assertJsonPath('tenant_settings.site.support_url', 'https://support.profile.test/help')
+            ->assertJsonPath('tenant_settings.site.lottery_product_label', 'L6 Profile')
+            ->assertJsonPath('tenant_settings.site.ticket_image_watermark', 'Profile Lottery Office')
             ->assertJsonPath('tenant_settings.seo.default_keywords', ['lottery', 'vip'])
             ->assertJsonPath('tenant_settings.maintenance.active', true)
             ->assertJsonPath('tenant_settings.api.asset_cdn_base_url', 'https://cdn.profile.test');
@@ -356,6 +362,15 @@ class PartnerProvisioningTest extends TestCase
             ->json();
 
         $tenantId = $provisioned['tenants'][0]['id'];
+
+        $this->assertDatabaseHas('partner_tenant_themes', [
+            'tenant_id' => $tenantId,
+            'primary_color' => '#087FF0',
+            'secondary_color' => '#19B8EF',
+            'accent_color' => '#FFD10B',
+            'text_color' => '#242833',
+            'font_family' => 'Kanit',
+        ]);
 
         $counts = $this->provisioningCounts($partner['id'], $tenantId);
 
@@ -607,6 +622,9 @@ class PartnerProvisioningTest extends TestCase
             'owner_email' => 'owner@site.test',
             'owner_password' => 'owner-password',
             'site_name' => 'Site Lucky',
+            'support_url' => 'https://support.site.example.test/lottery',
+            'lottery_product_label' => '  L6 Site  ',
+            'ticket_image_watermark' => '  Site Lottery Office  ',
             'primary_color' => '#123456',
             'features' => ['affiliate' => true],
         ]);
@@ -618,6 +636,9 @@ class PartnerProvisioningTest extends TestCase
             ->assertJsonPath('data.tenant_id', $tenantId)
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.site.site_name', 'Site Lucky')
+            ->assertJsonPath('data.site.support_url', 'https://support.site.example.test/lottery')
+            ->assertJsonPath('data.site.lottery_product_label', 'L6 Site')
+            ->assertJsonPath('data.site.ticket_image_watermark', 'Site Lottery Office')
             ->assertJsonPath('data.legal.terms_content', implode("\n", [
                 'ข้อตกลงการใช้งาน',
                 '1. Site Luckyเป็นระบบจำหน่ายลอตเตอรี่ออนไลน์',
@@ -657,6 +678,11 @@ class PartnerProvisioningTest extends TestCase
                     'timestamps',
                 ],
             ]);
+
+        $this->getJson('http://site.example.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->assertJsonPath('data.mobile.lottery_product_label', 'L6 Site')
+            ->assertJsonPath('data.mobile.ticket_image_watermark', 'Site Lottery Office');
 
         DB::table('partner_tenants')->where('id', $tenantId)->update(['status' => 'maintenance', 'updated_at' => now()]);
 
@@ -754,8 +780,27 @@ class PartnerProvisioningTest extends TestCase
         $this->withToken($ownerLogin['access_token'])
             ->patchJson('/api/v1/admin/tenant/settings', [
                 'site' => [
+                    'support_url' => 'http://support.settings-one.test',
+                ],
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $tenantId,
+                'Idempotency-Key' => 'settings-support-url-invalid',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'error.details.fields.support_url.0',
+                'The support_url field must be a valid HTTPS URL.',
+            );
+
+        $this->withToken($ownerLogin['access_token'])
+            ->patchJson('/api/v1/admin/tenant/settings', [
+                'site' => [
                     'site_name' => 'Settings One Updated',
                     'support_email' => 'support@settings-one.test',
+                    'support_url' => 'https://support.settings-one.test/help',
+                    'lottery_product_label' => 'L6 Settings',
+                    'ticket_image_watermark' => 'Settings Lottery Office',
                 ],
                 'seo' => [
                     'default_title' => 'Settings One SEO',
@@ -786,6 +831,9 @@ class PartnerProvisioningTest extends TestCase
             ->assertOk()
             ->assertJsonPath('site.site_name', 'Settings One Updated')
             ->assertJsonPath('site.support_email', 'support@settings-one.test')
+            ->assertJsonPath('site.support_url', 'https://support.settings-one.test/help')
+            ->assertJsonPath('site.lottery_product_label', 'L6 Settings')
+            ->assertJsonPath('site.ticket_image_watermark', 'Settings Lottery Office')
             ->assertJsonPath('seo.default_keywords', ['lottery', 'lucky'])
             ->assertJsonPath('maintenance.active', true)
             ->assertJsonPath('api.base_url', 'https://api.settings-one.test/api/v1')
@@ -797,6 +845,9 @@ class PartnerProvisioningTest extends TestCase
 
         $this->getJson('http://settings-one.example.test/api/v1/public/site-config')
             ->assertOk()
+            ->assertJsonPath('data.site.support_url', 'https://support.settings-one.test/help')
+            ->assertJsonPath('data.site.lottery_product_label', 'L6 Settings')
+            ->assertJsonPath('data.site.ticket_image_watermark', 'Settings Lottery Office')
             ->assertJsonPath('data.legal.terms_content', 'Custom terms for Settings One')
             ->assertJsonPath('data.legal.privacy_content', 'Custom privacy in English')
             ->assertJsonPath('data.legal.privacy_policy_url', 'https://settings-one.example.test/privacy')
@@ -804,6 +855,9 @@ class PartnerProvisioningTest extends TestCase
 
         $mobileBootstrap = $this->getJson('http://settings-one.example.test/api/v1/public/mobile/bootstrap')
             ->assertOk()
+            ->assertJsonPath('data.site.support_url', 'https://support.settings-one.test/help')
+            ->assertJsonPath('data.mobile.lottery_product_label', 'L6 Settings')
+            ->assertJsonPath('data.mobile.ticket_image_watermark', 'Settings Lottery Office')
             ->assertJsonPath('data.legal.privacy_content', 'Custom privacy in English')
             ->assertJsonPath('data.legal.privacy_policy_url', 'https://settings-one.example.test/privacy')
             ->assertJsonPath('data.legal.account_deletion_url', 'https://settings-one.example.test/account/delete')

@@ -40,8 +40,37 @@ class TenantSocialAuthService
     {
         $provider = $this->normalizeProvider($provider);
 
-        if (! in_array($provider, ['google', 'apple'], true)) {
+        if (! in_array($provider, self::PROVIDERS, true)) {
             return ['error' => 'provider_managed_elsewhere'];
+        }
+
+        if ($provider === 'line') {
+            $errors = $this->providerAppearanceErrors($payload);
+
+            if ($errors !== []) {
+                return ['error' => 'validation_failed', 'errors' => $errors];
+            }
+
+            $existing = TenantSocialAuthProvider::query()
+                ->where('tenant_id', $tenantId)
+                ->where('provider', $provider)
+                ->first();
+            $metadata = $this->providerMetadata($existing, $provider, $payload);
+
+            if ($existing instanceof TenantSocialAuthProvider || $metadata !== []) {
+                TenantSocialAuthProvider::query()->updateOrCreate(
+                    ['tenant_id' => $tenantId, 'provider' => $provider],
+                    [
+                        'id' => (string) ($existing?->id ?: 'tsa_'.Str::ulid()->toBase32()),
+                        'status' => 'inactive',
+                        'redirect_uri' => $this->customerCallbackUrl($tenantId, $provider),
+                        'metadata_json' => $metadata,
+                        'updated_at' => now(),
+                    ],
+                );
+            }
+
+            return ['resource' => $this->settings($tenantId)];
         }
 
         $errors = $this->providerErrors($tenantId, $provider, $payload);
@@ -64,9 +93,7 @@ class TenantSocialAuthService
             'redirect_uri' => $this->callbackUrlFor($provider, $tenantId),
             'last_test_status' => 'saved',
             'last_test_message' => 'Provider settings saved.',
-            'metadata_json' => [
-                'scopes' => $provider === 'google' ? ['openid', 'profile', 'email'] : ['name', 'email'],
-            ],
+            'metadata_json' => $this->providerMetadata($existing, $provider, $payload),
             'updated_at' => now(),
         ];
 
@@ -158,12 +185,22 @@ class TenantSocialAuthService
      */
     private function providerResource(string $tenantId, string $provider): array
     {
+        $record = TenantSocialAuthProvider::query()
+            ->where('tenant_id', $tenantId)
+            ->where('provider', $provider)
+            ->first();
+        $appearance = $this->providerAppearance($record);
+
         if ($provider === 'line') {
             $line = $this->lineNotifications->channelForTenant($tenantId);
 
             return [
                 'provider' => 'line',
-                'label' => 'LINE',
+                'label' => $appearance['display_label'] ?: 'LINE',
+                'display_label' => $appearance['display_label'],
+                'brand_color' => $appearance['brand_color'],
+                'button_background_color' => $appearance['button_background_color'],
+                'button_foreground_color' => $appearance['button_foreground_color'],
                 'status' => $line instanceof TenantLineChannel ? (string) $line->status : 'inactive',
                 'configured' => $line instanceof TenantLineChannel,
                 'ready' => $this->lineNotifications->channelReadyForLogin($line),
@@ -172,14 +209,13 @@ class TenantSocialAuthService
             ];
         }
 
-        $record = TenantSocialAuthProvider::query()
-            ->where('tenant_id', $tenantId)
-            ->where('provider', $provider)
-            ->first();
-
         return [
             'provider' => $provider,
-            'label' => $provider === 'google' ? 'Google / Gmail' : 'Apple ID',
+            'label' => $appearance['display_label'] ?: ($provider === 'google' ? 'Google / Gmail' : 'Apple ID'),
+            'display_label' => $appearance['display_label'],
+            'brand_color' => $appearance['brand_color'],
+            'button_background_color' => $appearance['button_background_color'],
+            'button_foreground_color' => $appearance['button_foreground_color'],
             'status' => $record?->status ?? 'inactive',
             'configured' => $record instanceof TenantSocialAuthProvider,
             'ready' => $record instanceof TenantSocialAuthProvider && $record->status === 'active' && $this->hasRequiredSecrets($record),
@@ -204,6 +240,9 @@ class TenantSocialAuthService
             'label' => $resource['label'],
             'enabled' => (bool) ($resource['ready'] ?? false),
             'login_url' => '/api/v1/customer/auth/social/'.$resource['provider'].'/login',
+            'brand_color' => $resource['brand_color'] ?? null,
+            'button_background_color' => $resource['button_background_color'] ?? null,
+            'button_foreground_color' => $resource['button_foreground_color'] ?? null,
         ];
     }
 
@@ -231,7 +270,7 @@ class TenantSocialAuthService
      */
     private function providerErrors(string $tenantId, string $provider, array $payload): array
     {
-        $errors = [];
+        $errors = $this->providerAppearanceErrors($payload);
 
         foreach ($this->secretFieldsForProvider($provider) as $input => $column) {
             $hasExisting = TenantSocialAuthProvider::query()
@@ -251,6 +290,88 @@ class TenantSocialAuthService
         }
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function providerAppearanceErrors(array $payload): array
+    {
+        $errors = [];
+
+        if (array_key_exists('display_label', $payload)) {
+            $label = trim((string) $payload['display_label']);
+            if (mb_strlen($label) > 80) {
+                $errors['display_label'][] = 'The display_label field must not exceed 80 characters.';
+            }
+        }
+
+        foreach (['brand_color', 'button_background_color', 'button_foreground_color'] as $field) {
+            if (! array_key_exists($field, $payload)) {
+                continue;
+            }
+
+            $value = trim((string) $payload[$field]);
+            if ($value !== '' && preg_match('/^#[0-9a-fA-F]{6}$/', $value) !== 1) {
+                $errors[$field][] = 'The '.$field.' field must be a 6-digit hex color.';
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function providerMetadata(?TenantSocialAuthProvider $record, string $provider, array $payload): array
+    {
+        $metadata = is_array($record?->metadata_json) ? $record->metadata_json : [];
+
+        if ($provider !== 'line') {
+            $metadata['scopes'] = $provider === 'google'
+                ? ['openid', 'profile', 'email']
+                : ['name', 'email'];
+        }
+
+        $appearance = is_array($metadata['appearance'] ?? null) ? $metadata['appearance'] : [];
+        foreach (['display_label', 'brand_color', 'button_background_color', 'button_foreground_color'] as $field) {
+            if (! array_key_exists($field, $payload)) {
+                continue;
+            }
+
+            $value = trim((string) $payload[$field]);
+            if ($value === '') {
+                unset($appearance[$field]);
+            } else {
+                $appearance[$field] = str_ends_with($field, '_color') ? strtoupper($value) : $value;
+            }
+        }
+
+        if ($appearance === []) {
+            unset($metadata['appearance']);
+        } else {
+            $metadata['appearance'] = $appearance;
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * @return array{display_label: string, brand_color: string, button_background_color: string, button_foreground_color: string}
+     */
+    private function providerAppearance(?TenantSocialAuthProvider $record): array
+    {
+        $metadata = is_array($record?->metadata_json) ? $record->metadata_json : [];
+        $appearance = is_array($metadata['appearance'] ?? null) ? $metadata['appearance'] : [];
+
+        return [
+            'display_label' => trim((string) ($appearance['display_label'] ?? '')),
+            'brand_color' => trim((string) ($appearance['brand_color'] ?? '')),
+            'button_background_color' => trim((string) ($appearance['button_background_color'] ?? '')),
+            'button_foreground_color' => trim((string) ($appearance['button_foreground_color'] ?? '')),
+        ];
     }
 
     private function hasRequiredSecrets(TenantSocialAuthProvider $record): bool

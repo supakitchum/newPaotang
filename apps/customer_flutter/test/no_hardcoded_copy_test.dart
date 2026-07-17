@@ -116,6 +116,38 @@ void main() {
       ].join('\n'),
     );
   });
+
+  test('production Dart files do not hardcode wallet provider identity', () {
+    final violations = <String>[];
+    final sourceFiles = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.dart'))
+        .where((file) => !file.path.endsWith('.g.dart'))
+        .where((file) => !file.path.endsWith('.freezed.dart'))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+
+    for (final file in sourceFiles) {
+      final path = file.path.replaceAll('\\', '/');
+      final lines = file.readAsLinesSync();
+      for (var index = 0; index < lines.length; index += 1) {
+        final line = lines[index];
+        if (!_walletProviderIdentityPattern.hasMatch(line)) continue;
+        violations.add('$path:${index + 1}: ${line.trim()}');
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason: [
+        'Use the wallet name returned by the customer API and a neutral',
+        'localized fallback instead of a hardcoded wallet provider name.',
+        ...violations,
+      ].join('\n'),
+    );
+  });
 }
 
 final _thaiTextPattern = RegExp(r'[ก-๙]');
@@ -124,15 +156,32 @@ final _projectRuntimeValuePattern = RegExp(
   r'(newpaotang|localhost|127\.0\.0\.1|0\.0\.0\.0)',
   caseSensitive: false,
 );
+final _walletProviderIdentityPattern = RegExp(
+  r'\bG(?:\s+|-)Wallet\b',
+);
 
 const _fullyAllowedLocalizedSources = {
   'lib/core/i18n/customer_localizations.dart',
 };
 
 bool _allowedInlineThaiCopy(String path, String line) {
-  if (path != 'lib/core/utils/formatters.dart') {
-    return false;
+  if (path == 'lib/core/i18n/app_locale.dart') {
+    return line.contains("nativeName: 'ไทย'");
   }
 
-  return line.contains("'THB'") && line.contains("'บาท'");
+  if (path == 'lib/core/utils/formatters.dart') {
+    return (line.contains("'THB'") && line.contains("'บาท'")) ||
+        line.contains("RegExp(r'^งวด") ||
+        _thaiMonthMapEntryPattern.hasMatch(line);
+  }
+
+  if (path == 'lib/features/wallet/presentation/wallet_localization.dart') {
+    return line.contains("reason.contains('เงินคืน')");
+  }
+
+  return false;
 }
+
+final _thaiMonthMapEntryPattern = RegExp(
+  r"^\s*'[ก-๙]+': '[ก-๙.]+',\s*$",
+);

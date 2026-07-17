@@ -6,7 +6,12 @@ import '../../core/i18n/customer_localizations.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../core/tenant/mobile_runtime_policy.dart';
 import '../../core/theme/app_theme.dart';
+import 'customer_fixed_header_layout.dart';
 import 'customer_page_body.dart';
+
+enum CustomerHeroHeaderVariant { standard, compact, rewardFlow }
+
+const double customerReferenceCompactHeroHeight = 150;
 
 class AppShell extends StatelessWidget {
   const AppShell({
@@ -17,13 +22,17 @@ class AppShell extends StatelessWidget {
     this.backPath,
     this.onBack,
     this.sensitive = false,
-    this.showBottomNavigation = true,
+    this.showBottomNavigation = false,
     this.compactHeader = false,
     this.fullScreen = false,
     this.heroContent,
-    this.heroMinHeight = 174,
+    this.heroMinHeight = customerReferenceCompactHeroHeight,
     this.heroSheetOverlap = _defaultHeroSheetOverlap,
     this.heroContentTopGap = 24,
+    this.heroInFlow = false,
+    this.heroSheetTopRadius = customerContentSheetTopRadius,
+    this.automaticallyImplyBack = true,
+    this.heroHeaderVariant = CustomerHeroHeaderVariant.standard,
     this.actions = const [],
   });
 
@@ -40,6 +49,10 @@ class AppShell extends StatelessWidget {
   final double heroMinHeight;
   final double heroSheetOverlap;
   final double heroContentTopGap;
+  final bool heroInFlow;
+  final double heroSheetTopRadius;
+  final bool automaticallyImplyBack;
+  final CustomerHeroHeaderVariant heroHeaderVariant;
   final List<Widget> actions;
 
   @override
@@ -60,37 +73,63 @@ class AppShell extends StatelessWidget {
     }
 
     if (expandedHero != null) {
+      final resolvedHeroHeight = _resolvedHeroHeight(context);
+      final heroHeader = _CustomerBlueHeroHeader(
+        title: title,
+        minHeight: resolvedHeroHeight,
+        onBack: resolvedBack,
+        actions: actions,
+        variant: compactHeader
+            ? CustomerHeroHeaderVariant.compact
+            : heroHeaderVariant,
+        heroContentTopGap: heroContentTopGap,
+        child: expandedHero,
+      );
+      if (heroInFlow) {
+        return Scaffold(
+          body: _AppShellBottomNavOverlay(
+            currentPath: currentPath,
+            showBottomNavigation: showBottomNavigation,
+            child: ColoredBox(
+              color: colorScheme.surface,
+              child: CustomerFixedHeaderLayout(
+                headerKey: const ValueKey('customer-fixed-hero'),
+                contentRegionKey: const ValueKey(
+                  'customer-fixed-content-region',
+                ),
+                header: heroHeader,
+                headerHeight: resolvedHeroHeight,
+                allowHeaderOverflow: true,
+                contentTopRadius: heroSheetTopRadius,
+                contentBackdropColor: colorScheme.primary,
+                content: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [child],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
       return Scaffold(
         body: _AppShellBottomNavOverlay(
           currentPath: currentPath,
           showBottomNavigation: showBottomNavigation,
           child: ColoredBox(
             color: colorScheme.surface,
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  left: 0,
-                  child: _CustomerBlueHeroHeader(
-                    title: title,
-                    minHeight: heroMinHeight,
-                    onBack: resolvedBack,
-                    actions: actions,
-                    compactHeader: compactHeader,
-                    heroContentTopGap: heroContentTopGap,
-                    child: expandedHero,
-                  ),
-                ),
-                Positioned.fill(
-                  top: (heroMinHeight - _effectiveHeroSheetOverlap(context))
-                      .clamp(
-                    0,
-                    double.infinity,
-                  ),
-                  child: SafeArea(top: false, child: child),
-                ),
-              ],
+            child: CustomerFixedHeaderLayout(
+              headerKey: const ValueKey('customer-fixed-hero'),
+              contentRegionKey: const ValueKey(
+                'customer-fixed-content-region',
+              ),
+              header: heroHeader,
+              headerHeight: resolvedHeroHeight,
+              allowHeaderOverflow: true,
+              contentOverlap: _effectiveHeroSheetOverlap(context),
+              contentTopRadius: heroSheetTopRadius,
+              contentBackdropColor: colorScheme.primary,
+              content: SafeArea(top: false, child: child),
             ),
           ),
         ),
@@ -161,6 +200,14 @@ class AppShell extends StatelessWidget {
     return (width * 0.15).clamp(34.0, 64.0);
   }
 
+  double _resolvedHeroHeight(BuildContext context) {
+    if (heroMinHeight != customerReferenceCompactHeroHeight) {
+      return heroMinHeight;
+    }
+    final safeAreaHeight = MediaQuery.paddingOf(context).top + 104;
+    return safeAreaHeight > heroMinHeight ? safeAreaHeight : heroMinHeight;
+  }
+
   String _routePathFor(BuildContext context) {
     try {
       return GoRouterState.of(context).uri.path;
@@ -176,6 +223,7 @@ class AppShell extends StatelessWidget {
     final explicitBackPath = backPath;
     if (explicitBackPath != null) return () => context.go(explicitBackPath);
 
+    if (!automaticallyImplyBack) return null;
     if (!_shouldShowAutoBack(routePath)) return null;
     return () => _goBackFrom(context, routePath);
   }
@@ -221,7 +269,7 @@ String customerDefaultBackPathFor(String path) {
   if (normalized.startsWith('/tickets/claim')) return '/tickets';
   if (normalized.startsWith('/my-wallet')) return '/profile';
   if (normalized.startsWith('/topup/history')) return '/topup';
-  if (normalized.startsWith('/topup')) return '/profile';
+  if (normalized.startsWith('/topup')) return '/my-wallet';
   if (normalized.startsWith('/purchase-history/')) return '/purchase-history';
   if (normalized.startsWith('/purchase-history')) return '/profile';
   if (normalized.startsWith('/reward-claims/')) return '/reward-claims';
@@ -234,18 +282,16 @@ String customerDefaultBackPathFor(String path) {
   if (normalized.startsWith('/affiliate')) return '/profile';
   if (normalized.startsWith('/news/')) return '/news';
   if (normalized.startsWith('/news')) return '/profile';
-  if (normalized.startsWith('/result/full') ||
-      normalized.startsWith('/results/full')) {
-    return '/result';
-  }
+  if (normalized.startsWith('/result/full')) return '/result';
+  if (normalized.startsWith('/results/full')) return '/results';
   if (normalized.startsWith('/result') || normalized.startsWith('/results')) {
     return '/';
   }
   if (normalized.startsWith('/waiting-result')) return '/tickets';
   if (normalized.startsWith('/profile/')) return '/profile';
+  if (normalized == '/term-reward') return '/';
   if (normalized == '/terms' ||
       normalized == '/privacy' ||
-      normalized == '/term-reward' ||
       normalized == '/lottery-knowledge') {
     return '/profile';
   }
@@ -424,7 +470,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
     required this.minHeight,
     required this.child,
     required this.actions,
-    required this.compactHeader,
+    required this.variant,
     required this.heroContentTopGap,
     this.onBack,
   });
@@ -433,7 +479,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
   final double minHeight;
   final Widget child;
   final List<Widget> actions;
-  final bool compactHeader;
+  final CustomerHeroHeaderVariant variant;
   final double heroContentTopGap;
   final VoidCallback? onBack;
 
@@ -441,7 +487,33 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final topInset = MediaQuery.paddingOf(context).top;
-    final topPadding = topInset + 14 < 58 ? 58.0 : topInset + 14;
+    final compactHeader = variant == CustomerHeroHeaderVariant.compact;
+    final rewardFlow = variant == CustomerHeroHeaderVariant.rewardFlow;
+    final topPadding = compactHeader
+        ? (topInset + 10 < 44 ? 44.0 : topInset + 10)
+        : rewardFlow
+            ? (topInset + 16 < 50 ? 50.0 : topInset + 16)
+            : (topInset + 14 < 58 ? 58.0 : topInset + 14);
+    final bottomPadding = compactHeader
+        ? 10.0
+        : rewardFlow
+            ? 26.0
+            : 24.0;
+    final rowHeight = compactHeader
+        ? 36.0
+        : rewardFlow
+            ? 40.0
+            : 42.0;
+    final backButtonSize = compactHeader
+        ? 36.0
+        : rewardFlow
+            ? 40.0
+            : 42.0;
+    final backIconSize = compactHeader
+        ? 27.0
+        : rewardFlow
+            ? 26.0
+            : 31.0;
     final l10n = context.l10n;
 
     return ConstrainedBox(
@@ -454,7 +526,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
             customerSheetMobileHorizontalPadding,
             topPadding,
             customerSheetMobileHorizontalPadding,
-            24,
+            bottomPadding,
           ),
           child: Align(
             alignment: Alignment.topCenter,
@@ -466,7 +538,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    height: 42,
+                    height: rowHeight,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -477,6 +549,8 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                               tooltip: l10n.commonBack,
                               icon: Icons.arrow_back_ios_new,
                               onPressed: onBack!,
+                              dimension: backButtonSize,
+                              iconSize: backIconSize,
                             ),
                           ),
                         Positioned.fill(
@@ -493,11 +567,17 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                                     .titleMedium
                                     ?.copyWith(
                                       color: colorScheme.onPrimary,
-                                      fontSize: compactHeader ? 18 : 22,
-                                      fontWeight: compactHeader
-                                          ? FontWeight.w800
+                                      fontSize: compactHeader
+                                          ? 16
+                                          : rewardFlow
+                                              ? 20
+                                              : 22,
+                                      fontWeight: compactHeader || rewardFlow
+                                          ? FontWeight.w900
                                           : FontWeight.w700,
-                                      height: 1.15,
+                                      height: compactHeader || rewardFlow
+                                          ? 1.25
+                                          : 1.15,
                                     ),
                               ),
                             ),
@@ -536,11 +616,15 @@ class _HeroCircleButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
+    required this.dimension,
+    required this.iconSize,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback onPressed;
+  final double dimension;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -548,10 +632,10 @@ class _HeroCircleButton extends StatelessWidget {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 31),
+      icon: Icon(icon, size: iconSize),
       color: onPrimary,
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(42),
+        fixedSize: Size.square(dimension),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Colors.transparent,
         foregroundColor: onPrimary,
@@ -597,6 +681,7 @@ class _CustomerBottomNav extends ConsumerWidget {
         .where((item) => mobileCustomerRouteAllowed(bootstrap, item.path))
         .toList(growable: false);
     final l10n = context.l10n;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -635,7 +720,8 @@ class _CustomerBottomNav extends ConsumerWidget {
                               item: item,
                               selected: _isSelected(item, location),
                               label: item.label(l10n),
-                              selectedColor: AppTheme.appBottomNavActive,
+                              selectedColor:
+                                  AppTheme.bottomNavigationActive(primary),
                               unselectedColor: AppTheme.appBottomNavInactive,
                               onTap: () {
                                 final target = item.path;
@@ -736,7 +822,9 @@ class _CustomerBottomNavButton extends StatelessWidget {
                         width: highlightWidth,
                         height: 98,
                         decoration: BoxDecoration(
-                          color: AppTheme.appBottomNavActiveFill,
+                          color: AppTheme.bottomNavigationActiveFill(
+                            Theme.of(context).colorScheme.primary,
+                          ),
                           borderRadius: const BorderRadius.vertical(
                             bottom: Radius.circular(70),
                           ),

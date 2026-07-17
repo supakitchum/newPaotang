@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/customer_localizations.dart';
+import '../../core/auth/auth_controller.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/asset_url.dart';
@@ -55,7 +56,10 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
   @override
   Widget build(BuildContext context) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
-    final ready = bootstrap.hasValue || bootstrap.hasError;
+    final authStartup = ref.watch(authSessionStartupProvider);
+    final bootstrapReady = bootstrap.hasValue || bootstrap.hasError;
+    final authReady = authStartup.hasValue || authStartup.hasError;
+    final ready = bootstrapReady && authReady;
     if (ready && _canHide && _visible && !_leaving) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _tryClose());
     }
@@ -71,7 +75,11 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
   void _tryClose() {
     if (!mounted || _leaving || !_visible || !_canHide) return;
     final bootstrap = ref.read(mobileBootstrapProvider);
-    if (!bootstrap.hasValue && !bootstrap.hasError) return;
+    final authStartup = ref.read(authSessionStartupProvider);
+    if ((!bootstrap.hasValue && !bootstrap.hasError) ||
+        (!authStartup.hasValue && !authStartup.hasError)) {
+      return;
+    }
 
     setState(() => _leaving = true);
     _removeTimer?.cancel();
@@ -86,9 +94,6 @@ class _AppSplashOverlay extends StatelessWidget {
 
   final bool leaving;
 
-  static const _splashMid = Color(0xFF0C6FE0);
-  static const _splashEnd = Color(0xFF15AEEA);
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -100,19 +105,25 @@ class _AppSplashOverlay extends StatelessWidget {
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOut,
           child: Material(
-            color: AppTheme.appBlue,
+            color: colorScheme.primary,
             child: Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          AppTheme.appBlue,
-                          _splashMid,
-                          _splashEnd,
+                          colorScheme.primary,
+                          AppTheme.splashGradientMid(
+                            colorScheme.primary,
+                            colorScheme.secondary,
+                          ),
+                          AppTheme.splashGradientEnd(
+                            colorScheme.primary,
+                            colorScheme.secondary,
+                          ),
                         ],
                         stops: [0, 0.48, 1],
                       ),
@@ -185,6 +196,7 @@ class _SplashBrandLockup extends ConsumerWidget {
     final logoUrl =
         rawLogoUrl.isEmpty ? '' : _resolveSplashLogoUrl(ref, rawLogoUrl);
     final siteName = bootstrap?.siteName.trim() ?? '';
+    final hasRuntimeIdentity = logoUrl.isNotEmpty || siteName.isNotEmpty;
     final textStyle = Theme.of(context).textTheme;
     final onBlue = Theme.of(context).colorScheme.onPrimary;
 
@@ -197,18 +209,29 @@ class _SplashBrandLockup extends ConsumerWidget {
             width: 96,
             child: FlexibleImage(source: logoUrl, fit: BoxFit.contain),
           )
-        else
-          Text(
-            'GLO',
-            textAlign: TextAlign.center,
-            style: textStyle.headlineSmall?.copyWith(
-              color: onBlue,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              height: 0.92,
+        else if (siteName.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              siteName,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textStyle.titleLarge?.copyWith(
+                color: onBlue,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                height: 1.12,
+              ),
             ),
+          )
+        else
+          Icon(
+            Icons.confirmation_number_outlined,
+            color: onBlue,
+            size: 34,
           ),
-        if (siteName.isNotEmpty) ...[
+        if (logoUrl.isNotEmpty && siteName.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
             siteName,
@@ -223,6 +246,7 @@ class _SplashBrandLockup extends ConsumerWidget {
             ),
           ),
         ],
+        if (!hasRuntimeIdentity) const SizedBox(height: 4),
       ],
     );
   }
@@ -233,6 +257,7 @@ class _SplashMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.appSheet,
@@ -248,14 +273,11 @@ class _SplashMark extends StatelessWidget {
       child: SizedBox.square(
         dimension: 86,
         child: Center(
-          child: Text(
-            'L6',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppTheme.appBlue,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
+          child: Icon(
+            Icons.confirmation_number_rounded,
+            key: const ValueKey('app-splash-product-mark'),
+            color: primary,
+            size: 40,
           ),
         ),
       ),
@@ -342,17 +364,22 @@ class _SplashYellowCorner extends StatelessWidget {
   Widget build(BuildContext context) {
     final shortestSide = MediaQuery.sizeOf(context).shortestSide;
     final size = (shortestSide * 0.44).clamp(112.0, 180.0);
+    final accent = Theme.of(context).colorScheme.tertiary;
     return CustomPaint(
       size: Size.square(size),
-      painter: _SplashYellowCornerPainter(),
+      painter: _SplashYellowCornerPainter(accent),
     );
   }
 }
 
 class _SplashYellowCornerPainter extends CustomPainter {
+  const _SplashYellowCornerPainter(this.color);
+
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppTheme.appYellow;
+    final paint = Paint()..color = color;
     final path = Path()
       ..moveTo(size.width, 0)
       ..lineTo(0, size.height)
@@ -362,7 +389,9 @@ class _SplashYellowCornerPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SplashYellowCornerPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _SplashYellowCornerPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
 }
 
 String _resolveSplashLogoUrl(WidgetRef ref, String value) {

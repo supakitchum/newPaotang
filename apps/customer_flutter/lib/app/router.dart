@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_controller.dart';
+import '../core/navigation/customer_deep_link.dart';
 import '../core/navigation/customer_redirect.dart';
 import '../features/activity_claims/presentation/activity_claim_detail_screen.dart';
 import '../features/activity_claims/presentation/activity_claims_screen.dart';
@@ -24,6 +25,7 @@ import '../features/profile/presentation/auto_reward_screen.dart';
 import '../features/profile/presentation/account_deletion_screen.dart';
 import '../features/profile/presentation/biometric_devices_screen.dart';
 import '../features/profile/presentation/line_notifications_screen.dart';
+import '../features/profile/presentation/language_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/reward_bank_screen.dart';
 import '../features/purchase_history/presentation/purchase_history_detail_screen.dart';
@@ -83,6 +85,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         maintenance: maintenance,
         bootstrap: bootstrapData,
         guestRedirectPath: state.uri.queryParameters['redirect'],
+        operationalRedirectPath: auth.startupRedirectPath,
       );
     },
     routes: [
@@ -98,44 +101,53 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (context, state) => ResetPasswordScreen(
-          token: state.uri.queryParameters['token'] ?? '',
-          source: state.uri.queryParameters['source'],
-        ),
+        builder: (context, state) {
+          final query = customerAuthRouteParameters(state.uri);
+          return ResetPasswordScreen(
+            token: query['token'] ?? '',
+            source: query['source'],
+          );
+        },
       ),
       GoRoute(
         path: '/line/callback',
         builder: (context, state) => LineCallbackScreen(
           provider: 'line',
-          query: state.uri.queryParameters,
+          query: customerAuthRouteParameters(state.uri),
         ),
       ),
       GoRoute(
         path: '/social/:provider/callback',
         builder: (context, state) => LineCallbackScreen(
           provider: state.pathParameters['provider'] ?? 'line',
-          query: state.uri.queryParameters,
+          query: customerAuthRouteParameters(state.uri),
         ),
       ),
       GoRoute(
         path: '/line/link-phone',
-        builder: (context, state) => LineLinkPhoneScreen(
-          provider: 'line',
-          linkToken: state.uri.queryParameters['token'] ?? '',
-          displayName: state.uri.queryParameters['name'] ?? '',
-          pictureUrl: state.uri.queryParameters['picture_url'] ?? '',
-          redirect: state.uri.queryParameters['redirect'] ?? '/',
-        ),
+        builder: (context, state) {
+          final query = customerAuthRouteParameters(state.uri);
+          return LineLinkPhoneScreen(
+            provider: 'line',
+            linkToken: query['token'] ?? '',
+            displayName: query['name'] ?? '',
+            pictureUrl: query['picture_url'] ?? '',
+            redirect: query['redirect'] ?? '/',
+          );
+        },
       ),
       GoRoute(
         path: '/social/:provider/link-phone',
-        builder: (context, state) => LineLinkPhoneScreen(
-          provider: state.pathParameters['provider'] ?? 'line',
-          linkToken: state.uri.queryParameters['token'] ?? '',
-          displayName: state.uri.queryParameters['name'] ?? '',
-          pictureUrl: state.uri.queryParameters['picture_url'] ?? '',
-          redirect: state.uri.queryParameters['redirect'] ?? '/',
-        ),
+        builder: (context, state) {
+          final query = customerAuthRouteParameters(state.uri);
+          return LineLinkPhoneScreen(
+            provider: state.pathParameters['provider'] ?? 'line',
+            linkToken: query['token'] ?? '',
+            displayName: query['name'] ?? '',
+            pictureUrl: query['picture_url'] ?? '',
+            redirect: query['redirect'] ?? '/',
+          );
+        },
       ),
       GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
       GoRoute(
@@ -145,10 +157,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/account-suspended',
         builder: (context, state) => AccountSuspendedScreen(
-          reason: state.uri.queryParameters['reason'] ?? '',
-          suspendedUntil: state.uri.queryParameters['suspended_until'],
-          permanent: state.uri.queryParameters['permanent'] == '1' ||
-              state.uri.queryParameters['is_permanent'] == '1',
+          reason:
+              state.uri.queryParameters['reason'] ??
+              state.uri.queryParameters['suspension_reason'] ??
+              state.uri.queryParameters['suspensionReason'] ??
+              '',
+          suspendedUntil:
+              state.uri.queryParameters['suspended_until'] ??
+              state.uri.queryParameters['suspendedUntil'] ??
+              state.uri.queryParameters['until'],
+          permanent: _routeQueryBool(
+            state.uri.queryParameters['permanent'] ??
+                state.uri.queryParameters['is_permanent'] ??
+                state.uri.queryParameters['isPermanent'],
+          ),
         ),
       ),
       GoRoute(
@@ -158,21 +180,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/buy', builder: (context, state) => const BuyScreen()),
       GoRoute(
         path: '/search',
-        builder: (context, state) => BuySearchScreen(
-          query: state.uri.queryParameters,
-        ),
+        builder: (context, state) =>
+            BuySearchScreen(query: state.uri.queryParameters),
       ),
       GoRoute(
         path: '/buy/search',
-        builder: (context, state) => BuySearchScreen(
-          query: state.uri.queryParameters,
-        ),
+        builder: (context, state) =>
+            BuySearchScreen(query: state.uri.queryParameters),
       ),
       GoRoute(
         path: '/buy/more',
-        builder: (context, state) => BuyMoreScreen(
-          query: state.uri.queryParameters,
-        ),
+        builder: (context, state) =>
+            BuyMoreScreen(query: state.uri.queryParameters),
       ),
       GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(
@@ -182,7 +201,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkout/pending',
         builder: (context, state) => CheckoutPendingPaymentScreen(
-          orderId: state.uri.queryParameters['order_id'] ??
+          orderId:
+              state.uri.queryParameters['order_id'] ??
               state.uri.queryParameters['id'] ??
               '',
         ),
@@ -190,7 +210,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/success',
         builder: (context, state) => SuccessScreen(
-          orderId: state.uri.queryParameters['order_id'] ??
+          orderId:
+              state.uri.queryParameters['order_id'] ??
               state.uri.queryParameters['id'],
         ),
       ),
@@ -203,13 +224,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TicketsScreen(),
       ),
       GoRoute(
+        path: '/tickets/search',
+        builder: (context, state) =>
+            TicketsSearchScreen(query: state.uri.queryParameters),
+      ),
+      GoRoute(
         path: '/tickets/history',
         builder: (context, state) => const TicketHistoryScreen(),
       ),
       GoRoute(
         path: '/tickets/view',
         builder: (context, state) => TicketViewScreen(
-          ticketId: state.uri.queryParameters['id'] ??
+          ticketId:
+              state.uri.queryParameters['id'] ??
               state.uri.queryParameters['ticket_id'] ??
               '',
           ticketNumber: state.uri.queryParameters['number'] ?? '',
@@ -240,8 +267,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TopupHistoryScreen(),
       ),
       GoRoute(
+        path: '/topup/:topupId',
+        builder: (context, state) => TopupScreen(
+          detailTopupId: state.pathParameters['topupId'] ?? '',
+          backPath: safeTopupDetailBackPath(state.uri.queryParameters['back']),
+        ),
+      ),
+      GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/profile/language',
+        builder: (context, state) => const LanguageScreen(),
       ),
       GoRoute(
         path: '/profile/biometrics',
@@ -253,9 +291,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/profile/reward-bank',
-        builder: (context, state) => RewardBankScreen(
-          redirect: state.uri.queryParameters['redirect'],
-        ),
+        builder: (context, state) =>
+            RewardBankScreen(redirect: state.uri.queryParameters['redirect']),
       ),
       GoRoute(
         path: '/profile/auto-reward',
@@ -297,30 +334,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/result',
-        builder: (context, state) => const ResultScreen(),
+        builder: (context, state) => ResultScreen(routePath: state.uri.path),
       ),
       GoRoute(
         path: '/results',
-        builder: (context, state) => const ResultScreen(),
+        builder: (context, state) => ResultScreen(routePath: state.uri.path),
       ),
       GoRoute(
         path: '/result/full',
         builder: (context, state) => ResultDetailScreen(
-          gameId: state.uri.queryParameters['game_id'] ??
+          gameId:
+              state.uri.queryParameters['game_id'] ??
               state.uri.queryParameters['id'],
+          backPath: resultDetailBackPathFor(state.uri.path),
         ),
       ),
       GoRoute(
         path: '/results/full',
         builder: (context, state) => ResultDetailScreen(
-          gameId: state.uri.queryParameters['game_id'] ??
+          gameId:
+              state.uri.queryParameters['game_id'] ??
               state.uri.queryParameters['id'],
+          backPath: resultDetailBackPathFor(state.uri.path),
         ),
       ),
       GoRoute(
         path: '/waiting-result',
         builder: (context, state) => WaitingResultScreen(
           showSaleClosedNotice: state.uri.queryParameters['sale_closed'] == '1',
+          routePath: state.uri.path,
+        ),
+      ),
+      GoRoute(
+        path: '/wait-result',
+        builder: (context, state) => WaitingResultScreen(
+          showSaleClosedNotice: state.uri.queryParameters['sale_closed'] == '1',
+          routePath: state.uri.path,
         ),
       ),
       GoRoute(
@@ -360,9 +409,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/news/:slug',
-        builder: (context, state) => NewsDetailScreen(
-          slug: state.pathParameters['slug'] ?? '',
-        ),
+        builder: (context, state) =>
+            NewsDetailScreen(slug: state.pathParameters['slug'] ?? ''),
       ),
       GoRoute(path: '/terms', builder: (context, state) => const TermsScreen()),
       GoRoute(
@@ -401,9 +449,11 @@ String? customerRedirectPath({
   MaintenanceConfig? maintenance,
   MobileBootstrap? bootstrap,
   String? guestRedirectPath,
+  String? operationalRedirectPath,
 }) {
   final effectiveMaintenanceActive = maintenance?.active ?? maintenanceActive;
-  final routeBlockedByMaintenance = maintenance?.blocksRoute(path) ??
+  final routeBlockedByMaintenance =
+      maintenance?.blocksRoute(path) ??
       (maintenanceActive && path != '/maintenance');
   if (routeBlockedByMaintenance) {
     return '/maintenance';
@@ -411,8 +461,15 @@ String? customerRedirectPath({
   if (path == '/maintenance' && !effectiveMaintenanceActive) {
     return '/';
   }
-  final disabledFeatureRedirect =
-      mobileCustomerDisabledRouteRedirect(bootstrap, path);
+  final operationalRedirect = operationalRedirectPath?.trim() ?? '';
+  if (operationalRedirect.isNotEmpty &&
+      (requestedLocation ?? path) != operationalRedirect) {
+    return operationalRedirect;
+  }
+  final disabledFeatureRedirect = mobileCustomerDisabledRouteRedirect(
+    bootstrap,
+    path,
+  );
   if (disabledFeatureRedirect != null) {
     return disabledFeatureRedirect;
   }
@@ -448,6 +505,17 @@ bool _canBypassPin(String path) {
       path == '/security-lock' ||
       path == '/maintenance' ||
       path == '/account-suspended';
+}
+
+bool _routeQueryBool(String? value) {
+  return const {
+    '1',
+    'true',
+    'yes',
+    'on',
+    'permanent',
+    'permanently',
+  }.contains(value?.trim().toLowerCase());
 }
 
 bool _isGuestOnlyPath(String path) {

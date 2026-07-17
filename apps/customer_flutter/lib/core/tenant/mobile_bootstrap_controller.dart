@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
 import '../i18n/app_locale.dart';
+import '../i18n/customer_locale_controller.dart';
 import '../payment/checkout_payment_config.dart';
 import '../security/web_privacy_mode.dart';
 import '../theme/app_theme.dart';
@@ -10,11 +11,13 @@ import 'mobile_bootstrap_repository.dart';
 
 final mobileBootstrapProvider = FutureProvider<MobileBootstrap>((ref) async {
   final config = ref.watch(appConfigProvider);
+  final activeLocale = ref.watch(customerLocaleProvider);
   final data = await ref.watch(mobileBootstrapRepositoryProvider).load();
   return MobileBootstrap.fromJson(
     data,
     defaultLocale: config.defaultLocale,
     defaultSiteName: config.runtimeDisplayName,
+    contentLocale: localeTag(activeLocale),
   );
 });
 
@@ -22,10 +25,13 @@ class MobileBootstrap {
   const MobileBootstrap({
     required this.siteName,
     required this.tenantId,
+    required this.tenantHost,
+    required this.canonicalUrl,
     required this.locale,
     required this.supportPhone,
     required this.supportEmail,
     required this.supportUrl,
+    this.assetCdnBaseUrl = '',
     required this.brand,
     required this.theme,
     required this.authProviders,
@@ -49,10 +55,32 @@ class MobileBootstrap {
     Map<String, dynamic> json, {
     String defaultLocale = 'th-TH',
     String defaultSiteName = 'Customer',
+    String? contentLocale,
   }) {
     final mobile = _asMap(json['mobile'] ?? json['mobileConfig']);
     final site = _asMap(json['site'] ?? json['siteConfig']);
     final tenant = _asMap(json['tenant'] ?? site['tenant']);
+    final domain = _mergeConfigMaps([
+      json['domain'],
+      json['domainConfig'],
+      site['domain'],
+      site['domainConfig'],
+      mobile['domain'],
+      mobile['domainConfig'],
+    ]);
+    final seo = _mergeConfigMaps([
+      json['seo'],
+      json['seoConfig'],
+      site['seo'],
+      site['seoConfig'],
+      mobile['seo'],
+      mobile['seoConfig'],
+    ]);
+    final resolvedContentLocale = contentLocale?.trim().isNotEmpty == true
+        ? contentLocale!.trim()
+        : _stringFrom([site['locale'], mobile['locale'], defaultLocale]);
+    final fallbackContentLocale =
+        _stringFrom([site['locale'], mobile['locale'], defaultLocale]);
     final rootAppearance = _runtimeAppearanceConfig(json);
     final mobileAppearance = _runtimeAppearanceConfig(mobile);
     final storeReadiness = _mergeConfigMaps([
@@ -234,6 +262,14 @@ class MobileBootstrap {
       mobile['maintenanceConfig'],
       mobile['maintenance_mode'],
       mobile['maintenanceMode'],
+    ]);
+    final api = _mergeConfigMaps([
+      site['api'],
+      site['apiConfig'],
+      json['api'],
+      json['apiConfig'],
+      mobile['api'],
+      mobile['apiConfig'],
     ]);
     final auth = _mergeConfigMaps([
       json['auth'],
@@ -504,9 +540,33 @@ class MobileBootstrap {
       mobile['checkout_payment'],
       mobile['checkout_payment_config'],
     ]);
+    final localizedMaintenance = Map<String, dynamic>.from(maintenance);
+    final localizedMaintenanceMessage = _runtimeLocalizedText(
+      localizedValues: [
+        maintenance['message_i18n'],
+        maintenance['messageI18n'],
+        maintenance['maintenance_message_i18n'],
+        maintenance['maintenanceMessageI18n'],
+      ],
+      fallbackValues: [
+        maintenance['message'],
+        maintenance['description'],
+        maintenance['notice'],
+        maintenance['body'],
+      ],
+      locale: resolvedContentLocale,
+      fallbackLocale: fallbackContentLocale,
+    );
+    if (localizedMaintenanceMessage.isNotEmpty) {
+      localizedMaintenance['message'] = localizedMaintenanceMessage;
+    }
 
     final lotteryProductLabel = (mobile['lottery_product_label'] ??
             mobile['product_marker'] ??
+            site['lottery_product_label'] ??
+            site['lotteryProductLabel'] ??
+            site['product_marker'] ??
+            site['productMarker'] ??
             json['lottery_product_label'] ??
             json['product_marker'] ??
             '')
@@ -514,6 +574,10 @@ class MobileBootstrap {
         .trim();
     final ticketImageWatermark = (mobile['ticket_image_watermark'] ??
             mobile['lottery_ticket_image_watermark'] ??
+            site['ticket_image_watermark'] ??
+            site['ticketImageWatermark'] ??
+            site['lottery_ticket_image_watermark'] ??
+            site['lotteryTicketImageWatermark'] ??
             json['ticket_image_watermark'] ??
             json['lottery_ticket_image_watermark'] ??
             lotteryProductLabel)
@@ -521,8 +585,18 @@ class MobileBootstrap {
         .trim();
 
     return MobileBootstrap(
-      siteName: _stringFrom(
-        [
+      siteName: _runtimeLocalizedText(
+        localizedValues: [
+          site['display_name_i18n'],
+          site['displayNameI18n'],
+          site['site_name_i18n'],
+          site['siteNameI18n'],
+          json['display_name_i18n'],
+          json['displayNameI18n'],
+          json['site_name_i18n'],
+          json['siteNameI18n'],
+        ],
+        fallbackValues: [
           site['display_name'],
           site['displayName'],
           site['site_name'],
@@ -532,6 +606,8 @@ class MobileBootstrap {
           json['site_name'],
           json['siteName'],
         ],
+        locale: resolvedContentLocale,
+        fallbackLocale: fallbackContentLocale,
         fallback: defaultSiteName,
       ),
       tenantId: _stringFrom([
@@ -543,6 +619,30 @@ class MobileBootstrap {
         tenant['tenant_id'],
         tenant['tenantId'],
         tenant['uuid'],
+      ]),
+      tenantHost: _stringFrom([
+        domain['host'],
+        domain['hostname'],
+        domain['tenant_host'],
+        domain['tenantHost'],
+        site['host'],
+        site['hostname'],
+        json['tenant_host'],
+        json['tenantHost'],
+      ]),
+      canonicalUrl: _runtimeUrlFrom([
+        domain['canonical_url'],
+        domain['canonicalUrl'],
+        domain['canonical_base_url'],
+        domain['canonicalBaseUrl'],
+        seo['canonical_url'],
+        seo['canonicalUrl'],
+        seo['canonical_base_url'],
+        seo['canonicalBaseUrl'],
+        site['canonical_url'],
+        site['canonicalUrl'],
+        json['canonical_url'],
+        json['canonicalUrl'],
       ]),
       locale: parseCustomerLocale(
         site['locale']?.toString() ?? mobile['locale']?.toString(),
@@ -629,6 +729,20 @@ class MobileBootstrap {
         contact['link'],
         contactSupportLink,
       ]),
+      assetCdnBaseUrl: _runtimeUrlFrom([
+        api['asset_cdn_base_url'],
+        api['assetCdnBaseUrl'],
+        api['asset_base_url'],
+        api['assetBaseUrl'],
+        api['cdn_base_url'],
+        api['cdnBaseUrl'],
+        site['asset_cdn_base_url'],
+        site['assetCdnBaseUrl'],
+        json['asset_cdn_base_url'],
+        json['assetCdnBaseUrl'],
+        mobile['asset_cdn_base_url'],
+        mobile['assetCdnBaseUrl'],
+      ]),
       brand: MobileBrandConfig.fromJson(brand),
       theme: AppThemeTokens.fromJson(theme),
       authProviders: providers,
@@ -641,28 +755,54 @@ class MobileBootstrap {
       biometric: MobileBiometricConfig.fromJson(biometric),
       screenSecurity: MobileScreenSecurityConfig.fromJson(screenSecurity),
       featureFlags: MobileFeatureFlags.fromJson(featureFlags),
-      termsContent: _runtimeTextFrom([
-        legal['terms_content'],
-        legal['termsContent'],
-        legal['terms_text'],
-        legal['termsText'],
-        legal['terms'],
-        legalTerms['content'],
-        legalTerms['body'],
-        legalTerms['text'],
-      ]),
-      privacyContent: _runtimeTextFrom([
-        legal['privacy_content'],
-        legal['privacyContent'],
-        legal['privacy_text'],
-        legal['privacyText'],
-        legal['privacy_policy_content'],
-        legal['privacyPolicyContent'],
-        legal['privacy'],
-        legalPrivacy['content'],
-        legalPrivacy['body'],
-        legalPrivacy['text'],
-      ]),
+      termsContent: _runtimeLocalizedText(
+        localizedValues: [
+          legal['terms_content_i18n'],
+          legal['termsContentI18n'],
+          legal['terms_i18n'],
+          legal['termsI18n'],
+          legalTerms['content_i18n'],
+          legalTerms['contentI18n'],
+          legalTerms['translations'],
+        ],
+        fallbackValues: [
+          legal['terms_content'],
+          legal['termsContent'],
+          legal['terms_text'],
+          legal['termsText'],
+          legal['terms'],
+          legalTerms['content'],
+          legalTerms['body'],
+          legalTerms['text'],
+        ],
+        locale: resolvedContentLocale,
+        fallbackLocale: fallbackContentLocale,
+      ),
+      privacyContent: _runtimeLocalizedText(
+        localizedValues: [
+          legal['privacy_content_i18n'],
+          legal['privacyContentI18n'],
+          legal['privacy_policy_content_i18n'],
+          legal['privacyPolicyContentI18n'],
+          legalPrivacy['content_i18n'],
+          legalPrivacy['contentI18n'],
+          legalPrivacy['translations'],
+        ],
+        fallbackValues: [
+          legal['privacy_content'],
+          legal['privacyContent'],
+          legal['privacy_text'],
+          legal['privacyText'],
+          legal['privacy_policy_content'],
+          legal['privacyPolicyContent'],
+          legal['privacy'],
+          legalPrivacy['content'],
+          legalPrivacy['body'],
+          legalPrivacy['text'],
+        ],
+        locale: resolvedContentLocale,
+        fallbackLocale: fallbackContentLocale,
+      ),
       privacyPolicyUrl: _runtimeUrlFrom([
         legal['privacy_policy_url'],
         legal['privacyPolicyUrl'],
@@ -701,16 +841,19 @@ class MobileBootstrap {
         legalAccountDeletion['link'],
         legalAccountDeletionLink,
       ]),
-      maintenance: MaintenanceConfig.fromJson(maintenance),
+      maintenance: MaintenanceConfig.fromJson(localizedMaintenance),
     );
   }
 
   final String siteName;
   final String tenantId;
+  final String tenantHost;
+  final String canonicalUrl;
   final Locale locale;
   final String supportPhone;
   final String supportEmail;
   final String supportUrl;
+  final String assetCdnBaseUrl;
   final MobileBrandConfig brand;
   final AppThemeTokens theme;
   final List<SocialAuthProvider> authProviders;
@@ -734,11 +877,13 @@ class MobilePaymentConfig {
   const MobilePaymentConfig({
     required this.checkoutPaymentMethod,
     required this.checkoutPaymentMethods,
+    required this.checkoutPaymentMethodLabels,
   });
 
   const MobilePaymentConfig.defaults()
       : checkoutPaymentMethod = checkoutPaymentMethodWallet,
-        checkoutPaymentMethods = const [checkoutPaymentMethodWallet];
+        checkoutPaymentMethods = const [checkoutPaymentMethodWallet],
+        checkoutPaymentMethodLabels = const {};
 
   factory MobilePaymentConfig.fromJson(Map<String, dynamic> json) {
     var methods = normalizeCheckoutPaymentMethods(
@@ -780,14 +925,42 @@ class MobilePaymentConfig {
     if (!methods.contains(method)) {
       methods = [method, ...methods];
     }
+    final labels = Map<String, String>.from(
+      normalizeCheckoutPaymentMethodLabels([
+        json['checkout_payment_method_labels'],
+        json['checkoutPaymentMethodLabels'],
+        json['payment_method_labels'],
+        json['paymentMethodLabels'],
+        json['checkout_payment_method_options'],
+        json['checkoutPaymentMethodOptions'],
+        json['payment_method_options'],
+        json['paymentMethodOptions'],
+      ]),
+    );
+    final externalPaymentLabel = _stringFrom([
+      json['checkout_external_payment_label'],
+      json['checkoutExternalPaymentLabel'],
+      json['external_payment_label'],
+      json['externalPaymentLabel'],
+      json['display_name'],
+      json['displayName'],
+    ]);
+    if (externalPaymentLabel.isNotEmpty) {
+      labels.putIfAbsent(
+        checkoutPaymentMethodExternalPayment,
+        () => externalPaymentLabel,
+      );
+    }
     return MobilePaymentConfig(
       checkoutPaymentMethod: method,
       checkoutPaymentMethods: methods,
+      checkoutPaymentMethodLabels: Map.unmodifiable(labels),
     );
   }
 
   final String checkoutPaymentMethod;
   final List<String> checkoutPaymentMethods;
+  final Map<String, String> checkoutPaymentMethodLabels;
 }
 
 class MobileLiveConfig {
@@ -3248,6 +3421,114 @@ String _runtimeTextFrom(Iterable<Object?> values, {String fallback = ''}) {
     if (nested.isNotEmpty) return nested;
   }
   return fallback;
+}
+
+String _runtimeLocalizedText({
+  required Iterable<Object?> localizedValues,
+  required Iterable<Object?> fallbackValues,
+  required String locale,
+  String fallbackLocale = 'th-TH',
+  String fallback = '',
+}) {
+  final localeCandidates = <String>[
+    ..._runtimeLocaleCandidates(locale),
+    ..._runtimeLocaleCandidates(fallbackLocale),
+  ];
+  final seen = <String>{};
+
+  for (final candidate in localeCandidates) {
+    if (!seen.add(candidate)) continue;
+    for (final value in localizedValues) {
+      final localized = _runtimeLocalizedValue(value, candidate);
+      if (localized.isNotEmpty) return localized;
+    }
+  }
+
+  return _runtimeTextFrom(fallbackValues, fallback: fallback);
+}
+
+List<String> _runtimeLocaleCandidates(String value) {
+  final locale = tryParseCustomerLocale(value);
+  if (locale == null) return const [];
+  final exact = localeTag(locale).toLowerCase();
+  final language = locale.languageCode.toLowerCase();
+  return exact == language ? [exact] : [exact, language];
+}
+
+String _runtimeLocalizedValue(Object? value, String localeCandidate) {
+  if (value is Iterable && value is! String) {
+    for (final item in value) {
+      final localized = _runtimeLocalizedValue(item, localeCandidate);
+      if (localized.isNotEmpty) return localized;
+    }
+    return '';
+  }
+
+  final json = _asMap(value);
+  if (json.isEmpty) return '';
+
+  for (final entry in json.entries) {
+    if (!_runtimeLocaleMatches(entry.key, localeCandidate)) continue;
+    final text = _runtimeTextFrom([entry.value]);
+    if (text.isNotEmpty) return text;
+  }
+
+  final rowLocale = _stringFrom([
+    json['locale'],
+    json['locale_tag'],
+    json['localeTag'],
+    json['language'],
+    json['language_code'],
+    json['languageCode'],
+    json['lang'],
+    json['code'],
+  ]);
+  if (_runtimeLocaleMatches(rowLocale, localeCandidate)) {
+    return _runtimeTextFrom([
+      json['content'],
+      json['content_html'],
+      json['contentHtml'],
+      json['html'],
+      json['markdown'],
+      json['body'],
+      json['text'],
+      json['description'],
+      json['message'],
+      json['label'],
+      json['value'],
+    ]);
+  }
+
+  for (final nestedKey in const [
+    'translations',
+    'translation',
+    'localized',
+    'localizations',
+    'locales',
+    'languages',
+    'messages',
+    'values',
+    'items',
+    'rows',
+  ]) {
+    final localized = _runtimeLocalizedValue(
+      json[nestedKey],
+      localeCandidate,
+    );
+    if (localized.isNotEmpty) return localized;
+  }
+
+  return '';
+}
+
+bool _runtimeLocaleMatches(Object? value, String localeCandidate) {
+  final locale = tryParseCustomerLocale(value?.toString());
+  if (locale == null) return false;
+  final candidate = localeCandidate.trim().toLowerCase();
+  if (candidate.isEmpty) return false;
+  final exact = localeTag(locale).toLowerCase();
+  return exact == candidate ||
+      (candidate.length == 2 && locale.languageCode.toLowerCase() == candidate);
 }
 
 String _runtimeUrlFrom(Iterable<Object?> values, {String fallback = ''}) {

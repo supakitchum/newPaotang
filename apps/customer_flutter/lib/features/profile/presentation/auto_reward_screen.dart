@@ -8,8 +8,8 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
-import '../../../shared/widgets/customer_page_body.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
 
@@ -48,6 +48,21 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final profile = ref.watch(customerProfileSettingsProvider);
+    ref.listen<AsyncValue<CustomerProfileSettings>>(
+      customerProfileSettingsProvider,
+      (previous, next) {
+        final error = next.error;
+        if (error == null || identical(previous?.error, error)) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          );
+        });
+      },
+    );
     final reviewerName = ref.watch(mobileBootstrapProvider).maybeWhen(
           data: (data) => data.siteName.trim(),
           orElse: () => '',
@@ -76,8 +91,9 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
                 onSave: () => _startSave(data),
               );
       },
-      loading: () => const _AutoRewardLoading(),
+      loading: () => _AutoRewardLoading(reviewerName: reviewerName),
       error: (error, __) => _AutoRewardError(
+        reviewerName: reviewerName,
         message: authErrorMessage(
           error,
           l10n.profileAutoRewardLoadFailed,
@@ -142,7 +158,6 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
         ref: ref,
         context: context,
         error: error,
-        handlePinRedirect: false,
       )) {
         return;
       }
@@ -162,11 +177,15 @@ class _AutoRewardIntro extends StatelessWidget {
     required this.reviewerName,
     required this.onStart,
     required this.onBack,
+    this.noticeMessage = '',
+    this.onRetry,
   });
 
   final String reviewerName;
-  final VoidCallback onStart;
+  final VoidCallback? onStart;
   final VoidCallback onBack;
+  final String noticeMessage;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -185,32 +204,40 @@ class _AutoRewardIntro extends StatelessWidget {
     ];
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _AutoRewardVisual(onBack: onBack),
-                  _AutoRewardIntroSheet(
-                    title: l10n.profileAutoReward,
-                    subtitle: l10n.profileAutoRewardIntroSubtitle,
-                    benefits: benefits,
-                    conditions: conditions,
-                  ),
-                ],
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _AutoRewardVisual(onBack: onBack),
+                _AutoRewardIntroSheet(
+                  title: l10n.profileAutoReward,
+                  subtitle: l10n.profileAutoRewardIntroSubtitle,
+                  benefits: benefits,
+                  conditions: conditions,
+                  reserveFooterSpace: true,
+                  noticeMessage: noticeMessage,
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            left: 0,
+            child: _AutoRewardFooter(
+              child: CustomerGradientButton.text(
+                label: noticeMessage.isNotEmpty
+                    ? l10n.commonRetry
+                    : l10n.profileAutoRewardStartButton,
+                onPressed: noticeMessage.isNotEmpty ? onRetry : onStart,
+                height: 64,
+                fontSize: 19,
               ),
             ),
-            _AutoRewardFooter(
-              child: FilledButton(
-                onPressed: onStart,
-                child: Text(l10n.profileAutoRewardStartButton),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -239,192 +266,202 @@ class _AutoRewardVisual extends StatelessWidget {
           stops: const [0, 0.58, 1],
         ),
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: SizedBox(
-            height: 256,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: 20,
-                  top: 28,
-                  child: IconButton(
-                    tooltip: l10n.commonBack,
-                    onPressed: onBack,
-                    color: colorScheme.primary,
-                    iconSize: 34,
-                    icon: const Icon(Icons.chevron_left),
-                    style: IconButton.styleFrom(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: const Size.square(44),
-                      padding: EdgeInsets.zero,
+      child: SizedBox(
+        height: 328,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 72),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 420,
+                height: 256,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: 20,
+                      top: -44,
+                      child: IconButton(
+                        tooltip: l10n.commonBack,
+                        onPressed: onBack,
+                        color: colorScheme.primary,
+                        iconSize: 34,
+                        icon: const Icon(Icons.chevron_left),
+                        style: IconButton.styleFrom(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: const Size.square(44),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: 104,
-                  top: 18,
-                  child: Transform.rotate(
-                    angle: -0.14,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color.lerp(
-                                  colorScheme.secondary,
-                                  colorScheme.surface,
-                                  0.2,
-                                ) ??
-                                colorScheme.secondary,
-                            colorScheme.primary,
+                    Positioned(
+                      left: 104,
+                      top: 18,
+                      child: Transform.rotate(
+                        angle: -0.14,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color.lerp(
+                                      colorScheme.secondary,
+                                      colorScheme.surface,
+                                      0.2,
+                                    ) ??
+                                    colorScheme.secondary,
+                                colorScheme.primary,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.28),
+                                blurRadius: 48,
+                                offset: const Offset(0, 22),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 54, 22, 22),
+                            child: SizedBox(
+                              width: 60,
+                              height: 96,
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: const [
+                                  _AutoRewardPhoneLine(),
+                                  _AutoRewardPhoneLine(),
+                                  _AutoRewardPhoneLine(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 182,
+                      top: 36,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          border: Border.all(
+                            color: colorScheme.tertiary,
+                            width: 4,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.shadow.withValues(alpha: 0.13),
+                              blurRadius: 32,
+                              offset: const Offset(0, 14),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: 0.28),
-                            blurRadius: 48,
-                            offset: const Offset(0, 22),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 54, 22, 22),
-                        child: SizedBox(
-                          width: 60,
-                          height: 96,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              _AutoRewardPhoneLine(),
-                              _AutoRewardPhoneLine(),
-                              _AutoRewardPhoneLine(),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 18),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      l10n.profileAutoRewardVisualCreditAmount,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      l10n.profileAutoRewardVisualCreditCurrency,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                top: 0,
+                                child: Text(
+                                  l10n.profileAutoRewardVisualCreditLabel,
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: 182,
-                  top: 36,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      border: Border.all(
-                        color: colorScheme.tertiary,
-                        width: 4,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.shadow.withValues(alpha: 0.13),
-                          blurRadius: 32,
-                          offset: const Offset(0, 14),
+                    Positioned(
+                      left: 58,
+                      top: 96,
+                      child: Transform.rotate(
+                        angle: -0.31,
+                        child: _FloatingVisualIcon(
+                          icon: Icons.monetization_on,
+                          color: colorScheme.tertiary,
+                          size: 42,
                         ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
-                      child: Stack(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 18),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  l10n.profileAutoRewardVisualCreditAmount,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  l10n.profileAutoRewardVisualCreditCurrency,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            child: Text(
-                              l10n.profileAutoRewardVisualCreditLabel,
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: 58,
-                  top: 96,
-                  child: Transform.rotate(
-                    angle: -0.31,
-                    child: _FloatingVisualIcon(
-                      icon: Icons.monetization_on,
-                      color: colorScheme.tertiary,
-                      size: 42,
+                    Positioned(
+                      right: 58,
+                      top: 154,
+                      child: Transform.rotate(
+                        angle: 0.31,
+                        child: _FloatingVisualIcon(
+                          icon: Icons.monetization_on,
+                          color: colorScheme.tertiary,
+                          size: 42,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  right: 58,
-                  top: 154,
-                  child: Transform.rotate(
-                    angle: 0.31,
-                    child: _FloatingVisualIcon(
-                      icon: Icons.monetization_on,
-                      color: colorScheme.tertiary,
-                      size: 42,
+                    Positioned(
+                      left: 50,
+                      top: 36,
+                      child: Transform.rotate(
+                        angle: 0.30,
+                        child: _FloatingVisualIcon(
+                          icon: Icons.receipt_long,
+                          color: colorScheme.onPrimary.withValues(alpha: 0.62),
+                          size: 44,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: 50,
-                  top: 36,
-                  child: Transform.rotate(
-                    angle: 0.30,
-                    child: _FloatingVisualIcon(
-                      icon: Icons.receipt_long,
-                      color: colorScheme.onPrimary.withValues(alpha: 0.62),
-                      size: 44,
+                    Positioned(
+                      right: 42,
+                      top: 112,
+                      child: Transform.rotate(
+                        angle: -0.24,
+                        child: _FloatingVisualIcon(
+                          icon: Icons.receipt_long,
+                          color: colorScheme.onPrimary.withValues(alpha: 0.62),
+                          size: 44,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                Positioned(
-                  right: 42,
-                  top: 112,
-                  child: Transform.rotate(
-                    angle: -0.24,
-                    child: _FloatingVisualIcon(
-                      icon: Icons.receipt_long,
-                      color: colorScheme.onPrimary.withValues(alpha: 0.62),
-                      size: 44,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -484,12 +521,16 @@ class _AutoRewardIntroSheet extends StatelessWidget {
     required this.subtitle,
     required this.benefits,
     required this.conditions,
+    required this.reserveFooterSpace,
+    this.noticeMessage = '',
   });
 
   final String title;
   final String subtitle;
   final List<String> benefits;
   final List<String> conditions;
+  final bool reserveFooterSpace;
+  final String noticeMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -501,58 +542,113 @@ class _AutoRewardIntroSheet extends StatelessWidget {
           color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
         ),
-        child: CustomerPageBody(
-          top: 28,
-          bottom: 18,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontal = constraints.maxWidth <= 360 ? 20.0 : 26.0;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontal,
+                28,
+                horizontal,
+                reserveFooterSpace ? 134 : 18,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
                       color: colorScheme.onSurface,
+                      fontSize: constraints.maxWidth <= 360 ? 24 : 28,
                       fontWeight: FontWeight.w900,
                     ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 34),
-              for (final item in benefits) _BenefitRow(text: item),
-              const SizedBox(height: 18),
-              Text(
-                context.l10n.profileAutoRewardConditionsTitle,
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 12),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: _autoRewardSurfaceTint(colorScheme),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      for (final item in conditions) _BulletText(item),
-                    ],
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (noticeMessage.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _AutoRewardIntroError(message: noticeMessage),
+                  ],
+                  const SizedBox(height: 36),
+                  for (final item in benefits) _BenefitRow(text: item),
+                  const SizedBox(height: 18),
+                  Text(
+                    context.l10n.profileAutoRewardConditionsTitle,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _autoRewardSurfaceTint(colorScheme),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          for (final item in conditions) _BulletText(item),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AutoRewardIntroError extends StatelessWidget {
+  const _AutoRewardIntroError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: colorScheme.onErrorContainer,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -560,98 +656,39 @@ class _AutoRewardIntroSheet extends StatelessWidget {
 }
 
 class _AutoRewardLoading extends StatelessWidget {
-  const _AutoRewardLoading();
+  const _AutoRewardLoading({required this.reviewerName});
+
+  final String reviewerName;
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
-      title: context.l10n.profileAutoReward,
-      currentPath: '/profile',
-      sensitive: true,
-      showBottomNavigation: false,
-      child: Center(
-        child: CustomerLoadingMark(
-          width: 46,
-          height: 28,
-          semanticLabel: context.l10n.commonLoadingData,
-        ),
-      ),
+    return _AutoRewardIntro(
+      reviewerName: reviewerName,
+      onStart: null,
+      onBack: () => context.go('/profile'),
     );
   }
 }
 
 class _AutoRewardError extends StatelessWidget {
   const _AutoRewardError({
+    required this.reviewerName,
     required this.message,
     required this.onRetry,
   });
 
+  final String reviewerName;
   final String message;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AppShell(
-      title: context.l10n.profileAutoReward,
-      currentPath: '/profile',
-      sensitive: true,
-      showBottomNavigation: false,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          CustomerPageBody(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.primary.withValues(alpha: 0.09),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 24,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
-                            fontWeight: FontWeight.w800,
-                            height: 1.45,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.primary,
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        shape: const StadiumBorder(),
-                        minimumSize: const Size(132, 42),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      onPressed: onRetry,
-                      child: Text(context.l10n.commonRetry),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _AutoRewardIntro(
+      reviewerName: reviewerName,
+      onStart: null,
+      onBack: () => context.go('/profile'),
+      noticeMessage: message,
+      onRetry: onRetry,
     );
   }
 }
@@ -685,111 +722,152 @@ class _AutoRewardSelect extends StatelessWidget {
     return AppShell(
       title: l10n.profileAutoReward,
       currentPath: '/profile',
+      backPath: '/profile',
       sensitive: true,
-      fullScreen: true,
       showBottomNavigation: false,
-      child: Column(
+      heroMinHeight: 164,
+      heroSheetOverlap: 34,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
+      actions: [
+        IconButton(
+          tooltip: l10n.profileAutoRewardInfoTooltip,
+          onPressed: onInfo,
+          icon: const Icon(Icons.info_outline, size: 27),
+          color: Theme.of(context).colorScheme.onPrimary,
+          style: IconButton.styleFrom(
+            fixedSize: const Size.square(42),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: Colors.transparent,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            shape: const CircleBorder(),
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
+        ),
+      ],
+      child: Stack(
         children: [
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                _AutoRewardSelectHero(
-                  onBack: () => context.go('/profile'),
-                  onInfo: onInfo,
-                ),
-                _AutoRewardSelectSheet(
-                  child: CustomerPageBody(
-                    top: 28,
-                    bottom: 24,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          l10n.profileAutoRewardSelectTitle,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(
+          Positioned.fill(
+            child: _AutoRewardSelectSheet(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final horizontal =
+                          MediaQuery.sizeOf(context).width <= 360 ? 22.0 : 28.0;
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontal,
+                          28,
+                          horizontal,
+                          116 + MediaQuery.paddingOf(context).bottom,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              l10n.profileAutoRewardSelectTitle,
+                              style: TextStyle(
                                 color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 25,
                                 fontWeight: FontWeight.w900,
                                 height: 1.28,
                               ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              l10n.profileAutoRewardSelectSubtitle(
+                                reviewerName,
+                              ),
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                height: 1.6,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            if (noticeMessage.isNotEmpty) ...[
+                              _AutoRewardNotice(
+                                message: noticeMessage,
+                                isError: noticeIsError,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            _PayoutOption(
+                              selected: payoutType == 'wallet',
+                              icon: Icons.account_balance_wallet_outlined,
+                              title: l10n.profileAutoRewardWalletTitleFor(
+                                profile.walletName,
+                              ),
+                              subtitle: maskWalletId(profile.walletId),
+                              helper: l10n.profileAutoRewardWalletSubtitleFor(
+                                profile.walletName,
+                              ),
+                              onTap: saving
+                                  ? null
+                                  : () => onChanged('wallet', profile),
+                            ),
+                            const SizedBox(height: 16),
+                            _PayoutOption(
+                              selected: payoutType == 'bank_transfer',
+                              icon: Icons.account_balance_outlined,
+                              title: _bankTitle(profile.bankAccount, l10n),
+                              subtitle: profile.bankAccount.isComplete
+                                  ? '${profile.bankAccount.accountName} · ${profile.bankAccount.maskedNumber}'
+                                  : l10n.profileAutoRewardBankMissingSubtitle,
+                              helper: '',
+                              onTap: saving
+                                  ? null
+                                  : () => onChanged('bank_transfer', profile),
+                              warning: !profile.bankAccount.isComplete,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 14),
-                        Text(
-                          l10n.profileAutoRewardSelectSubtitle(reviewerName),
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            height: 1.6,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        if (noticeMessage.isNotEmpty) ...[
-                          _AutoRewardNotice(
-                            message: noticeMessage,
-                            isError: noticeIsError,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        _PayoutOption(
-                          selected: payoutType == 'wallet',
-                          icon: Icons.account_balance_wallet_outlined,
-                          title: l10n.profileAutoRewardWalletTitle,
-                          subtitle: maskWalletId(profile.walletId),
-                          helper: l10n.profileAutoRewardWalletSubtitle,
-                          onTap: () => onChanged('wallet', profile),
-                        ),
-                        const SizedBox(height: 16),
-                        _PayoutOption(
-                          selected: payoutType == 'bank_transfer',
-                          icon: Icons.account_balance_outlined,
-                          title: _bankTitle(profile.bankAccount, l10n),
-                          subtitle: profile.bankAccount.isComplete
-                              ? '${profile.bankAccount.accountName} · ${profile.bankAccount.maskedNumber}'
-                              : l10n.profileAutoRewardBankMissingSubtitle,
-                          helper: profile.bankAccount.isComplete
-                              ? ''
-                              : l10n.profileAutoRewardBankMissingHelper,
-                          onTap: () => onChanged('bank_transfer', profile),
-                          warning: !profile.bankAccount.isComplete,
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          _AutoRewardFooter(
-            child: FilledButton(
-              onPressed: saving ? null : onSave,
-              child: saving
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox.square(
-                          dimension: 16,
-                          child: CustomerLoadingMark(
-                            width: 18,
-                            height: 14,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            trackColor: Theme.of(context)
-                                .colorScheme
-                                .onPrimary
-                                .withValues(alpha: 0.24),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            left: 0,
+            child: _AutoRewardFooter(
+              child: CustomerGradientButton(
+                onPressed: saving ? null : onSave,
+                height: 64,
+                fontSize: 19,
+                child: saving
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox.square(
+                            dimension: 16,
+                            child: CustomerLoadingMark(
+                              width: 18,
+                              height: 14,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              trackColor: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimary
+                                  .withValues(alpha: 0.24),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(l10n.commonNext),
-                      ],
-                    )
-                  : Text(l10n.commonNext),
+                          const SizedBox(width: 8),
+                          Text(l10n.commonNext),
+                        ],
+                      )
+                    : Text(l10n.commonNext),
+              ),
             ),
           ),
         ],
@@ -807,129 +885,6 @@ class _AutoRewardSelect extends StatelessWidget {
   }
 }
 
-class _AutoRewardSelectHero extends StatelessWidget {
-  const _AutoRewardSelectHero({
-    required this.onBack,
-    required this.onInfo,
-  });
-
-  final VoidCallback onBack;
-  final VoidCallback onInfo;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final topInset = MediaQuery.paddingOf(context).top;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
-        ),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, topInset + 58, 20, 34),
-            child: _AutoRewardHeroTitleRow(
-              title: l10n.profileAutoReward,
-              onBack: onBack,
-              onInfo: onInfo,
-              infoTooltip: l10n.profileAutoRewardInfoTooltip,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AutoRewardHeroTitleRow extends StatelessWidget {
-  const _AutoRewardHeroTitleRow({
-    required this.title,
-    required this.onBack,
-    required this.onInfo,
-    required this.infoTooltip,
-  });
-
-  final String title;
-  final VoidCallback onBack;
-  final VoidCallback onInfo;
-  final String infoTooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 42,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 0,
-            child: IconButton(
-              tooltip: context.l10n.commonBack,
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
-              color: colorScheme.onPrimary,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(42),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: Colors.transparent,
-                foregroundColor: colorScheme.onPrimary,
-                shape: const CircleBorder(),
-              ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 54),
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            child: IconButton(
-              tooltip: infoTooltip,
-              onPressed: onInfo,
-              icon: const Icon(Icons.info_outline, size: 27),
-              color: colorScheme.onPrimary,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(42),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: Colors.transparent,
-                foregroundColor: colorScheme.onPrimary,
-                shape: const CircleBorder(),
-              ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AutoRewardSelectSheet extends StatelessWidget {
   const _AutoRewardSelectSheet({required this.child});
 
@@ -939,17 +894,11 @@ class _AutoRewardSelectSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.primary),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        child: Transform.translate(
-          offset: const Offset(0, -34),
-          child: child,
-        ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
+      child: child,
     );
   }
 }
@@ -1027,7 +976,7 @@ class _PayoutOption extends StatelessWidget {
   final String subtitle;
   final String helper;
   final bool warning;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1038,138 +987,151 @@ class _PayoutOption extends StatelessWidget {
         : selected
             ? activeColor
             : colorScheme.onSurfaceVariant;
-    return Material(
-      color: selected
-          ? Color.lerp(activeColor, colorScheme.surface, 0.92)
-          : colorScheme.surface,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: Ink(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: selected ? activeColor : colorScheme.outlineVariant,
-            width: selected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.04),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+    final enabled = onTap != null;
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                child: Row(
-                  children: [
-                    _AutoRewardRadio(
-                      selected: selected,
-                      color: activeColor,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            subtitle,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            constraints: const BoxConstraints(minHeight: 122),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: selected
+                  ? Color.lerp(activeColor, colorScheme.surface, 0.92)
+                  : colorScheme.surface,
+              border: Border.all(
+                color: selected ? activeColor : colorScheme.outlineVariant,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                if (selected)
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.16),
+                    blurRadius: 0,
+                    spreadRadius: 2,
+                  ),
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                  child: Row(
+                    children: [
+                      _AutoRewardRadio(
+                        selected: selected,
+                        color: activeColor,
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: warning
-                            ? null
-                            : LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: selected
-                                    ? [
-                                        Color.lerp(
-                                              activeColor,
-                                              colorScheme.surface,
-                                              0.08,
-                                            ) ??
-                                            activeColor,
-                                        activeColor,
-                                      ]
-                                    : [
-                                        _autoRewardPrimaryTint(colorScheme),
-                                        _autoRewardPrimaryTint(colorScheme),
-                                      ],
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
                               ),
-                        color: warning
-                            ? _autoRewardWarningTint(colorScheme)
-                            : null,
-                        borderRadius: BorderRadius.circular(14),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              subtitle,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: SizedBox.square(
-                        dimension: 54,
-                        child: Center(
-                          child: Icon(
-                            icon,
-                            color: warning
-                                ? colorScheme.onTertiaryContainer
-                                : selected
-                                    ? colorScheme.onPrimary
-                                    : activeColor,
-                            size: 28,
+                      const SizedBox(width: 14),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: warning
+                              ? null
+                              : LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: selected
+                                      ? [
+                                          Color.lerp(
+                                                activeColor,
+                                                colorScheme.surface,
+                                                0.08,
+                                              ) ??
+                                              activeColor,
+                                          activeColor,
+                                        ]
+                                      : [
+                                          _autoRewardPrimaryTint(colorScheme),
+                                          _autoRewardPrimaryTint(colorScheme),
+                                        ],
+                                ),
+                          color: warning
+                              ? _autoRewardWarningTint(colorScheme)
+                              : null,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: SizedBox.square(
+                          dimension: 54,
+                          child: Center(
+                            child: Icon(
+                              icon,
+                              color: warning
+                                  ? colorScheme.onTertiaryContainer
+                                  : selected
+                                      ? colorScheme.onPrimary
+                                      : activeColor,
+                              size: 28,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              if (helper.isNotEmpty)
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: warning
-                        ? _autoRewardWarningTint(colorScheme)
-                        : _autoRewardPrimaryTint(colorScheme),
+                    ],
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 11, 22, 11),
-                    child: Text(
-                      helper,
-                      style: TextStyle(
-                        color: accentColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        height: 1.35,
+                ),
+                if (helper.isNotEmpty)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: warning
+                          ? _autoRewardWarningTint(colorScheme)
+                          : _autoRewardPrimaryTint(colorScheme),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 11, 22, 11),
+                      child: Text(
+                        helper,
+                        style: TextStyle(
+                          color: accentColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          height: 1.35,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1232,10 +1194,11 @@ class _AutoRewardFooter extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(26, 18, 26, 26),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 920),
+            constraints: const BoxConstraints(maxWidth: 920, minHeight: 64),
             child: SizedBox(width: double.infinity, child: child),
           ),
         ),
@@ -1253,14 +1216,34 @@ class _BenefitRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle, color: colorScheme.primary),
-          const SizedBox(width: 10),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.tertiary,
+              shape: BoxShape.circle,
+            ),
+            child: SizedBox.square(
+              dimension: 36,
+              child: Icon(
+                Icons.check,
+                color: colorScheme.onTertiary,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
-            child:
-                Text(text, style: const TextStyle(fontWeight: FontWeight.w800)),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: MediaQuery.sizeOf(context).width <= 360 ? 17 : 19,
+                height: 1.35,
+              ),
+            ),
           ),
         ],
       ),
@@ -1281,7 +1264,12 @@ class _BulletText extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('• '),
-          Expanded(child: Text(text, style: const TextStyle(height: 1.45))),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 16, height: 1.65),
+            ),
+          ),
         ],
       ),
     );

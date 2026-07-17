@@ -295,19 +295,22 @@ class _LotteryStockRealtimeMonitorState
     extends ConsumerState<LotteryStockRealtimeMonitor> {
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
+  final CustomerRealtimeSubscriptionTracker _subscriptionTracker =
+      CustomerRealtimeSubscriptionTracker();
+  Future<void> _syncQueue = Future<void>.value();
   String _signature = '';
   Timer? _refreshThrottle;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
   void didUpdateWidget(covariant LotteryStockRealtimeMonitor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
@@ -324,17 +327,25 @@ class _LotteryStockRealtimeMonitorState
 
     ref.listen<AsyncValue<MobileBootstrap>>(
       mobileBootstrapProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     if (bootstrap != null &&
         bootstrap.tenantId.isNotEmpty &&
         bootstrap.realtime.configured) {
       ref.listen<AsyncValue<String>>(
         currentGameIdProvider,
-        (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+        (_, __) => WidgetsBinding.instance
+            .addPostFrameCallback((_) => _scheduleSync()),
       );
     }
     return widget.child;
+  }
+
+  void _scheduleSync() {
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _sync();
+    });
   }
 
   Future<void> _sync() async {
@@ -375,6 +386,8 @@ class _LotteryStockRealtimeMonitorState
     }
 
     await _stop();
+    if (!mounted) return;
+    _subscriptionTracker.updateChannels(channels);
     _signature = signature;
     final client =
         ref.read(customerRealtimeClientFactoryProvider)(bootstrap.realtime);
@@ -391,9 +404,21 @@ class _LotteryStockRealtimeMonitorState
     _events = null;
     await _client?.dispose();
     _client = null;
+    _subscriptionTracker.clear();
   }
 
   void _handleEvent(CustomerRealtimeEvent event, String gameId) {
+    if (_subscriptionTracker.register(event)) {
+      final refreshChannel = stockAvailabilityChannel(
+        tenantId: ref.read(mobileBootstrapProvider).valueOrNull?.tenantId ?? '',
+        gameId: gameId,
+      );
+      if (event.channel.trim() == refreshChannel) {
+        _scheduleRefresh();
+      }
+      return;
+    }
+
     if (!shouldRefreshLotteryStockFromRealtimeEvent(
       event: event,
       gameId: gameId,
@@ -412,8 +437,11 @@ class _LotteryStockRealtimeMonitorState
           availabilityPatch;
     }
 
-    if (_refreshThrottle?.isActive ?? false) return;
+    _scheduleRefresh();
+  }
 
+  void _scheduleRefresh() {
+    if (_refreshThrottle?.isActive ?? false) return;
     _refreshThrottle = Timer(const Duration(milliseconds: 750), () {
       if (!mounted) return;
       ref.read(lotteryStockRealtimeTickProvider.notifier).state++;

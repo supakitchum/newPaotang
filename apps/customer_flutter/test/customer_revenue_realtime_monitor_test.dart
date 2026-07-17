@@ -151,6 +151,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.text('cart:2 tickets:1'), findsOneWidget);
+
+    final ordersChannel = customerOrdersChannel(
+      tenantId: 'ten_revenue',
+      customerId: 'cus_revenue',
+    );
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: ordersChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('cart:2 tickets:1'), findsOneWidget);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: ordersChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('cart:3 tickets:2'), findsOneWidget);
   });
 }
 

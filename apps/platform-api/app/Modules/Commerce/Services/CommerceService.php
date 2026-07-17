@@ -21,7 +21,10 @@ use App\Models\TopupRequest;
 use App\Models\Wallet;
 use App\Models\WalletLedger;
 use App\Models\WebhookCallback;
+use App\Modules\Commerce\Events\CustomerOrderUpdated;
+use App\Modules\Commerce\Events\CustomerTicketsUpdated;
 use App\Modules\Commerce\Events\CustomerTopupUpdated;
+use App\Modules\Commerce\Events\CustomerWalletUpdated;
 use App\Modules\Commerce\Events\TopupUpdated;
 use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
@@ -38,6 +41,7 @@ use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
+use App\Support\ExternalCheckoutPayment;
 use App\Support\PublicUrl;
 use App\Support\ThaiBankCatalog;
 use App\Support\TenantPaymentMethods;
@@ -155,11 +159,15 @@ class CommerceService
             $query->where('entry_type', trim((string) $queryParams['entry_type']));
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+        $flowDirection = strtolower(trim((string) ($queryParams['direction'] ?? '')));
+        if ($flowDirection === 'incoming') {
+            $query->where('amount', '>', 0);
+        } elseif ($flowDirection === 'outgoing') {
+            $query->where('amount', '<', 0);
         }
 
-        $this->applyWalletLedgerSort($query, $queryParams);
+        $sort = $this->applyWalletLedgerSort($query, $queryParams);
+        $this->applyWalletLedgerCursor($query, $queryParams['cursor'] ?? null, $sort);
         $query->limit($limit + 1);
 
         $rows = $query->get()->all();
@@ -169,7 +177,7 @@ class CommerceService
         return [
             'data' => array_map(fn (object $ledger): array => $this->ledgerResource($ledger), $rows),
             'meta' => [
-                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'next_cursor' => $hasMore && $rows !== [] ? $this->encodeWalletLedgerCursor(end($rows), $sort) : null,
                 'has_more' => $hasMore,
             ],
         ];
@@ -214,9 +222,15 @@ class CommerceService
             'reservation_ids' => $reservationIds,
             'payment_method' => (string) $payload['payment_method'],
         ];
+        $externalPayment = $normalized['payment_method'] === 'external_payment'
+            ? $this->externalCheckoutPaymentConfiguration((string) $tenant['tenant_id'])
+            : null;
+        if ($normalized['payment_method'] === 'external_payment' && $externalPayment === null) {
+            return ['error' => 'payment_provider_not_configured', 'field' => 'payment_method'];
+        }
         $idempotencyKey = (string) $request->header('Idempotency-Key');
 
-        return DB::transaction(function () use ($tenant, $customer, $normalized, $request, $idempotencyKey): array {
+        return DB::transaction(function () use ($tenant, $customer, $normalized, $request, $idempotencyKey, $externalPayment): array {
             $replay = $this->idempotency->replayOrConflict($tenant['tenant_id'], 'customer', $customer->customerId(), 'customer.checkout', $idempotencyKey, $normalized, lock: true);
 
             if (is_array($replay)) {
@@ -279,7 +293,7 @@ class CommerceService
             if ($normalized['payment_method'] === 'wallet') {
                 $order = $this->createPaidWalletOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids']);
             } else {
-                $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids']);
+                $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids'], $externalPayment ?? []);
             }
 
             if (isset($order['error'])) {
@@ -485,6 +499,12 @@ class CommerceService
             return (string) $openGame->id;
         }
 
+        $tenantGameId = $this->customerLatestGameIdForTenant($tenantId);
+
+        if ($tenantGameId !== null) {
+            return $tenantGameId;
+        }
+
         $gameId = Ticket::query()
             ->forTenant($tenantId)
             ->where('customer_id', $customerId)
@@ -494,6 +514,32 @@ class CommerceService
             ->orderByDesc('games.created_at')
             ->orderByDesc('games.id')
             ->value('tickets.game_id');
+
+        return $gameId === null ? null : (string) $gameId;
+    }
+
+    private function customerLatestGameIdForTenant(string $tenantId): ?string
+    {
+        $partnerId = PartnerTenant::whereKey($tenantId)->value('partner_id');
+
+        if ($partnerId !== null && $partnerId !== '') {
+            $gameId = DB::table('games')
+                ->whereIn('games.id', $this->tenantAllocatedGameIdsQuery((string) $partnerId, $tenantId))
+                ->orderByDesc('games.draw_at')
+                ->orderByDesc('games.sale_start_at')
+                ->orderByDesc('games.created_at')
+                ->value('games.id');
+
+            if ($gameId !== null) {
+                return (string) $gameId;
+            }
+        }
+
+        $gameId = DB::table('games')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.sale_start_at')
+            ->orderByDesc('games.created_at')
+            ->value('games.id');
 
         return $gameId === null ? null : (string) $gameId;
     }
@@ -570,10 +616,17 @@ class CommerceService
             ->whereIn('status', ['pending', 'processing'])
             ->orderByDesc('created_at')
             ->first();
+        $wallet = Wallet::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customer->customerId())
+            ->orderByRaw("CASE WHEN type = 'primary' THEN 0 ELSE 1 END")
+            ->orderBy('created_at')
+            ->first();
 
         $paymentMethods = $this->tenantTopupPaymentMethods($tenantId);
 
         return [
+            'wallet' => $this->walletResource($wallet),
             'bank' => $this->tenantTopupBank($tenantId),
             'payment_methods' => $paymentMethods['methods'],
             'enabled_payment_methods' => $paymentMethods['enabled_methods'],
@@ -1416,11 +1469,8 @@ class CommerceService
             $query->where('created_at', '<=', Carbon::parse((string) $queryParams['created_to']));
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
-        }
-
-        $this->applyWalletLedgerSort($query, $queryParams);
+        $sort = $this->applyWalletLedgerSort($query, $queryParams);
+        $this->applyWalletLedgerCursor($query, $queryParams['cursor'] ?? null, $sort);
         $query->limit($limit + 1);
 
         $rows = $query->get()->all();
@@ -1430,7 +1480,7 @@ class CommerceService
         return [
             'data' => array_map(fn (object $ledger): array => $this->ledgerResource($ledger), $rows),
             'meta' => [
-                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'next_cursor' => $hasMore && $rows !== [] ? $this->encodeWalletLedgerCursor(end($rows), $sort) : null,
                 'has_more' => $hasMore,
             ],
         ];
@@ -1515,7 +1565,7 @@ class CommerceService
     /**
      * @param array<string, mixed> $queryParams
      */
-    private function applyWalletLedgerSort(mixed $query, array $queryParams): void
+    private function applyWalletLedgerSort(mixed $query, array $queryParams): array
     {
         $sortBy = (string) ($queryParams['sort_by'] ?? 'created_at');
         $defaultDirection = $sortBy === 'created_at' ? 'desc' : 'asc';
@@ -1538,6 +1588,122 @@ class CommerceService
         if ($column !== 'id') {
             $query->orderBy('id', $direction);
         }
+
+        return [
+            'sort_by' => array_key_exists($sortBy, $columns) ? $sortBy : 'created_at',
+            'column' => $column,
+            'direction' => $direction,
+        ];
+    }
+
+    /**
+     * @param array{sort_by: string, column: string, direction: string} $sort
+     */
+    private function applyWalletLedgerCursor(mixed $query, mixed $value, array $sort): void
+    {
+        $rawCursor = trim((string) $value);
+        if ($rawCursor === '') {
+            return;
+        }
+
+        $comparison = $sort['direction'] === 'desc' ? '<' : '>';
+        if (! str_starts_with($rawCursor, 'v1.')) {
+            // Preserve the legacy raw ULID cursor contract while correcting
+            // its direction for descending history requests.
+            $query->where('id', $comparison, $rawCursor);
+
+            return;
+        }
+
+        $cursor = $this->decodeWalletLedgerCursor($rawCursor);
+        if ($cursor === null
+            || $cursor['sort_by'] !== $sort['sort_by']
+            || $cursor['direction'] !== $sort['direction']) {
+            return;
+        }
+
+        $cursorValue = $cursor['value'];
+        if ($sort['column'] === 'created_at') {
+            $cursorValue = trim((string) $cursorValue);
+            if ($cursorValue === '') {
+                return;
+            }
+        } elseif (in_array($sort['column'], ['amount', 'balance_after'], true)) {
+            $cursorValue = (int) $cursorValue;
+        }
+
+        if ($sort['column'] === 'id') {
+            $query->where('id', $comparison, $cursor['id']);
+
+            return;
+        }
+
+        $query->where(function ($builder) use ($sort, $comparison, $cursorValue, $cursor): void {
+            $builder
+                ->where($sort['column'], $comparison, $cursorValue)
+                ->orWhere(function ($builder) use ($sort, $comparison, $cursorValue, $cursor): void {
+                    $builder
+                        ->where($sort['column'], $cursorValue)
+                        ->where('id', $comparison, $cursor['id']);
+                });
+        });
+    }
+
+    /**
+     * @param array{sort_by: string, column: string, direction: string} $sort
+     */
+    private function encodeWalletLedgerCursor(object $row, array $sort): string
+    {
+        $value = $row->{$sort['column']} ?? null;
+        if ($sort['column'] === 'created_at' && $value !== null) {
+            $rawValue = method_exists($row, 'getRawOriginal')
+                ? $row->getRawOriginal('created_at')
+                : null;
+            $value = $rawValue === null ? (string) $value : (string) $rawValue;
+        }
+
+        $payload = json_encode([
+            'sort_by' => $sort['sort_by'],
+            'direction' => $sort['direction'],
+            'value' => $value,
+            'id' => (string) $row->id,
+        ], JSON_THROW_ON_ERROR);
+
+        return 'v1.'.rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
+    }
+
+    /**
+     * @return array{sort_by: string, direction: string, value: mixed, id: string}|null
+     */
+    private function decodeWalletLedgerCursor(string $cursor): ?array
+    {
+        $encoded = substr($cursor, 3);
+        $padded = $encoded.str_repeat('=', (4 - strlen($encoded) % 4) % 4);
+        $decoded = base64_decode(strtr($padded, '-_', '+/'), true);
+        if ($decoded === false) {
+            return null;
+        }
+
+        try {
+            $payload = json_decode($decoded, true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! is_array($payload)
+            || trim((string) ($payload['sort_by'] ?? '')) === ''
+            || ! in_array((string) ($payload['direction'] ?? ''), ['asc', 'desc'], true)
+            || ! array_key_exists('value', $payload)
+            || trim((string) ($payload['id'] ?? '')) === '') {
+            return null;
+        }
+
+        return [
+            'sort_by' => trim((string) $payload['sort_by']),
+            'direction' => (string) $payload['direction'],
+            'value' => $payload['value'],
+            'id' => trim((string) $payload['id']),
+        ];
     }
 
     /**
@@ -2018,15 +2184,30 @@ class CommerceService
      * @param array<int, object> $stockRows
      * @return array<string, mixed>
      */
-    private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request, array $reservationIds): array
+    private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request, array $reservationIds, array $externalPayment): array
     {
         $now = now();
         $orderId = 'ord_'.Str::ulid()->toBase32();
+        $reference = 'PAY-'.Str::upper(Str::random(10));
+        $provider = trim((string) ($externalPayment['provider'] ?? ''));
+        $callbackUrl = rtrim((string) config('app.url'), '/').'/api/v1/webhooks/payments/'.rawurlencode($provider);
+        $redirectUrl = ExternalCheckoutPayment::redirectUrl($externalPayment, [
+            'order_id' => $orderId,
+            'reference' => $reference,
+            'amount' => number_format($totalAmount / 100, 2, '.', ''),
+            'amount_minor' => $totalAmount,
+            'currency' => 'THB',
+            'tenant_id' => (string) $tenant['tenant_id'],
+            'customer_id' => $customer->customerId(),
+            'callback_url' => $callbackUrl,
+        ]);
+        if ($provider === '' || $redirectUrl === '') {
+            return ['error' => 'payment_provider_not_configured'];
+        }
+
         $order = $this->insertOrder($orderId, $tenant, $customer, $reservation, 'external_payment', 'pending_payment', 'pending', $totalAmount, null, $idempotencyKey, $now);
         $this->createPendingOrderItems((string) $tenant['tenant_id'], $orderId, $stockRows, $pricing, $now);
         $paymentId = 'pay_'.Str::ulid()->toBase32();
-        $reference = 'PAY-'.Str::upper(Str::random(10));
-        $redirectUrl = 'https://payments.example.test/orders/'.$orderId;
 
         Payment::query()->insert([
             'id' => $paymentId,
@@ -2034,7 +2215,7 @@ class CommerceService
             'customer_id' => $customer->customerId(),
             'order_id' => $orderId,
             'topup_request_id' => null,
-            'provider' => 'external_payment',
+            'provider' => $provider,
             'status' => 'pending',
             'amount' => $totalAmount,
             'currency' => 'THB',
@@ -2057,8 +2238,35 @@ class CommerceService
 
         $resource = $this->orderResource(Order::where('id', $order->id)->first());
         $resource['redirect_url'] = $redirectUrl;
+        $this->queueCustomerOrderUpdatedBroadcast([
+            'event_type' => 'order.updated',
+            'tenant_id' => (string) $tenant['tenant_id'],
+            'customer_id' => $customer->customerId(),
+            'order_id' => $orderId,
+            'game_id' => (string) $reservation->game_id,
+            'status' => 'pending_payment',
+            'payment_status' => 'pending',
+            'ticket_ids' => [],
+            'updated_at' => $now->toISOString(),
+        ]);
 
         return $resource;
+    }
+
+    /**
+     * @return array{provider: string, redirect_url_template: string, label: string}|null
+     */
+    private function externalCheckoutPaymentConfiguration(string $tenantId): ?array
+    {
+        $settings = TenantPaymentSetting::query()
+            ->forTenant($tenantId)
+            ->where('status', 'active')
+            ->first();
+
+        return ExternalCheckoutPayment::resolve(
+            (bool) ($settings?->allow_external_payment ?? false),
+            is_array($settings?->config_json) ? $settings->config_json : null,
+        );
     }
 
     /**
@@ -2269,6 +2477,27 @@ class CommerceService
                 'posted_balance' => $ledger['balance_after'],
             ]);
         }
+
+        $this->queueCustomerOrderUpdatedBroadcast([
+            'event_type' => 'order.updated',
+            'tenant_id' => (string) $tenant['tenant_id'],
+            'customer_id' => $customer->customerId(),
+            'order_id' => $orderId,
+            'game_id' => $gameId,
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'ticket_ids' => $ticketIds,
+            'updated_at' => $soldAt,
+        ]);
+        $this->queueCustomerTicketsUpdatedBroadcast([
+            'event_type' => 'tickets.updated',
+            'tenant_id' => (string) $tenant['tenant_id'],
+            'customer_id' => $customer->customerId(),
+            'order_id' => $orderId,
+            'game_id' => $gameId,
+            'ticket_ids' => $ticketIds,
+            'updated_at' => $soldAt,
+        ]);
     }
 
     /**
@@ -2395,6 +2624,21 @@ class CommerceService
         Wallet::query()->where('id', $walletId)->update([
             'balance_amount' => $balanceAfter,
             'updated_at' => now(),
+        ]);
+
+        $this->queueCustomerWalletUpdatedBroadcast([
+            'event_type' => 'wallet.updated',
+            'tenant_id' => $tenantId,
+            'customer_id' => $customerId,
+            'wallet_id' => $walletId,
+            'ledger_id' => $ledgerId,
+            'entry_type' => $entryType,
+            'amount' => $signedAmount,
+            'currency' => 'THB',
+            'posted_balance' => $balanceAfter,
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'updated_at' => now()->toISOString(),
         ]);
 
         return [
@@ -3652,6 +3896,30 @@ class CommerceService
                 'updated_at' => now()->toISOString(),
             ]);
         });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function queueCustomerOrderUpdatedBroadcast(array $payload): void
+    {
+        DB::afterCommit(static fn () => CustomerOrderUpdated::dispatch($payload));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function queueCustomerTicketsUpdatedBroadcast(array $payload): void
+    {
+        DB::afterCommit(static fn () => CustomerTicketsUpdated::dispatch($payload));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function queueCustomerWalletUpdatedBroadcast(array $payload): void
+    {
+        DB::afterCommit(static fn () => CustomerWalletUpdated::dispatch($payload));
     }
 
     private function topupPresentationStatus(object $topup): string

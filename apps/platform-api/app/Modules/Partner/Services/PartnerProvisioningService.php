@@ -28,6 +28,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Observability\ObservabilityCatalog;
 use App\Shared\Tenancy\TenantHostNormalizer;
+use App\Support\RealtimeUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -45,6 +46,11 @@ class PartnerProvisioningService
     private const PROFILE_SECTIONS = ['partner', 'tenant', 'domain', 'settings', 'theme', 'owner'];
     private const DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT = 30000;
     private const DEFAULT_AFFILIATE_RULE_AMOUNT = 1000;
+    private const CUSTOMER_PRIMARY_COLOR = '#087FF0';
+    private const CUSTOMER_SECONDARY_COLOR = '#19B8EF';
+    private const CUSTOMER_ACCENT_COLOR = '#FFD10B';
+    private const CUSTOMER_TEXT_COLOR = '#242833';
+    private const CUSTOMER_FONT_FAMILY = 'Kanit';
     private const MAINTENANCE_MODES = [
         'full_site',
         'customer_web_only',
@@ -441,6 +447,20 @@ class PartnerProvisioningService
             }
         }
 
+        if (array_key_exists('support_url', $updates) && ! $this->isAllowedHttpsUrlOrEmpty($updates['support_url'])) {
+            $errors['support_url'][] = 'The support_url field must be a valid HTTPS URL.';
+        }
+
+        foreach (['lottery_product_label' => 32, 'ticket_image_watermark' => 64] as $field => $maxLength) {
+            if (! array_key_exists($field, $updates) || $updates[$field] === null || $updates[$field] === '') {
+                continue;
+            }
+
+            if (! is_string($updates[$field]) || mb_strlen(trim($updates[$field])) > $maxLength) {
+                $errors[$field][] = 'The '.$field.' field must be a string with at most '.$maxLength.' characters.';
+            }
+        }
+
         if (array_key_exists('default_keywords_json', $updates) && ! is_array($updates['default_keywords_json'])) {
             $errors['default_keywords'][] = 'The default_keywords field must be an array of strings.';
         }
@@ -461,6 +481,10 @@ class PartnerProvisioningService
 
         if (array_key_exists('terms_content', $updates) && $updates['terms_content'] !== null && ! is_string($updates['terms_content'])) {
             $errors['terms_content'][] = 'The terms_content field must be text.';
+        }
+
+        if (array_key_exists('realtime_url', $updates) && ! RealtimeUrl::isAllowedOrEmpty($updates['realtime_url'])) {
+            $errors['realtime_url'][] = 'The realtime_url field must be an absolute http, https, ws, or wss URL without credentials or fragments.';
         }
 
         foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
@@ -699,6 +723,24 @@ class PartnerProvisioningService
 
         if (array_key_exists('deployment_mode', $payload) && ! in_array($payload['deployment_mode'], ['shared', 'dedicated_runtime', 'dedicated_resource_pool'], true)) {
             $errors['deployment_mode'][] = 'The deployment_mode field is invalid.';
+        }
+
+        if (array_key_exists('realtime_url', $payload) && ! RealtimeUrl::isAllowedOrEmpty($payload['realtime_url'])) {
+            $errors['realtime_url'][] = 'The realtime_url field must be an absolute http, https, ws, or wss URL without credentials or fragments.';
+        }
+
+        if (array_key_exists('support_url', $payload) && ! $this->isAllowedHttpsUrlOrEmpty($payload['support_url'])) {
+            $errors['support_url'][] = 'The support_url field must be a valid HTTPS URL.';
+        }
+
+        foreach (['lottery_product_label' => 32, 'ticket_image_watermark' => 64] as $field => $maxLength) {
+            if (! array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') {
+                continue;
+            }
+
+            if (! is_string($payload[$field]) || mb_strlen(trim($payload[$field])) > $maxLength) {
+                $errors[$field][] = 'The '.$field.' field must be a string with at most '.$maxLength.' characters.';
+            }
         }
 
         return $errors;
@@ -1251,6 +1293,9 @@ class PartnerProvisioningService
                 'timezone' => $payload['timezone'] ?? 'Asia/Bangkok',
                 'support_email' => $payload['support_email'] ?? null,
                 'support_phone' => $payload['support_phone'] ?? null,
+                'support_url' => $payload['support_url'] ?? null,
+                'lottery_product_label' => $this->nullableTrimmedString($payload['lottery_product_label'] ?? null),
+                'ticket_image_watermark' => $this->nullableTrimmedString($payload['ticket_image_watermark'] ?? null),
                 'default_title' => $payload['default_title'] ?? trim((string) ($payload['site_name'] ?? $tenantName)),
                 'title_template' => $payload['title_template'] ?? null,
                 'default_description' => $payload['default_description'] ?? null,
@@ -1282,12 +1327,12 @@ class PartnerProvisioningService
                 'logo_url' => $payload['logo_url'] ?? null,
                 'favicon_url' => $payload['favicon_url'] ?? null,
                 'og_image_url' => $payload['og_image_url'] ?? null,
-                'primary_color' => $payload['primary_color'] ?? '#0F766E',
-                'secondary_color' => $payload['secondary_color'] ?? '#2563EB',
-                'accent_color' => $payload['accent_color'] ?? '#F59E0B',
+                'primary_color' => $payload['primary_color'] ?? self::CUSTOMER_PRIMARY_COLOR,
+                'secondary_color' => $payload['secondary_color'] ?? self::CUSTOMER_SECONDARY_COLOR,
+                'accent_color' => $payload['accent_color'] ?? self::CUSTOMER_ACCENT_COLOR,
                 'background_color' => $payload['background_color'] ?? '#FFFFFF',
-                'text_color' => $payload['text_color'] ?? '#111827',
-                'font_family' => $payload['font_family'] ?? 'Inter, sans-serif',
+                'text_color' => $payload['text_color'] ?? self::CUSTOMER_TEXT_COLOR,
+                'font_family' => $payload['font_family'] ?? self::CUSTOMER_FONT_FAMILY,
                 'config_version' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -1624,6 +1669,9 @@ class PartnerProvisioningService
             'timezone' => 'Asia/Bangkok',
             'support_email' => null,
             'support_phone' => null,
+            'support_url' => null,
+            'lottery_product_label' => null,
+            'ticket_image_watermark' => null,
             'default_title' => (string) $tenant->name,
             'title_template' => null,
             'default_description' => null,
@@ -1664,12 +1712,12 @@ class PartnerProvisioningService
             'logo_url' => null,
             'favicon_url' => null,
             'og_image_url' => null,
-            'primary_color' => '#0F766E',
-            'secondary_color' => '#2563EB',
-            'accent_color' => '#F59E0B',
+            'primary_color' => self::CUSTOMER_PRIMARY_COLOR,
+            'secondary_color' => self::CUSTOMER_SECONDARY_COLOR,
+            'accent_color' => self::CUSTOMER_ACCENT_COLOR,
             'background_color' => '#FFFFFF',
-            'text_color' => '#111827',
-            'font_family' => 'Inter, sans-serif',
+            'text_color' => self::CUSTOMER_TEXT_COLOR,
+            'font_family' => self::CUSTOMER_FONT_FAMILY,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -1691,6 +1739,9 @@ class PartnerProvisioningService
             'timezone' => 'Asia/Bangkok',
             'support_email' => null,
             'support_phone' => null,
+            'support_url' => null,
+            'lottery_product_label' => null,
+            'ticket_image_watermark' => null,
             'default_title' => (string) $tenant->name,
             'title_template' => null,
             'default_description' => null,
@@ -1725,12 +1776,12 @@ class PartnerProvisioningService
             'logo_url' => null,
             'favicon_url' => null,
             'og_image_url' => null,
-            'primary_color' => '#0F766E',
-            'secondary_color' => '#2563EB',
-            'accent_color' => '#F59E0B',
+            'primary_color' => self::CUSTOMER_PRIMARY_COLOR,
+            'secondary_color' => self::CUSTOMER_SECONDARY_COLOR,
+            'accent_color' => self::CUSTOMER_ACCENT_COLOR,
             'background_color' => '#FFFFFF',
-            'text_color' => '#111827',
-            'font_family' => 'Inter, sans-serif',
+            'text_color' => self::CUSTOMER_TEXT_COLOR,
+            'font_family' => self::CUSTOMER_FONT_FAMILY,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -1749,6 +1800,9 @@ class PartnerProvisioningService
             'timezone' => (string) $settings->timezone,
             'support_email' => $settings->support_email,
             'support_phone' => $settings->support_phone,
+            'support_url' => $settings->support_url,
+            'lottery_product_label' => $settings->lottery_product_label,
+            'ticket_image_watermark' => $settings->ticket_image_watermark,
         ];
     }
 
@@ -1877,7 +1931,17 @@ class PartnerProvisioningService
         $api = is_array($payload['api'] ?? null) ? $payload['api'] : [];
         $legal = is_array($payload['legal'] ?? null) ? $payload['legal'] : [];
 
-        foreach (['site_name', 'display_name', 'locale', 'timezone', 'support_email', 'support_phone'] as $field) {
+        foreach ([
+            'site_name',
+            'display_name',
+            'locale',
+            'timezone',
+            'support_email',
+            'support_phone',
+            'support_url',
+            'lottery_product_label',
+            'ticket_image_watermark',
+        ] as $field) {
             if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
                 $updates[$field] = $payload[$field] ?? $site[$field];
             }
@@ -1977,6 +2041,13 @@ class PartnerProvisioningService
      */
     private function serializeSettingsUpdates(array $updates): array
     {
+        foreach (['lottery_product_label', 'ticket_image_watermark'] as $field) {
+            if (array_key_exists($field, $updates)) {
+                $value = $updates[$field] === null ? '' : trim((string) $updates[$field]);
+                $updates[$field] = $value === '' ? null : $value;
+            }
+        }
+
         foreach (['default_keywords_json', 'maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $jsonField) {
             if (array_key_exists($jsonField, $updates)) {
                 $updates[$jsonField] = json_encode($this->normalizedStringList($updates[$jsonField]), JSON_THROW_ON_ERROR);
@@ -2006,6 +2077,37 @@ class PartnerProvisioningService
     private function canonicalUrl(string $host): string
     {
         return 'https://'.$this->normalizeHost($host);
+    }
+
+    private function isAllowedHttpsUrlOrEmpty(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        $url = trim((string) $value);
+        if ($url === '') {
+            return true;
+        }
+
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        return strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'https'
+            && trim((string) parse_url($url, PHP_URL_HOST)) !== ''
+            && trim((string) parse_url($url, PHP_URL_USER)) === '';
+    }
+
+    private function nullableTrimmedString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = trim((string) $value);
+
+        return $normalized === '' ? null : $normalized;
     }
 
     private function percentBasisPointsFrom(mixed $percent, mixed $basisPoints = null): ?int

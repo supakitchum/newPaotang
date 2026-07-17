@@ -11,6 +11,7 @@ import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_repository.dart';
+import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/tickets/data/ticket_models.dart';
 import 'package:customer_flutter/features/tickets/data/ticket_repository.dart';
 import 'package:customer_flutter/features/tickets/presentation/tickets_screen.dart';
@@ -24,9 +25,7 @@ import 'package:go_router/go_router.dart';
 
 Finder _ticketTile(String id, String number, {bool history = false}) =>
     find.byKey(
-      ValueKey(
-        'ticket-tile-${history ? 'history' : 'current'}-$id-$number',
-      ),
+      ValueKey('ticket-tile-${history ? 'history' : 'current'}-$id-$number'),
     );
 
 void main() {
@@ -79,6 +78,8 @@ void main() {
     expect(find.text('L6'), findsNWidgets(3));
     expect(find.text('80\nบาท'), findsNWidgets(3));
     expect(find.text('สลากดิจิทัล'), findsNWidgets(3));
+    expect(find.text('งวดที่'), findsNothing);
+    expect(find.text('ชุดที่'), findsNothing);
     expect(_ticketTile('current_1', '740000'), findsOneWidget);
     expect(_ticketTile('current_2', '880000'), findsOneWidget);
     expect(_ticketTile('current_3', '123456'), findsOneWidget);
@@ -93,27 +94,84 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'ค้นหาเลขสลาก'), findsNothing);
     expect(find.byType(Card), findsNothing);
 
-    await tester.tap(find.byTooltip('ค้นหาเลขสลาก'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('ticket-search-clear')), findsNothing);
-    await tester.enterText(
-      find.byKey(const ValueKey('ticket-search-input')),
-      '740000',
+    final searchAction = find.byKey(const ValueKey('tickets-search-action'));
+    expect(tester.getSize(searchAction), const Size.square(42));
+    expect(tester.getTopLeft(searchAction).dy, 62);
+    expect(
+      tester.widget<IconButton>(searchAction).icon,
+      isA<Icon>()
+          .having((icon) => icon.icon, 'icon', Icons.search)
+          .having((icon) => icon.size, 'size', 24),
     );
-    await tester.pump();
+
+    final router = GoRouter.of(tester.element(find.byType(TicketsScreen)));
+    await tester.tap(searchAction);
+    await tester.pumpAndSettle();
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/tickets/search',
+    );
+    expect(find.byType(TicketsSearchScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('ticket-search-digit-inputs')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('ticket-search-clear')), findsOneWidget);
+    final digitInputs = find.descendant(
+      of: find.byKey(const ValueKey('ticket-search-digit-inputs')),
+      matching: find.byType(TextField),
+    );
+    expect(digitInputs, findsNWidgets(6));
+    for (var index = 0; index < 6; index++) {
+      await tester.enterText(digitInputs.at(index), '740000'[index]);
+    }
     await tester.tap(find.byKey(const ValueKey('ticket-search-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('ผลการค้นหา "740000"'), findsOneWidget);
+    expect(find.text('ผลการค้นหาเลข'), findsOneWidget);
     expect(_ticketTile('current_1', '740000'), findsOneWidget);
     expect(_ticketTile('current_2', '880000'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('ticket-search-clear')));
     await tester.pumpAndSettle();
 
-    expect(_ticketTile('current_2', '880000'), findsOneWidget);
-    expect(find.byKey(const ValueKey('ticket-search-clear')), findsNothing);
+    expect(
+      find.text('คุณสามารถกรอกเลขสลากฯ\nที่ต้องการค้นหาอย่างน้อย 1 หลัก'),
+      findsOneWidget,
+    );
+    expect(_ticketTile('current_2', '880000'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current tickets use current game instead of stale ticket draw', (
+    tester,
+  ) async {
+    final repository = _TicketCurrentRepository([
+      _ticket(
+        'stale_ticket',
+        '111111',
+        gameId: 'game_previous',
+        gameName: 'งวด 1 พ.ค. 2569',
+        drawAt: '2026-05-01T16:00:00+07:00',
+      ),
+    ]);
+
+    await _pumpCurrent(
+      tester,
+      repository,
+      currentGame: const CurrentGame(
+        id: 'game_current',
+        name: 'งวด 1 พ.ค. 2569',
+        status: 'closed',
+        drawAt: '2026-07-16T16:00:00+07:00',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('16 ก.ค. 2569'), findsOneWidget);
+    expect(find.text('1 พ.ค. 2569'), findsNothing);
+    expect(find.text('ทั้งหมด 0 ใบ'), findsOneWidget);
+    expect(_ticketTile('stale_ticket', '111111'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -152,6 +210,89 @@ void main() {
 
     expect(router.routerDelegate.currentConfiguration.uri.path, '/tickets');
     expect(_ticketTile('current_inline', '111111'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('short current ticket list stays top-aligned in content sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(399, 849);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketCurrentRepository([
+      _ticket('current_short_1', '146008'),
+      _ticket('current_short_2', '921594'),
+    ]);
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('ticket-content-sheet')),
+    );
+    final summary = tester.getRect(find.text('สลากฯ งวดวันที่'));
+
+    expect(summary.top - sheet.top, inInclusiveRange(20, 28));
+    expect(find.text('ทั้งหมด 2 ใบ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tickets keep the blue header fixed while ticket rows scroll', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(399, 849);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketCurrentRepository([
+      for (var index = 0; index < 8; index++)
+        _ticket('current_fixed_$index', '14600$index'),
+    ]);
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    final headerFinder = find.byKey(const ValueKey('ticket-fixed-header'));
+    final sheetFinder = find.byKey(const ValueKey('ticket-content-sheet'));
+    final initialHeaderRect = tester.getRect(headerFinder);
+    final initialSheetTop = tester.getTopLeft(sheetFinder).dy;
+
+    await tester.drag(
+      find.byKey(const ValueKey('ticket-content-scroll')),
+      const Offset(0, -260),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(headerFinder), initialHeaderRect);
+    expect(
+      find.descendant(of: headerFinder, matching: find.text('สลากฯ ของฉัน')),
+      findsOneWidget,
+    );
+    expect(tester.getTopLeft(sheetFinder).dy, lessThan(initialSheetTop));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current ticket stub keeps Nuxt layout at narrow width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketCurrentRepository([
+      _ticket('current_narrow', '123456'),
+    ]);
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(_ticketTile('current_narrow', '123456'), findsOneWidget);
+    expect(find.text('งวดที่'), findsNothing);
+    expect(find.text('ชุดที่'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -211,11 +352,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final repository = _TicketCurrentRepository([
-      _ticket(
-        'current_preview',
-        '740000',
-        imageStatus: 'pending_assets',
-      ),
+      _ticket('current_preview', '740000', imageStatus: 'pending_assets'),
     ]);
 
     await _pumpCurrent(tester, repository);
@@ -291,10 +428,7 @@ void main() {
     tester,
   ) async {
     final repository = _FailingTicketCurrentRepository(
-      _apiException(
-        '/customer/tickets',
-        'ไม่สามารถโหลดสลากงวดนี้ได้',
-      ),
+      _apiException('/customer/tickets', 'ไม่สามารถโหลดสลากงวดนี้ได้'),
     );
 
     await _pumpCurrent(tester, repository);
@@ -342,10 +476,7 @@ void main() {
     expect(_ticketTile('history_0', '740000', history: true), findsOneWidget);
     expect(_ticketTile('history_2', '880000', history: true), findsNothing);
 
-    await tester.drag(
-      _ticketTile('history_0', '740000', history: true),
-      const Offset(0, -1800),
-    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1800));
     await tester.pumpAndSettle();
 
     expect(repository.historyCalls, 2);
@@ -355,8 +486,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('ticket history groups rows by draw and uses text-only load more',
-      (
+  testWidgets('ticket history groups rows by draw and auto-loads like Nuxt', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 760);
@@ -404,7 +534,7 @@ void main() {
       find.byKey(const ValueKey('ticket-history-group-game_june')),
       findsOneWidget,
     );
-    expect(find.text('สลากฯ งวดวันที่'), findsNWidgets(2));
+    expect(find.text('งวดวันที่'), findsNWidgets(2));
     expect(
       tester
           .widget<Text>(
@@ -421,7 +551,8 @@ void main() {
           .data,
       contains('1 มิ.ย.'),
     );
-    expect(find.text('โหลดเพิ่มเติม'), findsOneWidget);
+    expect(find.text('โหลดเพิ่มเติม'), findsNothing);
+    expect(find.byType(OutlinedButton), findsNothing);
     expect(find.byIcon(Icons.expand_more), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
@@ -462,10 +593,7 @@ void main() {
 
     await _pumpHistory(tester, repository);
     await tester.pumpAndSettle();
-    await tester.drag(
-      _ticketTile('history_0', '740000', history: true),
-      const Offset(0, -1800),
-    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1800));
     await tester.pumpAndSettle();
 
     expect(repository.historyCalls, 2);
@@ -508,7 +636,8 @@ void main() {
 
     expect(find.text('รายการสลากฯ'), findsOneWidget);
     expect(find.text('ดูสลากฯ ที่ถูกรางวัล'), findsOneWidget);
-    expect(find.text('คุณถูกรางวัล 2 ใบ'), findsOneWidget);
+    expect(find.text('ยินดีด้วย คุณมีสลากฯ ถูกรางวัล 2 ใบ'), findsOneWidget);
+    expect(find.text('2 รายการ'), findsOneWidget);
     expect(_ticketTile('history_win', '740000', history: true), findsOneWidget);
     expect(
       _ticketTile('history_lost', '880000', history: true),
@@ -533,40 +662,40 @@ void main() {
     );
   });
 
-  testWidgets('ticket view resolves current ticket from Nuxt query parameters',
-      (
-    tester,
-  ) async {
-    final repository = _TicketViewRepository(
-      currentTickets: [
-        _ticket(
-          'current_1',
-          '740000',
-          gameId: 'game_current',
-          orderId: 'order_1',
-        ),
-        _ticket(
-          'current_2',
-          '880000',
-          gameId: 'game_current',
-          orderId: 'order_2',
-        ),
-      ],
-    );
+  testWidgets(
+    'ticket view resolves current ticket from Nuxt query parameters',
+    (tester) async {
+      final repository = _TicketViewRepository(
+        currentTickets: [
+          _ticket(
+            'current_1',
+            '740000',
+            gameId: 'game_current',
+            orderId: 'order_1',
+          ),
+          _ticket(
+            'current_2',
+            '880000',
+            gameId: 'game_current',
+            orderId: 'order_2',
+          ),
+        ],
+      );
 
-    await _pumpTicketView(
-      tester,
-      repository,
-      '/tickets/view?number=740000&order_id=order_1&game_id=game_current',
-    );
-    await tester.pumpAndSettle();
+      await _pumpTicketView(
+        tester,
+        repository,
+        '/tickets/view?number=740000&order_id=order_1&game_id=game_current',
+      );
+      await tester.pumpAndSettle();
 
-    expect(repository.currentAllCalls, 1);
-    expect(repository.detailCalls, 0);
-    expect(find.text('740000', skipOffstage: false), findsWidgets);
-    expect(find.text('880000', skipOffstage: false), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(repository.currentAllCalls, 1);
+      expect(repository.detailCalls, 0);
+      expect(find.text('740000', skipOffstage: false), findsWidgets);
+      expect(find.text('880000', skipOffstage: false), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('ticket view resolves history ticket with game id query', (
     tester,
@@ -960,7 +1089,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.tap(find.widgetWithText(TextButton, digit));
       await tester.pump();
     }
     await tester.pumpAndSettle();
@@ -1008,11 +1137,12 @@ void main() {
       initialLocation: '/tickets/claim/ticket_wallet',
       profileRepository: _TicketClaimProfileRepository(
         walletId: 'wallet_987654321',
+        walletName: 'Runtime Blue Wallet',
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('G Wallet x 321'), findsOneWidget);
+    expect(find.text('Runtime Blue Wallet x 321'), findsOneWidget);
 
     tester
         .widget<CustomerGradientButton>(
@@ -1021,7 +1151,7 @@ void main() {
         .onPressed!();
     await tester.pumpAndSettle();
 
-    expect(find.text('G Wallet x 321'), findsOneWidget);
+    expect(find.text('Runtime Blue Wallet x 321'), findsOneWidget);
 
     tester
         .widget<CustomerGradientButton>(
@@ -1031,14 +1161,14 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.tap(find.widgetWithText(TextButton, digit));
       await tester.pump();
     }
     await tester.pumpAndSettle();
 
     expect(repository.createRewardClaimCalls, 1);
     expect(repository.createdPayoutMethods, ['wallet_credit']);
-    expect(find.text('G Wallet x 321'), findsOneWidget);
+    expect(find.text('Runtime Blue Wallet x 321'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1088,7 +1218,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.tap(find.widgetWithText(TextButton, digit));
       await tester.pump();
     }
     await tester.pumpAndSettle();
@@ -1166,7 +1296,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.tap(find.widgetWithText(TextButton, digit));
       await tester.pump();
     }
     await tester.pumpAndSettle();
@@ -1241,7 +1371,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final digit in ['1', '2', '3', '4', '5', '6']) {
-      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.tap(find.widgetWithText(TextButton, digit));
       await tester.pump();
     }
     await tester.pumpAndSettle();
@@ -1268,9 +1398,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('ticket claim submits biometric assertion token', (
-    tester,
-  ) async {
+  testWidgets('ticket claim submits biometric assertion token', (tester) async {
     tester.view.physicalSize = const Size(390, 860);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -1336,8 +1464,9 @@ void main() {
 
 Future<void> _pumpCurrent(
   WidgetTester tester,
-  _TicketCurrentRepository repository,
-) {
+  _TicketCurrentRepository repository, {
+  CurrentGame? currentGame,
+}) {
   final router = GoRouter(
     initialLocation: '/tickets',
     routes: [
@@ -1346,16 +1475,19 @@ Future<void> _pumpCurrent(
         builder: (context, state) => const TicketsScreen(),
       ),
       GoRoute(
+        path: '/tickets/search',
+        builder: (context, state) =>
+            TicketsSearchScreen(query: state.uri.queryParameters),
+      ),
+      GoRoute(
         path: '/tickets/history',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Ticket history')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Ticket history'))),
       ),
       GoRoute(
         path: '/tickets/view',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Ticket detail')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Ticket detail'))),
       ),
       GoRoute(
         path: '/tickets/claim/:ticketId',
@@ -1380,15 +1512,13 @@ Future<void> _pumpCurrent(
       ),
       GoRoute(
         path: '/buy',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Buy')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Buy'))),
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Home')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Home'))),
       ),
     ],
   );
@@ -1406,6 +1536,10 @@ Future<void> _pumpCurrent(
           (_) async => _ticketMobileBootstrap(),
         ),
         ticketRepositoryProvider.overrideWithValue(repository),
+        currentTicketsProvider.overrideWith((_) => repository.currentAll()),
+        currentTicketGameProvider.overrideWith(
+          (_) async => currentGame ?? _currentTicketGame(),
+        ),
       ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
@@ -1423,10 +1557,7 @@ Future<void> _pumpCurrent(
   );
 }
 
-Future<void> _pumpHistory(
-  WidgetTester tester,
-  TicketRepository repository,
-) {
+Future<void> _pumpHistory(WidgetTester tester, TicketRepository repository) {
   final router = GoRouter(
     initialLocation: '/tickets/history',
     routes: [
@@ -1436,27 +1567,23 @@ Future<void> _pumpHistory(
       ),
       GoRoute(
         path: '/tickets',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Current tickets')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Current tickets'))),
       ),
       GoRoute(
         path: '/tickets/view',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Ticket detail')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Ticket detail'))),
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Home')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Home'))),
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Profile')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Profile'))),
       ),
     ],
   );
@@ -1502,7 +1629,8 @@ Future<void> _pumpTicketView(
       GoRoute(
         path: '/tickets/view',
         builder: (context, state) => TicketViewScreen(
-          ticketId: state.uri.queryParameters['id'] ??
+          ticketId:
+              state.uri.queryParameters['id'] ??
               state.uri.queryParameters['ticket_id'] ??
               '',
           ticketNumber: state.uri.queryParameters['number'] ?? '',
@@ -1513,21 +1641,18 @@ Future<void> _pumpTicketView(
       ),
       GoRoute(
         path: '/tickets',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Current tickets')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Current tickets'))),
       ),
       GoRoute(
         path: '/tickets/history',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Ticket history')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Ticket history'))),
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Home')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Home'))),
       ),
     ],
   );
@@ -1594,15 +1719,13 @@ Future<void> _pumpTicketClaim(
       ),
       GoRoute(
         path: '/tickets',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Current tickets')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Current tickets'))),
       ),
       GoRoute(
         path: '/profile/reward-bank',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Reward bank')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Reward bank'))),
       ),
       GoRoute(
         path: '/reward-claims/:claimId',
@@ -1627,9 +1750,8 @@ Future<void> _pumpTicketClaim(
           ),
         ),
         mobileBootstrapProvider.overrideWith(
-          (_) async => _ticketMobileBootstrap(
-            biometricEnabled: biometricEnabled,
-          ),
+          (_) async =>
+              _ticketMobileBootstrap(biometricEnabled: biometricEnabled),
         ),
         ticketRepositoryProvider.overrideWithValue(repository),
         profileSettingsRepositoryProvider.overrideWithValue(
@@ -1693,8 +1815,8 @@ class _TicketCurrentWithHistoryRepository extends _TicketCurrentRepository {
   _TicketCurrentWithHistoryRepository({
     required List<CustomerTicket> currentTickets,
     required List<CustomerTicket> historyTickets,
-  })  : _historyTickets = historyTickets,
-        super(currentTickets);
+  }) : _historyTickets = historyTickets,
+       super(currentTickets);
 
   final List<CustomerTicket> _historyTickets;
   int historyCalls = 0;
@@ -1886,9 +2008,10 @@ class _TicketViewRepository extends TicketRepository {
   @override
   Future<CustomerTicket> detail(String id) async {
     detailCalls++;
-    return [...currentTickets, ...historyTickets].firstWhere(
-      (ticket) => ticket.id == id,
-    );
+    return [
+      ...currentTickets,
+      ...historyTickets,
+    ].firstWhere((ticket) => ticket.id == id);
   }
 }
 
@@ -1977,11 +2100,15 @@ class _TicketClaimRepository extends TicketRepository {
 }
 
 class _TicketClaimProfileRepository extends ProfileSettingsRepository {
-  _TicketClaimProfileRepository({this.bankAccount, this.walletId = ''})
-      : super(_testApiClient());
+  _TicketClaimProfileRepository({
+    this.bankAccount,
+    this.walletId = '',
+    this.walletName = '',
+  }) : super(_testApiClient());
 
   final RewardBankAccount? bankAccount;
   final String walletId;
+  final String walletName;
 
   @override
   Future<CustomerProfileSettings> load() async {
@@ -1990,18 +2117,16 @@ class _TicketClaimProfileRepository extends ProfileSettingsRepository {
       name: 'ผู้ใช้งาน',
       customerNo: 'C001',
       phone: '0800000000',
-      bankAccount: bankAccount ??
+      bankAccount:
+          bankAccount ??
           const RewardBankAccount(
             bankName: '',
             accountName: '',
             accountNumber: '',
           ),
-      autoReward: AutoRewardSetting(
-        enabled: false,
-        payoutMethod: '',
-        type: '',
-      ),
+      autoReward: AutoRewardSetting(enabled: false, payoutMethod: '', type: ''),
       walletId: walletId,
+      walletName: walletName,
     );
   }
 }
@@ -2036,10 +2161,7 @@ DioException _apiException(
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
       statusCode: statusCode,
-      data: {
-        'message': message,
-        if (code.isNotEmpty) 'code': code,
-      },
+      data: {'message': message, if (code.isNotEmpty) 'code': code},
     ),
   );
 }
@@ -2096,6 +2218,15 @@ CustomerTicket _ticket(
     previewImageUrl: previewImageUrl,
     imageStatus: imageStatus,
     imageError: imageError,
+  );
+}
+
+CurrentGame _currentTicketGame() {
+  return const CurrentGame(
+    id: 'game_previous',
+    name: 'งวด 16 พ.ค. 2569',
+    status: 'open',
+    drawAt: '2026-05-16T17:00:00+07:00',
   );
 }
 

@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/topup_models.dart';
@@ -60,6 +62,11 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
       if (previous == null || previous == next) return;
       ref.invalidate(topupHistoryProvider(_page));
     });
+    listenForCustomerOperationalError<TopupOverview>(
+      ref: ref,
+      context: context,
+      provider: topupHistoryProvider(_page),
+    );
 
     final history = ref.watch(topupHistoryProvider(_page));
     final l10n = context.l10n;
@@ -74,8 +81,11 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
       child: _TopupHistoryPageBody(
         title: l10n.topupHistoryTitle,
         backPath: '/topup',
-        hero: const _TopupHistoryHeroSummary(),
+        hero: _TopupHistoryHeroSummary(
+          walletName: history.valueOrNull?.walletName ?? '',
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             history.when(
@@ -116,19 +126,26 @@ class _TopupHistoryPageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.zero,
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        _TopupHistoryHeroBand(
-          title: title,
-          backPath: backPath,
-          child: hero,
-        ),
-        _TopupHistoryContentSheet(
-          child: child,
-        ),
-      ],
+    final heroHeight = MediaQuery.sizeOf(context).width < 344 ? 286.0 : 253.0;
+    return CustomerFixedHeaderLayout(
+      headerKey: const ValueKey('topup-history-fixed-header'),
+      contentRegionKey: const ValueKey('topup-history-content-region'),
+      headerHeight: heroHeight,
+      contentTopRadius: customerContentSheetTopRadius,
+      contentBackdropColor: Theme.of(context).colorScheme.primary,
+      header: _TopupHistoryHeroBand(
+        title: title,
+        backPath: backPath,
+        child: hero,
+      ),
+      content: ListView(
+        key: const ValueKey('topup-history-content-scroll'),
+        padding: EdgeInsets.zero,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          _TopupHistoryContentSheet(child: child),
+        ],
+      ),
     );
   }
 }
@@ -147,92 +164,34 @@ class _TopupHistoryHeroBand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 220,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.primary,
-                    Color.lerp(
-                          colorScheme.primary,
-                          colorScheme.secondary,
-                          0.46,
-                        ) ??
-                        colorScheme.primary,
-                  ],
-                ),
+    final topInset = MediaQuery.paddingOf(context).top;
+    final topPadding = topInset + 14 < 58 ? 58.0 : topInset + 14;
+    return SizedBox.expand(
+      key: const ValueKey('topup-history-hero'),
+      child: CustomerBlueHeroBackdrop(
+        primary: colorScheme.primary,
+        secondary: colorScheme.secondary,
+        child: CustomerPageBody(
+          maxWidth: customerContentMaxWidthTablet,
+          top: topPadding,
+          bottom: 24,
+          mobileHorizontal: 20,
+          wideHorizontal: 24,
+          includeBottomSafeArea: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _TopupHistoryHeaderBar(
+                title: title,
+                backPath: backPath,
               ),
-            ),
+              const SizedBox(height: 20),
+              child,
+            ],
           ),
-          Positioned(
-            top: -52,
-            right: -42,
-            child: IgnorePointer(
-              child: _TopupHistoryHeroAccent(
-                size: 150,
-                color: colorScheme.onPrimary.withValues(alpha: 0.09),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -46,
-            bottom: 22,
-            child: IgnorePointer(
-              child: _TopupHistoryHeroAccent(
-                size: 108,
-                color: colorScheme.tertiary.withValues(alpha: 0.34),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: SafeArea(
-              bottom: false,
-              child: CustomerPageBody(
-                maxWidth: 640,
-                top: 18,
-                bottom: 30,
-                mobileHorizontal: 20,
-                wideHorizontal: 20,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _TopupHistoryHeaderBar(
-                      title: title,
-                      backPath: backPath,
-                    ),
-                    const SizedBox(height: 20),
-                    child,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
-    );
-  }
-}
-
-class _TopupHistoryHeroAccent extends StatelessWidget {
-  const _TopupHistoryHeroAccent({
-    required this.size,
-    required this.color,
-  });
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      child: SizedBox.square(dimension: size),
     );
   }
 }
@@ -248,43 +207,48 @@ class _TopupHistoryHeaderBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 48,
+      height: 42,
       child: Stack(
         alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
-          Align(
-            alignment: AlignmentDirectional.centerStart,
+          Positioned(
+            top: 4,
+            left: 0,
             child: IconButton(
+              key: const ValueKey('topup-history-back-action'),
               tooltip: context.l10n.commonBack,
               onPressed: () => context.go(backPath),
-              icon: const Icon(Icons.arrow_back_ios_new, size: 22),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
               style: IconButton.styleFrom(
-                backgroundColor: colorScheme.onPrimary.withValues(alpha: 0.15),
-                foregroundColor: colorScheme.onPrimary,
-                side: BorderSide(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.22),
-                ),
-                fixedSize: const Size.square(44),
-                minimumSize: const Size.square(44),
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                fixedSize: const Size.square(42),
+                minimumSize: const Size.square(42),
                 padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 56),
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 54),
+              child: Center(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                ),
+              ),
             ),
           ),
         ],
@@ -301,6 +265,7 @@ class _TopupHistoryContentSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
+      key: const ValueKey('topup-history-sheet'),
       decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -310,7 +275,7 @@ class _TopupHistoryContentSheet extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 660),
           child: CustomerPageBody(
-            maxWidth: 640,
+            maxWidth: customerContentMaxWidthTablet,
             top: 24,
             bottom: 56,
             mobileHorizontal: 20,
@@ -343,6 +308,7 @@ class _TopupHistoryContent extends StatelessWidget {
     }
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DecoratedBox(
@@ -350,10 +316,12 @@ class _TopupHistoryContent extends StatelessWidget {
             color: Theme.of(context).colorScheme.surface,
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               for (var index = 0; index < overview.histories.length; index++)
                 _TopupHistoryTile(
                   item: overview.histories[index],
+                  walletName: overview.walletName,
                   showDivider: index < overview.histories.length - 1,
                   topPadding: index == 0 ? 0 : 18,
                 ),
@@ -376,11 +344,13 @@ class _TopupHistoryContent extends StatelessWidget {
 class _TopupHistoryTile extends StatelessWidget {
   const _TopupHistoryTile({
     required this.item,
+    required this.walletName,
     required this.showDivider,
     required this.topPadding,
   });
 
   final TopupRequestItem item;
+  final String walletName;
   final bool showDivider;
   final double topPadding;
 
@@ -391,6 +361,7 @@ class _TopupHistoryTile extends StatelessWidget {
     final l10n = context.l10n;
     final transactionAt = item.transferAt ?? item.createdAt;
     return DecoratedBox(
+      key: ValueKey('topup-history-item-${item.id}'),
       decoration: BoxDecoration(
         border: showDivider
             ? Border(
@@ -400,118 +371,122 @@ class _TopupHistoryTile extends StatelessWidget {
               )
             : null,
       ),
-      child: Padding(
-        padding: EdgeInsets.only(top: topPadding, bottom: 18),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth <= 360;
-            final amountBlock = _HistoryAmountBlock(
-              item: item,
-              alignEnd: !compact,
-            );
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 96),
+        child: Padding(
+          padding: EdgeInsets.only(top: topPadding, bottom: 18),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = MediaQuery.sizeOf(context).width <= 360;
+              final amountBlock = _HistoryAmountBlock(
+                item: item,
+                alignEnd: !compact,
+              );
 
-            final detailBlock = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.topupHistoryItemTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
-                ),
-                if (compact) ...[
+              final mainBlock = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (compact)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _HistoryItemTitle(
+                          label: l10n.topupHistoryItemTitleFor(walletName),
+                        ),
+                        const SizedBox(height: 8),
+                        _HistoryStatusPill(
+                          label: _statusLabel(item.status, l10n),
+                          tone: tone,
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _HistoryItemTitle(
+                            label: l10n.topupHistoryItemTitleFor(walletName),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _HistoryStatusPill(
+                          label: _statusLabel(item.status, l10n),
+                          tone: tone,
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 7),
-                  _HistoryStatusPill(
-                    label: _statusLabel(item.status, l10n),
-                    tone: tone,
-                  ),
-                ],
-                const SizedBox(height: 7),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      l10n.topupReference(item.id),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                          ),
-                    ),
-                    Text(
-                      formatLocalizedDateTime(
-                        transactionAt,
-                        l10n.locale.toLanguageTag(),
-                      ),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                          ),
-                    ),
-                  ],
-                ),
-                if (item.bonusAmount > 0) ...[
-                  const SizedBox(height: 8),
-                  _HistoryBonusPill(amount: item.bonusAmount),
-                ],
-                if (compact) ...[
-                  const SizedBox(height: 10),
-                  amountBlock,
-                ],
-              ],
-            );
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: compact ? 42 : 46,
-                  height: compact ? 42 : 46,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: tone.background,
-                  ),
-                  child: Icon(
-                    _statusIcon(item.status),
-                    color: tone.foreground,
-                    size: compact ? 19 : 21,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 4,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: detailBlock),
-                          if (!compact) ...[
-                            const SizedBox(width: 12),
-                            _HistoryStatusPill(
-                              label: _statusLabel(item.status, l10n),
-                              tone: tone,
-                            ),
-                          ],
-                        ],
+                      Text(
+                        l10n.topupReference(item.id),
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                ),
+                      ),
+                      Text(
+                        formatLocalizedDateTime(
+                          transactionAt,
+                          l10n.locale.toLanguageTag(),
+                        ),
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.25,
+                                ),
                       ),
                     ],
                   ),
-                ),
-                if (!compact) ...[
-                  const SizedBox(width: 14),
-                  amountBlock,
+                  if (item.bonusAmount > 0) ...[
+                    const SizedBox(height: 8),
+                    _HistoryBonusPill(amount: item.bonusAmount),
+                  ],
+                  if (compact) ...[
+                    const SizedBox(height: 10),
+                    amountBlock,
+                  ],
                 ],
-              ],
-            );
-          },
+              );
+
+              return Row(
+                crossAxisAlignment: compact
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: compact ? 42 : 46,
+                    height: compact ? 42 : 46,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: tone.background,
+                    ),
+                    child: Icon(
+                      _statusIcon(item.status),
+                      color: tone.foreground,
+                      size: compact ? 19 : 21,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: mainBlock,
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(width: 14),
+                    amountBlock,
+                  ],
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -665,13 +640,16 @@ class _HistoryBonusPill extends StatelessWidget {
 }
 
 class _TopupHistoryHeroSummary extends StatelessWidget {
-  const _TopupHistoryHeroSummary();
+  const _TopupHistoryHeroSummary({required this.walletName});
+
+  final String walletName;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
+      key: const ValueKey('topup-history-summary'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
@@ -690,6 +668,7 @@ class _TopupHistoryHeroSummary extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -703,7 +682,7 @@ class _TopupHistoryHeroSummary extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                l10n.topupHistoryHeaderSubtitle,
+                l10n.topupHistoryHeaderSubtitleFor(walletName),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onPrimary.withValues(alpha: 0.86),
                       fontWeight: FontWeight.w700,
@@ -714,6 +693,27 @@ class _TopupHistoryHeroSummary extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _HistoryItemTitle extends StatelessWidget {
+  const _HistoryItemTitle({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            height: 1.2,
+          ),
     );
   }
 }

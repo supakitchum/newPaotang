@@ -152,6 +152,9 @@ class _CustomerRevenueRealtimeMonitorState
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
   Timer? _refreshThrottle;
+  final CustomerRealtimeSubscriptionTracker _subscriptionTracker =
+      CustomerRealtimeSubscriptionTracker();
+  Future<void> _syncQueue = Future<void>.value();
   final Set<String> _pendingTicketIds = {};
   String _signature = '';
   bool _pendingCartRefresh = false;
@@ -160,13 +163,13 @@ class _CustomerRevenueRealtimeMonitorState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
   void didUpdateWidget(covariant CustomerRevenueRealtimeMonitor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
@@ -181,13 +184,21 @@ class _CustomerRevenueRealtimeMonitorState
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MobileBootstrap>>(
       mobileBootstrapProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     ref.listen<AuthController>(
       authControllerProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     return widget.child;
+  }
+
+  void _scheduleSync() {
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _sync();
+    });
   }
 
   Future<void> _sync() async {
@@ -237,6 +248,8 @@ class _CustomerRevenueRealtimeMonitorState
     }
 
     await _stop();
+    if (!mounted) return;
+    _subscriptionTracker.updateChannels(channels);
     _signature = signature;
     final client =
         ref.read(customerRealtimeClientFactoryProvider)(bootstrap.realtime);
@@ -256,9 +269,19 @@ class _CustomerRevenueRealtimeMonitorState
     _events = null;
     await _client?.dispose();
     _client = null;
+    _subscriptionTracker.clear();
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
+    if (_subscriptionTracker.register(event)) {
+      if (event.channel.trim().endsWith('.orders')) {
+        _pendingCartRefresh = true;
+        _pendingTicketRefresh = true;
+        _scheduleRefresh();
+      }
+      return;
+    }
+
     final refreshCart = shouldRefreshCartFromRealtimeEvent(event);
     final refreshTickets = shouldRefreshTicketsFromRealtimeEvent(event);
     if (!refreshCart && !refreshTickets) return;
@@ -269,6 +292,10 @@ class _CustomerRevenueRealtimeMonitorState
       _pendingTicketIds.addAll(ticketIdsFromRealtimePayload(event.payload));
     }
 
+    _scheduleRefresh();
+  }
+
+  void _scheduleRefresh() {
     if (_refreshThrottle?.isActive ?? false) return;
     _refreshThrottle = Timer(const Duration(milliseconds: 500), _flushRefresh);
   }

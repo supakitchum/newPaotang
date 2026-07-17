@@ -492,6 +492,41 @@ void main() {
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
     expect(find.textContaining('internal store list failure'), findsNothing);
   });
+
+  testWidgets('stores screen follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/stores',
+      routes: [
+        GoRoute(
+          path: '/stores',
+          builder: (context, state) => const StoresScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (context, state) =>
+              const Scaffold(body: Text('Maintenance')),
+        ),
+      ],
+    );
+
+    await _pump(
+      tester,
+      router: router,
+      overrides: [
+        storeRepositoryProvider.overrideWithValue(
+          _FailingStoreRepository(
+            _maintenanceApiException(path: '/public/stores'),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(find.text('Maintenance'), findsOneWidget);
+  });
 }
 
 Future<void> _pump(
@@ -875,6 +910,23 @@ DioException _apiException(String message, {required String path}) {
       requestOptions: request,
       statusCode: 422,
       data: {'message': message},
+    ),
+  );
+}
+
+DioException _maintenanceApiException({required String path}) {
+  final request = RequestOptions(path: path);
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 503,
+      data: const {
+        'error': {
+          'code': 'maintenance_active',
+          'message': 'ระบบอยู่ระหว่างปิดปรับปรุง',
+        },
+      },
     ),
   );
 }

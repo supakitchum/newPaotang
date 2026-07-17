@@ -149,16 +149,20 @@ void main() {
     final api = _WrappedActivityApiClient();
     final repository = ActivityRepository(api, (value) => 'asset:$value');
 
-    final activity =
-        await repository.detail('wrapped-activity', authenticated: true);
+    final activity = await repository.detail(
+      ' กิจกรรม wrapped ',
+      authenticated: true,
+    );
 
     expect(api.calls.map((call) => call.path), [
-      '/public/activities/wrapped-activity',
+      '/public/activities/%E0%B8%81%E0%B8%B4%E0%B8%88%E0%B8%81%E0%B8%A3%E0%B8%A3%E0%B8%A1%20wrapped',
       '/customer/activities/act_wrapped',
     ]);
     expect(activity.id, 'act_wrapped');
     expect(activity.name, 'Wrapped Lucky Board');
     expect(activity.imageUrl, 'asset:/storage/wrapped.webp');
+    expect(activity.imageFullUrl, 'asset:/storage/wrapped-full.webp');
+    expect(activity.detailImageUrl, 'asset:/storage/wrapped-full.webp');
     expect(activity.rights.remainingCount, 2);
     expect(activity.numberBoard.predictionType, 'last2');
     expect(activity.numberBoard.totalCount, 100);
@@ -185,6 +189,10 @@ void main() {
       'prediction_type': 'last2',
       'selected_number': '42',
     });
+    expect(
+      api.postHeaders['Idempotency-Key'],
+      startsWith('customer_activity_entry_'),
+    );
     expect(entry.id, 'entry_wrapped');
     expect(entry.predictionType, 'last2');
     expect(entry.selectedNumber, '42');
@@ -347,6 +355,7 @@ class _WrappedActivityApiClient extends ApiClient {
   final calls = <_ApiCall>[];
   String postPath = '';
   Map<String, dynamic> postPayload = {};
+  Map<String, String> postHeaders = {};
 
   @override
   Future<Response<T>> get<T>(
@@ -377,6 +386,7 @@ class _WrappedActivityApiClient extends ApiClient {
   }) async {
     postPath = path;
     postPayload = Map<String, dynamic>.from(data! as Map);
+    postHeaders = Map<String, String>.from(headers);
 
     return Response<T>(
       requestOptions: RequestOptions(path: path),
@@ -407,6 +417,7 @@ Map<String, dynamic> _wrappedPublicActivity() {
         'activityType': 'lucky_board',
         'conditionText': 'เลือกเลขตามสิทธิ์จากยอดซื้อ',
         'imageThumbUrl': '/storage/wrapped.webp',
+        'imageFullUrl': '/storage/wrapped-full.webp',
         'numberBoard': {
           'predictionType': 'last2',
           'totalCount': 100,
@@ -432,6 +443,7 @@ Map<String, dynamic> _wrappedCustomerActivity() {
         'activityType': 'lucky_board',
         'conditionText': 'เลือกเลขตามสิทธิ์จากยอดซื้อ',
         'imageThumbUrl': '/storage/wrapped.webp',
+        'imageFullUrl': '/storage/wrapped-full.webp',
         'rights': {
           'earnedCount': 3,
           'usedCount': 1,

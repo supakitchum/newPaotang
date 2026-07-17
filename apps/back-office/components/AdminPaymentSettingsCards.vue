@@ -281,6 +281,8 @@ const generalFieldKeys = [
   'allow_external_payment',
   'payment_provider_status',
   'config.display_name',
+  'config.checkout.external_payment.provider',
+  'config.checkout.external_payment.redirect_url_template',
 ]
 
 const fieldMap = computed(() => new Map(props.fields.map((field) => [field.key, field])))

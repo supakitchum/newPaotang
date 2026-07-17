@@ -19,6 +19,7 @@ use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Console\Commands\RecoverStaleLotteryBackgroundZipImportsCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
+use App\Console\Commands\SeedCustomerContentFixturesCommand;
 use App\Console\Commands\SeedRuntimeMockDataCommand;
 use App\Console\Commands\SyncStaticTranslationsCommand;
 use App\Modules\SupportAccess\Http\Middleware\BlockSensitiveSupportImpersonation;
@@ -52,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AutoCloseExpiredGamesCommand::class,
         ExpireStockReservationsCommand::class,
         SeedBaseLotteryNumbersCommand::class,
+        SeedCustomerContentFixturesCommand::class,
         ProcessSoldSyncCommand::class,
         ProcessRewardCheckCommand::class,
         CalculateCommissionsCommand::class,

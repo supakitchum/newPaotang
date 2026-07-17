@@ -15,7 +15,8 @@ final activityRepositoryProvider = Provider<ActivityRepository>((ref) {
   );
 });
 
-final activityListProvider = FutureProvider<List<ActivityItem>>((ref) async {
+final activityListProvider =
+    FutureProvider.autoDispose<List<ActivityItem>>((ref) async {
   final auth = ref.watch(authControllerProvider);
   return ref.watch(activityRepositoryProvider).listAll(
         authenticated: auth.isAuthenticated && !auth.pinRequired,
@@ -31,12 +32,14 @@ final activityListPageProvider =
 });
 
 final activityDetailProvider =
-    FutureProvider.family<ActivityItem, ActivityDetailRequest>((ref, request) {
-  return ref.watch(activityRepositoryProvider).detail(
-        request.slug,
-        authenticated: request.authenticated,
-      );
-});
+    FutureProvider.autoDispose.family<ActivityItem, ActivityDetailRequest>(
+  (ref, request) {
+    return ref.watch(activityRepositoryProvider).detail(
+          request.slug,
+          authenticated: request.authenticated,
+        );
+  },
+);
 
 final activityHistoryProvider = FutureProvider.autoDispose
     .family<ActivityListPage, String>((ref, gameId) async {
@@ -160,8 +163,9 @@ class ActivityRepository {
   }
 
   Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
+    final encodedSlug = Uri.encodeComponent(slug.trim());
     final publicResponse = await _api.get<Map<String, dynamic>>(
-      '/public/activities/$slug',
+      '/public/activities/$encodedSlug',
       auth: false,
     );
     var item = ActivityItem.fromJson(

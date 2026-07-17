@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/customer_localizations.dart';
+import '../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../core/theme/app_theme.dart';
 import 'customer_loading_indicator.dart';
 
 const _pinInk = Color(0xFF2F3337);
@@ -10,9 +13,8 @@ const _pinBrand = Color(0xFF8487F8);
 const _pinErrorColor = Color(0xFFD3455B);
 const _pinDotEmpty = Color(0xFFDDDDDF);
 const _pinDotError = Color(0xFFF2B6BD);
-const _pinActionBlue = Color(0xFF0D7FE8);
 
-class PinConfirmationStep extends StatelessWidget {
+class PinConfirmationStep extends ConsumerWidget {
   const PinConfirmationStep({
     required this.title,
     required this.subtitle,
@@ -43,7 +45,7 @@ class PinConfirmationStep extends StatelessWidget {
   final VoidCallback onBiometric;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final width = MediaQuery.sizeOf(context).width;
     final height = MediaQuery.sizeOf(context).height;
     final compactHeight = height < 660;
@@ -59,7 +61,11 @@ class PinConfirmationStep extends StatelessWidget {
               Align(
                 alignment: Alignment.topCenter,
                 child: _PinConfirmationTopBar(
-                  brand: brand,
+                  brand: brand ??
+                      customerPinBrandLabel(
+                        context,
+                        ref.watch(mobileBootstrapProvider).valueOrNull,
+                      ),
                   saving: saving,
                   onBack: onBack,
                 ),
@@ -105,6 +111,17 @@ class PinConfirmationStep extends StatelessWidget {
       ),
     );
   }
+}
+
+String customerPinBrandLabel(
+  BuildContext context,
+  MobileBootstrap? bootstrap,
+) {
+  final siteName = bootstrap?.siteName.trim() ?? '';
+  if (siteName.isNotEmpty) return siteName;
+  final productLabel = bootstrap?.lotteryProductLabel.trim() ?? '';
+  if (productLabel.isNotEmpty) return productLabel;
+  return context.l10n.pinBrand;
 }
 
 class _PinConfirmationTopBar extends StatelessWidget {
@@ -269,7 +286,9 @@ class _PinConfirmationMainContent extends StatelessWidget {
                 icon: const Icon(Icons.face_retouching_natural, size: 18),
                 label: Text(biometricLabel),
                 style: TextButton.styleFrom(
-                  foregroundColor: _pinActionBlue,
+                  foregroundColor: AppTheme.pinAction(
+                    Theme.of(context).colorScheme.primary,
+                  ),
                   minimumSize: const Size(64, 32),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
@@ -15,8 +17,6 @@ const _activityClaimHeadTextColor = Color(0xFF202938);
 const _activityClaimBodyTextColor = Color(0xFF4B5563);
 const _activityClaimMutedTextColor = Color(0xFF94A3B8);
 const _activityClaimDividerColor = Color(0xFFEEF2F7);
-const _activityClaimChevronColor = Color(0xFF3B9CFF);
-const _activityClaimEmptyIconColor = Color(0xFF0B69DC);
 const _activityClaimEmptyIconBackground = Color(0xFFEEF7FF);
 const _activityClaimEmptyTitleColor = Color(0xFF111827);
 const _activityClaimEmptyTextColor = Color(0xFF64748B);
@@ -26,11 +26,6 @@ const _activityClaimPendingColor = Color(0xFFE29300);
 const _activityClaimPendingBackground = Color(0xFFFFF3D0);
 const _activityClaimRejectedColor = Color(0xFFED2C25);
 const _activityClaimRejectedBackground = Color(0xFFFFE1DF);
-const _activityClaimPrimaryStart = Color(0xFF149AF9);
-const _activityClaimPrimaryEnd = Color(0xFF0064D5);
-const _activityClaimPrimaryShadow = Color(0x380066D5);
-const _activityClaimOutlineBorder = Color(0xFF0B69DC);
-const _activityClaimOutlineText = Color(0xFF075EC9);
 const _activityClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
 const _activityClaimOutlineDisabledText = Color(0xFF8A8F98);
 const _activityClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
@@ -74,68 +69,65 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
       sensitive: true,
       showBottomNavigation: false,
       compactHeader: true,
-      child: RefreshIndicator(
-        onRefresh: () => _loadInitial(
-          showLoading: false,
-          preserveDataOnError: true,
-        ),
-        child: _ActivityClaimsPageBody(
-          child: _loadingInitial
-              ? const _ActivityClaimsLoading()
-              : _error.isNotEmpty
-                  ? _ActivityClaimsError(
-                      message: _error,
-                      onRetry: () => _loadInitial(
-                        showLoading: true,
-                        preserveDataOnError: false,
-                      ),
-                    )
-                  : _claims.isEmpty
-                      ? _ActivityClaimsEmpty(
-                          onActivities: () => context.go('/activities'),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (_refreshError.isNotEmpty)
-                              _ActivityClaimsInlineError(
-                                message: _refreshError,
-                                onRetry: () => _loadInitial(
-                                  showLoading: false,
-                                  preserveDataOnError: true,
-                                ),
+      heroContent: const SizedBox.shrink(),
+      heroMinHeight: 96,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      child: _ActivityClaimsPageBody(
+        child: _loadingInitial
+            ? const _ActivityClaimsLoading()
+            : _error.isNotEmpty
+                ? _ActivityClaimsError(
+                    message: _error,
+                    onRetry: () => _loadInitial(
+                      showLoading: true,
+                      preserveDataOnError: false,
+                    ),
+                  )
+                : _claims.isEmpty
+                    ? _ActivityClaimsEmpty(
+                        onActivities: () => context.go('/activities'),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_refreshError.isNotEmpty)
+                            _ActivityClaimsInlineError(
+                              message: _refreshError,
+                              onRetry: () => _loadInitial(
+                                showLoading: false,
+                                preserveDataOnError: true,
                               ),
-                            for (var index = 0; index < _claims.length; index++)
-                              _ActivityClaimTile(
-                                claim: _claims[index],
-                                showDivider: index < _claims.length - 1,
-                                onTap: () => context.go(
-                                  '/activity-claims/${_claims[index].id}',
-                                ),
+                            ),
+                          for (var index = 0; index < _claims.length; index++)
+                            _ActivityClaimTile(
+                              claim: _claims[index],
+                              onTap: () => context.go(
+                                '/activity-claims/${_claims[index].id}',
                               ),
-                            if (_loadMoreError.isNotEmpty)
-                              _ActivityClaimsInlineError(
-                                message: _loadMoreError,
-                                onRetry: _loadMore,
-                              ),
-                            if (_hasMore)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 16),
-                                child: Align(
-                                  child: OutlinedButton(
-                                    style: _claimOutlinePillStyle(context),
-                                    onPressed: _loadingMore ? null : _loadMore,
-                                    child: Text(
-                                      _loadingMore
-                                          ? l10n.commonLoadingMore
-                                          : l10n.commonLoadMore,
-                                    ),
+                            ),
+                          if (_loadMoreError.isNotEmpty)
+                            _ActivityClaimsInlineError(
+                              message: _loadMoreError,
+                              onRetry: _loadMore,
+                            ),
+                          if (_hasMore)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Align(
+                                child: OutlinedButton(
+                                  style: _claimOutlinePillStyle(context),
+                                  onPressed: _loadingMore ? null : _loadMore,
+                                  child: Text(
+                                    _loadingMore
+                                        ? l10n.commonLoadingMore
+                                        : l10n.commonLoadMore,
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
-        ),
+                            ),
+                        ],
+                      ),
       ),
     );
   }
@@ -179,6 +171,14 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted) return;
       final message = activityClaimErrorMessage(
         error,
         context.l10n.activityClaimsLoadFailed,
@@ -218,14 +218,21 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
         _loadMoreError = '';
       });
     } catch (error) {
-      if (mounted) {
-        setState(
-          () => _loadMoreError = activityClaimErrorMessage(
-            error,
-            context.l10n.activityClaimsLoadMoreFailed,
-          ),
-        );
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
       }
+      if (!mounted) return;
+      setState(
+        () => _loadMoreError = activityClaimErrorMessage(
+          error,
+          context.l10n.activityClaimsLoadMoreFailed,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -269,12 +276,10 @@ class _ActivityClaimTile extends StatelessWidget {
   const _ActivityClaimTile({
     required this.claim,
     required this.onTap,
-    required this.showDivider,
   });
 
   final ActivityClaimItem claim;
   final VoidCallback onTap;
-  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
@@ -289,11 +294,9 @@ class _ActivityClaimTile extends StatelessWidget {
         onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            border: showDivider
-                ? Border(
-                    bottom: BorderSide(color: _activityClaimDividerColor),
-                  )
-                : null,
+            border: Border(
+              bottom: BorderSide(color: _activityClaimDividerColor),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
@@ -383,7 +386,9 @@ class _ActivityClaimTile extends StatelessWidget {
                   ),
                   trailing: Icon(
                     Icons.chevron_right,
-                    color: _activityClaimChevronColor,
+                    color: AppTheme.claimChevron(
+                      Theme.of(context).colorScheme.primary,
+                    ),
                     size: 23,
                   ),
                   trailingMaxWidthFactor: 0.2,
@@ -475,6 +480,11 @@ class _ActivityClaimsEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconBackground = colorScheme.primary == AppTheme.appBlue
+        ? _activityClaimEmptyIconBackground
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.91) ??
+            colorScheme.primaryContainer;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 54),
       child: Column(
@@ -483,13 +493,13 @@ class _ActivityClaimsEmpty extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: _activityClaimEmptyIconBackground,
+              color: iconBackground,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.card_giftcard_outlined,
               size: 30,
-              color: _activityClaimEmptyIconColor,
+              color: AppTheme.primaryOutlineBorder(colorScheme.primary),
             ),
           ),
           const SizedBox(height: 10),
@@ -536,6 +546,7 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(999);
+    final primary = Theme.of(context).colorScheme.primary;
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 190, minHeight: 47),
       child: DecoratedBox(
@@ -544,11 +555,14 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [_activityClaimPrimaryStart, _activityClaimPrimaryEnd],
+            colors: [
+              AppTheme.primaryActionStart(primary),
+              AppTheme.primaryActionEnd(primary),
+            ],
           ),
           boxShadow: [
             BoxShadow(
-              color: _activityClaimPrimaryShadow,
+              color: AppTheme.primaryActionEnd(primary).withValues(alpha: 0.22),
               blurRadius: 22,
               offset: const Offset(0, 10),
             ),
@@ -755,11 +769,12 @@ Color _statusBackgroundColor(ActivityClaimItem claim) {
 }
 
 ButtonStyle _claimOutlinePillStyle(BuildContext context) {
+  final primary = Theme.of(context).colorScheme.primary;
   return OutlinedButton.styleFrom(
     backgroundColor: Colors.white,
     disabledBackgroundColor: _activityClaimOutlineDisabledBackground,
     disabledForegroundColor: _activityClaimOutlineDisabledText,
-    foregroundColor: _activityClaimOutlineText,
+    foregroundColor: AppTheme.primaryOutlineText(primary),
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
@@ -767,11 +782,13 @@ ButtonStyle _claimOutlinePillStyle(BuildContext context) {
           fontWeight: FontWeight.w600,
         ),
   ).copyWith(
+    splashFactory: NoSplash.splashFactory,
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
     side: WidgetStateProperty.resolveWith(
       (states) => BorderSide(
         color: states.contains(WidgetState.disabled)
             ? _activityClaimOutlineDisabledBorder
-            : _activityClaimOutlineBorder,
+            : AppTheme.primaryOutlineBorder(primary),
       ),
     ),
   );

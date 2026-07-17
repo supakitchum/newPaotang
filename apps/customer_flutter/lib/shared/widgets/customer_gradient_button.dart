@@ -53,10 +53,10 @@ class CustomerGradientButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final enabled = onPressed != null;
     final gradient = enabledGradient ??
-        const LinearGradient(
+        LinearGradient(
           colors: [
-            AppTheme.appActionStart,
-            AppTheme.appActionEnd,
+            AppTheme.primaryActionStart(colorScheme.primary),
+            AppTheme.primaryActionEnd(colorScheme.primary),
           ],
         );
 
@@ -142,7 +142,9 @@ class CustomerPaymentSelectionCountText extends StatelessWidget {
           TextSpan(
             text: number,
             style: TextStyle(
-              color: AppTheme.appPaymentCountBlue,
+              color: AppTheme.primaryPaymentCount(
+                Theme.of(context).colorScheme.primary,
+              ),
               fontSize: numberFontSize,
               fontWeight: FontWeight.w800,
             ),

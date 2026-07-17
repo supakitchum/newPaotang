@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/api_payload.dart';
 import '../utils/idempotency_key.dart';
-import 'auth_token_store.dart';
 import '../network/api_client.dart';
+import '../navigation/customer_redirect.dart';
+import 'auth_token_store.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
@@ -172,21 +173,51 @@ class AuthRepository {
   }
 
   Future<CustomerSession> refresh() async {
-    final refreshToken = _tokenStore.refreshToken ?? '';
+    final refreshToken = _tokenStore.refreshToken?.trim() ?? '';
+    if (refreshToken.isEmpty) {
+      throw StateError('Customer refresh token is unavailable.');
+    }
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/refresh',
       auth: false,
       data: {'refresh_token': refreshToken},
     );
-    final session = CustomerSession.fromJson(asMap(response.data));
+    final parsed = CustomerSession.fromJson(asMap(response.data));
+    if (parsed.accessToken.isEmpty) {
+      throw StateError('Customer refresh response has no access token.');
+    }
+    final session = CustomerSession(
+      accessToken: parsed.accessToken,
+      refreshToken:
+          parsed.refreshToken.isEmpty ? refreshToken : parsed.refreshToken,
+      pinRequired: parsed.pinRequired,
+      pinSetupRequired: parsed.pinSetupRequired,
+      customerId: parsed.customerId.isEmpty
+          ? (_tokenStore.customerId?.trim() ?? '')
+          : parsed.customerId,
+      preferredLocale: parsed.preferredLocale,
+    );
     await _saveSession(session);
     return session;
   }
 
+  Future<CustomerAuthIdentity> currentIdentity() async {
+    final response = await _api.get<Map<String, dynamic>>('/customer/profile');
+    return CustomerAuthIdentity.fromJson(asMap(response.data));
+  }
+
+  Future<void> clearLocalSession() => _tokenStore.clear();
+
   Future<void> logout() async {
     try {
       if (_tokenStore.hasAccessToken) {
-        await _api.post('/customer/auth/logout');
+        await _api.postWithHeaders(
+          '/customer/auth/logout',
+          headers: {
+            'Idempotency-Key': newIdempotencyKey('customer_auth_logout'),
+          },
+          data: const {},
+        );
       }
     } finally {
       await _tokenStore.clear();
@@ -314,7 +345,10 @@ class AuthRepository {
   }) async {
     final normalizedProvider = normalizeSocialAuthProvider(provider);
     final normalizedQuery = _normalizedSocialCallbackData(query);
-    final callbackAuth = auth ?? await _socialCallbackAuthMode(normalizedQuery);
+    final callbackState = _socialCallbackState(normalizedQuery);
+    final callbackContext =
+        await _tokenStore.readSocialCallbackContext(callbackState);
+    final callbackAuth = auth ?? callbackContext?.auth ?? true;
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/callback',
       auth: callbackAuth,
@@ -325,7 +359,10 @@ class AuthRepository {
       fallbackProvider: normalizedProvider,
     );
     if (result.session != null) await _saveSession(result.session!);
-    return result;
+    if (callbackState.isNotEmpty) {
+      await _tokenStore.takeSocialCallbackContext(callbackState);
+    }
+    return result.withRedirectFallback(callbackContext?.redirect);
   }
 
   Future<CustomerSession> socialLinkPhone({
@@ -337,7 +374,10 @@ class AuthRepository {
     String? redirect,
   }) async {
     final normalizedProvider = normalizeSocialAuthProvider(provider);
-    final redirectPath = redirect?.trim() ?? '';
+    final requestedRedirect = redirect?.trim() ?? '';
+    final redirectPath = requestedRedirect.isEmpty
+        ? ''
+        : safeCustomerRedirect(requestedRedirect);
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/link-phone',
       auth: false,
@@ -362,8 +402,12 @@ class AuthRepository {
     );
   }
 
-  Future<void> verifyPin(String pin) async {
-    await _api.post('/customer/auth/pin/verify', data: {'pin': pin});
+  Future<PinStatus> verifyPin(String pin) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/pin/verify',
+      data: {'pin': pin},
+    );
+    return PinStatus.fromJson(asMap(response.data));
   }
 
   Future<PinStatus> pinStatus() async {
@@ -432,21 +476,13 @@ class AuthRepository {
     ]);
     final state = _firstString([stateFromPayload, _oauthStateFromUrl(url)]);
     if (state.isNotEmpty) {
-      await _tokenStore.rememberSocialCallbackAuthMode(
+      await _tokenStore.rememberSocialCallbackContext(
         state: state,
         auth: callbackUsesAuth,
+        redirect: redirectPath,
       );
     }
     return url;
-  }
-
-  Future<bool> _socialCallbackAuthMode(Map<String, dynamic> query) async {
-    final payload = _authPayload(
-      Map<String, dynamic>.from(query),
-      _socialCallbackPayloadWrapperKeys,
-    );
-    final state = _firstStringByKeys(payload, _socialCallbackStateKeys);
-    return await _tokenStore.takeSocialCallbackAuthMode(state) ?? true;
   }
 }
 
@@ -460,6 +496,14 @@ Map<String, dynamic> _normalizedSocialCallbackData(
   if (code.isNotEmpty) normalized['code'] = code;
   if (state.isNotEmpty) normalized['state'] = state;
   return normalized;
+}
+
+String _socialCallbackState(Map<String, dynamic> query) {
+  final payload = _authPayload(
+    Map<String, dynamic>.from(query),
+    _socialCallbackPayloadWrapperKeys,
+  );
+  return _firstStringByKeys(payload, _socialCallbackStateKeys);
 }
 
 String normalizeSocialAuthProvider(String provider) {
@@ -497,6 +541,7 @@ class CustomerSession {
     required this.pinRequired,
     required this.pinSetupRequired,
     required this.customerId,
+    this.preferredLocale = '',
   });
 
   final String accessToken;
@@ -504,6 +549,7 @@ class CustomerSession {
   final bool pinRequired;
   final bool pinSetupRequired;
   final String customerId;
+  final String preferredLocale;
 
   factory CustomerSession.fromJson(Map<String, dynamic> json) {
     final payload = _authPayload(
@@ -567,8 +613,82 @@ class CustomerSession {
         customer['customer_id'],
         customer['customerId'],
       ]),
+      preferredLocale: _firstString([
+        payload['preferred_locale'],
+        payload['preferredLocale'],
+        user['preferred_locale'],
+        user['preferredLocale'],
+        customer['preferred_locale'],
+        customer['preferredLocale'],
+      ]),
     );
   }
+}
+
+class CustomerAuthIdentity {
+  const CustomerAuthIdentity({
+    required this.customerId,
+    required this.hasPin,
+    required this.pinRequired,
+    required this.pinSetupRequired,
+    required this.preferredLocale,
+  });
+
+  factory CustomerAuthIdentity.fromJson(Map<String, dynamic> json) {
+    final payload = _authPayload(
+      json,
+      const [
+        'profile',
+        'customer_profile',
+        'customerProfile',
+        'customer',
+        'member',
+        'user',
+        'account',
+      ],
+    );
+    final explicitHasPin = _firstBoolean([
+      payload['has_pin'],
+      payload['hasPin'],
+    ]);
+    final explicitSetupRequired = _firstBoolean([
+      payload['pin_setup_required'],
+      payload['pinSetupRequired'],
+      payload['requires_pin_setup'],
+      payload['requiresPinSetup'],
+    ]);
+    final hasPin = explicitHasPin ?? !(explicitSetupRequired ?? false);
+    final pinSetupRequired = explicitSetupRequired ?? !hasPin;
+    final explicitPinRequired = _firstBoolean([
+      payload['pin_required'],
+      payload['pinRequired'],
+      payload['requires_pin'],
+      payload['requiresPin'],
+    ]);
+    return CustomerAuthIdentity(
+      customerId: _firstString([
+        payload['id'],
+        payload['customer_id'],
+        payload['customerId'],
+        payload['member_id'],
+        payload['memberId'],
+      ]),
+      hasPin: hasPin,
+      pinRequired: explicitPinRequired ?? hasPin,
+      pinSetupRequired: pinSetupRequired,
+      preferredLocale: _firstString([
+        payload['preferred_locale'],
+        payload['preferredLocale'],
+        payload['locale'],
+      ]),
+    );
+  }
+
+  final String customerId;
+  final bool hasPin;
+  final bool pinRequired;
+  final bool pinSetupRequired;
+  final String preferredLocale;
 }
 
 class PinStatus {
@@ -764,6 +884,25 @@ class SocialCallbackResult {
   final String orderId;
   final String message;
   final String redirectPath;
+
+  SocialCallbackResult withRedirectFallback(String? redirect) {
+    final fallback = redirect?.trim() ?? '';
+    if (redirectPath.trim().isNotEmpty || fallback.isEmpty) return this;
+    return SocialCallbackResult(
+      provider: provider,
+      code: code,
+      lineLinkRequired: lineLinkRequired,
+      linkToken: linkToken,
+      displayName: displayName,
+      pictureUrl: pictureUrl,
+      passwordResetReady: passwordResetReady,
+      passwordResetToken: passwordResetToken,
+      orderId: orderId,
+      message: message,
+      redirectPath: fallback,
+      session: session,
+    );
+  }
 }
 
 class OtpRequestResult {
@@ -1204,4 +1343,23 @@ bool _truthy(Object? value) {
   if (value is bool) return value;
   final normalized = value?.toString().trim().toLowerCase();
   return normalized == 'true' || normalized == '1' || normalized == 'yes';
+}
+
+bool? _firstBoolean(Iterable<Object?> values) {
+  for (final value in values) {
+    if (value == null) continue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value.toString().trim().toLowerCase();
+    if (normalized.isEmpty) continue;
+    if (const {'true', '1', 'yes', 'on', 'enabled', 'active'}
+        .contains(normalized)) {
+      return true;
+    }
+    if (const {'false', '0', 'no', 'off', 'disabled', 'inactive'}
+        .contains(normalized)) {
+      return false;
+    }
+  }
+  return null;
 }

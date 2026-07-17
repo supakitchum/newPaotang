@@ -37,6 +37,46 @@ void main() {
     );
   });
 
+  test('translation bundle preserves runtime locale catalog and labels', () {
+    final bundle = parseCustomerTranslationBundle({
+      'data': {
+        'locale': 'ja-JP',
+        'messages': {'profile.language.title': '表示言語'},
+        'available_locales': [
+          {
+            'locale': 'th-TH',
+            'name': 'Thai',
+            'native_name': 'ไทย',
+            'is_default': true,
+            'sort_order': 10,
+            'status': 'active',
+          },
+          {
+            'locale': 'ja-JP',
+            'name': 'Japanese',
+            'nativeName': '日本語',
+            'sortOrder': 30,
+            'status': 'active',
+          },
+          {
+            'locale': 'fr-FR',
+            'name': 'French',
+            'native_name': 'Français',
+            'status': 'inactive',
+          },
+        ],
+      },
+    });
+
+    expect(bundle.locale, 'ja-JP');
+    expect(bundle.messages, {'profile.language.title': '表示言語'});
+    expect(bundle.availableLocales.map((option) => option.tag), [
+      'th-TH',
+      'ja-JP',
+    ]);
+    expect(bundle.availableLocales.last.displayName, '日本語');
+  });
+
   test('translationPreviewTokenFromLocation supports owner preview aliases',
       () {
     expect(
@@ -85,7 +125,7 @@ void main() {
     final api = _CaptureApiClient();
     final repository = CustomerTranslationRepository(api);
 
-    final messages = await repository.bundle(
+    final bundle = await repository.bundle(
       locale: 'en-US',
       previewToken: 'preview_1',
     );
@@ -97,7 +137,11 @@ void main() {
       'surface': 'customer',
       'preview_token': 'preview_1',
     });
-    expect(messages, {'home.title': 'Partner Home'});
+    expect(bundle.messages, {'home.title': 'Partner Home'});
+    expect(bundle.availableLocales.map((option) => option.tag), [
+      'th-TH',
+      'en-US',
+    ]);
   });
 
   test('RuntimeCustomerLocalizationsDelegate overlays static locale copy',
@@ -142,6 +186,21 @@ class _CaptureApiClient extends ApiClient {
         'locale': 'en-US',
         'surface': 'customer',
         'messages': {'home.title': 'Partner Home'},
+        'available_locales': [
+          {
+            'locale': 'th-TH',
+            'name': 'Thai',
+            'native_name': 'ไทย',
+            'is_default': true,
+            'sort_order': 10,
+          },
+          {
+            'locale': 'en-US',
+            'name': 'English',
+            'native_name': 'English',
+            'sort_order': 20,
+          },
+        ],
       } as T,
     );
   }

@@ -67,9 +67,6 @@ void main() {
 
     await tester.pumpAndSettle();
     await tester.tap(find.text('ลืม PIN?'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -91,9 +88,6 @@ void main() {
     await tester.tap(find.text('ลืม PIN?'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
-    await tester.pumpAndSettle();
-
     expect(find.text('ส่ง OTP เกินจำนวนครั้งที่กำหนด'), findsOneWidget);
     expect(find.text('ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่'), findsNothing);
   });
@@ -105,9 +99,6 @@ void main() {
 
     await _pumpPinScreen(tester, repo);
     await tester.tap(find.text('ลืม PIN?'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
     await tester.pumpAndSettle();
 
     expect(find.text('ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่'), findsOneWidget);
@@ -162,33 +153,47 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('pin-reset-back')),
+      findsNothing,
+    );
     await tester.tap(find.text('ลืม PIN?'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
-    await tester.pumpAndSettle();
-
     expect(repo.requestedOtp, isTrue);
-    expect(find.text('ส่งรหัสไปยัง 08x-xxx-1234'), findsOneWidget);
+    expect(find.byType(DraggableScrollableSheet), findsNothing);
+    expect(find.byKey(const ValueKey('pin-reset-screen')), findsOneWidget);
+    expect(find.byKey(const ValueKey('pin-reset-back')), findsOneWidget);
+    expect(find.text('รีเซ็ต PIN'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.enterText(
+      find.byKey(const ValueKey('pin-reset-otp-input')),
+      '123456',
+    );
     await _tapPinResetSubmit(tester, 'ยืนยัน OTP');
     await tester.pumpAndSettle();
 
     expect(repo.verifiedOtp, '123456');
-    expect(find.text('PIN ใหม่ 6 หลัก'), findsOneWidget);
-    expect(find.byType(TextFormField), findsNothing);
+    expect(find.text('ตั้ง PIN ใหม่'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(
+      find.byKey(const ValueKey('pin-reset-keypad-screen')),
+      findsOneWidget,
+    );
 
-    await _tapSheetPin(tester, '654321');
+    await _tapResetPin(tester, '654321');
     expect(find.text('ยืนยัน PIN ใหม่'), findsWidgets);
 
-    await _tapSheetPin(tester, '654321');
+    await _tapResetPin(tester, '654321');
     await tester.pumpAndSettle();
 
     expect(repo.confirmedOtpToken, 'verified-token');
     expect(repo.confirmedPin, '654321');
     expect(repo.confirmedPinConfirmation, '654321');
-    expect(find.text('ตั้งค่า PIN ใหม่เรียบร้อยแล้ว'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('pin-reset-keypad-screen')),
+      findsNothing,
+    );
   });
 
   testWidgets('PIN reset returns to the saved redirect after success', (
@@ -213,19 +218,15 @@ void main() {
     await tester.tap(find.text('ลืม PIN?'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.enterText(
+      find.byKey(const ValueKey('pin-reset-otp-input')),
+      '123456',
+    );
     await _tapPinResetSubmit(tester, 'ยืนยัน OTP');
     await tester.pumpAndSettle();
 
-    await _tapSheetPin(tester, '654321');
-    await _tapSheetPin(tester, '654321');
-    await tester.pumpAndSettle();
-
-    expect(find.text('ตั้งค่า PIN ใหม่เรียบร้อยแล้ว'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(FilledButton, 'กลับไปใช้งาน'));
+    await _tapResetPin(tester, '654321');
+    await _tapResetPin(tester, '654321');
     await tester.pumpAndSettle();
 
     expect(
@@ -288,13 +289,11 @@ Future<void> _pumpPinScreen(
 }
 
 Future<void> _tapPinResetSubmit(WidgetTester tester, String label) async {
-  final button = find.widgetWithText(FilledButton, label);
-  final scrollable = find.byType(Scrollable).last;
-  for (var attempts = 0; attempts < 6 && button.evaluate().isEmpty; attempts++) {
-    await tester.drag(scrollable, const Offset(0, -140));
-    await tester.pumpAndSettle();
-  }
+  await tester.pump();
+  final button = find.byKey(const ValueKey('pin-reset-primary-action'));
+  expect(find.text(label), findsOneWidget);
   expect(button, findsOneWidget);
+  await tester.ensureVisible(button);
   await tester.tap(button);
 }
 
@@ -350,10 +349,10 @@ Future<void> _pumpPinRouter(
   await tester.pumpAndSettle();
 }
 
-Future<void> _tapSheetPin(WidgetTester tester, String pin) async {
+Future<void> _tapResetPin(WidgetTester tester, String pin) async {
   for (final digit in pin.split('')) {
     final button = find.descendant(
-      of: find.byType(DraggableScrollableSheet),
+      of: find.byKey(const ValueKey('pin-reset-keypad')),
       matching: find.text(digit),
     );
     await tester.tap(button.last);

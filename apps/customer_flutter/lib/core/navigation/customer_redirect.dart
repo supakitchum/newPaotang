@@ -13,10 +13,6 @@ const _blockedRedirectPaths = {
   '/social',
 };
 
-const _inlinePinRedirectPaths = {
-  '/affiliate',
-};
-
 String safeCustomerRedirect(String? value) {
   final redirect = value?.trim() ?? '';
   if (redirect.isEmpty ||
@@ -38,21 +34,13 @@ String safeCustomerRedirect(String? value) {
   return redirect;
 }
 
-bool customerHandlesPinInline(String? value) {
-  final redirect = safeCustomerRedirect(value);
-  final uri = Uri.tryParse(redirect);
-  if (uri == null) return false;
-  return _inlinePinRedirectPaths.contains(uri.path);
-}
-
 String customerPostAuthRouteForRedirect({
   required String? redirect,
   required bool pinRequired,
   required bool pinSetupRequired,
 }) {
   final safeRedirect = safeCustomerRedirect(redirect);
-  if (pinSetupRequired ||
-      (pinRequired && !customerHandlesPinInline(safeRedirect))) {
+  if (pinSetupRequired || pinRequired) {
     return customerPinRouteForRedirect(safeRedirect);
   }
   return safeRedirect;

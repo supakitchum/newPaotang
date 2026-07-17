@@ -12,8 +12,91 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('news detail does not duplicate summary as first body paragraph',
-      (
+  testWidgets('short news detail starts below the compact fixed header', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(399, 849);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpNewsDetail(
+      tester,
+      const NewsItem(
+        id: 'short-news',
+        title: 'ข่าวประชาสัมพันธ์แบบสั้น',
+        summary: 'รายละเอียดข่าวแบบสั้น',
+        body: 'เนื้อหาข่าว',
+        slug: 'short-news',
+        url: '',
+        coverUrl: '',
+        publishedAt: '2026-07-14T10:58:00+07:00',
+      ),
+    );
+
+    final sheetTop = tester
+        .getTopLeft(find.byKey(const ValueKey('news-content-sheet')))
+        .dy;
+    final articleTop = tester
+        .getTopLeft(find.byKey(const ValueKey('news-detail-article')))
+        .dy;
+
+    expect(sheetTop, closeTo(150, 1));
+    expect(articleTop, closeTo(sheetTop + 24, 1));
+    expect(find.byKey(const ValueKey('news-detail-card')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('news detail media fills the mobile article band', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpNewsDetail(
+      tester,
+      const NewsItem(
+        id: 'cover-news',
+        title: 'ข่าวพร้อมภาพปก',
+        summary: 'ภาพต้องเต็มแนวบทความ',
+        body: 'เนื้อหาข่าว',
+        slug: 'cover-news',
+        url: '',
+        coverUrl: 'https://example.com/news-cover.webp',
+        publishedAt: '2026-07-14T10:58:00+07:00',
+      ),
+    );
+
+    final articleSize = tester.getSize(
+      find.byKey(const ValueKey('news-detail-article')),
+    );
+    final articleTop = tester
+        .getTopLeft(find.byKey(const ValueKey('news-detail-article')))
+        .dy;
+    final mediaSize = tester.getSize(
+      find.byKey(const ValueKey('news-detail-media')),
+    );
+
+    expect(mediaSize.width, closeTo(articleSize.width, 1));
+    expect(mediaSize.width, closeTo(390, 1));
+    expect(mediaSize.width / mediaSize.height, closeTo(16 / 9, 0.02));
+    final titleTop = tester.getTopLeft(find.text('ข่าวพร้อมภาพปก')).dy;
+    final mediaTop = tester
+        .getTopLeft(find.byKey(const ValueKey('news-detail-media')))
+        .dy;
+    final mediaBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('news-detail-media')))
+        .dy;
+    expect(mediaTop, closeTo(articleTop, 1));
+    expect(titleTop, greaterThan(mediaBottom));
+    expect(find.byKey(const ValueKey('news-detail-divider')), findsOneWidget);
+    expect(find.byKey(const ValueKey('news-detail-card')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('news detail does not repeat summary in the article body', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 900);
@@ -49,8 +132,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('news detail renders production html body as readable paragraphs',
-      (
+  testWidgets('news detail renders production html body as readable paragraphs', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 900);
@@ -93,9 +175,8 @@ Future<void> _pumpNewsDetail(WidgetTester tester, NewsItem item) async {
       GoRoute(path: '/news', builder: (_, __) => const Text('News list')),
       GoRoute(
         path: '/news/:slug',
-        builder: (_, state) => NewsDetailScreen(
-          slug: state.pathParameters['slug'] ?? '',
-        ),
+        builder: (_, state) =>
+            NewsDetailScreen(slug: state.pathParameters['slug'] ?? ''),
       ),
     ],
   );
@@ -130,5 +211,5 @@ Future<void> _pumpNewsDetail(WidgetTester tester, NewsItem item) async {
 }
 
 Color? _textColor(WidgetTester tester, String text) {
-  return tester.widget<Text>(find.text(text)).style?.color;
+  return tester.widget<Text>(find.text(text).first).style?.color;
 }

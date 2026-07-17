@@ -28,8 +28,9 @@ class PurchaseHistoryRepository {
   }
 
   Future<PurchaseHistoryOrder> detail(String id) async {
+    final encodedId = Uri.encodeComponent(id.trim());
     final response = await _api.get<Map<String, dynamic>>(
-      '/customer/orders/$id',
+      '/customer/orders/$encodedId',
     );
     return PurchaseHistoryOrder.fromJson(unwrapPayload(response.data));
   }

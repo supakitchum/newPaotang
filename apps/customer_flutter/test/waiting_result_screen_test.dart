@@ -40,12 +40,19 @@ void main() {
                 'mobile': {'lottery_product_label': 'L6'},
                 'live': {
                   'waiting_result_youtube_embed_url':
-                      'https://www.youtube.com/embed/demo',
+                      'https://www.youtube.com/embed/dQw4w9WgXcQ',
                   'source': 'tenant_override',
                 },
               },
             );
           }),
+          waitingResultPlayerBuilderProvider.overrideWithValue(
+            (videoId) => AspectRatio(
+              key: ValueKey('waiting-result-player-$videoId'),
+              aspectRatio: 16 / 9,
+              child: Text(videoId),
+            ),
+          ),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -75,14 +82,19 @@ void main() {
     );
 
     await tester.drag(
-      find.byType(ListView),
+      find.byType(SingleChildScrollView),
       const Offset(0, -500),
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();
 
     expect(_text('ถ่ายทอดสดประกาศผล'), findsOneWidget);
-    expect(_text('เปิดถ่ายทอดสด'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey('waiting-result-player-dQw4w9WgXcQ'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('waiting result shows live empty state when not configured', (
@@ -124,7 +136,7 @@ void main() {
     expect(_text('xxxxxx'), findsOneWidget);
 
     await tester.drag(
-      find.byType(ListView),
+      find.byType(SingleChildScrollView),
       const Offset(0, -500),
       warnIfMissed: false,
     );
@@ -132,6 +144,57 @@ void main() {
 
     expect(_text('ระบบจะแสดงถ่ายทอดสดเมื่อพร้อมใช้งาน'), findsOneWidget);
     expect(_text('เปิดถ่ายทอดสด'), findsNothing);
+  });
+
+  test('waiting result accepts Nuxt YouTube URL variants', () {
+    MobileLiveConfig live(String value) => MobileLiveConfig(
+          waitingResultYoutubeUrl: value,
+          waitingResultYoutubeEmbedUrl: '',
+          source: 'test',
+        );
+
+    expect(
+      waitingResultYoutubeVideoId(
+        live('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+      ),
+      'dQw4w9WgXcQ',
+    );
+    expect(
+      waitingResultYoutubeVideoId(
+        live('https://www.youtube.com/live/dQw4w9WgXcQ'),
+      ),
+      'dQw4w9WgXcQ',
+    );
+    expect(
+      waitingResultYoutubeVideoId(
+        live('https://example.com/watch?v=dQw4w9WgXcQ'),
+      ),
+      isNull,
+    );
+  });
+
+  test('waiting result ignores a resolved reward from another game', () {
+    final current = CurrentGame(
+      id: 'current',
+      name: 'Current draw',
+      status: 'closed',
+      drawAt: '2026-07-16T16:00:00+07:00',
+    );
+    final other = RewardResultGame.fromPublicSummary({
+      'game_id': 'other',
+      'status': 'published',
+      'prizes': [
+        {'prize_type': 'first_prize', 'prize_number': '123456'},
+      ],
+    });
+    final bundle = RewardResultBundle(
+      currentGame: current,
+      selectedResult: other,
+      history: const [],
+    );
+
+    expect(waitingResultHasCurrentReward(bundle), isFalse);
+    expect(waitingResultDisplayGame(bundle).id, 'current');
   });
 
   testWidgets('waiting result consumes sale closed query like Nuxt', (
@@ -199,6 +262,63 @@ void main() {
       find.byKey(const ValueKey('app-alert-close-button')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('waiting result alias keeps its route after consuming notice', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/wait-result?sale_closed=1',
+      routes: [
+        GoRoute(
+          path: '/wait-result',
+          builder: (context, state) => WaitingResultScreen(
+            showSaleClosedNotice:
+                state.uri.queryParameters['sale_closed'] == '1',
+            routePath: state.uri.path,
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith((_) async {
+            return const RewardResultBundle(
+              currentGame: null,
+              selectedResult: null,
+              history: [],
+            );
+          }),
+          mobileBootstrapProvider.overrideWith((_) async {
+            return MobileBootstrap.fromJson(
+              const {'site': <String, dynamic>{}},
+            );
+          }),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+          builder: (context, child) {
+            return AppAlertHost(child: child ?? const SizedBox.shrink());
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, '/wait-result');
+    expect(router.routeInformationProvider.value.uri.query, isEmpty);
   });
 }
 

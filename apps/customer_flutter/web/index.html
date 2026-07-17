@@ -32,6 +32,20 @@
   <meta name="twitter:url" content=".">
   <meta name="twitter:image" content="icons/Icon-512.png">
 
+  <style>
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: #fff;
+    }
+
+    flutter-view {
+      background: #fff;
+    }
+  </style>
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -46,6 +60,7 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script src="customer-runtime-config.js"></script>
   <script>
     (function () {
       function asConfigObject(value) {

@@ -15,6 +15,8 @@ use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Maintenance\Services\MaintenanceService;
 use App\Shared\Tenancy\PartnerBoHostResolver;
 use App\Shared\Tenancy\TenantHostNormalizer;
+use App\Support\ExternalCheckoutPayment;
+use App\Support\RealtimeUrl;
 use App\Support\TenantPaymentMethods;
 use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
@@ -24,6 +26,11 @@ use Illuminate\Support\Facades\Schema;
 class TenantConfigurationService
 {
     private const SUSPENDED_PARTNER_MAINTENANCE_MESSAGE = 'ขณะนี้ระบบปิดให้บริการชั่วคราว กรุณากลับมาใหม่ภายหลัง';
+    private const CUSTOMER_PRIMARY_COLOR = '#087FF0';
+    private const CUSTOMER_SECONDARY_COLOR = '#19B8EF';
+    private const CUSTOMER_ACCENT_COLOR = '#FFD10B';
+    private const CUSTOMER_TEXT_COLOR = '#242833';
+    private const CUSTOMER_FONT_FAMILY = 'Kanit';
 
     private const MAINTENANCE_MODES = [
         'full_site',
@@ -219,6 +226,20 @@ class TenantConfigurationService
             }
         }
 
+        if (array_key_exists('support_url', $updates) && ! $this->isAllowedHttpsUrlOrEmpty($updates['support_url'])) {
+            $errors['support_url'][] = 'The support_url field must be a valid HTTPS URL.';
+        }
+
+        foreach (['lottery_product_label' => 32, 'ticket_image_watermark' => 64] as $field => $maxLength) {
+            if (! array_key_exists($field, $updates) || $updates[$field] === null || $updates[$field] === '') {
+                continue;
+            }
+
+            if (! is_string($updates[$field]) || mb_strlen(trim($updates[$field])) > $maxLength) {
+                $errors[$field][] = 'The '.$field.' field must be a string with at most '.$maxLength.' characters.';
+            }
+        }
+
         if (array_key_exists('default_keywords_json', $updates) && ! is_array($updates['default_keywords_json'])) {
             $errors['default_keywords'][] = 'The default_keywords field must be an array of strings.';
         }
@@ -239,6 +260,10 @@ class TenantConfigurationService
 
         if (array_key_exists('waiting_result_youtube_url', $updates) && ! YoutubeLiveUrl::isAllowedOrEmpty($updates['waiting_result_youtube_url'])) {
             $errors['waiting_result_youtube_url'][] = 'The waiting_result_youtube_url field must be a valid YouTube URL.';
+        }
+
+        if (array_key_exists('realtime_url', $updates) && ! RealtimeUrl::isAllowedOrEmpty($updates['realtime_url'])) {
+            $errors['realtime_url'][] = 'The realtime_url field must be an absolute http, https, ws, or wss URL without credentials or fragments.';
         }
 
         foreach (['terms_content', 'privacy_content'] as $field) {
@@ -496,7 +521,10 @@ class TenantConfigurationService
     private function paymentPayload(string $tenantId): array
     {
         if (! Schema::hasTable('tenant_payment_settings')) {
-            return TenantPaymentMethods::customerPayload(null);
+            return TenantPaymentMethods::customerPayload(null) + [
+                'checkout_payment_methods' => ['wallet'],
+                'checkout_payment_method' => 'wallet',
+            ];
         }
 
         $settings = TenantPaymentSetting::query()
@@ -512,10 +540,40 @@ class TenantConfigurationService
             return [
                 'methods' => array_values($disabled),
                 'enabled_methods' => [],
+                'checkout_payment_methods' => ['wallet'],
+                'checkout_payment_method' => 'wallet',
             ];
         }
 
-        return TenantPaymentMethods::customerPayload(is_array($settings?->config_json) ? $settings->config_json : null);
+        $config = is_array($settings?->config_json) ? $settings->config_json : [];
+        $payload = TenantPaymentMethods::customerPayload($config);
+        $checkoutMethods = ['wallet'];
+        $external = ExternalCheckoutPayment::resolve(
+            (bool) ($settings?->allow_external_payment ?? false),
+            $config,
+        );
+
+        if ($external !== null) {
+            $checkoutMethods[] = 'external_payment';
+        }
+        $checkoutMethodLabels = [];
+        $externalLabel = trim((string) ($external['label'] ?? ''));
+        if ($externalLabel !== '') {
+            $checkoutMethodLabels['external_payment'] = $externalLabel;
+        }
+
+        $checkout = is_array($config['checkout'] ?? null) ? $config['checkout'] : [];
+        $defaultMethod = trim((string) ($checkout['default_method'] ?? $checkout['defaultMethod'] ?? 'wallet'));
+        if (! in_array($defaultMethod, $checkoutMethods, true)) {
+            $defaultMethod = 'wallet';
+        }
+
+        return $payload + [
+            'checkout_payment_methods' => $checkoutMethods,
+            'checkout_payment_method' => $defaultMethod,
+        ] + ($checkoutMethodLabels === [] ? [] : [
+            'checkout_payment_method_labels' => $checkoutMethodLabels,
+        ]);
     }
 
     private function ensureSettings(object $tenant): object
@@ -539,6 +597,9 @@ class TenantConfigurationService
             'timezone' => 'Asia/Bangkok',
             'support_email' => null,
             'support_phone' => null,
+            'support_url' => null,
+            'lottery_product_label' => null,
+            'ticket_image_watermark' => null,
             'default_title' => (string) $tenant->name,
             'title_template' => null,
             'default_description' => null,
@@ -588,12 +649,12 @@ class TenantConfigurationService
             'logo_url' => null,
             'favicon_url' => null,
             'og_image_url' => null,
-            'primary_color' => '#0F766E',
-            'secondary_color' => '#2563EB',
-            'accent_color' => '#F59E0B',
+            'primary_color' => self::CUSTOMER_PRIMARY_COLOR,
+            'secondary_color' => self::CUSTOMER_SECONDARY_COLOR,
+            'accent_color' => self::CUSTOMER_ACCENT_COLOR,
             'background_color' => '#FFFFFF',
-            'text_color' => '#111827',
-            'font_family' => 'Inter, sans-serif',
+            'text_color' => self::CUSTOMER_TEXT_COLOR,
+            'font_family' => self::CUSTOMER_FONT_FAMILY,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -623,6 +684,9 @@ class TenantConfigurationService
             'timezone' => 'Asia/Bangkok',
             'support_email' => null,
             'support_phone' => null,
+            'support_url' => null,
+            'lottery_product_label' => null,
+            'ticket_image_watermark' => null,
             'default_title' => (string) $tenant->name,
             'title_template' => null,
             'default_description' => null,
@@ -670,12 +734,12 @@ class TenantConfigurationService
             'logo_url' => null,
             'favicon_url' => null,
             'og_image_url' => null,
-            'primary_color' => '#0F766E',
-            'secondary_color' => '#2563EB',
-            'accent_color' => '#F59E0B',
+            'primary_color' => self::CUSTOMER_PRIMARY_COLOR,
+            'secondary_color' => self::CUSTOMER_SECONDARY_COLOR,
+            'accent_color' => self::CUSTOMER_ACCENT_COLOR,
             'background_color' => '#FFFFFF',
-            'text_color' => '#111827',
-            'font_family' => 'Inter, sans-serif',
+            'text_color' => self::CUSTOMER_TEXT_COLOR,
+            'font_family' => self::CUSTOMER_FONT_FAMILY,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -696,7 +760,17 @@ class TenantConfigurationService
         $live = is_array($payload['live'] ?? null) ? $payload['live'] : [];
         $legal = is_array($payload['legal'] ?? null) ? $payload['legal'] : [];
 
-        foreach (['site_name', 'display_name', 'locale', 'timezone', 'support_email', 'support_phone'] as $field) {
+        foreach ([
+            'site_name',
+            'display_name',
+            'locale',
+            'timezone',
+            'support_email',
+            'support_phone',
+            'support_url',
+            'lottery_product_label',
+            'ticket_image_watermark',
+        ] as $field) {
             if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
                 $updates[$field] = $payload[$field] ?? $site[$field];
             }
@@ -836,6 +910,13 @@ class TenantConfigurationService
      */
     private function serializeSettingsUpdates(array $updates): array
     {
+        foreach (['lottery_product_label', 'ticket_image_watermark'] as $field) {
+            if (array_key_exists($field, $updates)) {
+                $value = $updates[$field] === null ? '' : trim((string) $updates[$field]);
+                $updates[$field] = $value === '' ? null : $value;
+            }
+        }
+
         foreach ([
             'default_keywords_json',
             'maintenance_allowed_routes_json',
@@ -869,6 +950,9 @@ class TenantConfigurationService
             'timezone' => (string) $settings->timezone,
             'support_email' => $settings->support_email,
             'support_phone' => $settings->support_phone,
+            'support_url' => $settings->support_url,
+            'lottery_product_label' => $settings->lottery_product_label,
+            'ticket_image_watermark' => $settings->ticket_image_watermark,
         ];
     }
 
@@ -1057,6 +1141,26 @@ class TenantConfigurationService
         $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
 
         return in_array($scheme, ['http', 'https'], true);
+    }
+
+    private function isAllowedHttpsUrlOrEmpty(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        $url = trim((string) $value);
+        if ($url === '') {
+            return true;
+        }
+
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        return strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'https'
+            && trim((string) parse_url($url, PHP_URL_HOST)) !== ''
+            && trim((string) parse_url($url, PHP_URL_USER)) === '';
     }
 
     /**

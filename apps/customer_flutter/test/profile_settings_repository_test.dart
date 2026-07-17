@@ -49,6 +49,20 @@ void main() {
       'payout_method': 'bank_transfer',
     });
   });
+
+  test('savePreferredLocale persists the selected supported locale', () async {
+    final api = _CaptureApiClient();
+    final repository = ProfileSettingsRepository(api);
+
+    await repository.savePreferredLocale('en-US');
+
+    expect(api.path, '/customer/profile');
+    expect(api.payload, {'preferred_locale': 'en-US'});
+    expect(
+      api.headers['Idempotency-Key'],
+      startsWith('customer_profile_locale_'),
+    );
+  });
 }
 
 class _CaptureApiClient extends ApiClient {

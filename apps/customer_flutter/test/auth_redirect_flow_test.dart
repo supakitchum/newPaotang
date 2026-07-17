@@ -97,6 +97,14 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    final loginFields =
+        tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(
+      loginFields[0].autofillHints,
+      contains(AutofillHints.telephoneNumber),
+    );
+    expect(loginFields[1].autofillHints, contains(AutofillHints.password));
+
     await tester.enterText(find.byType(TextField).at(0), '08a12345678999');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await _tapLoginSubmit(tester);
@@ -138,7 +146,35 @@ void main() {
     expect(find.text('pin-flow'), findsOneWidget);
   });
 
-  testWidgets('login resumes inline PIN routes without global PIN redirect', (
+  testWidgets('login PIN operational errors preserve checkout redirect', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      loginError: const {
+        'error': {
+          'code': 'pin_required',
+          'message': 'Please confirm your PIN.',
+        },
+      },
+    );
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await _tapLoginSubmit(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/pin?redirect=%2Fcheckout',
+    );
+    expect(find.text('pin-flow'), findsOneWidget);
+  });
+
+  testWidgets('login sends affiliate redirects through the global PIN screen', (
     tester,
   ) async {
     final repo = _AuthRedirectRepository(
@@ -162,9 +198,9 @@ void main() {
 
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
-      '/affiliate',
+      '/pin?redirect=%2Faffiliate',
     );
-    expect(find.text('affiliate-flow'), findsOneWidget);
+    expect(find.text('pin-flow'), findsOneWidget);
   });
 
   testWidgets('login shows API error copy like Nuxt', (
@@ -235,6 +271,69 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.toString(),
       '/login?redirect=%2Fcheckout',
     );
+  });
+
+  testWidgets('register mirrors Nuxt OTP panel and autofill semantics', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/register');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    var fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(fields[0].autofillHints, contains(AutofillHints.givenName));
+    expect(fields[1].autofillHints, contains(AutofillHints.familyName));
+    expect(fields[2].autofillHints, contains(AutofillHints.telephoneNumber));
+    expect(fields[3].autofillHints, contains(AutofillHints.newPassword));
+    expect(fields[4].autofillHints, contains(AutofillHints.newPassword));
+
+    await _fillRegisterForm(tester);
+    await _tapRegisterSubmit(tester, 'Create account');
+    await tester.pumpAndSettle();
+
+    const panelKey = ValueKey('register-otp-panel');
+    expect(find.byKey(panelKey), findsOneWidget);
+    expect(find.text('OTP code'), findsOneWidget);
+    expect(find.byIcon(Icons.sms_outlined), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(panelKey),
+        matching: find.byType(TextButton),
+      ),
+      findsNothing,
+    );
+
+    fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(fields[5].autofillHints, contains(AutofillHints.oneTimeCode));
+  });
+
+  testWidgets('register PIN operational errors preserve checkout redirect', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      requestOtpError: const {
+        'error': {
+          'code': 'pin_required',
+          'message': 'Please confirm your PIN.',
+        },
+      },
+    );
+    final router = _authRouter('/register?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await _fillRegisterForm(tester);
+    await _tapRegisterSubmit(tester, 'Create account');
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/pin?redirect=%2Fcheckout',
+    );
+    expect(find.text('pin-flow'), findsOneWidget);
   });
 
   testWidgets('register shows API error copy after OTP like Nuxt', (
@@ -456,7 +555,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('เป๋าตัง'), findsOneWidget);
+    expect(find.text('Test Shop'), findsOneWidget);
     expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
     expect(find.text('เพื่อทำรายการต่อ'), findsOneWidget);
     expect(find.text('ลืม PIN?'), findsOneWidget);
@@ -687,6 +786,7 @@ class _AuthRedirectRepository extends AuthRepository {
       customerId: 'cus_default',
     ),
     this.loginError,
+    this.requestOtpError,
     this.registerError,
     this.verifyOtpResult =
         const OtpVerifyResult(verificationToken: 'otp_verified_register'),
@@ -698,6 +798,7 @@ class _AuthRedirectRepository extends AuthRepository {
 
   final CustomerSession loginSession;
   final Object? loginError;
+  final Object? requestOtpError;
   final Object? registerError;
   final OtpVerifyResult verifyOtpResult;
   final Completer<PinStatus>? pinStatusCompleter;
@@ -725,6 +826,8 @@ class _AuthRedirectRepository extends AuthRepository {
     required String purpose,
   }) async {
     requestOtpCalls++;
+    final error = requestOtpError;
+    if (error != null) throw error;
     return const OtpRequestResult(
       phoneMasked: '081xxx5678',
       resendAfterSeconds: 0,
@@ -770,8 +873,14 @@ class _AuthRedirectRepository extends AuthRepository {
   }
 
   @override
-  Future<void> verifyPin(String pin) async {
+  Future<PinStatus> verifyPin(String pin) async {
     lastVerifiedPin = pin;
+    return const PinStatus(
+      hasPin: true,
+      pinVerified: true,
+      pinRequired: false,
+      pinSetupRequired: false,
+    );
   }
 }
 

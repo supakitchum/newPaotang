@@ -89,7 +89,38 @@ DateTime? parseDateTime(Object? value) {
 String formatLocalizedDateTime(Object? value, String localeTag) {
   final date = parseDateTime(value);
   if (date == null) return '-';
-  return DateFormat('d MMM y HH:mm', _intlLocale(localeTag)).format(date);
+  return _formatLocalizedDateTimeValue(date, localeTag);
+}
+
+String formatBangkokLocalizedDateTime(Object? value, String localeTag) {
+  final date = _bangkokDateTime(value);
+  if (date == null) return '-';
+  return _formatLocalizedDateTimeValue(date, localeTag);
+}
+
+String formatBangkokLocalizedDateTimeWithSeconds(
+  Object? value,
+  String localeTag,
+) {
+  final date = _bangkokDateTime(value);
+  if (date == null) return '-';
+  return _formatLocalizedDateTimeValue(
+    date,
+    localeTag,
+    includeSeconds: true,
+  );
+}
+
+String formatBangkokLocalizedShortDate(Object? value, String localeTag) {
+  final date = _bangkokDateTime(value);
+  if (date == null) return '-';
+  return formatLocalizedShortDate(date, localeTag);
+}
+
+String formatBangkokLocalizedYear(Object? value, String localeTag) {
+  final date = _bangkokDateTime(value);
+  if (date == null) return '-';
+  return formatLocalizedYear(date, localeTag);
 }
 
 String formatLotteryDrawDateText({
@@ -106,14 +137,42 @@ String formatLotteryDrawDateText({
 }
 
 String formatLocalizedShortDate(DateTime date, String localeTag) {
+  if (_isThaiLocale(localeTag)) {
+    final dayMonth = DateFormat('d MMM', _intlLocale(localeTag)).format(date);
+    return '$dayMonth ${date.year + 543}';
+  }
   return DateFormat('d MMM y', _intlLocale(localeTag)).format(date);
 }
 
 String formatLocalizedYear(DateTime date, String localeTag) {
+  if (_isThaiLocale(localeTag)) return '${date.year + 543}';
   return DateFormat('y', _intlLocale(localeTag)).format(date);
 }
 
 String _intlLocale(String localeTag) => localeTag.replaceAll('-', '_');
+
+bool _isThaiLocale(String localeTag) =>
+    localeTag.trim().toLowerCase().startsWith('th');
+
+DateTime? _bangkokDateTime(Object? value) {
+  final date = parseDateTime(value);
+  return date?.toUtc().add(const Duration(hours: 7));
+}
+
+String _formatLocalizedDateTimeValue(
+  DateTime date,
+  String localeTag, {
+  bool includeSeconds = false,
+}) {
+  if (!_isThaiLocale(localeTag)) {
+    final pattern = includeSeconds ? 'd MMM y HH:mm:ss' : 'd MMM y HH:mm';
+    return DateFormat(pattern, _intlLocale(localeTag)).format(date);
+  }
+  final shortDate = formatLocalizedShortDate(date, localeTag);
+  final timePattern = includeSeconds ? 'HH:mm:ss' : 'HH:mm';
+  final time = DateFormat(timePattern, _intlLocale(localeTag)).format(date);
+  return '$shortDate $time';
+}
 
 String _currentMoneyLocaleTag() {
   final locale = Intl.defaultLocale?.trim();

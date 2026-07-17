@@ -15,6 +15,182 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets('wallet header only contains the menu title', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpWallet(
+      tester,
+      const WalletSummary(
+        wallets: [
+          CustomerWallet(
+            id: 'wallet_1',
+            name: 'G Wallet',
+            type: '1',
+            balance: 2240,
+          ),
+        ],
+        ledger: [],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final headerRect = tester.getRect(
+      find.byKey(const ValueKey('customer-fixed-hero')),
+    );
+    final sheetTop = tester
+        .getTopLeft(find.byKey(const ValueKey('wallet-content-sheet')))
+        .dy;
+    final walletCardTop = tester.getTopLeft(find.text('ยอดเงินในกระเป๋า')).dy;
+
+    expect(headerRect.height, 150);
+    expect(sheetTop, 150);
+    expect(walletCardTop, greaterThan(sheetTop));
+    expect(find.text('กระเป๋าของฉัน'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wallet history tabs filter incoming and outgoing entries', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpWallet(
+      tester,
+      const WalletSummary(
+        wallets: [
+          CustomerWallet(
+            id: 'wallet_1',
+            name: 'G Wallet',
+            type: '1',
+            balance: 2240,
+          ),
+        ],
+        ledger: [
+          WalletLedgerEntry(
+            id: 'credit_1',
+            entryType: 'credit',
+            referenceType: 'topup',
+            referenceId: 'topup_1',
+            reason: '',
+            amount: 500,
+            balanceAfter: 2320,
+            createdAt: '2026-07-16T10:00:00+07:00',
+          ),
+          WalletLedgerEntry(
+            id: 'debit_1',
+            entryType: 'debit',
+            referenceType: 'order',
+            referenceId: 'order_1',
+            reason: '',
+            amount: -80,
+            balanceAfter: 2240,
+            createdAt: '2026-07-16T11:00:00+07:00',
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ล่าสุด'), findsOneWidget);
+    expect(find.text('เงินเข้า'), findsOneWidget);
+    expect(find.text('เงินออก'), findsOneWidget);
+    expect(find.text('เติมเงินเข้า G Wallet'), findsOneWidget);
+    expect(find.text('ชำระค่าสลากดิจิทัล'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('wallet-filter-incoming')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เติมเงินเข้า G Wallet'), findsOneWidget);
+    expect(find.text('ชำระค่าสลากดิจิทัล'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('wallet-filter-outgoing')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เติมเงินเข้า G Wallet'), findsNothing);
+    expect(find.text('ชำระค่าสลากดิจิทัล'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('wallet-filter-latest')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เติมเงินเข้า G Wallet'), findsOneWidget);
+    expect(find.text('ชำระค่าสลากดิจิทัล'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wallet filtered history loads server pages beyond latest seed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _PagedWalletRepository();
+    await _pumpWallet(
+      tester,
+      const WalletSummary(
+        wallets: [
+          CustomerWallet(
+            id: 'wallet_1',
+            name: 'Runtime Wallet',
+            type: 'primary',
+            balance: 2240,
+          ),
+        ],
+        ledger: [
+          WalletLedgerEntry(
+            id: 'seed_debit',
+            entryType: 'debit',
+            referenceType: 'order',
+            referenceId: 'order_seed',
+            reason: 'รายการล่าสุด',
+            amount: -80,
+            balanceAfter: 2240,
+            createdAt: '2026-07-16T11:00:00+07:00',
+          ),
+        ],
+        ledgerNextCursor: 'v1.seed-cursor',
+        ledgerHasMore: true,
+      ),
+      overrides: [
+        walletRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final incomingTab = find.byKey(const ValueKey('wallet-filter-incoming'));
+    await tester.ensureVisible(incomingTab);
+    await tester.pumpAndSettle();
+    await tester.tap(incomingTab);
+    await tester.pumpAndSettle();
+
+    expect(find.text('เงินเข้าหน้าแรก'), findsOneWidget);
+    expect(find.text('รายการล่าสุด'), findsNothing);
+    expect(repository.calls, [
+      const _LedgerCall(WalletLedgerDirection.incoming, ''),
+    ]);
+
+    await tester.tap(find.byKey(const ValueKey('wallet-ledger-load-more')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เงินเข้าหน้าแรก'), findsOneWidget);
+    expect(find.text('เงินเข้าหน้าถัดไป'), findsOneWidget);
+    expect(repository.calls, [
+      const _LedgerCall(WalletLedgerDirection.incoming, ''),
+      const _LedgerCall(WalletLedgerDirection.incoming, 'v1.incoming-next'),
+    ]);
+    expect(find.byKey(const ValueKey('wallet-ledger-load-more')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('wallet screen refresh button reloads wallet summary', (
     tester,
   ) async {
@@ -73,14 +249,19 @@ void main() {
       find.text('รายการเติมเงิน ชำระเงิน และรับเงินรางวัล'),
       findsOneWidget,
     );
-    expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(find.text('เติมเงินเข้า G Wallet'), findsOneWidget);
     expect(
       tester.widget<Text>(find.textContaining('+500.00').first).style?.color,
       const Color(0xFF078254),
     );
     expect(find.byType(Card), findsNothing);
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byType(RefreshIndicator), findsNothing);
 
-    await tester.tap(find.byTooltip('โหลดรายการใหม่'));
+    final refreshButton = find.byTooltip('โหลดรายการใหม่');
+    await tester.ensureVisible(refreshButton);
+    await tester.pumpAndSettle();
+    await tester.tap(refreshButton);
     await tester.pumpAndSettle();
 
     expect(loads, 2);
@@ -403,7 +584,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(loads, 2);
-    expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(find.text('เติมเงินเข้า G Wallet'), findsOneWidget);
     expect(find.text('โหลดประวัติไม่สำเร็จ'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -465,7 +646,10 @@ void main() {
     expect(loads, 1);
     expect(find.text('อ้างอิง topup_1'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('โหลดรายการใหม่'));
+    final refreshButton = find.byTooltip('โหลดรายการใหม่');
+    await tester.ensureVisible(refreshButton);
+    await tester.pumpAndSettle();
+    await tester.tap(refreshButton);
     await tester.pumpAndSettle();
 
     expect(loads, 2);
@@ -549,7 +733,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ประวัติรายการเดินเงินล่าสุด'), findsOneWidget);
-    expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(find.text('เติมเงินเข้า G Wallet'), findsOneWidget);
     expect(find.textContaining('+123,456.78'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -691,4 +875,83 @@ CustomerProfileSettings _profileWithCustomerNo(String customerNo) {
       type: 'wallet_credit',
     ),
   );
+}
+
+class _PagedWalletRepository implements WalletRepository {
+  final calls = <_LedgerCall>[];
+
+  @override
+  Future<WalletLedgerPage> ledgerPage({
+    int limit = 12,
+    String cursor = '',
+    WalletLedgerDirection direction = WalletLedgerDirection.all,
+  }) async {
+    calls.add(_LedgerCall(direction, cursor));
+    if (direction == WalletLedgerDirection.incoming && cursor.isEmpty) {
+      return const WalletLedgerPage(
+        entries: [
+          WalletLedgerEntry(
+            id: 'incoming_1',
+            entryType: 'credit',
+            referenceType: 'topup',
+            referenceId: 'topup_1',
+            reason: 'เงินเข้าหน้าแรก',
+            amount: 500,
+            balanceAfter: 2740,
+            createdAt: '2026-07-15T10:00:00+07:00',
+          ),
+        ],
+        nextCursor: 'v1.incoming-next',
+        hasMore: true,
+      );
+    }
+    if (direction == WalletLedgerDirection.incoming) {
+      return const WalletLedgerPage(
+        entries: [
+          WalletLedgerEntry(
+            id: 'incoming_2',
+            entryType: 'credit',
+            referenceType: 'reward_claim',
+            referenceId: 'claim_1',
+            reason: 'เงินเข้าหน้าถัดไป',
+            amount: 100,
+            balanceAfter: 2840,
+            createdAt: '2026-07-14T10:00:00+07:00',
+          ),
+        ],
+      );
+    }
+    return const WalletLedgerPage(entries: []);
+  }
+
+  @override
+  Future<List<WalletLedgerEntry>> ledger({
+    int limit = 12,
+    WalletLedgerDirection direction = WalletLedgerDirection.all,
+  }) async {
+    return (await ledgerPage(limit: limit, direction: direction)).entries;
+  }
+
+  @override
+  Future<WalletSummary> summary() async =>
+      const WalletSummary(wallets: [], ledger: []);
+
+  @override
+  Future<List<CustomerWallet>> wallets() async => const [];
+}
+
+class _LedgerCall {
+  const _LedgerCall(this.direction, this.cursor);
+
+  final WalletLedgerDirection direction;
+  final String cursor;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _LedgerCall &&
+      other.direction == direction &&
+      other.cursor == cursor;
+
+  @override
+  int get hashCode => Object.hash(direction, cursor);
 }

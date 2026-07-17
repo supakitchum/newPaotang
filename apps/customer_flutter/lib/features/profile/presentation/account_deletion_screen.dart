@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 
@@ -33,12 +32,16 @@ class AccountDeletionScreen extends ConsumerWidget {
       currentPath: '/profile',
       backPath: '/profile',
       sensitive: true,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const _AccountDeletionHero(),
-          _AccountDeletionContentSheet(
-            child: CustomerPageBody(
+      showBottomNavigation: true,
+      heroMinHeight: 248,
+      heroSheetOverlap: MediaQuery.sizeOf(context).width >= 768 ? 28 : 38,
+      heroContentTopGap: 18,
+      heroContent: const _AccountDeletionHeroContent(),
+      child: _AccountDeletionContentSheet(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            CustomerPageBody(
               top: 16,
               bottom: 128,
               mobileHorizontal: 14,
@@ -50,8 +53,8 @@ class AccountDeletionScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -203,10 +206,16 @@ class _AccountDeletionContentState
 
   Future<void> _open(BuildContext context, Uri uri) async {
     setState(() => _noticeMessage = '');
-    final opened = await ref.read(customerLinkLauncherProvider).openExternal(
-          uri,
-        );
-    if (!opened && context.mounted) {
+    try {
+      final opened = await ref.read(customerLinkLauncherProvider).openExternal(
+            uri,
+          );
+      if (opened || !context.mounted) return;
+      setState(() {
+        _noticeMessage = context.l10n.accountDeletionLaunchFailed;
+      });
+    } catch (_) {
+      if (!context.mounted) return;
       setState(() {
         _noticeMessage = context.l10n.accountDeletionLaunchFailed;
       });
@@ -238,94 +247,65 @@ class _AccountDeletionLoadingCard extends StatelessWidget {
   }
 }
 
-class _AccountDeletionHero extends StatelessWidget {
-  const _AccountDeletionHero();
+class _AccountDeletionHeroContent extends StatelessWidget {
+  const _AccountDeletionHeroContent();
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.errorContainer,
+            border: Border.all(
+              color: colorScheme.onPrimary.withValues(alpha: 0.68),
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: SizedBox.square(
+            dimension: 62,
+            child: Icon(
+              Icons.delete_outline,
+              color: colorScheme.error,
+              size: 34,
+            ),
+          ),
         ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 720 ? 28.0 : 18.0;
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 920),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 28),
-                child: Row(
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorScheme.errorContainer,
-                        border: Border.all(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.68),
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: SizedBox.square(
-                        dimension: 62,
-                        child: Icon(
-                          Icons.delete_outline,
-                          color: colorScheme.error,
-                          size: 34,
-                        ),
-                      ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.accountDeletionHeroTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.accountDeletionHeroTitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  color: colorScheme.onPrimary,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.18,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n.accountDeletionHeroSubtitle,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colorScheme.onPrimary.withValues(
-                                alpha: 0.92,
-                              ),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.accountDeletionHeroSubtitle,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.45,
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

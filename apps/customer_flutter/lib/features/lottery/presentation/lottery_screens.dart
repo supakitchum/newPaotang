@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
+import '../../../core/auth/auth_token_store.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -55,7 +56,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
   @override
   void initState() {
     super.initState();
-    _currentGameFuture = ref.read(resultRepositoryProvider).currentGame();
+    _currentGameFuture = _loadCurrentGame();
   }
 
   @override
@@ -132,6 +133,21 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
     context.go('/buy/search');
   }
 
+  Future<CurrentGame?> _loadCurrentGame() async {
+    try {
+      return await ref.read(resultRepositoryProvider).currentGame();
+    } catch (error) {
+      if (mounted) {
+        await handleCustomerOperationalError(
+          ref: ref,
+          context: context,
+          error: error,
+        );
+      }
+      return null;
+    }
+  }
+
   void _syncCart(LotteryCart cart) {
     if (_sameCartSummary(_cart, cart)) return;
     setState(() => _cart = cart);
@@ -192,7 +208,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
   void initState() {
     super.initState();
     _digits = List.generate(6, (_) => TextEditingController());
-    _currentGameFuture = ref.read(resultRepositoryProvider).currentGame();
+    _currentGameFuture = _loadCurrentGame();
     _showResults = _queryHasLotterySearchInput(widget.query);
     _syncDigitsFromQuery();
   }
@@ -235,7 +251,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
       currentPath: '/buy',
       backPath: '/buy',
       showBottomNavigation: false,
-      heroMinHeight: 174,
+      heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       heroContent: const SizedBox.shrink(),
       child: _LotteryDockedPage(
@@ -340,6 +356,21 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
     context.go(lotterySearchPath(storeId: widget.query['store_id'] ?? ''));
   }
 
+  Future<CurrentGame?> _loadCurrentGame() async {
+    try {
+      return await ref.read(resultRepositoryProvider).currentGame();
+    } catch (error) {
+      if (mounted) {
+        await handleCustomerOperationalError(
+          ref: ref,
+          context: context,
+          error: error,
+        );
+      }
+      return null;
+    }
+  }
+
   void _syncDigitsFromQuery() {
     final values = _queryDigits(widget.query);
     for (var index = 0; index < _digits.length; index++) {
@@ -385,6 +416,7 @@ class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
       title: '',
       currentPath: '/buy',
       showBottomNavigation: false,
+      automaticallyImplyBack: false,
       heroMinHeight: 142,
       heroSheetOverlap: 24,
       heroContent: const SizedBox.shrink(),
@@ -712,57 +744,57 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         empty: _cart.isEmpty,
         onHero: true,
       ),
-      child: RefreshIndicator(
-        onRefresh: _load,
-        child: _CartReviewDockedPage(
-          physics: const AlwaysScrollableScrollPhysics(),
-          dock: (!_loading &&
-                  _error.isEmpty &&
-                  !(_cart.isEmpty || groupedTickets.isEmpty))
-              ? _CartPaymentDock(
-                  total: _cart.total,
-                  deadline: paymentDeadline,
-                  canCheckout: canCheckout,
-                  onCheckout: () => context.go('/checkout'),
-                )
-              : null,
-          children: [
-            if (_loading)
-              _LoadingMessageCard(message: l10n.cartLoading)
-            else if (_error.isNotEmpty)
-              _MessageCard(
+      child: _CartReviewDockedPage(
+        physics: const AlwaysScrollableScrollPhysics(),
+        dock: (!_loading &&
+                _error.isEmpty &&
+                !(_cart.isEmpty || groupedTickets.isEmpty))
+            ? _CartPaymentDock(
+                total: _cart.total,
+                deadline: paymentDeadline,
+                canCheckout: canCheckout,
+                onCheckout: () => context.go('/checkout'),
+              )
+            : null,
+        children: [
+          if (_loading)
+            _CheckoutSheetInset(
+              child: _LoadingMessageCard(message: l10n.cartLoading),
+            )
+          else if (_error.isNotEmpty)
+            _CheckoutSheetInset(
+              child: _MessageCard(
                 icon: Icons.error_outline,
                 title: l10n.cartLoadFailedTitle,
                 message: _error,
                 actionLabel: l10n.commonRetry,
                 onAction: _load,
-              )
-            else if (_cart.isEmpty || groupedTickets.isEmpty) ...[
-              _CartEmptySheetState(
-                title: l10n.cartEmptyTitle,
-                message: l10n.cartEmptyMessage,
               ),
-              _CartPurchaseLimitNotice(onAddMore: () => context.go('/buy')),
-            ] else ...[
-              if (_noticeMessage.isNotEmpty) ...[
-                _InlineNoticeCard(message: _noticeMessage),
-                const SizedBox(height: 12),
-              ],
-              for (final group in groupedTickets)
-                _CartTicketGroupCard(
-                  group: group,
-                  productMarker: productMarker,
-                  busy: _busy,
-                  onRelease: () => _releaseGroup(group),
-                ),
-              const SizedBox(height: 24),
-              _CartPurchaseLimitNotice(
-                onAddMore: () => context.go('/buy'),
-                anchorButtonNearDock: true,
-              ),
+            )
+          else if (_cart.isEmpty || groupedTickets.isEmpty) ...[
+            _CartEmptySheetState(
+              title: l10n.cartEmptyTitle,
+              message: l10n.cartEmptyMessage,
+            ),
+            _CartPurchaseLimitNotice(onAddMore: () => context.go('/buy')),
+          ] else ...[
+            if (_noticeMessage.isNotEmpty) ...[
+              _InlineNoticeCard(message: _noticeMessage),
+              const SizedBox(height: 12),
             ],
+            for (final group in groupedTickets)
+              _CartTicketGroupCard(
+                group: group,
+                productMarker: productMarker,
+                busy: _busy,
+                onRelease: () => _releaseGroup(group),
+              ),
+            const SizedBox(height: 24),
+            _CartPurchaseLimitNotice(
+              onAddMore: () => context.go('/buy'),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -778,7 +810,15 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       CurrentGame? currentGame;
       try {
         currentGame = await ref.read(resultRepositoryProvider).currentGame();
-      } catch (_) {
+      } catch (error) {
+        if (mounted &&
+            await handleCustomerOperationalError(
+              ref: ref,
+              context: context,
+              error: error,
+            )) {
+          return;
+        }
         currentGame = null;
       }
       if (!mounted) return;
@@ -790,6 +830,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(
         () => _error = _errorMessage(error, context.l10n.cartGenericRetry),
       );
@@ -856,6 +903,18 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       }
     } catch (error) {
       if (!mounted) return;
+      final operationalRedirect =
+          ApiErrorInfo.fromObject(error).operationalRedirectPath;
+      if (operationalRedirect != null && dialogContext.mounted) {
+        Navigator.of(dialogContext).pop();
+      }
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(
         () => _noticeMessage = _errorMessage(
           error,
@@ -921,7 +980,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               reservationId,
             );
       }
-    } catch (_) {
+    } catch (error) {
+      if (mounted &&
+          await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          )) {
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _releasingExpiredCart = false;
+          });
+        }
+        return;
+      }
       // Nuxt clears the local cart after timeout even when release refreshes fail.
     }
 
@@ -1026,139 +1099,13 @@ class _CartHeaderSummary extends StatelessWidget {
     );
 
     if (!onHero) return summary;
-
-    return SizedBox(
-      height: 112,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            right: 108,
-            child: Align(alignment: Alignment.topLeft, child: summary),
-          ),
-          const Positioned(
-            right: -3,
-            top: 5,
-            child: _CartHeroPaymentIllustration(),
-          ),
-        ],
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: summary,
       ),
     );
-  }
-}
-
-class _CartHeroPaymentIllustration extends StatelessWidget {
-  const _CartHeroPaymentIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return IgnorePointer(
-      child: CustomPaint(
-        size: const Size(126, 78),
-        painter: _CartHeroPaymentPainter(
-          primary: colorScheme.primary,
-          secondary: colorScheme.secondary,
-          yellow: colorScheme.tertiary,
-          surface: colorScheme.surface,
-          shadow: colorScheme.shadow,
-        ),
-      ),
-    );
-  }
-}
-
-class _CartHeroPaymentPainter extends CustomPainter {
-  const _CartHeroPaymentPainter({
-    required this.primary,
-    required this.secondary,
-    required this.yellow,
-    required this.surface,
-    required this.shadow,
-  });
-
-  final Color primary;
-  final Color secondary;
-  final Color yellow;
-  final Color surface;
-  final Color shadow;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final shadowPaint = Paint()
-      ..color = Color.lerp(shadow, primary, 0.24)?.withValues(alpha: 0.16) ??
-          shadow.withValues(alpha: 0.14)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    final paperPaint = Paint()
-      ..color = Color.lerp(surface, yellow, 0.2)!.withValues(alpha: 0.95);
-    final paperAccent = Paint()
-      ..color = Color.lerp(primary, surface, 0.78)!.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-    final lilacPaint = Paint()
-      ..color = Color.lerp(secondary, surface, 0.56)!.withValues(alpha: 0.8);
-    final coinPaint = Paint()..color = yellow.withValues(alpha: 0.94);
-    final coinStroke = Paint()
-      ..color = Color.lerp(yellow, primary, 0.28)!.withValues(alpha: 0.84)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    canvas.save();
-    canvas.translate(size.width * 0.54, size.height * 0.16);
-    canvas.rotate(0.28);
-    final rearPaper = RRect.fromRectAndRadius(
-      Rect.fromLTWH(-10, 12, size.width * 0.54, size.height * 0.34),
-      const Radius.circular(6),
-    );
-    canvas.drawRRect(rearPaper.shift(const Offset(0, 5)), shadowPaint);
-    canvas.drawRRect(rearPaper, lilacPaint);
-    canvas.drawLine(
-      Offset(1, size.height * 0.28),
-      Offset(size.width * 0.3, size.height * 0.34),
-      paperAccent,
-    );
-    canvas.restore();
-
-    canvas.save();
-    canvas.translate(size.width * 0.45, size.height * 0.36);
-    canvas.rotate(-0.18);
-    final frontPaper = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width * 0.56, size.height * 0.42),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(frontPaper.shift(const Offset(0, 6)), shadowPaint);
-    canvas.drawRRect(frontPaper, paperPaint);
-    canvas.drawLine(
-      Offset(size.width * 0.08, size.height * 0.15),
-      Offset(size.width * 0.4, size.height * 0.11),
-      paperAccent,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.1, size.height * 0.27),
-      Offset(size.width * 0.32, size.height * 0.25),
-      paperAccent..strokeWidth = 4,
-    );
-    canvas.restore();
-
-    void drawCoin(Offset center, double radius) {
-      canvas.drawCircle(center.translate(0, 3), radius, shadowPaint);
-      canvas.drawCircle(center, radius, coinPaint);
-      canvas.drawCircle(center, radius * 0.68, coinStroke);
-    }
-
-    drawCoin(Offset(size.width * 0.28, size.height * 0.38), 10);
-    drawCoin(Offset(size.width * 0.78, size.height * 0.2), 7);
-    drawCoin(Offset(size.width * 0.9, size.height * 0.58), 8);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CartHeroPaymentPainter oldDelegate) {
-    return primary != oldDelegate.primary ||
-        secondary != oldDelegate.secondary ||
-        yellow != oldDelegate.yellow ||
-        surface != oldDelegate.surface ||
-        shadow != oldDelegate.shadow;
   }
 }
 
@@ -1206,20 +1153,13 @@ class _CartEmptySheetState extends StatelessWidget {
 class _CartPurchaseLimitNotice extends StatelessWidget {
   const _CartPurchaseLimitNotice({
     required this.onAddMore,
-    this.anchorButtonNearDock = false,
   });
 
   final VoidCallback onAddMore;
-  final bool anchorButtonNearDock;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final buttonGap = anchorButtonNearDock
-        ? (MediaQuery.sizeOf(context).height * 0.24)
-            .clamp(96.0, 260.0)
-            .toDouble()
-        : 12.0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -1235,7 +1175,7 @@ class _CartPurchaseLimitNotice extends StatelessWidget {
                   height: 1.45,
                 ),
           ),
-          SizedBox(height: buttonGap),
+          const SizedBox(height: 12),
           Align(
             alignment: Alignment.center,
             child: DecoratedBox(
@@ -1537,6 +1477,13 @@ class _CheckoutPendingPaymentScreenState
   @override
   Widget build(BuildContext context) {
     final id = widget.orderId.trim();
+    if (id.isNotEmpty) {
+      listenForCustomerOperationalError<PurchaseHistoryOrder>(
+        ref: ref,
+        context: context,
+        provider: purchaseHistoryDetailProvider(id),
+      );
+    }
     final order = id.isEmpty
         ? const AsyncValue<PurchaseHistoryOrder?>.data(null)
         : ref.watch(purchaseHistoryDetailProvider(id)).whenData((value) {
@@ -1548,7 +1495,9 @@ class _CheckoutPendingPaymentScreenState
       backPath: '/checkout',
       sensitive: true,
       showBottomNavigation: false,
-      heroMinHeight: 190,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
       heroContent: const SizedBox.shrink(),
       child: order.when(
         data: (item) {
@@ -1992,6 +1941,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final l10n = context.l10n;
     final paymentMethods = ref.watch(checkoutPaymentMethodsProvider);
+    final paymentMethodLabels = ref.watch(
+      checkoutPaymentMethodLabelsProvider,
+    );
     final defaultPaymentMethod = ref.watch(checkoutPaymentMethodProvider);
     final selectedPaymentMethod = _effectiveCheckoutPaymentMethod(
       paymentMethods,
@@ -2033,72 +1985,70 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         loading: _loading,
         error: _error,
       ),
-      child: RefreshIndicator(
-        onRefresh: _load,
-        child: _CheckoutDockedPage(
-          physics: const AlwaysScrollableScrollPhysics(),
-          dock: (!_loading &&
-                  _error.isEmpty &&
-                  !(_cart.isEmpty || !hasActivePayment))
-              ? _CheckoutConfirmDock(
-                  deadline: paymentDeadline,
-                  submitting: _submitting,
-                  enabled: canUseSelectedPayment && hasActivePayment,
-                  label: confirmLabel,
-                  onConfirm: _submitCheckout,
-                )
-              : null,
-          children: [
-            if (_loading)
-              _CheckoutSheetInset(
-                child: _LoadingMessageCard(message: l10n.checkoutPreparing),
+      child: _CheckoutDockedPage(
+        physics: const AlwaysScrollableScrollPhysics(),
+        dock: (!_loading &&
+                _error.isEmpty &&
+                !(_cart.isEmpty || !hasActivePayment))
+            ? _CheckoutConfirmDock(
+                deadline: paymentDeadline,
+                submitting: _submitting,
+                enabled: canUseSelectedPayment && hasActivePayment,
+                label: confirmLabel,
+                onConfirm: _submitCheckout,
               )
-            else if (_error.isNotEmpty)
-              _CheckoutSheetInset(
-                child: _MessageCard(
-                  icon: Icons.error_outline,
-                  title: l10n.checkoutLoadFailedTitle,
-                  message: _error,
-                  actionLabel: l10n.commonRetry,
-                  onAction: _load,
-                ),
-              )
-            else if (_cart.isEmpty || !hasActivePayment)
-              _CheckoutSheetInset(
-                child: _MessageCard(
-                  icon: Icons.shopping_cart_outlined,
-                  title: l10n.checkoutNoPaymentTitle,
-                  message: l10n.checkoutNoPaymentMessage,
-                  actionLabel: l10n.checkoutBackToBuy,
-                  onAction: () => context.go('/buy'),
-                ),
-              )
-            else ...[
-              if (_noticeMessage.isNotEmpty) ...[
-                _CheckoutSheetInset(
-                  child: _InlineNoticeCard(message: _noticeMessage),
-                ),
-                const SizedBox(height: 12),
-              ],
-              _CheckoutPaymentMethodCard(
-                walletName: walletName,
-                balance: _walletBalance,
-                walletLoading: _walletLoading,
-                enoughBalance: enoughBalance,
-                walletError: _walletError,
-                methods: paymentMethods,
-                selectedMethod: selectedPaymentMethod,
-                onMethodChanged: (method) {
-                  setState(() {
-                    _selectedPaymentMethod = method;
-                    _noticeMessage = '';
-                  });
-                },
-                onTopup: () => context.go('/topup?back=/checkout'),
+            : null,
+        children: [
+          if (_loading)
+            _CheckoutSheetInset(
+              child: _LoadingMessageCard(message: l10n.checkoutPreparing),
+            )
+          else if (_error.isNotEmpty)
+            _CheckoutSheetInset(
+              child: _MessageCard(
+                icon: Icons.error_outline,
+                title: l10n.checkoutLoadFailedTitle,
+                message: _error,
+                actionLabel: l10n.commonRetry,
+                onAction: _load,
               ),
+            )
+          else if (_cart.isEmpty || !hasActivePayment)
+            _CheckoutSheetInset(
+              child: _MessageCard(
+                icon: Icons.shopping_cart_outlined,
+                title: l10n.checkoutNoPaymentTitle,
+                message: l10n.checkoutNoPaymentMessage,
+                actionLabel: l10n.checkoutBackToBuy,
+                onAction: () => context.go('/buy'),
+              ),
+            )
+          else ...[
+            if (_noticeMessage.isNotEmpty) ...[
+              _CheckoutSheetInset(
+                child: _InlineNoticeCard(message: _noticeMessage),
+              ),
+              const SizedBox(height: 12),
             ],
+            _CheckoutPaymentMethodCard(
+              walletName: walletName,
+              balance: _walletBalance,
+              walletLoading: _walletLoading,
+              enoughBalance: enoughBalance,
+              walletError: _walletError,
+              methods: paymentMethods,
+              methodLabels: paymentMethodLabels,
+              selectedMethod: selectedPaymentMethod,
+              onMethodChanged: (method) {
+                setState(() {
+                  _selectedPaymentMethod = method;
+                  _noticeMessage = '';
+                });
+              },
+              onTopup: () => context.go('/topup?back=/checkout'),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -2117,6 +2067,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       cart = await ref.read(lotteryRepositoryProvider).cart();
     } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(() {
         _error = _errorMessage(error, context.l10n.cartGenericRetry);
         _loading = false;
@@ -2148,6 +2105,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       walletSummary = await ref.read(walletRepositoryProvider).summary();
     } catch (error) {
+      if (mounted &&
+          await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          )) {
+        if (mounted) {
+          setState(() => _walletLoading = false);
+        }
+        return;
+      }
       walletError = _errorMessage(error, walletLoadFailed);
     }
     if (!mounted) return;
@@ -2201,6 +2169,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(
         () => _noticeMessage = _checkoutErrorMessage(
           error,
@@ -2296,7 +2271,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               reservationId,
             );
       }
-    } catch (_) {
+    } catch (error) {
+      if (mounted &&
+          await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          )) {
+        if (mounted) {
+          setState(() {
+            _submitting = false;
+            _releasingExpiredCart = false;
+          });
+        }
+        return;
+      }
       // Nuxt clears the local cart after timeout even when release refreshes fail.
     }
 
@@ -2517,6 +2506,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
             reserved: _reservedIdForStock(_items[index]) != null,
             busy: _busyStockId == _stockUiKey(_items[index]),
             reserveDisabled: !_canReserve,
+            showSellerName: false,
             showTicketImage: widget.showTicketImages,
             highlightDigits: widget.digits,
             morePath: widget.showMoreLink
@@ -2605,6 +2595,13 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       widget.onCartChanged?.call(cart);
     } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(
         () => _error = _errorMessage(error, context.l10n.lotteryLoadFailed),
       );
@@ -2780,8 +2777,11 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     if (_busyStockId.isNotEmpty) return;
     final stockKey = _stockUiKey(item);
     final reservedId = _reservedIdForStock(item);
+    final auth = ref.read(authControllerProvider);
+    final hasAccessToken = ref.read(authTokenStoreProvider).hasAccessToken;
     if ((reservedId == null || reservedId.isEmpty) &&
-        !ref.read(authControllerProvider).isAuthenticated) {
+        !auth.isAuthenticated &&
+        !hasAccessToken) {
       context.go(
         customerLoginRouteForRedirect(GoRouterState.of(context).uri.toString()),
       );
@@ -2818,12 +2818,19 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       if (!mounted) return;
       if (_isReservationUnavailableError(error)) {
         setState(() => _busyStockId = '');
-        await _refreshCartQuietly();
+        if (await _refreshCartQuietly()) return;
         if (!mounted) return;
         await _showReservationUnavailableDialog(
           item,
           removeItem: reservedId == null || reservedId.isEmpty,
         );
+        return;
+      }
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
         return;
       }
       setState(() {
@@ -2848,13 +2855,23 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     return null;
   }
 
-  Future<void> _refreshCartQuietly() async {
+  Future<bool> _refreshCartQuietly() async {
     try {
       final cart = await ref.read(lotteryRepositoryProvider).cart();
       _syncReservedCart(cart);
-    } catch (_) {
+      return false;
+    } catch (error) {
+      if (mounted &&
+          await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          )) {
+        return true;
+      }
       // Nuxt refreshes cart after booking races, but keeps the customer in flow
       // even when that refresh cannot complete.
+      return false;
     }
   }
 
@@ -3304,6 +3321,7 @@ class _LotteryStockCard extends StatelessWidget {
     required this.reserved,
     required this.busy,
     required this.reserveDisabled,
+    required this.showSellerName,
     required this.showTicketImage,
     required this.highlightDigits,
     required this.morePath,
@@ -3314,6 +3332,7 @@ class _LotteryStockCard extends StatelessWidget {
   final bool reserved;
   final bool busy;
   final bool reserveDisabled;
+  final bool showSellerName;
   final bool showTicketImage;
   final List<String> highlightDigits;
   final String morePath;
@@ -3324,9 +3343,7 @@ class _LotteryStockCard extends StatelessWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final unavailable = !reserved && !item.isAvailable;
-    final sellerName = item.sellerName.trim().isEmpty
-        ? l10n.storesFallbackStoreName
-        : item.sellerName.trim();
+    final sellerName = item.sellerName.trim();
     return LotteryUnavailableRowVisualState(
       unavailable: unavailable,
       child: DecoratedBox(
@@ -3439,24 +3456,30 @@ class _LotteryStockCard extends StatelessWidget {
               final bottomRow = Row(
                 key: const ValueKey('lottery-stock-meta-price-row'),
                 children: [
-                  Expanded(
-                    child: Text(
-                      sellerName,
-                      key: const ValueKey('lottery-stock-seller-row'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.appMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+                  if (showSellerName && sellerName.isNotEmpty)
+                    Expanded(
+                      child: Text(
+                        sellerName,
+                        key: const ValueKey('lottery-stock-seller-row'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.appMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (showSellerName && sellerName.isNotEmpty)
+                    const SizedBox(width: 12)
+                  else
+                    const SizedBox(width: 0),
                   _LotteryStockPriceText(item: item),
                 ],
               );
 
-              return Column(
+              final content = Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   brandHeader,
@@ -3466,6 +3489,7 @@ class _LotteryStockCard extends StatelessWidget {
                   bottomRow,
                 ],
               );
+              return content;
             },
           ),
         ),
@@ -3706,10 +3730,11 @@ class _LotteryFilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const foreground = AppTheme.appFilterPillText;
+    final primary = Theme.of(context).colorScheme.primary;
     final selectedForeground =
-        selected ? AppTheme.appOutlinePillText : foreground;
+        selected ? AppTheme.primaryOutlineText(primary) : foreground;
     final borderColor =
-        selected ? AppTheme.appFilterPillActiveBorder : Colors.transparent;
+        selected ? AppTheme.primaryFilterBorder(primary) : Colors.transparent;
     return Semantics(
       button: true,
       selected: selected,
@@ -3884,7 +3909,7 @@ class _CheckoutDockedPage extends StatelessWidget {
           children: [
             ...children,
             if (dock != null) ...[
-              const SizedBox(height: 265),
+              const _CheckoutDockSpacer(),
               dock!,
             ],
           ],
@@ -3931,6 +3956,18 @@ class _LotteryContentSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CheckoutDockSpacer extends StatelessWidget {
+  const _CheckoutDockSpacer();
+
+  @override
+  Widget build(BuildContext context) {
+    final height = (MediaQuery.sizeOf(context).height * 0.28)
+        .clamp(104.0, 265.0)
+        .toDouble();
+    return SizedBox(height: height);
   }
 }
 
@@ -4133,6 +4170,7 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
     required this.enoughBalance,
     required this.walletError,
     required this.methods,
+    required this.methodLabels,
     required this.selectedMethod,
     required this.onMethodChanged,
     required this.onTopup,
@@ -4144,6 +4182,7 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
   final bool enoughBalance;
   final String walletError;
   final List<String> methods;
+  final Map<String, String> methodLabels;
   final String selectedMethod;
   final ValueChanged<String> onMethodChanged;
   final VoidCallback onTopup;
@@ -4157,20 +4196,17 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ColoredBox(
+        Padding(
           key: const ValueKey('checkout-payment-method-section-header'),
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 23, 18, 20),
-            child: Text(
-              l10n.checkoutPaymentMethodTitle,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-            ),
+          padding: const EdgeInsets.fromLTRB(18, 23, 18, 20),
+          child: Text(
+            l10n.checkoutPaymentMethodTitle,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
           ),
         ),
         Padding(
@@ -4180,6 +4216,7 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
               for (final method in normalizedMethods) ...[
                 _CheckoutPaymentMethodOptionCard(
                   method: method,
+                  runtimeLabel: methodLabels[method] ?? '',
                   selected: method == selectedMethod,
                   walletName: walletName,
                   balance: balance,
@@ -4264,6 +4301,7 @@ class _CheckoutConfirmDock extends StatelessWidget {
 class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
   const _CheckoutPaymentMethodOptionCard({
     required this.method,
+    required this.runtimeLabel,
     required this.selected,
     required this.walletName,
     required this.balance,
@@ -4275,6 +4313,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
   });
 
   final String method;
+  final String runtimeLabel;
   final bool selected;
   final String walletName;
   final double balance;
@@ -4290,7 +4329,11 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final walletMethod = method == checkoutPaymentMethodWallet;
-    final title = walletMethod ? walletName : l10n.checkoutExternalPaymentName;
+    final title = walletMethod
+        ? walletName
+        : runtimeLabel.trim().isNotEmpty
+            ? runtimeLabel.trim()
+            : l10n.checkoutExternalPaymentName;
     final subtitle = walletMethod && walletLoading
         ? l10n.checkoutWalletLoading
         : walletMethod
@@ -4300,7 +4343,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
         ? l10n.checkoutWalletPaymentNote
         : l10n.checkoutExternalPaymentNote;
     final borderColor = selected
-        ? AppTheme.appCheckoutWalletBorder
+        ? AppTheme.checkoutWalletBorder(colorScheme.primary)
         : colorScheme.outlineVariant.withValues(alpha: 0.7);
     return DecoratedBox(
       key: ValueKey('checkout-payment-method-option-$method'),
@@ -4365,6 +4408,8 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -4423,7 +4468,10 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                       final methodMark = DecoratedBox(
                         decoration: BoxDecoration(
                           color: markSelected
-                              ? AppTheme.appCheckoutWalletMark
+                              ? AppTheme.checkoutWalletMark(
+                                  colorScheme.primary,
+                                  colorScheme.secondary,
+                                )
                               : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -4493,7 +4541,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: walletMethod
-                        ? AppTheme.appCheckoutWalletNoteFill
+                        ? AppTheme.checkoutWalletNoteFill(colorScheme.primary)
                         : colorScheme.surfaceContainerHighest.withValues(
                             alpha: selected ? 0.56 : 0.36,
                           ),
@@ -4506,7 +4554,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                     note,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: walletMethod
-                          ? AppTheme.appCheckoutWalletNoteText
+                          ? AppTheme.checkoutWalletNoteText(colorScheme.primary)
                           : colorScheme.onSurfaceVariant,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -4566,7 +4614,6 @@ class _CartTicketGroupCard extends StatelessWidget {
           children: [
             _CartTicketBrandActionRow(
               productMarker: productMarker,
-              number: group.number,
             ),
             const SizedBox(height: 14),
             LayoutBuilder(
@@ -4673,11 +4720,9 @@ class _CartTicketGroupCard extends StatelessWidget {
 class _CartTicketBrandActionRow extends ConsumerWidget {
   const _CartTicketBrandActionRow({
     required this.productMarker,
-    required this.number,
   });
 
   final String productMarker;
-  final String number;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -4691,10 +4736,6 @@ class _CartTicketBrandActionRow extends ConsumerWidget {
           },
           orElse: () => fallbackMarker,
         );
-    final morePath = lotteryMorePath(
-      number: number,
-      backPath: GoRouterState.of(context).uri.toString(),
-    );
     return Row(
       key: const ValueKey('cart-ticket-product-row'),
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -4723,33 +4764,6 @@ class _CartTicketBrandActionRow extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        TextButton(
-          onPressed: () => context.go(morePath),
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.primary,
-            minimumSize: const Size(0, 44),
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-          ).copyWith(
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          ),
-          child: Text(
-            l10n.lotteryViewMore,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              decoration: TextDecoration.underline,
-              decorationColor: colorScheme.primary,
-              decorationThickness: 1.5,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -4768,14 +4782,15 @@ class _CartRemovePillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
+    final primary = Theme.of(context).colorScheme.primary;
     final foreground =
         enabled ? AppTheme.appSheet : AppTheme.appOutlinePillDisabledText;
     final decoration = BoxDecoration(
       gradient: enabled
-          ? const LinearGradient(
+          ? LinearGradient(
               colors: [
-                AppTheme.appActionStart,
-                AppTheme.appActionEnd,
+                AppTheme.primaryActionStart(primary),
+                AppTheme.primaryActionEnd(primary),
               ],
             )
           : null,
@@ -4879,88 +4894,11 @@ class _LotteryStockNumberMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final drawNumber = _lotteryStockDrawNumber(item);
-    final setNumber = _lotteryStockSetNumber(item);
-    final hasMeta = drawNumber.isNotEmpty || setNumber.isNotEmpty;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final showMeta = hasMeta && constraints.maxWidth >= 248;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _LotteryNumber(
-              number: number,
-              highlightDigits: _effectiveLotteryHighlightDigits(
-                item,
-                highlightDigits,
-              ),
-            ),
-            if (showMeta) ...[
-              const SizedBox(width: 8),
-              if (drawNumber.isNotEmpty)
-                _LotteryStockMetaColumn(
-                  label: context.l10n.ticketLabelDrawNumber,
-                  value: drawNumber,
-                ),
-              if (drawNumber.isNotEmpty && setNumber.isNotEmpty)
-                const SizedBox(width: 6),
-              if (setNumber.isNotEmpty)
-                _LotteryStockMetaColumn(
-                  label: context.l10n.ticketLabelSetNumber,
-                  value: setNumber,
-                ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _LotteryStockMetaColumn extends StatelessWidget {
-  const _LotteryStockMetaColumn({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 40,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  height: 1.1,
-                ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  height: 1.05,
-                ),
-          ),
-        ],
+    return _LotteryNumber(
+      number: number,
+      highlightDigits: _effectiveLotteryHighlightDigits(
+        item,
+        highlightDigits,
       ),
     );
   }
@@ -5025,39 +4963,6 @@ List<String> _normalizedLotteryHighlightDigits(
           ? normalized[index].substring(0, 1)
           : '',
   ];
-}
-
-String _lotteryStockDrawNumber(LotteryStockItem? item) {
-  return _firstLotteryStockText([
-    item?.raw['draw_no'],
-    item?.raw['drawNo'],
-    item?.raw['draw_number'],
-    item?.raw['drawNumber'],
-    item?.raw['lottery_draw_no'],
-    item?.raw['lotteryDrawNo'],
-    item?.raw['draw'],
-  ]);
-}
-
-String _lotteryStockSetNumber(LotteryStockItem? item) {
-  return _firstLotteryStockText([
-    item?.raw['set'],
-    item?.raw['set_no'],
-    item?.raw['setNo'],
-    item?.raw['set_number'],
-    item?.raw['setNumber'],
-    item?.raw['lottery_set_no'],
-    item?.raw['lotterySetNo'],
-    item?.raw['series'],
-  ]);
-}
-
-String _firstLotteryStockText(Iterable<Object?> values) {
-  for (final value in values) {
-    final text = value?.toString().trim() ?? '';
-    if (text.isNotEmpty && text != 'null') return text;
-  }
-  return '';
 }
 
 class _AmountRow extends StatelessWidget {
@@ -5576,13 +5481,11 @@ Future<void> showLotteryReservationUnavailableNotice(
   BuildContext context,
 ) {
   final l10n = context.l10n;
-  return showModalBottomSheet<void>(
+  return showDialog<void>(
     context: context,
-    useSafeArea: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.42),
-    builder: (_) => _ReservationUnavailableSheet(
+    barrierDismissible: false,
+    barrierColor: const Color(0x94001636),
+    builder: (_) => _ReservationUnavailableDialog(
       title: l10n.lotteryReservationUnavailableTitle,
       message: l10n.lotteryReservationUnavailableMessage,
       actionLabel: l10n.lotteryReservationUnavailableAction,
@@ -5590,8 +5493,8 @@ Future<void> showLotteryReservationUnavailableNotice(
   );
 }
 
-class _ReservationUnavailableSheet extends StatelessWidget {
-  const _ReservationUnavailableSheet({
+class _ReservationUnavailableDialog extends StatelessWidget {
+  const _ReservationUnavailableDialog({
     required this.title,
     required this.message,
     required this.actionLabel,
@@ -5603,83 +5506,80 @@ class _ReservationUnavailableSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
-      child: Align(
-        alignment: Alignment.bottomCenter,
+    return Dialog(
+      key: const ValueKey('reservation-unavailable-dialog'),
+      insetPadding: const EdgeInsets.all(28),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      child: SingleChildScrollView(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: DecoratedBox(
-            decoration: _lotterySurfaceDecoration(
-              context,
-              borderRadius: BorderRadius.circular(20),
-              borderColor: colorScheme.error.withValues(alpha: 0.18),
-              color: colorScheme.surface,
-              shadowAlpha: 0.18,
-              blurRadius: 34,
+          constraints: const BoxConstraints(maxWidth: 342),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 31, 24, 25),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFFFF),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x3D002658),
+                  blurRadius: 44,
+                  offset: Offset(0, 20),
+                ),
+              ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const SizedBox(width: 42, height: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 66,
+                  height: 66,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFF4DF),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 18),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.errorContainer.withValues(alpha: 0.7),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox.square(
-                      dimension: 58,
-                      child: Icon(
-                        Icons.error_outline_rounded,
-                        color: colorScheme.onErrorContainer,
-                        size: 30,
-                      ),
-                    ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.priority_high_rounded,
+                    color: Color(0xFFF19B00),
+                    size: 38,
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w900,
-                      height: 1.25,
-                    ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: textTheme.titleLarge?.copyWith(
+                    color: const Color(0xFF242833),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
-                    ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF5D6470),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 1.55,
                   ),
-                  const SizedBox(height: 18),
-                  FilledButton(
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: CustomerGradientButton.text(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      shape: const StadiumBorder(),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    child: Text(actionLabel),
+                    height: 52,
+                    fontSize: 18,
+                    label: actionLabel,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -5846,12 +5746,13 @@ BoxDecoration _lotterySmallGradientPillDecoration(
   BuildContext context, {
   bool enabled = true,
 }) {
+  final primary = Theme.of(context).colorScheme.primary;
   return BoxDecoration(
     gradient: enabled
-        ? const LinearGradient(
+        ? LinearGradient(
             colors: [
-              AppTheme.appActionStart,
-              AppTheme.appActionEnd,
+              AppTheme.primaryActionStart(primary),
+              AppTheme.primaryActionEnd(primary),
             ],
           )
         : null,
@@ -5917,8 +5818,9 @@ LotteryDigitInputStyle _lotteryDigitBoxesStyle(BuildContext context) {
 }
 
 ButtonStyle _lotteryTextLinkButtonStyle(BuildContext context) {
+  final primary = Theme.of(context).colorScheme.primary;
   return TextButton.styleFrom(
-    foregroundColor: AppTheme.appBlueLink,
+    foregroundColor: AppTheme.primaryLink(primary),
     minimumSize: const Size(0, 36),
     padding: EdgeInsets.zero,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -5935,8 +5837,11 @@ ButtonStyle _lotteryOutlinePillButtonStyle(
   BuildContext context, {
   bool enabled = true,
 }) {
+  final primary = Theme.of(context).colorScheme.primary;
+  final outlineText = AppTheme.primaryOutlineText(primary);
+  final outlineBorder = AppTheme.primaryOutlineBorder(primary);
   return OutlinedButton.styleFrom(
-    foregroundColor: AppTheme.appOutlinePillText,
+    foregroundColor: outlineText,
     disabledForegroundColor: AppTheme.appOutlinePillDisabledText,
     minimumSize: const Size(0, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -5946,9 +5851,7 @@ ButtonStyle _lotteryOutlinePillButtonStyle(
     disabledBackgroundColor: AppTheme.appOutlinePillDisabledFill,
     shape: const StadiumBorder(),
     side: BorderSide(
-      color: enabled
-          ? AppTheme.appOutlinePillBorder
-          : AppTheme.appOutlinePillDisabledBorder,
+      color: enabled ? outlineBorder : AppTheme.appOutlinePillDisabledBorder,
     ),
     textStyle: const TextStyle(fontWeight: FontWeight.w600),
   ).copyWith(
@@ -5963,7 +5866,7 @@ ButtonStyle _lotteryOutlinePillButtonStyle(
       if (!enabled || states.contains(WidgetState.disabled)) {
         return const BorderSide(color: AppTheme.appOutlinePillDisabledBorder);
       }
-      return const BorderSide(color: AppTheme.appOutlinePillBorder);
+      return BorderSide(color: outlineBorder);
     }),
   );
 }

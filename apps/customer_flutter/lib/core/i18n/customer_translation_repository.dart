@@ -13,10 +13,10 @@ final customerTranslationRepositoryProvider =
 });
 
 final customerTranslationBundleProvider =
-    FutureProvider<Map<String, String>>((ref) async {
+    FutureProvider<CustomerTranslationBundle>((ref) async {
   final config = ref.watch(appConfigProvider);
   if (!customerTranslationRuntimeFetchAllowed(config.apiBaseUrl)) {
-    return const <String, String>{};
+    return const CustomerTranslationBundle();
   }
 
   final locale = ref.watch(customerLocaleProvider);
@@ -31,12 +31,32 @@ final customerTranslationBundleProvider =
   );
 });
 
+final customerSupportedLocaleOptionsProvider =
+    Provider<List<CustomerLocaleOption>>((ref) {
+  final bundle = ref.watch(customerTranslationBundleProvider).valueOrNull;
+  return effectiveCustomerLocaleOptions(
+    bundle?.availableLocales ?? const <CustomerLocaleOption>[],
+  );
+});
+
+class CustomerTranslationBundle {
+  const CustomerTranslationBundle({
+    this.locale = '',
+    this.messages = const <String, String>{},
+    this.availableLocales = const <CustomerLocaleOption>[],
+  });
+
+  final String locale;
+  final Map<String, String> messages;
+  final List<CustomerLocaleOption> availableLocales;
+}
+
 class CustomerTranslationRepository {
   const CustomerTranslationRepository(this._api);
 
   final ApiClient _api;
 
-  Future<Map<String, String>> bundle({
+  Future<CustomerTranslationBundle> bundle({
     required String locale,
     String previewToken = '',
   }) async {
@@ -51,20 +71,36 @@ class CustomerTranslationRepository {
       },
     );
 
-    return parseCustomerTranslationMessages(response.data);
+    return parseCustomerTranslationBundle(response.data);
   }
 }
 
 Map<String, String> parseCustomerTranslationMessages(Object? data) {
+  return parseCustomerTranslationBundle(data).messages;
+}
+
+CustomerTranslationBundle parseCustomerTranslationBundle(Object? data) {
   final root = _asMap(data);
   final payload = _asMap(root['data']).isNotEmpty ? _asMap(root['data']) : root;
   final messages = _asMap(payload['messages']);
+  final locale = _string(payload['locale']).isNotEmpty
+      ? _string(payload['locale'])
+      : _string(root['locale']);
+  final rawLocales = payload['available_locales'] ??
+      payload['availableLocales'] ??
+      root['available_locales'] ??
+      root['availableLocales'];
+  final availableLocales = _parseAvailableLocales(rawLocales);
 
-  return {
-    for (final entry in messages.entries)
-      if (entry.key.trim().isNotEmpty && entry.value != null)
-        entry.key.trim(): entry.value.toString(),
-  };
+  return CustomerTranslationBundle(
+    locale: locale,
+    messages: {
+      for (final entry in messages.entries)
+        if (entry.key.trim().isNotEmpty && entry.value != null)
+          entry.key.trim(): entry.value.toString(),
+    },
+    availableLocales: availableLocales,
+  );
 }
 
 String translationPreviewTokenFromLocation(String location) {
@@ -105,4 +141,43 @@ Map<String, dynamic> _asMap(Object? value) {
   if (value is Map<String, dynamic>) return value;
   if (value is Map) return Map<String, dynamic>.from(value);
   return <String, dynamic>{};
+}
+
+List<CustomerLocaleOption> _parseAvailableLocales(Object? value) {
+  if (value is! Iterable) return const <CustomerLocaleOption>[];
+
+  final options = <CustomerLocaleOption>[];
+  for (final item in value) {
+    final row = _asMap(item);
+    final locale = tryParseCustomerLocale(_string(row['locale']));
+    if (locale == null) continue;
+    final status = _string(row['status']).toLowerCase();
+    if (status.isNotEmpty && status != 'active') continue;
+    options.add(
+      CustomerLocaleOption(
+        locale: locale,
+        name: _string(row['name']),
+        nativeName: _string(row['native_name'] ?? row['nativeName']),
+        isDefault: _asBool(row['is_default'] ?? row['isDefault']),
+        sortOrder: int.tryParse(
+              _string(row['sort_order'] ?? row['sortOrder']),
+            ) ??
+            100,
+      ),
+    );
+  }
+  return effectiveCustomerLocaleOptions(options);
+}
+
+String _string(Object? value) {
+  if (value == null || value is Map || value is Iterable) return '';
+  return value.toString().trim();
+}
+
+bool _asBool(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  return const {'1', 'true', 'yes', 'on'}.contains(
+    _string(value).toLowerCase(),
+  );
 }

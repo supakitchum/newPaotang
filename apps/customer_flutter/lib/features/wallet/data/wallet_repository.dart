@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/api_payload.dart';
@@ -10,7 +11,12 @@ final walletRepositoryProvider = Provider<WalletRepository>((ref) {
   return WalletRepository(ref.watch(apiClientProvider));
 });
 
-final walletSummaryProvider = FutureProvider<WalletSummary>((ref) async {
+final walletSummaryProvider =
+    FutureProvider.autoDispose<WalletSummary>((ref) async {
+  final auth = ref.watch(authControllerProvider);
+  if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
+    return const WalletSummary(wallets: [], ledger: []);
+  }
   return ref.watch(walletRepositoryProvider).summary();
 });
 
@@ -23,35 +29,96 @@ class WalletRepository {
     return (await _walletsPayload()).wallets;
   }
 
-  Future<List<WalletLedgerEntry>> ledger({int limit = 12}) async {
+  Future<List<WalletLedgerEntry>> ledger({
+    int limit = 12,
+    WalletLedgerDirection direction = WalletLedgerDirection.all,
+  }) async {
+    return (await ledgerPage(limit: limit, direction: direction)).entries;
+  }
+
+  Future<WalletLedgerPage> ledgerPage({
+    int limit = 12,
+    String cursor = '',
+    WalletLedgerDirection direction = WalletLedgerDirection.all,
+  }) async {
+    final query = <String, dynamic>{
+      'limit': limit,
+      'sort_by': 'created_at',
+      'sort_dir': 'desc',
+    };
+    if (cursor.trim().isNotEmpty) query['cursor'] = cursor.trim();
+    if (direction != WalletLedgerDirection.all) {
+      query['direction'] = direction.name;
+    }
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/wallet/ledger',
-      query: {'limit': limit, 'sort_by': 'created_at', 'sort_dir': 'desc'},
+      query: query,
     );
-    return _walletLedgerRows(
-      response.data,
-    ).map(WalletLedgerEntry.fromJson).toList(growable: false);
+    final meta = unwrapMeta(response.data);
+    final nextCursor = _walletLedgerMetaText(meta, const [
+      'next_cursor',
+      'nextCursor',
+      'cursor',
+    ]);
+    return WalletLedgerPage(
+      entries: _walletLedgerRows(
+        response.data,
+      ).map(WalletLedgerEntry.fromJson).toList(growable: false),
+      nextCursor: nextCursor,
+      hasMore: _walletLedgerMetaBool(
+        meta,
+        const ['has_more', 'hasMore', 'more'],
+      ),
+    );
   }
 
   Future<WalletSummary> summary() async {
-    final walletPayload = await _walletsPayload();
-    var ledgerLoadFailed = false;
-    var ledgerErrorMessage = '';
-    var ledgerEntries = <WalletLedgerEntry>[];
-    try {
-      ledgerEntries = await ledger();
-    } catch (error) {
-      ledgerLoadFailed = true;
-      ledgerErrorMessage = _walletApiErrorMessage(error);
-    }
+    final walletFuture = _walletsPayloadForSummary();
+    final ledgerFuture = _ledgerPayload();
+    final results = await Future.wait<Object>([walletFuture, ledgerFuture]);
+    final walletPayload = results[0] as _WalletsPayload;
+    final ledgerPayload = results[1] as _WalletLedgerPayload;
 
     return WalletSummary(
       wallets: walletPayload.wallets,
-      ledger: ledgerEntries,
-      ledgerLoadFailed: ledgerLoadFailed,
-      ledgerErrorMessage: ledgerErrorMessage,
+      ledger: ledgerPayload.entries,
+      ledgerLoadFailed: ledgerPayload.loadFailed,
+      ledgerErrorMessage: ledgerPayload.errorMessage,
+      ledgerNextCursor: ledgerPayload.nextCursor,
+      ledgerHasMore: ledgerPayload.hasMore,
       customerNo: walletPayload.customerNo,
     );
+  }
+
+  Future<_WalletLedgerPayload> _ledgerPayload() async {
+    try {
+      final page = await ledgerPage();
+      return _WalletLedgerPayload(
+        entries: page.entries,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+      );
+    } catch (error) {
+      if (ApiErrorInfo.fromObject(error).operationalRedirectPath != null) {
+        rethrow;
+      }
+      return _WalletLedgerPayload(
+        entries: const [],
+        loadFailed: true,
+        errorMessage: _walletApiErrorMessage(error),
+      );
+    }
+  }
+
+  Future<_WalletsPayload> _walletsPayloadForSummary() async {
+    try {
+      return await _walletsPayload();
+    } catch (error) {
+      if (ApiErrorInfo.fromObject(error).operationalRedirectPath != null) {
+        rethrow;
+      }
+      return const _WalletsPayload(wallets: [], customerNo: '');
+    }
   }
 
   Future<_WalletsPayload> _walletsPayload() async {
@@ -80,6 +147,54 @@ class _WalletsPayload {
 
   final List<CustomerWallet> wallets;
   final String customerNo;
+}
+
+class _WalletLedgerPayload {
+  const _WalletLedgerPayload({
+    required this.entries,
+    this.loadFailed = false,
+    this.errorMessage = '',
+    this.nextCursor = '',
+    this.hasMore = false,
+  });
+
+  final List<WalletLedgerEntry> entries;
+  final bool loadFailed;
+  final String errorMessage;
+  final String nextCursor;
+  final bool hasMore;
+}
+
+String _walletLedgerMetaText(
+  Map<String, dynamic> payload,
+  List<String> keys,
+) {
+  for (final key in keys) {
+    final value = payload[key];
+    if (value == null) continue;
+    final normalized = value.toString().trim();
+    if (normalized.isNotEmpty) return normalized;
+  }
+  return '';
+}
+
+bool _walletLedgerMetaBool(
+  Map<String, dynamic> payload,
+  List<String> keys,
+) {
+  for (final key in keys) {
+    final value = payload[key];
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value?.toString().trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+  }
+  return false;
 }
 
 List<Map<String, dynamic>> _walletRows(Object? value, [int depth = 0]) {

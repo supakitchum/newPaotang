@@ -207,6 +207,30 @@ void main() {
       await tester.pump(const Duration(milliseconds: 800));
 
       expect(find.text('tick:1'), findsOneWidget);
+
+      final stockChannel = stockAvailabilityChannel(
+        tenantId: 'ten_stock',
+        gameId: 'game_1',
+      );
+      client.emit(
+        CustomerRealtimeEvent(
+          name: 'pusher_internal:subscription_succeeded',
+          channel: stockChannel,
+          payload: const {},
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('tick:1'), findsOneWidget);
+
+      client.emit(
+        CustomerRealtimeEvent(
+          name: 'pusher_internal:subscription_succeeded',
+          channel: stockChannel,
+          payload: const {},
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('tick:2'), findsOneWidget);
     },
   );
 

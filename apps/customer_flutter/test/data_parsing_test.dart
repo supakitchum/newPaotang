@@ -207,6 +207,49 @@ void main() {
     expect(invalidLogin.message, 'Invalid credentials.');
   });
 
+  test('api error parser accepts backend authentication_required outside login',
+      () {
+    final protectedRequest = RequestOptions(path: '/customer/auth/pin/status');
+    final protectedError = ApiErrorInfo.fromObject(
+      DioException(
+        requestOptions: protectedRequest,
+        response: Response<Map<String, dynamic>>(
+          requestOptions: protectedRequest,
+          statusCode: 401,
+          data: const {
+            'error': {
+              'code': 'authentication_required',
+              'message':
+                  'Authentication token is missing, invalid, expired, or revoked.',
+            },
+          },
+        ),
+      ),
+    );
+    final loginRequest = RequestOptions(path: '/customer/auth/login');
+    final loginError = ApiErrorInfo.fromObject(
+      DioException(
+        requestOptions: loginRequest,
+        response: Response<Map<String, dynamic>>(
+          requestOptions: loginRequest,
+          statusCode: 401,
+          data: const {
+            'error': {
+              'code': 'authentication_required',
+              'message':
+                  'Authentication token is missing, invalid, expired, or revoked.',
+            },
+          },
+        ),
+      ),
+    );
+
+    expect(protectedError.isAuthenticationExpired, isTrue);
+    expect(protectedError.operationalRedirectPath, '/login');
+    expect(loginError.isAuthenticationExpired, isFalse);
+    expect(loginError.operationalRedirectPath, isNull);
+  });
+
   test('api error parser builds operational redirect paths', () {
     final suspended = ApiErrorInfo.fromObject({
       'error': {
@@ -229,11 +272,30 @@ void main() {
         },
       },
     });
+    final camelCase = ApiErrorInfo.fromObject({
+      'error': {
+        'code': 'customer_suspended',
+        'details': {
+          'accountSuspension': {
+            'suspensionReason': 'ตรวจสอบความเสี่ยง',
+            'suspendedUntil': '2026-07-02T03:00:00Z',
+            'isPermanent': 'yes',
+          },
+        },
+      },
+    });
 
     expect(suspended.operationalRedirectPath, contains('/account-suspended'));
     expect(suspended.operationalRedirectPath, contains('reason='));
     expect(suspended.operationalRedirectPath, contains('suspended_until='));
     expect(permanent.operationalRedirectPath, contains('permanent=1'));
+    final camelUri = Uri.parse(camelCase.operationalRedirectPath!);
+    expect(camelUri.queryParameters['reason'], 'ตรวจสอบความเสี่ยง');
+    expect(
+      camelUri.queryParameters['suspended_until'],
+      '2026-07-02T03:00:00Z',
+    );
+    expect(camelUri.queryParameters['permanent'], '1');
     expect(
       ApiErrorInfo.fromObject({
         'error': {'code': 'maintenance_active'},
@@ -1380,6 +1442,16 @@ void main() {
     expect(credit.balanceAfter, 1654.5);
     expect(credit.createdAt, '2026-07-01T12:00:00+07:00');
     expect(credit.isCredit, isTrue);
+  });
+
+  test('wallet parser leaves a missing runtime name empty', () {
+    final wallet = CustomerWallet.fromJson({
+      'id': 'wallet_without_name',
+      'type': 'primary',
+      'balance': {'amount': 2500, 'currency': 'THB'},
+    });
+
+    expect(wallet.name, isEmpty);
   });
 
   test('wallet parsers preserve recursive wrapper context', () {
@@ -3268,6 +3340,10 @@ void main() {
 
   test('topup overview maps payment methods, waiting item, and money', () {
     final overview = TopupOverview.fromJson({
+      'wallet': {
+        'id': 'wallet_runtime',
+        'displayName': 'Runtime Blue Wallet',
+      },
       'payment_methods': [
         {'key': 'qr', 'enabled': true},
         {
@@ -3307,6 +3383,7 @@ void main() {
       'bank_transfer',
     ]);
     expect(overview.firstEnabledChannel, TopupChannel.qr);
+    expect(overview.walletName, 'Runtime Blue Wallet');
     final credit = overview.methodForChannel(TopupChannel.creditCard);
     expect(credit?.label, 'Runtime Credit QR');
     expect(credit?.description, 'Runtime provider minimum applies');
@@ -5101,7 +5178,10 @@ void main() {
       'member_no': 'CUS00655551234',
       'name': 'ดีทู',
       'phone': '0812345678',
-      'primary_wallet': {'id': 'wallet_55551234'},
+      'primary_wallet': {
+        'id': 'wallet_55551234',
+        'name': 'กระเป๋าร้านดีทีม',
+      },
       'reward_payout_bank_account': {
         'bank_name': 'ธนาคารกรุงไทย',
         'account_name': 'ดีทู',
@@ -5116,6 +5196,7 @@ void main() {
 
     expect(profile.customerNo, 'CUS00655551234');
     expect(profile.walletId, 'wallet_55551234');
+    expect(profile.walletName, 'กระเป๋าร้านดีทีม');
     expect(profile.bankAccount.isComplete, isTrue);
     expect(profile.bankAccount.maskedNumber, '********6789');
     expect(profile.autoReward.enabled, isTrue);
@@ -5134,7 +5215,10 @@ void main() {
             'fullName': 'ดีทู โปรไฟล์',
             'customerNo': 'CUS-CAMEL',
             'phoneNumber': '0891112222',
-            'primaryWallet': {'walletId': 'wallet_7890'},
+            'primaryWallet': {
+              'walletId': 'wallet_7890',
+              'displayName': 'Runtime Blue Wallet',
+            },
             'bankAccount': {
               'bank': {'displayName': 'ธนาคารกรุงไทย'},
               'accountName': 'ดีทู โปรไฟล์',
@@ -5154,6 +5238,7 @@ void main() {
     expect(profile.customerNo, 'CUS-CAMEL');
     expect(profile.phone, '0891112222');
     expect(profile.walletId, 'wallet_7890');
+    expect(profile.walletName, 'Runtime Blue Wallet');
     expect(profile.bankAccount.bankName, 'ธนาคารกรุงไทย');
     expect(profile.bankAccount.accountName, 'ดีทู โปรไฟล์');
     expect(profile.bankAccount.accountNumber, '006123456789');
@@ -5452,6 +5537,60 @@ void main() {
     expect(result.reward('reward_1')?.amount, 6000000);
   });
 
+  test('reward result parser accepts recursive camelCase production wrappers',
+      () {
+    final result = RewardResultGame.fromPublicSummary({
+      'data': {
+        'resource': {
+          'rewardResult': {
+            'game': {
+              'id': {'value': 'game_wrapped'},
+              'drawLabel': 'งวดวันที่ 16 ก.ค. 2569',
+              'drawAt': {'value': '2026-07-16T16:00:00+07:00'},
+            },
+            'resultStatus': {'code': 'live_unconfirmed'},
+            'officialStatus': {'value': 'draft'},
+            'completionPercent': {'percent': '75%'},
+            'rewardItems': [
+              {
+                'prizeType': {'code': 'first-prize'},
+                'prizeNumbers': [
+                  {'value': '751495'},
+                ],
+                'prizeAmount': {
+                  'amount': 600000000,
+                  'currency': 'THB',
+                },
+              },
+              {
+                'rewardType': 'front-3',
+                'winningNumbers': [
+                  '001',
+                  {'number': '980'},
+                ],
+              },
+              {
+                'rewardType': 'last_2',
+                'winningNumber': {'value': '62'},
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(result.id, 'game_wrapped');
+    expect(result.name, 'งวดวันที่ 16 ก.ค. 2569');
+    expect(result.drawAt, '2026-07-16T16:00:00+07:00');
+    expect(result.resultStatus, 'live_unconfirmed');
+    expect(result.officialStatus, 'draft');
+    expect(result.completionPercent, 75);
+    expect(result.summary.first, '751495');
+    expect(result.summary.front3, ['001', '980']);
+    expect(result.summary.last2, '62');
+    expect(result.reward('reward_1')?.amount, 6000000);
+  });
+
   test('biometric device parser maps platform, status, and timestamps', () {
     final device = BiometricDevice.fromJson({
       'id': 'cbd_1',
@@ -5486,6 +5625,33 @@ void main() {
     expect(
       resolver('https://cdn.example.com/file.webp'),
       'https://cdn.example.com/file.webp',
+    );
+    expect(
+      resolver('news/full.webp'),
+      'https://shop.example.com/upload/news/full.webp',
+    );
+  });
+
+  test('asset url resolver prefers runtime CDN without changing full URLs', () {
+    const resolver = AssetUrlResolver(
+      AppConfig(
+        apiBaseUrl: 'https://api.shop.example.com/api/v1',
+        defaultLocale: 'th-TH',
+      ),
+      assetCdnBaseUrl: 'https://cdn.shop.example.com/customer-assets',
+    );
+
+    expect(
+      resolver('/storage/news/full.webp'),
+      'https://cdn.shop.example.com/customer-assets/storage/news/full.webp',
+    );
+    expect(
+      resolver('news/full.webp'),
+      'https://cdn.shop.example.com/customer-assets/upload/news/full.webp',
+    );
+    expect(
+      resolver('https://external.example.com/file.webp'),
+      'https://external.example.com/file.webp',
     );
   });
 
@@ -5525,6 +5691,30 @@ void main() {
         allowedHosts: const ['shop.example.com'],
       ),
       isNull,
+    );
+    expect(
+      customerDeepLinkPath(
+        Uri.parse(
+          'https://shop.example.com/social/google/callback#authorizationCode=fragment-code&callbackState=fragment-state&redirect=%2Fcheckout',
+        ),
+      ),
+      '/social/google/callback?authorizationCode=fragment-code&callbackState=fragment-state&redirect=%2Fcheckout',
+    );
+    expect(
+      customerDeepLinkPath(
+        Uri.parse(
+          'https://shop.example.com/social/apple/callback#/social/apple/callback?code=hash-route-code&state=hash-route-state',
+        ),
+      ),
+      '/social/apple/callback?code=hash-route-code&state=hash-route-state',
+    );
+    expect(
+      customerDeepLinkPath(
+        Uri.parse(
+          'https://shop.example.com/#/social/google/callback?code=hash-only-code&state=hash-only-state',
+        ),
+      ),
+      '/social/google/callback?code=hash-only-code&state=hash-only-state',
     );
   });
 
@@ -5580,6 +5770,22 @@ void main() {
       '/social/line/callback?code=a&state=b',
     );
     expect(
+      customerDeepLinkPath(
+        Uri.parse(
+          'newpaotang://social/google/callback#code=fragment-code&state=fragment-state',
+        ),
+      ),
+      '/social/google/callback?code=fragment-code&state=fragment-state',
+    );
+    expect(
+      customerDeepLinkPath(
+        Uri.parse(
+          'newpaotang://callback#/social/apple/callback?code=hash-code&state=hash-state',
+        ),
+      ),
+      '/social/apple/callback?code=hash-code&state=hash-state',
+    );
+    expect(
       customerDeepLinkPath(Uri.parse('newpaotang://reset-password?token=abc')),
       '/reset-password?token=abc',
     );
@@ -5610,6 +5816,27 @@ void main() {
     expect(
       customerDeepLinkAllowedHosts(tenantHost: '', apiBaseUrl: '/api/v1'),
       isEmpty,
+    );
+    expect(
+      customerDeepLinkAllowedHosts(
+        tenantHost: 'configured.example.com',
+        runtimeTenantHost: 'runtime.example.com',
+        runtimeCanonicalUrl: 'https://canonical.example.com/customer',
+        apiBaseUrl: 'https://api.example.com/api/v1',
+      ),
+      {
+        'configured.example.com',
+        'runtime.example.com',
+        'canonical.example.com',
+      },
+    );
+    expect(
+      customerDeepLinkAllowedHosts(
+        tenantHost: '',
+        runtimeCanonicalUrl: 'https://shop.example.com',
+        apiBaseUrl: 'https://api.example.com/api/v1',
+      ),
+      {'shop.example.com'},
     );
   });
 

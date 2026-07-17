@@ -63,6 +63,40 @@ bool isSafeSocialLoginUri(Uri? uri) {
   return uri!.scheme.trim().toLowerCase() == 'https';
 }
 
+Uri? customerPhoneUri(String phone) {
+  final sanitized = phone.trim().replaceAll(RegExp(r'[^\d+]'), '');
+  if (sanitized.isEmpty) return null;
+  final normalized = sanitized.startsWith('+')
+      ? '+${sanitized.substring(1).replaceAll('+', '')}'
+      : sanitized.replaceAll('+', '');
+  if (normalized.replaceAll('+', '').isEmpty) return null;
+  return Uri(scheme: 'tel', path: normalized);
+}
+
+Uri? customerEmailUri(String email) {
+  final normalized = email.trim();
+  if (normalized.isEmpty || normalized.contains(RegExp(r'\s'))) return null;
+  if (!normalized.contains('@')) return null;
+  return Uri(scheme: 'mailto', path: normalized);
+}
+
+Uri? customerHttpsUri(String url) {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null ||
+      uri.scheme.toLowerCase() != 'https' ||
+      uri.host.trim().isEmpty ||
+      uri.userInfo.isNotEmpty) {
+    return null;
+  }
+  return isSafeExternalLinkUri(uri) ? uri : null;
+}
+
+String customerExternalLinkLabel(Uri uri) {
+  final host = uri.host.trim();
+  if (host.isNotEmpty) return host;
+  return uri.toString();
+}
+
 LinkLaunchStrategy chooseLinkLaunchStrategy({
   required bool preferSameWindowInLine,
   required bool isWeb,

@@ -63,7 +63,13 @@ class CustomerActivityController extends Controller
             return $error;
         }
 
-        return $this->writeResult($request, $this->activities->createCustomerEntry($tenant['tenant_id'], $customer, $activity_id, $request->all()), 201);
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        return $this->writeResult($request, $this->activities->createCustomerEntry($tenant['tenant_id'], $customer, $activity_id, $request->all(), $request), 201);
     }
 
     public function awards(Request $request): JsonResponse

@@ -1,21 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+
 const newsNuxtSurface = Color(0xFFFFFFFF);
 const newsNuxtListBorder = Color(0xFFDBE7F5);
 const newsNuxtListShadow = Color(0x14213755);
 const newsNuxtDetailShadow = Color(0x1F083068);
 const newsNuxtListTitle = Color(0xFF17335F);
 const newsNuxtDetailTitle = Color(0xFF1F2937);
-const newsNuxtCategory = Color(0xFF0B69DC);
-const newsNuxtDetailKicker = Color(0xFF0875DF);
 const newsNuxtListBody = Color(0xFF64748B);
 const newsNuxtDetailSummary = Color(0xFF53616F);
 const newsNuxtDetailBody = Color(0xFF344054);
 const newsNuxtDetailEmptyBody = Color(0xFF6B7280);
 const newsNuxtMuted = Color(0xFF8A97A7);
-const newsNuxtFallbackBlueStart = Color(0xFF0B84ED);
-const newsNuxtFallbackBlueEnd = Color(0xFF174783);
-const newsNuxtFallbackSpark = Color(0xD1FFD240);
 const newsNuxtModalOverlay = Color(0x9E040A14);
 const newsNuxtModalCloseForeground = Color(0xFF1D2A3A);
 const newsNuxtModalCloseShadow = Color(0x3805132C);
@@ -66,11 +63,13 @@ Color newsDetailShadowColor(BuildContext context) {
 }
 
 Color newsCategoryColor(BuildContext context) {
-  return newsNuxtCategory;
+  return AppTheme.primaryOutlineBorder(
+    Theme.of(context).colorScheme.primary,
+  );
 }
 
 Color newsDetailKickerColor(BuildContext context) {
-  return newsNuxtDetailKicker;
+  return AppTheme.detailKicker(Theme.of(context).colorScheme.primary);
 }
 
 Color newsNoticeBackgroundColor(BuildContext context) {
@@ -86,7 +85,8 @@ Color newsNoticeForegroundColor(BuildContext context) {
 }
 
 Color newsFallbackSparkColor(BuildContext context) {
-  return newsNuxtFallbackSpark;
+  return AppTheme.fallbackSpark(Theme.of(context).colorScheme.tertiary)
+      .withValues(alpha: 0.82);
 }
 
 class NewsFallbackArtwork extends StatelessWidget {
@@ -99,14 +99,18 @@ class NewsFallbackArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            newsNuxtFallbackBlueStart,
-            newsNuxtFallbackBlueEnd,
+            AppTheme.newsCardFallbackStart(colorScheme.primary),
+            AppTheme.newsCardFallbackEnd(
+              colorScheme.primary,
+              colorScheme.onSurface,
+            ),
           ],
         ),
       ),
@@ -149,6 +153,15 @@ class NewsLoadingMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final primarySoft = colorScheme.primary == AppTheme.appBlue
+        ? const Color(0xFFE8F6FF)
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.90) ??
+            colorScheme.primaryContainer;
+    final accentSoft = colorScheme.tertiary == AppTheme.appYellow
+        ? const Color(0xFFFFFBEB)
+        : Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.91) ??
+            colorScheme.tertiaryContainer;
     return Container(
       width: size,
       height: size,
@@ -157,10 +170,7 @@ class NewsLoadingMark extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: const [
-            Color(0xFFE8F6FF),
-            Color(0xFFFFFBEB),
-          ],
+          colors: [primarySoft, accentSoft],
         ),
         borderRadius: BorderRadius.circular(size * 0.34),
         border: Border.all(
@@ -169,7 +179,7 @@ class NewsLoadingMark extends StatelessWidget {
       ),
       child: Icon(
         icon,
-        color: newsNuxtCategory,
+        color: newsCategoryColor(context),
         size: size * 0.48,
       ),
     );
@@ -191,6 +201,11 @@ class NewsProgressLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeFill = fillFactor.clamp(0.0, 1.0).toDouble();
+    final colorScheme = Theme.of(context).colorScheme;
+    final trackColor = colorScheme.primary == AppTheme.appBlue
+        ? const Color(0xFFE8F4FF)
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
+            colorScheme.primaryContainer;
 
     return SizedBox(
       width: width,
@@ -199,7 +214,7 @@ class NewsProgressLine extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F4FF),
+            color: trackColor,
           ),
           child: Align(
             alignment: Alignment.centerLeft,
@@ -209,9 +224,9 @@ class NewsProgressLine extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: const [
-                      newsNuxtCategory,
-                      newsNuxtFallbackBlueStart,
+                    colors: [
+                      newsCategoryColor(context),
+                      AppTheme.newsCardFallbackStart(colorScheme.primary),
                     ],
                   ),
                 ),
@@ -234,6 +249,15 @@ class NewsImageLoadingFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final primarySoft = colorScheme.primary == AppTheme.appBlue
+        ? const Color(0xFFE8F6FF)
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.90) ??
+            colorScheme.primaryContainer;
+    final accentSoft = colorScheme.tertiary == AppTheme.appYellow
+        ? const Color(0xFFFFFBEB)
+        : Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.91) ??
+            colorScheme.tertiaryContainer;
     return AspectRatio(
       aspectRatio: aspectRatio,
       child: DecoratedBox(
@@ -242,10 +266,7 @@ class NewsImageLoadingFrame extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: const [
-              Color(0xFFE8F6FF),
-              Color(0xFFFFFBEB),
-            ],
+            colors: [primarySoft, accentSoft],
           ),
         ),
         child: Center(

@@ -2,6 +2,7 @@ import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
 import 'package:customer_flutter/features/wallet/presentation/wallet_localization.dart';
 import 'package:dio/dio.dart';
@@ -38,6 +39,46 @@ void main() {
     expect(summary.ledger, isEmpty);
     expect(summary.ledgerLoadFailed, isTrue);
     expect(summary.ledgerErrorMessage, isEmpty);
+  });
+
+  test('summary still loads ledger when wallet endpoint fails', () async {
+    final api = _WalletFailureApiClient();
+    final repository = WalletRepository(api);
+
+    final summary = await repository.summary();
+
+    expect(summary.wallets, isEmpty);
+    expect(summary.balance, 0);
+    expect(summary.customerNo, isEmpty);
+    expect(summary.ledgerLoadFailed, isFalse);
+    expect(summary.ledger.single.id, 'ledger_after_wallet_failure');
+    expect(
+      api.paths,
+      containsAll(['/customer/wallet', '/customer/wallet/ledger']),
+    );
+  });
+
+  test('summary propagates operational wallet and ledger errors', () async {
+    for (final path in [
+      '/customer/wallet',
+      '/customer/wallet/ledger',
+    ]) {
+      final error = _apiException(
+        'ร้านค้าปิดปรับปรุงชั่วคราว',
+        path: path,
+        code: 'maintenance_active',
+        statusCode: 503,
+      );
+      final repository = WalletRepository(
+        _OperationalWalletApiClient(errorPath: path, error: error),
+      );
+
+      await expectLater(
+        repository.summary(),
+        throwsA(same(error)),
+        reason: path,
+      );
+    }
   });
 
   test('summary maps wrapped wallet and ledger payload aliases', () async {
@@ -125,6 +166,69 @@ void main() {
       'เงินคืนกิจกรรม',
     );
   });
+
+  test('ledger page sends direction and cursor and maps pagination meta',
+      () async {
+    final api = _LedgerPageApiClient();
+    final repository = WalletRepository(api);
+
+    final page = await repository.ledgerPage(
+      limit: 5,
+      cursor: 'v1.cursor-token',
+      direction: WalletLedgerDirection.incoming,
+    );
+
+    expect(api.query, {
+      'limit': 5,
+      'sort_by': 'created_at',
+      'sort_dir': 'desc',
+      'cursor': 'v1.cursor-token',
+      'direction': 'incoming',
+    });
+    expect(page.entries.single.id, 'ledger_page_1');
+    expect(page.nextCursor, 'v1.next-token');
+    expect(page.hasMore, isTrue);
+  });
+}
+
+class _LedgerPageApiClient extends ApiClient {
+  _LedgerPageApiClient()
+      : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        );
+
+  Map<String, dynamic>? query;
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    this.query = query;
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: {
+        'data': [
+          {
+            'id': 'ledger_page_1',
+            'entry_type': 'credit',
+            'amount': 500,
+            'balance_after': 1500,
+          },
+        ],
+        'meta': {
+          'next_cursor': 'v1.next-token',
+          'has_more': true,
+        },
+      } as T,
+    );
+  }
 }
 
 class _WalletApiClient extends ApiClient {
@@ -162,6 +266,83 @@ class _WalletApiClient extends ApiClient {
           },
         ],
         'customer_no': {'value': 'CUS001234'},
+      } as T,
+    );
+  }
+}
+
+class _WalletFailureApiClient extends ApiClient {
+  _WalletFailureApiClient()
+      : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        );
+
+  final paths = <String>[];
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    paths.add(path);
+    if (path == '/customer/wallet') {
+      throw _apiException('โหลดกระเป๋าไม่สำเร็จ', path: path);
+    }
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: {
+        'data': {
+          'entries': [
+            {
+              'id': 'ledger_after_wallet_failure',
+              'entry_type': 'credit',
+              'reference_type': 'topup',
+              'amount': 500,
+              'balance_after': 500,
+            },
+          ],
+        },
+      } as T,
+    );
+  }
+}
+
+class _OperationalWalletApiClient extends ApiClient {
+  _OperationalWalletApiClient({
+    required this.errorPath,
+    required this.error,
+  }) : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        );
+
+  final String errorPath;
+  final Object error;
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    if (path == errorPath) throw error;
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: {
+        'data': path == '/customer/wallet'
+            ? const <Object>[]
+            : const {'entries': <Object>[]},
       } as T,
     );
   }
@@ -406,14 +587,22 @@ class _NestedWalletTransactionApiClient extends ApiClient {
   }
 }
 
-DioException _apiException(String message) {
-  final requestOptions = RequestOptions(path: '/customer/wallet/ledger');
+DioException _apiException(
+  String message, {
+  String path = '/customer/wallet/ledger',
+  String? code,
+  int statusCode = 503,
+}) {
+  final requestOptions = RequestOptions(path: path);
   return DioException(
     requestOptions: requestOptions,
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
-      statusCode: 503,
-      data: {'message': message},
+      statusCode: statusCode,
+      data: {
+        if (code != null) 'code': code,
+        'message': message,
+      },
     ),
     type: DioExceptionType.badResponse,
   );

@@ -10,10 +10,11 @@ import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import 'auth_visual_tokens.dart';
 
-enum _ForgotStep { phone, otp, password, done }
+enum _ForgotStep { phone, otp, password }
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -82,48 +83,54 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: ColoredBox(
         color: colorScheme.surface,
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _ForgotPasswordHeroSection(
-                    minHeight: constraints.maxWidth >= 720 ? 260 : 220,
-                    onBack: () => context.go('/login'),
-                  ),
-                  Form(
-                    key: _formKey,
-                    child: _ForgotPasswordSheet(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 520),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildResetCard(context),
-                              if (lineProvider != null) ...[
-                                const SizedBox(height: 14),
-                                _LineResetCard(
-                                  provider: lineProvider,
-                                  submitting: _lineSubmitting,
-                                  errorMessage: _lineError,
-                                  onPressed: _lineSubmitting || _submitting
-                                      ? null
-                                      : _startLineReset,
-                                ),
-                              ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final viewportWidth = constraints.maxWidth;
+            final viewportHeight = constraints.maxHeight;
+            return ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _ForgotPasswordHeroSection(
+                  onBack: () => context.go('/login'),
+                ),
+                Form(
+                  key: _formKey,
+                  child: _ForgotPasswordSheet(
+                    overlap: authContentSheetOverlap(viewportWidth),
+                    minHeight: authContentSheetMinHeight(
+                      viewportWidth,
+                      viewportHeight,
+                    ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: customerContentMaxWidthFor(context),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildResetCard(context),
+                            if (lineProvider != null) ...[
+                              const SizedBox(height: 14),
+                              _LineResetCard(
+                                provider: lineProvider,
+                                submitting: _lineSubmitting,
+                                errorMessage: _lineError,
+                                onPressed: _lineSubmitting || _submitting
+                                    ? null
+                                    : _startLineReset,
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -178,19 +185,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             if (_step == _ForgotStep.phone) _phoneField(),
             if (_step == _ForgotStep.otp) _otpField(),
             if (_step == _ForgotStep.password) _passwordFields(),
-            if (_step == _ForgotStep.done) const _ResetDoneCard(),
             const SizedBox(height: 18),
             authPrimaryActionButton(
-              onPressed: _submitting
-                  ? null
-                  : _step == _ForgotStep.done
-                      ? () => context.go('/login')
-                      : _submit,
+              onPressed: _submitting ? null : _submit,
               label: _submitting
                   ? l10n.forgotPasswordSubmitting
-                  : _step == _ForgotStep.done
-                      ? l10n.forgotPasswordBackToLogin
-                      : _buttonLabel(l10n),
+                  : _buttonLabel(l10n),
             ),
           ],
         ),
@@ -207,6 +207,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _phone,
+          autofillHints: const [AutofillHints.telephoneNumber],
           style: authInputTextStyle(context, fontWeight: FontWeight.w800),
           keyboardType: TextInputType.phone,
           inputFormatters: [
@@ -219,6 +220,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             prefixIcon: const Icon(Icons.phone_android_outlined),
           ),
           textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) {
+            if (!_submitting) _submit();
+          },
           validator: _phoneValidator,
         ),
       ],
@@ -228,49 +232,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget _otpField() {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final sentTo = _maskedPhone.isEmpty ? _phone.text : _maskedPhone;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (sentTo.isNotEmpty) ...[
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.14),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      l10n.authOtpSentTo(sentTo),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-        ],
         _ForgotPasswordFieldLabel(label: l10n.authOtpLabel),
         const SizedBox(height: 8),
         TextFormField(
           controller: _otp,
+          autofillHints: const [AutofillHints.oneTimeCode],
           style: authInputTextStyle(context, fontWeight: FontWeight.w800),
           keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
             LengthLimitingTextInputFormatter(6),
@@ -280,6 +252,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             hintText: l10n.forgotPasswordOtpHint,
             prefixIcon: const Icon(Icons.chat_bubble_outline),
           ),
+          onFieldSubmitted: (_) {
+            if (!_submitting) _submit();
+          },
           validator: _otpValidator,
         ),
         Align(
@@ -314,8 +289,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _password,
+          autofillHints: const [AutofillHints.newPassword],
           style: authInputTextStyle(context, fontWeight: FontWeight.w800),
           obscureText: true,
+          textInputAction: TextInputAction.next,
+          onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
           decoration: _forgotInputDecoration(
             context,
             hintText: l10n.forgotPasswordPasswordHint,
@@ -323,13 +301,18 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
           validator: _required,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 30),
         _ForgotPasswordFieldLabel(label: l10n.forgotPasswordConfirmNewPassword),
         const SizedBox(height: 8),
         TextFormField(
           controller: _confirmPassword,
+          autofillHints: const [AutofillHints.newPassword],
           style: authInputTextStyle(context, fontWeight: FontWeight.w800),
           obscureText: true,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) {
+            if (!_submitting) _submit();
+          },
           decoration: _forgotInputDecoration(
             context,
             hintText: l10n.forgotPasswordConfirmPasswordHint,
@@ -382,9 +365,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               password: _password.text,
               passwordConfirmation: _confirmPassword.text,
             );
-        setState(() => _step = _ForgotStep.done);
+        if (!mounted) return;
+        context.go('/login');
       }
     } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      );
+      if (!mounted || handled) return;
       _showResetError(_otpRecoveryErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -416,6 +407,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               );
       if (!opened) _showLineError(linkMissing);
     } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      );
+      if (!mounted || handled) return;
       _showLineError(authErrorMessage(error, failed));
     } finally {
       if (mounted) setState(() => _lineSubmitting = false);
@@ -447,6 +445,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     try {
       await _requestOtp();
     } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      );
+      if (!mounted || handled) return;
       _showResetError(_otpRecoveryErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -470,7 +475,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return switch (_step) {
       _ForgotStep.otp => l10n.forgotPasswordTitleOtp,
       _ForgotStep.password => l10n.forgotPasswordTitlePassword,
-      _ForgotStep.done => l10n.forgotPasswordTitleDone,
       _ => l10n.forgotPasswordTitlePhone,
     };
   }
@@ -481,7 +485,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _maskedPhone.isEmpty ? _phone.text : _maskedPhone,
         ),
       _ForgotStep.password => l10n.forgotPasswordDescriptionPassword,
-      _ForgotStep.done => l10n.forgotPasswordDescriptionDone,
       _ => l10n.forgotPasswordDescriptionPhone,
     };
   }
@@ -583,122 +586,76 @@ class _ForgotPasswordErrorPanel extends StatelessWidget {
   }
 }
 
-class _ResetDoneCard extends StatelessWidget {
-  const _ResetDoneCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.tertiaryContainer.withValues(alpha: 0.54),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.tertiary.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: colorScheme.tertiary,
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                context.l10n.forgotPasswordDoneMessage,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onTertiaryContainer,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ForgotPasswordHeroSection extends StatelessWidget {
   const _ForgotPasswordHeroSection({
-    required this.minHeight,
     required this.onBack,
   });
 
-  final double minHeight;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minHeight),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              AppTheme.heroGradientEnd(colorScheme.primary),
-            ],
+    return AuthBlueHeroBackdrop(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 220),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            authHeroTopPadding(context),
+            20,
+            24,
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            authBlueHeroTopRow(
-              context,
-              title: context.l10n.forgotPasswordTitle,
-              tooltip: context.l10n.forgotPasswordBackToLogin,
-              onBack: onBack,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 330),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      color: colorScheme.onPrimary,
-                      size: 34,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      context.l10n.forgotPasswordHeroTitle,
-                      textAlign: TextAlign.center,
-                      style: textTheme.headlineSmall?.copyWith(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              authBlueHeroTopRow(
+                context,
+                title: context.l10n.forgotPasswordTitle,
+                tooltip: context.l10n.forgotPasswordBackToLogin,
+                onBack: onBack,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 26, 4, 0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 330),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
                         color: colorScheme.onPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        height: 1.12,
+                        size: 34,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.forgotPasswordHeroDescription,
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.55,
+                      const SizedBox(height: 10),
+                      Text(
+                        context.l10n.forgotPasswordHeroTitle,
+                        textAlign: TextAlign.center,
+                        style: textTheme.headlineSmall?.copyWith(
+                          color: colorScheme.onPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          height: 1.12,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.forgotPasswordHeroDescription,
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.55,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -706,24 +663,31 @@ class _ForgotPasswordHeroSection extends StatelessWidget {
 }
 
 class _ForgotPasswordSheet extends StatelessWidget {
-  const _ForgotPasswordSheet({required this.child});
+  const _ForgotPasswordSheet({
+    required this.overlap,
+    required this.minHeight,
+    required this.child,
+  });
 
+  final double overlap;
+  final double minHeight;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Transform.translate(
-      offset: const Offset(0, -48),
+      offset: Offset(0, overlap),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 420),
+          constraints: BoxConstraints(minHeight: minHeight),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 34),
+            padding: EdgeInsets.fromLTRB(16, 20, 16, 34 + bottomInset),
             child: child,
           ),
         ),
@@ -857,5 +821,7 @@ InputDecoration _forgotInputDecoration(
     hintText: hintText,
     prefixIcon: prefixIcon,
     softFill: true,
+    borderRadius: 16,
+    prefixIconSize: 20,
   );
 }

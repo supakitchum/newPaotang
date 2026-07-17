@@ -5,12 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/navigation/web_runtime.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/tenant/customer_tenant_host.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../monitoring/data/public_visit_id_store.dart';
 
 final affiliateReferralRepositoryProvider =
     Provider<AffiliateReferralRepository>((ref) {
-  return AffiliateReferralRepository(ref.watch(apiClientProvider));
-});
+      return AffiliateReferralRepository(ref.watch(apiClientProvider));
+    });
 
 final affiliateReferralStoreProvider = Provider<AffiliateReferralStore>((ref) {
   return AffiliateReferralStore();
@@ -19,11 +21,14 @@ final affiliateReferralStoreProvider = Provider<AffiliateReferralStore>((ref) {
 final affiliateReferralServiceProvider = Provider<AffiliateReferralService>((
   ref,
 ) {
+  final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
   return AffiliateReferralService(
     config: ref.watch(appConfigProvider),
     repository: ref.watch(affiliateReferralRepositoryProvider),
     store: ref.watch(affiliateReferralStoreProvider),
     visitIdStore: ref.watch(publicVisitIdStoreProvider),
+    runtimeTenantHost: bootstrap?.tenantHost ?? '',
+    runtimeCanonicalUrl: bootstrap?.canonicalUrl ?? '',
   );
 });
 
@@ -56,11 +61,7 @@ class AffiliateReferralRepository {
   }) async {
     await _api.post<Map<String, dynamic>>(
       '/customer/affiliate/referrals/apply',
-      data: {
-        'ref': refCode,
-        'visitor_id': visitorId,
-        'registered': registered,
-      },
+      data: {'ref': refCode, 'visitor_id': visitorId, 'registered': registered},
     );
   }
 }
@@ -69,11 +70,12 @@ class AffiliateReferralStore {
   AffiliateReferralStore({
     FlutterSecureStorage? storage,
     DateTime Function()? clock,
-  })  : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            ),
-        _clock = clock ?? DateTime.now;
+  }) : _storage =
+           storage ??
+           const FlutterSecureStorage(
+             aOptions: AndroidOptions(migrateWithBackup: true),
+           ),
+       _clock = clock ?? DateTime.now;
 
   final FlutterSecureStorage _storage;
   final DateTime Function() _clock;
@@ -143,19 +145,25 @@ class AffiliateReferralService {
     required AffiliateReferralRepository repository,
     required AffiliateReferralStore store,
     required PublicVisitIdStore visitIdStore,
+    String runtimeTenantHost = '',
+    String runtimeCanonicalUrl = '',
     String Function()? webHost,
     String Function()? webHref,
-  })  : _config = config,
-        _repository = repository,
-        _store = store,
-        _visitIdStore = visitIdStore,
-        _webHost = webHost ?? (() => currentWebHost),
-        _webHref = webHref ?? (() => currentWebHref);
+  }) : _config = config,
+       _repository = repository,
+       _store = store,
+       _visitIdStore = visitIdStore,
+       _runtimeTenantHost = runtimeTenantHost,
+       _runtimeCanonicalUrl = runtimeCanonicalUrl,
+       _webHost = webHost ?? (() => currentWebHost),
+       _webHref = webHref ?? (() => currentWebHref);
 
   final AppConfig _config;
   final AffiliateReferralRepository _repository;
   final AffiliateReferralStore _store;
   final PublicVisitIdStore _visitIdStore;
+  final String _runtimeTenantHost;
+  final String _runtimeCanonicalUrl;
   final String Function() _webHost;
   final String Function() _webHref;
 
@@ -202,13 +210,15 @@ class AffiliateReferralService {
   }
 
   String _hostScope() {
-    final host = _webHost().trim();
-    if (host.isNotEmpty) return normalizePublicVisitHostScope(host);
-    final parsed = Uri.tryParse(_config.apiBaseUrl);
-    if (parsed?.host.isNotEmpty == true) {
-      return normalizePublicVisitHostScope(parsed!.host);
-    }
-    return 'default';
+    return normalizePublicVisitHostScope(
+      resolveCustomerTenantHost(
+        currentHost: _webHost(),
+        configuredTenantHost: _config.normalizedTenantHost,
+        runtimeTenantHost: _runtimeTenantHost,
+        runtimeCanonicalUrl: _runtimeCanonicalUrl,
+        apiBaseUrl: _config.apiBaseUrl,
+      ),
+    );
   }
 }
 

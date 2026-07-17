@@ -16,3 +16,11 @@ final checkoutPaymentMethodsProvider = Provider<List<String>>((ref) {
         orElse: () => const [checkoutPaymentMethodWallet],
       );
 });
+
+final checkoutPaymentMethodLabelsProvider =
+    Provider<Map<String, String>>((ref) {
+  return ref.watch(mobileBootstrapProvider).maybeWhen(
+        data: (bootstrap) => bootstrap.payment.checkoutPaymentMethodLabels,
+        orElse: () => const {},
+      );
+});

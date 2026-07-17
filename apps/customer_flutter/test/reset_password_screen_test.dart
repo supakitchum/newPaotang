@@ -24,6 +24,13 @@ void main() {
       '/reset-password?token=line-token&source=line',
     );
 
+    final fields =
+        tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(fields[0].autofillHints, contains(AutofillHints.newPassword));
+    expect(fields[1].autofillHints, contains(AutofillHints.newPassword));
+    expect(fields[0].textInputAction, TextInputAction.next);
+    expect(fields[1].textInputAction, TextInputAction.done);
+
     await tester.enterText(find.byType(TextField).at(0), 'P@ssword123');
     await tester.enterText(find.byType(TextField).at(1), 'P@ssword123');
     await _tapSubmit(tester);

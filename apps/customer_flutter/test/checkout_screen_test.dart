@@ -190,6 +190,18 @@ void main() {
     expect(find.textContaining('internal cart refresh failure'), findsNothing);
   });
 
+  testWidgets('cart load follows backend maintenance redirect', (tester) async {
+    final router = await _pumpCartTest(
+      tester,
+      lottery: _FailingCartLotteryRepository(
+        _maintenanceApiException(path: '/customer/cart'),
+      ),
+    );
+
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(find.text('Maintenance'), findsOneWidget);
+  });
+
   testWidgets('checkout load failure shows API payload copy safely', (
     tester,
   ) async {
@@ -309,15 +321,11 @@ void main() {
       const ValueKey('checkout-payment-method-section-header'),
     );
     expect(paymentSectionHeader, findsOneWidget);
-    final paymentSectionHeaderBox =
-        tester.widget<ColoredBox>(paymentSectionHeader);
-    final paymentSectionHeaderTheme =
-        Theme.of(tester.element(paymentSectionHeader));
+    final paymentSectionHeaderPadding =
+        tester.widget<Padding>(paymentSectionHeader);
     expect(
-      paymentSectionHeaderBox.color,
-      paymentSectionHeaderTheme.colorScheme.surfaceContainerHighest.withValues(
-        alpha: 0.48,
-      ),
+      paymentSectionHeaderPadding.padding,
+      const EdgeInsets.fromLTRB(18, 23, 18, 20),
     );
     final summaryCard = find.byKey(const ValueKey('checkout-summary-card'));
     expect(summaryCard, findsOneWidget);
@@ -775,6 +783,24 @@ void main() {
     );
   });
 
+  testWidgets('checkout submit follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final lottery = _CheckoutLotteryRepository(
+      checkoutError: _maintenanceApiException(),
+    );
+    final router = await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: lottery,
+    );
+
+    await _submitCheckoutPayment(tester);
+
+    expect(lottery.checkoutReservationIds, ['res_1']);
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(find.text('Maintenance'), findsOneWidget);
+  });
+
   testWidgets(
       'checkout success keeps Nuxt-style receipt fallback on load error', (
     tester,
@@ -935,6 +961,9 @@ void main() {
             checkoutPaymentMethodWallet,
             checkoutPaymentMethodExternalPayment,
           ]),
+          checkoutPaymentMethodLabelsProvider.overrideWithValue(const {
+            checkoutPaymentMethodExternalPayment: 'Partner Pay',
+          }),
         ],
         child: MaterialApp.router(
           locale: fallbackCustomerLocale,
@@ -954,9 +983,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ยอดเงินไม่เพียงพอ'), findsWidgets);
-    expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
+    expect(find.text('Partner Pay'), findsOneWidget);
+    expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsNothing);
 
-    final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
+    final externalOption = find.text('Partner Pay');
     await _tapVisibleAboveDock(tester, externalOption);
 
     expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
@@ -1499,6 +1529,62 @@ void main() {
     expect(find.text('เปิดหน้าชำระเงิน'), findsOneWidget);
     expect(find.byIcon(Icons.open_in_new), findsNothing);
     expect(find.byIcon(Icons.refresh), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('checkout pending forwards maintenance to shared route flow', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/checkout/pending?order_id=ord_maintenance',
+      routes: [
+        GoRoute(
+          path: '/checkout/pending',
+          builder: (context, state) => CheckoutPendingPaymentScreen(
+            orderId: state.uri.queryParameters['order_id'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (context, state) => const Scaffold(
+            body: Text('Maintenance route'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
+            (_) async => throw const {
+              'error': {
+                'code': 'maintenance_active',
+                'message': 'ระบบอยู่ระหว่างปรับปรุง',
+              },
+            },
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
     expect(tester.takeException(), isNull);
   });
 
@@ -2878,7 +2964,7 @@ void main() {
   });
 }
 
-Future<void> _pumpCartTest(
+Future<GoRouter> _pumpCartTest(
   WidgetTester tester, {
   required _CheckoutLotteryRepository lottery,
 }) async {
@@ -2905,6 +2991,10 @@ Future<void> _pumpCartTest(
         path: '/profile',
         builder: (context, state) => const Scaffold(body: Text('Profile')),
       ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const Scaffold(body: Text('Maintenance')),
+      ),
     ],
   );
 
@@ -2930,6 +3020,7 @@ Future<void> _pumpCartTest(
     ),
   );
   await tester.pumpAndSettle();
+  return router;
 }
 
 Future<GoRouter> _pumpCheckoutPaymentTest(
@@ -2968,6 +3059,10 @@ Future<GoRouter> _pumpCheckoutPaymentTest(
       GoRoute(
         path: '/profile',
         builder: (context, state) => const Scaffold(body: Text('Profile')),
+      ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const Scaffold(body: Text('Maintenance')),
       ),
     ],
   );
@@ -3083,6 +3178,25 @@ DioException _apiException(
       requestOptions: requestOptions,
       statusCode: 422,
       data: {'message': message},
+    ),
+  );
+}
+
+DioException _maintenanceApiException({
+  String path = '/customer/checkout',
+}) {
+  final requestOptions = RequestOptions(path: path);
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 503,
+      data: const {
+        'error': {
+          'code': 'maintenance_active',
+          'message': 'ระบบอยู่ระหว่างปิดปรับปรุง',
+        },
+      },
     ),
   );
 }

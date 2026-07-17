@@ -25,17 +25,14 @@ class NewsDetailScreen extends ConsumerWidget {
       title: l10n.newsDetailTitle,
       currentPath: '/news',
       backPath: '/news',
+      showBottomNavigation: true,
       heroMinHeight: NewsPageShell.heroMinHeight,
       heroSheetOverlap: NewsPageShell.sheetOverlap,
       heroContent: const SizedBox.shrink(),
       child: news.when(
         data: (item) => _NewsDetailBody(item: item),
-        loading: () => const NewsPageShell(
-          child: _NewsDetailLoadingCard(),
-        ),
-        error: (_, __) => const NewsPageShell(
-          child: _NewsMissingCard(),
-        ),
+        loading: () => const NewsPageShell(child: _NewsDetailLoadingCard()),
+        error: (_, __) => const NewsPageShell(child: _NewsMissingCard()),
       ),
     );
   }
@@ -50,118 +47,208 @@ class _NewsDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final mutedColor = newsMutedColor(context);
-    final surfaceColor = newsCardSurfaceColor(context);
     final title = item.title.isEmpty ? l10n.newsFallbackTitle : item.title;
     final locale = localeTag(l10n.locale);
     final displayWindow = _displayWindow(item, locale);
     final paragraphs = _bodyParagraphs(item);
-    final imageUrl =
-        item.detailImageUrl.isNotEmpty ? item.detailImageUrl : item.coverUrl;
+    final imageUrl = item.detailImageUrl.isNotEmpty
+        ? item.detailImageUrl
+        : item.coverUrl;
 
     return NewsPageShell(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: newsDetailShadowColor(context),
-              blurRadius: 34,
-              offset: const Offset(0, 16),
-            ),
-          ],
+      maxWidth: 900,
+      topPadding: 24,
+      mobileHorizontal: 0,
+      wideHorizontal: 28,
+      child: _NewsDetailContent(
+        title: title,
+        summary: item.summary,
+        displayWindow: displayWindow,
+        paragraphs: paragraphs,
+        mutedColor: mutedColor,
+        imageUrl: imageUrl,
+      ),
+    );
+  }
+}
+
+class _NewsDetailMedia extends StatelessWidget {
+  const _NewsDetailMedia({required this.imageUrl, required this.rounded});
+
+  final String imageUrl;
+  final bool rounded;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: rounded ? BorderRadius.circular(14) : BorderRadius.zero,
+      child: AspectRatio(
+        key: const ValueKey('news-detail-media'),
+        aspectRatio: 16 / 9,
+        child: Image.network(
+          imageUrl,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.medium,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return child;
+            return const NewsImageLoadingFrame(aspectRatio: 16 / 9);
+          },
+          errorBuilder: (_, __, ___) => const NewsFallbackArtwork(iconSize: 52),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (imageUrl.isNotEmpty)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 560),
-                  child: Image.network(
-                    imageUrl,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    frameBuilder: (
-                      context,
-                      child,
-                      frame,
-                      wasSynchronouslyLoaded,
-                    ) {
-                      if (wasSynchronouslyLoaded || frame != null) {
-                        return child;
-                      }
-                      return const NewsImageLoadingFrame(
-                        aspectRatio: 16 / 9,
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => const AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: NewsFallbackArtwork(iconSize: 52),
-                    ),
+      ),
+    );
+  }
+}
+
+class _NewsDetailContent extends StatelessWidget {
+  const _NewsDetailContent({
+    required this.title,
+    required this.summary,
+    required this.displayWindow,
+    required this.paragraphs,
+    required this.mutedColor,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String summary;
+  final String displayWindow;
+  final List<String> paragraphs;
+  final Color mutedColor;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 720;
+        final textHorizontal = wide ? 40.0 : 20.0;
+
+        return Align(
+          key: const ValueKey('news-detail-content'),
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              key: const ValueKey('news-detail-article'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (imageUrl.isNotEmpty) ...[
+                  _NewsDetailMedia(imageUrl: imageUrl, rounded: wide),
+                  const SizedBox(height: 24),
+                ],
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    textHorizontal,
+                    0,
+                    textHorizontal,
+                    48,
                   ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 26),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.newsDetailCategory,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: newsDetailKickerColor(context),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            height: 1.2,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      title,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: newsDetailTitleColor(context),
-                                fontSize: 25,
-                                fontWeight: FontWeight.w900,
-                                height: 1.25,
-                              ),
-                    ),
-                    if (item.summary.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        item.summary,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: newsDetailSummaryColor(context),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.55,
-                                ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _NewsDetailMeta(
+                        category: l10n.newsDetailCategory,
+                        displayWindow: displayWindow,
+                        mutedColor: mutedColor,
                       ),
-                    ],
-                    if (displayWindow.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Text(
-                        displayWindow,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: mutedColor,
-                              fontSize: 13,
-                              height: 1.3,
+                        title,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: newsDetailTitleColor(context),
+                              fontSize: wide ? 32 : 26,
+                              fontWeight: FontWeight.w600,
+                              height: 1.28,
                             ),
                       ),
+                      if (summary.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          summary,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: newsDetailSummaryColor(context),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                height: 1.55,
+                              ),
+                        ),
+                      ],
+                      if (paragraphs.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Divider(
+                          key: const ValueKey('news-detail-divider'),
+                          height: 1,
+                          thickness: 1,
+                          color: newsBorderColor(context),
+                        ),
+                        const SizedBox(height: 24),
+                        _NewsBodyParagraphs(paragraphs: paragraphs),
+                      ],
                     ],
-                    if (paragraphs.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      _NewsBodyParagraphs(paragraphs: paragraphs),
-                    ],
-                  ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NewsDetailMeta extends StatelessWidget {
+  const _NewsDetailMeta({
+    required this.category,
+    required this.displayWindow,
+    required this.mutedColor,
+  });
+
+  final String category;
+  final String displayWindow;
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      key: const ValueKey('news-detail-meta'),
+      spacing: 12,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          category,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: newsDetailKickerColor(context),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+          ),
+        ),
+        if (displayWindow.isNotEmpty)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.schedule_rounded, size: 15, color: mutedColor),
+              const SizedBox(width: 5),
+              Text(
+                displayWindow,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: mutedColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
                 ),
               ),
             ],
           ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -180,10 +267,11 @@ class _NewsBodyParagraphs extends StatelessWidget {
           Text(
             paragraphs[index],
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: newsDetailBodyColor(context),
-                  fontSize: 16,
-                  height: 1.72,
-                ),
+              color: newsDetailBodyColor(context),
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              height: 1.75,
+            ),
           ),
           if (index < paragraphs.length - 1) const SizedBox(height: 12),
         ],
@@ -197,36 +285,33 @@ class _NewsDetailLoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: _stateCardDecoration(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const NewsLoadingMark(
-              key: Key('news-detail-loading-mark'),
-              icon: Icons.article_outlined,
-              size: 46,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const NewsLoadingMark(
+            key: Key('news-detail-loading-mark'),
+            icon: Icons.article_outlined,
+            size: 46,
+          ),
+          const SizedBox(height: 12),
+          const NewsProgressLine(
+            key: Key('news-detail-loading-progress'),
+            width: 128,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.newsLoading,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: newsBodyColor(context),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
             ),
-            const SizedBox(height: 12),
-            const NewsProgressLine(
-              key: Key('news-detail-loading-progress'),
-              width: 128,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              context.l10n.newsLoading,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: newsBodyColor(context),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    height: 1.5,
-                  ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -238,49 +323,44 @@ class _NewsMissingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return DecoratedBox(
-      decoration: _stateCardDecoration(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              l10n.newsMissingTitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: newsDetailTitleColor(context),
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                    height: 1.25,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            l10n.newsMissingTitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: newsDetailTitleColor(context),
+              fontSize: 25,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
             ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.newsMissingMessage,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: newsDetailEmptyBodyColor(context),
-                    height: 1.5,
-                  ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l10n.newsMissingMessage,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: newsDetailEmptyBodyColor(context),
+              fontWeight: FontWeight.w400,
+              height: 1.55,
             ),
-            const SizedBox(height: 20),
-            _NewsPrimaryPill(
-              label: l10n.newsBackToList,
-              onPressed: () => context.go('/news'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+          _NewsPrimaryPill(
+            label: l10n.newsBackToList,
+            onPressed: () => context.go('/news'),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _NewsPrimaryPill extends StatelessWidget {
-  const _NewsPrimaryPill({
-    required this.label,
-    required this.onPressed,
-  });
+  const _NewsPrimaryPill({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -309,24 +389,28 @@ class _NewsPrimaryPill extends StatelessWidget {
             ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: borderRadius,
-            onTap: onPressed,
-            child: SizedBox(
-              height: 47,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontWeight: FontWeight.w900,
-                        ),
+        child: Semantics(
+          button: true,
+          label: label,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onPressed,
+              child: SizedBox(
+                height: 47,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onPrimary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -338,20 +422,6 @@ class _NewsPrimaryPill extends StatelessWidget {
   }
 }
 
-BoxDecoration _stateCardDecoration(BuildContext context) {
-  return BoxDecoration(
-    color: newsCardSurfaceColor(context),
-    borderRadius: BorderRadius.circular(18),
-    boxShadow: [
-      BoxShadow(
-        color: newsDetailShadowColor(context),
-        blurRadius: 34,
-        offset: const Offset(0, 16),
-      ),
-    ],
-  );
-}
-
 String _displayWindow(NewsItem item, String localeTag) {
   final start = _formatNewsDate(item.publishedAt, localeTag);
   final end = _formatNewsDate(item.displayEndAt, localeTag);
@@ -361,14 +431,14 @@ String _displayWindow(NewsItem item, String localeTag) {
 }
 
 String _formatNewsDate(Object? value, String localeTag) {
-  final formatted = formatLocalizedDateTime(value, localeTag);
+  final formatted = formatBangkokLocalizedDateTime(value, localeTag);
   return formatted == '-' ? '' : formatted;
 }
 
 List<String> _bodyParagraphs(NewsItem item) {
   final body = _normalizeNewsBodyText(item.body);
   final summary = _normalizeNewsBodyText(item.summary);
-  if (body.isEmpty || body == summary) return const [];
+  if (body.isEmpty) return const [];
 
   return body
       .split(RegExp(r'\n{2,}|\r?\n'))
@@ -398,9 +468,7 @@ String _normalizeNewsBodyText(String value) {
         '',
       );
 
-  return _decodeNewsHtmlEntities(
-    withBreaks.replaceAll(RegExp(r'<[^>]+>'), ''),
-  )
+  return _decodeNewsHtmlEntities(withBreaks.replaceAll(RegExp(r'<[^>]+>'), ''))
       .split(RegExp(r'\r?\n'))
       .map((line) => line.trim())
       .where((line) => line.isNotEmpty)

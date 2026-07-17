@@ -768,6 +768,17 @@ class RewardClaimTest extends TestCase
                 ->assertOk()
                 ->assertJsonCount(0, 'data');
 
+            DB::table('games')->where('id', 'gam_reward_history_open')->update([
+                'status' => 'closed',
+                'closed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets')
+                ->assertOk()
+                ->assertJsonCount(0, 'data');
+
             $history = $this->withToken($old['auth']['token'])
                 ->getJson('http://'.$old['host'].'/api/v1/customer/tickets/history')
                 ->assertOk()

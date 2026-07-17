@@ -166,12 +166,38 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             $providerMissingFields['config.payment_methods.qr.provider'] ?? null,
         );
 
+        $invalidExternalFields = $this->withToken($tenant['access_token'])
+            ->patchJson('/api/v1/admin/tenant/payment-settings', [
+                'allow_external_payment' => true,
+                'config' => [
+                    'checkout' => [
+                        'external_payment' => [
+                            'provider' => 'provider_test',
+                            'redirect_url_template' => 'http://checkout.provider.test/pay?order_id={order_id}',
+                        ],
+                    ],
+                ],
+            ], $headers + ['Idempotency-Key' => 'payment-settings-invalid-external-m10'])
+            ->assertUnprocessable()
+            ->json('error.details.fields');
+
+        $this->assertSame(
+            ['The external checkout redirect URL template must be an absolute HTTPS URL without credentials or fragments and must contain {order_id}.'],
+            $invalidExternalFields['config.checkout.external_payment.redirect_url_template'] ?? null,
+        );
+
         $settings = $this->withToken($tenant['access_token'])
             ->patchJson('/api/v1/admin/tenant/payment-settings', [
                 'provider_mode' => 'external_configured',
                 'allow_external_payment' => true,
                 'config' => [
                     'display_name' => 'Gateway',
+                    'checkout' => [
+                        'external_payment' => [
+                            'provider' => 'provider_test',
+                            'redirect_url_template' => 'https://checkout.provider.test/pay?order_id={order_id}&reference={reference}',
+                        ],
+                    ],
                     'bank_transfer' => [
                         'bank_code' => 'scb',
                         'account_name' => 'Alpha Co',
@@ -190,6 +216,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertJsonPath('production_provider_ready', false)
             ->assertJsonPath('payment_provider_status', 'blocked_external')
             ->assertJsonPath('config.display_name', 'Gateway')
+            ->assertJsonPath('config.checkout.external_payment.provider', 'provider_test')
             ->assertJsonPath('config.bank_transfer.bank_code', 'scb')
             ->assertJsonPath('config.bank_transfer.account_name', 'Alpha Co')
             ->assertJsonPath('payment_methods.qr.enabled', false)
@@ -202,6 +229,13 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->json();
 
         $this->assertArrayNotHasKey('secret_token', $settings['config']);
+
+        $this->getJson('http://pay.m10.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->assertJsonPath('data.payment.checkout_payment_methods.0', 'wallet')
+            ->assertJsonPath('data.payment.checkout_payment_methods.1', 'external_payment')
+            ->assertJsonPath('data.payment.checkout_payment_method', 'wallet')
+            ->assertJsonPath('data.payment.checkout_payment_method_labels.external_payment', 'Gateway');
 
         $channel = $this->withToken($tenant['access_token'])
             ->postJson('/api/v1/admin/tenant/payment-channels', [
@@ -322,7 +356,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonStructure(['auth', 'expires_at'])
-            ->assertJsonPath('production_realtime_ready', false);
+            ->assertJsonMissingPath('production_realtime_ready');
 
         $this->withToken($token)
             ->postJson('http://rt.m10.test/api/v1/customer/realtime/auth', [

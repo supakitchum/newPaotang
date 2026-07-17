@@ -30,6 +30,46 @@ class TenantActivityTest extends TestCase
         ], array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn()));
     }
 
+    public function test_customer_activity_entry_requires_and_replays_idempotency_key(): void
+    {
+        $this->insertActivePartnerTenantWithDomain('par_act_entry_api', 'ten_act_entry_api', 'act-entry-api.test');
+        $this->insertGame('gam_act_entry_api', 'open');
+        $token = $this->issueCustomerToken('ten_act_entry_api', 'cus_act_entry_api');
+        $this->insertLuckyActivity('ten_act_entry_api', 'gam_act_entry_api', 'act_entry_api', thresholdTickets: 1);
+        $this->insertPaidOrderWithTickets('par_act_entry_api', 'ten_act_entry_api', 'gam_act_entry_api', 'cus_act_entry_api', 'ord_act_entry_api', ['123456'], 8000);
+        $url = 'http://act-entry-api.test/api/v1/customer/activities/act_entry_api/entries';
+        $payload = [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ];
+
+        $this->withToken($token)
+            ->postJson($url, $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.Idempotency-Key.0', 'The Idempotency-Key header must be between 8 and 128 characters.');
+
+        $entry = $this->withToken($token)
+            ->postJson($url, $payload, ['Idempotency-Key' => 'activity-entry-api'])
+            ->assertCreated()
+            ->json();
+
+        $replay = $this->withToken($token)
+            ->postJson($url, $payload, ['Idempotency-Key' => 'activity-entry-api'])
+            ->assertCreated()
+            ->json();
+
+        $this->assertSame($entry['id'], $replay['id']);
+        $this->assertSame(1, DB::table('tenant_activity_entries')->where('customer_id', 'cus_act_entry_api')->count());
+
+        $this->withToken($token)
+            ->postJson($url, [
+                'prediction_type' => 'first_prize_last2',
+                'selected_number' => '57',
+            ], ['Idempotency-Key' => 'activity-entry-api'])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'idempotency_conflict');
+    }
+
     public function test_lucky_board_rights_use_paid_ticket_counts_and_block_overuse(): void
     {
         $service = app(TenantActivityService::class);
@@ -446,6 +486,15 @@ class TenantActivityTest extends TestCase
         ], $this->idempotentRequest('act-claim-wallet'));
 
         $this->assertSame(201, $claim['status'] ?? null);
+        $replay = $service->createCustomerClaim('ten_act_claim', $customer, [
+            'award_id' => $awardId,
+            'payout_method' => 'wallet_credit',
+            'pin' => '246810',
+        ], $this->idempotentRequest('act-claim-wallet'));
+        $this->assertSame(201, $replay['status'] ?? null);
+        $this->assertSame($claim['resource']['id'], $replay['resource']['id'] ?? null);
+        $this->assertSame(1, DB::table('activity_claims')->where('activity_award_id', $awardId)->count());
+
         $this->createAdmin('adm_act_claim', 'act-claim-admin@example.test');
         $approved = $service->approveTenantClaim('ten_act_claim', $this->adminContext('ten_act_claim', 'par_act_claim', 'adm_act_claim'), $claim['resource']['id'], [
             'reason' => 'approved from activity test',

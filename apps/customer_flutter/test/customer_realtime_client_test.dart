@@ -164,6 +164,114 @@ void main() {
     await client.dispose();
   });
 
+  test('realtime client reconnects and resubscribes after stream error',
+      () async {
+    final sockets = <_FakeRealtimeSocket>[];
+    final client = CustomerRealtimeClient(
+      config: _config(),
+      api: _FakeApiClient(),
+      reconnectDelay: const Duration(milliseconds: 1),
+      socketFactory: (_) {
+        final socket = _FakeRealtimeSocket();
+        sockets.add(socket);
+        return socket;
+      },
+    );
+
+    await client.connect([siteConfigChannel(tenantId: 'ten_1')]);
+    sockets.first.addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"123.456"}',
+    });
+    await _flushAsync();
+    expect(sockets.first.sentEvents('pusher:subscribe'), hasLength(1));
+
+    sockets.first.addServerError(StateError('transport interrupted'));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(sockets, hasLength(2));
+    sockets[1].addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"789.000"}',
+    });
+    await _flushAsync();
+
+    expect(sockets[1].sentEvents('pusher:subscribe'), hasLength(1));
+    await client.dispose();
+  });
+
+  test('realtime client retries private channel authorization after failure',
+      () async {
+    final sockets = <_FakeRealtimeSocket>[];
+    final api = _FakeApiClient(authorizationFailures: 1);
+    final client = CustomerRealtimeClient(
+      config: _config(),
+      api: api,
+      reconnectDelay: const Duration(milliseconds: 1),
+      socketFactory: (_) {
+        final socket = _FakeRealtimeSocket();
+        sockets.add(socket);
+        return socket;
+      },
+    );
+
+    await client.connect([customerPresenceChannel(tenantId: 'ten_1')]);
+    sockets.first.addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"123.456"}',
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(sockets, hasLength(2));
+    expect(api.authorizedChannels, hasLength(1));
+    sockets[1].addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"789.000"}',
+    });
+    await _flushAsync();
+
+    expect(api.authorizedChannels, hasLength(2));
+    expect(sockets[1].sentEvents('pusher:subscribe'), hasLength(1));
+    await client.dispose();
+  });
+
+  test('realtime client recovers from malformed handshake and protocol error',
+      () async {
+    final sockets = <_FakeRealtimeSocket>[];
+    final client = CustomerRealtimeClient(
+      config: _config(),
+      api: _FakeApiClient(),
+      reconnectDelay: const Duration(milliseconds: 1),
+      socketFactory: (_) {
+        final socket = _FakeRealtimeSocket();
+        sockets.add(socket);
+        return socket;
+      },
+    );
+
+    await client.connect([siteConfigChannel(tenantId: 'ten_1')]);
+    sockets.first.addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': <String, dynamic>{},
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(sockets, hasLength(2));
+    sockets[1].addServerMessage({
+      'event': 'pusher:connection_established',
+      'data': '{"socket_id":"789.000"}',
+    });
+    await _flushAsync();
+    sockets[1].addServerMessage({
+      'event': 'pusher:subscription_error',
+      'data': {'message': 'channel authorization expired'},
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(sockets, hasLength(3));
+    await client.dispose();
+  });
+
   test('realtime client unsubscribes channels removed from desired set',
       () async {
     final socket = _FakeRealtimeSocket();
@@ -233,6 +341,10 @@ class _FakeRealtimeSocket implements CustomerRealtimeSocket {
     _controller.add(convert.jsonEncode(message));
   }
 
+  void addServerError(Object error) {
+    _controller.addError(error);
+  }
+
   List<Map<String, dynamic>> sentPayloads(String event) {
     return sent.where((payload) => payload['event'] == event).toList();
   }
@@ -246,8 +358,9 @@ class _FakeRealtimeSocket implements CustomerRealtimeSocket {
 }
 
 class _FakeApiClient extends ApiClient {
-  _FakeApiClient()
-      : super(
+  _FakeApiClient({int authorizationFailures = 0})
+      : _authorizationFailures = authorizationFailures,
+        super(
           const AppConfig(
             apiBaseUrl: 'https://tenant.example.test/api/v1',
             defaultLocale: 'th-TH',
@@ -257,6 +370,7 @@ class _FakeApiClient extends ApiClient {
         );
 
   final List<String> authorizedChannels = [];
+  int _authorizationFailures;
 
   @override
   Future<Response<T>> post<T>(
@@ -266,6 +380,13 @@ class _FakeApiClient extends ApiClient {
   }) async {
     final payload = data as Map<String, dynamic>;
     authorizedChannels.add(payload['channel_name']?.toString() ?? '');
+    if (_authorizationFailures > 0) {
+      _authorizationFailures--;
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        error: 'authorization unavailable',
+      );
+    }
     return Response<T>(
       requestOptions: RequestOptions(path: path),
       data: {

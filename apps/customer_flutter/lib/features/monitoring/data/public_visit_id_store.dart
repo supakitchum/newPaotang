@@ -11,11 +11,12 @@ class PublicVisitIdStore {
   PublicVisitIdStore({
     FlutterSecureStorage? storage,
     String Function(String prefix)? idFactory,
-  })  : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            ),
-        _idFactory = idFactory ?? _randomId;
+  }) : _storage =
+           storage ??
+           const FlutterSecureStorage(
+             aOptions: AndroidOptions(migrateWithBackup: true),
+           ),
+       _idFactory = idFactory ?? _randomId;
 
   final FlutterSecureStorage _storage;
   final String Function(String prefix) _idFactory;

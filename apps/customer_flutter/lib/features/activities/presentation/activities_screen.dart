@@ -1,11 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_models.dart';
@@ -24,9 +24,6 @@ const _activitiesPanelTitle = Color(0xFF1F2F54);
 const _activitiesCardTitle = Color(0xFF1F2937);
 const _activitiesBodyText = Color(0xFF6B7280);
 const _activitiesSecondaryText = Color(0xFF64748B);
-const _activitiesPrimary = Color(0xFF0B7FE8);
-const _activitiesActionBackground = Color(0xFFE8F4FF);
-const _activitiesActionText = Color(0xFF0875DF);
 const _activitiesSuccessBackground = Color(0xFFDCFCE7);
 const _activitiesSuccessText = Color(0xFF15803D);
 const _activitiesUsedBackground = Color(0xFFEEF2FF);
@@ -42,12 +39,28 @@ const _activitiesClosedBackground = Color(0xFFFEF2F2);
 const _activitiesClosedBadgeBackground = Color(0xFFFEE2E2);
 const _activitiesClosedBorder = Color(0xFFFECACA);
 const _activitiesClosedText = Color(0xFFB42318);
-const _activitiesCurrentLinkBackground = Color(0xFF0B7FE8);
-const _activitiesOutlineBorder = Color(0xFF0B69DC);
-const _activitiesOutlineText = Color(0xFF075EC9);
 const _activitiesOutlineDisabledBorder = Color(0xFFCBD4DF);
 const _activitiesOutlineDisabledText = Color(0xFF8A8F98);
 const _activitiesOutlineDisabledBackground = Color(0xFFF2F4F7);
+const _activitiesFilterBackground = Color(0xFFF0F6FC);
+const _activitiesFilterShadow = Color(0x12083068);
+const _activitiesPageBackground = Color(0xFFF4F7FB);
+
+Color _activitiesBrandColor(BuildContext context) {
+  return AppTheme.primaryOutlineBorder(
+    Theme.of(context).colorScheme.primary,
+  );
+}
+
+Color _activitiesActionFill(BuildContext context) {
+  return activityBrandActionFill(Theme.of(context).colorScheme);
+}
+
+Color _activitiesActionForeground(BuildContext context) {
+  return activityBrandActionForeground(Theme.of(context).colorScheme);
+}
+
+enum _ActivityBrowseFilter { all, luckyBoard, cashback }
 
 class ActivitiesScreen extends ConsumerStatefulWidget {
   const ActivitiesScreen({super.key});
@@ -59,12 +72,14 @@ class ActivitiesScreen extends ConsumerStatefulWidget {
 class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   final List<ActivityItem> _items = [];
   ActivityListMeta _meta = ActivityListMeta.empty;
+  int _requestGeneration = 0;
   bool _loading = true;
   bool _loadingMore = false;
   bool _refreshing = false;
   String _error = '';
   String _refreshError = '';
   String _loadMoreError = '';
+  _ActivityBrowseFilter _filter = _ActivityBrowseFilter.all;
 
   @override
   void initState() {
@@ -77,13 +92,25 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     final l10n = context.l10n;
     final rightsAccess =
         _activityRightsAccess(ref.watch(authControllerProvider));
+    final visibleItems = _filteredActivities(_items, _filter);
+    ref.listen<_ActivityRightsAccess>(
+      authControllerProvider.select(_activityRightsAccess),
+      (previous, next) {
+        if (previous == null || previous == next) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _load(reset: true);
+        });
+      },
+    );
 
     return AppShell(
       title: l10n.homeActivities,
       currentPath: '/activities',
       backPath: '/',
+      showBottomNavigation: true,
       heroMinHeight: _ActivitiesPageList.heroMinHeight,
       heroSheetOverlap: _ActivitiesPageList.sheetOverlap,
+      heroSheetTopRadius: 26,
       heroContent: const SizedBox.shrink(),
       child: _ActivitiesPageList(
         children: [
@@ -96,11 +123,18 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               _ActivityHistoryLink(
                 onPressed: () => context.go('/activities/history'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 18),
             ],
             if (_items.isEmpty)
               const _EmptyActivitiesCard()
-            else
+            else ...[
+              _ActivityBrowseToolbar(
+                count: visibleItems.length,
+                selected: _filter,
+                available: _availableActivityFilters(_items),
+                onSelected: (value) => setState(() => _filter = value),
+              ),
+              const SizedBox(height: 20),
               _ActivityCardsRail(
                 children: [
                   if (_refreshError.isNotEmpty)
@@ -108,7 +142,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                       message: _refreshError,
                       onRetry: _refresh,
                     ),
-                  for (final activity in _items)
+                  for (final activity in visibleItems)
                     _ActivityListCard(
                       activity: activity,
                       rightsAccess: rightsAccess,
@@ -125,6 +159,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                     ),
                 ],
               ),
+            ],
           ],
         ],
       ),
@@ -144,7 +179,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     bool showLoading = true,
     bool preserveDataOnError = false,
   }) async {
-    if (_loadingMore || (_loading && !reset) || (reset && _refreshing)) return;
+    if (!reset && (_loadingMore || _loading || _refreshing)) return;
     if (!reset && (!_meta.hasMore || (_meta.nextCursor ?? '').isEmpty)) return;
 
     if (_redirectToActivityPinIfNeeded(
@@ -154,6 +189,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       return;
     }
 
+    final requestGeneration = ++_requestGeneration;
     if (reset) _refreshing = true;
     final shouldShowBlockingLoading = reset && (showLoading || _items.isEmpty);
     setState(() {
@@ -179,23 +215,36 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             authenticated: authenticated,
             cursor: reset ? '' : (_meta.nextCursor ?? ''),
           );
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() {
-        final pageItems = _sortActivitiesByRights(
-          page.items,
+        final mergedItems = reset
+            ? page.items
+            : <ActivityItem>[
+                ..._items,
+                ...page.items,
+              ];
+        final sortedItems = _sortActivitiesByRights(
+          mergedItems,
           authenticated: authenticated,
         );
-        if (reset) {
-          _items
-            ..clear()
-            ..addAll(pageItems);
-        } else {
-          _items.addAll(pageItems);
+        _items
+          ..clear()
+          ..addAll(sortedItems);
+        if (reset && !_activityMatchesFilter(sortedItems, _filter)) {
+          _filter = _ActivityBrowseFilter.all;
         }
         _meta = page.meta;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _requestGeneration) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted || requestGeneration != _requestGeneration) return;
       final message = activityErrorMessage(
         error,
         context.l10n.activitiesLoadFailed,
@@ -212,8 +261,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         }
       });
     } finally {
-      if (reset) _refreshing = false;
-      if (mounted) {
+      if (mounted && requestGeneration == _requestGeneration) {
+        if (reset) _refreshing = false;
         setState(() {
           _loading = false;
           _loadingMore = false;
@@ -226,31 +275,230 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 class _ActivitiesPageList extends StatelessWidget {
   const _ActivitiesPageList({required this.children});
 
-  static const heroMinHeight = 214.0;
-  static const sheetOverlap = 42.0;
-  static const _bottomPadding = 118.0;
+  static const heroMinHeight = customerReferenceCompactHeroHeight;
+  static const sheetOverlap = 0.0;
+  static const _bottomPadding = 136.0;
 
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final mobileHorizontal = (viewportWidth * 0.045).clamp(16.0, 20.0);
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        CustomerPageBody(
-          maxWidth: 640,
-          top: 8,
-          bottom: _bottomPadding,
-          mobileHorizontal: 12,
-          wideHorizontal: 0,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
+        DecoratedBox(
+          decoration: const BoxDecoration(
+            color: _activitiesPageBackground,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          child: CustomerPageBody(
+            top: 38,
+            bottom: _bottomPadding,
+            mobileHorizontal: mobileHorizontal,
+            wideHorizontal: 0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
           ),
         ),
       ],
     );
   }
+}
+
+class _ActivityBrowseToolbar extends StatelessWidget {
+  const _ActivityBrowseToolbar({
+    required this.count,
+    required this.selected,
+    required this.available,
+    required this.onSelected,
+  });
+
+  final int count;
+  final _ActivityBrowseFilter selected;
+  final List<_ActivityBrowseFilter> available;
+  final ValueChanged<_ActivityBrowseFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            l10n.activitiesBrowseCount(count),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: _activitiesPanelTitle,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+        ),
+        const SizedBox(height: 9),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: _activitiesFilterBackground,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                for (var index = 0; index < available.length; index++) ...[
+                  Expanded(
+                    child: _ActivityBrowseSegment(
+                      filter: available[index],
+                      selected: available[index] == selected,
+                      onPressed: () => onSelected(available[index]),
+                    ),
+                  ),
+                  if (index < available.length - 1) const SizedBox(width: 4),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActivityBrowseSegment extends StatelessWidget {
+  const _ActivityBrowseSegment({
+    required this.filter,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _ActivityBrowseFilter filter;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final label = switch (filter) {
+      _ActivityBrowseFilter.all => l10n.activitiesFilterAll,
+      _ActivityBrowseFilter.luckyBoard => l10n.activitiesFilterLucky,
+      _ActivityBrowseFilter.cashback => l10n.activitiesFilterCashback,
+    };
+    final icon = switch (filter) {
+      _ActivityBrowseFilter.all => Icons.dashboard_outlined,
+      _ActivityBrowseFilter.luckyBoard => Icons.grid_view_rounded,
+      _ActivityBrowseFilter.cashback => Icons.account_balance_wallet_outlined,
+    };
+    final foreground = selected
+        ? _activitiesActionForeground(context)
+        : _activitiesSecondaryText;
+    final radius = BorderRadius.circular(11);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: radius,
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: selected ? _activitiesSurface : Colors.transparent,
+              borderRadius: radius,
+              boxShadow: selected
+                  ? const [
+                      BoxShadow(
+                        color: _activitiesFilterShadow,
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final showIcon = constraints.maxWidth >= 92;
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (showIcon) ...[
+                      Icon(icon, color: foreground, size: 17),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: foreground,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<_ActivityBrowseFilter> _availableActivityFilters(
+  List<ActivityItem> items,
+) {
+  return [
+    _ActivityBrowseFilter.all,
+    if (items.any((item) => item.isLuckyBoard))
+      _ActivityBrowseFilter.luckyBoard,
+    if (items.any((item) => item.isCashback)) _ActivityBrowseFilter.cashback,
+  ];
+}
+
+List<ActivityItem> _filteredActivities(
+  List<ActivityItem> items,
+  _ActivityBrowseFilter filter,
+) {
+  if (filter == _ActivityBrowseFilter.all) return items;
+  return items
+      .where((item) => _activityMatchesBrowseFilter(item, filter))
+      .toList(growable: false);
+}
+
+bool _activityMatchesFilter(
+  List<ActivityItem> items,
+  _ActivityBrowseFilter filter,
+) {
+  return filter == _ActivityBrowseFilter.all ||
+      items.any((item) => _activityMatchesBrowseFilter(item, filter));
+}
+
+bool _activityMatchesBrowseFilter(
+  ActivityItem item,
+  _ActivityBrowseFilter filter,
+) {
+  return switch (filter) {
+    _ActivityBrowseFilter.all => true,
+    _ActivityBrowseFilter.luckyBoard => item.isLuckyBoard,
+    _ActivityBrowseFilter.cashback => item.isCashback,
+  };
 }
 
 class _ActivityHistoryLink extends StatelessWidget {
@@ -271,7 +519,7 @@ class _ActivityHistoryLink extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 430;
+              final compact = MediaQuery.sizeOf(context).width < 576;
               final copy = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -335,7 +583,7 @@ class _ActivityHistoryActionPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _activitiesActionBackground,
+        color: _activitiesActionFill(context),
         borderRadius: BorderRadius.circular(999),
       ),
       child: SizedBox(
@@ -352,7 +600,7 @@ class _ActivityHistoryActionPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: _activitiesActionText,
+                        color: _activitiesActionForeground(context),
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
@@ -361,7 +609,7 @@ class _ActivityHistoryActionPill extends StatelessWidget {
               const SizedBox(width: 4),
               Icon(
                 Icons.chevron_right,
-                color: _activitiesActionText,
+                color: _activitiesActionForeground(context),
                 size: 18,
               ),
             ],
@@ -442,6 +690,7 @@ class _ActivitiesHistoryScreenState
     extends ConsumerState<ActivitiesHistoryScreen> {
   final List<ActivityItem> _items = [];
   ActivityListMeta _meta = ActivityListMeta.empty;
+  int _requestGeneration = 0;
   bool _loading = true;
   bool _loadingMore = false;
   bool _refreshing = false;
@@ -457,6 +706,15 @@ class _ActivitiesHistoryScreenState
     final l10n = context.l10n;
     final rightsAccess =
         _activityRightsAccess(ref.watch(authControllerProvider));
+    ref.listen<_ActivityRightsAccess>(
+      authControllerProvider.select(_activityRightsAccess),
+      (previous, next) {
+        if (previous == null || previous == next) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _load(reset: true);
+        });
+      },
+    );
 
     if (_loadedQueryGameId != queryGameId) {
       _loadedQueryGameId = queryGameId;
@@ -467,8 +725,10 @@ class _ActivitiesHistoryScreenState
       title: l10n.activitiesHistoryTitle,
       currentPath: '/activities',
       backPath: '/activities',
+      showBottomNavigation: true,
       heroMinHeight: _ActivitiesPageList.heroMinHeight,
       heroSheetOverlap: _ActivitiesPageList.sheetOverlap,
+      heroSheetTopRadius: 26,
       heroContent: const SizedBox.shrink(),
       child: _ActivitiesPageList(
         children: [
@@ -511,6 +771,7 @@ class _ActivitiesHistoryScreenState
                         meta: _meta,
                         requestedGameId: queryGameId,
                       ),
+                      history: true,
                     ),
                   if (_loadMoreError.isNotEmpty)
                     _ActivityInlineError(
@@ -543,7 +804,7 @@ class _ActivitiesHistoryScreenState
     bool showLoading = true,
     bool preserveDataOnError = false,
   }) async {
-    if (_loadingMore || (_loading && !reset) || (reset && _refreshing)) return;
+    if (!reset && (_loadingMore || _loading || _refreshing)) return;
     if (!reset && (!_meta.hasMore || (_meta.nextCursor ?? '').isEmpty)) return;
 
     if (_redirectToActivityPinIfNeeded(
@@ -553,6 +814,7 @@ class _ActivitiesHistoryScreenState
       return;
     }
 
+    final requestGeneration = ++_requestGeneration;
     final gameId = _loadedQueryGameId ?? '';
     if (reset) _refreshing = true;
     final shouldShowBlockingLoading = reset && (showLoading || _items.isEmpty);
@@ -581,23 +843,34 @@ class _ActivitiesHistoryScreenState
             gameId: gameId,
             cursor: reset ? '' : (_meta.nextCursor ?? ''),
           );
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() {
-        final pageItems = _sortActivitiesByRights(
-          page.items,
+        final mergedItems = reset
+            ? page.items
+            : <ActivityItem>[
+                ..._items,
+                ...page.items,
+              ];
+        final sortedItems = _sortActivitiesByRights(
+          mergedItems,
           authenticated: authenticated,
+          history: true,
         );
-        if (reset) {
-          _items
-            ..clear()
-            ..addAll(pageItems);
-        } else {
-          _items.addAll(pageItems);
-        }
+        _items
+          ..clear()
+          ..addAll(sortedItems);
         _meta = page.meta;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _requestGeneration) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted || requestGeneration != _requestGeneration) return;
       final message = activityErrorMessage(
         error,
         context.l10n.activitiesLoadFailed,
@@ -614,8 +887,8 @@ class _ActivitiesHistoryScreenState
         }
       });
     } finally {
-      if (reset) _refreshing = false;
-      if (mounted) {
+      if (mounted && requestGeneration == _requestGeneration) {
+        if (reset) _refreshing = false;
         setState(() {
           _loading = false;
           _loadingMore = false;
@@ -628,29 +901,43 @@ class _ActivitiesHistoryScreenState
 class _ActivityCardsRail extends StatelessWidget {
   const _ActivityCardsRail({required this.children});
 
-  static const _viewportOffset = 226.0;
-  static const _minHeight = 280.0;
-
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
-    final maxHeight = math.max(
-      _minHeight,
-      MediaQuery.sizeOf(context).height - _viewportOffset,
-    );
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: ListView.separated(
-        primary: false,
-        shrinkWrap: true,
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.only(top: 2),
-        itemCount: children.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) => children[index],
-      ),
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final gap = (viewportWidth * 0.045).clamp(16.0, 20.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 680;
+        if (!twoColumns) {
+          return Column(
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                children[index],
+                if (index < children.length - 1) SizedBox(height: gap),
+              ],
+            ],
+          );
+        }
+
+        final itemWidth = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final child in children)
+              SizedBox(
+                width: child is _ActivityInlineError ||
+                        child is _ActivityLoadMoreButton
+                    ? constraints.maxWidth
+                    : itemWidth,
+                child: child,
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -658,6 +945,7 @@ class _ActivityCardsRail extends StatelessWidget {
 List<ActivityItem> _sortActivitiesByRights(
   List<ActivityItem> items, {
   required bool authenticated,
+  bool history = false,
 }) {
   if (!authenticated) return items;
 
@@ -666,8 +954,14 @@ List<ActivityItem> _sortActivitiesByRights(
       MapEntry(index, items[index]),
   ];
   indexed.sort((first, second) {
-    final firstHasRight = _hasCurrentActivityRight(first.value);
-    final secondHasRight = _hasCurrentActivityRight(second.value);
+    final firstHasRight = _hasActivityRightForSort(
+      first.value,
+      history: history,
+    );
+    final secondHasRight = _hasActivityRightForSort(
+      second.value,
+      history: history,
+    );
     final rightCompare = (secondHasRight ? 1 : 0) - (firstHasRight ? 1 : 0);
     return rightCompare == 0 ? first.key.compareTo(second.key) : rightCompare;
   });
@@ -700,10 +994,14 @@ bool _redirectToActivityPinIfNeeded(
   return true;
 }
 
-bool _hasCurrentActivityRight(ActivityItem activity) {
+bool _hasActivityRightForSort(
+  ActivityItem activity, {
+  required bool history,
+}) {
   if (activity.isCashback) return activity.hasRight;
   if (!activity.isLuckyBoard) return activity.hasRight;
-  return !activityEntryClosed(activity) && activity.rights.remainingCount > 0;
+  return (history || !activityEntryClosed(activity)) &&
+      activity.rights.remainingCount > 0;
 }
 
 String _activityRightsState(
@@ -714,7 +1012,10 @@ String _activityRightsState(
   if (entryClosed) return 'closed';
   if (access == _ActivityRightsAccess.guest) return 'guest';
   if (access == _ActivityRightsAccess.pin) return 'pin';
-  if (activity.hasRight || activity.rights.remainingCount > 0) {
+  if (activity.isCashback && activity.hasRight) {
+    return 'available';
+  }
+  if (activity.isLuckyBoard && activity.rights.remainingCount > 0) {
     return 'available';
   }
   if (activity.rights.earnedCount > 0 || activity.rights.usedCount > 0) {
@@ -780,7 +1081,7 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 430;
+            final compact = MediaQuery.sizeOf(context).width < 576;
             final copy = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -832,7 +1133,9 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide(color: _activitiesPrimary),
+                  borderSide: BorderSide(
+                    color: _activitiesBrandColor(context),
+                  ),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -1038,7 +1341,9 @@ class _ActivityLoadMoreButton extends StatelessWidget {
               backgroundColor: _activitiesSurface,
               disabledBackgroundColor: _activitiesOutlineDisabledBackground,
               disabledForegroundColor: _activitiesOutlineDisabledText,
-              foregroundColor: _activitiesOutlineText,
+              foregroundColor: AppTheme.primaryOutlineText(
+                Theme.of(context).colorScheme.primary,
+              ),
               minimumSize: const Size(160, 40),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               shape: const StadiumBorder(),
@@ -1050,7 +1355,9 @@ class _ActivityLoadMoreButton extends StatelessWidget {
                 (states) => BorderSide(
                   color: states.contains(WidgetState.disabled)
                       ? _activitiesOutlineDisabledBorder
-                      : _activitiesOutlineBorder,
+                      : AppTheme.primaryOutlineBorder(
+                          Theme.of(context).colorScheme.primary,
+                        ),
                 ),
               ),
             ),
@@ -1077,7 +1384,7 @@ class _EmptyActivitiesCard extends StatelessWidget {
         Icon(
           Icons.card_giftcard,
           size: 38,
-          color: _activitiesPrimary,
+          color: _activitiesBrandColor(context),
         ),
         const SizedBox(height: 12),
         Text(
@@ -1113,7 +1420,7 @@ class _EmptyHistoryActivitiesCard extends StatelessWidget {
         Icon(
           Icons.history,
           size: 38,
-          color: _activitiesPrimary,
+          color: _activitiesBrandColor(context),
         ),
         const SizedBox(height: 12),
         Text(
@@ -1160,7 +1467,7 @@ class _ActivityCurrentLinkPill extends StatelessWidget {
     final radius = BorderRadius.circular(999);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _activitiesCurrentLinkBackground,
+        color: _activitiesBrandColor(context),
         borderRadius: radius,
       ),
       child: Material(
@@ -1200,22 +1507,24 @@ class _ActivityListCard extends StatelessWidget {
     required this.activity,
     required this.rightsAccess,
     this.historyGameId = '',
+    this.history = false,
   });
 
   final ActivityItem activity;
   final _ActivityRightsAccess rightsAccess;
   final String historyGameId;
+  final bool history;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final entryClosed = activityEntryClosed(activity);
+    final entryClosed = !history && activityEntryClosed(activity);
     final rightsState = _activityRightsState(
       activity,
       entryClosed: entryClosed,
       access: rightsAccess,
     );
-    final showDeadlinePill = activity.isLuckyBoard && historyGameId.isEmpty;
+    final showDeadlinePill = activity.isLuckyBoard && !history;
     final detailUri = Uri(
       path: '/activities/${activity.slug}',
       queryParameters: historyGameId.isEmpty
@@ -1246,112 +1555,106 @@ class _ActivityListCard extends StatelessWidget {
                 ? null
                 : () => context.go(detailUri.toString()),
             child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 375;
-                final imageWidth = compact
-                    ? 94.0
-                    : (constraints.maxWidth * 0.28).clamp(98.0, 132.0);
-                final minHeight =
-                    (constraints.maxWidth * 0.30).clamp(132.0, 154.0);
-
-                return ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: minHeight),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: imageWidth,
-                          child: activity.imageUrl.isEmpty
-                              ? ActivityImageFallback(
-                                  isCashback: activity.isCashback,
-                                )
-                              : Image.network(
-                                  activity.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      ActivityImageFallback(
-                                    isCashback: activity.isCashback,
-                                  ),
-                                ),
+              builder: (context, _) {
+                final viewportWidth = MediaQuery.sizeOf(context).width;
+                final compact = viewportWidth < 375;
+                final bodyPadding = compact ? 14.0 : 16.0;
+                const bodyGap = 8.0;
+                final artwork = activity.imageUrl.isEmpty
+                    ? ActivityImageFallback(isCashback: activity.isCashback)
+                    : Image.network(
+                        activity.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => ActivityImageFallback(
+                          isCashback: activity.isCashback,
                         ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.all(compact ? 11 : 15),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                _ActivityTypeBadge(
-                                  label: l10n.activityTypeLabel(activity.type),
-                                  compact: compact,
-                                ),
-                                const SizedBox(height: 7),
-                                Text(
-                                  activityDisplayName(l10n, activity),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        color: _activitiesCardTitle,
-                                        fontWeight: FontWeight.w900,
-                                        height: 1.25,
-                                      ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  activityConditionText(l10n, activity),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: _activitiesBodyText,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.35,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                _ActivityRightsBadge(
-                                  label: _activityRightsText(
-                                    l10n,
-                                    activity,
-                                    entryClosed: entryClosed,
-                                    access: rightsAccess,
-                                  ),
-                                  state: rightsState,
-                                  compact: compact,
-                                ),
-                                if (activity.isLuckyBoard) ...[
-                                  const SizedBox(height: 6),
-                                  _ActivityNumberBadge(
-                                    label: l10n.activityMetaRemainingNumbers(
-                                      activity.remainingNumbers,
-                                    ),
-                                    compact: compact,
-                                  ),
-                                ],
-                                if (showDeadlinePill) ...[
-                                  const SizedBox(height: 6),
-                                  _ActivityDeadlinePill(
-                                    label: activityEntryDeadlineText(
-                                      l10n,
-                                      activity,
-                                    ),
-                                    closed: entryClosed,
-                                    compact: compact,
-                                  ),
-                                ],
-                              ],
-                            ),
+                      );
+                final body = Padding(
+                  padding: EdgeInsets.all(bodyPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _ActivityTypeBadge(
+                            label: l10n.activityTypeLabel(activity.type),
+                            compact: compact,
                           ),
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            color: _activitiesActionForeground(context),
+                            size: 23,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        activityDisplayName(l10n, activity),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: _activitiesCardTitle,
+                                  fontSize: compact ? 17 : 18,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.3,
+                                ),
+                      ),
+                      const SizedBox(height: bodyGap),
+                      Text(
+                        activityConditionText(l10n, activity),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: _activitiesBodyText,
+                              fontSize: compact ? 13 : 14,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      _ActivityRightsBadge(
+                        label: _activityRightsText(
+                          l10n,
+                          activity,
+                          entryClosed: entryClosed,
+                          access: rightsAccess,
+                        ),
+                        state: rightsState,
+                        compact: compact,
+                      ),
+                      if (activity.isLuckyBoard) ...[
+                        const SizedBox(height: bodyGap),
+                        _ActivityNumberBadge(
+                          label: l10n.activityMetaRemainingNumbers(
+                            activity.remainingNumbers,
+                          ),
+                          compact: compact,
                         ),
                       ],
-                    ),
+                      if (showDeadlinePill) ...[
+                        const SizedBox(height: bodyGap),
+                        _ActivityDeadlinePill(
+                          label: activityEntryDeadlineText(l10n, activity),
+                          closed: entryClosed,
+                          compact: compact,
+                        ),
+                      ],
+                    ],
                   ),
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AspectRatio(
+                      key: Key('activity-card-artwork-${activity.id}'),
+                      aspectRatio: 16 / 9,
+                      child: artwork,
+                    ),
+                    body,
+                  ],
                 );
               },
             ),
@@ -1383,7 +1686,7 @@ class _ActivityNumberBadge extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 28),
+              constraints: const BoxConstraints(minHeight: 32),
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -1393,7 +1696,7 @@ class _ActivityNumberBadge extends StatelessWidget {
                     Icon(
                       Icons.grid_view_rounded,
                       color: _activitiesNumberText,
-                      size: 14,
+                      size: 15,
                     ),
                     const SizedBox(width: 6),
                     Flexible(
@@ -1403,7 +1706,7 @@ class _ActivityNumberBadge extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _activitiesNumberText,
-                              fontSize: compact ? 11 : 12,
+                              fontSize: compact ? 12 : 13,
                               fontWeight: FontWeight.w900,
                               height: 1,
                             ),
@@ -1448,14 +1751,14 @@ class _ActivityDeadlinePill extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 28),
+              constraints: const BoxConstraints(minHeight: 32),
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.access_time, color: foreground, size: 14),
+                    Icon(Icons.access_time, color: foreground, size: 15),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
@@ -1464,7 +1767,7 @@ class _ActivityDeadlinePill extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: foreground,
-                              fontSize: compact ? 11 : 12,
+                              fontSize: compact ? 12 : 13,
                               fontWeight: FontWeight.w900,
                               height: 1,
                             ),
@@ -1494,11 +1797,11 @@ class _ActivityTypeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _activitiesActionBackground,
+        color: _activitiesActionFill(context),
         borderRadius: BorderRadius.circular(999),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 24),
+        constraints: const BoxConstraints(minHeight: 27),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           child: Text(
@@ -1506,8 +1809,8 @@ class _ActivityTypeBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: _activitiesActionText,
-                  fontSize: compact ? 11 : 12,
+                  color: _activitiesActionForeground(context),
+                  fontSize: compact ? 12 : 13,
                   fontWeight: FontWeight.w900,
                   height: 1,
                 ),
@@ -1567,13 +1870,13 @@ class _ActivityRightsBadge extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 25),
+              constraints: const BoxConstraints(minHeight: 28),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(colors.icon, color: colors.foreground, size: 14),
+                    Icon(colors.icon, color: colors.foreground, size: 15),
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
@@ -1582,7 +1885,7 @@ class _ActivityRightsBadge extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: colors.foreground,
-                              fontSize: compact ? 11 : 12,
+                              fontSize: compact ? 12 : 13,
                               fontWeight: FontWeight.w900,
                               height: 1.2,
                             ),

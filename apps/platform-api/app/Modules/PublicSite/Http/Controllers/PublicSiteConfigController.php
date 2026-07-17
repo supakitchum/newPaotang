@@ -5,6 +5,7 @@ namespace App\Modules\PublicSite\Http\Controllers;
 use App\Modules\Auth\Services\TenantSocialAuthService;
 use App\Shared\Auth\ApiErrorResponse;
 use App\Modules\Tenancy\Services\TenantConfigurationService;
+use App\Support\RealtimeUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -65,10 +66,18 @@ class PublicSiteConfigController extends Controller
 
         $data = $result['data'];
         $tenantId = (string) ($data['tenant_id'] ?? '');
+        $site = is_array($data['site'] ?? null) ? $data['site'] : [];
         $line = is_array($data['line'] ?? null) ? $data['line'] : [];
         $features = is_array($data['features'] ?? null) ? $data['features'] : [];
-        $realtimeUrl = trim((string) config('platform.realtime.customer_public_url', ''));
-        $realtimeKey = trim((string) config('platform.realtime.customer_public_key', 'newpaotang-customer')) ?: 'newpaotang-customer';
+        $api = is_array($data['api'] ?? null) ? $data['api'] : [];
+        $realtimeUrl = RealtimeUrl::resolve(
+            $api['realtime_url'] ?? null,
+            config('platform.realtime.customer_public_url'),
+        );
+        $realtimeKey = trim((string) config('broadcasting.connections.reverb.key', ''));
+        $realtimeClient = trim((string) config('platform.realtime.customer_client', 'customer-flutter')) ?: 'customer-flutter';
+        $realtimeAuthEndpoint = trim((string) config('platform.realtime.customer_auth_endpoint', '/customer/realtime/auth')) ?: '/customer/realtime/auth';
+        $realtimeProtocol = max(1, (int) config('platform.realtime.customer_protocol', 7));
         $authProviders = $tenantId !== '' ? $this->socialAuth->enabledProviders($tenantId) : [];
         $enabledAuthProviders = collect($authProviders)
             ->pluck('provider')
@@ -80,6 +89,8 @@ class PublicSiteConfigController extends Controller
         $data['mobile'] = [
             'app_key' => 'customer_flutter',
             'supported_platforms' => ['ios', 'android', 'web'],
+            'lottery_product_label' => $site['lottery_product_label'] ?? null,
+            'ticket_image_watermark' => $site['ticket_image_watermark'] ?? null,
             'auth_providers' => $authProviders,
             'line' => [
                 'liff_id' => $line['liff_id'] ?? null,
@@ -88,12 +99,12 @@ class PublicSiteConfigController extends Controller
                 'add_friend_url' => $line['add_friend_url'] ?? null,
             ],
             'realtime' => [
-                'enabled' => $realtimeUrl !== '',
+                'enabled' => $realtimeUrl !== '' && $realtimeKey !== '',
                 'url' => $realtimeUrl,
                 'key' => $realtimeKey,
-                'auth_endpoint' => '/customer/realtime/auth',
-                'protocol' => 7,
-                'client' => 'newpaotang-customer',
+                'auth_endpoint' => $realtimeAuthEndpoint,
+                'protocol' => $realtimeProtocol,
+                'client' => $realtimeClient,
             ],
             'biometric' => [
                 'enabled' => true,

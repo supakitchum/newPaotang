@@ -3,7 +3,9 @@ import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
+import 'package:customer_flutter/core/navigation/customer_link_launcher.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_models.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_repository.dart';
 import 'package:customer_flutter/features/profile/presentation/line_notifications_screen.dart';
@@ -12,8 +14,136 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
+  test('LINE settings accept wrapped camelCase production payloads', () {
+    final settings = LineNotificationSettings.fromJson({
+      'data': {
+        'resource': {
+          'lineNotificationSettings': {
+            'lineAvailable': 'active',
+            'lineOa': {
+              'basicId': '@wrapped',
+              'displayName': 'Wrapped LINE OA',
+              'addFriendUrl': {'href': 'https://line.me/R/ti/p/@wrapped'},
+            },
+            'lineLiff': {'liffId': 'wrapped-liff'},
+            'lineIdentity': {
+              'lineUserId': 'U-wrapped',
+              'displayName': 'Wrapped Customer',
+              'pictureUrl': 'https://cdn.example.test/line.png',
+              'friendStatus': 'added',
+              'notificationStatus': 'enabled',
+            },
+          },
+        },
+      },
+    });
+
+    expect(settings.lineAvailable, isTrue);
+    expect(settings.botBasicId, '@wrapped');
+    expect(settings.botDisplayName, 'Wrapped LINE OA');
+    expect(settings.addFriendUrl, 'https://line.me/R/ti/p/@wrapped');
+    expect(settings.liffId, 'wrapped-liff');
+    expect(settings.identity?.id, 'U-wrapped');
+    expect(settings.identity?.displayName, 'Wrapped Customer');
+    expect(settings.identity?.friendFlag, isTrue);
+    expect(settings.identity?.notificationEnabled, isTrue);
+  });
+
+  testWidgets('LINE screen uses a title-only header and bottom action footer', (
+    tester,
+  ) async {
+    await _pumpScreen(tester);
+    await tester.pumpAndSettle();
+
+    final headerRect = tester.getRect(
+      find.byKey(const ValueKey('customer-fixed-hero')),
+    );
+    final footerRect = tester.getRect(
+      find.byKey(const ValueKey('line-action-footer')),
+    );
+
+    expect(headerRect.height, 150);
+    expect(footerRect.bottom, 1200);
+    expect(find.text('LINE notifications'), findsOneWidget);
+    expect(find.text('Get every transaction update'), findsNothing);
+    expect(find.text('Connect LINE'), findsOneWidget);
+    expect(find.text('Home'), findsNothing);
+    expect(find.text('My Tickets'), findsNothing);
+    expect(find.text('More'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('LINE actions fill the footer and status stays top right', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      lineRepository: _LineNotificationRepository(
+        settings: const LineNotificationSettings(
+          lineAvailable: true,
+          botBasicId: '@demo',
+          botDisplayName: 'Demo LINE',
+          addFriendUrl: 'https://line.me/R/ti/p/@demo',
+          liffId: 'demo-liff',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final footerRect = tester.getRect(
+      find.byKey(const ValueKey('line-action-footer')),
+    );
+    final connectRect = tester.getRect(
+      find.byKey(const ValueKey('line-connect-action')),
+    );
+    final addFriendRect = tester.getRect(
+      find.byKey(const ValueKey('line-add-friend-action')),
+    );
+    final cardRect = tester.getRect(
+      find.byKey(const ValueKey('line-account-card')),
+    );
+    final badgeRect = tester.getRect(
+      find.byKey(const ValueKey('line-connection-badge')),
+    );
+
+    expect(connectRect.left, moreOrLessEquals(footerRect.left + 16));
+    expect(connectRect.right, moreOrLessEquals(footerRect.right - 16));
+    expect(addFriendRect.left, moreOrLessEquals(connectRect.left));
+    expect(addFriendRect.right, moreOrLessEquals(connectRect.right));
+    expect(badgeRect.right, moreOrLessEquals(cardRect.right - 18));
+    expect(badgeRect.top, moreOrLessEquals(cardRect.top + 18));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('LINE direct route hides connect actions when unavailable', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      lineRepository: _LineNotificationRepository(
+        settings: const LineNotificationSettings(
+          lineAvailable: false,
+          botBasicId: '',
+          botDisplayName: '',
+          addFriendUrl: '',
+          liffId: '',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('This store has not enabled LINE OA yet'),
+      findsOneWidget,
+    );
+    expect(find.text('Connect LINE'), findsNothing);
+    expect(find.byKey(const ValueKey('line-action-footer')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('LINE notifications load error uses API payload copy', (
     tester,
   ) async {
@@ -63,7 +193,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Connect LINE'));
+    await tester.tap(find.text('Connect LINE'));
     await tester.pumpAndSettle();
 
     expect(find.text('กรุณาเชื่อมต่อ LINE OA กับร้านค้าก่อน'), findsOneWidget);
@@ -86,7 +216,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Connect LINE'));
+    await tester.tap(find.text('Connect LINE'));
     await tester.pumpAndSettle();
 
     expect(
@@ -111,7 +241,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byKey(const Key('line_notification_switch')));
     await tester.pumpAndSettle();
 
     expect(find.text('ไม่สามารถเปิดแจ้งเตือน LINE ในขณะนี้'), findsOneWidget);
@@ -131,7 +261,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final disconnectButton = find.widgetWithText(TextButton, 'Disconnect');
+    final disconnectButton = find.text('Disconnect');
     await tester.ensureVisible(disconnectButton);
     await tester.tap(disconnectButton);
     await tester.pumpAndSettle();
@@ -142,12 +272,95 @@ void main() {
     );
     expect(find.text('Could not disconnect LINE.'), findsNothing);
   });
+
+  testWidgets('LINE add-friend action shows an inline launch failure', (
+    tester,
+  ) async {
+    final launcher = _LineLinkLauncher(opened: false);
+    await _pumpScreen(
+      tester,
+      lineRepository: _LineNotificationRepository(
+        settings: const LineNotificationSettings(
+          lineAvailable: true,
+          botBasicId: '@demo',
+          botDisplayName: 'Demo LINE',
+          addFriendUrl: 'https://line.me/R/ti/p/@demo',
+          liffId: 'demo-liff',
+        ),
+      ),
+      linkLauncher: launcher,
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('line-add-friend-action')));
+    await tester.pumpAndSettle();
+
+    expect(launcher.lastUri?.toString(), 'https://line.me/R/ti/p/@demo');
+    expect(launcher.preferSameWindowInLine, isTrue);
+    expect(find.text('Connection URL was not found.'), findsOneWidget);
+  });
+
+  testWidgets('LINE settings load follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/profile/line-notifications',
+      routes: [
+        GoRoute(
+          path: '/profile/line-notifications',
+          builder: (_, __) => const LineNotificationsScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (_, __) => const Scaffold(
+            body: Center(child: Text('Maintenance route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(const {}),
+          ),
+          lineNotificationRepositoryProvider.overrideWithValue(
+            _LineNotificationRepository(
+              loadError: _apiException(
+                'ร้านค้าปิดปรับปรุงชั่วคราว',
+                path: '/customer/line-notifications',
+                code: 'maintenance_active',
+                statusCode: 503,
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          locale: const Locale('en', 'US'),
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpScreen(
   WidgetTester tester, {
   _LineNotificationRepository? lineRepository,
   _LineAuthRepository? authRepository,
+  CustomerLinkLauncher? linkLauncher,
 }) {
   tester.view.physicalSize = const Size(900, 1200);
   tester.view.devicePixelRatio = 1;
@@ -163,6 +376,8 @@ Future<void> _pumpScreen(
         authRepositoryProvider.overrideWithValue(
           authRepository ?? _LineAuthRepository(),
         ),
+        if (linkLauncher != null)
+          customerLinkLauncherProvider.overrideWithValue(linkLauncher),
       ],
       child: const MaterialApp(
         locale: Locale('en', 'US'),
@@ -266,14 +481,40 @@ class _LineAuthRepository extends AuthRepository {
   }
 }
 
-DioException _apiException(String message, {required String path}) {
+class _LineLinkLauncher extends CustomerLinkLauncher {
+  _LineLinkLauncher({required this.opened});
+
+  final bool opened;
+  Uri? lastUri;
+  bool preferSameWindowInLine = false;
+
+  @override
+  Future<bool> openExternal(
+    Uri uri, {
+    bool preferSameWindowInLine = false,
+  }) async {
+    lastUri = uri;
+    this.preferSameWindowInLine = preferSameWindowInLine;
+    return opened;
+  }
+}
+
+DioException _apiException(
+  String message, {
+  required String path,
+  String code = '',
+  int statusCode = 422,
+}) {
   final request = RequestOptions(path: path);
   return DioException(
     requestOptions: request,
     response: Response<Map<String, dynamic>>(
       requestOptions: request,
-      statusCode: 422,
-      data: {'message': message},
+      statusCode: statusCode,
+      data: {
+        if (code.isNotEmpty) 'code': code,
+        'message': message,
+      },
     ),
   );
 }

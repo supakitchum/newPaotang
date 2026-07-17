@@ -1,24 +1,41 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../results/data/result_models.dart';
+import '../../results/data/result_repository.dart';
 import 'ticket_models.dart';
 
 final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
   return TicketRepository(ref.watch(apiClientProvider));
 });
 
-final currentTicketsProvider = FutureProvider<List<CustomerTicket>>((
+final currentTicketsProvider = FutureProvider.autoDispose<List<CustomerTicket>>(
+  (ref) async {
+    final auth = ref.watch(authControllerProvider);
+    if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
+      return const [];
+    }
+    return ref.watch(ticketRepositoryProvider).currentAll();
+  },
+);
+
+final currentTicketGameProvider = FutureProvider.autoDispose<CurrentGame?>((
   ref,
 ) async {
-  return ref.watch(ticketRepositoryProvider).currentAll();
+  final auth = ref.watch(authControllerProvider);
+  if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
+    return null;
+  }
+  return ref.watch(resultRepositoryProvider).currentGame();
 });
 
-final ticketDetailProvider =
-    FutureProvider.autoDispose.family<CustomerTicket, String>((ref, id) async {
-  return ref.watch(ticketRepositoryProvider).detail(id);
-});
+final ticketDetailProvider = FutureProvider.autoDispose
+    .family<CustomerTicket, String>((ref, id) async {
+      return ref.watch(ticketRepositoryProvider).detail(id);
+    });
 
 class TicketRepository {
   const TicketRepository(this._api);

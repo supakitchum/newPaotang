@@ -63,6 +63,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bootstrapLoads, 2);
+
+    final siteChannel = siteConfigChannel(tenantId: 'ten_realtime');
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: siteChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(bootstrapLoads, 2);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: siteChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(bootstrapLoads, 3);
   });
 
   testWidgets('realtime monitor syncs customer presence count', (tester) async {
@@ -81,6 +102,21 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: siteConfigChannel(tenantId: 'ten_realtime'),
+        payload: const {
+          'presence': {
+            'count': 99,
+            'ids': ['wrong-channel'],
+          },
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('online:0'), findsOneWidget);
 
     client.emit(
       CustomerRealtimeEvent(

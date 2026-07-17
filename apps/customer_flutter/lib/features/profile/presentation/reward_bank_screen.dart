@@ -8,7 +8,6 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
@@ -72,6 +71,21 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final profile = ref.watch(customerProfileSettingsProvider);
+    ref.listen<AsyncValue<CustomerProfileSettings>>(
+      customerProfileSettingsProvider,
+      (previous, next) {
+        final error = next.error;
+        if (error == null || identical(previous?.error, error)) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          );
+        });
+      },
+    );
     final platformKey = ref.watch(customerPlatformKeyProvider);
     final biometricEnabled = ref.watch(mobileBootstrapProvider).maybeWhen(
           data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
@@ -98,44 +112,48 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
         : AppShell(
             title: l10n.profileRewardBank,
             currentPath: '/profile',
+            backPath: '/profile',
             sensitive: true,
-            fullScreen: true,
-            child: RefreshIndicator(
-              onRefresh: () async =>
-                  ref.invalidate(customerProfileSettingsProvider),
+            showBottomNavigation: true,
+            heroMinHeight: 214,
+            heroSheetOverlap: MediaQuery.sizeOf(context).width >= 768 ? 28 : 38,
+            heroContentTopGap: 18,
+            heroContent: const _RewardBankHeroContent(),
+            child: _RewardBankContentSheet(
               child: ListView(
                 padding: EdgeInsets.zero,
-                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  _RewardBankHero(onBack: () => context.go('/profile')),
-                  _RewardBankContentSheet(
-                    child: CustomerPageBody(
-                      top: 16,
-                      bottom: 128,
-                      maxWidth: 640,
-                      child: profile.when(
-                        data: (data) {
-                          _hydrateFromProfile(data);
-                          return _RewardBankForm(
-                            bankName: _bankName,
-                            accountName: _accountName,
-                            accountNumber: _accountNumber,
-                            noticeMessage: _formNoticeMessage,
-                            noticeIsError: _formNoticeIsError,
-                            saving: _saving,
-                            onBankChanged: (value) => setState(() {
-                              _bankName = value ?? '';
-                              _formNoticeMessage = '';
-                            }),
-                            onSubmit: _startSave,
-                          );
-                        },
-                        loading: () => const _RewardBankStatePanel(),
-                        error: (_, __) => _RewardBankStatePanel(
-                          message: l10n.profileRewardBankLoadFailed,
-                          onRetry: () => ref.invalidate(
-                            customerProfileSettingsProvider,
-                          ),
+                  CustomerPageBody(
+                    top: 16,
+                    bottom: 128,
+                    maxWidth: 640,
+                    mobileHorizontal: 16,
+                    wideHorizontal: 24,
+                    child: profile.when(
+                      data: (data) {
+                        _hydrateFromProfile(data);
+                        return _RewardBankForm(
+                          bankName: _bankName,
+                          accountName: _accountName,
+                          accountNumber: _accountNumber,
+                          noticeMessage: _formNoticeMessage,
+                          noticeIsError: _formNoticeIsError,
+                          saving: _saving,
+                          onBankChanged: (value) => setState(() {
+                            _bankName = value ?? '';
+                            _formNoticeMessage = '';
+                          }),
+                          onSubmit: _startSave,
+                        );
+                      },
+                      loading: () => const _RewardBankStatePanel(),
+                      error: (error, __) => _RewardBankStatePanel(
+                        message: authErrorMessage(
+                          error,
+                          l10n.profileRewardBankLoadFailed,
+                        ),
+                        onRetry: () => ref.invalidate(
+                          customerProfileSettingsProvider,
                         ),
                       ),
                     ),
@@ -313,165 +331,58 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
   }
 }
 
-class _RewardBankHero extends StatelessWidget {
-  const _RewardBankHero({required this.onBack});
-
-  final VoidCallback onBack;
+class _RewardBankHeroContent extends StatelessWidget {
+  const _RewardBankHeroContent();
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final topInset = MediaQuery.paddingOf(context).top;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: SizedBox.square(
+            dimension: 48,
+            child: Icon(
+              Icons.account_balance_outlined,
+              color: colorScheme.primary,
+              size: 24,
+            ),
+          ),
         ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 720 ? 28.0 : 18.0;
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontal,
-                  topInset + 58,
-                  horizontal,
-                  38,
-                ),
-                child: Column(
-                  children: [
-                    _RewardBankHeroTitleRow(
-                      title: l10n.profileRewardBank,
-                      onBack: onBack,
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: SizedBox.square(
-                            dimension: 48,
-                            child: Icon(
-                              Icons.account_balance_outlined,
-                              color: colorScheme.primary,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.profileRewardBankHeroTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      color: colorScheme.onPrimary,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.3,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                l10n.profileRewardBankHeroSubtitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colorScheme.onPrimary.withValues(
-                                    alpha: 0.92,
-                                  ),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.profileRewardBankHeroTitle,
+                style: TextStyle(
+                  color: colorScheme.onPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  height: 1.3,
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _RewardBankHeroTitleRow extends StatelessWidget {
-  const _RewardBankHeroTitleRow({
-    required this.title,
-    required this.onBack,
-  });
-
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 42,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 0,
-            child: IconButton(
-              tooltip: context.l10n.commonBack,
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
-              color: colorScheme.onPrimary,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(42),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: Colors.transparent,
-                foregroundColor: colorScheme.onPrimary,
-                shape: const CircleBorder(),
-              ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              const SizedBox(height: 4),
+              Text(
+                l10n.profileRewardBankHeroSubtitle,
+                style: TextStyle(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
               ),
-            ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 54),
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -483,15 +394,29 @@ class _RewardBankContentSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.primary),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        child: child,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _RewardBankFieldLabel extends StatelessWidget {
+  const _RewardBankFieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
       ),
     );
   }
@@ -559,10 +484,14 @@ class _RewardBankForm extends StatelessWidget {
               ),
               const SizedBox(height: 14),
             ],
+            _RewardBankFieldLabel(l10n.profileRewardBankBankLabel),
+            const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               initialValue: bankName.isEmpty || !bankOptions.contains(bankName)
                   ? null
                   : bankName,
+              isExpanded: true,
+              hint: Text(l10n.profileRewardBankBankHint),
               items: [
                 if (bankName.isNotEmpty && !bankOptions.contains(bankName))
                   DropdownMenuItem(value: bankName, child: Text(bankName)),
@@ -572,21 +501,23 @@ class _RewardBankForm extends StatelessWidget {
               onChanged: saving ? null : onBankChanged,
               decoration: _rewardBankInputDecoration(
                 context,
-                l10n.profileRewardBankBankLabel,
               ),
             ),
             const SizedBox(height: 12),
+            _RewardBankFieldLabel(l10n.profileRewardBankAccountNameLabel),
+            const SizedBox(height: 6),
             TextField(
               controller: accountName,
               enabled: !saving,
               textInputAction: TextInputAction.next,
               decoration: _rewardBankInputDecoration(
                 context,
-                l10n.profileRewardBankAccountNameLabel,
                 hint: l10n.profileRewardBankAccountNameHint,
               ),
             ),
             const SizedBox(height: 12),
+            _RewardBankFieldLabel(l10n.profileRewardBankAccountNumberLabel),
+            const SizedBox(height: 6),
             TextField(
               controller: accountNumber,
               enabled: !saving,
@@ -597,7 +528,6 @@ class _RewardBankForm extends StatelessWidget {
               ],
               decoration: _rewardBankInputDecoration(
                 context,
-                l10n.profileRewardBankAccountNumberLabel,
                 hint: l10n.profileRewardBankAccountNumberHint,
               ),
             ),
@@ -769,8 +699,7 @@ class _RewardBankNotice extends StatelessWidget {
 }
 
 InputDecoration _rewardBankInputDecoration(
-  BuildContext context,
-  String label, {
+  BuildContext context, {
   String? hint,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
@@ -779,16 +708,12 @@ InputDecoration _rewardBankInputDecoration(
     borderSide: BorderSide(color: colorScheme.outlineVariant),
   );
   return InputDecoration(
-    labelText: label,
     hintText: hint,
+    isDense: true,
     filled: true,
     fillColor: _rewardBankSurfaceTint(colorScheme),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-    labelStyle: TextStyle(
-      color: colorScheme.onSurfaceVariant,
-      fontSize: 13,
-      fontWeight: FontWeight.w800,
-    ),
+    constraints: const BoxConstraints(minHeight: 50),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     hintStyle: TextStyle(
       color: colorScheme.onSurfaceVariant.withValues(alpha: 0.78),
       fontWeight: FontWeight.w700,

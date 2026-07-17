@@ -120,7 +120,7 @@ void main() {
     );
 
     final page = await repository.listPage(limit: 1);
-    final detail = await repository.detail('detail-news');
+    final detail = await repository.detail(' ข่าว detail ');
     final modal = await repository.modal();
 
     expect(page.hasMore, isTrue);
@@ -156,7 +156,7 @@ void main() {
     );
     expect(api.paths, [
       '/public/news',
-      '/public/news/detail-news',
+      '/public/news/%E0%B8%82%E0%B9%88%E0%B8%B2%E0%B8%A7%20detail',
       '/public/news/modal',
     ]);
   });

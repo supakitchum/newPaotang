@@ -123,6 +123,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('tickets:2 detail:2 reward:1'), findsOneWidget);
+
+    final rewardChannel = customerRewardClaimChannel(
+      tenantId: 'ten_claim',
+      customerId: 'cus_claim',
+    );
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: rewardChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('tickets:2 detail:2 reward:1'), findsOneWidget);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: rewardChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('tickets:3 detail:2 reward:2'), findsOneWidget);
   });
 
   testWidgets('claim realtime refreshes activity claim detail from award rows',
@@ -185,6 +210,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('activity:2 tick:1'), findsOneWidget);
+
+    final activityChannel = customerActivityClaimChannel(
+      tenantId: 'ten_claim',
+      customerId: 'cus_claim',
+    );
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: activityChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('activity:2 tick:1'), findsOneWidget);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: activityChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('activity:2 tick:2'), findsOneWidget);
   });
 }
 

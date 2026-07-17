@@ -46,12 +46,12 @@ return new class extends Migration
             $table->string('logo_url')->nullable();
             $table->string('favicon_url')->nullable();
             $table->string('og_image_url')->nullable();
-            $table->string('primary_color')->default('#0F766E');
-            $table->string('secondary_color')->default('#2563EB');
-            $table->string('accent_color')->default('#F59E0B');
+            $table->string('primary_color')->default('#087FF0');
+            $table->string('secondary_color')->default('#19B8EF');
+            $table->string('accent_color')->default('#FFD10B');
             $table->string('background_color')->default('#FFFFFF');
-            $table->string('text_color')->default('#111827');
-            $table->string('font_family')->default('Inter, sans-serif');
+            $table->string('text_color')->default('#242833');
+            $table->string('font_family')->default('Kanit');
             $table->unsignedInteger('config_version')->default(1);
             $table->timestampsTz();
 

@@ -39,6 +39,10 @@ void main() {
     expect(find.text('ซื้อครบ 50 ใบ รับเงินคืน 5%'), findsOneWidget);
     expect(find.text('กิจกรรมงวดย้อนหลัง'), findsOneWidget);
     expect(find.text('ดูงวดที่แล้ว'), findsOneWidget);
+    expect(find.text('กิจกรรม 2 รายการ'), findsOneWidget);
+    expect(find.text('ทั้งหมด'), findsOneWidget);
+    expect(find.text('เลขนำโชค'), findsOneWidget);
+    expect(find.text('เงินคืน'), findsOneWidget);
     expect(find.text('แผงเลขนำโชค'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('ดูงวดที่แล้ว')).style?.color,
@@ -58,10 +62,36 @@ void main() {
     );
     expect(tester.takeException(), isNull);
 
-    final titleRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+    final luckyRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+    final cashbackRect = tester.getRect(find.text('คืนเงิน 5%'));
 
-    expect(titleRect.left, greaterThanOrEqualTo(140));
-    expect(titleRect.right, lessThanOrEqualTo(1060));
+    expect(luckyRect.left, lessThan(cashbackRect.left));
+    expect(luckyRect.top, closeTo(cashbackRect.top, 2));
+  });
+
+  testWidgets('ActivitiesScreen filters activity types without reloading', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository();
+
+    await _pumpActivities(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('เงินคืน'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('กิจกรรม 1 รายการ'), findsOneWidget);
+    expect(find.text('คืนเงิน 5%'), findsOneWidget);
+    expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsNothing);
+    expect(repository.calls, hasLength(1));
+
+    await tester.tap(find.text('ทั้งหมด'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('กิจกรรม 2 รายการ'), findsOneWidget);
+    expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsOneWidget);
+    expect(repository.calls, hasLength(1));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('ActivitiesScreen exposes Nuxt-style header back to home', (
@@ -90,6 +120,37 @@ void main() {
 
     expect(repository.calls, isEmpty);
     expect(find.text('Pin redirect: /activities'), findsOneWidget);
+  });
+
+  testWidgets('ActivitiesScreen reloads customer rights after authentication', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository();
+    final authController = _guestController();
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: authController,
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.calls.map((call) => call.authenticated), [false]);
+
+    authController.applySession(
+      const CustomerSession(
+        accessToken: 'customer-token',
+        refreshToken: 'customer-refresh-token',
+        pinRequired: false,
+        pinSetupRequired: false,
+        customerId: 'customer-1',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.calls.map((call) => call.authenticated), [false, true]);
+    expect(find.text('มีสิทธิ์ 2 สิทธิ์'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('ActivitiesHistoryScreen preserves game query through PIN', (
@@ -178,6 +239,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final route in const ['/activities', '/activities/history']) {
+    testWidgets('$route follows backend maintenance redirect', (tester) async {
+      await _pumpActivities(
+        tester,
+        _FakeActivityRepository(
+          error: _apiException(
+            'ร้านค้าปิดปรับปรุงชั่วคราว',
+            code: 'maintenance_active',
+          ),
+        ),
+        initialLocation: route,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Maintenance route'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('ActivitiesScreen keeps compact cards usable on small phones', (
     tester,
   ) async {
@@ -191,6 +271,11 @@ void main() {
 
     expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsOneWidget);
     expect(find.text('คืนเงิน 5%'), findsOneWidget);
+    final artwork = tester.getRect(
+      find.byKey(const Key('activity-card-artwork-act_lucky')),
+    );
+    expect(artwork.width, greaterThan(300));
+    expect(artwork.width / artwork.height, closeTo(16 / 9, 0.01));
     expect(tester.takeException(), isNull);
   });
 
@@ -253,15 +338,45 @@ void main() {
 
     expect(repository.calls.single.authenticated, isTrue);
 
-    final luckyTop = tester.getTopLeft(find.text('กิจกรรมทายเลข 2 ตัว')).dy;
-    final cashbackTop = tester.getTopLeft(find.text('คืนเงิน 5%')).dy;
+    final luckyRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+    final cashbackRect = tester.getRect(find.text('คืนเงิน 5%'));
 
-    expect(luckyTop, lessThan(cashbackTop));
+    expect(_isBeforeInReadingOrder(luckyRect, cashbackRect), isTrue);
     expect(find.text('มีสิทธิ์ 2 สิทธิ์'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('มีสิทธิ์ 2 สิทธิ์')).style?.color,
       const Color(0xFF15803D),
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'ActivitiesScreen re-sorts all loaded pages when later page has rights', (
+    tester,
+  ) async {
+    final repository = _PagedActivityRepository();
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _authenticatedController(),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('คืนเงิน 5%'), findsOneWidget);
+    expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsNothing);
+
+    final loadMore = find.text('โหลดเพิ่มเติม');
+    await tester.ensureVisible(loadMore);
+    await tester.pumpAndSettle();
+    await tester.tap(loadMore);
+    await tester.pumpAndSettle();
+
+    final withRightRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+    final withoutRightRect = tester.getRect(find.text('คืนเงิน 5%'));
+
+    expect(_isBeforeInReadingOrder(withRightRect, withoutRightRect), isTrue);
+    expect(repository.cursors, ['', 'cursor_2']);
     expect(tester.takeException(), isNull);
   });
 
@@ -280,10 +395,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final openTop = tester.getTopLeft(find.text('กิจกรรมทายเลข 2 ตัว')).dy;
-    final closedTop = tester.getTopLeft(find.text('กิจกรรมปิดรับแล้ว')).dy;
+    final openRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+    final closedRect = tester.getRect(find.text('กิจกรรมปิดรับแล้ว'));
 
-    expect(openTop, lessThan(closedTop));
+    expect(_isBeforeInReadingOrder(openRect, closedRect), isTrue);
     expect(find.text('หมดเวลาเข้าร่วมแล้ว'), findsOneWidget);
     expect(find.text('หมดเวลาเข้าร่วม'), findsOneWidget);
     expect(
@@ -292,6 +407,55 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('ActivitiesScreen styles fully used lucky rights as used', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(items: [_usedLuckyFixture]);
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _authenticatedController(),
+    );
+    await tester.pumpAndSettle();
+
+    final badge = find.text('มีสิทธิ์ 0 สิทธิ์ (ใช้ครบแล้ว)');
+    expect(badge, findsOneWidget);
+    expect(
+      tester.widget<Text>(badge).style?.color,
+      const Color(0xFF3157C8),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivitiesHistoryScreen keeps historical rights available', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(items: [_closedLuckyFixture]);
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _authenticatedController(),
+      initialLocation: '/activities/history?game_id=game_prev',
+    );
+    await tester.pumpAndSettle();
+
+    final badge = find.text('มีสิทธิ์ 4 สิทธิ์');
+    expect(badge, findsOneWidget);
+    expect(
+      tester.widget<Text>(badge).style?.color,
+      const Color(0xFF15803D),
+    );
+    expect(find.text('หมดเวลาเข้าร่วม'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+bool _isBeforeInReadingOrder(Rect first, Rect second) {
+  if (first.top < second.top - 1) return true;
+  return (first.top - second.top).abs() <= 1 && first.left < second.left;
 }
 
 Future<void> _pumpActivities(
@@ -343,6 +507,12 @@ Future<void> _pumpActivities(
               'Pin redirect: ${state.uri.queryParameters['redirect'] ?? ''}',
             ),
           ),
+        ),
+      ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const Scaffold(
+          body: Center(child: Text('Maintenance route')),
         ),
       ),
     ],
@@ -421,6 +591,36 @@ class _FakeActivityRepository extends ActivityRepository {
   }
 }
 
+class _PagedActivityRepository extends ActivityRepository {
+  _PagedActivityRepository() : super(_testApiClient(), (value) => value);
+
+  final cursors = <String>[];
+
+  @override
+  Future<ActivityListPage> listPage({
+    int limit = ActivityRepository.defaultPageLimit,
+    String cursor = '',
+    bool authenticated = false,
+    bool history = false,
+    String gameId = '',
+  }) async {
+    cursors.add(cursor);
+    final firstPage = cursor.isEmpty;
+    return ActivityListPage(
+      items: [
+        firstPage ? _cashbackWithoutRightFixture : _activityFixtures.first,
+      ],
+      meta: ActivityListMeta(
+        hasHistory: false,
+        hasMore: firstPage,
+        nextCursor: firstPage ? 'cursor_2' : null,
+        selectedGameId: 'game_current',
+        games: const [],
+      ),
+    );
+  }
+}
+
 AuthController _authenticatedController() {
   final tokenStore = AuthTokenStore();
   final api = _testApiClient(tokenStore);
@@ -431,6 +631,16 @@ AuthController _authenticatedController() {
   )
     ..isAuthenticated = true
     ..pinRequired = false;
+}
+
+AuthController _guestController() {
+  final tokenStore = AuthTokenStore();
+  final api = _testApiClient(tokenStore);
+  return AuthController(
+    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  );
 }
 
 AuthController _pinRequiredController({bool setupRequired = false}) {
@@ -578,6 +788,39 @@ const _closedLuckyFixture = ActivityItem(
   ),
 );
 
+const _usedLuckyFixture = ActivityItem(
+  id: 'act_used',
+  name: 'กิจกรรมใช้สิทธิ์ครบแล้ว',
+  slug: 'used-board',
+  type: 'lucky_board',
+  imageUrl: '',
+  conditionText: 'ทุก 10 ใบ ได้ 1 สิทธิ์',
+  remainingNumbers: 80,
+  hasRight: true,
+  estimatedCashbackAmount: 0,
+  rights: ActivityRights(
+    earnedCount: 2,
+    usedCount: 2,
+    remainingCount: 0,
+    ticketCount: 20,
+    availableTicketCount: 0,
+    consumedTicketCount: 20,
+    qualifyingOrderCount: 0,
+    eligibilityRule: 'cumulative_tickets',
+    thresholdTickets: 10,
+    entryDeadlineAt: null,
+    entryClosed: false,
+  ),
+  numberBoard: ActivityNumberBoard(
+    predictionType: 'last2',
+    digits: 2,
+    totalCount: 100,
+    reservedCount: 20,
+    remainingCount: 80,
+    reservedNumbers: {},
+  ),
+);
+
 ApiClient _testApiClient([AuthTokenStore? tokenStore]) {
   return ApiClient(
     const AppConfig(
@@ -589,14 +832,17 @@ ApiClient _testApiClient([AuthTokenStore? tokenStore]) {
   );
 }
 
-DioException _apiException(String message) {
+DioException _apiException(String message, {String code = ''}) {
   final requestOptions = RequestOptions(path: '/customer/activities');
   return DioException(
     requestOptions: requestOptions,
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
       statusCode: 503,
-      data: {'message': message},
+      data: {
+        'message': message,
+        if (code.isNotEmpty) 'code': code,
+      },
     ),
     type: DioExceptionType.badResponse,
   );

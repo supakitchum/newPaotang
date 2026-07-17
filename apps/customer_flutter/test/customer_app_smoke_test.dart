@@ -1,4 +1,3 @@
-import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
@@ -11,8 +10,7 @@ void main() {
     await runCustomerAppSmokeHarness(tester, platformKey: 'web');
   });
 
-  testWidgets(
-      'CustomerApp keeps Nuxt blue identity with bootstrap theme tokens', (
+  testWidgets('CustomerApp applies runtime API theme after bootstrap', (
     tester,
   ) async {
     await runCustomerAppSmokeHarness(
@@ -45,13 +43,13 @@ void main() {
           },
         },
       },
-      expectedPrimaryColor: AppTheme.appBlue,
+      expectedPrimaryColor: const Color(0xFF0055AA),
       expectedScaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      expectedFontFamily: 'Kanit',
     );
   });
 
-  testWidgets(
-      'CustomerApp keeps Nuxt blue identity with camelCase theme tokens', (
+  testWidgets('CustomerApp applies camelCase runtime API theme', (
     tester,
   ) async {
     await runCustomerAppSmokeHarness(
@@ -59,10 +57,7 @@ void main() {
       platformKey: 'web',
       bootstrapPayload: const {
         'tenant_id': 'tenant_theme_camel',
-        'siteConfig': {
-          'displayName': 'Partner Camel Theme',
-          'locale': 'en-US',
-        },
+        'siteConfig': {'displayName': 'Partner Camel Theme', 'locale': 'en-US'},
         'mobileConfig': {
           'themeConfig': {
             'primaryColor': '#224488',
@@ -72,15 +67,13 @@ void main() {
             'fontFamily': 'Inter',
           },
           'screenSecurity': {
-            'web': {
-              'sensitiveScreenMode': 'limited',
-              'watermarkEnabled': true,
-            },
+            'web': {'sensitiveScreenMode': 'limited', 'watermarkEnabled': true},
           },
         },
       },
-      expectedPrimaryColor: AppTheme.appBlue,
+      expectedPrimaryColor: const Color(0xFF224488),
       expectedScaffoldBackgroundColor: const Color(0xFFF9FAFB),
+      expectedFontFamily: 'Inter',
     );
   });
 }

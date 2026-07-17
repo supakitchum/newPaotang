@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
@@ -15,6 +16,7 @@ class TermsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final l10n = context.l10n;
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
     final siteName = bootstrap.maybeWhen(
       data: (data) => data.siteName,
       orElse: () => l10n.contentTermsSiteFallback,
@@ -34,8 +36,9 @@ class TermsScreen extends ConsumerWidget {
       title: l10n.contentTermsTitle,
       currentPath: '/profile',
       backPath: '/profile',
+      showBottomNavigation: false,
       heroMinHeight: 330,
-      heroSheetOverlap: 82,
+      heroSheetOverlap: narrow ? 76 : 82,
       heroContent: _InfoHeroContent(
         title: parsed.title,
         subtitle: siteName,
@@ -82,6 +85,7 @@ class _PrivacyPolicyScreenState extends ConsumerState<PrivacyPolicyScreen> {
   Widget build(BuildContext context) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final l10n = context.l10n;
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
     final siteName = bootstrap.maybeWhen(
       data: (data) => data.siteName,
       orElse: () => l10n.contentTermsSiteFallback,
@@ -105,8 +109,9 @@ class _PrivacyPolicyScreenState extends ConsumerState<PrivacyPolicyScreen> {
       title: l10n.contentPrivacyTitle,
       currentPath: '/profile',
       backPath: '/profile',
+      showBottomNavigation: false,
       heroMinHeight: 330,
-      heroSheetOverlap: 82,
+      heroSheetOverlap: narrow ? 76 : 82,
       heroContent: _InfoHeroContent(
         title: parsed.title,
         subtitle: l10n.contentPrivacyHeroSubtitle(siteName),
@@ -173,13 +178,12 @@ class TermRewardScreen extends StatelessWidget {
       title: l10n.contentRewardTermsTitle,
       currentPath: '/',
       backPath: '/',
-      heroMinHeight: 176,
-      heroSheetOverlap: 16,
+      showBottomNavigation: false,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
       heroContent: const SizedBox.shrink(),
-      child: _InfoPageShell(
-        bottom: 96,
-        child: _RewardTermsCard(l10n: l10n),
-      ),
+      child: _RewardTermsSheet(l10n: l10n),
     );
   }
 }
@@ -190,12 +194,14 @@ class LotteryKnowledgeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
     return AppShell(
       title: l10n.contentKnowledgeTitle,
       currentPath: '/profile',
       backPath: '/profile',
+      showBottomNavigation: false,
       heroMinHeight: 340,
-      heroSheetOverlap: 88,
+      heroSheetOverlap: narrow ? 80 : 88,
       heroContent: _InfoHeroContent(
         title: l10n.contentKnowledgeTitle,
         icon: Icons.school_outlined,
@@ -221,13 +227,9 @@ class LotteryKnowledgeScreen extends StatelessWidget {
 }
 
 class _InfoPageShell extends StatelessWidget {
-  const _InfoPageShell({
-    required this.child,
-    this.bottom = 128,
-  });
+  const _InfoPageShell({required this.child});
 
   final Widget child;
-  final double bottom;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +248,7 @@ class _InfoPageShell extends StatelessWidget {
               CustomerPageBody(
                 maxWidth: 640,
                 top: 0,
-                bottom: bottom,
+                bottom: 42,
                 mobileHorizontal: narrow ? 14 : 18,
                 wideHorizontal: 18,
                 child: child,
@@ -360,49 +362,99 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-class _RewardTermsCard extends StatelessWidget {
-  const _RewardTermsCard({required this.l10n});
+class _RewardTermsSheet extends StatelessWidget {
+  const _RewardTermsSheet({required this.l10n});
 
   final CustomerLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return _InfoCard(
-      padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
-      child: Column(
-        children: [
-          const _RewardOfficeMark(),
-          const SizedBox(height: 20),
-          Text(
-            l10n.contentRewardTermsHeroTitle,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w900,
-                  height: 1.24,
+    final primary = colorScheme.primary;
+    final rewardInk = Color.lerp(colorScheme.onSurface, primary, 0.2) ??
+        colorScheme.onSurface;
+    final gradientStart =
+        Color.lerp(colorScheme.secondary, colorScheme.surface, 0.62) ??
+            colorScheme.secondaryContainer;
+    final gradientMiddle =
+        Color.lerp(colorScheme.secondary, colorScheme.surface, 0.82) ??
+            colorScheme.secondaryContainer;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minimumHeight =
+            constraints.maxHeight > 744 ? constraints.maxHeight : 744.0;
+        final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+
+        return ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minimumHeight),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0, 0.46, 1],
+                    colors: [
+                      gradientStart.withValues(alpha: 0.88),
+                      gradientMiddle.withValues(alpha: 0.96),
+                      colorScheme.surface,
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(13),
+                  ),
                 ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            l10n.contentRewardTermsHeroSubtitle,
-            style: _bodyStyle(context).copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w800,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    28,
+                    29,
+                    28,
+                    24 + bottomSafeArea,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const _RewardOfficeMark(),
+                          const SizedBox(height: 23),
+                          Text(
+                            l10n.contentRewardTermsHeroTitle,
+                            style: TextStyle(
+                              color: rewardInk,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w800,
+                              height: 1.24,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            l10n.contentRewardTermsHeroSubtitle,
+                            style: TextStyle(
+                              color: rewardInk,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              height: 1.55,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          _RewardTable(l10n: l10n),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          const _RewardHeaderRow(),
-          const Divider(height: 18),
-          for (final row in _rewardRows(l10n))
-            _RewardRow(
-              title: row.title,
-              count: row.count,
-              amount: row.amount,
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }
@@ -414,55 +466,81 @@ class _RewardOfficeMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final officeBlue = Color.lerp(
+          AppTheme.heroGradientEnd(colorScheme.primary),
+          colorScheme.secondary,
+          0.32,
+        ) ??
+        colorScheme.primary;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: colorScheme.primary, width: 1.4),
-            borderRadius: BorderRadius.circular(8),
-            color: colorScheme.surface,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
               l10n.contentRewardTermsOfficeAbbr,
               style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                height: 1,
+                color: officeBlue,
+                fontSize: 37,
+                fontWeight: FontWeight.w700,
+                height: 0.9,
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Flexible(
-          child: Text(
-            l10n.contentRewardTermsOfficeName,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              height: 1.25,
+            Transform.translate(
+              offset: const Offset(-4, 0),
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: colorScheme.tertiary,
+                  shape: BoxShape.circle,
+                ),
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          l10n.contentRewardTermsOfficeName,
+          style: TextStyle(
+            color: officeBlue,
+            fontSize: 5,
+            fontWeight: FontWeight.w500,
+            height: 1.15,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 }
 
-class _KnowledgeFooter extends StatelessWidget {
+class _KnowledgeFooter extends ConsumerStatefulWidget {
   const _KnowledgeFooter();
+
+  @override
+  ConsumerState<_KnowledgeFooter> createState() => _KnowledgeFooterState();
+}
+
+class _KnowledgeFooterState extends ConsumerState<_KnowledgeFooter> {
+  String _noticeMessage = '';
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final fontSize = MediaQuery.sizeOf(context).width <= 390 ? 18.0 : 20.0;
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final websiteUri = customerHttpsUri(bootstrap?.supportUrl ?? '');
+    final phoneUri = customerPhoneUri(bootstrap?.supportPhone ?? '');
+    final phoneLabel = bootstrap?.supportPhone.trim() ?? '';
+
+    if (websiteUri == null && phoneUri == null) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
@@ -472,22 +550,92 @@ class _KnowledgeFooter extends StatelessWidget {
             l10n.contentKnowledgeMoreInfo,
             style: _bodyStyle(context).copyWith(
               color: colorScheme.onSurfaceVariant,
-              fontSize: MediaQuery.sizeOf(context).width <= 390 ? 18 : 20,
+              fontSize: fontSize,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.contentKnowledgeContact,
+          if (websiteUri != null) ...[
+            const SizedBox(height: 4),
+            _KnowledgeFooterLink(
+              label: customerExternalLinkLabel(websiteUri),
+              fontSize: fontSize,
+              onTap: () => _openContact(websiteUri),
+            ),
+          ],
+          if (phoneUri != null && phoneLabel.isNotEmpty)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  websiteUri == null
+                      ? l10n.contentKnowledgePhoneOnlyLead
+                      : l10n.contentKnowledgePhoneLead,
+                  style: _bodyStyle(context).copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: fontSize,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                _KnowledgeFooterLink(
+                  label: phoneLabel,
+                  fontSize: fontSize,
+                  onTap: () => _openContact(phoneUri),
+                ),
+              ],
+            ),
+          if (_noticeMessage.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _InfoInlineNotice(message: _noticeMessage),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openContact(Uri uri) async {
+    if (_noticeMessage.isNotEmpty) {
+      setState(() => _noticeMessage = '');
+    }
+    final opened =
+        await ref.read(customerLinkLauncherProvider).openExternal(uri);
+    if (!opened && mounted) {
+      setState(() => _noticeMessage = context.l10n.contentKnowledgeOpenFailed);
+    }
+  }
+}
+
+class _KnowledgeFooterLink extends StatelessWidget {
+  const _KnowledgeFooterLink({
+    required this.label,
+    required this.fontSize,
+    required this.onTap,
+  });
+
+  final String label;
+  final double fontSize;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      link: true,
+      button: true,
+      label: label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Text(
+            label,
             style: TextStyle(
               color: Theme.of(context).colorScheme.primary,
-              fontSize: MediaQuery.sizeOf(context).width <= 390 ? 18 : 20,
+              fontSize: fontSize,
               fontWeight: FontWeight.w900,
               height: 1.45,
             ),
-            textAlign: TextAlign.center,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -635,104 +783,155 @@ class _NumberedText extends StatelessWidget {
   }
 }
 
-class _RewardHeaderRow extends StatelessWidget {
-  const _RewardHeaderRow();
+class _RewardTable extends StatelessWidget {
+  const _RewardTable({required this.l10n});
+
+  final CustomerLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final style = TextStyle(
-      color: Theme.of(context).colorScheme.primary,
-      fontSize: 13,
-      fontWeight: FontWeight.w900,
-      height: 1.25,
-    );
+    final colorScheme = Theme.of(context).colorScheme;
+    final rows = _rewardRows(l10n);
+    final headerColor = AppTheme.heroGradientEnd(colorScheme.primary);
+    final stripeColor =
+        Color.lerp(colorScheme.primary, colorScheme.surface, 0.91) ??
+            colorScheme.primaryContainer;
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 5,
-          child: Text(l10n.contentRewardHeaderPrizeType, style: style),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(11),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border.all(color: colorScheme.primary),
+          borderRadius: BorderRadius.circular(11),
         ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            l10n.contentRewardHeaderCount,
-            textAlign: TextAlign.center,
-            style: style,
-          ),
+        child: Column(
+          children: [
+            _RewardTableRow(
+              title: l10n.contentRewardHeaderPrizeType,
+              count: l10n.contentRewardHeaderCount,
+              amount: l10n.contentRewardHeaderAmount,
+              background: headerColor,
+              foreground: colorScheme.onPrimary,
+              header: true,
+            ),
+            for (var index = 0; index < rows.length; index++)
+              _RewardTableRow(
+                title: rows[index].title,
+                count: rows[index].count,
+                amount: rows[index].amount,
+                background: index.isOdd ? stripeColor : colorScheme.surface,
+                foreground: Color.lerp(
+                      colorScheme.onSurface,
+                      colorScheme.primary,
+                      0.2,
+                    ) ??
+                    colorScheme.onSurface,
+              ),
+          ],
         ),
-        Expanded(
-          flex: 4,
-          child: Text(
-            l10n.contentRewardHeaderAmount,
-            textAlign: TextAlign.right,
-            style: style,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _RewardRow extends StatelessWidget {
-  const _RewardRow({
+class _RewardTableRow extends StatelessWidget {
+  const _RewardTableRow({
     required this.title,
     required this.count,
     required this.amount,
+    required this.background,
+    required this.foreground,
+    this.header = false,
   });
 
   final String title;
   final String count;
   final String amount;
+  final Color background;
+  final Color foreground;
+  final bool header;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 5,
-            child: Text(
-              title,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
+    return ColoredBox(
+      color: background,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 105,
+              child: _RewardTableCell(
+                title,
+                foreground: foreground,
+                header: header,
+                bold: true,
               ),
             ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              count,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
+            Expanded(
+              flex: 98,
+              child: _RewardTableCell(
+                count,
+                textAlign: TextAlign.center,
+                foreground: foreground,
+                header: header,
               ),
             ),
-          ),
-          Expanded(
-            flex: 4,
-            child: Text(
-              amount,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                height: 1.35,
+            Expanded(
+              flex: 118,
+              child: _RewardTableCell(
+                amount,
+                textAlign: TextAlign.right,
+                foreground: foreground,
+                header: header,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RewardTableCell extends StatelessWidget {
+  const _RewardTableCell(
+    this.text, {
+    required this.foreground,
+    required this.header,
+    this.bold = false,
+    this.textAlign = TextAlign.left,
+  });
+
+  final String text;
+  final Color foreground;
+  final bool header;
+  final bool bold;
+  final TextAlign textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: header ? 50 : 58),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        child: Align(
+          alignment: textAlign == TextAlign.right
+              ? Alignment.centerRight
+              : textAlign == TextAlign.center
+                  ? Alignment.center
+                  : Alignment.centerLeft,
+          child: Text(
+            text,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 15,
+              fontWeight: header || bold ? FontWeight.w800 : FontWeight.w500,
+              height: 1.45,
+            ),
+            textAlign: textAlign,
           ),
-        ],
+        ),
       ),
     );
   }

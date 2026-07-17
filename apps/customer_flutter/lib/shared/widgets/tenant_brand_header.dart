@@ -87,6 +87,90 @@ class TenantBrandHeader extends ConsumerWidget {
   }
 }
 
+/// Flutter counterpart of Nuxt's `BrandLogo` lockup.
+class TenantBrandLogo extends ConsumerWidget {
+  const TenantBrandLogo({
+    super.key,
+    this.color,
+    this.alignment = CrossAxisAlignment.start,
+  });
+
+  final Color? color;
+  final CrossAxisAlignment alignment;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final rawLogoUrl = bootstrap?.brand.logoUrl.trim() ?? '';
+    final logoUrl =
+        rawLogoUrl.isEmpty ? '' : _resolveTenantLogoUrl(ref, rawLogoUrl);
+    final siteName = bootstrap?.siteName.trim() ?? '';
+    final productLabel = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final supportLabel = bootstrap?.supportPhone.trim() ?? '';
+    final foreground = color ?? Theme.of(context).colorScheme.onPrimary;
+    final fallbackLabel = siteName.isNotEmpty ? siteName : productLabel;
+    final secondaryLines = <String>[
+      if (logoUrl.isNotEmpty && siteName.isNotEmpty) siteName,
+      if (supportLabel.isNotEmpty) supportLabel,
+    ];
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 96),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: alignment,
+        children: [
+          if (logoUrl.isNotEmpty)
+            SizedBox(
+              width: 96,
+              height: 34,
+              child: FlexibleImage(
+                source: logoUrl,
+                fit: BoxFit.contain,
+                errorIcon: Icons.confirmation_number_outlined,
+              ),
+            ),
+          if (logoUrl.isEmpty && fallbackLabel.isNotEmpty)
+            Text(
+              fallbackLabel,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: foreground,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    height: 1.02,
+                    letterSpacing: 0,
+                  ),
+            )
+          else if (logoUrl.isEmpty)
+            Icon(
+              Icons.confirmation_number_outlined,
+              color: foreground,
+              size: 30,
+            ),
+          if (secondaryLines.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                secondaryLines.join('\n'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: foreground.withValues(alpha: 0.9),
+                      fontSize: 5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      letterSpacing: 0,
+                    ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 String _resolveTenantLogoUrl(WidgetRef ref, String value) {
   final trimmed = value.trim();
   final uri = Uri.tryParse(trimmed);

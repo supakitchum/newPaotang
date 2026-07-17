@@ -193,6 +193,8 @@ dart run tool/production_preflight.dart \
   --store-privacy-policy-url https://partner.example.com/privacy \
   --store-support-url https://partner.example.com/support \
   --store-account-deletion-url https://partner.example.com/account-deletion \
+  --require-release-branding \
+  --release-branding-manifest release/branding.json \
   --social-provider line \
   --social-provider google \
   --social-provider apple
@@ -267,6 +269,16 @@ partner-specific files. Use `--target web` when checking a same-origin web build
 that keeps
 `API_BASE_URL=/api/v1`.
 
+The Docker Web image now renders `customer-runtime-config.js`,
+`manifest.json`, and the crawler-visible metadata in `index.html` from the
+same `CUSTOMER_FLUTTER_WEB_*` environment values when the container
+starts. This is the production binding for the browser/PWA globals above;
+preflight rejects a Docker/Web shell that only declares those globals but never
+supplies them. Configure at least app name, short name, description,
+canonical/start URLs, favicon, 192/512 icons, maskable icons, share image,
+locale, and direction for each deployed partner. The checked-in generic values
+remain development fallbacks only.
+
 With `--check-files`, Web/PWA preflight also verifies the sensitive-route
 privacy fallback remains wired through `WebPrivacyGuard` and the browser
 activity bridge. The required lifecycle coverage includes visibility changes,
@@ -275,6 +287,45 @@ window blur/focus, `pagehide`/`pageshow`, `freeze`/`resume`, and
 and runtime-sensitive routes keep the cover during backgrounding, bfcache,
 frozen-page, and print-preview transitions without screenshot or print-capture
 automation.
+
+The checked-in `web/flutter_bootstrap.js` intentionally starts Flutter without
+registering Flutter's legacy generated service worker. On the first deployment
+after this change it unregisters only an existing
+`flutter_service_worker.js` registration and reloads once, preventing an old
+app shell from continuing to display pre-deployment UI/API code. The customer
+Nginx config requires mutable JS, WASM, JSON, source maps, images, and fonts to
+revalidate instead of caching stable filenames for 30 days. Keep both bindings
+in place unless the project adopts a versioned custom offline-cache strategy;
+production preflight rejects accidental removal or legacy worker restoration.
+
+## Release Branding
+
+Native launcher icons cannot come from runtime bootstrap, so generate them per
+partner before building a distributable App Store, Play Store, or branded PWA
+artifact:
+
+```bash
+dart run tool/prepare_release_branding.dart \
+  --partner-id partner-key \
+  --icon-source /secure/partner-app-icon-1024.png \
+  --adaptive-foreground /secure/partner-adaptive-foreground-1024.png \
+  --adaptive-background '#087FF0' \
+  --theme-color '#087FF0'
+```
+
+The app icon must be square and at least 1024x1024. The adaptive foreground
+must be square and at least 432x432. The tool uses
+`flutter_launcher_icons` to create Android legacy/adaptive icons, the
+complete iOS AppIcon set, and Web/PWA icons. It then writes
+`release/branding.json` with SHA-256 hashes for every generated
+target. The manifest and temporary generator config are intentionally ignored
+because they belong to a partner release workspace, not shared source.
+
+For final artifacts, pass `--require-release-branding` to production
+preflight or set `CUSTOMER_FLUTTER_REQUIRE_RELEASE_BRANDING=true`.
+Preflight rejects a missing/stale manifest, generic partner id, known Flutter
+scaffold icon, missing platform icon, or any generated file changed after the
+manifest was written.
 
 ## Verification
 
@@ -358,6 +409,11 @@ before upgrading Flutter to a version that turns the warning into an error.
   `production_preflight.dart` rejects the checked-in development identifiers
   such as `com.newpaotang.customer_flutter`, `com.newpaotang.customerFlutter`,
   and the `newpaotang` URL scheme for production inputs.
+- Generate partner launcher icons with
+  `tool/prepare_release_branding.dart`, then require
+  `CUSTOMER_FLUTTER_REQUIRE_RELEASE_BRANDING=true` in the final
+  store/PWA preflight. The checked-in Flutter icons are smoke-build
+  placeholders and must never ship in a distributable artifact.
 - Android release builds can be configured with Gradle properties or env vars:
   `CUSTOMER_FLUTTER_APPLICATION_ID`, `CUSTOMER_FLUTTER_APP_LABEL`,
   `CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME`,
@@ -408,6 +464,11 @@ before upgrading Flutter to a version that turns the warning into an error.
   event rows such as `{ value }`, `{ code }`, and `{ key }` so stock, order,
   wallet/topup, reward-claim, activity-claim, and result updates do not silently
   stop refreshing after backend/BO bridge changes.
+- Configure platform-api `CUSTOMER_REALTIME_URL`, `CUSTOMER_REALTIME_CLIENT`,
+  `CUSTOMER_REALTIME_AUTH_ENDPOINT`, and `CUSTOMER_REALTIME_PROTOCOL` for the
+  customer socket app. Mobile bootstrap and private-channel signatures use the
+  active `REVERB_APP_KEY`/`REVERB_APP_SECRET`; BO tenant settings may override
+  only the public socket URL.
 - Configure iOS signing team, bundle id, associated domains, and URL schemes.
 - Configure LINE, Google, and Apple Sign-In credentials per partner in BO plugin
   settings.

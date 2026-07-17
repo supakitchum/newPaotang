@@ -11,10 +11,18 @@ class PurchaseHistoryTicket {
 
   factory PurchaseHistoryTicket.fromJson(Map<String, dynamic> json) {
     return PurchaseHistoryTicket(
-      id: json['id']?.toString() ?? '',
-      number: (json['full_number'] ?? json['number'] ?? json['lottery_number'])
-              ?.toString() ??
-          '',
+      id: _firstPurchaseHistoryText([
+        json['id'],
+        json['ticket_id'],
+        json['ticketId'],
+      ]),
+      number: _firstPurchaseHistoryText([
+        json['full_number'],
+        json['fullNumber'],
+        json['number'],
+        json['lottery_number'],
+        json['lotteryNumber'],
+      ]),
       statusRaw: _statusRaw(json),
     );
   }
@@ -25,10 +33,12 @@ class PurchaseHistoryTicket {
 
   static String _statusRaw(Map<String, dynamic> json) {
     final rewardStatus = asMap(json['reward_status']);
-    return (rewardStatus['status'] ?? json['status'])
-            ?.toString()
-            .toLowerCase() ??
-        '';
+    final rewardStatusCamel = asMap(json['rewardStatus']);
+    return _firstPurchaseHistoryText([
+      rewardStatus['status'],
+      rewardStatusCamel['status'],
+      json['status'],
+    ]).toLowerCase();
   }
 }
 
@@ -44,6 +54,7 @@ class PurchaseHistoryOrder {
     required this.tickets,
     required this.gameName,
     required this.drawAt,
+    required this.walletId,
     required this.walletName,
     required this.paymentProvider,
     required this.paymentReference,
@@ -58,9 +69,21 @@ class PurchaseHistoryOrder {
     final payload = _purchaseHistoryOrderPayload(json);
     final ticketRows = _purchaseHistoryTicketRows(payload);
     final game = _purchaseHistoryGame(payload, ticketRows);
-    final wallet = asMap(payload['wallet']);
-    final payment = asMap(payload['payment']);
-    final store = asMap(payload['store']);
+    final wallet = _firstPurchaseHistoryMap([
+      payload['wallet'],
+      payload['primary_wallet'],
+      payload['primaryWallet'],
+    ]);
+    final payment = _firstPurchaseHistoryMap([
+      payload['payment'],
+      payload['payment_channel'],
+      payload['paymentChannel'],
+    ]);
+    final store = _firstPurchaseHistoryMap([
+      payload['store'],
+      payload['seller'],
+      payload['shop'],
+    ]);
     final tickets =
         ticketRows.map(PurchaseHistoryTicket.fromJson).toList(growable: false);
     final parsedTicketCount = int.tryParse(
@@ -74,7 +97,15 @@ class PurchaseHistoryOrder {
     final countedTickets = ticketRows.fold<int>(
       0,
       (total, ticket) =>
-          total + (int.tryParse(ticket['count']?.toString() ?? '') ?? 1),
+          total +
+          (int.tryParse(
+                _firstPurchaseHistoryText([
+                  ticket['count'],
+                  ticket['quantity'],
+                  ticket['qty'],
+                ]),
+              ) ??
+              1),
     );
 
     return PurchaseHistoryOrder(
@@ -82,6 +113,8 @@ class PurchaseHistoryOrder {
         payload['id'],
         payload['order_id'],
         payload['orderId'],
+        payload['purchase_order_id'],
+        payload['purchaseOrderId'],
       ]),
       reference: _firstPurchaseHistoryText([
         payload['reference'],
@@ -112,22 +145,60 @@ class PurchaseHistoryOrder {
       paymentMethod: _firstPurchaseHistoryText([
         payload['payment_method'],
         payload['paymentMethod'],
+        payment['payment_method'],
+        payment['paymentMethod'],
         payment['method'],
       ]),
       total: moneyToDisplayNumber(
-        payload['total'] ?? payload['amount'] ?? payload['price'],
+        payload['total'] ??
+            payload['grand_total'] ??
+            payload['grandTotal'] ??
+            payload['amount'] ??
+            payload['price'] ??
+            payment['amount'] ??
+            payment['total'],
       ),
       ticketCount: parsedTicketCount ?? countedTickets,
       tickets: tickets,
-      gameName: game['name']?.toString() ?? '',
-      drawAt: game['draw_at'],
+      gameName: _firstPurchaseHistoryText([
+        game['name'],
+        game['display_name'],
+        game['displayName'],
+        payload['game_name'],
+        payload['gameName'],
+      ]),
+      drawAt: _firstPurchaseHistoryValue([
+        game['draw_at'],
+        game['drawAt'],
+        payload['draw_at'],
+        payload['drawAt'],
+      ]),
+      walletId: _firstPurchaseHistoryText([
+        wallet['id'],
+        wallet['wallet_id'],
+        wallet['walletId'],
+        payload['wallet_id'],
+        payload['walletId'],
+      ]),
       walletName: _firstPurchaseHistoryText([
         wallet['name'],
+        wallet['display_name'],
+        wallet['displayName'],
+        wallet['wallet_name'],
+        wallet['walletName'],
+        wallet['label'],
         payload['wallet_name'],
         payload['walletName'],
-      ]).ifEmpty('G Wallet'),
+      ]),
       paymentProvider: _firstPurchaseHistoryText([
         payment['provider'],
+        payment['provider_name'],
+        payment['providerName'],
+        payment['display_name'],
+        payment['displayName'],
+        payment['channel_name'],
+        payment['channelName'],
+        payment['label'],
         payload['payment_provider'],
         payload['paymentProvider'],
       ]),
@@ -228,17 +299,34 @@ class PurchaseHistoryOrder {
       ]),
       storeName: _firstPurchaseHistoryText([
         store['name'],
+        store['display_name'],
+        store['displayName'],
+        store['shop_name'],
+        store['shopName'],
+        store['label'],
         payload['store_name'],
         payload['storeName'],
         payload['seller_name'],
         payload['sellerName'],
       ]),
-      paidAt: payload['paid_at'] ??
-          payload['paidAt'] ??
-          payment['paid_at'] ??
-          payment['paidAt'],
-      createdAt: payload['created_at'] ?? payload['createdAt'],
-      updatedAt: payload['updated_at'] ?? payload['updatedAt'],
+      paidAt: _firstPurchaseHistoryValue([
+        payload['paid_at'],
+        payload['paidAt'],
+        payload['completed_at'],
+        payload['completedAt'],
+        payment['paid_at'],
+        payment['paidAt'],
+        payment['completed_at'],
+        payment['completedAt'],
+      ]),
+      createdAt: _firstPurchaseHistoryValue([
+        payload['created_at'],
+        payload['createdAt'],
+      ]),
+      updatedAt: _firstPurchaseHistoryValue([
+        payload['updated_at'],
+        payload['updatedAt'],
+      ]),
     );
   }
 
@@ -252,6 +340,7 @@ class PurchaseHistoryOrder {
   final List<PurchaseHistoryTicket> tickets;
   final String gameName;
   final Object? drawAt;
+  final String walletId;
   final String walletName;
   final String paymentProvider;
   final String paymentReference;
@@ -263,16 +352,24 @@ class PurchaseHistoryOrder {
 
   Object? get transactionAt => paidAt ?? updatedAt ?? createdAt;
 
-  String get displayReference => reference.isEmpty ? 'ORDER-$id' : reference;
+  String get displayReference {
+    if (reference.isNotEmpty) return reference;
+    if (id.isNotEmpty) return 'ORDER-$id';
+    return '-';
+  }
 
   String get maskedPaymentReference {
-    final raw = (paymentReference.isNotEmpty ? paymentReference : reference)
+    final raw = (walletId.isNotEmpty
+            ? walletId
+            : paymentReference.isNotEmpty
+                ? paymentReference
+                : reference)
         .replaceAll(RegExp(r'\s+'), '');
     if (raw.isEmpty) return '';
     final digits = raw.replaceAll(RegExp(r'\D'), '');
     final source = digits.isEmpty ? raw : digits;
     if (source.length <= 4) return source;
-    final hiddenCount = (source.length - 7).clamp(6, 24).toInt();
+    final hiddenCount = source.length - 7 < 6 ? 6 : source.length - 7;
     final hidden = List.filled(hiddenCount, 'X').join();
     return '${source.substring(0, 3)} $hidden ${source.substring(source.length - 4)}';
   }
@@ -344,6 +441,8 @@ Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
     'link',
     'wallet_name',
     'walletName',
+    'wallet_id',
+    'walletId',
     'store_name',
     'storeName',
     'seller_name',
@@ -358,6 +457,8 @@ Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
     'transactionId',
     'paid_at',
     'paidAt',
+    'completed_at',
+    'completedAt',
     'created_at',
     'createdAt',
     'updated_at',
@@ -367,6 +468,11 @@ Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
   }
 
   _preferPurchaseHistoryReceiptValue(merged, 'total', receipt['total']);
+  _preferPurchaseHistoryReceiptValue(
+    merged,
+    'grand_total',
+    receipt['grand_total'] ?? receipt['grandTotal'],
+  );
   _preferPurchaseHistoryReceiptValue(merged, 'amount', receipt['amount']);
   _preferPurchaseHistoryReceiptValue(merged, 'price', receipt['price']);
   _preferPurchaseHistoryReceiptValue(
@@ -375,14 +481,28 @@ Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
     receipt['ticket_count'] ??
         receipt['ticketCount'] ??
         receipt['item_count'] ??
+        receipt['itemCount'] ??
         receipt['count'],
   );
 
-  for (final key in const ['game', 'wallet', 'payment', 'store']) {
-    final value = asMap(receipt[key]);
+  for (final aliases in const [
+    ['game', 'lottery_game', 'lotteryGame'],
+    ['wallet', 'primary_wallet', 'primaryWallet'],
+    ['payment', 'payment_channel', 'paymentChannel'],
+    ['store', 'seller', 'shop'],
+  ]) {
+    Map<String, dynamic> value = const {};
+    for (final alias in aliases) {
+      final candidate = asMap(receipt[alias]);
+      if (candidate.isNotEmpty) {
+        value = candidate;
+        break;
+      }
+    }
     if (value.isNotEmpty) {
-      merged[key] = {
-        ...asMap(merged[key]),
+      final targetKey = aliases.first;
+      merged[targetKey] = {
+        ...asMap(merged[targetKey]),
         ...value,
       };
     }
@@ -394,6 +514,10 @@ Map<String, dynamic> _purchaseHistoryOrderPayload(Map<String, dynamic> json) {
     'items',
     'order_items',
     'orderItems',
+    'customer_tickets',
+    'customerTickets',
+    'purchase_items',
+    'purchaseItems',
   ]) {
     final value = asMapList(receipt[key]);
     if (value.isNotEmpty && _purchaseHistoryTicketRows(merged).isEmpty) {
@@ -417,6 +541,7 @@ Map<String, dynamic> _purchaseHistoryReceiptPayload(
     'resource',
     'data',
     'result',
+    'payload',
   ]) {
     final nested = asMap(json[key]);
     if (nested.isEmpty) continue;
@@ -440,6 +565,12 @@ Map<String, dynamic> _purchaseHistoryNestedOrder(Map<String, dynamic> json) {
   if (purchaseOrder.isNotEmpty) return purchaseOrder;
   final purchaseOrderCamel = asMap(json['purchaseOrder']);
   if (purchaseOrderCamel.isNotEmpty) return purchaseOrderCamel;
+  final purchaseOrderResource = asMap(json['purchase_order_resource']);
+  if (purchaseOrderResource.isNotEmpty) return purchaseOrderResource;
+  final purchaseOrderResourceCamel = asMap(json['purchaseOrderResource']);
+  if (purchaseOrderResourceCamel.isNotEmpty) {
+    return purchaseOrderResourceCamel;
+  }
   return const <String, dynamic>{};
 }
 
@@ -453,7 +584,8 @@ Map<String, dynamic> _mergePurchaseHistoryWrapper(
     ..remove('orderReceipt')
     ..remove('resource')
     ..remove('data')
-    ..remove('result');
+    ..remove('result')
+    ..remove('payload');
   merged.addAll(nested);
   return merged;
 }
@@ -479,7 +611,15 @@ List<Map<String, dynamic>> _purchaseHistoryTicketRows(
   if (items.isNotEmpty) return items;
   final orderItems = asMapList(json['order_items']);
   if (orderItems.isNotEmpty) return orderItems;
-  return asMapList(json['orderItems']);
+  final orderItemsCamel = asMapList(json['orderItems']);
+  if (orderItemsCamel.isNotEmpty) return orderItemsCamel;
+  final customerTickets = asMapList(json['customer_tickets']);
+  if (customerTickets.isNotEmpty) return customerTickets;
+  final customerTicketsCamel = asMapList(json['customerTickets']);
+  if (customerTicketsCamel.isNotEmpty) return customerTicketsCamel;
+  final purchaseItems = asMapList(json['purchase_items']);
+  if (purchaseItems.isNotEmpty) return purchaseItems;
+  return asMapList(json['purchaseItems']);
 }
 
 Map<String, dynamic> _purchaseHistoryGame(
@@ -488,6 +628,10 @@ Map<String, dynamic> _purchaseHistoryGame(
 ) {
   final game = asMap(json['game']);
   if (game.isNotEmpty) return game;
+  final lotteryGame = asMap(json['lottery_game']);
+  if (lotteryGame.isNotEmpty) return lotteryGame;
+  final lotteryGameCamel = asMap(json['lotteryGame']);
+  if (lotteryGameCamel.isNotEmpty) return lotteryGameCamel;
 
   for (final ticket in ticketRows) {
     final ticketGame = asMap(ticket['game']);
@@ -499,14 +643,63 @@ Map<String, dynamic> _purchaseHistoryGame(
 
 String _firstPurchaseHistoryText(Iterable<Object?> values) {
   for (final value in values) {
-    final text = value?.toString().trim() ?? '';
+    final text = _purchaseHistoryScalarText(value);
     if (text.isNotEmpty) return text;
   }
   return '';
 }
 
-extension _PurchaseHistoryStringFallback on String {
-  String ifEmpty(String fallback) => isEmpty ? fallback : this;
+Object? _firstPurchaseHistoryValue(Iterable<Object?> values) {
+  for (final value in values) {
+    if (value == null) continue;
+    final text = _purchaseHistoryScalarText(value);
+    if (text.isNotEmpty) return text;
+    if (value is! Map && value is! List) return value;
+  }
+  return null;
+}
+
+String _purchaseHistoryScalarText(Object? value, [int depth = 0]) {
+  if (value == null) return '';
+  if (value is String) return value.trim();
+  if (value is num || value is bool) return value.toString().trim();
+  if (depth >= 3) return '';
+
+  final map = asMap(value);
+  if (map.isEmpty) return '';
+  for (final key in const [
+    'value',
+    'code',
+    'key',
+    'id',
+    'uuid',
+    'reference',
+    'name',
+    'label',
+    'text',
+    'display_name',
+    'displayName',
+    'raw_value',
+    'rawValue',
+    'iso',
+    'date',
+    'date_time',
+    'dateTime',
+    'datetime',
+    'timestamp',
+  ]) {
+    final text = _purchaseHistoryScalarText(map[key], depth + 1);
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
+Map<String, dynamic> _firstPurchaseHistoryMap(Iterable<Object?> values) {
+  for (final value in values) {
+    final map = asMap(value);
+    if (map.isNotEmpty) return map;
+  }
+  return const <String, dynamic>{};
 }
 
 class PurchaseHistoryPage {
@@ -517,13 +710,34 @@ class PurchaseHistoryPage {
   });
 
   factory PurchaseHistoryPage.fromJson(Map<String, dynamic> json) {
-    final meta = unwrapMeta(json);
+    final payload = _purchaseHistoryPagePayload(json);
+    final meta = _purchaseHistoryPageMeta(json, payload);
     return PurchaseHistoryPage(
-      items: unwrapDataList(json)
+      items: _purchaseHistoryPageRows(json, payload)
           .map(PurchaseHistoryOrder.fromJson)
           .toList(growable: false),
-      currentPage: int.tryParse((meta['current_page'] ?? 1).toString()) ?? 1,
-      lastPage: int.tryParse((meta['last_page'] ?? 1).toString()) ?? 1,
+      currentPage: _purchaseHistoryPageNumber(
+        [
+          meta['current_page'],
+          meta['currentPage'],
+          meta['page'],
+          meta['page_number'],
+          meta['pageNumber'],
+        ],
+        fallback: 1,
+      ),
+      lastPage: _purchaseHistoryPageNumber(
+        [
+          meta['last_page'],
+          meta['lastPage'],
+          meta['total_pages'],
+          meta['totalPages'],
+          meta['page_count'],
+          meta['pageCount'],
+          meta['pages'],
+        ],
+        fallback: 1,
+      ),
     );
   }
 
@@ -532,6 +746,90 @@ class PurchaseHistoryPage {
   final int lastPage;
 
   bool get hasMore => currentPage < lastPage;
+}
+
+Map<String, dynamic> _purchaseHistoryPagePayload(Map<String, dynamic> json) {
+  var current = json;
+  for (var depth = 0; depth < 4; depth++) {
+    Map<String, dynamic> nested = const {};
+    for (final key in const ['data', 'result', 'resource', 'payload']) {
+      final candidate = asMap(current[key]);
+      if (candidate.isNotEmpty) {
+        nested = candidate;
+        break;
+      }
+    }
+    if (nested.isEmpty) break;
+    current = nested;
+  }
+  return current;
+}
+
+List<Map<String, dynamic>> _purchaseHistoryPageRows(
+  Map<String, dynamic> json,
+  Map<String, dynamic> payload,
+) {
+  final standardRows = unwrapDataList(json);
+  if (standardRows.isNotEmpty) return standardRows;
+
+  for (final source in [payload, json]) {
+    for (final key in const [
+      'orders',
+      'histories',
+      'items',
+      'purchase_orders',
+      'purchaseOrders',
+      'order_history',
+      'orderHistory',
+    ]) {
+      final rows = asMapList(source[key]);
+      if (rows.isNotEmpty || source[key] is List) return rows;
+    }
+  }
+  return const [];
+}
+
+Map<String, dynamic> _purchaseHistoryPageMeta(
+  Map<String, dynamic> json,
+  Map<String, dynamic> payload,
+) {
+  final standardMeta = unwrapMeta(json);
+  if (standardMeta.isNotEmpty) return standardMeta;
+  for (final source in [payload, json]) {
+    final nested = _purchaseHistoryNestedPageMeta(source);
+    if (nested.isNotEmpty) return nested;
+  }
+  return const {};
+}
+
+Map<String, dynamic> _purchaseHistoryNestedPageMeta(
+  Map<String, dynamic> source, [
+  int depth = 0,
+]) {
+  if (depth >= 5) return const {};
+  final pagination = asMap(source['pagination']);
+  if (pagination.isNotEmpty) return pagination;
+  final meta = asMap(source['meta']);
+  if (meta.isNotEmpty) return meta;
+
+  for (final key in const ['data', 'result', 'resource', 'payload']) {
+    final nested = asMap(source[key]);
+    if (nested.isEmpty) continue;
+    final candidate = _purchaseHistoryNestedPageMeta(nested, depth + 1);
+    if (candidate.isNotEmpty) return candidate;
+  }
+  return const {};
+}
+
+int _purchaseHistoryPageNumber(
+  Iterable<Object?> values, {
+  required int fallback,
+}) {
+  for (final value in values) {
+    final parsed = int.tryParse(_purchaseHistoryScalarText(value));
+    if (parsed != null && parsed > 0) return parsed;
+  }
+  return fallback;
 }
 
 String normalizeDrawName(String value) {

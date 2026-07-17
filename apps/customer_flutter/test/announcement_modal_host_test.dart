@@ -32,6 +32,7 @@ void main() {
         slug: 'promo',
         url: '',
         coverUrl: 'https://example.invalid/promo.webp',
+        detailImageUrl: 'https://example.invalid/promo-full.webp',
         publishedAt: null,
       ),
     );
@@ -61,6 +62,16 @@ void main() {
       ),
     );
     expect(closeIcon.color, const Color(0xFF1D2A3A));
+    final modalImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const Key('announcement-modal-image-button')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(
+      (modalImage.image as NetworkImage).url,
+      'https://example.invalid/promo-full.webp',
+    );
 
     await tester.tap(find.byKey(const Key('announcement-modal-image-button')));
     await tester.pumpAndSettle();
@@ -72,7 +83,8 @@ void main() {
     );
   });
 
-  testWidgets('announcement modal opens runtime internal url before slug', (
+  testWidgets('announcement modal opens slug and ignores runtime internal url',
+      (
     tester,
   ) async {
     final repository = _FakeNewsRepository(
@@ -103,15 +115,15 @@ void main() {
     await tester.tap(find.byKey(const Key('announcement-modal-image-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Profile'), findsOneWidget);
-    expect(find.text('News detail'), findsNothing);
+    expect(find.text('News detail'), findsOneWidget);
+    expect(find.text('Profile'), findsNothing);
     expect(
       find.byKey(const Key('announcement-modal-close-button')),
       findsNothing,
     );
   });
 
-  testWidgets('announcement modal opens external url through shared launcher', (
+  testWidgets('announcement modal opens slug and ignores external url', (
     tester,
   ) async {
     final repository = _FakeNewsRepository(
@@ -144,10 +156,8 @@ void main() {
     await tester.tap(find.byKey(const Key('announcement-modal-image-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Home'), findsOneWidget);
-    expect(launcher.openedUris, [
-      Uri.parse('https://partner.example.com/campaign'),
-    ]);
+    expect(find.text('News detail'), findsOneWidget);
+    expect(launcher.openedUris, isEmpty);
     expect(
       find.byKey(const Key('announcement-modal-close-button')),
       findsNothing,

@@ -9,6 +9,7 @@ use App\Models\TenantPaymentSetting;
 use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Support\ExternalCheckoutPayment;
 use App\Support\ThaiBankCatalog;
 use App\Support\TenantPaymentMethods;
 use Illuminate\Http\Request;
@@ -464,6 +465,18 @@ class TenantPaymentSettingsService
         }
 
         $errors = array_replace_recursive($errors, $this->paymentMethodProviderErrors($tenantId, $payload));
+        $settings = TenantPaymentSetting::query()->forTenant($tenantId)->first();
+        $allowExternalPayment = array_key_exists('allow_external_payment', $payload)
+            ? (bool) $payload['allow_external_payment']
+            : (bool) ($settings?->allow_external_payment ?? false);
+        $config = array_replace_recursive(
+            is_array($settings?->config_json) ? $settings->config_json : [],
+            is_array($payload['config_json'] ?? null) ? $payload['config_json'] : [],
+        );
+        $errors = array_replace_recursive(
+            $errors,
+            ExternalCheckoutPayment::validationErrors($allowExternalPayment, $config),
+        );
 
         return $errors;
     }

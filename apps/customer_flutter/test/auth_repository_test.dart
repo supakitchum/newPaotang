@@ -26,9 +26,76 @@ void main() {
     expect(session.refreshToken, 'refresh-recursive-login');
     expect(session.pinRequired, isTrue);
     expect(session.customerId, 'cus_recursive_login');
+    expect(session.preferredLocale, 'en-US');
     expect(tokenStore.accessToken, 'access-recursive-login');
     expect(tokenStore.refreshToken, 'refresh-recursive-login');
     expect(tokenStore.customerId, 'cus_recursive_login');
+  });
+
+  test('logout sends Nuxt parity idempotency header and clears session',
+      () async {
+    final tokenStore = _MemoryTokenStore();
+    await tokenStore.save(
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      customerId: 'customer-id',
+    );
+    final api = _AuthApiClient(tokenStore);
+    final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+    await repository.logout();
+
+    expect(api.headerPaths, ['/customer/auth/logout']);
+    expect(api.headerPayloads, [<String, dynamic>{}]);
+    expect(
+      api.headers.single['Idempotency-Key'],
+      startsWith('customer_auth_logout_'),
+    );
+    expect(tokenStore.hasAccessToken, isFalse);
+    expect(tokenStore.refreshToken, isNull);
+    expect(tokenStore.customerId, isNull);
+  });
+
+  test('refresh preserves stored identity when response only rotates access',
+      () async {
+    final tokenStore = _MemoryTokenStore();
+    await tokenStore.save(
+      accessToken: 'expired-access',
+      refreshToken: 'stored-refresh',
+      customerId: 'cus_stored',
+    );
+    final api = _AuthApiClient(tokenStore);
+    final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+    final session = await repository.refresh();
+
+    expect(api.paths, ['/customer/auth/refresh']);
+    expect(api.authFlags, [false]);
+    expect(api.payloads, [
+      {'refresh_token': 'stored-refresh'},
+    ]);
+    expect(session.accessToken, 'refreshed-access-only');
+    expect(session.refreshToken, 'stored-refresh');
+    expect(session.customerId, 'cus_stored');
+    expect(tokenStore.accessToken, 'refreshed-access-only');
+    expect(tokenStore.refreshToken, 'stored-refresh');
+    expect(tokenStore.customerId, 'cus_stored');
+  });
+
+  test('currentIdentity uses profile replacement and parses PIN locale state',
+      () async {
+    final tokenStore = _MemoryTokenStore();
+    final api = _AuthApiClient(tokenStore);
+    final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+    final identity = await repository.currentIdentity();
+
+    expect(api.getPaths, ['/customer/profile']);
+    expect(identity.customerId, 'cus_profile');
+    expect(identity.hasPin, isFalse);
+    expect(identity.pinRequired, isTrue);
+    expect(identity.pinSetupRequired, isTrue);
+    expect(identity.preferredLocale, 'en-US');
   });
 
   test('socialLoginUrl saves unauthenticated callback mode for login flows',
@@ -67,6 +134,52 @@ void main() {
       'state': 'google-launch-state',
     });
     expect(callback.session?.accessToken, 'access-google-callback');
+    expect(callback.redirectPath, '/checkout?order_id=ord_social');
+    expect(
+      await tokenStore.readSocialCallbackContext('google-launch-state'),
+      isNull,
+    );
+  });
+
+  test('social callback keeps its saved context when the first attempt fails',
+      () async {
+    final tokenStore = _MemoryTokenStore();
+    final api = _AuthApiClient(tokenStore);
+    final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+    await repository.socialLoginUrl(
+      'google',
+      redirect: '/profile/line-notifications',
+    );
+    api.googleCallbackFailuresRemaining = 1;
+
+    await expectLater(
+      repository.socialCallback(
+        provider: 'google',
+        query: const {
+          'code': 'callback-code',
+          'state': 'google-launch-state',
+        },
+      ),
+      throwsA(isA<DioException>()),
+    );
+
+    final retained =
+        await tokenStore.readSocialCallbackContext('google-launch-state');
+    expect(retained?.auth, isFalse);
+    expect(retained?.redirect, '/profile/line-notifications');
+
+    final callback = await repository.socialCallback(
+      provider: 'google',
+      query: const {
+        'code': 'callback-code',
+        'state': 'google-launch-state',
+      },
+    );
+
+    expect(callback.session?.accessToken, 'access-google-callback');
+    expect(callback.redirectPath, '/profile/line-notifications');
+    expect(api.authFlags, [false, false, false]);
   });
 
   test('requestOtp and verifyOtp preserve recursive OTP wrappers', () async {
@@ -327,8 +440,60 @@ class _AuthApiClient extends ApiClient {
         );
 
   final paths = <String>[];
+  final getPaths = <String>[];
   final authFlags = <bool>[];
   final payloads = <Map<String, dynamic>>[];
+  int googleCallbackFailuresRemaining = 0;
+  final headerPaths = <String>[];
+  final headerPayloads = <Map<String, dynamic>>[];
+  final headers = <Map<String, String>>[];
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    getPaths.add(path);
+    if (path != '/customer/profile') {
+      throw StateError('Unexpected auth GET path: $path');
+    }
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: <String, dynamic>{
+        'data': {
+          'resource': {
+            'customer': {
+              'customerId': 'cus_profile',
+              'hasPin': false,
+              'pinRequired': true,
+              'pinSetupRequired': true,
+              'preferredLocale': 'en-US',
+            },
+          },
+        },
+      } as T,
+    );
+  }
+
+  @override
+  Future<Response<T>> postWithHeaders<T>(
+    String path, {
+    Object? data,
+    bool auth = true,
+    Map<String, String> headers = const {},
+  }) async {
+    headerPaths.add(path);
+    headerPayloads.add(Map<String, dynamic>.from(data! as Map));
+    this.headers.add(Map<String, String>.from(headers));
+    if (path != '/customer/auth/logout') {
+      throw StateError('Unexpected auth header path: $path');
+    }
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: <String, dynamic>{} as T,
+    );
+  }
 
   @override
   Future<Response<T>> post<T>(
@@ -339,6 +504,15 @@ class _AuthApiClient extends ApiClient {
     paths.add(path);
     authFlags.add(auth);
     payloads.add(Map<String, dynamic>.from(data! as Map));
+    if (path == '/customer/auth/social/google/callback' &&
+        googleCallbackFailuresRemaining > 0) {
+      googleCallbackFailuresRemaining -= 1;
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        type: DioExceptionType.connectionError,
+        message: 'temporary callback failure',
+      );
+    }
 
     final response = switch (path) {
       '/customer/auth/login' => {
@@ -348,7 +522,20 @@ class _AuthApiClient extends ApiClient {
               'customerSession': {
                 'accessToken': 'access-recursive-login',
                 'refreshToken': 'refresh-recursive-login',
-                'customer': {'customerId': 'cus_recursive_login'},
+                'customer': {
+                  'customerId': 'cus_recursive_login',
+                  'preferredLocale': 'en-US',
+                },
+              },
+            },
+          },
+        },
+      '/customer/auth/refresh' => {
+          'data': {
+            'resource': {
+              'customerSession': {
+                'accessToken': 'refreshed-access-only',
+                'pinRequired': true,
               },
             },
           },
@@ -516,6 +703,8 @@ class _MemoryTokenStore extends AuthTokenStore {
   String? _refreshToken;
   String? _customerId;
   final _socialCallbackAuthModes = <String, bool>{};
+  final _socialCallbackRedirects = <String, String>{};
+  String? _latestSocialCallbackState;
 
   @override
   String? get accessToken => _accessToken;
@@ -546,6 +735,21 @@ class _MemoryTokenStore extends AuthTokenStore {
     _refreshToken = null;
     _customerId = null;
     _socialCallbackAuthModes.clear();
+    _socialCallbackRedirects.clear();
+    _latestSocialCallbackState = null;
+  }
+
+  @override
+  Future<void> rememberSocialCallbackContext({
+    required String state,
+    required bool auth,
+    required String redirect,
+  }) async {
+    final key = state.trim();
+    if (key.isEmpty) return;
+    _socialCallbackAuthModes[key] = auth;
+    _socialCallbackRedirects[key] = redirect.trim();
+    _latestSocialCallbackState = key;
   }
 
   @override
@@ -558,7 +762,47 @@ class _MemoryTokenStore extends AuthTokenStore {
   }
 
   @override
+  Future<bool?> readSocialCallbackAuthMode(String state) async {
+    return _socialCallbackAuthModes[state.trim()];
+  }
+
+  @override
   Future<bool?> takeSocialCallbackAuthMode(String state) async {
     return _socialCallbackAuthModes.remove(state.trim());
+  }
+
+  @override
+  Future<SocialCallbackContext?> readSocialCallbackContext(String state) async {
+    final key = state.trim();
+    final auth = _socialCallbackAuthModes[key];
+    final hasRedirect = _socialCallbackRedirects.containsKey(key);
+    if (auth == null && !hasRedirect) return null;
+    return SocialCallbackContext(
+      state: key,
+      auth: auth ?? true,
+      redirect: _socialCallbackRedirects[key] ?? '',
+    );
+  }
+
+  @override
+  Future<SocialCallbackContext?> takeSocialCallbackContext(String state) async {
+    final key = state.trim();
+    final context = await readSocialCallbackContext(key);
+    if (context == null) return null;
+    _socialCallbackAuthModes.remove(key);
+    _socialCallbackRedirects.remove(key);
+    if (_latestSocialCallbackState == key) {
+      _latestSocialCallbackState = _socialCallbackRedirects.isEmpty
+          ? null
+          : _socialCallbackRedirects.keys.last;
+    }
+    return context;
+  }
+
+  @override
+  Future<SocialCallbackContext?> takeLatestSocialCallbackContext() async {
+    final state = _latestSocialCallbackState?.trim() ?? '';
+    if (state.isEmpty) return null;
+    return takeSocialCallbackContext(state);
   }
 }

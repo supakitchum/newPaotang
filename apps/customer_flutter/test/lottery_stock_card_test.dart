@@ -82,11 +82,11 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('lottery-stock-seller-row')),
-      findsWidgets,
+      findsNothing,
     );
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsWidgets);
     expect(find.text('L6'), findsWidgets);
-    expect(find.text('ร้านทดสอบ'), findsWidgets);
+    expect(find.text('ร้านทดสอบ'), findsNothing);
     final moreButton = find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่ม');
     expect(moreButton, findsOneWidget);
     expect(
@@ -176,6 +176,26 @@ void main() {
 
     expect(find.text('โหลดเลขสลากไม่สำเร็จ'), findsWidgets);
     expect(find.textContaining('internal search failure'), findsNothing);
+  });
+
+  testWidgets('search load follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(
+      tester,
+      router: router,
+      lottery: _FailingSearchLotteryRepository(
+        _maintenanceApiException(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(find.text('Maintenance route'), findsOneWidget);
   });
 
   testWidgets('buy search hides ticket image frame like Nuxt show-image false',
@@ -316,6 +336,41 @@ void main() {
     expect(find.text('เอาออก'), findsOneWidget);
   });
 
+  testWidgets('stock row tap does not reserve; select pill is the only action',
+      (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    final stockRow = find.byKey(
+      const ValueKey('lottery-stock-row-local-stock-1'),
+    );
+    expect(stockRow, findsOneWidget);
+
+    await tester.tap(stockRow);
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 0);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
+    expect(find.text('เอาออก'), findsNothing);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 1);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.text('เอาออก'), findsOneWidget);
+  });
+
   testWidgets('guest stock selection keeps Nuxt-style login redirect', (
     tester,
   ) async {
@@ -347,6 +402,40 @@ void main() {
     expect(lottery.reserveCount, 0);
     expect(find.text('Login route /buy/search?number=273707'), findsOneWidget);
     expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
+  });
+
+  testWidgets('stock selection still reserves when restored token exists', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final tokenStore = _MemoryAuthTokenStore();
+    await tokenStore.save(
+      accessToken: 'restored-access-token',
+      refreshToken: 'restored-refresh-token',
+      customerId: 'customer_1',
+    );
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(
+      tester,
+      router: router,
+      lottery: lottery,
+      tokenStore: tokenStore,
+      authController: _unauthenticatedController(tokenStore),
+    );
+    await tester.pumpAndSettle();
+
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 1);
+    expect(find.text('Login route /buy/search?number=273707'), findsNothing);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
   });
 
   testWidgets('stock list shows selected-cart dock after reservation', (
@@ -383,8 +472,8 @@ void main() {
       selectionDockDecoration.borderRadius,
       const BorderRadius.vertical(top: Radius.circular(12)),
     );
-    expect(find.text('จำนวนที่เลือก'), findsNothing);
-    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsOneWidget);
+    expect(find.text('จำนวนที่เลือก'), findsOneWidget);
+    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
     expect(find.text('1 ใบ'), findsOneWidget);
     expect(
       find.descendant(
@@ -1011,6 +1100,11 @@ GoRouter _lotteryRouter({required String initialLocation}) {
           ),
         ),
       ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) =>
+            const Scaffold(body: Text('Maintenance route')),
+      ),
     ],
   );
 }
@@ -1082,6 +1176,45 @@ AuthController _unauthenticatedController(AuthTokenStore tokenStore) {
   )
     ..isAuthenticated = false
     ..pinRequired = false;
+}
+
+class _MemoryAuthTokenStore extends AuthTokenStore {
+  String? _access;
+  String? _refresh;
+  String? _customer;
+
+  @override
+  String? get accessToken => _access;
+
+  @override
+  String? get refreshToken => _refresh;
+
+  @override
+  String? get customerId => _customer;
+
+  @override
+  bool get hasAccessToken => (_access ?? '').isNotEmpty;
+
+  @override
+  Future<void> restore() async {}
+
+  @override
+  Future<void> save({
+    required String accessToken,
+    required String refreshToken,
+    String? customerId,
+  }) async {
+    _access = accessToken;
+    _refresh = refreshToken;
+    _customer = customerId;
+  }
+
+  @override
+  Future<void> clear() async {
+    _access = null;
+    _refresh = null;
+    _customer = null;
+  }
 }
 
 Finder _lotteryStockSkeletons() {
@@ -1607,6 +1740,23 @@ DioException _apiException(String message) {
       requestOptions: request,
       statusCode: 422,
       data: {'message': message},
+    ),
+  );
+}
+
+DioException _maintenanceApiException() {
+  final request = RequestOptions(path: '/public/stock/search');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 503,
+      data: const {
+        'error': {
+          'code': 'maintenance_active',
+          'message': 'ระบบอยู่ระหว่างปิดปรับปรุง',
+        },
+      },
     ),
   );
 }

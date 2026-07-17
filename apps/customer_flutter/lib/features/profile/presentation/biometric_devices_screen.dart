@@ -8,8 +8,8 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -43,6 +43,21 @@ class _BiometricDevicesScreenState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final devices = ref.watch(biometricDevicesProvider);
+    ref.listen<AsyncValue<List<BiometricDevice>>>(
+      biometricDevicesProvider,
+      (previous, next) {
+        final error = next.error;
+        if (error == null || identical(previous?.error, error)) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          );
+        });
+      },
+    );
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final platformKey = ref.watch(customerPlatformKeyProvider);
     final policyEnabled = bootstrap.maybeWhen(
@@ -61,20 +76,25 @@ class _BiometricDevicesScreenState
       currentPath: '/profile/biometrics',
       backPath: '/profile',
       sensitive: true,
-      child: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(_biometricCapabilityProvider);
-          ref.invalidate(_currentBiometricDeviceIdProvider);
-          final refreshedDevices = ref.refresh(biometricDevicesProvider.future);
-          await refreshedDevices;
-        },
-        child: ListView(
-          padding: EdgeInsets.zero,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            const _BiometricHero(),
-            _BiometricContentSheet(
-              child: CustomerPageBody(
+      showBottomNavigation: true,
+      heroMinHeight: 248,
+      heroSheetOverlap: MediaQuery.sizeOf(context).width >= 768 ? 28 : 38,
+      heroContentTopGap: 18,
+      heroContent: const _BiometricHeroContent(),
+      child: _BiometricContentSheet(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(_biometricCapabilityProvider);
+            ref.invalidate(_currentBiometricDeviceIdProvider);
+            final refreshedDevices =
+                ref.refresh(biometricDevicesProvider.future);
+            await refreshedDevices;
+          },
+          child: ListView(
+            padding: EdgeInsets.zero,
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              CustomerPageBody(
                 top: 16,
                 bottom: 128,
                 child: Column(
@@ -131,8 +151,8 @@ class _BiometricDevicesScreenState
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -164,12 +184,19 @@ class _BiometricDevicesScreenState
       ref.invalidate(_currentBiometricDeviceIdProvider);
       if (mounted) _showStatus(enabledMessage, _BiometricStatusKind.success);
     } catch (error) {
-      if (mounted) {
-        _showStatus(
-          authErrorMessage(error, failedMessage),
-          _BiometricStatusKind.error,
-        );
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
       }
+      if (!mounted) return;
+      _showStatus(
+        authErrorMessage(error, failedMessage),
+        _BiometricStatusKind.error,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -197,12 +224,19 @@ class _BiometricDevicesScreenState
       ref.invalidate(_currentBiometricDeviceIdProvider);
       if (mounted) _showStatus(revokedMessage, _BiometricStatusKind.success);
     } catch (error) {
-      if (mounted) {
-        _showStatus(
-          authErrorMessage(error, failedMessage),
-          _BiometricStatusKind.error,
-        );
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
       }
+      if (!mounted) return;
+      _showStatus(
+        authErrorMessage(error, failedMessage),
+        _BiometricStatusKind.error,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -472,92 +506,65 @@ class _BiometricRevokeDialog extends StatelessWidget {
   }
 }
 
-class _BiometricHero extends StatelessWidget {
-  const _BiometricHero();
+class _BiometricHeroContent extends StatelessWidget {
+  const _BiometricHeroContent();
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final onPrimary = colorScheme.onPrimary;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: onPrimary.withValues(alpha: 0.16),
+            border: Border.all(
+              color: onPrimary.withValues(alpha: 0.28),
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: SizedBox.square(
+            dimension: 62,
+            child: Icon(
+              Icons.face_retouching_natural,
+              color: onPrimary,
+              size: 34,
+            ),
+          ),
         ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 720 ? 28.0 : 18.0;
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 920),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 28),
-                child: Row(
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: onPrimary.withValues(alpha: 0.16),
-                        border: Border.all(
-                          color: onPrimary.withValues(alpha: 0.28),
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: SizedBox.square(
-                        dimension: 62,
-                        child: Icon(
-                          Icons.face_retouching_natural,
-                          color: onPrimary,
-                          size: 34,
-                        ),
-                      ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.profileBiometricIntroTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: onPrimary,
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.profileBiometricIntroTitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  color: onPrimary,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.18,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n.profileBiometricIntroSubtitle,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: onPrimary.withValues(alpha: 0.92),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.profileBiometricIntroSubtitle,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: onPrimary.withValues(alpha: 0.92),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.45,
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

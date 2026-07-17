@@ -58,6 +58,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     sensitive: true,
   ),
   CustomerFeatureRoute(
+    path: '/tickets/search',
+    key: 'tickets_search',
+    group: CustomerFeatureGroup.lottery,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/tickets/history',
     key: 'tickets_history',
     group: CustomerFeatureGroup.lottery,
@@ -107,6 +113,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     public: true,
   ),
   CustomerFeatureRoute(
+    path: '/wait-result',
+    key: 'wait_result',
+    group: CustomerFeatureGroup.lottery,
+    public: true,
+  ),
+  CustomerFeatureRoute(
     path: '/my-wallet',
     key: 'my_wallet',
     group: CustomerFeatureGroup.wallet,
@@ -116,6 +128,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
     path: '/topup',
     key: 'topup',
+    group: CustomerFeatureGroup.wallet,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/topup/:topupId',
+    key: 'topup_detail',
     group: CustomerFeatureGroup.wallet,
     sensitive: true,
   ),
@@ -177,6 +195,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
     path: '/profile',
     key: 'profile',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/profile/language',
+    key: 'profile_language',
     group: CustomerFeatureGroup.account,
     sensitive: true,
   ),
@@ -400,14 +424,20 @@ bool isCustomerRoutePatternMatch(String pattern, String path) {
   final normalizedPattern = _stripCustomerRouteQuery(pattern.trim());
   final normalizedPath = normalizeCustomerRoutePath(path);
   if (normalizedPattern == normalizedPath) return true;
-  final patternParts =
-      normalizedPattern.split('/').where((part) => part.isNotEmpty).toList();
-  final pathParts =
-      normalizedPath.split('/').where((part) => part.isNotEmpty).toList();
+  final patternParts = normalizedPattern
+      .split('/')
+      .where((part) => part.isNotEmpty)
+      .toList();
+  final pathParts = normalizedPath
+      .split('/')
+      .where((part) => part.isNotEmpty)
+      .toList();
   var pathIndex = 0;
-  for (var patternIndex = 0;
-      patternIndex < patternParts.length;
-      patternIndex++) {
+  for (
+    var patternIndex = 0;
+    patternIndex < patternParts.length;
+    patternIndex++
+  ) {
     final patternPart = patternParts[patternIndex];
     final lastPatternPart = patternIndex == patternParts.length - 1;
     if (patternPart == '*') {

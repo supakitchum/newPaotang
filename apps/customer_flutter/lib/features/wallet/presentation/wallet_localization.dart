@@ -4,14 +4,17 @@ import '../data/wallet_models.dart';
 
 String walletLedgerTitle(
   CustomerLocalizations l10n,
-  WalletLedgerEntry entry,
-) {
+  WalletLedgerEntry entry, {
+  String walletName = '',
+}) {
   final reference = _walletLedgerToken(entry.referenceType);
   final referenceCompact = _walletLedgerCompactToken(entry.referenceType);
   final type = _walletLedgerToken(entry.entryType);
   final reason = entry.reason.toLowerCase();
 
-  if (reference.contains('topup')) return l10n.walletLedgerTopup;
+  if (reference.contains('topup')) {
+    return l10n.walletLedgerTopupFor(walletName);
+  }
   if (reference == 'order') return l10n.walletLedgerOrder;
   if (reference.contains('reward_claim') ||
       referenceCompact.contains('rewardclaim')) {

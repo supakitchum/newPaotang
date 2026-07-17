@@ -121,6 +121,7 @@ class ActivityItem {
     required this.remainingNumbers,
     required this.hasRight,
     required this.estimatedCashbackAmount,
+    this.imageFullUrl = '',
     this.gameName = '',
     this.rights = ActivityRights.empty,
     this.entries = const [],
@@ -152,18 +153,26 @@ class ActivityItem {
       payload['cashback_progress'] ?? payload['cashbackProgress'],
     );
     final game = _asMap(payload['game']);
-    final imageUrl = (payload['image_thumb'] ??
-                payload['imageThumb'] ??
-                payload['image_thumb_url'] ??
-                payload['imageThumbUrl'] ??
-                payload['cover'] ??
-                payload['cover_url'] ??
-                payload['coverUrl'] ??
-                payload['image'] ??
-                payload['image_full_url'] ??
-                payload['imageFullUrl'])
-            ?.toString() ??
-        '';
+    final imageThumbUrl = _firstActivityAssetText([
+      payload['image_thumb'],
+      payload['imageThumb'],
+      payload['image_thumb_url'],
+      payload['imageThumbUrl'],
+      payload['cover'],
+      payload['cover_url'],
+      payload['coverUrl'],
+    ]);
+    final imageFullUrl = _firstActivityAssetText([
+      payload['image'],
+      payload['image_full'],
+      payload['imageFull'],
+      payload['image_full_url'],
+      payload['imageFullUrl'],
+    ]);
+    final listImageUrl =
+        imageThumbUrl.isNotEmpty ? imageThumbUrl : imageFullUrl;
+    final detailImageUrl =
+        imageFullUrl.isNotEmpty ? imageFullUrl : listImageUrl;
 
     return ActivityItem(
       id: (payload['id'] ?? payload['activity_id'] ?? payload['activityId'])
@@ -172,7 +181,8 @@ class ActivityItem {
       name: (payload['name'] ?? payload['title'])?.toString() ?? '',
       slug: payload['slug']?.toString() ?? '',
       type: type,
-      imageUrl: resolveAssetUrl(imageUrl),
+      imageUrl: _resolveActivityAsset(listImageUrl, resolveAssetUrl),
+      imageFullUrl: _resolveActivityAsset(detailImageUrl, resolveAssetUrl),
       conditionText: _conditionText(payload),
       remainingNumbers: board.remainingCount,
       hasRight: rights.remainingCount > 0 ||
@@ -211,6 +221,7 @@ class ActivityItem {
   final String slug;
   final String type;
   final String imageUrl;
+  final String imageFullUrl;
   final String conditionText;
   final int remainingNumbers;
   final bool hasRight;
@@ -226,6 +237,8 @@ class ActivityItem {
 
   bool get isCashback => type == 'cashback';
   bool get isLuckyBoard => type == 'lucky_board';
+  String get detailImageUrl =>
+      imageFullUrl.trim().isNotEmpty ? imageFullUrl : imageUrl;
 
   static String _conditionText(Map<String, dynamic> json) {
     final description = (json['description'] ??
@@ -1070,6 +1083,47 @@ Map<String, dynamic> _mergeActivityWrapper(
 }
 
 String _identity(String value) => value;
+
+String _resolveActivityAsset(
+  String value,
+  String Function(String value) resolveAssetUrl,
+) {
+  final normalized = value.trim();
+  return normalized.isEmpty ? '' : resolveAssetUrl(normalized);
+}
+
+String _firstActivityAssetText(Iterable<Object?> values) {
+  for (final value in values) {
+    final text = _activityAssetText(value);
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
+String _activityAssetText(Object? value, [int depth = 0]) {
+  if (value == null || depth > 3) return '';
+  if (value is String) return value.trim();
+  if (value is Uri) return value.toString().trim();
+  if (value is Map) {
+    final payload = Map<String, dynamic>.from(value);
+    for (final key in const [
+      'public_url',
+      'publicUrl',
+      'asset_url',
+      'assetUrl',
+      'image_url',
+      'imageUrl',
+      'url',
+      'src',
+      'path',
+      'value',
+    ]) {
+      final text = _activityAssetText(payload[key], depth + 1);
+      if (text.isNotEmpty) return text;
+    }
+  }
+  return '';
+}
 
 Map<String, dynamic> _asMap(Object? value) {
   if (value is Map<String, dynamic>) return value;

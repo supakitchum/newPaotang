@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/line_notification_models.dart';
@@ -44,76 +45,120 @@ class _LineNotificationsScreenState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final settings = ref.watch(lineNotificationSettingsProvider);
+    ref.listen<AsyncValue<LineNotificationSettings>>(
+      lineNotificationSettingsProvider,
+      (previous, next) {
+        final error = next.error;
+        if (error == null || identical(previous?.error, error)) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _handleOperationalError(error);
+        });
+      },
+    );
+    final lineBrandColor = ref.watch(mobileBootstrapProvider).maybeWhen(
+          data: (bootstrap) {
+            for (final provider in bootstrap.authProviders) {
+              if (normalizeSocialAuthProvider(provider.provider) == 'line') {
+                return provider.brandColor ??
+                    provider.buttonBackgroundColor ??
+                    Theme.of(context).colorScheme.tertiary;
+              }
+            }
+            return Theme.of(context).colorScheme.tertiary;
+          },
+          orElse: () => Theme.of(context).colorScheme.tertiary,
+        );
     return AppShell(
       title: l10n.profileLineNotifications,
-      currentPath: '/profile',
+      currentPath: '/profile/line-notifications',
+      backPath: '/profile',
       sensitive: true,
-      fullScreen: true,
+      showBottomNavigation: false,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: settings.when(
-        data: (data) => Column(
-          children: [
-            Expanded(
+        data: (data) {
+          if (!data.lineAvailable) {
+            return _LineContentSheet(
               child: ListView(
                 padding: EdgeInsets.zero,
-                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  _LineHero(onBack: () => context.go('/profile')),
-                  _LineContentSheet(
-                    child: CustomerPageBody(
-                      top: 16,
-                      bottom: 20,
-                      mobileHorizontal: 14,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (_noticeMessage.isNotEmpty) ...[
-                            _LineNoticeCard(
-                              message: _noticeMessage,
-                              isError: _noticeIsError,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          _HeaderCard(settings: data),
-                          const SizedBox(height: 12),
-                          if (data.identity != null)
-                            _NotificationToggleCard(
-                              identity: data.identity!,
-                              saving: _saving,
-                              onChanged: (value) => _saveToggle(value),
-                            ),
-                          const SizedBox(height: 12),
-                          const _LineEventsCard(),
-                          if (!data.lineAvailable) ...[
-                            const SizedBox(height: 12),
-                            _WarningCard(
-                              title: l10n.profileLineStoreUnavailableTitle,
-                              message: l10n.profileLineStoreUnavailableMessage,
-                            ),
-                          ],
-                        ],
-                      ),
+                  CustomerPageBody(
+                    top: 20,
+                    bottom: 40,
+                    mobileHorizontal: 14,
+                    child: _WarningCard(
+                      title: l10n.profileLineStoreUnavailableTitle,
+                      message: l10n.profileLineStoreUnavailableMessage,
                     ),
                   ),
                 ],
               ),
+            );
+          }
+          return _LineContentSheet(
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      CustomerPageBody(
+                        top: 20,
+                        bottom: 28,
+                        mobileHorizontal: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_noticeMessage.isNotEmpty) ...[
+                              _LineNoticeCard(
+                                message: _noticeMessage,
+                                isError: _noticeIsError,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            _HeaderCard(
+                              settings: data,
+                              brandColor: lineBrandColor,
+                            ),
+                            const SizedBox(height: 16),
+                            if (data.identity != null)
+                              _NotificationToggleCard(
+                                identity: data.identity!,
+                                brandColor: lineBrandColor,
+                                saving: _saving,
+                                onChanged: (value) => _saveToggle(value),
+                              ),
+                            if (data.identity != null)
+                              const SizedBox(height: 16),
+                            const _LineEventsCard(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _LineActionFooter(
+                  settings: data,
+                  brandColor: lineBrandColor,
+                  saving: _saving,
+                  connecting: _connecting,
+                  onConnect: _connectLine,
+                  onAddFriend: () => _openUrl(data.addFriendUrl),
+                  onDisconnect: _disconnect,
+                ),
+              ],
             ),
-            _LineActionFooter(
-              settings: data,
-              saving: _saving,
-              connecting: _connecting,
-              onConnect: _connectLine,
-              onAddFriend: () => _openUrl(data.addFriendUrl),
-              onDisconnect: _disconnect,
-            ),
-          ],
-        ),
-        loading: () => ListView(
-          padding: EdgeInsets.zero,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _LineHero(onBack: () => context.go('/profile')),
-            _LineContentSheet(
-              child: CustomerPageBody(
+          );
+        },
+        loading: () => _LineContentSheet(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              CustomerPageBody(
                 top: 16,
                 bottom: 128,
                 mobileHorizontal: 14,
@@ -125,16 +170,14 @@ class _LineNotificationsScreenState
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        error: (error, __) => ListView(
-          padding: EdgeInsets.zero,
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _LineHero(onBack: () => context.go('/profile')),
-            _LineContentSheet(
-              child: CustomerPageBody(
+        error: (error, __) => _LineContentSheet(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              CustomerPageBody(
                 top: 16,
                 bottom: 128,
                 mobileHorizontal: 14,
@@ -144,8 +187,8 @@ class _LineNotificationsScreenState
                       ref.invalidate(lineNotificationSettingsProvider),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -176,7 +219,11 @@ class _LineNotificationsScreenState
               );
       if (!opened) _setNotice(missingUrlMessage);
     } catch (error) {
-      if (mounted) _setNotice(authErrorMessage(error, connectFailedMessage));
+      if (!mounted) return;
+      if (await _handleOperationalError(error)) return;
+      if (mounted) {
+        _setNotice(authErrorMessage(error, connectFailedMessage));
+      }
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
@@ -194,6 +241,8 @@ class _LineNotificationsScreenState
           .updateNotificationEnabled(enabled);
       ref.invalidate(lineNotificationSettingsProvider);
     } catch (error) {
+      if (!mounted) return;
+      if (await _handleOperationalError(error)) return;
       if (mounted) _setNotice(authErrorMessage(error, saveFailedMessage));
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -212,22 +261,32 @@ class _LineNotificationsScreenState
       ref.invalidate(lineNotificationSettingsProvider);
       if (mounted) _setNotice(disconnectedMessage, isError: false);
     } catch (error) {
-      if (mounted) _setNotice(authErrorMessage(error, disconnectFailedMessage));
+      if (!mounted) return;
+      if (await _handleOperationalError(error)) return;
+      if (mounted) {
+        _setNotice(authErrorMessage(error, disconnectFailedMessage));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _openUrl(String value) async {
+    final missingUrlMessage = context.l10n.profileLineMissingUrl;
     final uri = Uri.tryParse(value);
     if (!isSafeExternalLinkUri(uri)) {
-      _setNotice(context.l10n.profileLineMissingUrl);
+      _setNotice(missingUrlMessage);
       return;
     }
-    await ref.read(customerLinkLauncherProvider).openExternal(
-          uri!,
-          preferSameWindowInLine: true,
-        );
+    try {
+      final opened = await ref.read(customerLinkLauncherProvider).openExternal(
+            uri!,
+            preferSameWindowInLine: true,
+          );
+      if (!opened) _setNotice(missingUrlMessage);
+    } catch (_) {
+      _setNotice(missingUrlMessage);
+    }
   }
 
   void _setNotice(String message, {bool isError = true}) {
@@ -237,185 +296,12 @@ class _LineNotificationsScreenState
       _noticeIsError = isError;
     });
   }
-}
 
-class _LineHero extends StatelessWidget {
-  const _LineHero({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final topInset = MediaQuery.paddingOf(context).top;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 720 ? 28.0 : 18.0;
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 920),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontal,
-                  topInset + 58,
-                  horizontal,
-                  28,
-                ),
-                child: Column(
-                  children: [
-                    _ProfileHeroTitleRow(
-                      title: l10n.profileLineNotifications,
-                      onBack: onBack,
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Color.lerp(
-                                  colorScheme.primary,
-                                  colorScheme.secondary,
-                                  0.35,
-                                ) ??
-                                colorScheme.primary,
-                            border: Border.all(
-                              color: colorScheme.onPrimary.withValues(
-                                alpha: 0.78,
-                              ),
-                              width: 3,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    colorScheme.shadow.withValues(alpha: 0.14),
-                                blurRadius: 22,
-                                offset: const Offset(0, 12),
-                              ),
-                            ],
-                          ),
-                          child: SizedBox.square(
-                            dimension: 62,
-                            child: Icon(
-                              Icons.chat_bubble,
-                              color: colorScheme.onPrimary,
-                              size: 34,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.profileLineHeroTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      color: colorScheme.onPrimary,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.18,
-                                    ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                l10n.profileLineHeroSubtitle,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colorScheme.onPrimary.withValues(
-                                    alpha: 0.92,
-                                  ),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ProfileHeroTitleRow extends StatelessWidget {
-  const _ProfileHeroTitleRow({
-    required this.title,
-    required this.onBack,
-  });
-
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 42,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            left: 0,
-            child: IconButton(
-              tooltip: context.l10n.commonBack,
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_ios_new, size: 31),
-              color: colorScheme.onPrimary,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(42),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: Colors.transparent,
-                foregroundColor: colorScheme.onPrimary,
-                shape: const CircleBorder(),
-              ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 54),
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
-            ),
-          ),
-        ],
-      ),
+  Future<bool> _handleOperationalError(Object error) {
+    return handleCustomerOperationalError(
+      ref: ref,
+      context: context,
+      error: error,
     );
   }
 }
@@ -427,16 +313,12 @@ class _LineContentSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.primary),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        child: child,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
+      child: child,
     );
   }
 }
@@ -444,6 +326,7 @@ class _LineContentSheet extends StatelessWidget {
 class _LineActionFooter extends StatelessWidget {
   const _LineActionFooter({
     required this.settings,
+    required this.brandColor,
     required this.saving,
     required this.connecting,
     required this.onConnect,
@@ -452,6 +335,7 @@ class _LineActionFooter extends StatelessWidget {
   });
 
   final LineNotificationSettings settings;
+  final Color brandColor;
   final bool saving;
   final bool connecting;
   final VoidCallback onConnect;
@@ -465,8 +349,9 @@ class _LineActionFooter extends StatelessWidget {
         settings.identity?.friendFlag != true;
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
+      key: const ValueKey('line-action-footer'),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.96),
+        color: colorScheme.surface.withValues(alpha: 0.98),
         border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
         boxShadow: [
           BoxShadow(
@@ -476,72 +361,137 @@ class _LineActionFooter extends StatelessWidget {
           ),
         ],
       ),
-      child: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 12, 16, 108),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FilledButton.icon(
-                  onPressed:
-                      connecting || !settings.lineAvailable ? null : onConnect,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(47),
-                    shape: const StadiumBorder(),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  icon: connecting
-                      ? SizedBox.square(
-                          dimension: 16,
-                          child: CustomerLoadingMark(
-                            width: 18,
-                            height: 14,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            trackColor: Theme.of(context)
-                                .colorScheme
-                                .onPrimary
-                                .withValues(alpha: 0.24),
-                          ),
-                        )
-                      : const Icon(Icons.chat_bubble_outline),
-                  label: Text(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CustomerGradientButton(
+              key: const ValueKey('line-connect-action'),
+              onPressed:
+                  connecting || !settings.lineAvailable ? null : onConnect,
+              height: 47,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              shadow: false,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (connecting) ...[
+                    SizedBox.square(
+                      dimension: 16,
+                      child: CustomerLoadingMark(
+                        width: 18,
+                        height: 14,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        trackColor: Theme.of(context)
+                            .colorScheme
+                            .onPrimary
+                            .withValues(alpha: 0.24),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
                     settings.isConnected
                         ? l10n.profileLineReconnect
                         : l10n.profileLineConnect,
                   ),
-                ),
-                if (needsAddFriend) ...[
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: onAddFriend,
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size.fromHeight(42),
-                      backgroundColor: _lineSuccessTint(colorScheme),
-                      foregroundColor: colorScheme.tertiary,
-                      shape: const StadiumBorder(),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                ],
+              ),
+            ),
+            if (needsAddFriend) ...[
+              const SizedBox(height: 8),
+              _LineFooterAction(
+                key: const ValueKey('line-add-friend-action'),
+                label: l10n.profileLineAddFriend,
+                icon: Icons.person_add_alt_1_outlined,
+                onPressed: onAddFriend,
+                foreground: brandColor,
+                background: Color.lerp(
+                      brandColor,
+                      colorScheme.surface,
+                      0.9,
+                    ) ??
+                    _lineSuccessTint(colorScheme),
+                minHeight: 42,
+              ),
+            ],
+            if (settings.isConnected) ...[
+              const SizedBox(height: 4),
+              _LineFooterAction(
+                label: l10n.profileLineDisconnect,
+                onPressed: saving ? null : onDisconnect,
+                foreground: colorScheme.onSurfaceVariant,
+                background: Colors.transparent,
+                minHeight: 34,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LineFooterAction extends StatelessWidget {
+  const _LineFooterAction({
+    required this.label,
+    required this.onPressed,
+    required this.foreground,
+    required this.background,
+    required this.minHeight,
+    super.key,
+    this.icon,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final Color foreground;
+  final Color background;
+  final double minHeight;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: foreground, size: 18),
+                    const SizedBox(width: 7),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: enabled
+                          ? foreground
+                          : foreground.withValues(alpha: 0.48),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                    icon: const Icon(Icons.person_add_alt_1_outlined),
-                    label: Text(l10n.profileLineAddFriend),
                   ),
                 ],
-                if (settings.isConnected) ...[
-                  const SizedBox(height: 4),
-                  TextButton(
-                    onPressed: saving ? null : onDisconnect,
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size.fromHeight(34),
-                      foregroundColor: colorScheme.onSurfaceVariant,
-                      shape: const StadiumBorder(),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    child: Text(l10n.profileLineDisconnect),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
@@ -551,9 +501,10 @@ class _LineActionFooter extends StatelessWidget {
 }
 
 class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.settings});
+  const _HeaderCard({required this.settings, required this.brandColor});
 
   final LineNotificationSettings settings;
+  final Color brandColor;
 
   @override
   Widget build(BuildContext context) {
@@ -561,18 +512,22 @@ class _HeaderCard extends StatelessWidget {
     final identity = settings.identity;
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
+      key: const ValueKey('line-account-card'),
       decoration: _lineSurfaceDecoration(context),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(18),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _LineAvatar(
                   pictureUrl: identity?.pictureUrl ?? '',
                   connected: settings.isConnected,
+                  brandColor: brandColor,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,38 +536,32 @@ class _HeaderCard extends StatelessWidget {
                         settings.botDisplayName.isEmpty
                             ? 'LINE OA'
                             : settings.botDisplayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                        ).copyWith(color: colorScheme.tertiary),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ).copyWith(color: brandColor),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         settings.isConnected
                             ? l10n.profileLineConnectedTitle
                             : l10n.profileLineNotConnectedTitle,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.25,
-                                ),
-                      ),
-                      Text(
-                        identity?.displayName.isNotEmpty == true
-                            ? identity!.displayName
-                            : l10n.profileLineConnectOnce,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          height: 1.45,
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
                 _ConnectionBadge(
                   label: Text(
                     settings.isConnected
@@ -620,32 +569,42 @@ class _HeaderCard extends StatelessWidget {
                         : l10n.profileLineNotLinked,
                   ),
                   connected: settings.isConnected,
+                  brandColor: brandColor,
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatusTile(
-                    icon: Icons.notifications_active_outlined,
-                    label: l10n.profileLineNotificationStatus,
-                    value: identity?.notificationEnabled == true
-                        ? l10n.profileLineNotificationOn
-                        : l10n.profileLineNotificationOff,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatusTile(
-                    icon: Icons.person_add_alt_1_outlined,
-                    label: l10n.profileLineFriendStatus,
-                    value: identity?.friendFlag == true
-                        ? l10n.profileLineFriendAdded
-                        : l10n.profileLineFriendMissing,
-                  ),
-                ),
-              ],
+            Text(
+              identity?.displayName.isNotEmpty == true
+                  ? identity!.displayName
+                  : l10n.profileLineConnectOnce,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            _StatusRow(
+              icon: Icons.notifications_none_rounded,
+              label: l10n.profileLineNotificationStatus,
+              value: identity?.notificationEnabled == true
+                  ? l10n.profileLineNotificationOn
+                  : l10n.profileLineNotificationOff,
+              active: identity?.notificationEnabled == true,
+              brandColor: brandColor,
+            ),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            _StatusRow(
+              icon: Icons.person_add_alt_1_outlined,
+              label: l10n.profileLineFriendStatus,
+              value: identity?.friendFlag == true
+                  ? l10n.profileLineFriendAdded
+                  : l10n.profileLineFriendMissing,
+              active: identity?.friendFlag == true,
+              brandColor: brandColor,
             ),
           ],
         ),
@@ -657,11 +616,13 @@ class _HeaderCard extends StatelessWidget {
 class _NotificationToggleCard extends StatelessWidget {
   const _NotificationToggleCard({
     required this.identity,
+    required this.brandColor,
     required this.saving,
     required this.onChanged,
   });
 
   final LineIdentity identity;
+  final Color brandColor;
   final bool saving;
   final ValueChanged<bool> onChanged;
 
@@ -672,7 +633,7 @@ class _NotificationToggleCard extends StatelessWidget {
     return DecoratedBox(
       decoration: _lineSurfaceDecoration(context),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        padding: const EdgeInsets.fromLTRB(18, 17, 14, 17),
         child: Row(
           children: [
             Expanded(
@@ -683,30 +644,92 @@ class _NotificationToggleCard extends StatelessWidget {
                     l10n.profileLineToggleTitle,
                     style: TextStyle(
                       color: colorScheme.onSurface,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      height: 1.25,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
                     l10n.profileLineToggleSubtitle,
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.45,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
                     ),
                   ),
                 ],
               ),
             ),
-            Switch(
+            const SizedBox(width: 14),
+            _LineSwitch(
               value: identity.notificationEnabled,
               onChanged: saving ? null : onChanged,
-              activeThumbColor: colorScheme.tertiary,
+              activeColor: brandColor,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LineSwitch extends StatelessWidget {
+  const _LineSwitch({
+    required this.value,
+    required this.onChanged,
+    required this.activeColor,
+  });
+
+  static const switchKey = Key('line_notification_switch');
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final Color activeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onChanged != null;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      toggled: value,
+      enabled: enabled,
+      label: context.l10n.profileLineToggleTitle,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          key: switchKey,
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? () => onChanged!(!value) : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 56,
+            height: 32,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: value ? activeColor : colorScheme.outlineVariant,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 200),
+              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.shadow.withValues(alpha: 0.18),
+                      blurRadius: 7,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const SizedBox.square(dimension: 26),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -729,58 +752,39 @@ class _LineEventsCard extends StatelessWidget {
     return DecoratedBox(
       decoration: _lineSurfaceDecoration(context),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: _linePrimaryTint(colorScheme),
-                    borderRadius: BorderRadius.circular(8),
+            Text(
+              l10n.profileLineEventsTitle,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
                   ),
-                  child: SizedBox.square(
-                    dimension: 42,
-                    child: Icon(
-                      Icons.chat_bubble_outline,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.profileLineEventsTitle,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.profileLineEventsSubtitle,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
-            const SizedBox(height: 13),
-            for (final event in events)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _LineEventRow(icon: event.$1, label: event.$2),
+            const SizedBox(height: 5),
+            Text(
+              l10n.profileLineEventsSubtitle,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.5,
               ),
+            ),
+            const SizedBox(height: 12),
+            for (var index = 0; index < events.length; index++) ...[
+              _LineEventRow(icon: events[index].$1, label: events[index].$2),
+              if (index < events.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 46,
+                  color: colorScheme.outlineVariant,
+                ),
+            ],
           ],
         ),
       ),
@@ -788,54 +792,63 @@ class _LineEventsCard extends StatelessWidget {
   }
 }
 
-class _StatusTile extends StatelessWidget {
-  const _StatusTile({
+class _StatusRow extends StatelessWidget {
+  const _StatusRow({
     required this.icon,
     required this.label,
     required this.value,
+    required this.active,
+    required this.brandColor,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final bool active;
+  final Color brandColor;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _linePrimaryTint(colorScheme),
-        border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.74) ??
-              colorScheme.primary.withValues(alpha: 0.22),
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(11),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colorScheme.primary, size: 18),
-            const SizedBox(height: 7),
-            Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      child: Row(
+        children: [
+          Icon(icon, color: colorScheme.onSurfaceVariant, size: 21),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
               label,
               style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.35,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: active ? brandColor : colorScheme.outline,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
               value,
               style: TextStyle(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
+                color: active ? brandColor : colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -875,19 +888,19 @@ class _WarningCard extends StatelessWidget {
                     title,
                     style: TextStyle(
                       color: colorScheme.onTertiaryContainer,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      height: 1.35,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     message,
                     style: TextStyle(
                       color: colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.45,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 1.55,
                     ),
                   ),
                 ],
@@ -943,9 +956,9 @@ class _LineNoticeCard extends StatelessWidget {
                 message,
                 style: TextStyle(
                   color: foreground,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  height: 1.45,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
                 ),
               ),
             ),
@@ -987,10 +1000,15 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _LineAvatar extends StatelessWidget {
-  const _LineAvatar({required this.pictureUrl, required this.connected});
+  const _LineAvatar({
+    required this.pictureUrl,
+    required this.connected,
+    required this.brandColor,
+  });
 
   final String pictureUrl;
   final bool connected;
+  final Color brandColor;
 
   @override
   Widget build(BuildContext context) {
@@ -999,7 +1017,8 @@ class _LineAvatar extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: ColoredBox(
         color: connected
-            ? _lineSuccessTint(colorScheme)
+            ? Color.lerp(brandColor, colorScheme.surface, 0.9) ??
+                _lineSuccessTint(colorScheme)
             : _linePrimaryTint(colorScheme),
         child: SizedBox.square(
           dimension: 56,
@@ -1007,9 +1026,7 @@ class _LineAvatar extends StatelessWidget {
               ? Image.network(pictureUrl, fit: BoxFit.cover)
               : Icon(
                   Icons.chat_bubble,
-                  color: connected
-                      ? colorScheme.tertiary
-                      : colorScheme.onSurfaceVariant,
+                  color: connected ? brandColor : colorScheme.onSurfaceVariant,
                   size: 31,
                 ),
         ),
@@ -1019,18 +1036,25 @@ class _LineAvatar extends StatelessWidget {
 }
 
 class _ConnectionBadge extends StatelessWidget {
-  const _ConnectionBadge({required this.label, required this.connected});
+  const _ConnectionBadge({
+    required this.label,
+    required this.connected,
+    required this.brandColor,
+  });
 
   final Widget label;
   final bool connected;
+  final Color brandColor;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
+      key: const ValueKey('line-connection-badge'),
       decoration: BoxDecoration(
         color: connected
-            ? _lineSuccessTint(colorScheme)
+            ? Color.lerp(brandColor, colorScheme.surface, 0.9) ??
+                _lineSuccessTint(colorScheme)
             : _lineWarningTint(colorScheme),
         borderRadius: BorderRadius.circular(999),
       ),
@@ -1040,12 +1064,10 @@ class _ConnectionBadge extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: connected
-                ? colorScheme.tertiary
-                : colorScheme.onTertiaryContainer,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            height: 1,
+            color: connected ? brandColor : colorScheme.onTertiaryContainer,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
           ),
           child: label,
         ),
@@ -1063,30 +1085,33 @@ class _LineEventRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _linePrimaryTint(colorScheme),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        child: Row(
-          children: [
-            Icon(icon, color: colorScheme.primary, size: 19),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  height: 1.25,
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: _linePrimaryTint(colorScheme),
+              shape: BoxShape.circle,
+            ),
+            child: SizedBox.square(
+              dimension: 34,
+              child: Icon(icon, color: colorScheme.primary, size: 18),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1137,18 +1162,17 @@ BoxDecoration _lineSurfaceDecoration(
   Color? borderColor,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
-  final resolvedBorderColor = borderColor ??
-      (Color.lerp(colorScheme.primary, colorScheme.surface, 0.82) ??
-          colorScheme.primary.withValues(alpha: 0.18));
+  final resolvedBorderColor =
+      borderColor ?? colorScheme.outlineVariant.withValues(alpha: 0.88);
   return BoxDecoration(
     color: color ?? colorScheme.surface,
     border: Border.all(color: resolvedBorderColor),
     borderRadius: BorderRadius.circular(8),
     boxShadow: [
       BoxShadow(
-        color: colorScheme.primary.withValues(alpha: 0.07),
-        blurRadius: 24,
-        offset: const Offset(0, 8),
+        color: colorScheme.shadow.withValues(alpha: 0.05),
+        blurRadius: 18,
+        offset: const Offset(0, 6),
       ),
     ],
   );

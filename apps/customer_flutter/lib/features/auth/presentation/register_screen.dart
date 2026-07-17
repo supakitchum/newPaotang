@@ -10,8 +10,10 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
 import 'auth_visual_tokens.dart';
 
@@ -74,6 +76,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final siteName =
+        ref.watch(mobileBootstrapProvider).valueOrNull?.siteName.trim() ?? '';
+    final heroBadge = siteName.isEmpty
+        ? context.l10n.registerHeroBadge
+        : context.l10n.registerHeroBadgeForSite(siteName);
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: DecoratedBox(
@@ -88,6 +95,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   children: [
                     _RegisterHeroSection(
                       minHeight: constraints.maxWidth >= 720 ? 300 : 258,
+                      badgeLabel: heroBadge,
                     ),
                     _RegisterSheet(
                       child: Align(
@@ -156,6 +164,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _phone,
+              autofillHints: const [AutofillHints.telephoneNumber],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
@@ -175,6 +184,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _password,
+              autofillHints: const [AutofillHints.newPassword],
               style: authInputTextStyle(context),
               obscureText: !_showPassword,
               textInputAction: TextInputAction.next,
@@ -202,6 +212,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _confirmPassword,
+              autofillHints: const [AutofillHints.newPassword],
               style: authInputTextStyle(context),
               obscureText: !_showConfirmPassword,
               textInputAction: TextInputAction.done,
@@ -293,6 +304,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       label: l10n.registerFirstNameLabel,
       child: TextFormField(
         controller: _firstName,
+        autofillHints: const [AutofillHints.givenName],
         style: authInputTextStyle(context),
         decoration: _registerInputDecoration(
           context,
@@ -307,6 +319,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       label: l10n.registerLastNameLabel,
       child: TextFormField(
         controller: _lastName,
+        autofillHints: const [AutofillHints.familyName],
         style: authInputTextStyle(context),
         decoration: _registerInputDecoration(
           context,
@@ -354,46 +367,37 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
+          key: const ValueKey('register-otp-panel'),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
-                  foregroundColor: colorScheme.primary,
-                  child: const Icon(Icons.sms_outlined),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.registerOtpTitle,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l10n.authOtpSentTo(sentTo),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ],
+            Text(
+              l10n.registerOtpTitle,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
                   ),
-                ),
-              ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 4),
+            Text(
+              l10n.authOtpSentTo(sentTo),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            _RegisterFieldLabel(label: l10n.registerOtpLabel),
+            const SizedBox(height: 8),
             TextFormField(
               controller: _otp,
+              autofillHints: const [AutofillHints.oneTimeCode],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(6),
@@ -404,19 +408,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 prefixIcon: const Icon(Icons.chat_bubble_outline),
               ),
               validator: _otpValidator,
+              onFieldSubmitted: (_) {
+                if (!_submitting) _submit();
+              },
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _resendAfter > 0 || _submitting
-                    ? null
-                    : _requestOtpFromResend,
-                child: Text(
-                  _resendAfter > 0
-                      ? l10n.authOtpResendIn(_resendAfter)
-                      : l10n.authOtpResend,
-                ),
-              ),
+            const SizedBox(height: 12),
+            _RegisterResendAction(
+              label: _resendAfter > 0
+                  ? l10n.authOtpResendIn(_resendAfter)
+                  : l10n.authOtpResend,
+              onPressed: _resendAfter > 0 || _submitting
+                  ? null
+                  : _requestOtpFromResend,
             ),
           ],
         ),
@@ -471,6 +474,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           .applyStored(registered: true);
       if (mounted) _goAfterRegistration();
     } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
       _showFormError(_registrationErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -514,6 +525,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       await _requestOtp();
     } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
       _showFormError(_registrationErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -643,9 +662,13 @@ class _RegisterErrorPanel extends StatelessWidget {
 }
 
 class _RegisterHeroSection extends StatelessWidget {
-  const _RegisterHeroSection({required this.minHeight});
+  const _RegisterHeroSection({
+    required this.minHeight,
+    required this.badgeLabel,
+  });
 
   final double minHeight;
+  final String badgeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -701,7 +724,7 @@ class _RegisterHeroSection extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    context.l10n.registerHeroBadge,
+                                    badgeLabel,
                                     style: textTheme.labelLarge?.copyWith(
                                       color: colorScheme.onPrimary,
                                       fontWeight: FontWeight.w600,
@@ -879,6 +902,52 @@ class _RegisterFieldLabel extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
+    );
+  }
+}
+
+class _RegisterResendAction extends StatelessWidget {
+  const _RegisterResendAction({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final colorScheme = Theme.of(context).colorScheme;
+    final action = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: enabled
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              height: 1.25,
+            ),
+      ),
+    );
+
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        child: MouseRegion(
+          cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: action,
+          ),
+        ),
+      ),
     );
   }
 }

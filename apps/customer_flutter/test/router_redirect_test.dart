@@ -103,7 +103,8 @@ void main() {
     }
   });
 
-  test('authenticated customer can open inline PIN routes after login', () {
+  test('authenticated customer uses global PIN before affiliate after login',
+      () {
     expect(
       customerRedirectPath(
         path: '/affiliate',
@@ -112,7 +113,7 @@ void main() {
         pinSetupRequired: false,
         isSecurityLocked: false,
       ),
-      isNull,
+      '/pin?redirect=%2Faffiliate',
     );
     expect(
       customerRedirectPath(
@@ -181,6 +182,33 @@ void main() {
         isSecurityLocked: false,
       ),
       '/',
+    );
+  });
+
+  test('startup suspension beats Login but active maintenance stays first', () {
+    const suspension = '/account-suspended?reason=review&permanent=1';
+    expect(
+      customerRedirectPath(
+        path: '/tickets',
+        requestedLocation: '/tickets',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+        operationalRedirectPath: suspension,
+      ),
+      suspension,
+    );
+    expect(
+      customerRedirectPath(
+        path: '/tickets',
+        requestedLocation: '/tickets',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+        maintenanceActive: true,
+        operationalRedirectPath: suspension,
+      ),
+      '/maintenance',
     );
   });
 
@@ -361,6 +389,72 @@ void main() {
     );
   });
 
+  test('waiting-result feature flag covers the canonical route and Nuxt alias',
+      () {
+    final bootstrap = MobileBootstrap.fromJson({
+      'featureFlags': {
+        'waitingResult': false,
+      },
+    });
+
+    for (final path in [
+      '/waiting-result',
+      '/waiting-result?game_id=game_1',
+      '/wait-result',
+      'https://shop.example.test/#/wait-result?sale_closed=1',
+    ]) {
+      expect(
+        mobileCustomerRouteAllowed(bootstrap, path),
+        isFalse,
+        reason: '$path should follow the waiting-result runtime feature',
+      );
+      expect(
+        mobileCustomerDisabledRouteRedirect(bootstrap, path),
+        '/',
+      );
+    }
+
+    for (final path in [
+      '/result',
+      '/result/full',
+      '/results',
+      '/results/full',
+    ]) {
+      expect(
+        mobileCustomerRouteAllowed(bootstrap, path),
+        isTrue,
+        reason: '$path should not be disabled by waiting_result alone',
+      );
+    }
+  });
+
+  test('reward-check feature flag covers every customer result route', () {
+    final bootstrap = MobileBootstrap.fromJson({
+      'feature_flags': {
+        'reward-check': false,
+      },
+    });
+
+    for (final path in [
+      '/result',
+      '/result/full',
+      '/results',
+      '/results/full',
+      '/waiting-result',
+      '/wait-result',
+    ]) {
+      expect(
+        mobileCustomerRouteAllowed(bootstrap, path),
+        isFalse,
+        reason: '$path should follow the backend reward_check feature',
+      );
+      expect(
+        mobileCustomerDisabledRouteRedirect(bootstrap, path),
+        '/',
+      );
+    }
+  });
+
   test('screen security lock takes precedence over PIN guard', () {
     expect(
       customerRedirectPath(
@@ -468,7 +562,6 @@ const _pinBypassPaths = {
   '/pin',
   '/security-lock',
   '/account-suspended',
-  '/affiliate',
 };
 
 String _samplePath(String pattern) {

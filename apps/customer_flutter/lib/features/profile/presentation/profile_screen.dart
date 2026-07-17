@@ -4,40 +4,122 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
-import '../../../core/i18n/app_locale.dart';
-import '../../../core/i18n/customer_locale_controller.dart';
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../shared/utils/customer_operational_error.dart';
+import '../../../shared/widgets/app_alert.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../data/line_notification_repository.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
 
-Color _profileSoftSurface(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.surface, colorScheme.primaryContainer, 0.08) ??
-    colorScheme.surface;
+const double _profileHeroBaseHeight = 150;
 
-Color _profileSoftOutline(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.outlineVariant, colorScheme.primary, 0.16) ??
-    colorScheme.outlineVariant;
+double _profileHeroHeightFor(BuildContext context) {
+  final topInset = MediaQuery.paddingOf(context).top;
+  final requiredHeight = topInset + 104;
+  return requiredHeight > _profileHeroBaseHeight
+      ? requiredHeight
+      : _profileHeroBaseHeight;
+}
 
-const double _profileHeroMinHeight = 268;
-
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _checkingLineAvailability = false;
+
+  Future<void> _openLineNotifications() async {
+    if (_checkingLineAvailability) return;
+    final l10n = context.l10n;
+    setState(() => _checkingLineAvailability = true);
+    try {
+      final settings = await ref.refresh(
+        lineNotificationSettingsProvider.future,
+      );
+      if (!mounted) return;
+      if (!settings.lineAvailable) {
+        _showLineAlert(
+          title: l10n.profileLineStoreUnavailableTitle,
+          message: l10n.profileLineStoreUnavailableMessage,
+          variant: AppAlertVariant.warning,
+        );
+        return;
+      }
+      context.go('/profile/line-notifications');
+    } catch (error) {
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      _showLineAlert(
+        title: l10n.profileLineLoadFailed,
+        message: authErrorMessage(error, l10n.profileLineLoadFailed),
+        variant: AppAlertVariant.error,
+      );
+    } finally {
+      if (mounted) setState(() => _checkingLineAvailability = false);
+    }
+  }
+
+  void _showLineAlert({
+    required String title,
+    required String message,
+    required AppAlertVariant variant,
+  }) {
+    ref.read(appAlertControllerProvider.notifier).show(
+          title: title,
+          message: message,
+          button: context.l10n.profileLineAlertAcknowledge,
+          variant: variant,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profile = ref.watch(customerProfileSettingsProvider);
+    ref.listen<AsyncValue<CustomerProfileSettings>>(
+      customerProfileSettingsProvider,
+      (previous, next) {
+        final error = next.error;
+        if (error == null || identical(previous?.error, error)) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          );
+        });
+      },
+    );
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
     final l10n = context.l10n;
+    final heroHeight = _profileHeroHeightFor(context);
     bool routeEnabled(String path) {
       return mobileCustomerRouteAllowed(bootstrap, path);
     }
 
     final historyItems = [
+      if (routeEnabled('/my-wallet'))
+        _ProfileMenuItem(
+          title: l10n.customerRouteTitle('my_wallet'),
+          path: '/my-wallet',
+        ),
       if (routeEnabled('/purchase-history'))
         _ProfileMenuItem(
           title: l10n.profilePurchaseHistory,
@@ -47,13 +129,6 @@ class ProfileScreen extends ConsumerWidget {
         _ProfileMenuItem(
           title: l10n.rewardClaimsHeaderTitle,
           path: '/reward-claims',
-        ),
-    ];
-    final serviceItems = [
-      if (routeEnabled('/my-wallet'))
-        _ProfileMenuItem(
-          title: l10n.customerRouteTitle('my_wallet'),
-          path: '/my-wallet',
         ),
       if (routeEnabled('/activity-claims'))
         _ProfileMenuItem(
@@ -71,30 +146,6 @@ class ProfileScreen extends ConsumerWidget {
           title: l10n.customerRouteTitle('affiliate'),
           path: '/affiliate',
         ),
-      if (routeEnabled('/profile/line-notifications'))
-        _ProfileMenuItem(
-          title: l10n.profileLineNotifications,
-          path: '/profile/line-notifications',
-        ),
-      if (routeEnabled('/profile/biometrics'))
-        _ProfileMenuItem(
-          title: l10n.profileBiometrics,
-          path: '/profile/biometrics',
-        ),
-      if (routeEnabled('/news'))
-        _ProfileMenuItem(
-          title: l10n.profileNewsAll,
-          path: '/news',
-        ),
-      _ProfileMenuItem(
-        title: l10n.profilePrivacyPolicy,
-        path: '/privacy',
-      ),
-      if (routeEnabled('/profile/account-deletion'))
-        _ProfileMenuItem(
-          title: l10n.profileAccountDeletion,
-          path: '/profile/account-deletion',
-        ),
     ];
     final rewardSettingItems = [
       if (routeEnabled('/profile/reward-bank'))
@@ -108,8 +159,25 @@ class ProfileScreen extends ConsumerWidget {
           path: '/profile/auto-reward',
           badge: l10n.profileBadgeRecommended,
         ),
+      if (routeEnabled('/profile/line-notifications'))
+        _ProfileMenuItem(
+          title: l10n.profileLineNotifications,
+          path: '/profile/line-notifications',
+          enabled: !_checkingLineAvailability,
+          loading: _checkingLineAvailability,
+          onTap: _openLineNotifications,
+        ),
     ];
     final aboutItems = [
+      _ProfileMenuItem(
+        title: l10n.profileLanguageTitle,
+        path: '/profile/language',
+      ),
+      if (routeEnabled('/news'))
+        _ProfileMenuItem(
+          title: l10n.profileNewsAll,
+          path: '/news',
+        ),
       _ProfileMenuItem(
         title: l10n.profileTerms,
         path: '/terms',
@@ -123,22 +191,43 @@ class ProfileScreen extends ConsumerWidget {
         path: '',
       ),
     ];
-
+    final serviceItems = [
+      if (routeEnabled('/profile/biometrics'))
+        _ProfileMenuItem(
+          title: l10n.profileBiometrics,
+          path: '/profile/biometrics',
+        ),
+      if (routeEnabled('/privacy'))
+        _ProfileMenuItem(
+          title: l10n.profilePrivacyPolicy,
+          path: '/privacy',
+        ),
+      if (routeEnabled('/profile/account-deletion'))
+        _ProfileMenuItem(
+          title: l10n.profileAccountDeletion,
+          path: '/profile/account-deletion',
+        ),
+    ];
     return AppShell(
       title: l10n.profileTitle,
       currentPath: '/profile',
       sensitive: true,
+      showBottomNavigation: true,
       fullScreen: true,
-      child: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(customerProfileSettingsProvider),
-        child: ListView(
+      child: CustomerFixedHeaderLayout(
+        headerKey: const ValueKey('profile-fixed-header'),
+        contentRegionKey: const ValueKey('profile-content-region'),
+        headerHeight: heroHeight,
+        contentTopRadius: customerContentSheetTopRadius,
+        contentBackdropColor: Theme.of(context).colorScheme.primary,
+        header: _ProfileHero(
+          profile: profile,
+          onRetry: () => ref.invalidate(customerProfileSettingsProvider),
+        ),
+        content: ListView(
+          key: const ValueKey('profile-content-scroll'),
           padding: EdgeInsets.zero,
-          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            _ProfileHero(
-              profile: profile,
-              onRetry: () => ref.invalidate(customerProfileSettingsProvider),
-            ),
             _ProfileContentSheet(
               child: CustomerPageBody(
                 top: 24,
@@ -150,22 +239,22 @@ class ProfileScreen extends ConsumerWidget {
                     if (historyItems.isNotEmpty) ...[
                       _ProfileSectionTitle(label: l10n.profileSectionHistory),
                       _ProfileMenuGroup(children: historyItems),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                     ],
                     if (rewardSettingItems.isNotEmpty) ...[
                       _ProfileSectionTitle(
                         label: l10n.profileSectionRewardSettings,
                       ),
                       _ProfileMenuGroup(children: rewardSettingItems),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                     ],
                     _ProfileSectionTitle(label: l10n.profileSectionAbout),
                     _ProfileMenuGroup(children: aboutItems),
-                    const SizedBox(height: 16),
-                    const _ProfileLanguageCard(),
                     if (serviceItems.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _ProfileSectionTitle(label: l10n.profileSectionServices),
+                      const SizedBox(height: 24),
+                      _ProfileSectionTitle(
+                        label: l10n.profileSectionServices,
+                      ),
                       _ProfileMenuGroup(children: serviceItems),
                     ],
                     const SizedBox(height: 24),
@@ -199,39 +288,47 @@ class _ProfileHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final topInset = MediaQuery.paddingOf(context).top;
-    const height = _profileHeroMinHeight;
-    return SizedBox(
-      height: height,
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final horizontal = switch (viewportWidth) {
+      >= 1280 => 40.0,
+      >= 1024 => 32.0,
+      >= 768 => 24.0,
+      _ => 14.0,
+    };
+    final topPadding = topInset + 10 > 54 ? topInset + 10 : 54.0;
+    return SizedBox.expand(
       child: CustomerBlueHeroBackdrop(
         primary: colorScheme.primary,
         secondary: colorScheme.secondary,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontal = constraints.maxWidth >= 720 ? 28.0 : 20.0;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 920),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontal,
-                    topInset + 42,
-                    horizontal,
-                    34,
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: profile.when(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontal,
+            topPadding,
+            horizontal,
+            0,
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: customerContentMaxWidthFor(context),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    profile.when(
                       data: (data) => _ProfileIdentityHeader(profile: data),
                       loading: () => const _ProfileHeroLoading(),
-                      error: (_, __) => _ProfileHeroError(
-                        onRetry: onRetry,
-                      ),
+                      error: (_, __) => _ProfileHeroError(onRetry: onRetry),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -247,6 +344,7 @@ class _ProfileContentSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
+      key: const ValueKey('profile-content-sheet'),
       decoration: BoxDecoration(color: colorScheme.surface),
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -257,258 +355,6 @@ class _ProfileContentSheet extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 620),
           child: child,
         ),
-      ),
-    );
-  }
-}
-
-class _ProfileLanguageCard extends ConsumerStatefulWidget {
-  const _ProfileLanguageCard();
-
-  @override
-  ConsumerState<_ProfileLanguageCard> createState() =>
-      _ProfileLanguageCardState();
-}
-
-class _ProfileLanguageCardState extends ConsumerState<_ProfileLanguageCard> {
-  bool _saving = false;
-  String _errorMessage = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final activeLocale = ref.watch(customerLocaleProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _profileSoftSurface(colorScheme),
-        border: Border.all(color: _profileSoftOutline(colorScheme)),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final narrow = constraints.maxWidth < 360;
-                final copy = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.profileLanguageTitle,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.profileLanguageSubtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            height: 1.45,
-                          ),
-                    ),
-                  ],
-                );
-                final switcher = _LanguageSegmentedControl(
-                  activeLocale: activeLocale,
-                  saving: _saving,
-                  onSelected: _setLocale,
-                );
-
-                if (narrow) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      copy,
-                      const SizedBox(height: 14),
-                      switcher,
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(child: copy),
-                    const SizedBox(width: 16),
-                    switcher,
-                  ],
-                );
-              },
-            ),
-            if (_errorMessage.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _ProfileInlineNotice(message: _errorMessage),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _setLocale(Locale locale) async {
-    final tag = localeTag(locale);
-    if (_saving || localeTag(ref.read(customerLocaleProvider)) == tag) return;
-
-    setCustomerLocale(ref, locale);
-    setState(() {
-      _saving = true;
-      _errorMessage = '';
-    });
-    try {
-      await ref
-          .read(profileSettingsRepositoryProvider)
-          .savePreferredLocale(tag);
-      ref.invalidate(customerProfileSettingsProvider);
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = context.l10n.profileLanguageSaveFailed;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-}
-
-class _ProfileInlineNotice extends StatelessWidget {
-  const _ProfileInlineNotice({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.48),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.error.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              color: colorScheme.error,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageSegmentedControl extends StatelessWidget {
-  const _LanguageSegmentedControl({
-    required this.activeLocale,
-    required this.saving,
-    required this.onSelected,
-  });
-
-  final Locale activeLocale;
-  final bool saving;
-  final ValueChanged<Locale> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Semantics(
-      label: l10n.commonLanguage,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer.withAlpha(110),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _LanguageButton(
-                label: l10n.commonThai,
-                active: localeTag(activeLocale) == 'th-TH',
-                enabled: !saving,
-                onPressed: () => onSelected(const Locale('th', 'TH')),
-              ),
-              _LanguageButton(
-                label: l10n.commonEnglish,
-                active: localeTag(activeLocale) == 'en-US',
-                enabled: !saving,
-                onPressed: () => onSelected(const Locale('en', 'US')),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageButton extends StatelessWidget {
-  const _LanguageButton({
-    required this.label,
-    required this.active,
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool active;
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: TextButton(
-        onPressed: enabled ? onPressed : null,
-        style: TextButton.styleFrom(
-          backgroundColor: active
-              ? Theme.of(context).colorScheme.primary
-              : Colors.transparent,
-          foregroundColor: active
-              ? Theme.of(context).colorScheme.onPrimary
-              : Theme.of(context).colorScheme.primary,
-          disabledForegroundColor:
-              Theme.of(context).colorScheme.onSurfaceVariant,
-          minimumSize: const Size(72, 36),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
-        child: Text(label),
       ),
     );
   }
@@ -556,8 +402,8 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
     return Row(
       children: [
         Container(
-          width: 66,
-          height: 66,
+          width: 60,
+          height: 60,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: colorScheme.onPrimary,
@@ -565,7 +411,7 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
           child: Icon(
             Icons.person,
             color: colorScheme.primary.withValues(alpha: 0.42),
-            size: 35,
+            size: 32,
           ),
         ),
         const SizedBox(width: 14),
@@ -690,38 +536,55 @@ class _ProfileHeroError extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
+    return Row(
       children: [
-        Text(
-          l10n.profileLoadFailed,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colorScheme.onPrimary,
-                fontWeight: FontWeight.w900,
-              ),
+        Icon(
+          Icons.error_outline_rounded,
+          color: colorScheme.onPrimary,
+          size: 30,
         ),
-        const SizedBox(height: 6),
-        Text(
-          l10n.profileRefreshAgain,
-          style: TextStyle(
-            color: colorScheme.onPrimary.withValues(alpha: 0.88),
-            fontWeight: FontWeight.w700,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.profileLoadFailed,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                l10n.profileRefreshAgain,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.88),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
+        const SizedBox(width: 8),
+        IconButton(
           onPressed: onRetry,
-          style: _profileFlatButtonStyle(
-            OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.onPrimary,
-              side: BorderSide(
-                color: colorScheme.onPrimary.withValues(alpha: 0.42),
-              ),
+          tooltip: l10n.commonRetry,
+          color: colorScheme.onPrimary,
+          style: IconButton.styleFrom(
+            minimumSize: const Size.square(42),
+            maximumSize: const Size.square(42),
+            side: BorderSide(
+              color: colorScheme.onPrimary.withValues(alpha: 0.42),
             ),
           ),
-          icon: const Icon(Icons.refresh),
-          label: Text(l10n.commonRetry),
+          icon: const Icon(Icons.refresh_rounded, size: 22),
         ),
       ],
     );
@@ -758,17 +621,25 @@ class _ProfileMenuItem extends StatelessWidget {
     required this.title,
     required this.path,
     this.badge,
+    this.enabled = true,
+    this.loading = false,
+    this.onTap,
   });
 
   final String title;
   final String path;
   final String? badge;
+  final bool enabled;
+  final bool loading;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final badgeText = badge?.trim() ?? '';
     final targetPath = path.trim();
-    final enabled = targetPath.isNotEmpty;
+    final action =
+        onTap ?? (targetPath.isEmpty ? null : () => context.go(targetPath));
+    final canActivate = enabled && action != null;
     final colorScheme = Theme.of(context).colorScheme;
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 72),
@@ -800,17 +671,27 @@ class _ProfileMenuItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              size: 30,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            if (loading)
+              CustomerLoadingMark(
+                width: 24,
+                height: 18,
+                color: colorScheme.primary,
+                trackColor: colorScheme.primary.withValues(alpha: 0.18),
+              )
+            else
+              Icon(
+                Icons.chevron_right,
+                size: 30,
+                color: canActivate
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.42),
+              ),
           ],
         ),
       ),
     );
 
-    if (!enabled) return row;
+    if (!canActivate) return row;
 
     return Semantics(
       button: true,
@@ -818,7 +699,7 @@ class _ProfileMenuItem extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => context.go(targetPath),
+          onTap: action,
           child: row,
         ),
       ),

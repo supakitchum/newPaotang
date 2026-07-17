@@ -1,3 +1,4 @@
+import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_repository.dart';
 import 'package:customer_flutter/features/monitoring/presentation/public_visit_monitor.dart';
@@ -56,5 +57,33 @@ void main() {
     expect(payload['screen'], '390x844');
     expect(payload['timezone'], 'Asia/Bangkok');
     expect(payload['route_name'], 'buy');
+  });
+
+  test('public visit scopes native identity to the customer tenant', () {
+    const config = AppConfig(
+      apiBaseUrl: 'https://api.example.com/api/v1',
+      defaultLocale: 'th-TH',
+      tenantHost: 'configured.example.com',
+    );
+
+    expect(
+      publicVisitHostScope(
+        config,
+        webHost: '',
+        runtimeTenantHost: 'runtime.example.com',
+      ),
+      'configured.example.com',
+    );
+    expect(
+      publicVisitHostScope(
+        const AppConfig(
+          apiBaseUrl: 'https://api.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        webHost: '',
+        runtimeCanonicalUrl: 'https://runtime.example.com',
+      ),
+      'runtime.example.com',
+    );
   });
 }

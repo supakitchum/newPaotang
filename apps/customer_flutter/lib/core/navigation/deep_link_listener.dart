@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
+import '../tenant/mobile_bootstrap_controller.dart';
 import 'customer_deep_link.dart';
 
 class CustomerDeepLinkListener extends ConsumerStatefulWidget {
@@ -24,6 +25,7 @@ class _CustomerDeepLinkListenerState
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _subscription;
   String? _lastHandled;
+  Uri? _pendingHttpsUri;
 
   @override
   void initState() {
@@ -41,7 +43,16 @@ class _CustomerDeepLinkListenerState
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<MobileBootstrap>>(mobileBootstrapProvider, (_, next) {
+      if (!next.hasValue) return;
+      final pending = _pendingHttpsUri;
+      if (pending == null) return;
+      _pendingHttpsUri = null;
+      _handleUri(pending, deferUntilBootstrap: false);
+    });
+    return widget.child;
+  }
 
   Future<void> _handleInitialLink() async {
     try {
@@ -52,17 +63,36 @@ class _CustomerDeepLinkListenerState
     }
   }
 
-  void _handleUri(Uri uri) {
+  void _handleUri(Uri uri, {bool deferUntilBootstrap = true}) {
     final config = ref.read(appConfigProvider);
+    final bootstrap = ref.read(mobileBootstrapProvider);
+    final runtime = bootstrap.valueOrNull;
+    final allowedHosts = customerDeepLinkAllowedHosts(
+      tenantHost: config.normalizedTenantHost,
+      apiBaseUrl: config.apiBaseUrl,
+      runtimeTenantHost: runtime?.tenantHost ?? '',
+      runtimeCanonicalUrl: runtime?.canonicalUrl ?? '',
+    );
+    final isHttpsLink = uri.scheme == 'http' || uri.scheme == 'https';
+    if (isHttpsLink && allowedHosts.isEmpty) {
+      if (deferUntilBootstrap && bootstrap.isLoading) {
+        _pendingHttpsUri = uri;
+      }
+      return;
+    }
     final target = customerDeepLinkPath(
       uri,
-      allowedHosts: customerDeepLinkAllowedHosts(
-        tenantHost: config.normalizedTenantHost,
-        apiBaseUrl: config.apiBaseUrl,
-      ),
+      allowedHosts: allowedHosts,
     );
-    if (target == null || target == _lastHandled || !mounted) return;
+    if (target == null) {
+      if (deferUntilBootstrap && isHttpsLink && bootstrap.isLoading) {
+        _pendingHttpsUri = uri;
+      }
+      return;
+    }
+    if (target == _lastHandled || !mounted) return;
 
+    _pendingHttpsUri = null;
     _lastHandled = target;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

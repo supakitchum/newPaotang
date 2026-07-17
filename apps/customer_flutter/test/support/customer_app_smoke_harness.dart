@@ -19,6 +19,7 @@ import 'package:customer_flutter/shared/widgets/app_splash.dart';
 import 'package:customer_flutter/shared/widgets/sensitive_screen_guard.dart';
 import 'package:customer_flutter/shared/widgets/web_privacy_guard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -29,12 +30,13 @@ Future<void> runCustomerAppSmokeHarness(
   Map<String, dynamic>? bootstrapPayload,
   Color? expectedPrimaryColor,
   Color? expectedScaffoldBackgroundColor,
+  String? expectedFontFamily,
 }) async {
   final effectivePlatformKey = platformKey ?? currentCustomerPlatformKey();
-  final expectsNativeSecurity =
-      mobileNativeScreenSecurityFallbackForPlatform(effectivePlatformKey);
-  final expectsWebPrivacy =
-      mobileWebPrivacyGuardFallbackForPlatform(effectivePlatformKey);
+  final expectsNativeSecurity = mobileNativeScreenSecurityFallbackForPlatform(
+    effectivePlatformKey,
+  );
+  const expectsWebPrivacy = false;
   final router = _smokeRouter();
 
   await tester.pumpWidget(
@@ -57,11 +59,37 @@ Future<void> runCustomerAppSmokeHarness(
     expect(homeTheme.colorScheme.primary, expectedPrimaryColor);
   }
   if (expectedScaffoldBackgroundColor != null) {
-    expect(
-      homeTheme.scaffoldBackgroundColor,
-      expectedScaffoldBackgroundColor,
-    );
+    expect(homeTheme.scaffoldBackgroundColor, expectedScaffoldBackgroundColor);
   }
+  if (expectedFontFamily != null) {
+    expect(homeTheme.textTheme.bodyMedium?.fontFamily, expectedFontFamily);
+  }
+  final systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+    find.byKey(const ValueKey('customer-system-ui-overlay')),
+  );
+  expect(systemUiOverlay.value.statusBarColor, homeTheme.colorScheme.primary);
+  expect(
+    systemUiOverlay.value.systemNavigationBarColor,
+    homeTheme.scaffoldBackgroundColor,
+  );
+  expect(
+    systemUiOverlay.value.systemNavigationBarDividerColor,
+    homeTheme.colorScheme.outlineVariant,
+  );
+  expect(
+    systemUiOverlay.value.statusBarIconBrightness,
+    ThemeData.estimateBrightnessForColor(homeTheme.colorScheme.primary) ==
+            Brightness.dark
+        ? Brightness.light
+        : Brightness.dark,
+  );
+  expect(
+    systemUiOverlay.value.systemNavigationBarIconBrightness,
+    ThemeData.estimateBrightnessForColor(homeTheme.scaffoldBackgroundColor) ==
+            Brightness.dark
+        ? Brightness.light
+        : Brightness.dark,
+  );
   expect(
     tester.widget<WebPrivacyGuard>(find.byType(WebPrivacyGuard)).enabled,
     isFalse,
@@ -118,27 +146,23 @@ GoRouter _smokeRouter() {
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Smoke home')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Smoke home'))),
       ),
       GoRoute(
         path: '/my-wallet',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Smoke wallet')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Smoke wallet'))),
       ),
       GoRoute(
         path: '/privacy',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Smoke privacy')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Smoke privacy'))),
       ),
       GoRoute(
         path: '/profile/account-deletion',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Smoke account deletion')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Smoke account deletion'))),
       ),
     ],
   );
@@ -176,10 +200,7 @@ List<Override> _smokeOverrides(
         bootstrapPayload ??
             const {
               'tenant_id': 'tenant_smoke',
-              'site': {
-                'display_name': 'Partner Lottery',
-                'locale': 'en-US',
-              },
+              'site': {'display_name': 'Partner Lottery', 'locale': 'en-US'},
               'mobile': {
                 'auth_providers': [
                   {'provider': 'line', 'enabled': true},
@@ -211,17 +232,17 @@ List<Override> _smokeOverrides(
 
 class _NoopNewsRepository extends NewsRepository {
   _NoopNewsRepository()
-      : super(
-          ApiClient(
-            const AppConfig(
-              apiBaseUrl: 'https://partner.example.com/api/v1',
-              defaultLocale: 'en-US',
-            ),
-            AuthTokenStore(),
-            localeTag: 'en-US',
+    : super(
+        ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            defaultLocale: 'en-US',
           ),
-          (value) => value,
-        );
+          AuthTokenStore(),
+          localeTag: 'en-US',
+        ),
+        (value) => value,
+      );
 
   @override
   Future<NewsItem?> modal() async => null;

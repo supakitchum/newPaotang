@@ -68,6 +68,30 @@ void main() {
 
     expect(await store.read('alpha.example.com'), isNull);
   });
+
+  test('native referral storage is scoped to tenant instead of central API',
+      () async {
+    final repository = _FakeAffiliateReferralRepository();
+    final store = _MemoryAffiliateReferralStore();
+    final service = AffiliateReferralService(
+      config: const AppConfig(
+        apiBaseUrl: 'https://api.example.com/api/v1',
+        defaultLocale: 'th-TH',
+        tenantHost: 'partner.example.com',
+      ),
+      repository: repository,
+      store: store,
+      visitIdStore: _FixedPublicVisitIdStore('visitor-1'),
+      runtimeTenantHost: 'runtime.example.com',
+      webHost: () => '',
+      webHref: () => '',
+    );
+
+    await service.captureFromLocation('/register?ref=ABC123');
+
+    expect(await store.read('partner.example.com'), 'ABC123');
+    expect(await store.read('api.example.com'), isNull);
+  });
 }
 
 class _FakeAffiliateReferralRepository extends AffiliateReferralRepository {

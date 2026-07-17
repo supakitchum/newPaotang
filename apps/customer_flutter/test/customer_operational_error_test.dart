@@ -77,6 +77,162 @@ void main() {
     expect(controller.isAuthenticated, isFalse);
     expect(controller.pinRequired, isFalse);
     expect(router.routeInformationProvider.value.uri.path, '/login');
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['redirect'],
+      '/protected',
+    );
+  });
+
+  testWidgets('PIN-required errors preserve the current protected return path',
+      (
+    tester,
+  ) async {
+    final handled = Completer<bool>();
+    final router = GoRouter(
+      initialLocation: '/protected?tab=payouts',
+      routes: [
+        GoRoute(
+          path: '/protected',
+          builder: (_, __) => _OperationalErrorHarness(
+            error: {
+              'error': {
+                'code': 'pin_required',
+                'message': 'Please confirm your PIN.',
+              },
+            },
+            handled: handled,
+          ),
+        ),
+        GoRoute(
+          path: '/pin',
+          builder: (_, __) => const Scaffold(body: Text('PIN page')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    await tester.tap(find.text('Handle error'));
+    expect(await handled.future, isTrue);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(router.routeInformationProvider.value.uri.path, '/pin');
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['redirect'],
+      '/protected?tab=payouts',
+    );
+  });
+
+  testWidgets('auth entry errors honor an explicit protected return path', (
+    tester,
+  ) async {
+    final handled = Completer<bool>();
+    final router = GoRouter(
+      initialLocation: '/login?redirect=%2Fcheckout',
+      routes: [
+        GoRoute(
+          path: '/login',
+          builder: (_, __) => _OperationalErrorHarness(
+            error: const {
+              'error': {
+                'code': 'pin_required',
+                'message': 'Please confirm your PIN.',
+              },
+            },
+            handled: handled,
+            returnPathOverride: '/checkout?step=payment',
+          ),
+        ),
+        GoRoute(
+          path: '/pin',
+          builder: (_, __) => const Scaffold(body: Text('PIN page')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    await tester.tap(find.text('Handle error'));
+    expect(await handled.future, isTrue);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(router.routeInformationProvider.value.uri.path, '/pin');
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['redirect'],
+      '/checkout?step=payment',
+    );
+  });
+
+  testWidgets('suspended customer errors clear the session before redirecting',
+      (
+    tester,
+  ) async {
+    final controller = _testAuthController()
+      ..isAuthenticated = true
+      ..pinRequired = true;
+    final handled = Completer<bool>();
+    final router = GoRouter(
+      initialLocation: '/protected',
+      routes: [
+        GoRoute(
+          path: '/protected',
+          builder: (_, __) => _OperationalErrorHarness(
+            error: {
+              'error': {
+                'code': 'customer_suspended',
+                'details': {
+                  'accountSuspension': {
+                    'suspensionReason': 'Risk review',
+                    'isPermanent': true,
+                  },
+                },
+              },
+            },
+            handled: handled,
+          ),
+        ),
+        GoRoute(
+          path: '/account-suspended',
+          builder: (_, __) => const Scaffold(
+            body: Text('Account suspended page'),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authControllerProvider.overrideWith((_) => controller)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    await tester.tap(find.text('Handle error'));
+    expect(await handled.future, isTrue);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.isAuthenticated, isFalse);
+    expect(controller.pinRequired, isFalse);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      '/account-suspended',
+    );
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['reason'],
+      'Risk review',
+    );
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['permanent'],
+      '1',
+    );
   });
 }
 
@@ -84,10 +240,12 @@ class _OperationalErrorHarness extends ConsumerWidget {
   const _OperationalErrorHarness({
     required this.error,
     required this.handled,
+    this.returnPathOverride,
   });
 
   final Object error;
   final Completer<bool> handled;
+  final String? returnPathOverride;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -98,6 +256,7 @@ class _OperationalErrorHarness extends ConsumerWidget {
             ref: ref,
             context: context,
             error: error,
+            returnPathOverride: returnPathOverride,
           );
           if (!handled.isCompleted) handled.complete(result);
         },

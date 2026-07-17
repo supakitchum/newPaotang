@@ -14,8 +14,6 @@ import 'package:customer_flutter/features/news/data/news_models.dart';
 import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
-import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
-import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +24,7 @@ void main() {
   testWidgets('home screen renders live result summary on the first page', (
     tester,
   ) async {
-    await _pumpHome(tester);
+    await _pumpHome(tester, activities: _activityFixtures);
 
     await tester.pumpAndSettle();
 
@@ -44,10 +42,20 @@ void main() {
 
     expect(find.text('ข่าวสาร', skipOffstage: false), findsWidgets);
     expect(find.text('ดูทั้งหมด', skipOffstage: false), findsWidgets);
-    expect(find.text('ประกาศปิดปรับปรุง', skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-news-carousel')), findsOneWidget);
     expect(
-      find.text('ปรับปรุงระบบชำระเงินเวลา 23:00 น.', skipOffstage: false),
+      find.byKey(const ValueKey('home-news-slide-news_1')),
       findsOneWidget,
+    );
+    expect(find.text('ประกาศปิดปรับปรุง', skipOffstage: false), findsNothing);
+    expect(find.byIcon(Icons.close), findsNothing);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('home-result-section'))).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('home-activities-section')))
+            .dy,
+      ),
     );
   });
 
@@ -64,6 +72,74 @@ void main() {
 
     expect(find.text('ซื้อสลากดิจิทัล'), findsWidgets);
     expect(find.text('ค้นหาเลขเด็ด'), findsOneWidget);
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('home-content-sheet')),
+    );
+    expect(sheet.bottom, greaterThanOrEqualTo(780));
+
+    final headerFinder = find.byKey(const ValueKey('home-scroll-header'));
+    final initialHeaderRect = tester.getRect(headerFinder);
+    await tester.drag(
+      find.byKey(const ValueKey('home-page-scroll')),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(headerFinder).top, lessThan(initialHeaderRect.top));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('home-content-sheet'))).dy,
+      lessThan(sheet.top),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home shows the API sale cutoff notice only on draw day', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpHome(
+      tester,
+      currentGame: const CurrentGame(
+        id: 'draw-day-game',
+        name: 'งวดวันที่ 16 ก.ค. 2569',
+        status: 'open',
+        drawAt: '2026-07-16T16:00:00+07:00',
+        saleCloseAt: '2026-07-16T14:00:00+07:00',
+        serverTime: '2026-07-16T12:20:00+07:00',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-draw-day-sale-notice')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('14:00', findRichText: true), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    await _pumpHome(
+      tester,
+      currentGame: const CurrentGame(
+        id: 'before-draw-game',
+        name: 'งวดวันที่ 16 ก.ค. 2569',
+        status: 'open',
+        drawAt: '2026-07-16T16:00:00+07:00',
+        saleCloseAt: '2026-07-16T14:00:00+07:00',
+        serverTime: '2026-07-15T12:20:00+07:00',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-draw-day-sale-notice')),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -92,13 +168,15 @@ void main() {
     expect(listRect.width, lessThanOrEqualTo(920));
     expect(listRect.left, greaterThan(100));
     expect(listRect.right, lessThan(1100));
+    final artwork = tester.getRect(
+      find.byKey(const ValueKey('home-activity-artwork-activity_1')),
+    );
+    expect(artwork.width / artwork.height, closeTo(16 / 9, 0.01));
+    expect(artwork.width, lessThan(300));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('home wallet actions preserve Nuxt topup back and history anchor',
-      (
-    tester,
-  ) async {
+  testWidgets('authenticated home omits the wallet panel', (tester) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -108,18 +186,6 @@ void main() {
       initialLocation: '/',
       routes: [
         GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => Scaffold(
-            body: Center(child: Text(state.uri.toString())),
-          ),
-        ),
-        GoRoute(
-          path: '/my-wallet',
-          builder: (context, state) => Scaffold(
-            body: Center(child: Text(state.uri.toString())),
-          ),
-        ),
       ],
     );
     addTearDown(router.dispose);
@@ -127,28 +193,9 @@ void main() {
     await _pumpHomeRouter(tester, router);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('เติมเงิน').first);
-    await tester.tap(find.text('เติมเงิน').first);
-    await tester.pumpAndSettle();
-
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/topup?back=/',
-    );
-    expect(find.text('/topup?back=/'), findsOneWidget);
-
-    router.go('/');
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('ประวัติ').first);
-    await tester.tap(find.text('ประวัติ').first);
-    await tester.pumpAndSettle();
-
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/my-wallet#transactions',
-    );
-    expect(find.text('/my-wallet#transactions'), findsOneWidget);
+    expect(find.text('ยอดเงินในกระเป๋า', skipOffstage: false), findsNothing);
+    expect(find.text('เติมเงิน', skipOffstage: false), findsNothing);
+    expect(find.text('เข้าสู่ระบบ', skipOffstage: false), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -267,14 +314,14 @@ void main() {
     router.go('/');
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('ข่าว URL ภายใน'));
+    final newsSlide = find.byKey(const ValueKey('home-news-slide-news_url'));
     await tester.drag(
-      find.byType(ListView).first,
-      const Offset(0, -180),
-      warnIfMissed: false,
+      find.byKey(const ValueKey('home-page-scroll')),
+      const Offset(0, -360),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ข่าว URL ภายใน'));
+    await tester.ensureVisible(newsSlide);
+    await tester.tap(newsSlide);
     await tester.pumpAndSettle();
 
     expect(
@@ -290,6 +337,7 @@ Future<void> _pumpHome(
   WidgetTester tester, {
   List<ActivityItem> activities = const <ActivityItem>[],
   List<NewsItem> news = _homeNewsFixtures,
+  CurrentGame? currentGame,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -305,7 +353,7 @@ Future<void> _pumpHome(
         newsListProvider.overrideWith((_) async => news),
         currentResultProvider.overrideWith((_) async {
           return RewardResultBundle(
-            currentGame: null,
+            currentGame: currentGame,
             selectedResult: RewardResultGame.fromPublicSummary({
               'game_id': 'game_1',
               'game_name': 'งวดวันที่ 1 ก.ค. 2569',
@@ -366,19 +414,6 @@ Future<void> _pumpHomeRouter(
         appConfigProvider.overrideWithValue(_testConfig),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
         authControllerProvider.overrideWith((_) => _authenticatedController()),
-        walletSummaryProvider.overrideWith(
-          (_) async => const WalletSummary(
-            wallets: [
-              CustomerWallet(
-                id: 'wallet_1',
-                name: 'G Wallet',
-                type: '1',
-                balance: 2240,
-              ),
-            ],
-            ledger: [],
-          ),
-        ),
         activityListProvider.overrideWith((_) async => activities),
         newsListProvider.overrideWith((_) async => news),
         currentResultProvider.overrideWith((_) async => _homeResultBundle()),
@@ -438,10 +473,10 @@ AuthController _authenticatedController() {
   final tokenStore = AuthTokenStore();
   final api = ApiClient(_testConfig, tokenStore, localeTag: 'th-TH');
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = true
     ..pinRequired = false;
 }

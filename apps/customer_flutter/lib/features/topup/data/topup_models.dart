@@ -507,6 +507,7 @@ class TopupOverview {
     required this.currentPage,
     required this.lastPage,
     this.banks = const [],
+    this.walletName = '',
   });
 
   factory TopupOverview.fromJson(Map<String, dynamic> json) {
@@ -573,6 +574,13 @@ class TopupOverview {
             payload['bankAccount'],
       ),
     );
+    final wallet = asMap(
+      payload['wallet'] ??
+          payload['primary_wallet'] ??
+          payload['primaryWallet'] ??
+          payload['customer_wallet'] ??
+          payload['customerWallet'],
+    );
     final banks = _topupBankRows(
       payload['banks'] ??
           payload['website_banks'] ??
@@ -625,6 +633,15 @@ class TopupOverview {
                 '',
           ) ??
           1,
+      walletName: _firstTopupText([
+        wallet['name'],
+        wallet['display_name'],
+        wallet['displayName'],
+        wallet['wallet_name'],
+        wallet['walletName'],
+        payload['wallet_name'],
+        payload['walletName'],
+      ]),
     );
   }
 
@@ -636,6 +653,7 @@ class TopupOverview {
   final List<TopupRequestItem> histories;
   final int currentPage;
   final int lastPage;
+  final String walletName;
 
   TopupChannel? get firstEnabledChannel {
     for (final channel in TopupChannel.values) {

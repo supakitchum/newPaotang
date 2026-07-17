@@ -34,7 +34,6 @@ class CustomerWallet {
           payload['wallet_name'],
           payload['walletName'],
         ],
-        fallback: 'G Wallet',
       ),
       type: type,
       balance: _firstWalletAmount(
@@ -197,12 +196,28 @@ class WalletLedgerEntry {
   bool get isDebit => amount < 0;
 }
 
+enum WalletLedgerDirection { all, incoming, outgoing }
+
+class WalletLedgerPage {
+  const WalletLedgerPage({
+    required this.entries,
+    this.nextCursor = '',
+    this.hasMore = false,
+  });
+
+  final List<WalletLedgerEntry> entries;
+  final String nextCursor;
+  final bool hasMore;
+}
+
 class WalletSummary {
   const WalletSummary({
     required this.wallets,
     required this.ledger,
     this.ledgerLoadFailed = false,
     this.ledgerErrorMessage = '',
+    this.ledgerNextCursor = '',
+    this.ledgerHasMore = false,
     this.customerNo = '',
   });
 
@@ -210,6 +225,8 @@ class WalletSummary {
   final List<WalletLedgerEntry> ledger;
   final bool ledgerLoadFailed;
   final String ledgerErrorMessage;
+  final String ledgerNextCursor;
+  final bool ledgerHasMore;
   final String customerNo;
 
   CustomerWallet? get primaryWallet {

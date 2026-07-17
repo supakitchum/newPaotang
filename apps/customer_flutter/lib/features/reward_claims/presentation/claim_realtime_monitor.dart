@@ -217,6 +217,9 @@ class _CustomerClaimRealtimeMonitorState
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
   Timer? _refreshThrottle;
+  final CustomerRealtimeSubscriptionTracker _subscriptionTracker =
+      CustomerRealtimeSubscriptionTracker();
+  Future<void> _syncQueue = Future<void>.value();
   String _signature = '';
   bool _pendingRewardRefresh = false;
   bool _pendingActivityRefresh = false;
@@ -227,13 +230,13 @@ class _CustomerClaimRealtimeMonitorState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
   void didUpdateWidget(covariant CustomerClaimRealtimeMonitor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
@@ -248,13 +251,21 @@ class _CustomerClaimRealtimeMonitorState
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MobileBootstrap>>(
       mobileBootstrapProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     ref.listen<AuthController>(
       authControllerProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     return widget.child;
+  }
+
+  void _scheduleSync() {
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _sync();
+    });
   }
 
   Future<void> _sync() async {
@@ -300,6 +311,8 @@ class _CustomerClaimRealtimeMonitorState
     }
 
     await _stop();
+    if (!mounted) return;
+    _subscriptionTracker.updateChannels(channels);
     _signature = signature;
     final client =
         ref.read(customerRealtimeClientFactoryProvider)(bootstrap.realtime);
@@ -321,9 +334,24 @@ class _CustomerClaimRealtimeMonitorState
     _events = null;
     await _client?.dispose();
     _client = null;
+    _subscriptionTracker.clear();
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
+    if (_subscriptionTracker.register(event)) {
+      final channel = event.channel.trim();
+      if (channel.endsWith('.reward-claims')) {
+        _pendingRewardRefresh = true;
+      }
+      if (channel.endsWith('.activity-claims')) {
+        _pendingActivityRefresh = true;
+      }
+      if (_pendingRewardRefresh || _pendingActivityRefresh) {
+        _scheduleRefresh();
+      }
+      return;
+    }
+
     final reward = shouldRefreshRewardClaimsFromRealtimeEvent(event);
     final activity = shouldRefreshActivityClaimsFromRealtimeEvent(event);
     if (!reward && !activity) return;
@@ -341,6 +369,10 @@ class _CustomerClaimRealtimeMonitorState
       _pendingActivityClaimId = claimId ?? _pendingActivityClaimId;
     }
 
+    _scheduleRefresh();
+  }
+
+  void _scheduleRefresh() {
     if (_refreshThrottle?.isActive ?? false) return;
     _refreshThrottle = Timer(const Duration(milliseconds: 500), _flushRefresh);
   }

@@ -71,6 +71,8 @@ class CustomerTopupTest extends TestCase
         $overview = $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
             ->assertOk()
+            ->assertJsonPath('wallet.id', $world['wallet_id'])
+            ->assertJsonPath('wallet.name', 'Primary wallet')
             ->json();
 
         $this->assertContains($credit['id'], array_column($overview['histories'], 'id'));
@@ -236,6 +238,78 @@ class CustomerTopupTest extends TestCase
         $this->assertContains('test_seed', array_column($response['data'], 'reference_type'));
         $this->assertSame('ten_cust_wallet', $response['data'][0]['tenant_id']);
         $this->assertSame($world['auth']['user']['id'], $response['data'][0]['customer_id']);
+    }
+
+    public function test_CustomerWallet_ledger_paginates_descending_rows_and_filters_money_direction(): void
+    {
+        $world = $this->prepareReservedCart('par_cust_wallet_page', 'ten_cust_wallet_page', 'customer-wallet-page.m5.test', 'gam_cust_wallet_page', '0804005444', 730401);
+        DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->delete();
+
+        $baseTime = now()->startOfSecond();
+        $movements = [
+            ['id' => 'wle_page_006', 'amount' => 6000, 'created_at' => $baseTime],
+            ['id' => 'wle_page_005', 'amount' => -5000, 'created_at' => $baseTime],
+            ['id' => 'wle_page_004', 'amount' => 4000, 'created_at' => $baseTime->copy()->subMinute()],
+            ['id' => 'wle_page_003', 'amount' => -3000, 'created_at' => $baseTime->copy()->subMinutes(2)],
+            ['id' => 'wle_page_002', 'amount' => 2000, 'created_at' => $baseTime->copy()->subMinutes(3)],
+            ['id' => 'wle_page_001', 'amount' => -1000, 'created_at' => $baseTime->copy()->subMinutes(4)],
+        ];
+
+        foreach ($movements as $movement) {
+            DB::table('wallet_ledger')->insert([
+                'id' => $movement['id'],
+                'tenant_id' => 'ten_cust_wallet_page',
+                'wallet_id' => $world['wallet_id'],
+                'customer_id' => $world['auth']['user']['id'],
+                'entry_type' => $movement['amount'] > 0 ? 'credit' : 'debit',
+                'status' => 'posted',
+                'amount' => $movement['amount'],
+                'currency' => 'THB',
+                'balance_after' => 100000,
+                'reference_type' => 'pagination_test',
+                'reference_id' => $movement['id'],
+                'posted_at' => $movement['created_at'],
+                'created_at' => $movement['created_at'],
+                'updated_at' => $movement['created_at'],
+            ]);
+        }
+
+        $first = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet/ledger?limit=2&sort_by=created_at&sort_dir=desc')
+            ->assertOk()
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $this->assertSame(['wle_page_006', 'wle_page_005'], array_column($first['data'], 'id'));
+        $this->assertStringStartsWith('v1.', $first['meta']['next_cursor']);
+
+        $second = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet/ledger?limit=2&sort_by=created_at&sort_dir=desc&cursor='.rawurlencode($first['meta']['next_cursor']))
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(['wle_page_004', 'wle_page_003'], array_column($second['data'], 'id'));
+        $this->assertSame([], array_intersect(array_column($first['data'], 'id'), array_column($second['data'], 'id')));
+
+        $incoming = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet/ledger?limit=2&direction=incoming&sort_by=created_at&sort_dir=desc')
+            ->assertOk()
+            ->json();
+        $this->assertSame(['wle_page_006', 'wle_page_004'], array_column($incoming['data'], 'id'));
+
+        $incomingNext = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet/ledger?limit=2&direction=incoming&sort_by=created_at&sort_dir=desc&cursor='.rawurlencode($incoming['meta']['next_cursor']))
+            ->assertOk()
+            ->assertJsonPath('meta.has_more', false)
+            ->json();
+        $this->assertSame(['wle_page_002'], array_column($incomingNext['data'], 'id'));
+
+        $outgoing = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet/ledger?limit=3&direction=outgoing&sort_by=created_at&sort_dir=desc')
+            ->assertOk()
+            ->assertJsonPath('meta.has_more', false)
+            ->json();
+        $this->assertSame(['wle_page_005', 'wle_page_003', 'wle_page_001'], array_column($outgoing['data'], 'id'));
     }
 
     public function test_CustomerTopup_accepts_slip_uploads_and_exposes_admin_preview_metadata(): void

@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import 'auth_visual_tokens.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
@@ -52,33 +53,36 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: ColoredBox(
         color: colorScheme.surface,
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final description = isLineSource
-                  ? l10n.resetPasswordLineDescription
-                  : l10n.resetPasswordLinkDescription;
-              return ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _ResetPasswordHeroSection(
-                    minHeight: constraints.maxWidth >= 720 ? 280 : 250,
-                    description: description,
-                    onBack: _saving ? null : () => context.go('/login'),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final description = isLineSource
+                ? l10n.resetPasswordLineDescription
+                : l10n.resetPasswordLinkDescription;
+            return ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _ResetPasswordHeroSection(
+                  description: description,
+                  onBack: _saving ? null : () => context.go('/login'),
+                ),
+                _ResetPasswordSheet(
+                  minHeight: authContentSheetMinHeight(
+                    constraints.maxWidth,
+                    constraints.maxHeight,
                   ),
-                  _ResetPasswordSheet(
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: _buildResetCard(context),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: customerContentMaxWidthFor(context),
                       ),
+                      child: _buildResetCard(context),
                     ),
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -143,8 +147,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _password,
+              autofillHints: const [AutofillHints.newPassword],
               style: authInputTextStyle(context, fontWeight: FontWeight.w800),
               obscureText: !_showPassword,
+              textInputAction: TextInputAction.next,
               decoration: _resetPasswordInputDecoration(
                 context,
                 hintText: l10n.resetPasswordNewPasswordHint,
@@ -172,8 +178,13 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             const SizedBox(height: 8),
             TextField(
               controller: _confirmPassword,
+              autofillHints: const [AutofillHints.newPassword],
               style: authInputTextStyle(context, fontWeight: FontWeight.w800),
               obscureText: !_showConfirmPassword,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_saving && widget.token.isNotEmpty) _submit();
+              },
               decoration: _resetPasswordInputDecoration(
                 context,
                 hintText: l10n.resetPasswordConfirmNewPasswordHint,
@@ -233,6 +244,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       context.go('/login');
     } catch (error) {
       if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      );
+      if (!mounted || handled) return;
       final message = authErrorMessage(error, expiredMessage);
       _showFormError(message);
     } finally {
@@ -301,12 +318,10 @@ class _ResetPasswordErrorPanel extends StatelessWidget {
 
 class _ResetPasswordHeroSection extends StatelessWidget {
   const _ResetPasswordHeroSection({
-    required this.minHeight,
     required this.description,
     required this.onBack,
   });
 
-  final double minHeight;
   final String description;
   final VoidCallback? onBack;
 
@@ -314,67 +329,65 @@ class _ResetPasswordHeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minHeight),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              AppTheme.heroGradientEnd(colorScheme.primary),
-            ],
+    return AuthBlueHeroBackdrop(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 250),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            authHeroTopPadding(context),
+            20,
+            24,
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            authBlueHeroTopRow(
-              context,
-              title: context.l10n.resetPasswordTitle,
-              tooltip: context.l10n.commonBack,
-              onBack: onBack,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 42),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 330),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.key_outlined,
-                      color: colorScheme.onPrimary,
-                      size: 34,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      context.l10n.resetPasswordTitle,
-                      textAlign: TextAlign.center,
-                      style: textTheme.headlineSmall?.copyWith(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              authBlueHeroTopRow(
+                context,
+                title: context.l10n.resetPasswordTitle,
+                tooltip: context.l10n.commonBack,
+                onBack: onBack,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 24, 0, 18),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 330),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.key_outlined,
                         color: colorScheme.onPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
+                        size: 34,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      description,
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.55,
+                      const SizedBox(height: 10),
+                      Text(
+                        context.l10n.resetPasswordTitle,
+                        textAlign: TextAlign.center,
+                        style: textTheme.headlineSmall?.copyWith(
+                          color: colorScheme.onPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        description,
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.55,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -382,13 +395,18 @@ class _ResetPasswordHeroSection extends StatelessWidget {
 }
 
 class _ResetPasswordSheet extends StatelessWidget {
-  const _ResetPasswordSheet({required this.child});
+  const _ResetPasswordSheet({
+    required this.minHeight,
+    required this.child,
+  });
 
+  final double minHeight;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Transform.translate(
       offset: const Offset(0, -34),
       child: DecoratedBox(
@@ -396,9 +414,12 @@ class _ResetPasswordSheet extends StatelessWidget {
           color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 22, 16, 34),
-          child: child,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: minHeight),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 22, 16, 34 + bottomInset),
+            child: child,
+          ),
         ),
       ),
     );
@@ -434,6 +455,8 @@ InputDecoration _resetPasswordInputDecoration(
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
     softFill: true,
+    borderRadius: 16,
+    prefixIconSize: 20,
   );
 }
 

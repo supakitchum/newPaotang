@@ -12,7 +12,10 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/api_errors.dart';
 import '../../../shared/utils/customer_operational_error.dart';
+import '../../../shared/widgets/pin_confirmation_step.dart';
 
 const _pinInk = Color(0xFF2F3337);
 const _pinMuted = Color(0xFF9AA0A6);
@@ -21,7 +24,9 @@ const _pinBrand = Color(0xFF8487F8);
 const _pinErrorColor = Color(0xFFD3455B);
 const _pinDotEmpty = Color(0xFFDDDDDF);
 const _pinDotError = Color(0xFFF2B6BD);
-const _pinActionBlue = Color(0xFF0D7FE8);
+
+Color _pinActionColor(BuildContext context) =>
+    AppTheme.pinAction(Theme.of(context).colorScheme.primary);
 
 class PinScreen extends ConsumerStatefulWidget {
   const PinScreen({super.key});
@@ -37,6 +42,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   String _pinError = '';
   bool _confirmingSetupPin = false;
   bool _verifying = false;
+  bool _resettingPin = false;
 
   @override
   void initState() {
@@ -59,11 +65,20 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     final auth = ref.watch(authControllerProvider);
     final setupRequired = auth.pinSetupRequired;
     final platformKey = ref.watch(customerPlatformKeyProvider);
-    final biometricEnabled = ref.watch(mobileBootstrapProvider).maybeWhen(
-          data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
-          orElse: () => false,
-        );
-    final brand = l10n.pinBrand;
+    final bootstrap = ref.watch(mobileBootstrapProvider);
+    final biometricEnabled = bootstrap.maybeWhen(
+      data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
+      orElse: () => false,
+    );
+    final brand = customerPinBrandLabel(context, bootstrap.valueOrNull);
+
+    if (_resettingPin) {
+      return _PinResetScreen(
+        brand: brand,
+        onBack: _closePinReset,
+        onComplete: _completePinReset,
+      );
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -110,7 +125,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                                     !setupRequired && biometricEnabled,
                                 onBiometric: _unlockWithBiometric,
                                 showForgotPin: !setupRequired,
-                                onForgotPin: _showResetPinSheet,
+                                onForgotPin: _startPinReset,
                               ),
                             ),
                           ),
@@ -215,22 +230,26 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     });
   }
 
-  Future<void> _showResetPinSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.48),
-      clipBehavior: Clip.antiAlias,
-      constraints: const BoxConstraints(maxWidth: 430),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      showDragHandle: false,
-      useSafeArea: true,
-      builder: (_) => _PinResetSheet(onComplete: _goAfterPinUnlock),
-    );
-    if (mounted) _focusNode.requestFocus();
+  void _startPinReset() {
+    if (_verifying) return;
+    setState(() {
+      _pin = '';
+      _pinError = '';
+      _resettingPin = true;
+    });
+  }
+
+  void _closePinReset() {
+    if (!_resettingPin) return;
+    setState(() => _resettingPin = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  void _completePinReset() {
+    if (mounted) setState(() => _resettingPin = false);
+    _goAfterPinUnlock();
   }
 
   Future<void> _unlockWithBiometric() async {
@@ -513,7 +532,7 @@ class _PinMainContent extends StatelessWidget {
                 icon: const Icon(Icons.face_retouching_natural, size: 18),
                 label: Text(context.l10n.pinUseBiometric),
                 style: TextButton.styleFrom(
-                  foregroundColor: _pinActionBlue,
+                  foregroundColor: _pinActionColor(context),
                   minimumSize: const Size(64, 32),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -541,7 +560,7 @@ class _PinMainContent extends StatelessWidget {
               child: TextButton(
                 onPressed: verifying ? null : onForgotPin,
                 style: TextButton.styleFrom(
-                  foregroundColor: _pinActionBlue,
+                  foregroundColor: _pinActionColor(context),
                   minimumSize: const Size(64, 32),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -583,27 +602,32 @@ class _PinMainContent extends StatelessWidget {
   }
 }
 
-enum _PinResetStep { request, otp, pin, done }
+enum _PinResetStep { request, otp, pin }
 
-class _PinResetSheet extends ConsumerStatefulWidget {
-  const _PinResetSheet({required this.onComplete});
+class _PinResetScreen extends ConsumerStatefulWidget {
+  const _PinResetScreen({
+    required this.brand,
+    required this.onBack,
+    required this.onComplete,
+  });
 
+  final String brand;
+  final VoidCallback onBack;
   final VoidCallback onComplete;
 
   @override
-  ConsumerState<_PinResetSheet> createState() => _PinResetSheetState();
+  ConsumerState<_PinResetScreen> createState() => _PinResetScreenState();
 }
 
-class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
-  final _formKey = GlobalKey<FormState>();
+class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
   final _otp = TextEditingController();
   final _pin = TextEditingController();
   final _pinConfirmation = TextEditingController();
+  final _keypadFocusNode = FocusNode(debugLabel: 'pin-reset-keypad');
 
   _PinResetStep _step = _PinResetStep.request;
   bool _confirmingResetPin = false;
   bool _submitting = false;
-  String _maskedPhone = '';
   String _otpToken = '';
   String _resetError = '';
   int _resendAfter = 0;
@@ -612,464 +636,343 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   @override
   void initState() {
     super.initState();
-    _otp.addListener(_clearResetError);
+    _otp.addListener(_handleOtpChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_requestOtp());
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
-    _otp.removeListener(_clearResetError);
+    _otp.removeListener(_handleOtpChanged);
     _otp.dispose();
     _pin.dispose();
     _pinConfirmation.dispose();
+    _keypadFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    if (_step == _PinResetStep.pin) return _buildPinScreen(context);
+    return _buildOtpScreen(context);
+  }
+
+  Widget _buildOtpScreen(BuildContext context) {
     final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontal = width <= 360 ? 22.0 : 28.0;
+    final canSubmit = _step == _PinResetStep.otp &&
+        !_submitting &&
+        RegExp(r'^\d{6}$').hasMatch(_otp.text);
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.96,
-        minChildSize: 0.60,
-        maxChildSize: 0.98,
-        builder: (context, scrollController) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Padding(
+          key: const ValueKey('pin-reset-screen'),
+          padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 24),
+          child: Column(
+            children: [
+              _PinResetTopBar(
+                brand: widget.brand,
+                enabled: !_submitting,
+                onBack: _handleBack,
               ),
-            ),
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
-                children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: IconButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                      color: colorScheme.onSurfaceVariant,
-                      tooltip:
-                          MaterialLocalizations.of(context).closeButtonTooltip,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.10,
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final vertical = (constraints.maxHeight * 0.08)
+                        .clamp(18.0, 58.0)
+                        .toDouble();
+                    final minHeight = (constraints.maxHeight - vertical * 2)
+                        .clamp(0.0, double.infinity);
+                    return SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.symmetric(vertical: vertical),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: minHeight),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 390),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Center(
+                                  child: Container(
+                                    width: 64,
+                                    height: 64,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.pinActionFill(
+                                        Theme.of(context).colorScheme.primary,
+                                      ),
+                                      borderRadius: BorderRadius.circular(22),
+                                    ),
+                                    child: Icon(
+                                      Icons.shield_outlined,
+                                      color: _pinActionColor(context),
+                                      size: 28,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  l10n.pinResetScreenTitle,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(
+                                        color: _pinInk,
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.18,
+                                      ),
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  l10n.pinResetScreenDescription,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: const Color(0xFF8A929D),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.5,
+                                      ),
+                                ),
+                                const SizedBox(height: 22),
+                                Text(
+                                  l10n.pinResetOtpLabel,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: _pinInk,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  height: 54,
+                                  child: TextField(
+                                    key: const ValueKey('pin-reset-otp-input'),
+                                    controller: _otp,
+                                    enabled: _step == _PinResetStep.otp &&
+                                        !_submitting,
+                                    autofocus: _step == _PinResetStep.otp,
+                                    autofillHints: const [
+                                      AutofillHints.oneTimeCode,
+                                    ],
+                                    enableSuggestions: false,
+                                    keyboardType: TextInputType.number,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) {
+                                      if (canSubmit) unawaited(_verifyOtp());
+                                    },
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(6),
+                                    ],
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: const Color(0xFF172B4D),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                    decoration: _otpInputDecoration(context),
+                                  ),
+                                ),
+                                Semantics(
+                                  liveRegion: true,
+                                  child: AnimatedOpacity(
+                                    opacity: _resetError.isEmpty ? 0 : 1,
+                                    duration: const Duration(milliseconds: 120),
+                                    child: Container(
+                                      constraints:
+                                          const BoxConstraints(minHeight: 18),
+                                      alignment: Alignment.center,
+                                      padding: const EdgeInsets.only(top: 3),
+                                      child: Text(
+                                        _resetError.isEmpty ? ' ' : _resetError,
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: _pinErrorColor,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                              height: 1.35,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                _PinResetPrimaryAction(
+                                  key: const ValueKey(
+                                    'pin-reset-primary-action',
+                                  ),
+                                  label: _submitting
+                                      ? l10n.pinVerifying
+                                      : l10n.pinResetSubmitOtp,
+                                  enabled: canSubmit,
+                                  onPressed: _verifyOtp,
+                                ),
+                                const SizedBox(height: 10),
+                                _PinResetTextAction(
+                                  key: const ValueKey('pin-reset-resend'),
+                                  label: _resendAfter > 0
+                                      ? l10n.pinResetResendIn(_resendAfter)
+                                      : l10n.pinResetResend,
+                                  enabled: !_submitting && _resendAfter <= 0,
+                                  onPressed: _requestOtp,
+                                ),
+                                const SizedBox(height: 10),
+                                _PinResetTextAction(
+                                  key: const ValueKey('pin-reset-back-to-pin'),
+                                  label: l10n.pinResetBackToPin,
+                                  enabled: !_submitting,
+                                  onPressed: widget.onBack,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(22),
                       ),
-                      child: Icon(
-                        Icons.shield_outlined,
-                        color: theme.colorScheme.primary,
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    _title(l10n),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _description(l10n),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.5,
-                    ),
-                  ),
-                  if (_resetError.trim().isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _PinResetErrorPanel(message: _resetError),
-                  ],
-                  const SizedBox(height: 22),
-                  if (_step == _PinResetStep.request) _requestCard(context),
-                  if (_step == _PinResetStep.otp) _otpCard(context),
-                  if (_step == _PinResetStep.pin) _pinFields(),
-                  if (_step == _PinResetStep.done) _doneCard(context),
-                  const SizedBox(height: 20),
-                  if (_step != _PinResetStep.done && _step != _PinResetStep.pin)
-                    FilledButton(
-                      onPressed: _submitting ? null : _submit,
-                      style: _primaryResetButtonStyle(context),
-                      child: Text(
-                        _submitting ? l10n.pinVerifying : _buttonLabel(l10n),
-                      ),
-                    )
-                  else if (_step == _PinResetStep.done)
-                    FilledButton(
-                      onPressed: _finishReset,
-                      style: _primaryResetButtonStyle(context),
-                      child: Text(l10n.pinResetBackToApp),
-                    ),
-                  if (_step == _PinResetStep.otp) ...[
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: _resendAfter > 0 || _submitting
-                          ? null
-                          : _requestOtpFromResend,
-                      style: _secondaryResetButtonStyle(context),
-                      child: Text(
-                        _resendAfter > 0
-                            ? l10n.pinResetResendIn(_resendAfter)
-                            : l10n.pinResetResend,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      style: _secondaryResetButtonStyle(context),
-                      child: Text(l10n.pinResetBackToPin),
-                    ),
-                  ],
-                ],
+                    );
+                  },
+                ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _resetPanel(
-    BuildContext context, {
-    required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    Color? backgroundColor,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: backgroundColor ??
-            colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.88),
+            ],
+          ),
         ),
-        borderRadius: BorderRadius.circular(22),
       ),
-      child: Padding(padding: padding, child: child),
     );
   }
 
-  ButtonStyle _primaryResetButtonStyle(BuildContext context) {
-    return FilledButton.styleFrom(
-      elevation: 0,
-      minimumSize: const Size.fromHeight(52),
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      shape: const StadiumBorder(),
-      textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
+  Widget _buildPinScreen(BuildContext context) {
+    final l10n = context.l10n;
+    final digits = _activeResetPinDigits;
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: KeyboardListener(
+        focusNode: _keypadFocusNode,
+        autofocus: true,
+        onKeyEvent: _handlePinKeyEvent,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxHeight < 660;
+              final horizontal = constraints.maxWidth <= 360 ? 22.0 : 28.0;
+              final mainVerticalPadding =
+                  (constraints.maxHeight * 0.05).clamp(10.0, 58.0).toDouble();
+              return Padding(
+                key: const ValueKey('pin-reset-keypad-screen'),
+                padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 22),
+                child: Column(
+                  children: [
+                    _PinResetTopBar(
+                      brand: widget.brand,
+                      enabled: !_submitting,
+                      onBack: _handleBack,
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 430),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: mainVerticalPadding,
+                            ),
+                            child: Center(
+                              child: _PinMainContent(
+                                title: _confirmingResetPin
+                                    ? l10n.pinResetConfirmPinLabel
+                                    : l10n.pinResetTitlePin,
+                                subtitle: _submitting
+                                    ? l10n.pinSetupSubmitting
+                                    : _confirmingResetPin
+                                        ? l10n.pinResetDescriptionConfirmPin
+                                        : l10n.pinResetDescriptionPin,
+                                helper: _confirmingResetPin
+                                    ? l10n.pinResetConfirmPinHelper
+                                    : l10n.pinResetNewPinHelper,
+                                error: _resetError,
+                                pinLength: digits.length,
+                                verifying: _submitting,
+                                compact: compact,
+                                showBiometric: false,
+                                onBiometric: _noop,
+                                showForgotPin: false,
+                                onForgotPin: _noop,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: KeyedSubtree(
+                        key: const ValueKey('pin-reset-keypad'),
+                        child: _Keypad(
+                          pinLength: digits.length,
+                          onDigit: _resetPinDigit,
+                          onBackspace: _resetPinBackspace,
+                          enabled: !_submitting,
+                          compact: compact,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-    );
-  }
-
-  ButtonStyle _secondaryResetButtonStyle(BuildContext context) {
-    return TextButton.styleFrom(
-      minimumSize: const Size.fromHeight(52),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      foregroundColor: Theme.of(context).colorScheme.primary,
-      shape: const StadiumBorder(),
-      textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-          ),
+        ),
+      ),
     );
   }
 
   InputDecoration _otpInputDecoration(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.9);
-    final focusedColor = colorScheme.primary;
+    const borderColor = Color(0xFFDCE4EF);
+    OutlineInputBorder border(Color color, [double width = 1]) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
     return InputDecoration(
       filled: true,
-      fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
-      labelText: context.l10n.pinResetOtpLabel,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: focusedColor, width: 1.4),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.error),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.error),
-      ),
+      fillColor: const Color(0xFFF6F8FB),
+      hintText: context.l10n.pinResetOtpHint,
+      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: _pinMuted,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      enabledBorder: border(borderColor),
+      disabledBorder: border(borderColor),
+      focusedBorder: border(_pinActionColor(context), 1.4),
     );
-  }
-
-  Widget _loadingCopy(BuildContext context) {
-    return Text(
-      context.l10n.pinVerifying,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w900,
-          ),
-    );
-  }
-
-  Widget _pinDotRow(int length) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final primary = colorScheme.primary;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(6, (index) {
-        final filled = index < length;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          margin: const EdgeInsets.symmetric(horizontal: 5),
-          width: filled ? 13 : 12,
-          height: filled ? 13 : 12,
-          decoration: BoxDecoration(
-            color: filled ? primary : colorScheme.surface,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: filled
-                  ? primary
-                  : colorScheme.outlineVariant.withValues(alpha: 0.9),
-              width: 1.5,
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _requestCard(BuildContext context) {
-    return _resetPanel(
-      context,
-      child: Padding(
-        padding: EdgeInsets.zero,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.sms_outlined,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                context.l10n.pinResetRequestInfo,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                      height: 1.45,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _otpCard(BuildContext context) {
-    return _resetPanel(
-      context,
-      child: Padding(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.pinResetOtpSentTo(
-                _maskedPhone.isEmpty
-                    ? context.l10n.accountPhoneFallback
-                    : _maskedPhone,
-              ),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    height: 1.45,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _otp,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
-              ],
-              decoration: _otpInputDecoration(context),
-              validator: _otpValidator,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pinFields() {
-    final digits = _activeResetPinDigits;
-    return _resetPanel(
-      context,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      child: Column(
-        children: [
-          Text(
-            _confirmingResetPin
-                ? context.l10n.pinResetConfirmPinLabel
-                : context.l10n.pinResetNewPinLabel,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.w900,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 14),
-          Semantics(
-            label: _pinDots(digits.length),
-            child: _pinDotRow(digits.length),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _confirmingResetPin
-                ? context.l10n.pinResetDescriptionConfirmPin
-                : context.l10n.pinResetDescriptionPin,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: 10),
-          _Keypad(
-            pinLength: digits.length,
-            onDigit: _resetPinDigit,
-            onBackspace: _resetPinBackspace,
-            compact: true,
-          ),
-          if (_submitting) ...[
-            const SizedBox(height: 8),
-            _loadingCopy(context),
-            const SizedBox(height: 8),
-            const _PinProgressLine(width: 118),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _doneCard(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _resetPanel(
-      context,
-      backgroundColor: colorScheme.primary.withValues(alpha: 0.08),
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          Icon(
-            Icons.check_circle_outline,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              context.l10n.pinResetDoneMessage,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                    height: 1.45,
-                  ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() {
-      _resetError = '';
-      _submitting = true;
-    });
-    final resetFailed = context.l10n.pinResetFailed;
-    try {
-      if (_step == _PinResetStep.request) {
-        await _requestOtp();
-      } else if (_step == _PinResetStep.otp) {
-        final otpVerificationFailed = context.l10n.authOtpVerificationFailed;
-        final verified = await ref
-            .read(authRepositoryProvider)
-            .verifyPinResetOtp(otp: _otp.text);
-        final verificationToken = verified.verificationToken.trim();
-        if (verificationToken.isEmpty) {
-          _showResetError(otpVerificationFailed);
-          return;
-        }
-        setState(() {
-          _otpToken = verificationToken;
-          _pin.clear();
-          _pinConfirmation.clear();
-          _confirmingResetPin = false;
-          _resetError = '';
-          _step = _PinResetStep.pin;
-        });
-      } else if (_step == _PinResetStep.pin) {
-        await _submitConfirmedResetPin();
-      }
-    } catch (error) {
-      if (!mounted) return;
-      final message = _errorMessage(error, resetFailed);
-      if (await handleCustomerOperationalError(
-        ref: ref,
-        context: context,
-        error: error,
-      )) {
-        return;
-      }
-      _showResetError(message);
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
   }
 
   Future<void> _requestOtp() async {
+    if (_submitting) return;
     setState(() {
       _resetError = '';
       _submitting = true;
@@ -1077,15 +980,11 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
     try {
       final result =
           await ref.read(authRepositoryProvider).requestPinResetOtp();
-      _otp.clear();
       if (!mounted) return;
+      _otp.clear();
       setState(() {
-        _maskedPhone = result.phoneMasked;
         _resendAfter =
             result.resendAfterSeconds > 0 ? result.resendAfterSeconds : 60;
-        _pin.clear();
-        _pinConfirmation.clear();
-        _confirmingResetPin = false;
         _step = _PinResetStep.otp;
       });
       _startTimer();
@@ -1099,14 +998,62 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
       )) {
         return;
       }
-      _showResetError(message);
+      setState(() {
+        _step = _PinResetStep.otp;
+        _resetError = message;
+      });
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  Future<void> _requestOtpFromResend() async {
-    await _requestOtp();
+  Future<void> _verifyOtp() async {
+    if (_submitting || !RegExp(r'^\d{6}$').hasMatch(_otp.text)) {
+      _showResetError(context.l10n.pinResetOtpRequired);
+      return;
+    }
+    setState(() {
+      _resetError = '';
+      _submitting = true;
+    });
+    try {
+      final verified = await ref
+          .read(authRepositoryProvider)
+          .verifyPinResetOtp(otp: _otp.text);
+      final verificationToken = verified.verificationToken.trim();
+      if (!mounted) return;
+      if (verificationToken.isEmpty) {
+        _showResetError(context.l10n.authOtpVerificationFailed);
+        return;
+      }
+      setState(() {
+        _otpToken = verificationToken;
+        _pin.clear();
+        _pinConfirmation.clear();
+        _confirmingResetPin = false;
+        _resetError = '';
+        _step = _PinResetStep.pin;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _keypadFocusNode.requestFocus();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final message = _errorMessage(
+        error,
+        context.l10n.authOtpVerificationFailed,
+      );
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showResetError(message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   void _startTimer() {
@@ -1120,44 +1067,6 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
       }
       setState(() => _resendAfter -= 1);
     });
-  }
-
-  String _title(CustomerLocalizations l10n) {
-    return switch (_step) {
-      _PinResetStep.otp => l10n.pinResetTitleOtp,
-      _PinResetStep.pin => _confirmingResetPin
-          ? l10n.pinResetConfirmPinLabel
-          : l10n.pinResetTitlePin,
-      _PinResetStep.done => l10n.pinResetTitleDone,
-      _ => l10n.pinResetTitleRequest,
-    };
-  }
-
-  String _description(CustomerLocalizations l10n) {
-    return switch (_step) {
-      _PinResetStep.otp => l10n.pinResetDescriptionOtp,
-      _PinResetStep.pin => _confirmingResetPin
-          ? l10n.pinResetDescriptionConfirmPin
-          : l10n.pinResetDescriptionPin,
-      _PinResetStep.done => l10n.pinResetDescriptionDone,
-      _ => l10n.pinResetDescriptionRequest,
-    };
-  }
-
-  String _buttonLabel(CustomerLocalizations l10n) {
-    return switch (_step) {
-      _PinResetStep.otp => l10n.pinResetSubmitOtp,
-      _PinResetStep.pin => l10n.pinResetSavePin,
-      _ => l10n.pinResetSendOtp,
-    };
-  }
-
-  String? _otpValidator(String? value) {
-    if (_step != _PinResetStep.otp) return null;
-    if (!RegExp(r'^\d{6}$').hasMatch(value ?? '')) {
-      return context.l10n.pinResetOtpRequired;
-    }
-    return null;
   }
 
   String get _activeResetPinDigits =>
@@ -1174,7 +1083,7 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   void _resetPinDigit(String digit) {
     if (_submitting || _step != _PinResetStep.pin) return;
     final current = _activeResetPinDigits;
-    if (current.length >= 6) return;
+    if (current.length >= 6 || !RegExp(r'^\d$').hasMatch(digit)) return;
     final next = '$current$digit';
     setState(() {
       _resetError = '';
@@ -1191,6 +1100,18 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
       _resetError = '';
       _setActiveResetPinDigits(current.substring(0, current.length - 1));
     });
+  }
+
+  void _handlePinKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent || _submitting) return;
+    final value = event.character ?? event.logicalKey.keyLabel;
+    if (RegExp(r'^\d$').hasMatch(value)) {
+      _resetPinDigit(value);
+      return;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      _resetPinBackspace();
+    }
   }
 
   void _handleResetPinComplete() {
@@ -1235,7 +1156,7 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
             pinConfirmation: _pinConfirmation.text,
           );
       if (!mounted) return;
-      setState(() => _step = _PinResetStep.done);
+      widget.onComplete();
     } catch (error) {
       if (!mounted) return;
       final message = _errorMessage(error, context.l10n.pinResetFailed);
@@ -1246,15 +1167,47 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
       )) {
         return;
       }
-      setState(() {
-        _pin.clear();
-        _pinConfirmation.clear();
-        _confirmingResetPin = false;
-        _resetError = message;
-      });
+      final code = ApiErrorInfo.fromObject(error).code;
+      if (code == 'otp_invalid' || code == 'otp_required') {
+        _otp.clear();
+        setState(() {
+          _otpToken = '';
+          _pin.clear();
+          _pinConfirmation.clear();
+          _confirmingResetPin = false;
+          _resetError = context.l10n.pinResetOtpAgain;
+          _step = _PinResetStep.otp;
+        });
+      } else {
+        setState(() {
+          _pin.clear();
+          _pinConfirmation.clear();
+          _confirmingResetPin = false;
+          _resetError = message;
+        });
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _handleBack() {
+    if (_submitting) return;
+    if (_step != _PinResetStep.pin) {
+      widget.onBack();
+      return;
+    }
+    setState(() {
+      _resetError = '';
+      if (_confirmingResetPin) {
+        _pinConfirmation.clear();
+        _confirmingResetPin = false;
+      } else {
+        _pin.clear();
+        _pinConfirmation.clear();
+        _step = _PinResetStep.otp;
+      }
+    });
   }
 
   String _errorMessage(Object error, String fallback) {
@@ -1265,9 +1218,11 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
     );
   }
 
-  void _clearResetError() {
-    if (_resetError.isEmpty || !mounted || _submitting) return;
-    setState(() => _resetError = '');
+  void _handleOtpChanged() {
+    if (!mounted) return;
+    setState(() {
+      if (_resetError.isNotEmpty && !_submitting) _resetError = '';
+    });
   }
 
   void _showResetError(String message) {
@@ -1277,48 +1232,195 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
     setState(() => _resetError = normalized);
   }
 
-  void _finishReset() {
-    Navigator.of(context).pop();
-    widget.onComplete();
-  }
+  static void _noop() {}
 }
 
-class _PinResetErrorPanel extends StatelessWidget {
-  const _PinResetErrorPanel({required this.message});
+class _PinResetTopBar extends StatelessWidget {
+  const _PinResetTopBar({
+    required this.brand,
+    required this.enabled,
+    required this.onBack,
+  });
 
-  final String message;
+  final String brand;
+  final bool enabled;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Semantics(
-      liveRegion: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.errorContainer.withValues(alpha: 0.62),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: colorScheme.error.withValues(alpha: 0.14),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.error_outline, color: colorScheme.error, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
+    return ConstrainedBox(
+      key: const ValueKey('pin-reset-topbar'),
+      constraints: const BoxConstraints(maxWidth: 430),
+      child: SizedBox(
+        height: 42,
+        child: Row(
+          children: [
+            Semantics(
+              button: true,
+              enabled: enabled,
+              label: MaterialLocalizations.of(context).backButtonTooltip,
+              child: MouseRegion(
+                cursor: enabled
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: enabled ? onBack : null,
+                  child: SizedBox(
+                    key: const ValueKey('pin-reset-back'),
+                    width: 42,
+                    height: 42,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Opacity(
+                        opacity: enabled ? 1 : 0.45,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          color: _pinBack,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
                 child: Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
-                        fontWeight: FontWeight.w800,
-                        height: 1.35,
+                  brand,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: _pinBrand,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
                       ),
                 ),
               ),
-            ],
+            ),
+            const SizedBox(width: 42, height: 42),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinResetPrimaryAction extends StatelessWidget {
+  const _PinResetPrimaryAction({
+    super.key,
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? onPressed : null,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.52,
+            child: Container(
+              height: 52,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.pinGradientStart(
+                      Theme.of(context).colorScheme.primary,
+                    ),
+                    AppTheme.pinGradientEnd(
+                      Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ),
+                boxShadow: enabled
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.pinGradientEnd(
+                            Theme.of(context).colorScheme.primary,
+                          ).withValues(alpha: 0.20),
+                          blurRadius: 28,
+                          offset: const Offset(0, 14),
+                        ),
+                      ]
+                    : const [],
+              ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PinResetTextAction extends StatelessWidget {
+  const _PinResetTextAction({
+    super.key,
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? onPressed : null,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.52,
+            child: SizedBox(
+              height: 52,
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: _pinActionColor(context),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

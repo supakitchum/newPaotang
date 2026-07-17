@@ -54,6 +54,12 @@ void main() {
     );
     expect(find.textContaining('RWD-0001 •'), findsNothing);
     expect(find.byType(Card), findsNothing);
+    expect(find.byType(RefreshIndicator), findsNothing);
+    final firstRow = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey('reward-claim-row-claim_1')),
+    );
+    final firstRowDecoration = firstRow.decoration as BoxDecoration;
+    expect(firstRowDecoration.border?.bottom.color, const Color(0xFFEEF2F7));
     final loadMoreButton = find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
     expect(loadMoreButton, findsOneWidget);
     expect(
@@ -474,6 +480,14 @@ void main() {
     expect(find.textContaining('x xxx6789'), findsOneWidget);
     expect(find.text('ยอดเงินที่ได้รับ'), findsOneWidget);
     expect(find.byType(Card), findsNothing);
+    expect(
+      tester.getTopLeft(find.textContaining('x xxx6789')).dx,
+      greaterThan(tester.getTopLeft(find.text('ช่องทางขึ้นเงินรางวัล')).dx),
+    );
+    expect(
+      tester.getTopLeft(find.text('3,940 บาท').last).dx,
+      greaterThan(tester.getTopLeft(find.text('ยอดเงินที่ได้รับ')).dx),
+    );
     expect(tester.takeException(), isNull);
   });
 }

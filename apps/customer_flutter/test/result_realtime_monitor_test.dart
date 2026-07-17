@@ -20,6 +20,8 @@ void main() {
   ) async {
     var latestLoads = 0;
     var detailLoads = 0;
+    var legacyLoads = 0;
+    var publishedDetailLoads = 0;
     final client = _FakeRealtimeClient();
 
     await tester.pumpWidget(
@@ -36,8 +38,19 @@ void main() {
             detailLoads++;
             return _bundle('detail_$detailLoads');
           }),
+          legacyResultProvider.overrideWith((_) async {
+            legacyLoads++;
+            return _bundle('legacy_$legacyLoads');
+          }),
+          publishedResultDetailProvider('game_1').overrideWith((_) async {
+            publishedDetailLoads++;
+            return _bundle('published_$publishedDetailLoads');
+          }),
         ],
-        child: const _ResultRealtimeHarness(gameId: 'game_1'),
+        child: const _ResultRealtimeHarness(
+          gameId: 'game_1',
+          watchLegacy: true,
+        ),
       ),
     );
 
@@ -49,8 +62,12 @@ void main() {
     ]);
     expect(latestLoads, 1);
     expect(detailLoads, 1);
+    expect(legacyLoads, 1);
+    expect(publishedDetailLoads, 1);
     expect(find.text('latest:latest_1'), findsOneWidget);
     expect(find.text('detail:detail_1'), findsOneWidget);
+    expect(find.text('legacy:legacy_1'), findsOneWidget);
+    expect(find.text('published:published_1'), findsOneWidget);
 
     client.emit(
       CustomerRealtimeEvent(
@@ -63,6 +80,8 @@ void main() {
 
     expect(latestLoads, 1);
     expect(detailLoads, 1);
+    expect(legacyLoads, 1);
+    expect(publishedDetailLoads, 1);
     expect(find.text('latest:latest_1'), findsOneWidget);
     expect(find.text('detail:detail_1'), findsOneWidget);
 
@@ -77,8 +96,41 @@ void main() {
 
     expect(latestLoads, 2);
     expect(detailLoads, 2);
+    expect(legacyLoads, 2);
+    expect(publishedDetailLoads, 2);
     expect(find.text('latest:latest_2'), findsOneWidget);
     expect(find.text('detail:detail_2'), findsOneWidget);
+
+    final latestChannel = publicLatestResultChannel();
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: latestChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(latestLoads, 2);
+    expect(detailLoads, 2);
+    expect(legacyLoads, 2);
+    expect(publishedDetailLoads, 2);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: latestChannel,
+        payload: const {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(latestLoads, 3);
+    expect(detailLoads, 3);
+    expect(legacyLoads, 3);
+    expect(publishedDetailLoads, 3);
+    expect(find.text('latest:latest_3'), findsOneWidget);
+    expect(find.text('detail:detail_3'), findsOneWidget);
+    expect(find.text('legacy:legacy_3'), findsOneWidget);
+    expect(find.text('published:published_3'), findsOneWidget);
   });
 
   testWidgets('result realtime monitor refreshes latest without game id', (
@@ -267,16 +319,63 @@ void main() {
 }
 
 class _ResultRealtimeHarness extends StatelessWidget {
-  const _ResultRealtimeHarness({required this.gameId});
+  const _ResultRealtimeHarness({
+    required this.gameId,
+    this.watchLegacy = false,
+  });
 
   final String gameId;
+  final bool watchLegacy;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: ResultRealtimeMonitor(
-        child: _ResultReadout(gameId: gameId),
+        child: Column(
+          children: [
+            Expanded(child: _ResultReadout(gameId: gameId)),
+            if (watchLegacy) _LegacyResultReadout(gameId: gameId),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _LegacyResultReadout extends ConsumerWidget {
+  const _LegacyResultReadout({required this.gameId});
+
+  final String gameId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final legacy = ref.watch(legacyResultProvider);
+    final published = ref.watch(publishedResultDetailProvider(gameId));
+    return Column(
+      children: [
+        legacy.when(
+          data: (bundle) => Text(
+            'legacy:${bundle.selectedResult?.id ?? ''}',
+            textDirection: TextDirection.ltr,
+          ),
+          loading: () =>
+              const Text('legacy:loading', textDirection: TextDirection.ltr),
+          error: (_, __) =>
+              const Text('legacy:error', textDirection: TextDirection.ltr),
+        ),
+        published.when(
+          data: (bundle) => Text(
+            'published:${bundle.selectedResult?.id ?? ''}',
+            textDirection: TextDirection.ltr,
+          ),
+          loading: () => const Text(
+            'published:loading',
+            textDirection: TextDirection.ltr,
+          ),
+          error: (_, __) =>
+              const Text('published:error', textDirection: TextDirection.ltr),
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../i18n/app_locale.dart';
+import '../tenant/customer_tenant_host.dart';
 
 final appConfigProvider = Provider<AppConfig>(
   (_) => throw StateError('AppConfig is not initialized.'),
@@ -50,13 +51,5 @@ class AppConfig {
           ? 'Customer'
           : _appDisplayName.trim()
       : appDisplayName.trim();
-  String get normalizedTenantHost => _normalizeTenantHost(tenantHost);
-
-  static String _normalizeTenantHost(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '';
-    final uri = Uri.tryParse(trimmed);
-    if (uri != null && uri.host.isNotEmpty) return uri.host;
-    return trimmed.split('/').first.split(':').first;
-  }
+  String get normalizedTenantHost => normalizeCustomerTenantHost(tenantHost);
 }

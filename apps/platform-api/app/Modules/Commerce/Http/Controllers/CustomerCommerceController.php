@@ -268,10 +268,12 @@ class CustomerCommerceController extends Controller
     }
 
     /**
-     * @param array{resource?: array<string, mixed>|null, status?: int, error?: string} $result
+     * @param array{resource?: array<string, mixed>|null, status?: int, error?: string, field?: string} $result
      */
     private function writeResult(Request $request, array $result, int $defaultStatus = 200): JsonResponse
     {
+        $paymentField = trim((string) ($result['field'] ?? 'channel')) ?: 'channel';
+
         return match ($result['error'] ?? null) {
             'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
@@ -280,7 +282,7 @@ class CustomerCommerceController extends Controller
             'wallet_insufficient_balance' => ApiErrorResponse::walletInsufficientBalance($request),
             'not_found' => ApiErrorResponse::notFound($request),
             'payment_method_disabled' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment method is currently disabled.']]),
-            'payment_provider_not_configured' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment provider is not configured. Please contact the store.']]),
+            'payment_provider_not_configured' => ApiErrorResponse::validationFailed($request, [$paymentField => ['This payment provider is not configured. Please contact the store.']]),
             'payment_provider_managed' => ApiErrorResponse::validationFailed($request, ['slip' => ['This payment method does not require a transfer slip.']]),
             'payment_provider_not_supported' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment provider is not supported.']]),
             'payment_provider_invalid_response',

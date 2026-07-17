@@ -126,6 +126,7 @@ class CustomerProfileSettings {
     required this.bankAccount,
     required this.autoReward,
     this.walletId = '',
+    this.walletName = '',
   });
 
   factory CustomerProfileSettings.fromJson(Map<String, dynamic> json) {
@@ -170,6 +171,7 @@ class CustomerProfileSettings {
       bankAccount: RewardBankAccount.fromJson(_profileBankAccount(payload)),
       autoReward: AutoRewardSetting.fromJson(_profileAutoReward(payload)),
       walletId: _profileWalletId(payload),
+      walletName: _profileWalletName(payload),
     );
   }
 
@@ -180,6 +182,7 @@ class CustomerProfileSettings {
   final RewardBankAccount bankAccount;
   final AutoRewardSetting autoReward;
   final String walletId;
+  final String walletName;
 }
 
 Map<String, dynamic> _profilePayload(
@@ -273,6 +276,31 @@ String _profileWalletId(Map<String, dynamic> json) {
     if (text.isNotEmpty) return text;
   }
   return '';
+}
+
+String _profileWalletName(Map<String, dynamic> json) {
+  final wallet = asMap(json['wallet']);
+  final primaryWallet = asMap(json['primary_wallet']);
+  final primaryWalletCamel = asMap(json['primaryWallet']);
+  return _firstProfileText([
+    wallet['name'],
+    wallet['display_name'],
+    wallet['displayName'],
+    wallet['wallet_name'],
+    wallet['walletName'],
+    primaryWallet['name'],
+    primaryWallet['display_name'],
+    primaryWallet['displayName'],
+    primaryWallet['wallet_name'],
+    primaryWallet['walletName'],
+    primaryWalletCamel['name'],
+    primaryWalletCamel['display_name'],
+    primaryWalletCamel['displayName'],
+    primaryWalletCamel['wallet_name'],
+    primaryWalletCamel['walletName'],
+    json['wallet_name'],
+    json['walletName'],
+  ]);
 }
 
 String _joinedProfileName(Map<String, dynamic> json) {

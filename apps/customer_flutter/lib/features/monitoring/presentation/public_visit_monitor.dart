@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/navigation/web_runtime.dart';
+import '../../../core/tenant/customer_tenant_host.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../data/public_visit_id_store.dart';
 import '../data/public_visit_repository.dart';
 
@@ -103,7 +105,12 @@ class _PublicVisitMonitorState extends ConsumerState<PublicVisitMonitor> {
       final screen = media == null
           ? null
           : '${media.size.width.round()}x${media.size.height.round()}';
-      final hostScope = _publicVisitHostScope(ref.read(appConfigProvider));
+      final bootstrap = ref.read(mobileBootstrapProvider).valueOrNull;
+      final hostScope = publicVisitHostScope(
+        ref.read(appConfigProvider),
+        runtimeTenantHost: bootstrap?.tenantHost ?? '',
+        runtimeCanonicalUrl: bootstrap?.canonicalUrl ?? '',
+      );
       final idStore = ref.read(publicVisitIdStoreProvider);
       final visitorId = await idStore.visitorId(hostScope);
       final sessionId = idStore.sessionId(hostScope);
@@ -173,10 +180,20 @@ String publicVisitRouteName(String location) {
       .toLowerCase();
 }
 
-String _publicVisitHostScope(AppConfig config) {
-  if (currentWebHost.isNotEmpty) return currentWebHost;
-  final parsed = Uri.tryParse(config.apiBaseUrl);
-  return parsed?.host.isNotEmpty == true ? parsed!.host : 'default';
+String publicVisitHostScope(
+  AppConfig config, {
+  String runtimeTenantHost = '',
+  String runtimeCanonicalUrl = '',
+  String? webHost,
+}) {
+  final host = resolveCustomerTenantHost(
+    currentHost: webHost ?? currentWebHost,
+    configuredTenantHost: config.normalizedTenantHost,
+    runtimeTenantHost: runtimeTenantHost,
+    runtimeCanonicalUrl: runtimeCanonicalUrl,
+    apiBaseUrl: config.apiBaseUrl,
+  );
+  return host.isEmpty ? 'default' : host;
 }
 
 String _firstQuery(Uri? uri, List<String> keys) {

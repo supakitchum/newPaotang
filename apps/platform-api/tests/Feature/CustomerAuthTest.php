@@ -53,6 +53,11 @@ class CustomerAuthTest extends TestCase
             'customer_id' => $registered['user']['id'],
             'type' => 'primary',
         ]);
+        DB::table('wallets')
+            ->where('tenant_id', 'ten_auth_m5')
+            ->where('customer_id', $registered['user']['id'])
+            ->where('type', 'primary')
+            ->update(['name' => 'Runtime Blue Wallet']);
 
         $login = $this->postJson('http://auth.m5.test/api/v1/customer/auth/login', [
             'username' => '0801002000',
@@ -60,6 +65,8 @@ class CustomerAuthTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('user.id', $registered['user']['id'])
+            ->assertJsonPath('user.wallet.name', 'Runtime Blue Wallet')
+            ->assertJsonPath('user.primary_wallet.name', 'Runtime Blue Wallet')
             ->json();
         $loginSession = DB::table('customer_auth_sessions')
             ->where('access_token_hash', hash('sha256', $login['token']))
@@ -101,7 +108,9 @@ class CustomerAuthTest extends TestCase
         $this->withToken($refreshed['token'])
             ->getJson('http://auth.m5.test/api/v1/customer/profile')
             ->assertOk()
-            ->assertJsonPath('id', $registered['user']['id']);
+            ->assertJsonPath('id', $registered['user']['id'])
+            ->assertJsonPath('wallet.name', 'Runtime Blue Wallet')
+            ->assertJsonPath('primary_wallet.name', 'Runtime Blue Wallet');
 
         $this->withToken($refreshed['token'])
             ->patchJson('http://auth.m5.test/api/v1/customer/profile', [

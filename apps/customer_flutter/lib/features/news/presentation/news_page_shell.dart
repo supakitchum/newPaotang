@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import 'news_visual_tokens.dart';
 
@@ -7,14 +8,20 @@ class NewsPageShell extends StatelessWidget {
   const NewsPageShell({
     required this.child,
     super.key,
-    this.maxWidth = 640,
+    this.maxWidth = 760,
+    this.topPadding = 20,
+    this.mobileHorizontal = 16,
+    this.wideHorizontal = 16,
   });
 
-  static const heroMinHeight = 214.0;
-  static const sheetOverlap = 54.0;
+  static const heroMinHeight = customerReferenceCompactHeroHeight;
+  static const sheetOverlap = 0.0;
 
   final Widget child;
   final double maxWidth;
+  final double topPadding;
+  final double mobileHorizontal;
+  final double wideHorizontal;
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +31,11 @@ class NewsPageShell extends StatelessWidget {
         _NewsContentSheet(
           child: CustomerPageBody(
             maxWidth: maxWidth,
-            top: 0,
+            top: topPadding,
             bottom: 96,
-            mobileHorizontal: 16,
-            wideHorizontal: 16,
+            mobileHorizontal: mobileHorizontal,
+            wideHorizontal: wideHorizontal,
+            alignment: Alignment.topCenter,
             child: child,
           ),
         ),
@@ -43,13 +51,19 @@ class _NewsContentSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final minHeight = viewport.width <= 520
+        ? (viewport.height - 155).clamp(0.0, double.infinity)
+        : 620.0;
+
     return DecoratedBox(
+      key: const ValueKey('news-content-sheet'),
       decoration: BoxDecoration(
         color: newsCardSurfaceColor(context),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 620),
+        constraints: BoxConstraints(minHeight: minHeight),
         child: child,
       ),
     );

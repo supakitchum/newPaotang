@@ -60,22 +60,21 @@ class CustomerRealtimeAuthService
             $stringToSign .= ':'.$channelData;
         }
 
-        $key = (string) config('platform.realtime.customer_key', config('platform.realtime.admin_key', 'newpaotang-customer'));
-        $secret = (string) config('platform.realtime.customer_secret', config('platform.realtime.admin_secret', 'newpaotang-customer-secret'));
+        $key = trim((string) config('broadcasting.connections.reverb.key', ''));
+        $secret = trim((string) config('broadcasting.connections.reverb.secret', ''));
 
         if ($key === '') {
-            $key = 'newpaotang-customer';
+            $key = 'newpaotang-admin';
         }
 
         if ($secret === '') {
-            $secret = 'newpaotang-customer-secret';
+            $secret = 'newpaotang-admin-secret';
         }
 
         return [
             'auth' => $key.':'.hash_hmac('sha256', $stringToSign, $secret),
             'channel_data' => $channelData,
             'expires_at' => now()->addSeconds((int) config('platform.realtime.auth_ttl_seconds', 300))->toISOString(),
-            'production_realtime_ready' => false,
         ];
     }
 

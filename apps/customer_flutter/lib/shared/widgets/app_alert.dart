@@ -94,16 +94,25 @@ class _AppAlertOverlay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final colors = Theme.of(context).colorScheme;
     final foreground = switch (state.variant) {
-      AppAlertVariant.error => colors.error,
-      AppAlertVariant.warning => colors.tertiary,
-      AppAlertVariant.info => colors.primary,
+      AppAlertVariant.error => const Color(0xFFE03131),
+      AppAlertVariant.warning => const Color(0xFFF19B00),
+      AppAlertVariant.info => const Color(0xFF086BDD),
+    };
+    final iconBackground = switch (state.variant) {
+      AppAlertVariant.error => const Color(0xFFFFE8E8),
+      AppAlertVariant.warning => const Color(0xFFFFF4DF),
+      AppAlertVariant.info => const Color(0xFFE8F4FF),
     };
     final icon = switch (state.variant) {
       AppAlertVariant.error => Icons.close_rounded,
       AppAlertVariant.warning => Icons.priority_high_rounded,
       AppAlertVariant.info => Icons.info_outline_rounded,
+    };
+    final iconSize = switch (state.variant) {
+      AppAlertVariant.error => 30.0,
+      AppAlertVariant.warning => 38.0,
+      AppAlertVariant.info => 34.0,
     };
     final title =
         state.title.trim().isEmpty ? l10n.appAlertDefaultTitle : state.title;
@@ -112,69 +121,92 @@ class _AppAlertOverlay extends ConsumerWidget {
 
     return Positioned.fill(
       child: Material(
-        color: colors.scrim.withValues(alpha: 0.48),
+        color: const Color(0x94001636),
         child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Container(
-                margin: const EdgeInsets.all(24),
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.shadow.withValues(alpha: 0.15),
-                      blurRadius: 28,
-                      offset: const Offset(0, 16),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 342),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 31, 24, 25),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x3D002658),
+                          blurRadius: 44,
+                          offset: Offset(0, 20),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: foreground.withValues(alpha: 0.12),
-                      child: Icon(icon, color: foreground, size: 34),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: colors.onSurface,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 66,
+                          height: 66,
+                          decoration: BoxDecoration(
+                            color: iconBackground,
+                            shape: BoxShape.circle,
                           ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            icon,
+                            color: foreground,
+                            size: iconSize,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: const Color(0xFF242833),
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.3,
+                                  ),
+                        ),
+                        if (state.message.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            state.message,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: const Color(0xFF5D6470),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.55,
+                                ),
+                          ),
+                        ],
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          child: CustomerGradientButton.text(
+                            key: const ValueKey('app-alert-close-button'),
+                            onPressed: () {
+                              ref
+                                  .read(appAlertControllerProvider.notifier)
+                                  .close();
+                            },
+                            height: 52,
+                            fontSize: 18,
+                            shadow: false,
+                            label: button,
+                          ),
+                        ),
+                      ],
                     ),
-                    if (state.message.trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        state.message,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colors.onSurfaceVariant
-                                  .withValues(alpha: 0.9),
-                              height: 1.4,
-                            ),
-                      ),
-                    ],
-                    const SizedBox(height: 22),
-                    SizedBox(
-                      width: double.infinity,
-                      child: CustomerGradientButton.text(
-                        key: const ValueKey('app-alert-close-button'),
-                        onPressed: () {
-                          ref.read(appAlertControllerProvider.notifier).close();
-                        },
-                        height: 47,
-                        fontSize: 15,
-                        shadow: false,
-                        label: button,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

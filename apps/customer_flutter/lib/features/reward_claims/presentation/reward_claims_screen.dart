@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/reward_claim_models.dart';
@@ -15,8 +17,6 @@ const _rewardClaimHeadTextColor = Color(0xFF202938);
 const _rewardClaimBodyTextColor = Color(0xFF4B5563);
 const _rewardClaimMutedTextColor = Color(0xFF94A3B8);
 const _rewardClaimDividerColor = Color(0xFFEEF2F7);
-const _rewardClaimChevronColor = Color(0xFF3B9CFF);
-const _rewardClaimEmptyIconColor = Color(0xFF0B69DC);
 const _rewardClaimEmptyIconBackground = Color(0xFFEEF7FF);
 const _rewardClaimEmptyTitleColor = Color(0xFF111827);
 const _rewardClaimEmptyTextColor = Color(0xFF64748B);
@@ -26,11 +26,6 @@ const _rewardClaimPendingColor = Color(0xFFE29300);
 const _rewardClaimPendingBackground = Color(0xFFFFF3D0);
 const _rewardClaimRejectedColor = Color(0xFFED2C25);
 const _rewardClaimRejectedBackground = Color(0xFFFFE1DF);
-const _rewardClaimPrimaryStart = Color(0xFF149AF9);
-const _rewardClaimPrimaryEnd = Color(0xFF0064D5);
-const _rewardClaimPrimaryShadow = Color(0x380066D5);
-const _rewardClaimOutlineBorder = Color(0xFF0B69DC);
-const _rewardClaimOutlineText = Color(0xFF075EC9);
 const _rewardClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
 const _rewardClaimOutlineDisabledText = Color(0xFF8A8F98);
 const _rewardClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
@@ -69,33 +64,31 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
 
     return AppShell(
       title: l10n.rewardClaimsHeaderTitle,
-      currentPath: '/profile',
+      currentPath: '/reward-claims',
       backPath: '/profile',
       sensitive: true,
       showBottomNavigation: false,
       compactHeader: true,
-      child: RefreshIndicator(
-        onRefresh: () => _loadInitial(
-          showLoading: false,
-          preserveDataOnError: true,
-        ),
-        child: _RewardClaimsPageBody(
-          child: _RewardClaimsContent(
-            claims: List<RewardClaimItem>.unmodifiable(_claims),
-            hasMore: _hasMore,
-            loadingInitial: _loadingInitial,
-            loadingMore: _loadingMore,
-            error: _error,
-            refreshError: _refreshError,
-            loadMoreError: _loadMoreError,
-            onRefreshRetry: () => _loadInitial(
-              showLoading: false,
-              preserveDataOnError: true,
-            ),
-            onLoadMore: _loadMore,
-            onTickets: () => context.go('/tickets/history'),
-            onClaim: (claim) => context.go('/reward-claims/${claim.id}'),
+      heroContent: const SizedBox.shrink(),
+      heroMinHeight: 96,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      child: _RewardClaimsPageBody(
+        child: _RewardClaimsContent(
+          claims: List<RewardClaimItem>.unmodifiable(_claims),
+          hasMore: _hasMore,
+          loadingInitial: _loadingInitial,
+          loadingMore: _loadingMore,
+          error: _error,
+          refreshError: _refreshError,
+          loadMoreError: _loadMoreError,
+          onRefreshRetry: () => _loadInitial(
+            showLoading: false,
+            preserveDataOnError: true,
           ),
+          onLoadMore: _loadMore,
+          onTickets: () => context.go('/tickets/history'),
+          onClaim: (claim) => context.go('/reward-claims/${claim.id}'),
         ),
       ),
     );
@@ -140,6 +133,14 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted) return;
       final message = rewardClaimErrorMessage(
         error,
         context.l10n.rewardClaimsLoadFailed,
@@ -179,14 +180,21 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
         _loadMoreError = '';
       });
     } catch (error) {
-      if (mounted) {
-        setState(
-          () => _loadMoreError = rewardClaimErrorMessage(
-            error,
-            context.l10n.rewardClaimsLoadMoreFailed,
-          ),
-        );
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
       }
+      if (!mounted) return;
+      setState(
+        () => _loadMoreError = rewardClaimErrorMessage(
+          error,
+          context.l10n.rewardClaimsLoadMoreFailed,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -281,7 +289,6 @@ class _RewardClaimsContent extends StatelessWidget {
             for (var index = 0; index < claims.length; index++)
               _RewardClaimTile(
                 claim: claims[index],
-                showDivider: index < claims.length - 1,
                 onTap: () => onClaim(claims[index]),
               ),
           ],
@@ -314,12 +321,10 @@ class _RewardClaimsContent extends StatelessWidget {
 class _RewardClaimTile extends StatelessWidget {
   const _RewardClaimTile({
     required this.claim,
-    required this.showDivider,
     required this.onTap,
   });
 
   final RewardClaimItem claim;
-  final bool showDivider;
   final VoidCallback onTap;
 
   @override
@@ -343,12 +348,11 @@ class _RewardClaimTile extends StatelessWidget {
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           onTap: onTap,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: showDivider
-                  ? Border(
-                      bottom: BorderSide(color: _rewardClaimDividerColor),
-                    )
-                  : null,
+            key: ValueKey('reward-claim-row-${claim.id}'),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: _rewardClaimDividerColor),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
@@ -359,8 +363,6 @@ class _RewardClaimTile extends StatelessWidget {
                   _RewardClaimRowLine(
                     leading: Text(
                       l10n.rewardClaimsPrizeTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: _rewardClaimHeadTextColor,
                             fontSize: 17,
@@ -387,8 +389,6 @@ class _RewardClaimTile extends StatelessWidget {
                         for (final name in prizeNames)
                           Text(
                             name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context)
                                 .textTheme
                                 .bodyMedium
@@ -410,8 +410,6 @@ class _RewardClaimTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     rewardClaimPayoutSummary(l10n, claim),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: _rewardClaimBodyTextColor,
                           fontSize: 15,
@@ -422,8 +420,6 @@ class _RewardClaimTile extends StatelessWidget {
                   _RewardClaimRowLine(
                     leading: Text(
                       submittedAt,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: _rewardClaimMutedTextColor,
                             fontSize: 11,
@@ -433,7 +429,9 @@ class _RewardClaimTile extends StatelessWidget {
                     ),
                     trailing: Icon(
                       Icons.chevron_right,
-                      color: _rewardClaimChevronColor,
+                      color: AppTheme.claimChevron(
+                        Theme.of(context).colorScheme.primary,
+                      ),
                       size: 23,
                     ),
                     trailingMaxWidthFactor: 0.2,
@@ -506,7 +504,7 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         label,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        softWrap: false,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: color,
               fontSize: 15,
@@ -667,6 +665,11 @@ class _RewardClaimsEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconBackground = colorScheme.primary == AppTheme.appBlue
+        ? _rewardClaimEmptyIconBackground
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.91) ??
+            colorScheme.primaryContainer;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 54),
@@ -677,11 +680,11 @@ class _RewardClaimsEmpty extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _rewardClaimEmptyIconBackground,
+              color: iconBackground,
             ),
             child: Icon(
               Icons.emoji_events_outlined,
-              color: _rewardClaimEmptyIconColor,
+              color: AppTheme.primaryOutlineBorder(colorScheme.primary),
               size: 30,
             ),
           ),
@@ -729,6 +732,7 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(999);
+    final primary = Theme.of(context).colorScheme.primary;
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 190, minHeight: 47),
       child: DecoratedBox(
@@ -737,11 +741,14 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [_rewardClaimPrimaryStart, _rewardClaimPrimaryEnd],
+            colors: [
+              AppTheme.primaryActionStart(primary),
+              AppTheme.primaryActionEnd(primary),
+            ],
           ),
           boxShadow: [
             BoxShadow(
-              color: _rewardClaimPrimaryShadow,
+              color: AppTheme.primaryActionEnd(primary).withValues(alpha: 0.22),
               blurRadius: 22,
               offset: const Offset(0, 10),
             ),
@@ -807,11 +814,12 @@ Color _statusBackgroundColor(RewardClaimItem claim) {
 }
 
 ButtonStyle _claimOutlinePillStyle(BuildContext context) {
+  final primary = Theme.of(context).colorScheme.primary;
   return OutlinedButton.styleFrom(
     backgroundColor: Colors.white,
     disabledBackgroundColor: _rewardClaimOutlineDisabledBackground,
     disabledForegroundColor: _rewardClaimOutlineDisabledText,
-    foregroundColor: _rewardClaimOutlineText,
+    foregroundColor: AppTheme.primaryOutlineText(primary),
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
@@ -823,7 +831,7 @@ ButtonStyle _claimOutlinePillStyle(BuildContext context) {
       (states) => BorderSide(
         color: states.contains(WidgetState.disabled)
             ? _rewardClaimOutlineDisabledBorder
-            : _rewardClaimOutlineBorder,
+            : AppTheme.primaryOutlineBorder(primary),
       ),
     ),
   );

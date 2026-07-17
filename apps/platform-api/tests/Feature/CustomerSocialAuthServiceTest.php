@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Modules\Auth\Http\Controllers\CustomerSocialAuthController;
+use App\Modules\Auth\Services\CustomerRealtimeAuthService;
 use App\Modules\Auth\Services\TenantSocialAuthService;
+use App\Modules\Partner\Services\PartnerProvisioningService;
+use App\Modules\Tenancy\Services\TenantConfigurationService;
+use App\Shared\Auth\CustomerSessionContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -205,6 +209,172 @@ class CustomerSocialAuthServiceTest extends TestCase
         ], $routes));
     }
 
+    public function test_mobile_bootstrap_exposes_runtime_social_provider_appearance(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        DB::table('tenant_social_auth_providers')
+            ->where('tenant_id', 'ten_social')
+            ->where('provider', 'google')
+            ->update([
+                'metadata_json' => json_encode([
+                    'test' => true,
+                    'appearance' => [
+                        'display_label' => 'Continue with Search Account',
+                        'brand_color' => '#123456',
+                        'button_background_color' => '#234567',
+                        'button_foreground_color' => '#FFFFFF',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ]);
+
+        $providers = $this->getJson('http://social-store.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->json('data.mobile.auth_providers');
+        $provider = collect($providers)->firstWhere('provider', 'google');
+
+        $this->assertSame('Continue with Search Account', $provider['label'] ?? null);
+        $this->assertSame('#123456', $provider['brand_color'] ?? null);
+        $this->assertSame('#234567', $provider['button_background_color'] ?? null);
+        $this->assertSame('#FFFFFF', $provider['button_foreground_color'] ?? null);
+    }
+
+    public function test_mobile_bootstrap_uses_tenant_realtime_url_and_server_connection_metadata(): void
+    {
+        config([
+            'platform.realtime.customer_public_url' => 'https://global-realtime.example.test/socket',
+            'broadcasting.connections.reverb.key' => 'customer-runtime-key',
+            'broadcasting.connections.reverb.secret' => 'customer-runtime-secret',
+            'platform.realtime.customer_client' => 'customer-mobile-runtime',
+            'platform.realtime.customer_auth_endpoint' => '/customer/realtime/auth',
+            'platform.realtime.customer_protocol' => 8,
+        ]);
+        $this->seedTenant('social-store.test');
+        $this->seedTenantSettings('wss://tenant-realtime.example.test/reverb');
+
+        $realtime = $this->getJson('http://social-store.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->json('data.mobile.realtime');
+
+        $this->assertTrue((bool) ($realtime['enabled'] ?? false));
+        $this->assertSame('wss://tenant-realtime.example.test/reverb', $realtime['url'] ?? null);
+        $this->assertSame('customer-runtime-key', $realtime['key'] ?? null);
+        $this->assertSame('customer-mobile-runtime', $realtime['client'] ?? null);
+        $this->assertSame('/customer/realtime/auth', $realtime['auth_endpoint'] ?? null);
+        $this->assertSame(8, $realtime['protocol'] ?? null);
+
+        $authorization = app(CustomerRealtimeAuthService::class)->authorize(
+            new CustomerSessionContext(
+                ['tenant_id' => 'ten_social', 'customer_id' => 'cus_social'],
+                ['name' => 'Realtime Customer'],
+            ),
+            [
+                'socket_id' => '123.456',
+                'channel_name' => 'private-customer.tenant.ten_social.customer.cus_social.orders',
+            ],
+        );
+
+        $this->assertStringStartsWith('customer-runtime-key:', (string) ($authorization['auth'] ?? ''));
+    }
+
+    public function test_mobile_bootstrap_ignores_invalid_tenant_realtime_url_and_uses_safe_global_fallback(): void
+    {
+        config([
+            'platform.realtime.customer_public_url' => 'https://global-realtime.example.test/socket',
+            'broadcasting.connections.reverb.key' => 'customer-runtime-key',
+        ]);
+        $this->seedTenant('social-store.test');
+        $this->seedTenantSettings('javascript:alert(1)');
+
+        $realtime = $this->getJson('http://social-store.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->json('data.mobile.realtime');
+
+        $this->assertTrue((bool) ($realtime['enabled'] ?? false));
+        $this->assertSame('https://global-realtime.example.test/socket', $realtime['url'] ?? null);
+    }
+
+    public function test_realtime_url_validation_is_shared_by_tenant_profile_and_provisioning_writes(): void
+    {
+        $invalidUrl = 'wss://user:secret@realtime.example.test/socket#token';
+
+        $tenantErrors = app(TenantConfigurationService::class)->validateSettingsPayload('ten_social', [
+            'api' => ['realtime_url' => $invalidUrl],
+        ]);
+        $profileErrors = app(PartnerProvisioningService::class)->validatePartnerTenantProfilePayload('par_social', [
+            'section' => 'settings',
+            'settings' => ['api' => ['realtime_url' => $invalidUrl]],
+        ]);
+        $provisionErrors = app(PartnerProvisioningService::class)->validateProvisionPayload([
+            'owner_email' => 'owner@example.test',
+            'realtime_url' => $invalidUrl,
+        ]);
+
+        $this->assertArrayHasKey('realtime_url', $tenantErrors);
+        $this->assertArrayHasKey('realtime_url', $profileErrors);
+        $this->assertArrayHasKey('realtime_url', $provisionErrors);
+
+        foreach (['https://realtime.example.test', 'wss://realtime.example.test/socket?cluster=tenant'] as $validUrl) {
+            $errors = app(TenantConfigurationService::class)->validateSettingsPayload('ten_social', [
+                'api' => ['realtime_url' => $validUrl],
+            ]);
+            $this->assertArrayNotHasKey('realtime_url', $errors);
+        }
+    }
+
+    public function test_social_provider_update_preserves_metadata_and_persists_appearance(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+
+        $result = app(TenantSocialAuthService::class)->update('ten_social', 'google', [
+            'status' => 'active',
+            'display_label' => 'Google Customer',
+            'brand_color' => '#4285f4',
+            'button_background_color' => '#ffffff',
+            'button_foreground_color' => '#1f2937',
+        ]);
+
+        $this->assertArrayNotHasKey('error', $result);
+        $record = DB::table('tenant_social_auth_providers')
+            ->where('tenant_id', 'ten_social')
+            ->where('provider', 'google')
+            ->first();
+        $metadata = json_decode((string) ($record?->metadata_json ?? '{}'), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertTrue((bool) ($metadata['test'] ?? false));
+        $this->assertSame(['openid', 'profile', 'email'], $metadata['scopes'] ?? null);
+        $this->assertSame('Google Customer', $metadata['appearance']['display_label'] ?? null);
+        $this->assertSame('#4285F4', $metadata['appearance']['brand_color'] ?? null);
+        $this->assertSame('#FFFFFF', $metadata['appearance']['button_background_color'] ?? null);
+        $this->assertSame('#1F2937', $metadata['appearance']['button_foreground_color'] ?? null);
+    }
+
+    public function test_line_customer_appearance_can_be_saved_without_owning_line_credentials(): void
+    {
+        $this->seedTenant('social-store.test');
+
+        $result = app(TenantSocialAuthService::class)->update('ten_social', 'line', [
+            'display_label' => 'LINE Member',
+            'brand_color' => '#06c755',
+            'button_background_color' => '#06c755',
+            'button_foreground_color' => '#ffffff',
+        ]);
+
+        $this->assertArrayNotHasKey('error', $result);
+        $provider = collect($result['resource']['data']['providers'] ?? [])
+            ->firstWhere('provider', 'line');
+
+        $this->assertSame('LINE Member', $provider['label'] ?? null);
+        $this->assertSame('#06C755', $provider['brand_color'] ?? null);
+        $this->assertFalse((bool) ($provider['configured'] ?? true));
+        $this->assertDatabaseHas('tenant_social_auth_providers', [
+            'tenant_id' => 'ten_social',
+            'provider' => 'line',
+            'status' => 'inactive',
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -283,6 +453,18 @@ class CustomerSocialAuthServiceTest extends TestCase
             'private_key_encrypted' => $provider === 'apple' ? Crypt::encryptString('private-key') : null,
             'redirect_uri' => null,
             'metadata_json' => json_encode(['test' => true], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function seedTenantSettings(?string $realtimeUrl): void
+    {
+        DB::table('partner_tenant_settings')->insert([
+            'id' => 'pts_social',
+            'tenant_id' => 'ten_social',
+            'site_name' => 'Social Tenant',
+            'realtime_url' => $realtimeUrl,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

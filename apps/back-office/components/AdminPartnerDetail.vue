@@ -179,13 +179,27 @@
                 <label class="form-label">Timezone</label>
                 <input v-model="settingsForm.timezone" class="form-control" type="text" :disabled="!primaryTenant">
               </div>
-              <div class="col-12 col-md-3">
+              <div class="col-12 col-md-4">
                 <label class="form-label">Support email</label>
                 <input v-model="settingsForm.support_email" class="form-control" type="email" :disabled="!primaryTenant">
               </div>
-              <div class="col-12 col-md-3">
+              <div class="col-12 col-md-4">
                 <label class="form-label">Support phone</label>
                 <input v-model="settingsForm.support_phone" class="form-control" type="text" :disabled="!primaryTenant">
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">Support URL</label>
+                <input v-model="settingsForm.support_url" class="form-control" type="url" placeholder="https://support.example.com" :disabled="!primaryTenant">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Lottery product label</label>
+                <input v-model="settingsForm.lottery_product_label" class="form-control" type="text" maxlength="32" placeholder="L6" :disabled="!primaryTenant">
+                <div class="form-text">Short product marker shown on tickets, receipts, PIN, and result screens.</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Ticket image watermark</label>
+                <input v-model="settingsForm.ticket_image_watermark" class="form-control" type="text" maxlength="64" placeholder="Configured tenant or provider name" :disabled="!primaryTenant">
+                <div class="form-text">Optional watermark used only on generated ticket artwork.</div>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Default title</label>
@@ -265,7 +279,8 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Realtime URL</label>
-                <input v-model="settingsForm.realtime_url" class="form-control" type="text" :disabled="!primaryTenant">
+                <input v-model="settingsForm.realtime_url" class="form-control" type="text" placeholder="wss://realtime.example.com" :disabled="!primaryTenant">
+                <div class="form-text">Optional tenant override. Use an absolute HTTP(S) or WS(S) URL; leave blank to use the platform default.</div>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Asset CDN base URL</label>
@@ -625,6 +640,9 @@ function buildSectionPayload(section: SectionKey) {
         timezone: settingsForm.timezone,
         support_email: nullable(settingsForm.support_email),
         support_phone: nullable(settingsForm.support_phone),
+        support_url: nullable(settingsForm.support_url),
+        lottery_product_label: nullable(settingsForm.lottery_product_label),
+        ticket_image_watermark: nullable(settingsForm.ticket_image_watermark),
       },
       seo: {
         default_title: nullable(settingsForm.default_title),
@@ -718,6 +736,9 @@ function resetForms() {
     timezone: valueOrDefault(settings?.site?.timezone, 'Asia/Bangkok'),
     support_email: valueOrEmpty(settings?.site?.support_email),
     support_phone: valueOrEmpty(settings?.site?.support_phone),
+    support_url: valueOrEmpty(settings?.site?.support_url),
+    lottery_product_label: valueOrEmpty(settings?.site?.lottery_product_label),
+    ticket_image_watermark: valueOrEmpty(settings?.site?.ticket_image_watermark),
     default_title: valueOrDefault(settings?.seo?.default_title, tenant.name || record.name || ''),
     title_template: valueOrEmpty(settings?.seo?.title_template),
     default_description: valueOrEmpty(settings?.seo?.default_description),
@@ -742,12 +763,12 @@ function resetForms() {
     logo_url: valueOrEmpty(theme?.brand?.logo_url),
     favicon_url: valueOrEmpty(theme?.brand?.favicon_url),
     og_image_url: valueOrEmpty(theme?.brand?.og_image_url),
-    primary_color: valueOrDefault(theme?.theme?.primary_color, '#0F766E'),
-    secondary_color: valueOrDefault(theme?.theme?.secondary_color, '#2563EB'),
-    accent_color: valueOrDefault(theme?.theme?.accent_color, '#F59E0B'),
+    primary_color: valueOrDefault(theme?.theme?.primary_color, '#087FF0'),
+    secondary_color: valueOrDefault(theme?.theme?.secondary_color, '#19B8EF'),
+    accent_color: valueOrDefault(theme?.theme?.accent_color, '#FFD10B'),
     background_color: valueOrDefault(theme?.theme?.background_color, '#FFFFFF'),
-    text_color: valueOrDefault(theme?.theme?.text_color, '#111827'),
-    font_family: valueOrDefault(theme?.theme?.font_family, 'Inter, sans-serif'),
+    text_color: valueOrDefault(theme?.theme?.text_color, '#242833'),
+    font_family: valueOrDefault(theme?.theme?.font_family, 'Kanit'),
   })
   assignForm(ownerForm, {
     owner_email: valueOrEmpty(owner.email),

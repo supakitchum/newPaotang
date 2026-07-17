@@ -389,8 +389,18 @@ const _customerRouteFeaturePolicies = [
     featureKeys: ['lottery', 'tickets', 'customer_tickets'],
   ),
   _CustomerRouteFeaturePolicy(
-    prefixes: ['/result', '/results', '/waiting-result'],
-    featureKeys: ['lottery', 'results', 'lottery_results', 'waiting_result'],
+    prefixes: ['/result', '/results'],
+    featureKeys: ['lottery', 'results', 'lottery_results', 'reward_check'],
+  ),
+  _CustomerRouteFeaturePolicy(
+    prefixes: ['/waiting-result', '/wait-result'],
+    featureKeys: [
+      'lottery',
+      'results',
+      'lottery_results',
+      'reward_check',
+      'waiting_result',
+    ],
   ),
   _CustomerRouteFeaturePolicy(
     prefixes: ['/my-wallet'],

@@ -17,6 +17,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets('topup history follows Nuxt hero and list spacing', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpTopupHistory(
+      tester,
+      {
+        1: _overview(
+          histories: [_topup(id: 'top_layout_1', amount: 500)],
+        ),
+      },
+    );
+    await tester.pumpAndSettle();
+
+    final hero = find.byKey(const ValueKey('topup-history-hero'));
+    final back = find.byKey(const ValueKey('topup-history-back-action'));
+    final summary = find.byKey(const ValueKey('topup-history-summary'));
+    final sheet = find.byKey(const ValueKey('topup-history-sheet'));
+    final item = find.byKey(
+      const ValueKey('topup-history-item-top_layout_1'),
+    );
+
+    final heroHeight = tester.getSize(hero).height;
+    final itemHeight = tester.getSize(item).height;
+    expect(heroHeight, greaterThanOrEqualTo(220));
+    expect(tester.getTopLeft(back).dy, 62);
+    expect(tester.getSize(back), const Size.square(42));
+    expect(tester.getTopLeft(summary).dy, 120);
+    expect(tester.getTopLeft(sheet).dy, heroHeight);
+    expect(itemHeight, inInclusiveRange(96, 140));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('topup history uses transfer time and renders bonus amount', (
     tester,
   ) async {
@@ -43,7 +80,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(find.text('เติมเงินเข้า Runtime Blue Wallet'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
     expect(find.text('บาท'), findsOneWidget);
     expect(find.text('500 บาท'), findsNothing);
@@ -92,7 +129,10 @@ void main() {
     expect(find.widgetWithText(TextButton, '2'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '3'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, '2'));
+    final pageTwoButton = find.widgetWithText(TextButton, '2');
+    await tester.ensureVisible(pageTwoButton);
+    await tester.pumpAndSettle();
+    await tester.tap(pageTwoButton);
     await tester.pumpAndSettle();
 
     expect(find.text('รายการ #top_page_1'), findsNothing);
@@ -187,7 +227,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('รายการเติมเงินล่าสุด'), findsOneWidget);
-    expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
+    expect(find.text('เติมเงินเข้า Runtime Blue Wallet'), findsOneWidget);
     expect(find.text('รายการ #top_compact_1'), findsOneWidget);
     expect(find.text('ไม่อนุมัติ'), findsOneWidget);
     expect(find.text('1,234'), findsOneWidget);
@@ -236,7 +276,10 @@ void main() {
     expect(find.text('topup history failed'), findsNothing);
     expect(find.text('ลองใหม่'), findsOneWidget);
 
-    await tester.tap(find.text('ลองใหม่'));
+    final retryButton = find.text('ลองใหม่');
+    await tester.ensureVisible(retryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(retryButton);
     await tester.pumpAndSettle();
 
     expect(calls, 2);
@@ -408,6 +451,7 @@ TopupOverview _overview({
   int lastPage = 1,
 }) {
   return TopupOverview(
+    walletName: 'Runtime Blue Wallet',
     bank: const TopupBankAccount(
       bankName: '',
       accountName: '',

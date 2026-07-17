@@ -939,6 +939,13 @@ class CustomerAuthService
         }
 
         $hasPin = $this->customerHasPin($customer);
+        $wallet = Wallet::query()
+            ->where('tenant_id', (string) $customer->tenant_id)
+            ->where('customer_id', (string) $customer->id)
+            ->orderByRaw("CASE WHEN type = 'primary' THEN 0 ELSE 1 END")
+            ->orderBy('created_at')
+            ->first();
+        $walletResource = $this->customerProfileWalletResource($wallet);
 
         return [
             'id' => (string) $customer->id,
@@ -959,10 +966,28 @@ class CustomerAuthService
                 'payout_method' => $this->normalizeAutoRewardClaimPayoutMethod($customer->auto_reward_claim_payout_method ?? null),
                 'type' => $this->autoRewardClaimType($customer->auto_reward_claim_payout_method ?? null),
             ],
+            'wallet' => $walletResource,
+            'primary_wallet' => $walletResource,
             'has_pin' => $hasPin,
             'pin_verified' => $pinVerified,
             'pin_required' => $hasPin && ! $pinVerified,
             'pin_setup_required' => ! $hasPin,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function customerProfileWalletResource(?object $wallet): ?array
+    {
+        if ($wallet === null) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $wallet->id,
+            'name' => (string) $wallet->name,
+            'type' => (string) $wallet->type,
         ];
     }
 

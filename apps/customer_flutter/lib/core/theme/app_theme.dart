@@ -40,6 +40,31 @@ class AppTheme {
   static const appBottomNavInactive = Color(0xFF8C8F93);
   static const appBottomNavActiveFill = Color(0xFFEEF8FF);
   static const appBottomNavShadow = Color(0xFF14233A);
+  static const appWalletSheet = Color(0xFFF4F6F8);
+  static const appWalletGradientEnd = Color(0xFF12A077);
+  static const appActivityActionFill = Color(0xFFE8F4FF);
+  static const appActivityActionText = Color(0xFF0875DF);
+  static const appActivityFallbackStart = Color(0xFFE8F6FF);
+  static const appActivityFallbackEnd = Color(0xFFF4FBFF);
+  static const appActivityFallbackIcon = Color(0xFF0B7FE8);
+  static const appPinAction = Color(0xFF0D7FE8);
+  static const appPinActionFill = Color(0xFFE8F3FF);
+  static const appPinGradientStart = Color(0xFF14A7FF);
+  static const appPinGradientEnd = Color(0xFF0062D9);
+  static const appTicketTabStart = Color(0xFF1495F5);
+  static const appTicketTabEnd = Color(0xFF0066D6);
+  static const appTicketCountFill = Color(0xFFEEF6FF);
+  static const appTicketCountText = Color(0xFF0B63C7);
+  static const appClaimChevron = Color(0xFF3B9CFF);
+  static const appMaintenanceGradientEnd = Color(0xFF174A8B);
+  static const appSuspendedGradientStart = Color(0xFF0D8FFF);
+  static const appSuspendedGradientMid = Color(0xFF0C69D8);
+  static const appSuspendedGradientEnd = Color(0xFF0AA58F);
+  static const appSuspendedRadialAccent = Color(0xDBFFD60A);
+  static const appCountdownGradientMid = Color(0xFF0A66C8);
+  static const appCountdownGradientEnd = Color(0xFF163970);
+  static const appSystemActionStart = Color(0xFF168CF2);
+  static const appSystemActionEnd = Color(0xFF0A64D8);
 
   static Color primaryActionStart(Color primary) {
     if (primary == appBlue) return appActionStart;
@@ -61,6 +86,259 @@ class AppTheme {
       minLightness: 0.34,
       maxLightness: 0.48,
     );
+  }
+
+  static Color primaryOutlineText(Color primary) {
+    if (primary == appBlue) return appOutlinePillText;
+    return primaryActionEnd(primary);
+  }
+
+  static Color primaryOutlineBorder(Color primary) {
+    if (primary == appBlue) return appOutlinePillBorder;
+    return primary;
+  }
+
+  static Color primaryLink(Color primary) {
+    if (primary == appBlue) return appBlueLink;
+    return primaryActionEnd(primary);
+  }
+
+  static Color primaryFilterBorder(Color primary) {
+    if (primary == appBlue) return appFilterPillActiveBorder;
+    return primary;
+  }
+
+  static Color primaryPaymentCount(Color primary) {
+    if (primary == appBlue) return appPaymentCountBlue;
+    return primaryActionEnd(primary);
+  }
+
+  static Color checkoutWalletBorder(Color primary) {
+    if (primary == appBlue) return appCheckoutWalletBorder;
+    return primary;
+  }
+
+  static Color checkoutWalletMark(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return appCheckoutWalletMark;
+    }
+    return Color.lerp(primary, secondary, 0.34) ?? primary;
+  }
+
+  static Color checkoutWalletNoteFill(Color primary) {
+    if (primary == appBlue) return appCheckoutWalletNoteFill;
+    return Color.lerp(primary, appSheet, 0.84) ?? appSoft;
+  }
+
+  static Color checkoutWalletNoteText(Color primary) {
+    if (primary == appBlue) return appCheckoutWalletNoteText;
+    return primaryActionEnd(primary);
+  }
+
+  static Color bottomNavigationActive(Color primary) {
+    if (primary == appBlue) return appBottomNavActive;
+    return primaryActionEnd(primary);
+  }
+
+  static Color bottomNavigationActiveFill(Color primary) {
+    if (primary == appBlue) return appBottomNavActiveFill;
+    return Color.lerp(primary, appSheet, 0.91) ?? appSoft;
+  }
+
+  static Color successGradientEnd(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return appSuccessGradientEnd;
+    }
+    return Color.lerp(primary, secondary, 0.72) ?? secondary;
+  }
+
+  static Color successRadial(Color primary) {
+    if (primary == appBlue) return appSuccessRadialBlue;
+    return primaryActionEnd(primary);
+  }
+
+  static Color homeActivityFallbackStart(Color primary) {
+    if (primary == appBlue) return const Color(0xFF0B84ED);
+    return primaryActionStart(primary);
+  }
+
+  static Color homeActivityFallbackEnd(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return const Color(0xFF11A584);
+    }
+    return Color.lerp(primary, secondary, 0.72) ?? secondary;
+  }
+
+  static Color homeNewsFallbackStart(Color primary) {
+    if (primary == appBlue) return const Color(0xFF0A87F5);
+    return primaryActionStart(primary);
+  }
+
+  static Color homeNewsFallbackEnd(Color primary, Color onSurface) {
+    if (primary == appBlue) return const Color(0xFF20385F);
+    return Color.lerp(primary, onSurface, 0.58) ?? primaryActionEnd(primary);
+  }
+
+  static Color newsCardFallbackStart(Color primary) {
+    if (primary == appBlue) return const Color(0xFF0B84ED);
+    return primaryActionStart(primary);
+  }
+
+  static Color newsCardFallbackEnd(Color primary, Color onSurface) {
+    if (primary == appBlue) return const Color(0xFF174783);
+    return Color.lerp(primary, onSurface, 0.54) ?? primaryActionEnd(primary);
+  }
+
+  static Color fallbackSpark(Color accent) {
+    if (accent == appYellow) return const Color(0xFFFFD240);
+    return accent;
+  }
+
+  static Color detailKicker(Color primary) {
+    if (primary == appBlue) return const Color(0xFF0875DF);
+    return primary;
+  }
+
+  static Color activityActionFill(Color primary) {
+    if (primary == appBlue) return appActivityActionFill;
+    return Color.lerp(primary, appSheet, 0.88) ?? appSoft;
+  }
+
+  static Color activityActionText(Color primary) {
+    if (primary == appBlue) return appActivityActionText;
+    return detailKicker(primary);
+  }
+
+  static Color activityFallbackStart(Color primary) {
+    if (primary == appBlue) return appActivityFallbackStart;
+    return Color.lerp(primary, appSheet, 0.84) ?? primaryContainer(primary);
+  }
+
+  static Color activityFallbackEnd(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return appActivityFallbackEnd;
+    }
+    return Color.lerp(secondary, appSheet, 0.94) ?? appSoft;
+  }
+
+  static Color activityFallbackIcon(Color primary) {
+    if (primary == appBlue) return appActivityFallbackIcon;
+    return primary;
+  }
+
+  static Color pinAction(Color primary) {
+    if (primary == appBlue) return appPinAction;
+    return primary;
+  }
+
+  static Color pinActionFill(Color primary) {
+    if (primary == appBlue) return appPinActionFill;
+    return Color.lerp(primary, appSheet, 0.88) ?? appSoft;
+  }
+
+  static Color pinGradientStart(Color primary) {
+    if (primary == appBlue) return appPinGradientStart;
+    return primaryActionStart(primary);
+  }
+
+  static Color pinGradientEnd(Color primary) {
+    if (primary == appBlue) return appPinGradientEnd;
+    return primaryActionEnd(primary);
+  }
+
+  static Color ticketTabStart(Color primary) {
+    if (primary == appBlue) return appTicketTabStart;
+    return primaryActionStart(primary);
+  }
+
+  static Color ticketTabEnd(Color primary) {
+    if (primary == appBlue) return appTicketTabEnd;
+    return primaryActionEnd(primary);
+  }
+
+  static Color ticketCountFill(Color primary) {
+    if (primary == appBlue) return appTicketCountFill;
+    return Color.lerp(primary, appSheet, 0.91) ?? appSoft;
+  }
+
+  static Color ticketCountText(Color primary) {
+    if (primary == appBlue) return appTicketCountText;
+    return primaryActionEnd(primary);
+  }
+
+  static Color claimChevron(Color primary) {
+    if (primary == appBlue) return appClaimChevron;
+    return primary;
+  }
+
+  static Color lotterySix(Color primary) {
+    if (primary == appBlue) return appLotterySix;
+    return primaryActionEnd(primary);
+  }
+
+  static Color maintenanceGradientEnd(Color primary, Color onSurface) {
+    if (primary == appBlue) return appMaintenanceGradientEnd;
+    return Color.lerp(primary, onSurface, 0.54) ?? primaryActionEnd(primary);
+  }
+
+  static Color suspendedGradientStart(Color primary) {
+    if (primary == appBlue) return appSuspendedGradientStart;
+    return heroGradientStart(primary);
+  }
+
+  static Color suspendedGradientMid(Color primary) {
+    if (primary == appBlue) return appSuspendedGradientMid;
+    return primaryActionEnd(primary);
+  }
+
+  static Color suspendedGradientEnd(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return appSuspendedGradientEnd;
+    }
+    return Color.lerp(primary, secondary, 0.72) ?? secondary;
+  }
+
+  static Color suspendedRadialAccent(Color accent) {
+    if (accent == appYellow) return appSuspendedRadialAccent;
+    return accent.withValues(alpha: 0.86);
+  }
+
+  static Color countdownGradientMid(Color primary) {
+    if (primary == appBlue) return appCountdownGradientMid;
+    return primaryActionEnd(primary);
+  }
+
+  static Color countdownGradientEnd(Color primary, Color onSurface) {
+    if (primary == appBlue) return appCountdownGradientEnd;
+    return Color.lerp(primary, onSurface, 0.58) ?? primaryActionEnd(primary);
+  }
+
+  static Color systemActionStart(Color primary) {
+    if (primary == appBlue) return appSystemActionStart;
+    return primaryActionStart(primary);
+  }
+
+  static Color systemActionEnd(Color primary) {
+    if (primary == appBlue) return appSystemActionEnd;
+    return primaryActionEnd(primary);
+  }
+
+  static Color primaryContainer(Color primary) {
+    return Color.lerp(primary, appSheet, 0.88) ?? appSoft;
+  }
+
+  static Color splashGradientMid(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return const Color(0xFF0C6FE0);
+    }
+    return Color.lerp(primary, secondary, 0.22) ?? primary;
+  }
+
+  static Color splashGradientEnd(Color primary, Color secondary) {
+    if (primary == appBlue && secondary == appSky) {
+      return const Color(0xFF15AEEA);
+    }
+    return Color.lerp(primary, secondary, 0.78) ?? secondary;
   }
 
   static Color heroGradientStart(Color primary) {

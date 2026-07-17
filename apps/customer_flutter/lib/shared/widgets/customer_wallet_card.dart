@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 
 class CustomerWalletCardAction {
@@ -49,41 +50,27 @@ class CustomerWalletBalanceCard extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final narrow = constraints.maxWidth <= 360;
-        final wide = constraints.maxWidth >= 420;
+        final viewportWidth = MediaQuery.sizeOf(context).width;
+        final narrow = viewportWidth <= 360;
         final paddingValue = compact
-            ? narrow
-                ? 18.0
-                : wide
-                    ? 24.0
-                    : 20.0
-            : narrow
-                ? 19.0
-                : wide
-                    ? 26.0
-                    : 22.0;
+            ? (viewportWidth * 0.048).clamp(18.0, 24.0)
+            : (viewportWidth * 0.05).clamp(19.0, 26.0);
         final padding = EdgeInsets.all(paddingValue);
+        final gridGap = compact
+            ? (viewportWidth * 0.04).clamp(15.0, 20.0)
+            : (viewportWidth * 0.04).clamp(17.0, 22.0);
         final actionGap = compact
             ? 0.0
             : narrow
                 ? 6.0
-                : wide
-                    ? 14.0
-                    : 10.0;
-        final amountTopGap = compact
-            ? wide
-                ? 20.0
-                : 15.0
-            : wide
-                ? 22.0
-                : 17.0;
-        final actionsTopGap = compact ? (wide ? 20.0 : 15.0) : 18.0;
-        final amountFontSize = narrow
-            ? 26.0
-            : wide
-                ? 34.0
-                : 30.0;
-        final yellowAccentRight = wide ? 34.0 : 0.0;
+                : (viewportWidth * 0.03).clamp(8.0, 14.0);
+        final amountFontSize = (viewportWidth * 0.08).clamp(26.0, 34.0);
+        final yellowAccentRight =
+            (constraints.maxWidth * 0.12 - 38).clamp(0.0, double.infinity);
+        final gradientEnd =
+            primary == AppTheme.appBlue && secondary == AppTheme.appSky
+                ? AppTheme.appWalletGradientEnd
+                : Color.lerp(secondary, primary, 0.18) ?? secondary;
 
         return Material(
           color: Colors.transparent,
@@ -97,7 +84,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                 colors: [
                   primary,
                   Color.lerp(primary, secondary, 0.52) ?? primary,
-                  Color.lerp(secondary, primary, 0.18) ?? secondary,
+                  gradientEnd,
                 ],
               ),
               boxShadow: [
@@ -199,7 +186,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                               ),
                           ],
                         ),
-                        SizedBox(height: amountTopGap),
+                        SizedBox(height: gridGap),
                         Semantics(
                           liveRegion: loading,
                           child: FittedBox(
@@ -217,7 +204,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                           ),
                         ),
                         if (!compact && customerLabel.trim().isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                          SizedBox(height: (gridGap - 12).clamp(0.0, 10.0)),
                           Text(
                             customerLabel.trim(),
                             maxLines: 1,
@@ -230,7 +217,7 @@ class CustomerWalletBalanceCard extends StatelessWidget {
                             ),
                           ),
                         ],
-                        SizedBox(height: actionsTopGap),
+                        SizedBox(height: gridGap + 2),
                         Row(
                           children: [
                             for (var index = 0;
@@ -290,40 +277,34 @@ class _WalletCardActionButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       splashFactory: NoSplash.splashFactory,
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 0 : 3,
-          vertical: compact ? 0 : 6,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: iconSize,
-              height: iconSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: overlay.withValues(alpha: 0.42),
-                border: Border.all(
-                  color: onHero.withValues(alpha: 0.08),
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: iconSize,
+            height: iconSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: overlay.withValues(alpha: 0.42),
+              border: Border.all(
+                color: onHero.withValues(alpha: 0.08),
               ),
-              child: Icon(action.icon, color: onHero, size: 18),
             ),
-            const SizedBox(height: 6),
-            Text(
-              action.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: onHero,
-                    fontWeight: FontWeight.w800,
-                    fontSize: narrow ? 10 : 11,
-                  ),
-            ),
-          ],
-        ),
+            child: Icon(action.icon, color: onHero, size: 18),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            action.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: onHero,
+                  fontWeight: FontWeight.w800,
+                  fontSize: narrow ? 10 : 11,
+                ),
+          ),
+        ],
       ),
     );
   }

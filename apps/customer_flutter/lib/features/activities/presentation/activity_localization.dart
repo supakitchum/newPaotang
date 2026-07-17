@@ -75,7 +75,7 @@ String activityResultTimeText(
   if (resultAt == null) return l10n.activityCashbackResultTimeFallback;
 
   final formatted = formatLocalizedDateTime(resultAt, localeTag(l10n.locale));
-  return l10n.locale.languageCode == 'th' ? '$formatted น.' : formatted;
+  return l10n.activityResultTimeValue(formatted);
 }
 
 bool activityEntryClosed(ActivityItem activity, {DateTime? now}) {

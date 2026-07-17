@@ -22,6 +22,11 @@ final topupHistoryProvider =
   return ref.watch(topupRepositoryProvider).overview(page: page, perPage: 8);
 });
 
+final topupDetailProvider =
+    FutureProvider.autoDispose.family<TopupRequestItem, String>((ref, id) {
+  return ref.watch(topupRepositoryProvider).detail(id);
+});
+
 class TopupRepository {
   const TopupRepository(this._api);
 
@@ -33,6 +38,15 @@ class TopupRepository {
       query: {'page': page, 'per_page': perPage},
     );
     return TopupOverview.fromJson(response.data ?? const <String, dynamic>{});
+  }
+
+  Future<TopupRequestItem> detail(String id) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/customer/topups/$id',
+    );
+    return TopupRequestItem.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
   }
 
   Future<TopupRequestItem> create({

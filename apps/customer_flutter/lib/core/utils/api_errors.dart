@@ -8,11 +8,13 @@ class ApiErrorInfo {
     required this.message,
     required this.details,
     this.statusCode,
+    this.requestPath = '',
   });
 
   factory ApiErrorInfo.fromObject(Object? error) {
     final statusCode =
         error is DioException ? error.response?.statusCode : null;
+    final requestPath = error is DioException ? error.requestOptions.path : '';
     final data = error is DioException ? error.response?.data : error;
     final payload = asMap(data);
     if (payload.isEmpty) {
@@ -21,6 +23,7 @@ class ApiErrorInfo {
         message: data?.toString() ?? '',
         details: const <String, dynamic>{},
         statusCode: statusCode,
+        requestPath: requestPath,
       );
     }
 
@@ -58,6 +61,7 @@ class ApiErrorInfo {
       message: message,
       details: details,
       statusCode: statusCode,
+      requestPath: requestPath,
     );
   }
 
@@ -65,6 +69,7 @@ class ApiErrorInfo {
   final String message;
   final Map<String, dynamic> details;
   final int? statusCode;
+  final String requestPath;
 
   bool get isSmsOtpProviderNotConfigured =>
       code == 'sms_otp_provider_not_configured';
@@ -79,7 +84,9 @@ class ApiErrorInfo {
   bool get isPinRequired =>
       code == 'pin_required' || code == 'pin_setup_required';
   bool get isAuthenticationExpired {
+    if (_isPasswordLoginRequest) return false;
     const expiredCodes = {
+      'authentication_required',
       'unauthenticated',
       'authentication_expired',
       'auth_expired',
@@ -99,8 +106,20 @@ class ApiErrorInfo {
         normalizedMessage.contains('session has expired');
   }
 
+  bool get _isPasswordLoginRequest {
+    final normalized = requestPath.trim().toLowerCase();
+    return normalized.endsWith('/customer/auth/login') ||
+        normalized == 'customer/auth/login';
+  }
+
   Map<String, dynamic> get suspension {
-    final nested = asMap(details['suspension']);
+    final nested = _firstMap([
+      details['suspension'],
+      details['account_suspension'],
+      details['accountSuspension'],
+      details['customer_suspension'],
+      details['customerSuspension'],
+    ]);
     return nested.isEmpty ? details : nested;
   }
 
@@ -114,14 +133,32 @@ class ApiErrorInfo {
 
   String get customerSuspendedPath {
     final data = suspension;
+    final reason = _firstText([
+      data['reason'],
+      data['suspension_reason'],
+      data['suspensionReason'],
+      data['message'],
+    ]);
+    final suspendedUntil = _firstText([
+      data['suspended_until'],
+      data['suspendedUntil'],
+      data['until'],
+      data['ends_at'],
+      data['endsAt'],
+    ]);
+    final permanent = _firstBool([
+      data['is_permanent'],
+      data['isPermanent'],
+      data['permanent'],
+      data['permanent_suspension'],
+      data['permanentSuspension'],
+    ]);
     return Uri(
       path: '/account-suspended',
       queryParameters: {
-        if ((data['reason']?.toString() ?? '').trim().isNotEmpty)
-          'reason': data['reason'].toString(),
-        if ((data['suspended_until']?.toString() ?? '').trim().isNotEmpty)
-          'suspended_until': data['suspended_until'].toString(),
-        if (data['is_permanent'] == true) 'permanent': '1',
+        if (reason.isNotEmpty) 'reason': reason,
+        if (suspendedUntil.isNotEmpty) 'suspended_until': suspendedUntil,
+        if (permanent) 'permanent': '1',
       },
     ).toString();
   }
@@ -141,6 +178,30 @@ Map<String, dynamic> _firstMap(Iterable<Object?> values) {
     if (map.isNotEmpty) return map;
   }
   return const <String, dynamic>{};
+}
+
+bool _firstBool(Iterable<Object?> values) {
+  for (final value in values) {
+    if (value == null) continue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value.toString().trim().toLowerCase();
+    if (normalized.isEmpty) continue;
+    if (const {
+      '1',
+      'true',
+      'yes',
+      'on',
+      'permanent',
+      'permanently',
+    }.contains(normalized)) {
+      return true;
+    }
+    if (const {'0', 'false', 'no', 'off', 'temporary'}.contains(normalized)) {
+      return false;
+    }
+  }
+  return false;
 }
 
 String? _validationMessage(Object? value) {

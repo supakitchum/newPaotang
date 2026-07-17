@@ -1308,7 +1308,68 @@ void main() {
     expect(authController.pinRequired, isTrue);
   });
 
-  testWidgets('CustomerApp enables web privacy guard without watermark',
+  testWidgets('CustomerApp does not lifecycle lock web sessions', (
+    tester,
+  ) async {
+    addTearDown(() {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    });
+
+    final authController = _testAuthController()
+      ..isAuthenticated = true
+      ..pinRequired = false;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
+          ),
+          authControllerProvider.overrideWith((_) => authController),
+          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+          publicVisitMonitorEnabledProvider.overrideWithValue(false),
+          customerPlatformKeyProvider.overrideWithValue('web'),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(
+              {
+                'site': {
+                  'display_name': 'Test Shop',
+                  'locale': 'th-TH',
+                },
+              },
+            ),
+          ),
+          appRouterProvider.overrideWithValue(
+            GoRouter(
+              initialLocation: '/my-wallet',
+              routes: [
+                GoRoute(
+                  path: '/my-wallet',
+                  builder: (context, state) => const Text('Wallet route'),
+                ),
+              ],
+            ),
+          ),
+        ],
+        child: const CustomerApp(),
+      ),
+    );
+
+    await tester.pump();
+    expect(find.text('Wallet route'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+
+    expect(authController.pinRequired, isFalse);
+  });
+
+  testWidgets('CustomerApp keeps web privacy guard disabled for now',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -1367,7 +1428,7 @@ void main() {
     final webGuard = tester.widget<WebPrivacyGuard>(
       find.byType(WebPrivacyGuard),
     );
-    expect(webGuard.enabled, isTrue);
+    expect(webGuard.enabled, isFalse);
     expect(webGuard.mode, 'limited');
     expect(webGuard.watermarkEnabled, isFalse);
     expect(webGuard.privacyOverlayTitle, 'Runtime web privacy');
@@ -1441,7 +1502,7 @@ void main() {
     expect(find.text('Wallet route'), findsOneWidget);
   });
 
-  testWidgets('CustomerApp honors limited web privacy mode without watermark',
+  testWidgets('CustomerApp ignores limited web privacy mode for now',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -1496,7 +1557,7 @@ void main() {
     final webGuard = tester.widget<WebPrivacyGuard>(
       find.byType(WebPrivacyGuard),
     );
-    expect(webGuard.enabled, isTrue);
+    expect(webGuard.enabled, isFalse);
     expect(webGuard.mode, 'limited');
     expect(webGuard.watermarkEnabled, isFalse);
     expect(find.text('Wallet route'), findsOneWidget);

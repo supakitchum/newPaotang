@@ -38,20 +38,21 @@ class _CustomerTopupRealtimeMonitorState
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
   Timer? _refreshThrottle;
-  final Set<String> _activeChannels = {};
-  final Set<String> _seenSubscribedChannels = {};
+  final CustomerRealtimeSubscriptionTracker _subscriptionTracker =
+      CustomerRealtimeSubscriptionTracker();
+  Future<void> _syncQueue = Future<void>.value();
   String _signature = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
   void didUpdateWidget(covariant CustomerTopupRealtimeMonitor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
@@ -66,13 +67,21 @@ class _CustomerTopupRealtimeMonitorState
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MobileBootstrap>>(
       mobileBootstrapProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     ref.listen<AuthController>(
       authControllerProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     return widget.child;
+  }
+
+  void _scheduleSync() {
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _sync();
+    });
   }
 
   Future<void> _sync() async {
@@ -104,7 +113,6 @@ class _CustomerTopupRealtimeMonitorState
         customerId: customerId,
       ),
     ];
-    _setActiveChannels(channels);
     final signature = [
       bootstrap.tenantId,
       bootstrap.realtime.url,
@@ -119,6 +127,8 @@ class _CustomerTopupRealtimeMonitorState
     }
 
     await _stop();
+    if (!mounted) return;
+    _subscriptionTracker.updateChannels(channels);
     _signature = signature;
     final client =
         ref.read(customerRealtimeClientFactoryProvider)(bootstrap.realtime);
@@ -129,8 +139,7 @@ class _CustomerTopupRealtimeMonitorState
 
   Future<void> _stop() async {
     _signature = '';
-    _activeChannels.clear();
-    _seenSubscribedChannels.clear();
+    _subscriptionTracker.clear();
     _refreshThrottle?.cancel();
     _refreshThrottle = null;
     await _events?.cancel();
@@ -150,32 +159,8 @@ class _CustomerTopupRealtimeMonitorState
     });
   }
 
-  void _setActiveChannels(List<String> channels) {
-    _activeChannels
-      ..clear()
-      ..addAll(channels);
-    _seenSubscribedChannels.removeWhere(
-      (channel) => !_activeChannels.contains(channel),
-    );
-  }
-
   bool _shouldRefreshFromEvent(CustomerRealtimeEvent event) {
     if (shouldRefreshTopupsFromRealtimeEvent(event)) return true;
-    return _isReconnectSubscription(event);
-  }
-
-  bool _isReconnectSubscription(CustomerRealtimeEvent event) {
-    if (event.name != 'pusher_internal:subscription_succeeded') return false;
-    final channel = event.channel.trim();
-    if (!_isMoneyChannel(channel)) return false;
-
-    final seenBefore = _seenSubscribedChannels.contains(channel);
-    _seenSubscribedChannels.add(channel);
-    return seenBefore;
-  }
-
-  bool _isMoneyChannel(String channel) {
-    if (_activeChannels.contains(channel)) return true;
-    return channel.endsWith('.topups') || channel.endsWith('.wallet');
+    return _subscriptionTracker.register(event);
   }
 }

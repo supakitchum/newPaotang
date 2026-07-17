@@ -3,6 +3,7 @@ import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/shared/widgets/app_shell.dart';
+import 'package:customer_flutter/shared/widgets/customer_fixed_header_layout.dart';
 import 'package:customer_flutter/shared/widgets/customer_page_body.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -11,6 +12,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  test('default back destinations follow Nuxt route families', () {
+    expect(customerDefaultBackPathFor('/result/full'), '/result');
+    expect(customerDefaultBackPathFor('/results/full'), '/results');
+    expect(customerDefaultBackPathFor('/topup'), '/my-wallet');
+    expect(customerDefaultBackPathFor('/topup/demo'), '/my-wallet');
+    expect(customerDefaultBackPathFor('/term-reward'), '/');
+  });
+
   testWidgets('AppShell bottom navigation spans wide viewport like Nuxt', (
     tester,
   ) async {
@@ -32,6 +41,16 @@ void main() {
     expect(find.text('หน้าหลัก'), findsOneWidget);
     expect(find.text('สลากฯ ของฉัน'), findsOneWidget);
     expect(find.text('อื่นๆ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AppShell defaults to no bottom navigation like Nuxt MobileShell',
+      (tester) async {
+    await _pumpShell(tester, showBottomNavigation: null);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Content'), findsOneWidget);
+    expect(_bottomNavFinder, findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -159,6 +178,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('CustomerPageBody keeps page content aligned to the top', (
+    tester,
+  ) async {
+    await _pumpPageBody(
+      tester,
+      bottom: 0,
+      bottomSafeArea: 0,
+    );
+
+    expect(
+      tester.getTopLeft(find.byKey(const Key('page-body-test-child'))).dy,
+      0,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('expanded AppShell applies the shared rounded content edge', (
+    tester,
+  ) async {
+    await _pumpShellWithHero(tester);
+    await tester.pumpAndSettle();
+
+    final layout = tester.widget<CustomerFixedHeaderLayout>(
+      find.byType(CustomerFixedHeaderLayout),
+    );
+    expect(layout.contentTopRadius, customerContentSheetTopRadius);
+    expect(layout.contentBackdropColor, AppTheme.appBlue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('AppShell auto back uses actual route instead of nav group path',
       (
     tester,
@@ -222,6 +271,77 @@ void main() {
     expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('expanded hero stays fixed while its content sheet scrolls', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(const <String, dynamic>{}),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: AppShell(
+            title: 'ข่าวประชาสัมพันธ์',
+            currentPath: '/news',
+            heroMinHeight: 214,
+            heroSheetOverlap: 54,
+            heroContent: const SizedBox.shrink(),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: const [
+                SizedBox(
+                  key: Key('expanded-sheet-start'),
+                  height: 1200,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Text('News content'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final titleFinder = find.text('ข่าวประชาสัมพันธ์');
+    final headerFinder = find.byKey(const Key('customer-fixed-hero'));
+    final initialHeaderRect = tester.getRect(headerFinder);
+    expect(titleFinder, findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('expanded-sheet-start'))).dy,
+      closeTo(160, 0.1),
+    );
+
+    await tester.drag(find.text('News content'), const Offset(0, -220));
+    await tester.pumpAndSettle();
+
+    expect(titleFinder, findsOneWidget);
+    expect(tester.getRect(headerFinder), initialHeaderRect);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('expanded-sheet-start'))).dy,
+      lessThan(0),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpShell(
@@ -229,6 +349,7 @@ Future<void> _pumpShell(
   ThemeData? theme,
   Map<String, dynamic> bootstrapPayload = const <String, dynamic>{},
   String currentPath = '/',
+  bool? showBottomNavigation = true,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -247,11 +368,18 @@ Future<void> _pumpShell(
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: theme ?? AppTheme.light(),
-        home: AppShell(
-          title: 'Home',
-          currentPath: currentPath,
-          child: const Center(child: Text('Content')),
-        ),
+        home: showBottomNavigation == null
+            ? AppShell(
+                title: 'Home',
+                currentPath: currentPath,
+                child: const Center(child: Text('Content')),
+              )
+            : AppShell(
+                title: 'Home',
+                currentPath: currentPath,
+                showBottomNavigation: showBottomNavigation,
+                child: const Center(child: Text('Content')),
+              ),
       ),
     ),
   );
@@ -303,8 +431,41 @@ Future<void> _pumpPageBody(
             top: 0,
             bottom: bottom,
             includeBottomSafeArea: includeBottomSafeArea,
-            child: const SizedBox(height: 10, width: 10),
+            child: const SizedBox(
+              key: Key('page-body-test-child'),
+              height: 10,
+              width: 10,
+            ),
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _pumpShellWithHero(WidgetTester tester) {
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson(const <String, dynamic>{}),
+        ),
+      ],
+      child: MaterialApp(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: AppTheme.light(),
+        home: const AppShell(
+          title: 'History',
+          currentPath: '/purchase-history',
+          heroContent: SizedBox.shrink(),
+          child: SizedBox.expand(),
         ),
       ),
     ),

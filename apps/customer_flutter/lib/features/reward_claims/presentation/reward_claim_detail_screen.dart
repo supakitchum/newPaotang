@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
@@ -17,8 +19,6 @@ const _rewardClaimDetailText = Color(0xFF111827);
 const _rewardClaimDetailMuted = Color(0xFF64748B);
 const _rewardClaimDetailSubtle = Color(0xFF94A3B8);
 const _rewardClaimDetailDivider = Color(0xFFEEF2F7);
-const _rewardClaimDetailBlue = Color(0xFF086BDD);
-const _rewardClaimDetailLogoBlue = Color(0xFF0B69DC);
 const _rewardClaimDetailLogoBorder = Color(0xFFDBEAFE);
 const _rewardClaimDetailSuccess = Color(0xFF28A81E);
 const _rewardClaimDetailSuccessBackground = Color(0xFFEFFCE8);
@@ -34,8 +34,6 @@ const _rewardClaimAdminNoteText = Color(0xFF475569);
 const _rewardClaimAdminNoteRejectedBackground = Color(0xFFFFF1F2);
 const _rewardClaimAdminNoteRejectedBorder = Color(0xFFFECdd3);
 const _rewardClaimAdminNoteRejectedText = Color(0xFFB91C1C);
-const _rewardClaimOutlineBorder = Color(0xFF0B69DC);
-const _rewardClaimOutlineText = Color(0xFF075EC9);
 const _rewardClaimOutlineDisabledBorder = Color(0xFFCBD4DF);
 const _rewardClaimOutlineDisabledText = Color(0xFF8A8F98);
 const _rewardClaimOutlineDisabledBackground = Color(0xFFF2F4F7);
@@ -51,6 +49,11 @@ class RewardClaimDetailScreen extends ConsumerWidget {
       rewardClaimRealtimeTickProvider,
       (_, __) => ref.invalidate(rewardClaimDetailProvider(claimId)),
     );
+    listenForCustomerOperationalError<RewardClaimItem>(
+      ref: ref,
+      context: context,
+      provider: rewardClaimDetailProvider(claimId),
+    );
     final claim = ref.watch(rewardClaimDetailProvider(claimId));
     final l10n = context.l10n;
 
@@ -61,6 +64,10 @@ class RewardClaimDetailScreen extends ConsumerWidget {
       sensitive: true,
       showBottomNavigation: false,
       compactHeader: true,
+      heroContent: const SizedBox.shrink(),
+      heroMinHeight: 96,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
       child: _RewardClaimDetailPageBody(
         child: claim.when(
           data: (item) => _RewardClaimReceipt(claim: item),
@@ -98,7 +105,7 @@ class _RewardClaimDetailPageBody extends StatelessWidget {
               child: ColoredBox(
                 color: _rewardClaimDetailSurface,
                 child: CustomerPageBody(
-                  maxWidth: 640,
+                  maxWidth: 620,
                   top: 12,
                   bottom: 24,
                   mobileHorizontal: 10,
@@ -124,11 +131,13 @@ class _RewardClaimReceipt extends ConsumerWidget {
     final statusColor = _statusColor(claim);
     final receiptMark = ref.watch(mobileBootstrapProvider).maybeWhen(
           data: (data) {
-            final officeAbbr = context.l10n.contentRewardTermsOfficeAbbr.trim();
-            if (officeAbbr.isNotEmpty) return officeAbbr;
             final productLabel = data.lotteryProductLabel.trim();
             if (productLabel.isNotEmpty) return productLabel;
-            return data.ticketImageWatermark.trim();
+            final watermark = data.ticketImageWatermark.trim();
+            if (watermark.isNotEmpty) return watermark;
+            final siteName = data.siteName.trim();
+            if (siteName.isNotEmpty) return siteName;
+            return context.l10n.contentRewardTermsOfficeAbbr.trim();
           },
           orElse: () => context.l10n.contentRewardTermsOfficeAbbr.trim(),
         );
@@ -195,7 +204,7 @@ class _RewardClaimReceipt extends ConsumerWidget {
               color: _noticeTextColor(claim),
               backgroundColor: _noticeBackgroundColor(claim),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 13),
             _ReceiptSection(
               rows: [
                 _ReceiptRow(
@@ -212,10 +221,10 @@ class _RewardClaimReceipt extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 13),
             _MoneySection(claim: claim),
             if (claim.adminNote.trim().isNotEmpty) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 13),
               _AdminNote(
                 note: claim.adminNote,
                 rejected: claim.status == RewardClaimStatus.rejected,
@@ -235,6 +244,11 @@ class _ReceiptBrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final logoBorder = colorScheme.primary == AppTheme.appBlue
+        ? _rewardClaimDetailLogoBorder
+        : Color.lerp(colorScheme.primary, colorScheme.surface, 0.84) ??
+            colorScheme.primaryContainer;
     return SizedBox.square(
       dimension: 42,
       child: Container(
@@ -243,7 +257,7 @@ class _ReceiptBrandMark extends StatelessWidget {
           color: _rewardClaimDetailSurface,
           shape: BoxShape.circle,
           border: Border.all(
-            color: _rewardClaimDetailLogoBorder,
+            color: logoBorder,
           ),
         ),
         child: Padding(
@@ -254,7 +268,7 @@ class _ReceiptBrandMark extends StatelessWidget {
               label,
               maxLines: 1,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: _rewardClaimDetailLogoBlue,
+                    color: AppTheme.primaryOutlineBorder(colorScheme.primary),
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0,
@@ -304,6 +318,7 @@ class _ReceiptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     final valueLines = value
         .split('\n')
         .map((line) => line.trim())
@@ -317,7 +332,9 @@ class _ReceiptRow extends StatelessWidget {
         );
     final valueStyle = TextStyle(
       color: valueColor ??
-          (highlighted ? _rewardClaimDetailBlue : _rewardClaimDetailText),
+          (highlighted
+              ? AppTheme.detailKicker(primary)
+              : _rewardClaimDetailText),
       fontSize: valueFontSize ?? 17,
       fontWeight: FontWeight.w900,
       height: 1.35,
@@ -329,21 +346,6 @@ class _ReceiptRow extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 360) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: labelStyle),
-              const SizedBox(height: 4),
-              _ReceiptValueLines(
-                lines: valueLines.isEmpty ? const ['-'] : valueLines,
-                style: valueStyle,
-                alignEnd: false,
-              ),
-            ],
-          );
-        }
-
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -486,25 +488,13 @@ class _MoneyRow extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 360;
         final valueBlock = _MoneyValueBlock(
           value: value,
           valueStyle: valueStyle,
           discountOriginal: discountOriginal,
           helper: helper,
-          alignEnd: !compact,
+          alignEnd: true,
         );
-
-        if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: labelStyle),
-              const SizedBox(height: 4),
-              valueBlock,
-            ],
-          );
-        }
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,7 +627,7 @@ class _AdminNote extends StatelessWidget {
         ? _rewardClaimAdminNoteRejectedBorder
         : _rewardClaimAdminNoteBorder;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(8),
@@ -704,11 +694,12 @@ class _RewardClaimDetailState extends StatelessWidget {
 }
 
 ButtonStyle _rewardClaimDetailOutlinePillStyle(BuildContext context) {
+  final primary = Theme.of(context).colorScheme.primary;
   return OutlinedButton.styleFrom(
     backgroundColor: Colors.white,
     disabledBackgroundColor: _rewardClaimOutlineDisabledBackground,
     disabledForegroundColor: _rewardClaimOutlineDisabledText,
-    foregroundColor: _rewardClaimOutlineText,
+    foregroundColor: AppTheme.primaryOutlineText(primary),
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
@@ -720,7 +711,7 @@ ButtonStyle _rewardClaimDetailOutlinePillStyle(BuildContext context) {
       (states) => BorderSide(
         color: states.contains(WidgetState.disabled)
             ? _rewardClaimOutlineDisabledBorder
-            : _rewardClaimOutlineBorder,
+            : AppTheme.primaryOutlineBorder(primary),
       ),
     ),
   );

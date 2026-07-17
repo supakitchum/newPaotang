@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'deep_link_association_files.dart';
+import 'release_branding.dart';
 
 enum CustomerFlutterTarget {
   web,
@@ -44,6 +45,8 @@ class ProductionPreflightInput {
     this.storePrivacyPolicyUrl,
     this.storeSupportUrl,
     this.storeAccountDeletionUrl,
+    this.requireReleaseBranding = false,
+    this.releaseBrandingManifest,
   });
 
   final CustomerFlutterTarget target;
@@ -74,6 +77,8 @@ class ProductionPreflightInput {
   final String? storePrivacyPolicyUrl;
   final String? storeSupportUrl;
   final String? storeAccountDeletionUrl;
+  final bool requireReleaseBranding;
+  final String? releaseBrandingManifest;
 }
 
 class ProductionPreflightIssue {
@@ -101,6 +106,7 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   _checkDisplayName(input, issues);
   _checkWebProductionMetadataInput(input, issues);
   _checkStoreListingMetadataInput(input, issues);
+  _checkReleaseBranding(input, issues);
   _checkSocialProviderValues(input, issues);
   _checkSocialLoginStoreCompliance(input, issues);
   if (input.production && input.checkFiles) {
@@ -108,16 +114,22 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
     _checkDeepLinkAssociationFiles(input, issues);
     _checkForbiddenProductionSourceReferences(input, issues);
     _checkExternalLinkLaunchPolicy(input, issues);
+    _checkFlutterRuntimeThemeBinding(input, issues);
     _checkFlutterSystemChromeIdentityBinding(input, issues);
     _checkFlutterSplashIdentityBinding(input, issues);
     _checkFlutterRouteRegistryBinding(input, issues);
     _checkFlutterMaintenanceRoutePolicyBinding(input, issues);
     _checkFlutterFeatureFlagRoutePolicyBinding(input, issues);
     _checkFlutterAuthOtpParserBinding(input, issues);
+    _checkFlutterTenantScopedAuthStorageBinding(input, issues);
+    _checkFlutterReleaseBrandingPipelineBinding(input, issues);
+    _checkFlutterAffiliateCentralPinBinding(input, issues);
     _checkFlutterSocialCallbackBinding(input, issues);
+    _checkFlutterSocialCallbackRouteBinding(input, issues);
     _checkFlutterSocialProviderRuntimeColorBinding(input, issues);
     _checkFlutterRealtimeBinding(input, issues);
     if (input.target.includesWeb) {
+      _checkFlutterWebDeploymentFreshnessBinding(input, issues);
       _checkWebRuntimeMetadata(input, issues);
       _checkFlutterWebPrivacyBinding(input, issues);
     }
@@ -131,6 +143,276 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   if (input.target.includesIos) _checkIos(input, issues);
 
   return issues;
+}
+
+void _checkFlutterRuntimeThemeBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final app = File(_join(input.projectRoot, 'lib/app/customer_app.dart'));
+  final theme = File(_join(input.projectRoot, 'lib/core/theme/app_theme.dart'));
+  if (!app.existsSync() || !theme.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_runtime_theme_binding_missing',
+        message:
+            'CustomerApp must apply the tenant theme returned by the runtime bootstrap API.',
+      ),
+    );
+    return;
+  }
+
+  final appSource = app.readAsStringSync();
+  final themeSource = theme.readAsStringSync();
+  final appliesRuntimeTheme =
+      appSource.contains('tokens: data.theme') &&
+      appSource.contains('useRuntimeBrandColors: true');
+  final keepsBlueFallback =
+      themeSource.contains('bool useRuntimeBrandColors = false') &&
+      themeSource.contains('primaryColor: AppTheme.appBlue') &&
+      themeSource.contains("fontFamily: 'Kanit'");
+
+  if (appliesRuntimeTheme && keepsBlueFallback) return;
+
+  issues.add(
+    const ProductionPreflightIssue(
+      code: 'flutter_runtime_theme_binding_missing',
+      message:
+          'Production customer rendering must apply runtime bootstrap theme values while preserving Nuxt blue #087FF0 and Kanit as the pre-bootstrap/fallback identity.',
+    ),
+  );
+}
+
+void _checkFlutterWebDeploymentFreshnessBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final requiredFiles = <String, List<String>>{
+    'web/flutter_bootstrap.js': const [
+      '{{flutter_js}}',
+      '{{flutter_build_config}}',
+      'navigator.serviceWorker.getRegistrations()',
+      'flutter_service_worker.js',
+      'registration.unregister()',
+      'navigator.serviceWorker.controller',
+      'window.location.reload()',
+      '_flutter.loader.load();',
+    ],
+    'docker/nginx.conf': const [
+      'location = /customer-runtime-config.js',
+      r'location ~* \.(?:css|js|mjs|wasm|json|map)$',
+      'Cache-Control "no-cache, no-store, must-revalidate"',
+      r'location ~* \.(?:jpg|jpeg|png|gif|svg|ico|woff2?|ttf|eot|otf|webp|avif)$',
+      'Cache-Control "public, max-age=0, must-revalidate"',
+    ],
+    'web/index.html': const [
+      '<script src="customer-runtime-config.js"></script>',
+      'window.customerFlutterWebConfig',
+    ],
+    'web/customer-runtime-config.js': const ['window.customerFlutterWebConfig'],
+    'docker/40-render-runtime-config.sh': const [
+      'CUSTOMER_FLUTTER_WEB_APP_NAME',
+      'CUSTOMER_FLUTTER_WEB_SHORT_NAME',
+      'CUSTOMER_FLUTTER_WEB_DESCRIPTION',
+      'CUSTOMER_FLUTTER_WEB_ICON_192_URL',
+      'CUSTOMER_FLUTTER_WEB_ICON_512_URL',
+      'CUSTOMER_FLUTTER_WEB_MASKABLE_ICON_192_URL',
+      'CUSTOMER_FLUTTER_WEB_MASKABLE_ICON_512_URL',
+      'CUSTOMER_FLUTTER_WEB_CANONICAL_URL',
+      'with_entries(select(.value != ""))',
+      'Object.assign({}, window.customerFlutterWebConfig || {},',
+      r'manifest_output="$root/manifest.json"',
+      r"'$value | @html'",
+      'property="og:title"',
+      'rel="canonical"',
+      'index_template=/etc/customer/index.html.template',
+      r'cp "$index_template" "$index_output"',
+    ],
+    'Dockerfile': const [
+      'apk add --no-cache jq',
+      'COPY docker/40-render-runtime-config.sh /docker-entrypoint.d/40-render-runtime-config.sh',
+      'cp /usr/share/nginx/html/index.html /etc/customer/index.html.template',
+    ],
+  };
+
+  final missing = <String>[];
+  for (final entry in requiredFiles.entries) {
+    final file = File(_join(input.projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missing.add(entry.key);
+      continue;
+    }
+
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missing.add('${entry.key} missing $snippet');
+      }
+    }
+    if (entry.key == 'web/flutter_bootstrap.js' &&
+        source.contains('serviceWorkerSettings')) {
+      missing.add('${entry.key} still registers a Flutter service worker');
+    }
+    if (entry.key == 'docker/nginx.conf' &&
+        source.contains('max-age=2592000')) {
+      missing.add('${entry.key} still caches mutable Flutter assets for 30d');
+    }
+  }
+
+  if (missing.isEmpty) return;
+
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'flutter_web_deployment_freshness_missing',
+      message:
+          'Web production must remove the legacy Flutter service worker and revalidate mutable build assets so deployed UI/API fixes appear without a stale app shell. Missing: ${missing.join(', ')}',
+    ),
+  );
+}
+
+void _checkFlutterReleaseBrandingPipelineBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final requiredFiles = <String, List<String>>{
+    'pubspec.yaml': const ['flutter_launcher_icons:', 'crypto:', 'image:'],
+    'tool/prepare_release_branding.dart': const [
+      'prepareReleaseBranding(',
+      '--partner-id',
+      '--icon-source',
+      '--adaptive-foreground',
+    ],
+    'tool/src/release_branding.dart': const [
+      'knownFlutterIconHashes',
+      'flutter_launcher_icons',
+      'verifyReleaseBrandingManifest(',
+      'icon_source_sha256',
+      'branding file changed after generation',
+    ],
+    'android/app/src/main/AndroidManifest.xml': const [
+      'android:icon="@mipmap/ic_launcher"',
+      'android:roundIcon="@mipmap/ic_launcher"',
+    ],
+  };
+
+  final missing = <String>[];
+  for (final entry in requiredFiles.entries) {
+    final file = File(_join(input.projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missing.add(entry.key);
+      continue;
+    }
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missing.add('${entry.key} missing $snippet');
+      }
+    }
+  }
+
+  if (missing.isEmpty) return;
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'flutter_release_branding_pipeline_missing',
+      message:
+          'Production releases must generate partner launcher icons and verify their hash manifest instead of shipping Flutter scaffold icons. Missing: ${missing.join(', ')}',
+    ),
+  );
+}
+
+void _checkReleaseBranding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  if (!input.production || !input.requireReleaseBranding) return;
+
+  final configuredPath = input.releaseBrandingManifest?.trim();
+  final manifestPath = configuredPath == null || configuredPath.isEmpty
+      ? defaultReleaseBrandingManifestPath
+      : configuredPath;
+  final manifest = File(
+    _isAbsolutePath(manifestPath)
+        ? manifestPath
+        : _join(input.projectRoot, manifestPath),
+  );
+
+  ReleaseBrandingVerification verification;
+  try {
+    verification = verifyReleaseBrandingManifest(
+      projectRoot: Directory(input.projectRoot),
+      manifest: manifest,
+      includeAndroid: input.target.includesAndroid,
+      includeIos: input.target.includesIos,
+      includeWeb: input.target.includesWeb,
+    );
+  } on Object catch (error) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'release_branding_invalid',
+        message: 'Could not verify release branding: $error',
+      ),
+    );
+    return;
+  }
+
+  if (verification.isValid) return;
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'release_branding_invalid',
+      message:
+          'Store release branding is missing, stale, or still generic. Run tool/prepare_release_branding.dart for this partner. ${verification.issues.join('; ')}',
+    ),
+  );
+}
+
+void _checkFlutterTenantScopedAuthStorageBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final main = File(_join(input.projectRoot, 'lib/main.dart'));
+  final tokenStore = File(
+    _join(input.projectRoot, 'lib/core/auth/auth_token_store.dart'),
+  );
+  final tenantHost = File(
+    _join(input.projectRoot, 'lib/core/tenant/customer_tenant_host.dart'),
+  );
+  if (!main.existsSync() ||
+      !tokenStore.existsSync() ||
+      !tenantHost.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_tenant_scoped_auth_storage_missing',
+        message:
+            'Flutter production auth storage must be scoped by the resolved tenant host.',
+      ),
+    );
+    return;
+  }
+
+  _requireAllSnippets(
+    '${main.readAsStringSync()}\n'
+    '${tokenStore.readAsStringSync()}\n'
+    '${tenantHost.readAsStringSync()}',
+    const [
+      'currentWebHost',
+      'resolveCustomerTenantHost(',
+      'storageScope:',
+      'customerTenantStorageScope(',
+      '_storageScope',
+      '_restoreLegacyCredentials()',
+      '_key(_accessKey)',
+      '_key(_refreshKey)',
+      '_key(_socialCallbackAuthStatesKey)',
+      '_key(_socialCallbackRedirectStatesKey)',
+      '_sessionStorageKeys(includeLegacy: true)',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_tenant_scoped_auth_storage_missing',
+      message:
+          'Flutter production auth/session and social callback storage must resolve the tenant host, isolate secure-storage keys, preserve legacy sessions during migration, and clear only the active tenant scope.',
+    ),
+    issues,
+  );
 }
 
 void _checkFlutterSystemChromeIdentityBinding(
@@ -153,18 +435,22 @@ void _checkFlutterSystemChromeIdentityBinding(
     app.readAsStringSync(),
     const [
       'AnnotatedRegion<SystemUiOverlayStyle>',
-      'statusBarColor: AppTheme.appBlue',
-      'statusBarIconBrightness: Brightness.light',
-      'statusBarBrightness: Brightness.dark',
-      'systemNavigationBarColor: AppTheme.appSheet',
-      'systemNavigationBarIconBrightness: Brightness.dark',
-      'systemNavigationBarDividerColor: AppTheme.appBorder',
+      'final systemUiOverlayStyle = _systemUiOverlayStyleFor(appTheme);',
+      'final statusBarColor = theme.colorScheme.primary;',
+      'final navigationBarColor = theme.scaffoldBackgroundColor;',
+      'ThemeData.estimateBrightnessForColor',
+      'statusBarColor: statusBarColor',
+      'statusBarIconBrightness:',
+      'systemNavigationBarColor: navigationBarColor',
+      'systemNavigationBarIconBrightness:',
+      'systemNavigationBarDividerColor: theme.colorScheme.outlineVariant',
+      '_contrastingBrightness(',
       'systemNavigationBarContrastEnforced: false',
     ],
     const ProductionPreflightIssue(
       code: 'flutter_system_chrome_identity_missing',
       message:
-          'CustomerApp must keep native system status/navigation chrome on the Nuxt blue/white customer identity instead of default or runtime partner colors.',
+          'CustomerApp must derive native system chrome from the resolved customer theme: Nuxt-blue status chrome, runtime neutral navigation surface, and contrasting icons.',
     ),
     issues,
   );
@@ -191,21 +477,30 @@ void _checkFlutterSplashIdentityBinding(
   _requireAllSnippets(
     splash.readAsStringSync(),
     const [
-      'AppTheme.appBlue',
-      'Color(0xFF0C6FE0)',
-      'Color(0xFF15AEEA)',
-      'AppTheme.appYellow',
+      'final colorScheme = Theme.of(context).colorScheme;',
+      'color: colorScheme.primary',
+      'AppTheme.splashGradientMid(',
+      'AppTheme.splashGradientEnd(',
+      'colorScheme.secondary',
+      'Theme.of(context).colorScheme.tertiary',
+      'appSplashMinimumDurationProvider',
+      'appSplashFadeDurationProvider',
+      'mobileBootstrapProvider',
+      'authSessionStartupProvider',
       '_SplashYellowCorner',
       '_SplashBrandLockup',
+      'brand.logoUrl',
+      'siteName',
+      'FlexibleImage',
+      'Icons.confirmation_number_outlined',
       '_SplashMark',
-      "'L6'",
+      "ValueKey('app-splash-product-mark')",
       '_SplashLoader',
-      'Duration(milliseconds: 1050)',
     ],
     const ProductionPreflightIssue(
       code: 'flutter_splash_identity_missing',
       message:
-          'Flutter splash must stay aligned with the Nuxt blue/yellow splash instead of default Flutter loading or runtime partner colors.',
+          'Flutter splash must preserve the Nuxt customer structure while deriving its brand colors and identity from the resolved runtime theme/bootstrap.',
     ),
     issues,
   );
@@ -215,9 +510,7 @@ void _checkFlutterRouteRegistryBinding(
   ProductionPreflightInput input,
   List<ProductionPreflightIssue> issues,
 ) {
-  final routes = File(
-    _join(input.projectRoot, 'lib/app/customer_routes.dart'),
-  );
+  final routes = File(_join(input.projectRoot, 'lib/app/customer_routes.dart'));
   if (!routes.existsSync()) {
     issues.add(
       const ProductionPreflightIssue(
@@ -415,6 +708,8 @@ void _checkFlutterFeatureFlagRoutePolicyBinding(
       'native_biometric_unlock',
       'news',
       'purchase_history',
+      'reward_check',
+      '/wait-result',
     ],
     const ProductionPreflightIssue(
       code: 'flutter_feature_flag_route_policy_missing',
@@ -427,7 +722,7 @@ void _checkFlutterFeatureFlagRoutePolicyBinding(
   _requireAllSnippets(
     router.readAsStringSync(),
     const [
-      'mobileCustomerDisabledRouteRedirect(bootstrap, path)',
+      'mobileCustomerDisabledRouteRedirect(',
       'MobileBootstrap? bootstrap',
       'bootstrap.valueOrNull',
     ],
@@ -669,11 +964,7 @@ void _checkFlutterScreenSecurityBinding(
   final source = guard.readAsStringSync();
   _requireAllSnippets(
     source,
-    const [
-      '.events.listen',
-      'screen_capture_ended',
-      'lockForScreenSecurity',
-    ],
+    const ['.events.listen', 'screen_capture_ended', 'lockForScreenSecurity'],
     const ProductionPreflightIssue(
       code: 'flutter_screen_security_lock_binding_missing',
       message:
@@ -719,6 +1010,12 @@ void _checkFlutterWebPrivacyBinding(
   List<ProductionPreflightIssue> issues,
 ) {
   final requiredFiles = <String, List<String>>{
+    'lib/app/customer_app.dart': const [
+      'const webPrivacyEnabled = false;',
+      'WebPrivacyGuard(',
+      'enabled: webPrivacyEnabled && routeSensitive',
+      'watermarkEnabled: false',
+    ],
     'lib/shared/widgets/web_privacy_guard.dart': const [
       'WebPrivacyBrowserActivity',
       '..start()',
@@ -726,13 +1023,11 @@ void _checkFlutterWebPrivacyBinding(
       'AppLifecycleState.hidden',
       '_browserShouldCover',
       '_lifecycleShouldCover',
-      'webPrivacyModeShowsWatermark',
       'webPrivacyModeShouldShowCover',
       'final String? privacyOverlayTitle',
       'final String? privacyOverlayDescription',
       'final title = _runtimeCopy',
       'final description = _runtimeCopy',
-      'text: title',
       'title: title',
       'description: description',
     ],
@@ -802,7 +1097,7 @@ void _checkFlutterWebPrivacyBinding(
     ProductionPreflightIssue(
       code: 'flutter_web_privacy_binding_missing',
       message:
-          'Web production builds must keep browser lifecycle privacy cover plumbing for sensitive routes. Missing: ${missing.join(', ')}',
+          'Web production builds must preserve the owner-approved focus/privacy opt-out while keeping dormant runtime privacy plumbing available for a future explicit re-enable. Missing: ${missing.join(', ')}',
     ),
   );
 }
@@ -1061,10 +1356,6 @@ void _checkFlutterBiometricBinding(
       'mobileBiometricPromptReason(',
       "purpose: 'pin_unlock'",
     ],
-    'lib/features/affiliate/presentation/affiliate_screen.dart': const [
-      'mobileBiometricPromptReason(',
-      "purpose: 'pin_unlock'",
-    ],
     'lib/features/profile/presentation/reward_bank_screen.dart': const [
       'mobileBiometricPromptReason(',
       "purpose: 'profile_update'",
@@ -1105,6 +1396,43 @@ void _checkFlutterBiometricBinding(
             'Flutter biometric prompt-copy runtime bindings are missing: ${missingPromptBindings.join(', ')}',
       ),
     );
+  }
+}
+
+void _checkFlutterAffiliateCentralPinBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final router = File(_join(input.projectRoot, 'lib/app/router.dart'));
+  final redirect = File(
+    _join(input.projectRoot, 'lib/core/navigation/customer_redirect.dart'),
+  );
+  final affiliate = File(
+    _join(
+      input.projectRoot,
+      'lib/features/affiliate/presentation/affiliate_screen.dart',
+    ),
+  );
+  const affiliatePinIssue = ProductionPreflightIssue(
+    code: 'flutter_affiliate_central_pin_binding_missing',
+    message:
+        'Affiliate must use the shared router-level PIN handoff and must not restore a page-local biometric/PIN prompt.',
+  );
+  if (!router.existsSync() ||
+      !redirect.existsSync() ||
+      !affiliate.existsSync()) {
+    issues.add(affiliatePinIssue);
+  } else {
+    final routerSource = router.readAsStringSync();
+    final redirectSource = redirect.readAsStringSync();
+    final affiliateSource = affiliate.readAsStringSync();
+    final missingCentralPin =
+        !routerSource.contains("path: '/affiliate'") ||
+        !routerSource.contains('customerRedirectPath(') ||
+        !redirectSource.contains('customerPinRouteForRedirect') ||
+        affiliateSource.contains('mobileBiometricPromptReason(') ||
+        affiliateSource.contains("purpose: 'pin_unlock'");
+    if (missingCentralPin) issues.add(affiliatePinIssue);
   }
 }
 
@@ -1215,12 +1543,12 @@ void _checkFlutterRealtimeBinding(
   final requiredMonitors = <String, List<String>>{
     'lib/features/lottery/presentation/lottery_stock_realtime_monitor.dart':
         const [
-      'normalizeRealtimeEventNameWithPayload',
-      'normalizeRealtimePayload',
-      '_realtimeScalarText',
-      'salePrice',
-      'unitPrice',
-    ],
+          'normalizeRealtimeEventNameWithPayload',
+          'normalizeRealtimePayload',
+          '_realtimeScalarText',
+          'salePrice',
+          'unitPrice',
+        ],
     'lib/features/results/presentation/result_realtime_monitor.dart': const [
       'normalizeRealtimeEventNameWithPayload',
       'normalizeRealtimePayload',
@@ -1231,28 +1559,28 @@ void _checkFlutterRealtimeBinding(
     ],
     'lib/features/lottery/presentation/customer_revenue_realtime_monitor.dart':
         const [
-      'normalizeRealtimeEventNameWithPayload',
-      'normalizeRealtimePayload',
-      'ticketIdsFromRealtimePayload',
-      '_revenueRealtimeScalarText',
-      'orderItems',
-      'lotteryTicket',
-    ],
+          'normalizeRealtimeEventNameWithPayload',
+          'normalizeRealtimePayload',
+          'ticketIdsFromRealtimePayload',
+          '_revenueRealtimeScalarText',
+          'orderItems',
+          'lotteryTicket',
+        ],
     'lib/features/topup/presentation/topup_realtime_monitor.dart': const [
       'normalizeRealtimeEventNameWithPayload',
       'customerWalletChannel',
     ],
     'lib/features/reward_claims/presentation/claim_realtime_monitor.dart':
         const [
-      'normalizeRealtimeEventNameWithPayload',
-      'normalizeRealtimePayload',
-      'claimIdFromRealtimePayload',
-      'ticketIdFromRewardClaimRealtimePayload',
-      '_claimRealtimeScalarText',
-      'orderItems',
-      'lotteryTicket',
-      'activityAward',
-    ],
+          'normalizeRealtimeEventNameWithPayload',
+          'normalizeRealtimePayload',
+          'claimIdFromRealtimePayload',
+          'ticketIdFromRewardClaimRealtimePayload',
+          '_claimRealtimeScalarText',
+          'orderItems',
+          'lotteryTicket',
+          'activityAward',
+        ],
   };
 
   final missing = <String>[];
@@ -1296,8 +1624,10 @@ void _checkNativeTenantHost(
       _hostOnly(input.androidCallbackHost!).toLowerCase(),
     if (input.iosAssociatedDomain != null)
       _hostOnly(
-        input.iosAssociatedDomain!
-            .replaceFirst(RegExp(r'^applinks:', caseSensitive: false), ''),
+        input.iosAssociatedDomain!.replaceFirst(
+          RegExp(r'^applinks:', caseSensitive: false),
+          '',
+        ),
       ).toLowerCase(),
   }..removeWhere((host) => host.isEmpty);
 
@@ -1339,18 +1669,19 @@ void _checkSocialProviderValues(
 ) {
   if (!input.production) return;
 
-  final invalidProviders = input.socialAuthProviders
-      .map((provider) => provider.trim())
-      .where((provider) => provider.isNotEmpty)
-      .where(
-        (provider) => !_supportedSocialProviders.contains(
-          _normalizeSocialProvider(provider),
-        ),
-      )
-      .map((provider) => provider.toLowerCase())
-      .toSet()
-      .toList()
-    ..sort();
+  final invalidProviders =
+      input.socialAuthProviders
+          .map((provider) => provider.trim())
+          .where((provider) => provider.isNotEmpty)
+          .where(
+            (provider) => !_supportedSocialProviders.contains(
+              _normalizeSocialProvider(provider),
+            ),
+          )
+          .map((provider) => provider.toLowerCase())
+          .toSet()
+          .toList()
+        ..sort();
   if (invalidProviders.isEmpty) return;
 
   issues.add(
@@ -1414,10 +1745,13 @@ void _checkFlutterSocialCallbackBinding(
     '_socialLoginPayloadWrapperKeys',
     '_socialCallbackPayloadWrapperKeys',
     '_normalizedSocialCallbackData',
-    '_socialCallbackAuthMode',
     '_authPayload',
     '_asAuthMap',
     'convert.jsonDecode',
+    'readSocialCallbackContext',
+    'callbackContext?.auth',
+    'takeSocialCallbackContext',
+    'withRedirectFallback',
     'authorizationCode',
     'callbackState',
     'providerCode',
@@ -1443,6 +1777,46 @@ void _checkFlutterSocialCallbackBinding(
     'payload',
   ].any((snippet) => !callbackSource.contains(snippet));
   if (authMissing || callbackMissing) issues.add(issue);
+}
+
+void _checkFlutterSocialCallbackRouteBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final deepLink = File(
+    _join(input.projectRoot, 'lib/core/navigation/customer_deep_link.dart'),
+  );
+  final router = File(_join(input.projectRoot, 'lib/app/router.dart'));
+  const issue = ProductionPreflightIssue(
+    code: 'flutter_social_callback_fragment_route_binding_missing',
+    message:
+        'Flutter social callback, link-phone, and reset routes must preserve OAuth parameters from URL fragments and hash routes before submitting production auth requests.',
+  );
+  if (!deepLink.existsSync() || !router.existsSync()) {
+    issues.add(issue);
+    return;
+  }
+
+  final deepLinkSource = deepLink.readAsStringSync();
+  final routerSource = router.readAsStringSync();
+  final deepLinkMissing = const [
+    'customerAuthRouteParameters',
+    '_routeQueryOrNull',
+    '_acceptsFragmentParameters',
+    '_fragmentQueryParameters',
+    '_fragmentRoutePath',
+    'parameters.putIfAbsent',
+  ].any((snippet) => !deepLinkSource.contains(snippet));
+  final routeParserBindings = RegExp(
+    r'customerAuthRouteParameters\s*\(\s*state\.uri\s*\)',
+  ).allMatches(routerSource).length;
+  final routerMissing =
+      !routerSource.contains(
+        "import '../core/navigation/customer_deep_link.dart';",
+      ) ||
+      routeParserBindings < 5;
+
+  if (deepLinkMissing || routerMissing) issues.add(issue);
 }
 
 void _checkFlutterAuthOtpParserBinding(
@@ -1570,22 +1944,23 @@ void _checkFlutterSocialProviderRuntimeColorBinding(
     'mobileBootstrapProvider',
     'runtimeProvider?.brandColor',
   ].any((snippet) => !socialSource.contains(snippet));
-  final hardcodedProviderColor = const [
-    '0xFF06C755',
-    '0xff06c755',
-    '0xFF00B900',
-    '0xff00b900',
-    '0xFF00C300',
-    '0xff00c300',
-    '0xFF4285F4',
-    '0xff4285f4',
-  ].any(
-    (snippet) =>
-        loginSource.contains(snippet) ||
-        forgotSource.contains(snippet) ||
-        socialSource.contains(snippet) ||
-        lineNotificationsSource.contains(snippet),
-  );
+  final hardcodedProviderColor =
+      const [
+        '0xFF06C755',
+        '0xff06c755',
+        '0xFF00B900',
+        '0xff00b900',
+        '0xFF00C300',
+        '0xff00c300',
+        '0xFF4285F4',
+        '0xff4285f4',
+      ].any(
+        (snippet) =>
+            loginSource.contains(snippet) ||
+            forgotSource.contains(snippet) ||
+            socialSource.contains(snippet) ||
+            lineNotificationsSource.contains(snippet),
+      );
   if (bootstrapMissing ||
       loginMissing ||
       forgotMissing ||
@@ -1693,8 +2068,8 @@ void _checkDeepLinkAssociationFiles(
   final configured = Directory(configuredDir);
   final wellKnown =
       configured.path.endsWith('${Platform.pathSeparator}.well-known')
-          ? configured
-          : Directory(_join(configured.path, '.well-known'));
+      ? configured
+      : Directory(_join(configured.path, '.well-known'));
   if (!wellKnown.existsSync()) {
     issues.add(
       ProductionPreflightIssue(
@@ -1826,8 +2201,9 @@ void _checkAndroidAssetLinks(
     final relation = _stringListFromJson(entry['relation']);
     final target = entry['target'];
     if (target is! Map) return false;
-    final fingerprints =
-        _stringListFromJson(target['sha256_cert_fingerprints']);
+    final fingerprints = _stringListFromJson(
+      target['sha256_cert_fingerprints'],
+    );
     return relation.contains('delegate_permission/common.handle_all_urls') &&
         target['namespace']?.toString() == 'android_app' &&
         target['package_name']?.toString() == expectedPackage &&
@@ -1890,7 +2266,8 @@ void _checkAppleAppSiteAssociation(
     for (final rawDetail in details.whereType<Map>()) {
       final appIds = _stringListFromJson(rawDetail['appIDs']);
       final legacyAppId = rawDetail['appID']?.toString().trim();
-      final matchesAppId = appIds.contains(expectedAppId) ||
+      final matchesAppId =
+          appIds.contains(expectedAppId) ||
           (legacyAppId != null && legacyAppId == expectedAppId);
       if (!matchesAppId) continue;
 
@@ -1987,10 +2364,11 @@ void _checkWebProductionMetadataInput(
 ) {
   if (!input.production || !input.target.includesWeb) return;
 
-  final appName = (input.webAppName?.trim().isNotEmpty == true
-          ? input.webAppName
-          : input.appDisplayName)
-      ?.trim();
+  final appName =
+      (input.webAppName?.trim().isNotEmpty == true
+              ? input.webAppName
+              : input.appDisplayName)
+          ?.trim();
   final shortName = input.webShortName?.trim() ?? '';
   final description = input.webDescription?.trim() ?? '';
 
@@ -2413,7 +2791,8 @@ void _checkAndroidLaunchIdentity(
   final colorSource = colors.readAsStringSync();
   final launchSource = launch.readAsStringSync();
   final launchV21Source = launchV21.readAsStringSync();
-  final missingIdentity = !colorSource.contains('customer_launch_background') ||
+  final missingIdentity =
+      !colorSource.contains('customer_launch_background') ||
       !colorSource.contains('#087FF0') ||
       !launchSource.contains('@color/customer_launch_background') ||
       !launchV21Source.contains('@color/customer_launch_background');
@@ -2467,10 +2846,7 @@ void _checkAndroidManifest(
   );
   _requireAllSnippets(
     source,
-    const [
-      'android:allowBackup="false"',
-      'android:fullBackupContent="false"',
-    ],
+    const ['android:allowBackup="false"', 'android:fullBackupContent="false"'],
     const ProductionPreflightIssue(
       code: 'android_backup_disabled_missing',
       message:
@@ -2649,8 +3025,9 @@ void _checkIosNativeSecurity(
   _checkIosReleaseConfigGuard(input, issues);
   _checkIosLaunchIdentity(input, issues);
 
-  final appDelegate =
-      File(_join(input.projectRoot, 'ios/Runner/AppDelegate.swift'));
+  final appDelegate = File(
+    _join(input.projectRoot, 'ios/Runner/AppDelegate.swift'),
+  );
   if (!appDelegate.existsSync()) {
     issues.add(
       const ProductionPreflightIssue(
@@ -2820,7 +3197,8 @@ void _checkIosLaunchIdentity(
   }
 
   final source = storyboard.readAsStringSync();
-  final hasCustomerBlue = source.contains('red="0.03137254902"') &&
+  final hasCustomerBlue =
+      source.contains('red="0.03137254902"') &&
       source.contains('green="0.4980392157"') &&
       source.contains('blue="0.9411764706"');
   if (!hasCustomerBlue) {
@@ -2916,10 +3294,7 @@ void _checkIosPrivacyManifest(
   if (!project.existsSync()) return;
   _requireAllSnippets(
     project.readAsStringSync(),
-    const [
-      'PrivacyInfo.xcprivacy',
-      'PrivacyInfo.xcprivacy in Resources',
-    ],
+    const ['PrivacyInfo.xcprivacy', 'PrivacyInfo.xcprivacy in Resources'],
     const ProductionPreflightIssue(
       code: 'ios_privacy_manifest_project_binding_missing',
       message:
@@ -3163,11 +3538,11 @@ void _checkForbiddenProductionSourceReferences(
       r'(?<![A-Za-z0-9_-])localhost(?![A-Za-z0-9_-])',
       caseSensitive: false,
     ),
-    'loopback_ip': RegExp(
-      r'\b(?:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0\.0\.0\.0)\b',
+    'loopback_ip': RegExp(r'\b(?:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0\.0\.0\.0)\b'),
+    'example_domain': RegExp(
+      r'\b(?:[A-Za-z0-9-]+\.)?example\.com\b',
+      caseSensitive: false,
     ),
-    'example_domain':
-        RegExp(r'\b(?:[A-Za-z0-9-]+\.)?example\.com\b', caseSensitive: false),
   };
 
   for (final scanPath in scanPaths) {
@@ -3177,9 +3552,9 @@ void _checkForbiddenProductionSourceReferences(
 
     final files = rootEntity == FileSystemEntityType.file
         ? <File>[File(rootPath)]
-        : Directory(rootPath)
-            .listSync(recursive: true, followLinks: false)
-            .whereType<File>();
+        : Directory(
+            rootPath,
+          ).listSync(recursive: true, followLinks: false).whereType<File>();
 
     for (final entity in files) {
       final extension = _extensionOf(entity.path);
@@ -3275,10 +3650,7 @@ void _checkWebRuntimeMetadata(
 
   if (sources.isEmpty) return;
 
-  const scaffoldValues = [
-    'customer_flutter',
-    'A new Flutter project.',
-  ];
+  const scaffoldValues = ['customer_flutter', 'A new Flutter project.'];
   for (final entry in sources.entries) {
     for (final value in scaffoldValues) {
       if (!entry.value.contains(value)) continue;
@@ -3520,6 +3892,10 @@ String _join(String first, String second) {
   return '$first$separator$second';
 }
 
+bool _isAbsolutePath(String value) {
+  return value.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(value);
+}
+
 String _extensionOf(String path) {
   final name = path.split(Platform.pathSeparator).last;
   final index = name.lastIndexOf('.');
@@ -3546,8 +3922,9 @@ String _relativePath(String root, String path) {
 }
 
 bool _looksLikeApplicationId(String value) {
-  return RegExp(r'^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$')
-      .hasMatch(value);
+  return RegExp(
+    r'^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$',
+  ).hasMatch(value);
 }
 
 bool _looksLikeScheme(String value) {
@@ -3570,8 +3947,10 @@ bool _isDefaultCallbackScheme(String value) {
 }
 
 bool _isDefaultDisplayName(String value) {
-  final normalized =
-      value.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  final normalized = value.trim().toLowerCase().replaceAll(
+    RegExp(r'[\s_-]+'),
+    '',
+  );
   return normalized == 'customer' ||
       normalized == 'customerflutter' ||
       normalized == 'newpaotang';

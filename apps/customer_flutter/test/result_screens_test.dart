@@ -6,16 +6,36 @@ import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/results/presentation/result_detail_screen.dart';
 import 'package:customer_flutter/features/results/presentation/result_screen.dart';
 import 'package:customer_flutter/features/results/presentation/result_widgets.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
+  test('result detail back path preserves the Nuxt route alias family', () {
+    expect(resultDetailBackPathFor('/result/full'), '/result');
+    expect(resultDetailBackPathFor('/results/full'), '/results');
+  });
+
+  test('result index links preserve the Nuxt route alias family', () {
+    expect(resultIndexPathFor('/result'), '/result');
+    expect(resultIndexPathFor('/results'), '/results');
+    expect(resultFullPathFor('/results', 'game_1'), '/results/full');
+    expect(
+      resultFullPathFor('/result', 'game / 1'),
+      '/result/full?game_id=game+%2F+1',
+    );
+  });
+
   testWidgets('result summary card uses exact Nuxt colors', (tester) async {
     await tester.pumpWidget(
       _wrapResultWidget(
-        ResultSummaryCard(result: _publishedResult(), featured: true),
+        ResultSummaryCard(
+          result: _publishedResult(),
+          variant: ResultSummaryCardVariant.featured,
+        ),
       ),
     );
 
@@ -68,7 +88,40 @@ void main() {
     );
   });
 
-  testWidgets('result detail uses Nuxt-style dated hero and prize rows', (
+  testWidgets('legacy result index uses the legacy latest-result provider', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith(
+            (_) async => throw StateError('modern provider must not load'),
+          ),
+          legacyResultProvider.overrideWith(
+            (_) async => RewardResultBundle(
+              currentGame: null,
+              selectedResult: _historyResult(),
+              history: const [],
+            ),
+          ),
+        ],
+        child: _materialApp(const ResultScreen(routePath: '/results')),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_text('654321'), findsOneWidget);
+    expect(_text('123456'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('current result detail keeps title hero and in-sheet draw date', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -83,8 +136,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(_text('ผลรางวัลงวดวันที่ 1 ก.ค. 2569'), findsOneWidget);
-    expect(_text('งวดวันที่ 1 ก.ค. 2569'), findsNothing);
+    expect(_text('ผลรางวัลสลากฯ'), findsOneWidget);
+    expect(_text('ผลรางวัลงวดวันที่ 1 ก.ค. 2569'), findsNothing);
+    expect(_text('งวดวันที่ 1 ก.ค. 2569'), findsOneWidget);
     expect(_text('รางวัลที่ 1'), findsOneWidget);
     expect(_text('123456'), findsOneWidget);
     expect(_text('รางวัลที่ 2'), findsOneWidget);
@@ -95,6 +149,26 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('legacy results detail keeps dated hero without content date', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrapResultDetail(
+        RewardResultBundle(
+          currentGame: null,
+          selectedResult: _publishedResult(),
+          history: const [],
+        ),
+        backPath: '/results',
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_text('ผลรางวัลงวดวันที่ 1 ก.ค. 2569'), findsOneWidget);
+    expect(_text('งวดวันที่ 1 ก.ค. 2569'), findsNothing);
   });
 
   testWidgets('result detail shows waiting state before numbers resolve', (
@@ -121,18 +195,119 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(_text('ผลรางวัลงวดวันที่ 1 ก.ค. 2569'), findsOneWidget);
+    expect(_text('ผลรางวัลสลากฯ'), findsOneWidget);
+    expect(_text('งวดวันที่ 1 ก.ค. 2569'), findsOneWidget);
+    expect(_text('1 ก.ค. 2569'), findsOneWidget);
     expect(_text('กำลังรอออกผล'), findsOneWidget);
     expect(_text('xxxxxx'), findsNothing);
     expect(_text('รางวัลที่ 2'), findsNothing);
   });
+
+  testWidgets('result detail preserves backend error copy and retries', (
+    tester,
+  ) async {
+    var attempts = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          resultDetailProvider('game_error').overrideWith((_) async {
+            attempts++;
+            throw _resultApiException('ระบบผลรางวัลปิดปรับปรุง');
+          }),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const ResultDetailScreen(gameId: 'game_error'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_text('ระบบผลรางวัลปิดปรับปรุง'), findsOneWidget);
+    expect(_text('ลองใหม่'), findsOneWidget);
+    expect(attempts, 1);
+
+    await tester.tap(_text('ลองใหม่'));
+    await tester.pumpAndSettle();
+
+    expect(attempts, 2);
+  });
+
+  testWidgets('result index forwards maintenance to the shared system route', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/result',
+      routes: [
+        GoRoute(
+          path: '/result',
+          builder: (_, __) => const ResultScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (_, __) => const Scaffold(
+            body: Center(child: Text('Maintenance route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith(
+            (_) async => throw _maintenanceException(),
+          ),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_text('Maintenance route'), findsOneWidget);
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(tester.takeException(), isNull);
+  });
 }
 
-Widget _wrapResultDetail(RewardResultBundle bundle) {
+Widget _wrapResultDetail(
+  RewardResultBundle bundle, {
+  String backPath = '/result',
+}) {
   return ProviderScope(
-    overrides: [
-      resultDetailProvider('game_1').overrideWith((_) async => bundle),
-    ],
+    overrides: backPath == '/results'
+        ? [
+            publishedResultDetailProvider(
+              'game_1',
+            ).overrideWith((_) async => bundle),
+          ]
+        : [
+            resultDetailProvider(
+              'game_1',
+            ).overrideWith((_) async => bundle),
+          ],
     child: MaterialApp(
       locale: fallbackCustomerLocale,
       supportedLocales: supportedCustomerLocales,
@@ -143,7 +318,41 @@ Widget _wrapResultDetail(RewardResultBundle bundle) {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: AppTheme.light(),
-      home: const ResultDetailScreen(gameId: 'game_1'),
+      home: ResultDetailScreen(gameId: 'game_1', backPath: backPath),
+    ),
+  );
+}
+
+DioException _resultApiException(String message) {
+  final request = RequestOptions(path: '/public/results/game_error');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 503,
+      data: {
+        'error': {
+          'code': 'result_unavailable',
+          'message': message,
+        },
+      },
+    ),
+  );
+}
+
+DioException _maintenanceException() {
+  final request = RequestOptions(path: '/public/results/live/latest');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 503,
+      data: const {
+        'error': {
+          'code': 'maintenance_active',
+          'message': 'ระบบอยู่ระหว่างปรับปรุง',
+        },
+      },
     ),
   );
 }

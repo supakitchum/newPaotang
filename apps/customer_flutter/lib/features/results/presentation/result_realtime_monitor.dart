@@ -24,18 +24,21 @@ class ResultRealtimeMonitor extends ConsumerStatefulWidget {
 class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
   CustomerRealtimeClient? _client;
   StreamSubscription<CustomerRealtimeEvent>? _events;
+  final CustomerRealtimeSubscriptionTracker _subscriptionTracker =
+      CustomerRealtimeSubscriptionTracker();
+  Future<void> _syncQueue = Future<void>.value();
   String _signature = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
   void didUpdateWidget(covariant ResultRealtimeMonitor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
   }
 
   @override
@@ -49,13 +52,21 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MobileBootstrap>>(
       mobileBootstrapProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     ref.listen<AsyncValue<RewardResultBundle>>(
       currentResultProvider,
-      (_, __) => WidgetsBinding.instance.addPostFrameCallback((_) => _sync()),
+      (_, __) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync()),
     );
     return widget.child;
+  }
+
+  void _scheduleSync() {
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _sync();
+    });
   }
 
   Future<void> _sync() async {
@@ -88,6 +99,8 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
     }
 
     await _stop();
+    if (!mounted) return;
+    _subscriptionTracker.updateChannels(channels);
     _signature = signature;
     final client =
         ref.read(customerRealtimeClientFactoryProvider)(bootstrap.realtime);
@@ -102,9 +115,20 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
     _events = null;
     await _client?.dispose();
     _client = null;
+    _subscriptionTracker.clear();
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
+    if (_subscriptionTracker.register(event)) {
+      if (event.channel.trim() == publicLatestResultChannel()) {
+        final currentGameId = _resultRealtimeGameId(
+          ref.read(currentResultProvider).valueOrNull,
+        );
+        _refreshResults(currentGameId);
+      }
+      return;
+    }
+
     if (normalizeRealtimeEventNameWithPayload(
           eventName: event.name,
           payload: event.payload,
@@ -112,8 +136,6 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
         'reward.result.live.updated') {
       return;
     }
-
-    ref.invalidate(currentResultProvider);
 
     final payload = normalizeRealtimePayload(event.payload);
     final gameId = _resultRealtimeScalarText(
@@ -131,8 +153,18 @@ class _ResultRealtimeMonitorState extends ConsumerState<ResultRealtimeMonitor> {
           payload['selectedGameId'] ??
           _gameIdFromRealtimePayload(payload),
     );
-    if (gameId.trim().isNotEmpty) {
-      ref.invalidate(resultDetailProvider(gameId.trim()));
+    _refreshResults(gameId);
+  }
+
+  void _refreshResults(String gameId) {
+    ref.invalidate(currentResultProvider);
+    ref.invalidate(legacyResultProvider);
+    ref.invalidate(resultDetailProvider(null));
+    ref.invalidate(publishedResultDetailProvider(null));
+    final normalizedGameId = gameId.trim();
+    if (normalizedGameId.isNotEmpty) {
+      ref.invalidate(resultDetailProvider(normalizedGameId));
+      ref.invalidate(publishedResultDetailProvider(normalizedGameId));
     }
   }
 }

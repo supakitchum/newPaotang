@@ -8,6 +8,7 @@ import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
 import 'package:customer_flutter/features/lottery/presentation/sale_closure_guard.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -424,6 +425,57 @@ void main() {
     expect(find.text('Waiting result route'), findsOneWidget);
     expect(lottery.releasedReservationIds, ['res_1']);
   });
+
+  testWidgets('sale closure guard follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/buy',
+      routes: [
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const Scaffold(body: Text('Buy route')),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (context, state) =>
+              const Scaffold(body: Text('Maintenance route')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          resultRepositoryProvider.overrideWithValue(
+            _FailingSaleResultRepository(),
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          routerConfig: router,
+          builder: (context, child) => SaleClosureGuard(
+            router: router,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.pump();
+
+    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+    expect(find.text('Maintenance route'), findsOneWidget);
+  });
 }
 
 LotteryCart _cart({
@@ -473,6 +525,28 @@ class _ClosedSaleResultRepository extends ResultRepository {
       drawAt: now.toIso8601String(),
       saleCloseAt: now.subtract(const Duration(minutes: 1)).toIso8601String(),
       serverTime: now.toIso8601String(),
+    );
+  }
+}
+
+class _FailingSaleResultRepository extends ResultRepository {
+  _FailingSaleResultRepository() : super(_testApiClient());
+
+  @override
+  Future<CurrentGame?> currentGame() async {
+    final request = RequestOptions(path: '/public/results/current-game');
+    throw DioException(
+      requestOptions: request,
+      response: Response<Map<String, dynamic>>(
+        requestOptions: request,
+        statusCode: 503,
+        data: const {
+          'error': {
+            'code': 'maintenance_active',
+            'message': 'ระบบอยู่ระหว่างปิดปรับปรุง',
+          },
+        },
+      ),
     );
   }
 }

@@ -14,8 +14,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets('biometric devices uses one shared fixed blue header', (
+    tester,
+  ) async {
+    await _pumpScreen(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('customer-fixed-hero')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('customer-fixed-content-region')),
+      findsOneWidget,
+    );
+    expect(find.byType(AppBar), findsNothing);
+  });
+
   testWidgets('biometric devices load error uses API payload copy', (
     tester,
   ) async {
@@ -50,6 +68,43 @@ void main() {
       find.textContaining('internal biometric device failure'),
       findsNothing,
     );
+  });
+
+  testWidgets('biometric devices load follows backend maintenance redirect', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/profile/biometrics',
+      routes: [
+        GoRoute(
+          path: '/profile/biometrics',
+          builder: (_, __) => const BiometricDevicesScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance',
+          builder: (_, __) => const Scaffold(
+            body: Center(child: Text('Maintenance route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await _pumpScreen(
+      tester,
+      router: router,
+      deviceRepository: _BiometricDeviceRepository(
+        loadError: _apiException(
+          'ร้านค้าปิดปรับปรุงชั่วคราว',
+          path: '/customer/auth/biometric/devices',
+          code: 'maintenance_active',
+          statusCode: 503,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Maintenance route'), findsOneWidget);
   });
 
   testWidgets('biometric enable uses API payload error copy', (tester) async {
@@ -216,6 +271,7 @@ Future<void> _pumpScreen(
   _BiometricDeviceRepository? deviceRepository,
   _BiometricAuthService? biometricAuth,
   MobileBootstrap? bootstrap,
+  GoRouter? router,
 }) {
   tester.view.physicalSize = const Size(900, 1400);
   tester.view.devicePixelRatio = 1;
@@ -236,17 +292,29 @@ Future<void> _pumpScreen(
           (_) async => bootstrap ?? _mobileBootstrap,
         ),
       ],
-      child: const MaterialApp(
-        locale: Locale('en', 'US'),
-        supportedLocales: supportedCustomerLocales,
-        localizationsDelegates: [
-          CustomerLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: BiometricDevicesScreen(),
-      ),
+      child: router == null
+          ? const MaterialApp(
+              locale: Locale('en', 'US'),
+              supportedLocales: supportedCustomerLocales,
+              localizationsDelegates: [
+                CustomerLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: BiometricDevicesScreen(),
+            )
+          : MaterialApp.router(
+              locale: const Locale('en', 'US'),
+              supportedLocales: supportedCustomerLocales,
+              localizationsDelegates: const [
+                CustomerLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            ),
     ),
   );
 }
@@ -375,14 +443,22 @@ class _BiometricAuthService extends BiometricAuthService {
   }
 }
 
-DioException _apiException(String message, {required String path}) {
+DioException _apiException(
+  String message, {
+  required String path,
+  String code = '',
+  int statusCode = 422,
+}) {
   final request = RequestOptions(path: path);
   return DioException(
     requestOptions: request,
     response: Response<Map<String, dynamic>>(
       requestOptions: request,
-      statusCode: 422,
-      data: {'message': message},
+      statusCode: statusCode,
+      data: {
+        if (code.isNotEmpty) 'code': code,
+        'message': message,
+      },
     ),
   );
 }

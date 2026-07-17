@@ -3,9 +3,13 @@
 namespace Tests\Feature;
 
 use App\Jobs\GenerateSoldTicketImageJob;
+use App\Modules\Commerce\Events\CustomerOrderUpdated;
+use App\Modules\Commerce\Events\CustomerTicketsUpdated;
+use App\Modules\Commerce\Events\CustomerWalletUpdated;
 use App\Modules\PartnerStore\Services\VirtualLotteryImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Tests\Support\M5CommerceFixtures;
@@ -19,6 +23,11 @@ class CustomerCheckoutTest extends TestCase
     public function test_CustomerCheckout_wallet_checkout_is_idempotent_and_emits_paid_sold_wallet_events(): void
     {
         $world = $this->prepareReservedCart('par_checkout', 'ten_checkout', 'checkout.m5.test', 'gam_checkout', '0802003000', 710001);
+        Event::fake([
+            CustomerOrderUpdated::class,
+            CustomerTicketsUpdated::class,
+            CustomerWalletUpdated::class,
+        ]);
 
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/cart')
@@ -83,6 +92,32 @@ class CustomerCheckoutTest extends TestCase
             'aggregate_id' => $world['wallet_id'],
             'tenant_id' => 'ten_checkout',
         ]);
+        Event::assertDispatched(CustomerOrderUpdated::class, function (CustomerOrderUpdated $event) use ($order, $world): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'order.updated'
+                && ($event->payload['order_id'] ?? null) === $order['id']
+                && ($event->payload['status'] ?? null) === 'paid'
+                && ($event->payload['ticket_ids'][0] ?? null) === $order['tickets'][0]['id']
+                && in_array('private-customer.tenant.ten_checkout.customer.'.$world['auth']['user']['id'].'.orders', $channels, true);
+        });
+        Event::assertDispatched(CustomerTicketsUpdated::class, function (CustomerTicketsUpdated $event) use ($order, $world): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'tickets.updated'
+                && ($event->payload['order_id'] ?? null) === $order['id']
+                && ($event->payload['ticket_ids'][0] ?? null) === $order['tickets'][0]['id']
+                && in_array('private-customer.tenant.ten_checkout.customer.'.$world['auth']['user']['id'].'.tickets', $channels, true);
+        });
+        Event::assertDispatched(CustomerWalletUpdated::class, function (CustomerWalletUpdated $event) use ($world): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'wallet.updated'
+                && ($event->payload['wallet_id'] ?? null) === $world['wallet_id']
+                && ($event->payload['entry_type'] ?? null) === 'debit'
+                && ($event->payload['amount'] ?? null) === -8000
+                && in_array('private-customer.tenant.ten_checkout.customer.'.$world['auth']['user']['id'].'.wallet', $channels, true);
+        });
 
         $replay = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
@@ -95,6 +130,9 @@ class CustomerCheckoutTest extends TestCase
             ->json();
 
         $this->assertSame($order['id'], $replay['id']);
+        Event::assertDispatchedTimes(CustomerOrderUpdated::class, 1);
+        Event::assertDispatchedTimes(CustomerTicketsUpdated::class, 1);
+        Event::assertDispatchedTimes(CustomerWalletUpdated::class, 1);
         $this->assertSame(1, DB::table('orders')->where('tenant_id', 'ten_checkout')->count());
         $this->assertSame(1, DB::table('tickets')->where('tenant_id', 'ten_checkout')->count());
         $this->assertDatabaseHas('tickets', [

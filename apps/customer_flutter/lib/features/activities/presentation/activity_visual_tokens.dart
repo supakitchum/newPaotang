@@ -1,5 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+
+Color activityBrandActionFill(ColorScheme colorScheme) =>
+    AppTheme.activityActionFill(colorScheme.primary);
+
+Color activityBrandActionForeground(ColorScheme colorScheme) =>
+    AppTheme.activityActionText(colorScheme.primary);
+
+Color activityFallbackArtworkStart(ColorScheme colorScheme) =>
+    AppTheme.activityFallbackStart(colorScheme.primary);
+
+Color activityFallbackArtworkEnd(ColorScheme colorScheme) =>
+    AppTheme.activityFallbackEnd(
+      colorScheme.primary,
+      colorScheme.secondary,
+    );
+
+Color activityFallbackArtworkIcon(ColorScheme colorScheme) =>
+    AppTheme.activityFallbackIcon(colorScheme.primary);
+
 Color activitySuccessTint(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
     colorScheme.primary.withValues(alpha: 0.12);
@@ -45,18 +65,22 @@ class ActivityImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFE8F6FF), Color(0xFFF4FBFF)],
+          colors: [
+            activityFallbackArtworkStart(colorScheme),
+            activityFallbackArtworkEnd(colorScheme),
+          ],
         ),
       ),
       child: Center(
         child: Icon(
           Icons.card_giftcard_outlined,
-          color: Color(0xFF0B7FE8),
+          color: activityFallbackArtworkIcon(colorScheme),
           size: iconSize,
         ),
       ),

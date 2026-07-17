@@ -56,9 +56,11 @@ void main() {
         '/checkout',
         '/checkout/pending',
         '/tickets',
+        '/tickets/search',
         '/tickets/history',
         '/my-wallet',
         '/topup',
+        '/topup/:topupId',
         '/topup/history',
         '/reward-claims',
         '/activity-claims',
@@ -67,6 +69,7 @@ void main() {
         '/news',
         '/news/:slug',
         '/profile',
+        '/profile/language',
         '/profile/biometrics',
         '/profile/account-deletion',
         '/purchase-history',
@@ -142,6 +145,7 @@ void main() {
       '/tickets/view',
       '/topup',
       '/topup/history',
+      '/wait-result',
       '/waiting-result',
     };
 
@@ -154,8 +158,9 @@ void main() {
       return;
     }
 
-    final flutterPaths =
-        customerFeatureRoutes.map((route) => route.path).toSet();
+    final flutterPaths = customerFeatureRoutes
+        .map((route) => route.path)
+        .toSet();
     final nuxtPaths = pagesDirectory
         .listSync(recursive: true)
         .whereType<File>()
@@ -173,8 +178,9 @@ void main() {
         .map((match) => match.group(1))
         .whereType<String>()
         .toSet();
-    final registeredPaths =
-        customerFeatureRoutes.map((route) => route.path).toSet();
+    final registeredPaths = customerFeatureRoutes
+        .map((route) => route.path)
+        .toSet();
 
     expect(routerPaths, containsAll(registeredPaths));
   });
@@ -186,16 +192,17 @@ void main() {
         .map((match) => match.group(1))
         .whereType<String>()
         .toSet();
-    final registeredPaths =
-        customerFeatureRoutes.map((route) => route.path).toSet();
+    final registeredPaths = customerFeatureRoutes
+        .map((route) => route.path)
+        .toSet();
 
     expect(registeredPaths, containsAll(routerPaths));
   });
 
   test('profile screen links to the same core menu flows as Nuxt profile', () {
-    final profileSource =
-        File('lib/features/profile/presentation/profile_screen.dart')
-            .readAsStringSync();
+    final profileSource = File(
+      'lib/features/profile/presentation/profile_screen.dart',
+    ).readAsStringSync();
 
     const expectedProfileLinks = {
       "path: '/my-wallet'",
@@ -207,6 +214,7 @@ void main() {
       "path: '/profile/reward-bank'",
       "path: '/profile/auto-reward'",
       "path: '/profile/line-notifications'",
+      "path: '/profile/language'",
       "path: '/news'",
       "path: '/terms'",
       "path: '/privacy'",
@@ -219,13 +227,15 @@ void main() {
     }
   });
 
-  test('customer route registry includes mobile-only social provider routes',
-      () {
-    final paths = customerFeatureRoutes.map((route) => route.path).toSet();
+  test(
+    'customer route registry includes mobile-only social provider routes',
+    () {
+      final paths = customerFeatureRoutes.map((route) => route.path).toSet();
 
-    expect(paths, contains('/social/:provider/callback'));
-    expect(paths, contains('/social/:provider/link-phone'));
-  });
+      expect(paths, contains('/social/:provider/callback'));
+      expect(paths, contains('/social/:provider/link-phone'));
+    },
+  );
 
   test('customer router does not include production placeholder fallback', () {
     final routerSource = File('lib/app/router.dart').readAsStringSync();
@@ -271,11 +281,13 @@ void main() {
         '/cart',
         '/checkout',
         '/tickets',
+        '/tickets/search',
         '/tickets/history',
         '/tickets/view',
         '/tickets/claim/:ticketId',
         '/my-wallet',
         '/topup',
+        '/topup/:topupId',
         '/topup/history',
         '/reward-claims',
         '/reward-claims/:claimId',
@@ -283,6 +295,7 @@ void main() {
         '/activity-claims/:claimId',
         '/affiliate',
         '/profile',
+        '/profile/language',
         '/profile/auto-reward',
         '/profile/biometrics',
         '/profile/line-notifications',
@@ -296,8 +309,7 @@ void main() {
     );
   });
 
-  test('customer route sensitivity matcher handles dynamic and tenant routes',
-      () {
+  test('customer route sensitivity matcher handles dynamic and tenant routes', () {
     expect(isSensitiveCustomerPath('/'), isFalse);
     expect(isSensitiveCustomerPath('/news/announcement'), isFalse);
     expect(isSensitiveCustomerPath('/my-wallet'), isTrue);
@@ -387,10 +399,7 @@ void main() {
       isFalse,
     );
     expect(
-      isCustomerRoutePatternMatch(
-        '/social/*',
-        '/social/google/callback',
-      ),
+      isCustomerRoutePatternMatch('/social/*', '/social/google/callback'),
       isTrue,
     );
   });

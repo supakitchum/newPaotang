@@ -8,11 +8,13 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/auth/auth_token_store.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
 import 'auth_visual_tokens.dart';
 
@@ -111,32 +113,51 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final providerLabel = _ProviderBrand.label(widget.provider);
-    final runtimeProvider = _runtimeSocialProvider(ref, widget.provider);
-    final query = _normalizedSocialCallbackQuery(widget.query);
-    final redirect = safeCustomerRedirect(query['redirect']);
+    final runtimeProvider = _runtimeSocialProvider(
+      ref.watch(mobileBootstrapProvider),
+      widget.provider,
+    );
     return Scaffold(
       body: _SocialCallbackHero(
         provider: widget.provider,
         runtimeProvider: runtimeProvider,
         title: context.l10n.socialCallbackTitle,
-        status: _status ?? context.l10n.socialCallbackWaiting(providerLabel),
-        actionLabel:
-            _status == null ? '' : context.l10n.forgotPasswordBackToLogin,
-        onAction: _status == null
-            ? null
-            : () => context.go(customerLoginRouteForRedirect(redirect)),
+        status: _status ??
+            context.l10n.socialCallbackWaiting(
+              _ProviderBrand.label(widget.provider, runtimeProvider),
+            ),
       ),
     );
   }
 
   Future<void> _handleCallback() async {
     final provider = normalizeSocialAuthProvider(widget.provider);
-    final providerLabel = _ProviderBrand.label(provider);
     final query = _normalizedSocialCallbackQuery(widget.query);
     final code = query['code']?.trim() ?? '';
     final state = query['state']?.trim() ?? '';
     if (code.isEmpty || state.isEmpty) {
+      final authController = ref.read(authControllerProvider);
+      if (authController.isAuthenticated) {
+        final callbackContext = await ref
+            .read(authTokenStoreProvider)
+            .takeLatestSocialCallbackContext();
+        final queryRedirect = query['redirect']?.trim() ?? '';
+        final redirect = safeCustomerRedirect(
+          queryRedirect.isNotEmpty ? queryRedirect : callbackContext?.redirect,
+        );
+        await ref.read(affiliateReferralServiceProvider).applyStored();
+        if (!mounted) return;
+        context.go(
+          customerPostAuthRouteForRedirect(
+            redirect: redirect,
+            pinRequired: authController.pinRequired,
+            pinSetupRequired: authController.pinSetupRequired,
+          ),
+        );
+        return;
+      }
+      final providerLabel = await _runtimeProviderLabel(provider);
+      if (!mounted) return;
       setState(() {
         _status = context.l10n.socialCallbackMissingCode(providerLabel);
       });
@@ -167,7 +188,7 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
         final redirect = safeCustomerRedirect(
           result.redirectPath.isNotEmpty
               ? result.redirectPath
-              : widget.query['redirect'],
+              : query['redirect'],
         );
         context.go(
           Uri(
@@ -190,7 +211,7 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
         final redirect = safeCustomerRedirect(
           result.redirectPath.isNotEmpty
               ? result.redirectPath
-              : widget.query['redirect'],
+              : query['redirect'],
         );
         final postAuthRoute = result.orderId.trim().isEmpty
             ? redirect
@@ -205,6 +226,8 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
         return;
       }
 
+      final providerLabel = await _runtimeProviderLabel(provider);
+      if (!mounted) return;
       setState(() {
         _status = result.message.isEmpty
             ? context.l10n.socialCallbackFailed(providerLabel)
@@ -212,17 +235,62 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      final redirect = ApiErrorInfo.fromObject(error).operationalRedirectPath;
-      if (redirect != null) {
-        context.go(redirect);
-        return;
-      }
+      final operational =
+          ApiErrorInfo.fromObject(error).operationalRedirectPath != null;
+      final returnPathOverride =
+          operational ? await _callbackReturnPath(query, state) : null;
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: returnPathOverride,
+      );
+      if (!mounted || handled) return;
+      final providerLabel = await _runtimeProviderLabel(provider);
+      if (!mounted) return;
       setState(() {
         _status = authErrorMessage(
           error,
           context.l10n.socialCallbackConnectFailed(providerLabel),
         );
       });
+    }
+  }
+
+  Future<String?> _callbackReturnPath(
+    Map<String, String> query,
+    String state,
+  ) async {
+    final queryRedirect = query['redirect']?.trim() ?? '';
+    if (queryRedirect.isNotEmpty) {
+      final safeRedirect = safeCustomerRedirect(queryRedirect);
+      return safeRedirect == '/' ? null : safeRedirect;
+    }
+
+    if (state.isEmpty) return null;
+    final callbackContext =
+        await ref.read(authTokenStoreProvider).readSocialCallbackContext(state);
+    final safeRedirect = safeCustomerRedirect(callbackContext?.redirect);
+    return safeRedirect == '/' ? null : safeRedirect;
+  }
+
+  Future<String> _runtimeProviderLabel(String provider) async {
+    final current = _runtimeSocialProvider(
+      ref.read(mobileBootstrapProvider),
+      provider,
+    );
+    if (current != null) return _ProviderBrand.label(provider, current);
+
+    try {
+      final bootstrap = await ref.read(mobileBootstrapProvider.future);
+      final resolved = _runtimeSocialProvider(
+        AsyncData<MobileBootstrap>(bootstrap),
+        provider,
+      );
+      return _ProviderBrand.label(provider, resolved);
+    } catch (_) {
+      return _ProviderBrand.label(provider);
     }
   }
 }
@@ -344,8 +412,14 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final providerLabel = _ProviderBrand.label(widget.provider);
-    final runtimeProvider = _runtimeSocialProvider(ref, widget.provider);
+    final runtimeProvider = _runtimeSocialProvider(
+      ref.watch(mobileBootstrapProvider),
+      widget.provider,
+    );
+    final providerLabel = _ProviderBrand.label(
+      widget.provider,
+      runtimeProvider,
+    );
     final providerColor = _ProviderBrand.color(
       context,
       widget.provider,
@@ -377,10 +451,12 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                   ),
                   _SocialLinkSheet(
                     minHeight: sheetMinHeight,
+                    viewportWidth: constraints.maxWidth,
                     child: _buildPhoneLinkCard(
                       context,
                       providerColor,
                       providerLabel,
+                      constraints.maxWidth,
                     ),
                   ),
                 ],
@@ -396,13 +472,14 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     BuildContext context,
     Color providerColor,
     String providerLabel,
+    double viewportWidth,
   ) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(viewportWidth <= 380 ? 16 : 18),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -414,93 +491,115 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
           ),
         ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 380;
-          return Padding(
-            padding: EdgeInsets.all(compact ? 14 : 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _LineProfileCard(
-                  provider: widget.provider,
-                  providerColor: providerColor,
-                  name: widget.displayName,
-                  pictureUrl: widget.pictureUrl,
-                ),
-                if (_formError.trim().isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  _SocialLinkErrorPanel(message: _formError),
-                ],
-                const SizedBox(height: 18),
-                _SocialLinkFieldLabel(label: l10n.registerPhoneLabel),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                  decoration: _socialInputDecoration(
-                    hintText: l10n.registerPhoneHint,
-                    icon: Icons.phone_android_outlined,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SocialLinkFieldLabel(label: l10n.registerPasswordLabel),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _password,
-                  obscureText: !_showPassword,
-                  decoration: _socialInputDecoration(
-                    hintText: l10n.socialLinkPasswordHint,
-                    icon: Icons.lock_outline,
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(
-                        () => _showPassword = !_showPassword,
-                      ),
-                      tooltip: _showPassword
-                          ? l10n.registerHidePassword
-                          : l10n.registerShowPassword,
-                      icon: Icon(
-                        _showPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SocialLinkFieldLabel(
-                  label: l10n.registerConfirmPasswordLabel,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _confirmPassword,
-                  obscureText: !_showPassword,
-                  decoration: _socialInputDecoration(
-                    hintText: l10n.socialLinkConfirmPasswordHint,
-                    icon: Icons.shield_outlined,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _SocialLinkNote(
-                  text: l10n.socialLinkPhoneSubtitle(providerLabel),
-                ),
-                const SizedBox(height: 18),
-                authPrimaryActionButton(
-                  onPressed: _saving ? null : _submit,
-                  height: 54,
-                  fontSize: 18,
-                  label: _saving
-                      ? l10n.socialLinkSubmitting
-                      : l10n.socialLinkSubmit,
-                ),
-              ],
+      child: Padding(
+        padding: EdgeInsets.all(
+          viewportWidth <= 380 ? 14 : (viewportWidth * 0.05).clamp(16.0, 24.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _LineProfileCard(
+              provider: widget.provider,
+              providerLabel: providerLabel,
+              providerColor: providerColor,
+              name: widget.displayName,
+              pictureUrl: widget.pictureUrl,
+              viewportWidth: viewportWidth,
             ),
-          );
-        },
+            if (_formError.trim().isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _SocialLinkErrorPanel(message: _formError),
+            ],
+            const SizedBox(height: 18),
+            _SocialLinkFieldLabel(label: l10n.registerPhoneLabel),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _phone,
+              style: authInputTextStyle(
+                context,
+                fontWeight: FontWeight.w800,
+              ),
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
+              decoration: _socialInputDecoration(
+                hintText: l10n.registerPhoneHint,
+                icon: Icons.phone_android_outlined,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SocialLinkFieldLabel(label: l10n.registerPasswordLabel),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _password,
+              style: authInputTextStyle(
+                context,
+                fontWeight: FontWeight.w800,
+              ),
+              obscureText: !_showPassword,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.password],
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              decoration: _socialInputDecoration(
+                hintText: l10n.socialLinkPasswordHint,
+                icon: Icons.lock_outline,
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _saving
+                      ? null
+                      : () => setState(
+                            () => _showPassword = !_showPassword,
+                          ),
+                  tooltip: _showPassword
+                      ? l10n.registerHidePassword
+                      : l10n.registerShowPassword,
+                  icon: _showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SocialLinkFieldLabel(
+              label: l10n.registerConfirmPasswordLabel,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _confirmPassword,
+              style: authInputTextStyle(
+                context,
+                fontWeight: FontWeight.w800,
+              ),
+              obscureText: !_showPassword,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.newPassword],
+              onSubmitted: (_) {
+                if (!_saving) _submit();
+              },
+              decoration: _socialInputDecoration(
+                hintText: l10n.socialLinkConfirmPasswordHint,
+                icon: Icons.shield_outlined,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SocialLinkNote(
+              text: l10n.socialLinkPhoneSubtitle(providerLabel),
+            ),
+            const SizedBox(height: 18),
+            authPrimaryActionButton(
+              onPressed: _saving ? null : _submit,
+              height: 54,
+              fontSize: 18,
+              label:
+                  _saving ? l10n.socialLinkSubmitting : l10n.socialLinkSubmit,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -522,19 +621,22 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
               child: suffixIcon,
             ),
       softFill: true,
+      borderRadius: 14,
     );
   }
 
   Future<void> _submit() async {
     final phone = _phone.text.replaceAll(RegExp(r'\D'), '');
     final provider = normalizeSocialAuthProvider(widget.provider);
-    final providerLabel = _ProviderBrand.label(provider);
+    final providerLabel = _ProviderBrand.label(
+      provider,
+      _runtimeSocialProvider(
+        ref.read(mobileBootstrapProvider),
+        provider,
+      ),
+    );
     if (widget.linkToken.trim().isEmpty) {
       _showFormError(context.l10n.socialLinkMissing(providerLabel));
-      return;
-    }
-    if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
-      _showFormError(context.l10n.authPhoneInvalid);
       return;
     }
     if (_password.text != _confirmPassword.text) {
@@ -569,12 +671,14 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      final redirect = ApiErrorInfo.fromObject(error).operationalRedirectPath;
-      if (redirect != null) {
-        context.go(redirect);
-      } else {
-        _showFormError(authErrorMessage(error, failedMessage));
-      }
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: redirect,
+      );
+      if (!mounted || handled) return;
+      _showFormError(authErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -642,114 +746,93 @@ class _SocialCallbackHero extends StatelessWidget {
     required this.runtimeProvider,
     required this.title,
     required this.status,
-    this.actionLabel = '',
-    this.onAction,
   });
 
   final String provider;
   final SocialAuthProvider? runtimeProvider;
   final String title;
   final String status;
-  final String actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
-    final brandColor = _ProviderBrand.color(context, provider, runtimeProvider);
-    final brandLabel = _ProviderBrand.label(provider);
+    final brandLabel = _ProviderBrand.label(provider, runtimeProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
+    final copy = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 430),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.38),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: colorScheme.onPrimary.withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _ProviderBrand.icon(provider),
-                            color: brandColor,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$brandLabel Login',
-                            style: TextStyle(
-                              color: colorScheme.onPrimary,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Icon(
+                    _ProviderBrand.icon(provider),
+                    color: colorScheme.onPrimary,
+                    size: 18,
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(width: 8),
                   Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontWeight: FontWeight.w900,
-                          height: 1.05,
-                        ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    status,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.9),
-                          fontWeight: FontWeight.w700,
-                          height: 1.45,
-                        ),
-                  ),
-                  if (onAction != null && actionLabel.trim().isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed: onAction,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colorScheme.onPrimary,
-                        foregroundColor: colorScheme.primary,
-                        minimumSize: const Size(168, 46),
-                        shape: const StadiumBorder(),
-                        textStyle:
-                            Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                ),
-                      ),
-                      child: Text(actionLabel),
+                    '$brandLabel Login',
+                    style: TextStyle(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            title,
+            textAlign: TextAlign.start,
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: colorScheme.onPrimary,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            status,
+            textAlign: TextAlign.start,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w400,
+                  height: 1.45,
+                ),
+          ),
+        ],
+      ),
+    );
+
+    return AuthLoginHeroBackdrop(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          authHeroTopPadding(context),
+          20,
+          104 + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: customerContentMaxWidthFor(context),
+            ),
+            child: Align(
+              alignment: AlignmentDirectional.topStart,
+              child: copy,
             ),
           ),
         ),
@@ -777,25 +860,17 @@ class _SocialLinkHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
-    final viewportWidth = MediaQuery.sizeOf(context).width;
-    final heroHeight = viewportWidth < 390 ? 292.0 : 276.0;
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            AppTheme.heroGradientEnd(colorScheme.primary),
-          ],
-        ),
-      ),
-      child: SizedBox(
-        height: topPadding + heroHeight,
+    return AuthBlueHeroBackdrop(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 268),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(16, topPadding + 12, 16, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            authHeroTopPadding(context),
+            20,
+            24,
+          ),
           child: Stack(
             children: [
               PositionedDirectional(
@@ -880,28 +955,43 @@ class _SocialLinkHero extends StatelessWidget {
 class _SocialLinkSheet extends StatelessWidget {
   const _SocialLinkSheet({
     required this.minHeight,
+    required this.viewportWidth,
     required this.child,
   });
 
   final double minHeight;
+  final double viewportWidth;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final topPadding = width >= 768 ? 32.0 : 18.0;
+    final topPadding =
+        viewportWidth >= 768 ? 32.0 : (viewportWidth * 0.05).clamp(18.0, 28.0);
+    final horizontalPadding = viewportWidth <= 380 ? 12.0 : 16.0;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.surfaceContainerLowest),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: minHeight),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16, topPadding, 16, 40),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: child,
+    return Transform.translate(
+      offset: Offset(0, authContentSheetOverlap(viewportWidth)),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: minHeight),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              topPadding,
+              horizontalPadding,
+              40 + bottomInset,
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: child,
+              ),
             ),
           ),
         ),
@@ -961,15 +1051,19 @@ class _SocialLinkNote extends StatelessWidget {
 class _LineProfileCard extends StatelessWidget {
   const _LineProfileCard({
     required this.provider,
+    required this.providerLabel,
     required this.providerColor,
     required this.name,
     required this.pictureUrl,
+    required this.viewportWidth,
   });
 
   final String provider;
+  final String providerLabel;
   final Color providerColor;
   final String name;
   final String pictureUrl;
+  final double viewportWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -990,17 +1084,17 @@ class _LineProfileCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 360;
-            final wide = constraints.maxWidth >= 492;
+        child: Builder(
+          builder: (context) {
+            final compact = viewportWidth <= 380;
+            final wide = viewportWidth >= 768;
             final avatar = _LineProfileAvatar(
               provider: provider,
               providerColor: providerColor,
               pictureUrl: pictureUrl,
             );
             final copy = _LineProfileCopy(
-              provider: provider,
+              providerLabel: providerLabel,
               providerColor: providerColor,
               name: name,
               centered: compact,
@@ -1082,7 +1176,7 @@ class _LineProfileAvatar extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: SizedBox.square(
-          dimension: 64,
+          dimension: 72,
           child: pictureUrl.isEmpty
               ? Icon(
                   _ProviderBrand.icon(provider),
@@ -1106,20 +1200,19 @@ class _LineProfileAvatar extends StatelessWidget {
 
 class _LineProfileCopy extends StatelessWidget {
   const _LineProfileCopy({
-    required this.provider,
+    required this.providerLabel,
     required this.providerColor,
     required this.name,
     this.centered = false,
   });
 
-  final String provider;
+  final String providerLabel;
   final Color providerColor;
   final String name;
   final bool centered;
 
   @override
   Widget build(BuildContext context) {
-    final providerLabel = _ProviderBrand.label(provider);
     final colorScheme = Theme.of(context).colorScheme;
     final profileName = name.isEmpty
         ? context.l10n.socialProfileFallbackName(providerLabel)
@@ -1196,27 +1289,36 @@ class _LineProfileStatus extends StatelessWidget {
   }
 }
 
-SocialAuthProvider? _runtimeSocialProvider(WidgetRef ref, String provider) {
+SocialAuthProvider? _runtimeSocialProvider(
+  AsyncValue<MobileBootstrap> bootstrapValue,
+  String provider,
+) {
   final normalizedProvider = normalizeSocialAuthProvider(provider);
-  return ref.watch(mobileBootstrapProvider).maybeWhen(
-        data: (bootstrap) {
-          for (final candidate in bootstrap.authProviders) {
-            if (candidate.provider == normalizedProvider) return candidate;
-          }
-          return null;
-        },
-        orElse: () => null,
-      );
+  return bootstrapValue.maybeWhen(
+    data: (bootstrap) {
+      for (final candidate in bootstrap.authProviders) {
+        if (candidate.provider == normalizedProvider) return candidate;
+      }
+      return null;
+    },
+    orElse: () => null,
+  );
 }
 
 class _ProviderBrand {
   const _ProviderBrand._();
 
-  static String label(String provider) {
+  static String label(
+    String provider, [
+    SocialAuthProvider? runtimeProvider,
+  ]) {
+    final runtimeLabel = runtimeProvider?.label.trim() ?? '';
+    if (runtimeLabel.isNotEmpty) return runtimeLabel;
     return switch (normalizeSocialAuthProvider(provider)) {
       'google' => 'Google',
       'apple' => 'Apple ID',
-      _ => 'LINE',
+      'line' => 'LINE',
+      final provider => provider,
     };
   }
 
@@ -1233,7 +1335,8 @@ class _ProviderBrand {
     String provider, [
     SocialAuthProvider? runtimeProvider,
   ]) {
-    final providerColor = runtimeProvider?.brandColor;
+    final providerColor =
+        runtimeProvider?.brandColor ?? runtimeProvider?.buttonBackgroundColor;
     if (providerColor != null) return providerColor;
 
     final colorScheme = Theme.of(context).colorScheme;

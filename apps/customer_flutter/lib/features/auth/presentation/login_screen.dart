@@ -11,7 +11,7 @@ import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
 import 'auth_visual_tokens.dart';
 
@@ -145,14 +145,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (error) {
-      if (mounted) {
-        final redirect = ApiErrorInfo.fromObject(error).operationalRedirectPath;
-        if (redirect != null) {
-          context.go(redirect);
-        } else {
-          _showFormError(_errorMessage(error, context.l10n.loginFailed));
-        }
-      }
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
+      _showFormError(_errorMessage(error, context.l10n.loginFailed));
     } finally {
       if (mounted) setState(() => _passwordSubmitting = false);
     }
@@ -183,14 +184,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _showFormError(socialFailed);
       }
     } catch (error) {
-      if (mounted) {
-        final redirect = ApiErrorInfo.fromObject(error).operationalRedirectPath;
-        if (redirect != null) {
-          context.go(redirect);
-        } else {
-          _showFormError(_errorMessage(error, socialFailed));
-        }
-      }
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
+      _showFormError(_errorMessage(error, socialFailed));
     } finally {
       if (mounted) setState(() => _socialSubmittingProvider = null);
     }
@@ -507,6 +509,7 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: username,
+              autofillHints: const [AutofillHints.telephoneNumber],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
@@ -525,6 +528,7 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: password,
+              autofillHints: const [AutofillHints.password],
               style: authInputTextStyle(context),
               obscureText: !showPassword,
               textInputAction: TextInputAction.done,

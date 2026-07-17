@@ -5,12 +5,18 @@ import '../auth/auth_token_store.dart';
 import '../config/app_config.dart';
 import '../i18n/app_locale.dart';
 import '../i18n/customer_locale_controller.dart';
+import '../utils/idempotency_key.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final config = ref.watch(appConfigProvider);
   final tokenStore = ref.watch(authTokenStoreProvider);
-  final locale = ref.watch(customerLocaleProvider);
-  return ApiClient(config, tokenStore, localeTag: localeTag(locale));
+  final initialLocale = ref.read(customerLocaleProvider);
+  return ApiClient(
+    config,
+    tokenStore,
+    localeTag: localeTag(initialLocale),
+    localeTagResolver: () => localeTag(ref.read(customerLocaleProvider)),
+  );
 });
 
 class ApiClient {
@@ -18,18 +24,21 @@ class ApiClient {
     AppConfig config,
     this._tokenStore, {
     required String localeTag,
+    String Function()? localeTagResolver,
     Dio? dio,
   })  : _localeTag = localeTag,
+        _localeTagResolver = localeTagResolver,
         _tenantHost = config.normalizedTenantHost,
         _dio = _configuredDio(config.apiBaseUrl, dio);
 
   final AuthTokenStore _tokenStore;
   final String _localeTag;
+  final String Function()? _localeTagResolver;
   final String _tenantHost;
   final Dio _dio;
   Future<bool>? _refreshInFlight;
 
-  String get currentLocaleTag => _localeTag;
+  String get currentLocaleTag => _localeTagResolver?.call() ?? _localeTag;
   String get currentTenantHost => _tenantHost;
 
   Future<Response<T>> get<T>(
@@ -37,25 +46,31 @@ class ApiClient {
     Map<String, dynamic>? query,
     bool auth = true,
   }) {
+    final requestId = newIdempotencyKey('req');
     return _requestWithTokenRefresh<T>(
       path: path,
       auth: auth,
       request: () => _dio.get<T>(
         _path(path),
         queryParameters: query,
-        options: Options(headers: _headers(auth: auth)),
+        options: Options(
+          headers: _headers(auth: auth, requestId: requestId),
+        ),
       ),
     );
   }
 
   Future<Response<T>> post<T>(String path, {Object? data, bool auth = true}) {
+    final requestId = newIdempotencyKey('req');
     return _requestWithTokenRefresh<T>(
       path: path,
       auth: auth,
       request: () => _dio.post<T>(
         _path(path),
         data: data,
-        options: Options(headers: _headers(auth: auth)),
+        options: Options(
+          headers: _headers(auth: auth, requestId: requestId),
+        ),
       ),
     );
   }
@@ -66,13 +81,19 @@ class ApiClient {
     bool auth = true,
     Map<String, String> headers = const {},
   }) {
+    final requestId = newIdempotencyKey('req');
     return _requestWithTokenRefresh<T>(
       path: path,
       auth: auth,
       request: () => _dio.post<T>(
         _path(path),
         data: data,
-        options: Options(headers: {..._headers(auth: auth), ...headers}),
+        options: Options(
+          headers: {
+            ..._headers(auth: auth, requestId: requestId),
+            ...headers,
+          },
+        ),
       ),
     );
   }
@@ -83,13 +104,19 @@ class ApiClient {
     bool auth = true,
     Map<String, String> headers = const {},
   }) {
+    final requestId = newIdempotencyKey('req');
     return _requestWithTokenRefresh<T>(
       path: path,
       auth: auth,
       request: () => _dio.patch<T>(
         _path(path),
         data: data,
-        options: Options(headers: {..._headers(auth: auth), ...headers}),
+        options: Options(
+          headers: {
+            ..._headers(auth: auth, requestId: requestId),
+            ...headers,
+          },
+        ),
       ),
     );
   }
@@ -100,13 +127,19 @@ class ApiClient {
     bool auth = true,
     Map<String, String> headers = const {},
   }) {
+    final requestId = newIdempotencyKey('req');
     return _requestWithTokenRefresh<T>(
       path: path,
       auth: auth,
       request: () => _dio.post<T>(
         _path(path),
-        data: data,
-        options: Options(headers: {..._headers(auth: auth), ...headers}),
+        data: data.isFinalized ? data.clone() : data,
+        options: Options(
+          headers: {
+            ..._headers(auth: auth, requestId: requestId),
+            ...headers,
+          },
+        ),
       ),
     );
   }
@@ -117,13 +150,19 @@ class ApiClient {
     bool auth = true,
     Map<String, String> headers = const {},
   }) {
+    final requestId = newIdempotencyKey('req');
     return _requestWithTokenRefresh<T>(
       path: path,
       auth: auth,
       request: () => _dio.delete<T>(
         _path(path),
         data: data,
-        options: Options(headers: {..._headers(auth: auth), ...headers}),
+        options: Options(
+          headers: {
+            ..._headers(auth: auth, requestId: requestId),
+            ...headers,
+          },
+        ),
       ),
     );
   }
@@ -193,12 +232,15 @@ class ApiClient {
   Future<bool> _refreshAccessTokenNow() async {
     final currentRefreshToken = _tokenStore.refreshToken?.trim() ?? '';
     if (currentRefreshToken.isEmpty) return false;
+    final requestId = newIdempotencyKey('req');
 
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         _path('/customer/auth/refresh'),
         data: {'refresh_token': currentRefreshToken},
-        options: Options(headers: _headers(auth: false)),
+        options: Options(
+          headers: _headers(auth: false, requestId: requestId),
+        ),
       );
       final payload = _sessionPayload(_asMap(response.data));
       final user = _asMap(payload['user']);
@@ -241,18 +283,27 @@ class ApiClient {
         customerId: customerId.isEmpty ? _tokenStore.customerId : customerId,
       );
       return true;
-    } catch (_) {
-      return false;
+    } on DioException catch (error) {
+      if (_isRejectedRefreshToken(error)) return false;
+      rethrow;
     }
   }
 
-  Map<String, String> _headers({required bool auth}) {
+  bool _isRejectedRefreshToken(DioException error) {
+    return error.response?.statusCode == 401;
+  }
+
+  Map<String, String> _headers({
+    required bool auth,
+    required String requestId,
+  }) {
     final token = _tokenStore.accessToken;
     return {
       'Accept': 'application/json',
-      'Accept-Language': _localeTag,
-      'X-Locale': _localeTag,
+      'Accept-Language': currentLocaleTag,
+      'X-Locale': currentLocaleTag,
       'X-Client-App': 'customer_flutter',
+      'X-Request-Id': requestId,
       if (_tenantHost.isNotEmpty) 'X-Tenant-Host': _tenantHost,
       if (_tenantHost.isNotEmpty) 'X-Forwarded-Host': _tenantHost,
       if (auth && token != null && token.isNotEmpty)

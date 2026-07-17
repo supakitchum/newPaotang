@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:customer_flutter/core/auth/auth_controller.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
@@ -32,14 +35,20 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('L6'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('app-splash-product-mark')),
+      findsOneWidget,
+    );
     expect(find.text('Demo Shop'), findsOneWidget);
     expect(find.text('Ready content'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pumpAndSettle();
 
-    expect(find.text('L6'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('app-splash-product-mark')),
+      findsNothing,
+    );
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -59,7 +68,46 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('L6'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('app-splash-product-mark')),
+      findsNothing,
+    );
+    expect(find.text('Ready content'), findsOneWidget);
+  });
+
+  testWidgets('AppSplashHost waits for auth session startup', (tester) async {
+    final authStartup = Completer<void>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appSplashMinimumDurationProvider.overrideWithValue(Duration.zero),
+          appSplashFadeDurationProvider.overrideWithValue(Duration.zero),
+          authSessionStartupProvider.overrideWith((_) => authStartup.future),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(const {
+              'site': {'display_name': 'Demo Shop', 'locale': 'th-TH'},
+            }),
+          ),
+        ],
+        child: const _SplashHarness(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(
+      find.byKey(const ValueKey('app-splash-product-mark')),
+      findsOneWidget,
+    );
+
+    authStartup.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(
+      find.byKey(const ValueKey('app-splash-product-mark')),
+      findsNothing,
+    );
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -147,6 +195,32 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('TenantBrandLogo uses runtime identity without partner fallback',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {
+                'display_name': 'Runtime Lucky Shop',
+                'support_phone': '02-000-0000',
+                'locale': 'th-TH',
+              },
+            }),
+          ),
+        ],
+        child: const _BrandLogoHarness(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Runtime Lucky Shop'), findsOneWidget);
+    expect(find.text('02-000-0000'), findsOneWidget);
+    expect(find.text('GLO'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _SplashHarness extends StatelessWidget {
@@ -185,6 +259,20 @@ class _BrandHeaderHarness extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       home: Scaffold(body: Center(child: TenantBrandHeader())),
+    );
+  }
+}
+
+class _BrandLogoHarness extends StatelessWidget {
+  const _BrandLogoHarness();
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      home: Scaffold(
+        backgroundColor: Color(0xFF087FF0),
+        body: Center(child: TenantBrandLogo()),
+      ),
     );
   }
 }
