@@ -88,6 +88,51 @@ void main() {
     );
   });
 
+  testWidgets('result index responds without a fixed mobile hero gap', (
+    tester,
+  ) async {
+    Future<void> pumpAt(Size size) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentResultProvider.overrideWith((_) async {
+              return RewardResultBundle(
+                currentGame: null,
+                selectedResult: _publishedResult(),
+                history: [_historyResult()],
+              );
+            }),
+          ],
+          child: _materialApp(const ResultScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final featured = tester.getRect(
+        find.byKey(const ValueKey('result-featured-card')),
+      );
+      final historySheet = tester.getRect(
+        find.byKey(const ValueKey('result-history-sheet')),
+      );
+      final backButton = tester.getRect(
+        find.byKey(const ValueKey('result-back-button')),
+      );
+
+      expect(historySheet.top - featured.bottom, closeTo(24, 0.5));
+      expect(backButton.left, greaterThanOrEqualTo(0));
+      expect(backButton.right, lessThanOrEqualTo(size.width));
+      expect(tester.takeException(), isNull);
+    }
+
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpAt(const Size(320, 700));
+    await pumpAt(const Size(768, 900));
+  });
+
   testWidgets('legacy result index uses the legacy latest-result provider', (
     tester,
   ) async {

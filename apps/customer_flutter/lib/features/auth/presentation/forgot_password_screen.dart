@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../shared/utils/customer_operational_error.dart';
@@ -91,7 +92,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               padding: EdgeInsets.zero,
               children: [
                 _ForgotPasswordHeroSection(
-                  onBack: () => context.go('/login'),
+                  onBack: () => navigateCustomerBack(
+                    context,
+                    fallbackPath: '/login',
+                  ),
                 ),
                 Form(
                   key: _formKey,

@@ -43,9 +43,10 @@ class _LanguageScreenState extends ConsumerState<LanguageScreen> {
         children: [
           _LanguageContentSheet(
             child: CustomerPageBody(
-              top: 23,
+              top: 16,
               bottom: 118,
               mobileHorizontal: 18,
+              minViewportHeight: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -163,10 +164,7 @@ class _LanguageContentSheet extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 620),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

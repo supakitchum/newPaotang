@@ -45,7 +45,8 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
       backPath: '/profile',
       sensitive: true,
       showBottomNavigation: false,
-      heroMinHeight: 176,
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       heroSheetTopRadius: 22,
       heroContentTopGap: 0,
@@ -55,11 +56,12 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
         children: [
           _PurchaseHistoryContentSheet(
             child: CustomerPageBody(
-              top: 28,
+              top: 18,
               bottom: 56,
               mobileHorizontal: compact ? 16 : 20,
               wideHorizontal: 20,
               includeBottomSafeArea: false,
+              minViewportHeight: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -82,15 +84,15 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
                       onAction: () => context.go('/buy'),
                     )
                   else ...[
-                    for (var groupIndex = 0;
-                        groupIndex < groups.length;
-                        groupIndex++) ...[
+                    for (
+                      var groupIndex = 0;
+                      groupIndex < groups.length;
+                      groupIndex++
+                    ) ...[
                       if (groupIndex > 0) const SizedBox(height: 32),
                       Text(
                         groups[groupIndex].year,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
+                        style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
                               color: const Color(0xFF242833),
                               fontSize: 28,
@@ -229,10 +231,7 @@ class _PurchaseHistoryContentSheet extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 660),
-        child: child,
-      ),
+      child: child,
     );
   }
 }
@@ -288,12 +287,7 @@ class _PurchaseHistoryTile extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 116),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  0,
-                  topPadding ? 22 : 0,
-                  0,
-                  22,
-                ),
+                padding: EdgeInsets.fromLTRB(0, topPadding ? 22 : 0, 0, 22),
                 child: IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -406,11 +400,11 @@ class _PurchaseHistoryPill extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xFF8762D6),
-                  fontSize: compact ? 13 : 15,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
+              color: const Color(0xFF8762D6),
+              fontSize: compact ? 13 : 15,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
           ),
         ),
       ),
@@ -464,9 +458,9 @@ class _PurchaseHistoryLoading extends StatelessWidget {
         context.l10n.purchaseHistoryLoading,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF8A8F98),
-              fontWeight: FontWeight.w700,
-            ),
+          color: const Color(0xFF8A8F98),
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -512,20 +506,20 @@ class _PurchaseHistoryState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF242833),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
+              color: const Color(0xFF242833),
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF596474),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: const Color(0xFF596474),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 20),
           _PurchaseHistoryPrimaryButton(
@@ -569,15 +563,16 @@ class _PurchaseHistoryPrimaryButton extends StatelessWidget {
       ),
       child: TextButton(
         onPressed: onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
-          minimumSize: const Size(148, 47),
-          padding: const EdgeInsets.symmetric(horizontal: 22),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
+        style:
+            TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              minimumSize: const Size(148, 47),
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            ),
         child: Text(label),
       ),
     );
@@ -600,22 +595,23 @@ class _PurchaseHistoryOutlineButton extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     return OutlinedButton(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppTheme.primaryOutlineText(primary),
-        disabledForegroundColor: const Color(0xFF8A8F98),
-        backgroundColor: loading ? const Color(0xFFF2F4F7) : Colors.white,
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        shape: const StadiumBorder(),
-        side: BorderSide(
-          color: loading
-              ? const Color(0xFFCBD4DF)
-              : AppTheme.primaryOutlineBorder(primary),
-        ),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
-      ).copyWith(
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      ),
+      style:
+          OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryOutlineText(primary),
+            disabledForegroundColor: const Color(0xFF8A8F98),
+            backgroundColor: loading ? const Color(0xFFF2F4F7) : Colors.white,
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            shape: const StadiumBorder(),
+            side: BorderSide(
+              color: loading
+                  ? const Color(0xFFCBD4DF)
+                  : AppTheme.primaryOutlineBorder(primary),
+            ),
+            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
       child: Text(label),
     );
   }

@@ -1248,17 +1248,15 @@ class _StoreContentSheet extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 620),
-        child: CustomerPageBody(
-          top: 23,
-          bottom: bottom,
-          mobileHorizontal: 18,
-          wideHorizontal: 0,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
+      child: CustomerPageBody(
+        top: 18,
+        bottom: bottom,
+        mobileHorizontal: 18,
+        wideHorizontal: 0,
+        minViewportHeight: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
         ),
       ),
     );

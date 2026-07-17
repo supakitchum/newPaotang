@@ -129,6 +129,7 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
                     maxWidth: 640,
                     mobileHorizontal: 16,
                     wideHorizontal: 24,
+                    minViewportHeight: true,
                     child: profile.when(
                       data: (data) {
                         _hydrateFromProfile(data);

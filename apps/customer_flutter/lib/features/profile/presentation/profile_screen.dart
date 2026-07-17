@@ -230,9 +230,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             _ProfileContentSheet(
               child: CustomerPageBody(
-                top: 24,
+                top: 16,
                 bottom: 120,
                 mobileHorizontal: 18,
+                minViewportHeight: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -351,10 +352,7 @@ class _ProfileContentSheet extends StatelessWidget {
           color: colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 620),
-          child: child,
-        ),
+        child: child,
       ),
     );
   }

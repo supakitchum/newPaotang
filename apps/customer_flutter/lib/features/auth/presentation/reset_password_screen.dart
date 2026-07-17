@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import 'auth_visual_tokens.dart';
@@ -63,7 +64,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               children: [
                 _ResetPasswordHeroSection(
                   description: description,
-                  onBack: _saving ? null : () => context.go('/login'),
+                  onBack: _saving
+                      ? null
+                      : () => navigateCustomerBack(
+                            context,
+                            fallbackPath: '/login',
+                          ),
                 ),
                 _ResetPasswordSheet(
                   minHeight: authContentSheetMinHeight(

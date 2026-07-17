@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/customer_localizations.dart';
+import '../../core/navigation/customer_back_navigation.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../core/tenant/mobile_runtime_policy.dart';
 import '../../core/theme/app_theme.dart';
@@ -11,7 +12,7 @@ import 'customer_page_body.dart';
 
 enum CustomerHeroHeaderVariant { standard, compact, rewardFlow }
 
-const double customerReferenceCompactHeroHeight = 150;
+const double customerReferenceCompactHeroHeight = 96;
 
 class AppShell extends StatelessWidget {
   const AppShell({
@@ -23,6 +24,7 @@ class AppShell extends StatelessWidget {
     this.onBack,
     this.sensitive = false,
     this.showBottomNavigation = false,
+    this.bottomNavigation,
     this.compactHeader = false,
     this.fullScreen = false,
     this.heroContent,
@@ -43,6 +45,7 @@ class AppShell extends StatelessWidget {
   final VoidCallback? onBack;
   final bool sensitive;
   final bool showBottomNavigation;
+  final Widget? bottomNavigation;
   final bool compactHeader;
   final bool fullScreen;
   final Widget? heroContent;
@@ -61,12 +64,16 @@ class AppShell extends StatelessWidget {
     final routePath = _routePathFor(context);
     final resolvedBack = _resolvedBackAction(context, routePath);
     final expandedHero = heroContent;
+    final referenceCompactHeader =
+        expandedHero != null &&
+        heroMinHeight == customerReferenceCompactHeroHeight;
 
     if (fullScreen) {
       return Scaffold(
         body: _AppShellBottomNavOverlay(
           currentPath: currentPath,
           showBottomNavigation: showBottomNavigation,
+          bottomNavigation: bottomNavigation,
           child: child,
         ),
       );
@@ -79,10 +86,10 @@ class AppShell extends StatelessWidget {
         minHeight: resolvedHeroHeight,
         onBack: resolvedBack,
         actions: actions,
-        variant: compactHeader
+        variant: compactHeader || referenceCompactHeader
             ? CustomerHeroHeaderVariant.compact
             : heroHeaderVariant,
-        heroContentTopGap: heroContentTopGap,
+        heroContentTopGap: referenceCompactHeader ? 0 : heroContentTopGap,
         child: expandedHero,
       );
       if (heroInFlow) {
@@ -90,6 +97,7 @@ class AppShell extends StatelessWidget {
           body: _AppShellBottomNavOverlay(
             currentPath: currentPath,
             showBottomNavigation: showBottomNavigation,
+            bottomNavigation: bottomNavigation,
             child: ColoredBox(
               color: colorScheme.surface,
               child: CustomerFixedHeaderLayout(
@@ -102,10 +110,7 @@ class AppShell extends StatelessWidget {
                 allowHeaderOverflow: true,
                 contentTopRadius: heroSheetTopRadius,
                 contentBackdropColor: colorScheme.primary,
-                content: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [child],
-                ),
+                content: ListView(padding: EdgeInsets.zero, children: [child]),
               ),
             ),
           ),
@@ -116,13 +121,12 @@ class AppShell extends StatelessWidget {
         body: _AppShellBottomNavOverlay(
           currentPath: currentPath,
           showBottomNavigation: showBottomNavigation,
+          bottomNavigation: bottomNavigation,
           child: ColoredBox(
             color: colorScheme.surface,
             child: CustomerFixedHeaderLayout(
               headerKey: const ValueKey('customer-fixed-hero'),
-              contentRegionKey: const ValueKey(
-                'customer-fixed-content-region',
-              ),
+              contentRegionKey: const ValueKey('customer-fixed-content-region'),
               header: heroHeader,
               headerHeight: resolvedHeroHeight,
               allowHeaderOverflow: true,
@@ -138,19 +142,15 @@ class AppShell extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         centerTitle: true,
         titleSpacing: 0,
         titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colorScheme.onPrimary,
-              fontSize: compactHeader ? 16 : 20,
-              fontWeight: compactHeader ? FontWeight.w900 : FontWeight.w700,
-              height: 1.25,
-            ),
+          color: colorScheme.onPrimary,
+          fontSize: compactHeader ? 16 : 20,
+          fontWeight: compactHeader ? FontWeight.w900 : FontWeight.w700,
+          height: 1.25,
+        ),
         actions: actions,
         backgroundColor: Colors.transparent,
         foregroundColor: colorScheme.onPrimary,
@@ -189,12 +189,14 @@ class AppShell extends StatelessWidget {
       body: _AppShellBottomNavOverlay(
         currentPath: currentPath,
         showBottomNavigation: showBottomNavigation,
+        bottomNavigation: bottomNavigation,
         child: SafeArea(child: child),
       ),
     );
   }
 
   double _effectiveHeroSheetOverlap(BuildContext context) {
+    if (heroMinHeight == customerReferenceCompactHeroHeight) return 0;
     if (heroSheetOverlap >= 0) return heroSheetOverlap;
     final width = MediaQuery.sizeOf(context).width;
     return (width * 0.15).clamp(34.0, 64.0);
@@ -204,7 +206,7 @@ class AppShell extends StatelessWidget {
     if (heroMinHeight != customerReferenceCompactHeroHeight) {
       return heroMinHeight;
     }
-    final safeAreaHeight = MediaQuery.paddingOf(context).top + 104;
+    final safeAreaHeight = MediaQuery.paddingOf(context).top + 56;
     return safeAreaHeight > heroMinHeight ? safeAreaHeight : heroMinHeight;
   }
 
@@ -221,7 +223,10 @@ class AppShell extends StatelessWidget {
     if (explicitOnBack != null) return explicitOnBack;
 
     final explicitBackPath = backPath;
-    if (explicitBackPath != null) return () => context.go(explicitBackPath);
+    if (explicitBackPath != null) {
+      return () =>
+          navigateCustomerBack(context, fallbackPath: explicitBackPath);
+    }
 
     if (!automaticallyImplyBack) return null;
     if (!_shouldShowAutoBack(routePath)) return null;
@@ -234,12 +239,10 @@ class AppShell extends StatelessWidget {
   }
 
   void _goBackFrom(BuildContext context, String path) {
-    final router = GoRouter.of(context);
-    if (router.canPop()) {
-      context.pop();
-      return;
-    }
-    context.go(customerDefaultBackPathFor(path));
+    navigateCustomerBack(
+      context,
+      fallbackPath: customerDefaultBackPathFor(path),
+    );
   }
 }
 
@@ -302,16 +305,22 @@ class _AppShellBottomNavOverlay extends StatelessWidget {
   const _AppShellBottomNavOverlay({
     required this.child,
     required this.showBottomNavigation,
+    required this.bottomNavigation,
     this.currentPath,
   });
 
   final Widget child;
   final bool showBottomNavigation;
+  final Widget? bottomNavigation;
   final String? currentPath;
 
   @override
   Widget build(BuildContext context) {
-    if (!showBottomNavigation) return child;
+    final navigation = bottomNavigation ??
+        (showBottomNavigation
+            ? _CustomerBottomNav(currentPath: currentPath)
+            : null);
+    if (navigation == null) return child;
     return SizedBox.expand(
       child: Stack(
         fit: StackFit.expand,
@@ -322,7 +331,7 @@ class _AppShellBottomNavOverlay extends StatelessWidget {
             right: 0,
             bottom: 0,
             left: 0,
-            child: _CustomerBottomNav(currentPath: currentPath),
+            child: navigation,
           ),
         ],
       ),
@@ -373,11 +382,7 @@ class CustomerBlueHeroBackdrop extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            heroStart,
-            primary,
-            heroEnd,
-          ],
+          colors: [heroStart, primary, heroEnd],
           stops: const [0, 0.54, 1],
         ),
       ),
@@ -419,24 +424,22 @@ class _CustomerBlueHeaderPainter extends CustomPainter {
     final skyCenter = Offset(size.width * 0.64, size.height * 1.28);
     final skyPaint = Paint()
       ..shader = RadialGradient(
-        colors: [
-          sky.withValues(alpha: 0.80),
-          sky.withValues(alpha: 0),
-        ],
+        colors: [sky.withValues(alpha: 0.80), sky.withValues(alpha: 0)],
       ).createShader(Rect.fromCircle(center: skyCenter, radius: skyRadius));
     canvas.drawRect(rect, skyPaint);
 
     final yellowRadius = (size.width * 0.14).clamp(55.0, 86.0);
     final yellowCenter = Offset(size.width * 0.78, size.height * 0.98);
     final yellowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          yellow.withValues(alpha: 0.96),
-          yellow.withValues(alpha: 0),
-        ],
-      ).createShader(
-        Rect.fromCircle(center: yellowCenter, radius: yellowRadius),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              yellow.withValues(alpha: 0.96),
+              yellow.withValues(alpha: 0),
+            ],
+          ).createShader(
+            Rect.fromCircle(center: yellowCenter, radius: yellowRadius),
+          );
     canvas.drawRect(rect, yellowPaint);
 
     void drawDiagonalBand(double dx, double alpha) {
@@ -492,28 +495,28 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
     final topPadding = compactHeader
         ? (topInset + 10 < 44 ? 44.0 : topInset + 10)
         : rewardFlow
-            ? (topInset + 16 < 50 ? 50.0 : topInset + 16)
-            : (topInset + 14 < 58 ? 58.0 : topInset + 14);
+        ? (topInset + 16 < 50 ? 50.0 : topInset + 16)
+        : (topInset + 14 < 58 ? 58.0 : topInset + 14);
     final bottomPadding = compactHeader
         ? 10.0
         : rewardFlow
-            ? 26.0
-            : 24.0;
+        ? 26.0
+        : 24.0;
     final rowHeight = compactHeader
         ? 36.0
         : rewardFlow
-            ? 40.0
-            : 42.0;
+        ? 40.0
+        : 42.0;
     final backButtonSize = compactHeader
         ? 36.0
         : rewardFlow
-            ? 40.0
-            : 42.0;
+        ? 40.0
+        : 42.0;
     final backIconSize = compactHeader
         ? 27.0
         : rewardFlow
-            ? 26.0
-            : 31.0;
+        ? 26.0
+        : 31.0;
     final l10n = context.l10n;
 
     return ConstrainedBox(
@@ -562,16 +565,14 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
+                                style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
                                       color: colorScheme.onPrimary,
                                       fontSize: compactHeader
                                           ? 16
                                           : rewardFlow
-                                              ? 20
-                                              : 22,
+                                          ? 20
+                                          : 22,
                                       fontWeight: compactHeader || rewardFlow
                                           ? FontWeight.w900
                                           : FontWeight.w700,
@@ -720,8 +721,9 @@ class _CustomerBottomNav extends ConsumerWidget {
                               item: item,
                               selected: _isSelected(item, location),
                               label: item.label(l10n),
-                              selectedColor:
-                                  AppTheme.bottomNavigationActive(primary),
+                              selectedColor: AppTheme.bottomNavigationActive(
+                                primary,
+                              ),
                               unselectedColor: AppTheme.appBottomNavInactive,
                               onTap: () {
                                 final target = item.path;
@@ -745,13 +747,14 @@ class _CustomerBottomNav extends ConsumerWidget {
     return switch (item.labelKey) {
       _BottomNavLabel.home => _isHomeRoute(location),
       _BottomNavLabel.tickets => location.startsWith('/tickets'),
-      _BottomNavLabel.more => location.startsWith('/profile') ||
-          location.startsWith('/my-wallet') ||
-          location.startsWith('/topup') ||
-          location.startsWith('/reward-claims') ||
-          location.startsWith('/activity-claims') ||
-          location.startsWith('/affiliate') ||
-          location.startsWith('/purchase-history'),
+      _BottomNavLabel.more =>
+        location.startsWith('/profile') ||
+            location.startsWith('/my-wallet') ||
+            location.startsWith('/topup') ||
+            location.startsWith('/reward-claims') ||
+            location.startsWith('/activity-claims') ||
+            location.startsWith('/affiliate') ||
+            location.startsWith('/purchase-history'),
     };
   }
 
@@ -793,11 +796,11 @@ class _CustomerBottomNavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: selected ? selectedColor : unselectedColor,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        );
+      color: selected ? selectedColor : unselectedColor,
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    );
 
     return Material(
       color: Colors.transparent,

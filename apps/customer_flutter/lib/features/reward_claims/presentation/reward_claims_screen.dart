@@ -70,7 +70,7 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
       showBottomNavigation: false,
       compactHeader: true,
       heroContent: const SizedBox.shrink(),
-      heroMinHeight: 96,
+      heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       heroContentTopGap: 0,
       child: _RewardClaimsPageBody(
@@ -82,10 +82,8 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
           error: _error,
           refreshError: _refreshError,
           loadMoreError: _loadMoreError,
-          onRefreshRetry: () => _loadInitial(
-            showLoading: false,
-            preserveDataOnError: true,
-          ),
+          onRefreshRetry: () =>
+              _loadInitial(showLoading: false, preserveDataOnError: true),
           onLoadMore: _loadMore,
           onTickets: () => context.go('/tickets/history'),
           onClaim: (claim) => context.go('/reward-claims/${claim.id}'),
@@ -100,10 +98,7 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
     }
     Future.microtask(() {
       if (mounted && !_loadingInitial && !_loadingMore) {
-        _loadInitial(
-          showLoading: false,
-          preserveDataOnError: true,
-        );
+        _loadInitial(showLoading: false, preserveDataOnError: true);
       }
     });
   }
@@ -145,15 +140,13 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
         error,
         context.l10n.rewardClaimsLoadFailed,
       );
-      setState(
-        () {
-          if (preserveDataOnError && _claims.isNotEmpty) {
-            _refreshError = message;
-          } else {
-            _error = message;
-          }
-        },
-      );
+      setState(() {
+        if (preserveDataOnError && _claims.isNotEmpty) {
+          _refreshError = message;
+        } else {
+          _error = message;
+        }
+      });
     } finally {
       _refreshingInitial = false;
       if (mounted) setState(() => _loadingInitial = false);
@@ -170,8 +163,9 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
       _loadMoreError = '';
     });
     try {
-      final page =
-          await ref.read(rewardClaimRepositoryProvider).list(cursor: cursor);
+      final page = await ref
+          .read(rewardClaimRepositoryProvider)
+          .list(cursor: cursor);
       if (!mounted) return;
       setState(() {
         _claims.addAll(page.items);
@@ -223,6 +217,7 @@ class _RewardClaimsPageBody extends StatelessWidget {
                   bottom: 22,
                   mobileHorizontal: 0,
                   wideHorizontal: 0,
+                  minViewportHeight: true,
                   child: child,
                 ),
               ),
@@ -294,10 +289,7 @@ class _RewardClaimsContent extends StatelessWidget {
           ],
         ),
         if (loadMoreError.isNotEmpty)
-          _RewardClaimsInlineError(
-            message: loadMoreError,
-            onRetry: onLoadMore,
-          ),
+          _RewardClaimsInlineError(message: loadMoreError, onRetry: onLoadMore),
         if (hasMore)
           Padding(
             padding: const EdgeInsets.only(top: 16),
@@ -319,10 +311,7 @@ class _RewardClaimsContent extends StatelessWidget {
 }
 
 class _RewardClaimTile extends StatelessWidget {
-  const _RewardClaimTile({
-    required this.claim,
-    required this.onTap,
-  });
+  const _RewardClaimTile({required this.claim, required this.onTap});
 
   final RewardClaimItem claim;
   final VoidCallback onTap;
@@ -364,21 +353,21 @@ class _RewardClaimTile extends StatelessWidget {
                     leading: Text(
                       l10n.rewardClaimsPrizeTitle,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: _rewardClaimHeadTextColor,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                            height: 1.25,
-                          ),
+                        color: _rewardClaimHeadTextColor,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
                     ),
                     trailing: Text(
                       formatRewardClaimBaht(l10n, claim.prizeAmount),
                       textAlign: TextAlign.right,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: _rewardClaimHeadTextColor,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                            height: 1.25,
-                          ),
+                        color: _rewardClaimHeadTextColor,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -389,9 +378,7 @@ class _RewardClaimTile extends StatelessWidget {
                         for (final name in prizeNames)
                           Text(
                             name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: _rewardClaimBodyTextColor,
                                   fontSize: 15,
@@ -411,21 +398,21 @@ class _RewardClaimTile extends StatelessWidget {
                   Text(
                     rewardClaimPayoutSummary(l10n, claim),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _rewardClaimBodyTextColor,
-                          fontSize: 15,
-                          height: 1.32,
-                        ),
+                      color: _rewardClaimBodyTextColor,
+                      fontSize: 15,
+                      height: 1.32,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   _RewardClaimRowLine(
                     leading: Text(
                       submittedAt,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: _rewardClaimMutedTextColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            height: 1.32,
-                          ),
+                        color: _rewardClaimMutedTextColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        height: 1.32,
+                      ),
                     ),
                     trailing: Icon(
                       Icons.chevron_right,
@@ -506,11 +493,11 @@ class _StatusChip extends StatelessWidget {
         maxLines: 1,
         softWrap: false,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: color,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
+          color: color,
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
       ),
     );
   }
@@ -527,21 +514,18 @@ class _RewardClaimsLoading extends StatelessWidget {
         context.l10n.rewardClaimsLoading,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-            ),
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+        ),
       ),
     );
   }
 }
 
 class _RewardClaimsError extends StatelessWidget {
-  const _RewardClaimsError({
-    required this.message,
-    required this.onRetry,
-  });
+  const _RewardClaimsError({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -556,11 +540,11 @@ class _RewardClaimsError extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: Theme.of(context).colorScheme.error,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 14),
           OutlinedButton(
@@ -593,10 +577,10 @@ class _RewardClaimsInlineError extends StatelessWidget {
           final messageText = Text(
             message,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.error,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: colorScheme.error,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           );
           final retryButton = OutlinedButton(
             style: _claimOutlinePillStyle(context).copyWith(
@@ -669,7 +653,7 @@ class _RewardClaimsEmpty extends StatelessWidget {
     final iconBackground = colorScheme.primary == AppTheme.appBlue
         ? _rewardClaimEmptyIconBackground
         : Color.lerp(colorScheme.primary, colorScheme.surface, 0.91) ??
-            colorScheme.primaryContainer;
+              colorScheme.primaryContainer;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 54),
@@ -693,21 +677,21 @@ class _RewardClaimsEmpty extends StatelessWidget {
             l10n.rewardClaimsEmptyTitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: _rewardClaimEmptyTitleColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
+              color: _rewardClaimEmptyTitleColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
             l10n.rewardClaimsEmptySubtitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _rewardClaimEmptyTextColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.45,
-                ),
+              color: _rewardClaimEmptyTextColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 16),
           _RewardClaimsPrimaryPill(
@@ -771,11 +755,11 @@ class _RewardClaimsPrimaryPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ),
@@ -823,9 +807,9 @@ ButtonStyle _claimOutlinePillStyle(BuildContext context) {
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+    textStyle: Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   ).copyWith(
     side: WidgetStateProperty.resolveWith(
       (states) => BorderSide(

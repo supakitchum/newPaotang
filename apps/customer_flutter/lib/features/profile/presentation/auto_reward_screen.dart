@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/customer_operational_error.dart';
@@ -63,10 +64,9 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
         });
       },
     );
-    final reviewerName = ref.watch(mobileBootstrapProvider).maybeWhen(
-          data: (data) => data.siteName.trim(),
-          orElse: () => '',
-        );
+    final reviewerName = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(data: (data) => data.siteName.trim(), orElse: () => '');
     return profile.when(
       data: (data) {
         _hydrate(data);
@@ -77,7 +77,8 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
                   _showIntro = false;
                   _noticeMessage = '';
                 }),
-                onBack: () => context.go('/profile'),
+                onBack: () =>
+                    navigateCustomerBack(context, fallbackPath: '/profile'),
               )
             : _AutoRewardSelect(
                 profile: data,
@@ -94,10 +95,7 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
       loading: () => _AutoRewardLoading(reviewerName: reviewerName),
       error: (error, __) => _AutoRewardError(
         reviewerName: reviewerName,
-        message: authErrorMessage(
-          error,
-          l10n.profileAutoRewardLoadFailed,
-        ),
+        message: authErrorMessage(error, l10n.profileAutoRewardLoadFailed),
         onRetry: () => ref.invalidate(customerProfileSettingsProvider),
       ),
     );
@@ -106,8 +104,9 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
   void _hydrate(CustomerProfileSettings profile) {
     if (_hydratedProfileId == profile.id) return;
     _hydratedProfileId = profile.id;
-    _payoutType =
-        profile.autoReward.isBankTransfer ? 'bank_transfer' : 'wallet';
+    _payoutType = profile.autoReward.isBankTransfer
+        ? 'bank_transfer'
+        : 'wallet';
     _showIntro = !profile.autoReward.enabled;
   }
 
@@ -145,10 +144,9 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
       _noticeMessage = '';
     });
     try {
-      await ref.read(profileSettingsRepositoryProvider).saveAutoReward(
-            enabled: true,
-            payoutMethod: _payoutType,
-          );
+      await ref
+          .read(profileSettingsRepositoryProvider)
+          .saveAutoReward(enabled: true, payoutMethod: _payoutType);
       ref.invalidate(customerProfileSettingsProvider);
       if (!mounted) return;
       context.go('/profile');
@@ -319,8 +317,9 @@ class _AutoRewardVisual extends StatelessWidget {
                             borderRadius: BorderRadius.circular(22),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    colorScheme.primary.withValues(alpha: 0.28),
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.28,
+                                ),
                                 blurRadius: 48,
                                 offset: const Offset(0, 22),
                               ),
@@ -642,10 +641,10 @@ class _AutoRewardIntroError extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onErrorContainer,
-                      fontWeight: FontWeight.w700,
-                      height: 1.4,
-                    ),
+                  color: colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -665,7 +664,7 @@ class _AutoRewardLoading extends StatelessWidget {
     return _AutoRewardIntro(
       reviewerName: reviewerName,
       onStart: null,
-      onBack: () => context.go('/profile'),
+      onBack: () => navigateCustomerBack(context, fallbackPath: '/profile'),
     );
   }
 }
@@ -686,7 +685,7 @@ class _AutoRewardError extends StatelessWidget {
     return _AutoRewardIntro(
       reviewerName: reviewerName,
       onStart: null,
-      onBack: () => context.go('/profile'),
+      onBack: () => navigateCustomerBack(context, fallbackPath: '/profile'),
       noticeMessage: message,
       onRetry: onRetry,
     );
@@ -725,8 +724,9 @@ class _AutoRewardSelect extends StatelessWidget {
       backPath: '/profile',
       sensitive: true,
       showBottomNavigation: false,
-      heroMinHeight: 164,
-      heroSheetOverlap: 34,
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
       heroContentTopGap: 0,
       heroContent: const SizedBox.shrink(),
       actions: [
@@ -735,16 +735,17 @@ class _AutoRewardSelect extends StatelessWidget {
           onPressed: onInfo,
           icon: const Icon(Icons.info_outline, size: 27),
           color: Theme.of(context).colorScheme.onPrimary,
-          style: IconButton.styleFrom(
-            fixedSize: const Size.square(42),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: Colors.transparent,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            shape: const CircleBorder(),
-          ).copyWith(
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          ),
+          style:
+              IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
         ),
       ],
       child: Stack(
@@ -756,8 +757,9 @@ class _AutoRewardSelect extends StatelessWidget {
                 children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final horizontal =
-                          MediaQuery.sizeOf(context).width <= 360 ? 22.0 : 28.0;
+                      final horizontal = MediaQuery.sizeOf(context).width <= 360
+                          ? 22.0
+                          : 28.0;
                       return Padding(
                         padding: EdgeInsets.fromLTRB(
                           horizontal,
@@ -783,9 +785,9 @@ class _AutoRewardSelect extends StatelessWidget {
                                 reviewerName,
                               ),
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
                                 height: 1.6,
@@ -856,10 +858,9 @@ class _AutoRewardSelect extends StatelessWidget {
                               width: 18,
                               height: 14,
                               color: Theme.of(context).colorScheme.onPrimary,
-                              trackColor: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimary
-                                  .withValues(alpha: 0.24),
+                              trackColor: Theme.of(
+                                context,
+                              ).colorScheme.onPrimary.withValues(alpha: 0.24),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -875,10 +876,7 @@ class _AutoRewardSelect extends StatelessWidget {
     );
   }
 
-  String _bankTitle(
-    RewardBankAccount account,
-    CustomerLocalizations l10n,
-  ) {
+  String _bankTitle(RewardBankAccount account, CustomerLocalizations l10n) {
     if (!account.isComplete) return l10n.profileAutoRewardBankTitle;
     final bank = account.bankName.trim();
     return bank.isEmpty ? l10n.profileAutoRewardBankTitle : bank;
@@ -904,10 +902,7 @@ class _AutoRewardSelectSheet extends StatelessWidget {
 }
 
 class _AutoRewardNotice extends StatelessWidget {
-  const _AutoRewardNotice({
-    required this.message,
-    required this.isError,
-  });
+  const _AutoRewardNotice({required this.message, required this.isError});
 
   final String message;
   final bool isError;
@@ -985,8 +980,8 @@ class _PayoutOption extends StatelessWidget {
     final accentColor = warning
         ? colorScheme.onTertiaryContainer
         : selected
-            ? activeColor
-            : colorScheme.onSurfaceVariant;
+        ? activeColor
+        : colorScheme.onSurfaceVariant;
     final enabled = onTap != null;
     return Semantics(
       button: true,
@@ -1030,10 +1025,7 @@ class _PayoutOption extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
                   child: Row(
                     children: [
-                      _AutoRewardRadio(
-                        selected: selected,
-                        color: activeColor,
-                      ),
+                      _AutoRewardRadio(selected: selected, color: activeColor),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -1100,8 +1092,8 @@ class _PayoutOption extends StatelessWidget {
                               color: warning
                                   ? colorScheme.onTertiaryContainer
                                   : selected
-                                      ? colorScheme.onPrimary
-                                      : activeColor,
+                                  ? colorScheme.onPrimary
+                                  : activeColor,
                               size: 28,
                             ),
                           ),
@@ -1140,10 +1132,7 @@ class _PayoutOption extends StatelessWidget {
 }
 
 class _AutoRewardRadio extends StatelessWidget {
-  const _AutoRewardRadio({
-    required this.selected,
-    required this.color,
-  });
+  const _AutoRewardRadio({required this.selected, required this.color});
 
   final bool selected;
   final Color color;
@@ -1154,8 +1143,9 @@ class _AutoRewardRadio extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected ? color : Colors.transparent,
         border: Border.all(
-          color:
-              selected ? color : Theme.of(context).colorScheme.outlineVariant,
+          color: selected
+              ? color
+              : Theme.of(context).colorScheme.outlineVariant,
           width: 2,
         ),
         shape: BoxShape.circle,
@@ -1227,11 +1217,7 @@ class _BenefitRow extends StatelessWidget {
             ),
             child: SizedBox.square(
               dimension: 36,
-              child: Icon(
-                Icons.check,
-                color: colorScheme.onTertiary,
-                size: 24,
-              ),
+              child: Icon(Icons.check, color: colorScheme.onTertiary, size: 24),
             ),
           ),
           const SizedBox(width: 14),

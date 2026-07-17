@@ -1650,6 +1650,13 @@ class CustomerLocalizations {
     ).replaceAll('{count}', count.toString());
   }
 
+  String get activityHasRightBadge => _text('activities.badge.has_right');
+  String activityRightsBadge(int count) {
+    return _text(
+      'activities.badge.rights',
+    ).replaceAll('{count}', count.toString());
+  }
+
   String activityMetaRemainingNumbers(int count) {
     return _text(
       'activities.meta.remaining_numbers',
@@ -2123,6 +2130,8 @@ class CustomerLocalizations {
 
   String get affiliateWithdrawExceeds => _text('affiliate.withdraw.exceeds');
   String get affiliateBankRequired => _text('affiliate.withdraw.bank_required');
+  String get affiliateBankSetupAction =>
+      _text('affiliate.withdraw.bank_setup_action');
   String get affiliatePayoutSuccess => _text('affiliate.withdraw.success');
   String get affiliatePayoutFailed => _text('affiliate.withdraw.failed');
   String get affiliateLinkCopied => _text('affiliate.link_copied');
@@ -2141,6 +2150,18 @@ class CustomerLocalizations {
   String get affiliateRegisterTitle => _text('affiliate.register.title');
   String get affiliateRegisterDescription =>
       _text('affiliate.register.description');
+  String get affiliateRegisterBenefitsTitle =>
+      _text('affiliate.register.benefits_title');
+  String get affiliateRegisterBenefitCommission =>
+      _text('affiliate.register.benefit_commission');
+  String get affiliateRegisterBenefitReferral =>
+      _text('affiliate.register.benefit_referral');
+  String affiliateRegisterBenefitPayout(String amount) {
+    return _text(
+      'affiliate.register.benefit_payout',
+    ).replaceAll('{amount}', amount);
+  }
+
   String get affiliateRegisterStoreLabel =>
       _text('affiliate.register.store_label');
   String get affiliateRegisterStoreHint =>
@@ -2156,6 +2177,9 @@ class CustomerLocalizations {
   String get affiliateReferralEmpty => _text('affiliate.referral.empty');
   String get affiliateReferralCopyTooltip =>
       _text('affiliate.referral.copy_tooltip');
+  String get affiliateReferralQrTitle => _text('affiliate.referral.qr_title');
+  String get affiliateReferralQrDescription =>
+      _text('affiliate.referral.qr_description');
   String get affiliateBankTitle => _text('affiliate.bank.title');
   String get affiliateBankDescription => _text('affiliate.bank.description');
   String get affiliateBankEmpty => _text('affiliate.bank.empty');
@@ -2581,7 +2605,10 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.activities.description': 'กิจกรรมประจำงวดและกิจกรรมงวดย้อนหลัง',
     'routes.activities_history.title': 'กิจกรรมงวดย้อนหลัง',
     'routes.activity_detail.title': 'รายละเอียดกิจกรรม',
-    'routes.affiliate.title': 'Affiliate',
+    'routes.affiliate.title': 'ตัวแทนจำหน่าย',
+    'routes.affiliate_withdraw.title': 'ขอถอนเงิน',
+    'routes.affiliate_commissions.title': 'คอมมิชชันล่าสุด',
+    'routes.affiliate_payouts.title': 'ประวัติถอนเงิน',
     'routes.profile.title': 'โปรไฟล์',
     'routes.profile_language.title': 'ภาษาในการใช้งาน',
     'routes.profile_auto_reward.title': 'ขึ้นเงินรางวัลอัตโนมัติ',
@@ -3701,6 +3728,8 @@ const _localizedValues = <String, Map<String, String>>{
     'activities.meta.deadline': 'ร่วมได้ถึง {date}',
     'activities.meta.deadline_fallback': 'ปิดรับหลังปิดขาย 30 นาที',
     'activities.meta.rights': 'มีสิทธิ์ {count} สิทธิ์',
+    'activities.badge.has_right': 'มีสิทธิ์',
+    'activities.badge.rights': '{count} สิทธิ์',
     'activities.meta.remaining_numbers': 'เหลือ {count} เลขให้เลือก',
     'activity_detail.title': 'รายละเอียดกิจกรรม',
     'activity_detail.loading': 'กำลังโหลดรายละเอียดกิจกรรม...',
@@ -3941,6 +3970,7 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.withdraw.minimum': 'ถอนขั้นต่ำ {amount}',
     'affiliate.withdraw.exceeds': 'ยอดถอนเกินยอดถอนได้',
     'affiliate.withdraw.bank_required': 'กรุณาบันทึกบัญชีรับเงินก่อนถอน',
+    'affiliate.withdraw.bank_setup_action': 'เพิ่มบัญชีรับเงิน',
     'affiliate.withdraw.success': 'ส่งคำขอถอนสำเร็จ',
     'affiliate.withdraw.failed': 'ถอนเงินไม่สำเร็จ กรุณาลองใหม่',
     'affiliate.link_copied': 'คัดลอกลิงก์แล้ว',
@@ -3959,6 +3989,12 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.register.title': 'เริ่มเป็นตัวแทนจำหน่าย',
     'affiliate.register.description':
         'กรอกชื่อร้านที่จะแสดงให้ลูกค้าเห็น แล้วระบบจะสร้างรหัสแนะนำให้ทันที',
+    'affiliate.register.benefits_title': 'ผลประโยชน์ตัวแทน',
+    'affiliate.register.benefit_commission':
+        'รับค่าคอมมิชชันจากคำสั่งซื้อที่สำเร็จผ่านลิงก์แนะนำ',
+    'affiliate.register.benefit_referral':
+        'รับลิงก์แนะนำสำหรับแชร์ให้ลูกค้าและติดตามยอด',
+    'affiliate.register.benefit_payout': 'ถอนรายได้ได้เมื่อยอดสะสมถึง {amount}',
     'affiliate.register.store_label': 'ชื่อร้าน',
     'affiliate.register.store_hint': 'เช่น ร้านโชคดีออนไลน์',
     'affiliate.register.button': 'สมัครเป็นตัวแทนจำหน่าย',
@@ -3983,6 +4019,8 @@ const _localizedValues = <String, Map<String, String>>{
         'แชร์ลิงก์นี้ให้เพื่อนสมัครหรือซื้อผ่านร้าน',
     'affiliate.referral.empty': 'ยังไม่มีลิงก์แนะนำ',
     'affiliate.referral.copy_tooltip': 'คัดลอกลิงก์',
+    'affiliate.referral.qr_title': 'QR Code ลิงก์แนะนำ',
+    'affiliate.referral.qr_description': 'ให้ลูกค้าสแกนเพื่อเปิดลิงก์แนะนำ',
     'affiliate.bank.title': 'บัญชีรับเงิน',
     'affiliate.bank.description': 'ใช้บัญชีเดียวกับบัญชีรับเงินรางวัล',
     'affiliate.bank.empty': 'ยังไม่ได้บันทึกบัญชีรับเงิน',
@@ -4228,6 +4266,9 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.activities_history.title': 'Past Activities',
     'routes.activity_detail.title': 'Activity Detail',
     'routes.affiliate.title': 'Affiliate',
+    'routes.affiliate_withdraw.title': 'Request withdrawal',
+    'routes.affiliate_commissions.title': 'Latest commissions',
+    'routes.affiliate_payouts.title': 'Withdrawal history',
     'routes.profile.title': 'Profile',
     'routes.profile_language.title': 'Display language',
     'routes.profile_auto_reward.title': 'Auto Reward Claim',
@@ -5379,6 +5420,8 @@ const _localizedValues = <String, Map<String, String>>{
     'activities.meta.deadline': 'Available until {date}',
     'activities.meta.deadline_fallback': 'Closes 30 minutes after sales close',
     'activities.meta.rights': '{count} right(s) available',
+    'activities.badge.has_right': 'Eligible',
+    'activities.badge.rights': '{count} rights',
     'activities.meta.remaining_numbers': '{count} number(s) left',
     'activity_detail.title': 'Activity details',
     'activity_detail.loading': 'Loading activity details...',
@@ -5629,6 +5672,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Withdrawal amount exceeds available balance.',
     'affiliate.withdraw.bank_required':
         'Please save a payout account before withdrawing.',
+    'affiliate.withdraw.bank_setup_action': 'Add payout account',
     'affiliate.withdraw.success': 'Withdrawal request submitted.',
     'affiliate.withdraw.failed': 'Could not withdraw. Please try again.',
     'affiliate.link_copied': 'Referral link copied.',
@@ -5648,6 +5692,13 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.register.title': 'Start as an affiliate',
     'affiliate.register.description':
         'Enter the store name customers will see. The system will create your referral code immediately.',
+    'affiliate.register.benefits_title': 'Affiliate benefits',
+    'affiliate.register.benefit_commission':
+        'Earn commission from completed orders made through your referral link.',
+    'affiliate.register.benefit_referral':
+        'Get a referral link to share with customers and track performance.',
+    'affiliate.register.benefit_payout':
+        'Withdraw earnings once your balance reaches {amount}.',
     'affiliate.register.store_label': 'Store name',
     'affiliate.register.store_hint': 'Example: Lucky Online Shop',
     'affiliate.register.button': 'Apply as affiliate',
@@ -5672,6 +5723,9 @@ const _localizedValues = <String, Map<String, String>>{
         'Share this link for friends to sign up or buy through your store.',
     'affiliate.referral.empty': 'No referral link yet',
     'affiliate.referral.copy_tooltip': 'Copy link',
+    'affiliate.referral.qr_title': 'Referral QR Code',
+    'affiliate.referral.qr_description':
+        'Customers can scan to open your link.',
     'affiliate.bank.title': 'Payout account',
     'affiliate.bank.description': 'Uses the same account as reward payouts.',
     'affiliate.bank.empty': 'No payout account saved',

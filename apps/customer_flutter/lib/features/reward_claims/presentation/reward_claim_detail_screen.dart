@@ -65,15 +65,14 @@ class RewardClaimDetailScreen extends ConsumerWidget {
       showBottomNavigation: false,
       compactHeader: true,
       heroContent: const SizedBox.shrink(),
-      heroMinHeight: 96,
+      heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       heroContentTopGap: 0,
       child: _RewardClaimDetailPageBody(
         child: claim.when(
           data: (item) => _RewardClaimReceipt(claim: item),
-          loading: () => _RewardClaimDetailState(
-            message: l10n.rewardClaimDetailLoading,
-          ),
+          loading: () =>
+              _RewardClaimDetailState(message: l10n.rewardClaimDetailLoading),
           error: (error, __) => _RewardClaimDetailState(
             message: rewardClaimErrorMessage(
               error,
@@ -110,6 +109,7 @@ class _RewardClaimDetailPageBody extends StatelessWidget {
                   bottom: 24,
                   mobileHorizontal: 10,
                   wideHorizontal: 10,
+                  minViewportHeight: true,
                   child: child,
                 ),
               ),
@@ -129,7 +129,9 @@ class _RewardClaimReceipt extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = _statusColor(claim);
-    final receiptMark = ref.watch(mobileBootstrapProvider).maybeWhen(
+    final receiptMark = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(
           data: (data) {
             final productLabel = data.lotteryProductLabel.trim();
             if (productLabel.isNotEmpty) return productLabel;
@@ -164,10 +166,10 @@ class _RewardClaimReceipt extends ConsumerWidget {
                   child: Text(
                     context.l10n.ticketLabelGovernmentLottery,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: _rewardClaimDetailText,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: _rewardClaimDetailText,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ],
@@ -248,7 +250,7 @@ class _ReceiptBrandMark extends StatelessWidget {
     final logoBorder = colorScheme.primary == AppTheme.appBlue
         ? _rewardClaimDetailLogoBorder
         : Color.lerp(colorScheme.primary, colorScheme.surface, 0.84) ??
-            colorScheme.primaryContainer;
+              colorScheme.primaryContainer;
     return SizedBox.square(
       dimension: 42,
       child: Container(
@@ -256,9 +258,7 @@ class _ReceiptBrandMark extends StatelessWidget {
         decoration: BoxDecoration(
           color: _rewardClaimDetailSurface,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: logoBorder,
-          ),
+          border: Border.all(color: logoBorder),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -268,11 +268,11 @@ class _ReceiptBrandMark extends StatelessWidget {
               label,
               maxLines: 1,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppTheme.primaryOutlineBorder(colorScheme.primary),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                  ),
+                color: AppTheme.primaryOutlineBorder(colorScheme.primary),
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ),
@@ -325,13 +325,14 @@ class _ReceiptRow extends StatelessWidget {
         .where((line) => line.isNotEmpty)
         .toList(growable: false);
     final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: _rewardClaimDetailMuted,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          height: 1.35,
-        );
+      color: _rewardClaimDetailMuted,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      height: 1.35,
+    );
     final valueStyle = TextStyle(
-      color: valueColor ??
+      color:
+          valueColor ??
           (highlighted
               ? AppTheme.detailKicker(primary)
               : _rewardClaimDetailText),
@@ -357,9 +358,7 @@ class _ReceiptRow extends StatelessWidget {
               child: Text(label, style: labelStyle),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: valueWidget,
-            ),
+            Expanded(child: valueWidget),
           ],
         );
       },
@@ -381,8 +380,9 @@ class _ReceiptValueLines extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         for (var index = 0; index < lines.length; index++) ...[
           Text(
@@ -469,22 +469,22 @@ class _MoneyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: total ? _rewardClaimDetailText : _rewardClaimDetailMuted,
-          fontSize: total ? 19 : 15,
-          fontWeight: FontWeight.w500,
-          height: 1.35,
-        );
+      color: total ? _rewardClaimDetailText : _rewardClaimDetailMuted,
+      fontSize: total ? 19 : 15,
+      fontWeight: FontWeight.w500,
+      height: 1.35,
+    );
     final hasDiscount = helper.isNotEmpty || discountOriginal.isNotEmpty;
     final valueStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: positive ? _rewardClaimDetailPositive : _rewardClaimDetailText,
-          fontSize: total
-              ? 19
-              : hasDiscount && positive
-                  ? 14
-                  : 17,
-          fontWeight: total ? FontWeight.w500 : FontWeight.w900,
-          height: 1.35,
-        );
+      color: positive ? _rewardClaimDetailPositive : _rewardClaimDetailText,
+      fontSize: total
+          ? 19
+          : hasDiscount && positive
+          ? 14
+          : 17,
+      fontWeight: total ? FontWeight.w500 : FontWeight.w900,
+      height: 1.35,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -534,8 +534,9 @@ class _MoneyValueBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasDiscount = helper.isNotEmpty || discountOriginal.isNotEmpty;
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         if (hasDiscount) ...[
           Wrap(
@@ -548,19 +549,19 @@ class _MoneyValueBlock extends StatelessWidget {
                 Text(
                   discountOriginal,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: _rewardClaimDetailSubtle,
-                        decoration: TextDecoration.lineThrough,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: _rewardClaimDetailSubtle,
+                    decoration: TextDecoration.lineThrough,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               if (helper.isNotEmpty)
                 Text(
                   helper,
                   textAlign: alignEnd ? TextAlign.right : TextAlign.left,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: _rewardClaimDetailMuted,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: _rewardClaimDetailMuted,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
             ],
           ),
@@ -599,11 +600,11 @@ class _NoticeBox extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              height: 1.45,
-            ),
+          color: color,
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          height: 1.45,
+        ),
       ),
     );
   }
@@ -636,11 +637,11 @@ class _AdminNote extends StatelessWidget {
       child: Text(
         note,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              height: 1.45,
-            ),
+          color: color,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          height: 1.45,
+        ),
       ),
     );
   }
@@ -670,13 +671,11 @@ class _RewardClaimDetailState extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: error
-                        ? colorScheme.error
-                        : colorScheme.onSurfaceVariant,
-                    fontSize: 18,
-                    fontWeight: error ? FontWeight.w800 : FontWeight.w700,
-                    height: 1.35,
-                  ),
+                color: error ? colorScheme.error : colorScheme.onSurfaceVariant,
+                fontSize: 18,
+                fontWeight: error ? FontWeight.w800 : FontWeight.w700,
+                height: 1.35,
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 14),
@@ -703,9 +702,9 @@ ButtonStyle _rewardClaimDetailOutlinePillStyle(BuildContext context) {
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+    textStyle: Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   ).copyWith(
     side: WidgetStateProperty.resolveWith(
       (states) => BorderSide(

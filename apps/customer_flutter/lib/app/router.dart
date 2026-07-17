@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_controller.dart';
+import '../core/navigation/customer_back_navigation.dart';
 import '../core/navigation/customer_deep_link.dart';
 import '../core/navigation/customer_redirect.dart';
 import '../features/activity_claims/presentation/activity_claim_detail_screen.dart';
@@ -60,6 +61,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   late final GoRouter router;
   ref.onDispose(() {
+    customerBackNavigationHistory.detach(router);
     router.dispose();
     routerRefresh.dispose();
   });
@@ -392,7 +394,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/affiliate',
-        builder: (context, state) => const AffiliateScreen(),
+        builder: (context, state) => const AffiliateScreen(
+          tab: AffiliateTab.overview,
+        ),
+      ),
+      GoRoute(
+        path: '/affiliate/withdraw',
+        builder: (context, state) => const AffiliateScreen(
+          tab: AffiliateTab.withdraw,
+        ),
+      ),
+      GoRoute(
+        path: '/affiliate/commissions',
+        builder: (context, state) => const AffiliateScreen(
+          tab: AffiliateTab.commissions,
+        ),
+      ),
+      GoRoute(
+        path: '/affiliate/payouts',
+        builder: (context, state) => AffiliateScreen(
+          tab: AffiliateTab.payouts,
+          showPayoutSuccess: state.uri.queryParameters['created'] == '1',
+        ),
       ),
       GoRoute(path: '/news', builder: (context, state) => const NewsScreen()),
       GoRoute(
@@ -427,6 +450,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  customerBackNavigationHistory.attach(router);
   return router;
 });
 

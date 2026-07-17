@@ -45,6 +45,7 @@ class AccountDeletionScreen extends ConsumerWidget {
               top: 16,
               bottom: 128,
               mobileHorizontal: 14,
+              minViewportHeight: true,
               child: bootstrap.when(
                 data: (data) => _AccountDeletionContent(bootstrap: data),
                 loading: () => const _AccountDeletionLoadingCard(),

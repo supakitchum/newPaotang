@@ -8,6 +8,7 @@ import 'package:customer_flutter/features/profile/data/profile_settings_reposito
 import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
 import 'package:customer_flutter/features/wallet/presentation/wallet_screen.dart';
+import 'package:customer_flutter/shared/widgets/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,9 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('wallet header only contains the menu title', (
-    tester,
-  ) async {
+  testWidgets('wallet header only contains the menu title', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -47,8 +46,8 @@ void main() {
         .dy;
     final walletCardTop = tester.getTopLeft(find.text('ยอดเงินในกระเป๋า')).dy;
 
-    expect(headerRect.height, 150);
-    expect(sheetTop, 150);
+    expect(headerRect.height, customerReferenceCompactHeroHeight);
+    expect(sheetTop, customerReferenceCompactHeroHeight);
     expect(walletCardTop, greaterThan(sheetTop));
     expect(find.text('กระเป๋าของฉัน'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -160,9 +159,7 @@ void main() {
         ledgerNextCursor: 'v1.seed-cursor',
         ledgerHasMore: true,
       ),
-      overrides: [
-        walletRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [walletRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
 
@@ -324,82 +321,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('wallet card actions preserve Nuxt topup back and history anchor',
-      (
-    tester,
-  ) async {
-    final router = GoRouter(
-      initialLocation: '/my-wallet',
-      routes: [
-        GoRoute(
-          path: '/my-wallet',
-          builder: (context, state) => const WalletScreen(),
-        ),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => Scaffold(
-            body: Center(child: Text(state.uri.toString())),
+  testWidgets(
+    'wallet card actions preserve Nuxt topup back and history anchor',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/my-wallet',
+        routes: [
+          GoRoute(
+            path: '/my-wallet',
+            builder: (context, state) => const WalletScreen(),
           ),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          walletSummaryProvider.overrideWith(
-            (_) async => const WalletSummary(
-              wallets: [
-                CustomerWallet(
-                  id: 'wallet_1',
-                  name: 'G Wallet',
-                  type: '1',
-                  balance: 2240,
-                ),
-              ],
-              ledger: [],
-              customerNo: 'CUS001234',
-            ),
+          GoRoute(
+            path: '/topup',
+            builder: (context, state) =>
+                Scaffold(body: Center(child: Text(state.uri.toString()))),
           ),
         ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            walletSummaryProvider.overrideWith(
+              (_) async => const WalletSummary(
+                wallets: [
+                  CustomerWallet(
+                    id: 'wallet_1',
+                    name: 'G Wallet',
+                    type: '1',
+                    balance: 2240,
+                  ),
+                ],
+                ledger: [],
+                customerNo: 'CUS001234',
+              ),
+            ),
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('เติมเงิน').first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('เติมเงิน').first);
+      await tester.pumpAndSettle();
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/topup?back=/my-wallet',
-    );
-    expect(find.text('/topup?back=/my-wallet'), findsOneWidget);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/topup?back=/my-wallet',
+      );
+      expect(find.text('/topup?back=/my-wallet'), findsOneWidget);
 
-    router.go('/my-wallet');
-    await tester.pumpAndSettle();
+      router.go('/my-wallet');
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ประวัติ').first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('ประวัติ').first);
+      await tester.pumpAndSettle();
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/my-wallet#transactions',
-    );
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/my-wallet#transactions',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('wallet screen reloads when realtime invalidates summary', (
     tester,
@@ -659,9 +655,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('wallet ledger failure shows API copy like Nuxt', (
-    tester,
-  ) async {
+  testWidgets('wallet ledger failure shows API copy like Nuxt', (tester) async {
     await _pumpWallet(
       tester,
       const WalletSummary(
@@ -763,12 +757,14 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final walletCardRect = tester.getRect(
-      find.text('ยอดเงินในกระเป๋า').first,
+    final walletCardRect = tester.getRect(find.text('ยอดเงินในกระเป๋า').first);
+    final sheetRect = tester.getRect(
+      find.byKey(const ValueKey('wallet-content-sheet')),
     );
 
     expect(walletCardRect.left, greaterThan(140));
     expect(walletCardRect.right, lessThan(1060));
+    expect(sheetRect.height, greaterThanOrEqualTo(750));
     expect(find.text('ยังไม่มีรายการเดินเงิน'), findsOneWidget);
     expect(
       find.text('รายการเติมเงิน ชำระเงิน และรับเงินรางวัลจะแสดงที่นี่'),
@@ -789,9 +785,8 @@ void main() {
         ),
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Profile route')),
-          ),
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Profile route'))),
         ),
       ],
     );

@@ -73,12 +73,14 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(infoText('ข้อตกลงการใช้งาน'), findsWidgets);
-    expect(infoText('ซื้อผ่าน Alpha Shop เท่านั้น'), findsOneWidget);
+    expect(infoText('ข้อตกลงและเงื่อนไข'), findsOneWidget);
+    expect(infoText('ข้อตกลงการใช้งาน'), findsNothing);
     expect(
-      infoText('ค่าบริการ & เงื่อนไขเป็นไปตามร้านค้า'),
+      find.byKey(const ValueKey('legal-reading-surface')),
       findsOneWidget,
     );
+    expect(infoText('ซื้อผ่าน Alpha Shop เท่านั้น'), findsOneWidget);
+    expect(infoText('ค่าบริการ & เงื่อนไขเป็นไปตามร้านค้า'), findsOneWidget);
     expect(infoTextContaining('<h1>'), findsNothing);
     expect(infoTextContaining('&lt;'), findsNothing);
     expect(infoTextContaining('&amp;'), findsNothing);
@@ -86,7 +88,8 @@ void main() {
     router.go('/privacy');
     await tester.pumpAndSettle();
 
-    expect(infoText('นโยบายข้อมูลส่วนบุคคล'), findsOneWidget);
+    expect(infoText('นโยบายความเป็นส่วนตัว'), findsOneWidget);
+    expect(infoText('นโยบายข้อมูลส่วนบุคคล'), findsNothing);
     expect(infoText('ใช้ข้อมูลเพื่อให้บริการ'), findsOneWidget);
     expect(infoText('ติดต่อ support@example.test'), findsOneWidget);
     expect(infoTextContaining('<p>'), findsNothing);
@@ -152,7 +155,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(infoText('เงื่อนไขบริการ'), findsWidgets);
+    expect(infoText('ข้อตกลงและเงื่อนไข'), findsOneWidget);
+    expect(infoText('เงื่อนไขบริการ'), findsNothing);
     expect(infoText('อ่าน รายละเอียด ให้ครบ'), findsOneWidget);
     expect(infoText('ยอมรับผ่าน ทีมงาน'), findsOneWidget);
     expect(infoTextContaining('**'), findsNothing);
@@ -161,7 +165,8 @@ void main() {
     router.go('/privacy');
     await tester.pumpAndSettle();
 
-    expect(infoText('นโยบายข้อมูล'), findsOneWidget);
+    expect(infoText('นโยบายความเป็นส่วนตัว'), findsOneWidget);
+    expect(infoText('นโยบายข้อมูล'), findsNothing);
     expect(infoText('ใช้ ข้อมูล เพื่อให้บริการ'), findsOneWidget);
     expect(infoText('ติดต่อ privacy@example.test'), findsOneWidget);
     expect(infoTextContaining('`'), findsNothing);

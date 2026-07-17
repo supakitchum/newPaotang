@@ -240,11 +240,6 @@ class _WalletPageSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewport = MediaQuery.sizeOf(context);
-    final minHeight = viewport.width <= 520
-        ? (viewport.height - customerReferenceCompactHeroHeight)
-            .clamp(0.0, double.infinity)
-        : 620.0;
     return DecoratedBox(
       key: const ValueKey('wallet-content-sheet'),
       decoration: const BoxDecoration(
@@ -253,15 +248,13 @@ class _WalletPageSheet extends StatelessWidget {
           top: Radius.circular(18),
         ),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: minHeight),
-        child: CustomerPageBody(
-          top: 20,
-          bottom: 112,
-          mobileHorizontal: 16,
-          wideHorizontal: 16,
-          child: child,
-        ),
+      child: CustomerPageBody(
+        top: 16,
+        bottom: 112,
+        mobileHorizontal: 16,
+        wideHorizontal: 16,
+        minViewportHeight: true,
+        child: child,
       ),
     );
   }

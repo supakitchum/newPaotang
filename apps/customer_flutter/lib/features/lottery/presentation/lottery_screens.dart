@@ -9,6 +9,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_token_store.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/i18n/app_locale.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/payment/checkout_payment_config.dart';
@@ -454,14 +455,7 @@ class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
   }
 
   void _goBack(BuildContext context, String backPath) {
-    if (shouldPopLotteryMoreBack(
-      canPop: context.canPop(),
-      explicitBackPath: widget.query['back'] ?? '',
-    )) {
-      context.pop();
-      return;
-    }
-    context.go(backPath);
+    navigateCustomerBack(context, fallbackPath: backPath);
   }
 
   void _syncCart(LotteryCart cart) {
@@ -3923,7 +3917,7 @@ class _LotteryContentSheet extends StatelessWidget {
   const _LotteryContentSheet({
     required this.children,
     required this.bottom,
-    this.top = 23,
+    this.top = 18,
     this.mobileHorizontal = 18,
     this.wideHorizontal = 0,
   });
@@ -3942,17 +3936,15 @@ class _LotteryContentSheet extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 620),
-        child: CustomerPageBody(
-          top: top,
-          bottom: bottom,
-          mobileHorizontal: mobileHorizontal,
-          wideHorizontal: wideHorizontal,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
+      child: CustomerPageBody(
+        top: top,
+        bottom: bottom,
+        mobileHorizontal: mobileHorizontal,
+        wideHorizontal: wideHorizontal,
+        minViewportHeight: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
         ),
       ),
     );

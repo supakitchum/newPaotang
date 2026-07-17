@@ -36,8 +36,9 @@ void main() {
 
   test('maintenanceSupportUrlUri keeps only safe external support URLs', () {
     expect(
-      maintenanceSupportUrlUri('https://partner.example.com/support')
-          ?.toString(),
+      maintenanceSupportUrlUri(
+        'https://partner.example.com/support',
+      )?.toString(),
       'https://partner.example.com/support',
     );
     expect(
@@ -110,6 +111,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    expect(find.text('ข้อควรรู้การซื้อ-ขายสลากฯ'), findsOneWidget);
+
     final website = find.text('support.alpha.example.test');
     await tester.ensureVisible(website);
     await tester.tap(website);
@@ -159,6 +162,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    expect(find.text('ข้อควรรู้การซื้อ-ขายสลากฯ'), findsOneWidget);
     expect(find.text('ศึกษารายละเอียดเพิ่มเติม ได้ที่'), findsNothing);
     expect(find.textContaining('glo.or.th'), findsNothing);
     expect(find.text('02-528-9682'), findsNothing);
@@ -174,14 +178,8 @@ void main() {
         overrides: [
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson({
-              'site': {
-                'name': 'Alpha Shop',
-                'support_phone': '02-528-9682',
-              },
-              'maintenance': {
-                'active': true,
-                'message': 'Maintenance window',
-              },
+              'site': {'name': 'Alpha Shop', 'support_phone': '02-528-9682'},
+              'maintenance': {'active': true, 'message': 'Maintenance window'},
             }),
           ),
           customerLinkLauncherProvider.overrideWithValue(launcher),
@@ -222,10 +220,7 @@ void main() {
               'supportConfig': {
                 'supportUrl': 'https://partner.example.com/support',
               },
-              'maintenance': {
-                'active': true,
-                'message': 'Maintenance window',
-              },
+              'maintenance': {'active': true, 'message': 'Maintenance window'},
             }),
           ),
           customerLinkLauncherProvider.overrideWithValue(launcher),
@@ -257,53 +252,53 @@ void main() {
     );
   });
 
-  testWidgets('maintenance support button falls back to runtime support email',
-      (
-    tester,
-  ) async {
-    final launcher = _RecordingLinkLauncher();
+  testWidgets(
+    'maintenance support button falls back to runtime support email',
+    (tester) async {
+      final launcher = _RecordingLinkLauncher();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson({
-              'site': {
-                'name': 'Alpha Shop',
-                'support_email': 'support@example.test',
-              },
-              'maintenance': {
-                'active': true,
-                'message': 'Maintenance window',
-              },
-            }),
-          ),
-          customerLinkLauncherProvider.overrideWithValue(launcher),
-        ],
-        child: MaterialApp(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {
+                  'name': 'Alpha Shop',
+                  'support_email': 'support@example.test',
+                },
+                'maintenance': {
+                  'active': true,
+                  'message': 'Maintenance window',
+                },
+              }),
+            ),
+            customerLinkLauncherProvider.overrideWithValue(launcher),
           ],
-          theme: AppTheme.light(),
-          home: const MaintenanceScreen(),
+          child: MaterialApp(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            home: const MaintenanceScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('ติดต่อฝ่ายบริการ'), findsOneWidget);
-    await tester.ensureVisible(find.byType(OutlinedButton));
-    await tester.tap(find.byType(OutlinedButton));
-    await tester.pump();
+      expect(find.text('ติดต่อฝ่ายบริการ'), findsOneWidget);
+      await tester.ensureVisible(find.byType(OutlinedButton));
+      await tester.tap(find.byType(OutlinedButton));
+      await tester.pump();
 
-    expect(launcher.openedUri?.toString(), 'mailto:support@example.test');
-  });
+      expect(launcher.openedUri?.toString(), 'mailto:support@example.test');
+    },
+  );
 
   testWidgets('maintenance support button prefers callable phone over URL', (
     tester,
@@ -315,17 +310,11 @@ void main() {
         overrides: [
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson({
-              'site': {
-                'name': 'Alpha Shop',
-                'support_phone': '02-528-9682',
-              },
+              'site': {'name': 'Alpha Shop', 'support_phone': '02-528-9682'},
               'supportConfig': {
                 'supportUrl': 'https://partner.example.com/support',
               },
-              'maintenance': {
-                'active': true,
-                'message': 'Maintenance window',
-              },
+              'maintenance': {'active': true, 'message': 'Maintenance window'},
             }),
           ),
           customerLinkLauncherProvider.overrideWithValue(launcher),
@@ -360,10 +349,7 @@ void main() {
         overrides: [
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson({
-              'site': {
-                'name': 'Alpha Shop',
-                'support_phone': '02-528-9682',
-              },
+              'site': {'name': 'Alpha Shop', 'support_phone': '02-528-9682'},
               'supportConfig': {
                 'supportUrl': 'https://partner.example.com/support',
               },
@@ -498,12 +484,10 @@ void main() {
               'mobile': {'lottery_product_label': 'L6'},
             }),
           ),
-          purchaseHistoryDetailProvider('ord_1').overrideWith(
-            (_) async => order,
-          ),
-          receiptExportCoordinatorProvider.overrideWithValue(
-            exportCoordinator,
-          ),
+          purchaseHistoryDetailProvider(
+            'ord_1',
+          ).overrideWith((_) async => order),
+          receiptExportCoordinatorProvider.overrideWithValue(exportCoordinator),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -571,9 +555,9 @@ void main() {
               'mobile': {'lottery_product_label': 'L6'},
             }),
           ),
-          purchaseHistoryDetailProvider('ord_1').overrideWith(
-            (_) async => _successOrder(),
-          ),
+          purchaseHistoryDetailProvider(
+            'ord_1',
+          ).overrideWith((_) async => _successOrder()),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -626,9 +610,9 @@ void main() {
               'site': {'display_name': 'ร้านค้าสลากฯ เดโม'},
             }),
           ),
-          purchaseHistoryDetailProvider('ord_loading').overrideWith(
-            (_) => completer.future,
-          ),
+          purchaseHistoryDetailProvider(
+            'ord_loading',
+          ).overrideWith((_) => completer.future),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -669,15 +653,13 @@ void main() {
       routes: [
         GoRoute(
           path: '/success',
-          builder: (context, state) => SuccessScreen(
-            orderId: state.uri.queryParameters['order_id'],
-          ),
+          builder: (context, state) =>
+              SuccessScreen(orderId: state.uri.queryParameters['order_id']),
         ),
         GoRoute(
           path: '/tickets',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Tickets fallback')),
-          ),
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Tickets fallback'))),
         ),
       ],
     );
@@ -685,9 +667,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          purchaseHistoryDetailProvider('ord_error').overrideWith(
-            (_) async => throw StateError('receipt unavailable'),
-          ),
+          purchaseHistoryDetailProvider(
+            'ord_error',
+          ).overrideWith((_) async => throw StateError('receipt unavailable')),
         ],
         child: MaterialApp.router(
           locale: fallbackCustomerLocale,
@@ -725,141 +707,137 @@ void main() {
   });
 
   testWidgets(
-      'purchase history detail forwards maintenance errors to shared route flow',
-      (
-    tester,
-  ) async {
-    final router = GoRouter(
-      initialLocation: '/purchase-history/ord_maintenance',
-      routes: [
-        GoRoute(
-          path: '/purchase-history/:orderId',
-          builder: (context, state) => PurchaseHistoryDetailScreen(
-            orderId: state.pathParameters['orderId'] ?? '',
+    'purchase history detail forwards maintenance errors to shared route flow',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/purchase-history/ord_maintenance',
+        routes: [
+          GoRoute(
+            path: '/purchase-history/:orderId',
+            builder: (context, state) => PurchaseHistoryDetailScreen(
+              orderId: state.pathParameters['orderId'] ?? '',
+            ),
           ),
-        ),
-        GoRoute(
-          path: '/maintenance',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Maintenance route')),
+          GoRoute(
+            path: '/maintenance',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Maintenance route'))),
           ),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
+        ],
+      );
+      addTearDown(router.dispose);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
-            (_) async => throw DioException(
-              requestOptions: RequestOptions(
-                path: '/customer/orders/ord_maintenance',
-              ),
-              response: Response<Map<String, dynamic>>(
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
+              (_) async => throw DioException(
                 requestOptions: RequestOptions(
                   path: '/customer/orders/ord_maintenance',
                 ),
-                statusCode: 503,
-                data: const {
-                  'error': {
-                    'code': 'maintenance_active',
-                    'message': 'ระบบอยู่ระหว่างปรับปรุง',
+                response: Response<Map<String, dynamic>>(
+                  requestOptions: RequestOptions(
+                    path: '/customer/orders/ord_maintenance',
+                  ),
+                  statusCode: 503,
+                  data: const {
+                    'error': {
+                      'code': 'maintenance_active',
+                      'message': 'ระบบอยู่ระหว่างปรับปรุง',
+                    },
                   },
-                },
+                ),
               ),
             ),
-          ),
-        ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Maintenance route'), findsOneWidget);
-    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('Maintenance route'), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
-      'success receipt forwards maintenance errors to shared route flow', (
-    tester,
-  ) async {
-    final router = GoRouter(
-      initialLocation: '/success?order_id=ord_maintenance',
-      routes: [
-        GoRoute(
-          path: '/success',
-          builder: (context, state) => SuccessScreen(
-            orderId: state.uri.queryParameters['order_id'],
+    'success receipt forwards maintenance errors to shared route flow',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/success?order_id=ord_maintenance',
+        routes: [
+          GoRoute(
+            path: '/success',
+            builder: (context, state) =>
+                SuccessScreen(orderId: state.uri.queryParameters['order_id']),
           ),
-        ),
-        GoRoute(
-          path: '/maintenance',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Maintenance route')),
+          GoRoute(
+            path: '/maintenance',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Maintenance route'))),
           ),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
+        ],
+      );
+      addTearDown(router.dispose);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
-            (_) async => throw DioException(
-              requestOptions: RequestOptions(
-                path: '/customer/orders/ord_maintenance',
-              ),
-              response: Response<Map<String, dynamic>>(
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            purchaseHistoryDetailProvider('ord_maintenance').overrideWith(
+              (_) async => throw DioException(
                 requestOptions: RequestOptions(
                   path: '/customer/orders/ord_maintenance',
                 ),
-                statusCode: 503,
-                data: const {
-                  'error': {
-                    'code': 'maintenance_active',
-                    'message': 'ระบบอยู่ระหว่างปรับปรุง',
+                response: Response<Map<String, dynamic>>(
+                  requestOptions: RequestOptions(
+                    path: '/customer/orders/ord_maintenance',
+                  ),
+                  statusCode: 503,
+                  data: const {
+                    'error': {
+                      'code': 'maintenance_active',
+                      'message': 'ระบบอยู่ระหว่างปรับปรุง',
+                    },
                   },
-                },
+                ),
               ),
             ),
-          ),
-        ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Maintenance route'), findsOneWidget);
-    expect(router.routeInformationProvider.value.uri.path, '/maintenance');
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('Maintenance route'), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/maintenance');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('success receipt primary action returns to tickets', (
     tester,
@@ -869,15 +847,13 @@ void main() {
       routes: [
         GoRoute(
           path: '/success',
-          builder: (context, state) => SuccessScreen(
-            orderId: state.uri.queryParameters['order_id'],
-          ),
+          builder: (context, state) =>
+              SuccessScreen(orderId: state.uri.queryParameters['order_id']),
         ),
         GoRoute(
           path: '/tickets',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Tickets route')),
-          ),
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Tickets route'))),
         ),
       ],
     );
@@ -886,9 +862,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          purchaseHistoryDetailProvider('ord_1').overrideWith(
-            (_) async => _successOrder(),
-          ),
+          purchaseHistoryDetailProvider(
+            'ord_1',
+          ).overrideWith((_) async => _successOrder()),
         ],
         child: MaterialApp.router(
           locale: fallbackCustomerLocale,
@@ -930,21 +906,20 @@ void main() {
       successReceiptImageFileName(order),
       'receipt-ord-2569-07-01-0001.png',
     );
-    expect(
-      successReceiptPdfFileName(order),
-      'receipt-ord-2569-07-01-0001.pdf',
-    );
+    expect(successReceiptPdfFileName(order), 'receipt-ord-2569-07-01-0001.pdf');
   });
 
-  test('PdfReceiptPdfExporter builds a shareable PDF from receipt PNG',
-      () async {
-    final pdfBytes = await PdfReceiptPdfExporter().buildPdf(
-      imageBytes: base64Decode(_transparentPngBase64),
-    );
+  test(
+    'PdfReceiptPdfExporter builds a shareable PDF from receipt PNG',
+    () async {
+      final pdfBytes = await PdfReceiptPdfExporter().buildPdf(
+        imageBytes: base64Decode(_transparentPngBase64),
+      );
 
-    expect(String.fromCharCodes(pdfBytes.take(4)), '%PDF');
-    expect(pdfBytes.length, greaterThan(100));
-  });
+      expect(String.fromCharCodes(pdfBytes.take(4)), '%PDF');
+      expect(pdfBytes.length, greaterThan(100));
+    },
+  );
 }
 
 class _RecordingReceiptExportCoordinator implements ReceiptExportCoordinator {
@@ -975,7 +950,8 @@ class _RecordingReceiptExportCoordinator implements ReceiptExportCoordinator {
 const _transparentPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+p5qgoAAAAABJRU5ErkJggg==';
 
-const _receiptLogoDataUri = 'data:image/png;base64,'
+const _receiptLogoDataUri =
+    'data:image/png;base64,'
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/'
     'x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
 
@@ -1004,10 +980,7 @@ class _RecordingLinkLauncher extends CustomerLinkLauncher {
   }
 }
 
-CurrentGame _currentGame({
-  required String status,
-  Object? saleStartAt,
-}) {
+CurrentGame _currentGame({required String status, Object? saleStartAt}) {
   return CurrentGame(
     id: 'game_1',
     name: 'Current draw',

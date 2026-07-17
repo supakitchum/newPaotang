@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
@@ -507,17 +508,15 @@ class _TicketSearchContentSheet extends StatelessWidget {
         color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 620),
-        child: CustomerPageBody(
-          top: 23,
-          bottom: 128,
-          mobileHorizontal: 18,
-          wideHorizontal: 0,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
+      child: CustomerPageBody(
+        top: 18,
+        bottom: 128,
+        mobileHorizontal: 18,
+        wideHorizontal: 0,
+        minViewportHeight: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
         ),
       ),
     );
@@ -1163,7 +1162,7 @@ class _TicketPageList extends StatelessWidget {
   const _TicketPageList({
     required this.children,
     this.hero,
-    this.top = 23,
+    this.top = 18,
     this.bottom = _bottomPadding,
     this.controller,
     this.physics,
@@ -1197,6 +1196,7 @@ class _TicketPageList extends StatelessWidget {
             top: top,
             bottom: bottom,
             mobileHorizontal: 18,
+            minViewportHeight: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: children,
@@ -1210,16 +1210,6 @@ class _TicketPageList extends StatelessWidget {
     final effectiveSheetOverlap = _sheetOverlap < 0
         ? _ticketContentSheetOverlapFor(context)
         : _sheetOverlap;
-    final viewport = MediaQuery.sizeOf(context);
-    final sheetTop = _heroHeight - effectiveSheetOverlap;
-    final visibleSheetHeight = (viewport.height - sheetTop)
-        .clamp(0.0, double.infinity)
-        .toDouble();
-    final minSheetHeight = viewport.width <= 520
-        ? visibleSheetHeight
-        : visibleSheetHeight < 620
-        ? 620.0
-        : visibleSheetHeight;
     return CustomerFixedHeaderLayout(
       headerKey: const ValueKey('ticket-fixed-header'),
       contentRegionKey: const ValueKey('ticket-content-region'),
@@ -1240,33 +1230,31 @@ class _TicketPageList extends StatelessWidget {
         // ignore: deprecated_member_use
         cacheExtent: _cacheExtent,
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(minHeight: minSheetHeight),
-            child: DecoratedBox(
-              key: const ValueKey('ticket-content-sheet'),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.shadow.withValues(alpha: 0.07),
-                    blurRadius: 24,
-                    offset: const Offset(0, -6),
-                  ),
-                ],
+          DecoratedBox(
+            key: const ValueKey('ticket-content-sheet'),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
               ),
-              child: CustomerPageBody(
-                maxWidth: effectiveMaxWidth,
-                top: top,
-                bottom: bottom,
-                mobileHorizontal: 18,
-                alignment: Alignment.topCenter,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.07),
+                  blurRadius: 24,
+                  offset: const Offset(0, -6),
                 ),
+              ],
+            ),
+            child: CustomerPageBody(
+              maxWidth: effectiveMaxWidth,
+              top: top,
+              bottom: bottom,
+              mobileHorizontal: 18,
+              minViewportHeight: true,
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
               ),
             ),
           ),
@@ -2832,7 +2820,7 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
       });
       return;
     }
-    context.go(backPath);
+    navigateCustomerBack(context, fallbackPath: backPath);
   }
 
   Widget _buildBody(BuildContext context) {

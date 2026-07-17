@@ -10,6 +10,7 @@ import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/auth/auth_token_store.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/api_errors.dart';
@@ -445,8 +446,11 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                     title: l10n.socialLinkTitle(providerLabel),
                     subtitle: l10n.socialLinkHeroSubtitle(providerLabel),
                     saving: _saving,
-                    onBack: () => context.go(
-                      customerLoginRouteForRedirect(widget.redirect),
+                    onBack: () => navigateCustomerBack(
+                      context,
+                      fallbackPath: customerLoginRouteForRedirect(
+                        widget.redirect,
+                      ),
                     ),
                   ),
                   _SocialLinkSheet(

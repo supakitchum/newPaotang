@@ -7,7 +7,6 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../../shared/widgets/tenant_brand_header.dart';
 
 class TermsScreen extends ConsumerWidget {
   const TermsScreen({super.key});
@@ -16,7 +15,6 @@ class TermsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final l10n = context.l10n;
-    final narrow = MediaQuery.sizeOf(context).width <= 390;
     final siteName = bootstrap.maybeWhen(
       data: (data) => data.siteName,
       orElse: () => l10n.contentTermsSiteFallback,
@@ -37,34 +35,14 @@ class TermsScreen extends ConsumerWidget {
       currentPath: '/profile',
       backPath: '/profile',
       showBottomNavigation: false,
-      heroMinHeight: 330,
-      heroSheetOverlap: narrow ? 76 : 82,
-      heroContent: _InfoHeroContent(
-        title: parsed.title,
-        subtitle: siteName,
-        icon: Icons.description_outlined,
-        subtitleGap: 30,
-        titleGap: 14,
-      ),
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: _InfoPageShell(
-        child: _InfoCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionPill(label: l10n.contentTermsSectionTitle),
-              const SizedBox(height: 20),
-              if (parsed.numbered.isNotEmpty)
-                for (final term in parsed.numbered)
-                  _NumberedText(number: term.number, text: term.text)
-              else
-                Text(parsed.plainText, style: _bodyStyle(context)),
-              for (final paragraph in parsed.extraParagraphs) ...[
-                const SizedBox(height: 18),
-                Text(paragraph, style: _bodyStyle(context)),
-              ],
-            ],
-          ),
-        ),
+        readingSurface: true,
+        child: _LegalReadingContent(parsed: parsed),
       ),
     );
   }
@@ -85,7 +63,6 @@ class _PrivacyPolicyScreenState extends ConsumerState<PrivacyPolicyScreen> {
   Widget build(BuildContext context) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final l10n = context.l10n;
-    final narrow = MediaQuery.sizeOf(context).width <= 390;
     final siteName = bootstrap.maybeWhen(
       data: (data) => data.siteName,
       orElse: () => l10n.contentTermsSiteFallback,
@@ -110,58 +87,38 @@ class _PrivacyPolicyScreenState extends ConsumerState<PrivacyPolicyScreen> {
       currentPath: '/profile',
       backPath: '/profile',
       showBottomNavigation: false,
-      heroMinHeight: 330,
-      heroSheetOverlap: narrow ? 76 : 82,
-      heroContent: _InfoHeroContent(
-        title: parsed.title,
-        subtitle: l10n.contentPrivacyHeroSubtitle(siteName),
-        icon: Icons.privacy_tip_outlined,
-        subtitleGap: 30,
-        titleGap: 14,
-      ),
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: _InfoPageShell(
-        child: _InfoCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionPill(label: l10n.contentPrivacySectionTitle),
-              const SizedBox(height: 20),
-              if (parsed.numbered.isNotEmpty)
-                for (final term in parsed.numbered)
-                  _NumberedText(number: term.number, text: term.text)
-              else
-                Text(parsed.plainText, style: _bodyStyle(context)),
-              for (final paragraph in parsed.extraParagraphs) ...[
-                const SizedBox(height: 18),
-                Text(paragraph, style: _bodyStyle(context)),
-              ],
-              if (_noticeMessage.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                _InfoInlineNotice(message: _noticeMessage),
-              ],
-              if (isSafeExternalLinkUri(policyUri)) ...[
-                const SizedBox(height: 22),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () async {
-                      setState(() => _noticeMessage = '');
-                      final opened = await ref
-                          .read(customerLinkLauncherProvider)
-                          .openExternal(policyUri!);
-                      if (!opened && context.mounted) {
-                        setState(() {
-                          _noticeMessage = l10n.contentPrivacyOpenFailed;
-                        });
-                      }
-                    },
-                    icon: const Icon(Icons.open_in_new),
-                    label: Text(l10n.contentPrivacyOpenPolicy),
-                  ),
+        readingSurface: true,
+        child: _LegalReadingContent(
+          parsed: parsed,
+          footer: [
+            if (_noticeMessage.isNotEmpty)
+              _InfoInlineNotice(message: _noticeMessage),
+            if (isSafeExternalLinkUri(policyUri))
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    setState(() => _noticeMessage = '');
+                    final opened = await ref
+                        .read(customerLinkLauncherProvider)
+                        .openExternal(policyUri!);
+                    if (!opened && context.mounted) {
+                      setState(() {
+                        _noticeMessage = l10n.contentPrivacyOpenFailed;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.open_in_new),
+                  label: Text(l10n.contentPrivacyOpenPolicy),
                 ),
-              ],
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -194,27 +151,23 @@ class LotteryKnowledgeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final narrow = MediaQuery.sizeOf(context).width <= 390;
     return AppShell(
       title: l10n.contentKnowledgeTitle,
       currentPath: '/profile',
       backPath: '/profile',
       showBottomNavigation: false,
-      heroMinHeight: 340,
-      heroSheetOverlap: narrow ? 80 : 88,
-      heroContent: _InfoHeroContent(
-        title: l10n.contentKnowledgeTitle,
-        icon: Icons.school_outlined,
-        logoSize: 78,
-        titleGap: 28,
-      ),
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: _InfoPageShell(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final section in _knowledgeSections(l10n))
               Padding(
-                padding: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.only(bottom: 16),
                 child: _KnowledgeCard(section: section),
               ),
             const SizedBox(height: 2),
@@ -227,9 +180,10 @@ class LotteryKnowledgeScreen extends StatelessWidget {
 }
 
 class _InfoPageShell extends StatelessWidget {
-  const _InfoPageShell({required this.child});
+  const _InfoPageShell({required this.child, this.readingSurface = false});
 
   final Widget child;
+  final bool readingSurface;
 
   @override
   Widget build(BuildContext context) {
@@ -239,18 +193,21 @@ class _InfoPageShell extends StatelessWidget {
         final narrow = constraints.maxWidth <= 390;
 
         return ColoredBox(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.96) ??
-              colorScheme.surface,
+          color: readingSurface
+              ? colorScheme.surface
+              : Color.lerp(colorScheme.primary, colorScheme.surface, 0.96) ??
+                  colorScheme.surface,
           child: ListView(
             padding: EdgeInsets.zero,
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               CustomerPageBody(
                 maxWidth: 640,
-                top: 0,
+                top: readingSurface ? 22 : 0,
                 bottom: 42,
-                mobileHorizontal: narrow ? 14 : 18,
-                wideHorizontal: 18,
+                mobileHorizontal: readingSurface ? 20 : (narrow ? 14 : 18),
+                wideHorizontal: readingSurface ? 24 : 18,
+                minViewportHeight: true,
                 child: child,
               ),
             ],
@@ -261,66 +218,120 @@ class _InfoPageShell extends StatelessWidget {
   }
 }
 
-class _InfoHeroContent extends StatelessWidget {
-  const _InfoHeroContent({
-    required this.title,
-    required this.icon,
-    this.subtitle = '',
-    this.logoSize = 72,
-    this.subtitleGap = 16,
-    this.titleGap = 8,
-  });
+class _LegalReadingContent extends StatelessWidget {
+  const _LegalReadingContent({required this.parsed, this.footer = const []});
 
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final double logoSize;
-  final double subtitleGap;
-  final double titleGap;
+  final _ParsedTerms parsed;
+  final List<Widget> footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final paragraphs = parsed.extraParagraphs
+        .where((paragraph) => paragraph.trim().isNotEmpty)
+        .toList(growable: false);
+
+    return Column(
+      key: const ValueKey('legal-reading-surface'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (parsed.numbered.isNotEmpty)
+          for (final term in parsed.numbered)
+            _LegalNumberedItem(number: term.number, text: term.text)
+        else if (paragraphs.isNotEmpty)
+          for (final paragraph in paragraphs)
+            _LegalParagraph(text: paragraph)
+        else if (parsed.plainText.trim().isNotEmpty)
+          _LegalParagraph(text: parsed.plainText.trim()),
+        if (parsed.numbered.isNotEmpty)
+          for (final paragraph in paragraphs)
+            _LegalParagraph(text: paragraph),
+        if (footer.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          for (var index = 0; index < footer.length; index++) ...[
+            if (index > 0) const SizedBox(height: 14),
+            footer[index],
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _LegalNumberedItem extends StatelessWidget {
+  const _LegalNumberedItem({required this.number, required this.text});
+
+  final String number;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final narrow = MediaQuery.sizeOf(context).width <= 390;
-    final compactLogoSize = logoSize - 10;
+    final numberFill =
+        Color.lerp(colorScheme.primary, colorScheme.surface, 0.9) ??
+        colorScheme.primaryContainer;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TenantBrandHeader(
-          icon: icon,
-          showName: false,
-          size: narrow ? compactLogoSize : logoSize,
-        ),
-        if (subtitle.trim().isNotEmpty) ...[
-          SizedBox(height: subtitleGap),
-          Text(
-            subtitle.trim(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colorScheme.onPrimary.withValues(alpha: 0.9),
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              height: 1.35,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: numberFill,
+              borderRadius: BorderRadius.circular(8),
             ),
-            textAlign: TextAlign.center,
+            child: Text(
+              number,
+              style: TextStyle(
+                color: colorScheme.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontSize: narrow ? 15.5 : 16.5,
+                fontWeight: FontWeight.w500,
+                height: 1.62,
+              ),
+            ),
           ),
         ],
-        SizedBox(height: titleGap),
-        Text(
-          title.trim(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: colorScheme.onPrimary,
-                fontSize: narrow ? 25 : 29,
-                fontWeight: FontWeight.w900,
-                height: 1.22,
-              ),
-          textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _LegalParagraph extends StatelessWidget {
+  const _LegalParagraph({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width <= 390;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: narrow ? 15.5 : 16.5,
+          fontWeight: FontWeight.w400,
+          height: 1.68,
         ),
-      ],
+      ),
     );
   }
 }
@@ -347,17 +358,15 @@ class _InfoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color:
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.11),
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.11),
             blurRadius: 32,
             offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Padding(
-        padding: effectivePadding,
-        child: child,
-      ),
+      child: Padding(padding: effectivePadding, child: child),
     );
   }
 }
@@ -371,19 +380,21 @@ class _RewardTermsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final primary = colorScheme.primary;
-    final rewardInk = Color.lerp(colorScheme.onSurface, primary, 0.2) ??
+    final rewardInk =
+        Color.lerp(colorScheme.onSurface, primary, 0.2) ??
         colorScheme.onSurface;
     final gradientStart =
         Color.lerp(colorScheme.secondary, colorScheme.surface, 0.62) ??
-            colorScheme.secondaryContainer;
+        colorScheme.secondaryContainer;
     final gradientMiddle =
         Color.lerp(colorScheme.secondary, colorScheme.surface, 0.82) ??
-            colorScheme.secondaryContainer;
+        colorScheme.secondaryContainer;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final minimumHeight =
-            constraints.maxHeight > 744 ? constraints.maxHeight : 744.0;
+        final minimumHeight = constraints.maxHeight > 744
+            ? constraints.maxHeight
+            : 744.0;
         final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
 
         return ListView(
@@ -408,12 +419,7 @@ class _RewardTermsSheet extends StatelessWidget {
                   ),
                 ),
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    28,
-                    29,
-                    28,
-                    24 + bottomSafeArea,
-                  ),
+                  padding: EdgeInsets.fromLTRB(28, 29, 28, 24 + bottomSafeArea),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 640),
@@ -466,7 +472,8 @@ class _RewardOfficeMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final officeBlue = Color.lerp(
+    final officeBlue =
+        Color.lerp(
           AppTheme.heroGradientEnd(colorScheme.primary),
           colorScheme.secondary,
           0.32,
@@ -532,7 +539,7 @@ class _KnowledgeFooterState extends ConsumerState<_KnowledgeFooter> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final fontSize = MediaQuery.sizeOf(context).width <= 390 ? 18.0 : 20.0;
+    final fontSize = MediaQuery.sizeOf(context).width <= 390 ? 15.0 : 16.0;
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
     final websiteUri = customerHttpsUri(bootstrap?.supportUrl ?? '');
     final phoneUri = customerPhoneUri(bootstrap?.supportPhone ?? '');
@@ -548,9 +555,12 @@ class _KnowledgeFooterState extends ConsumerState<_KnowledgeFooter> {
         children: [
           Text(
             l10n.contentKnowledgeMoreInfo,
-            style: _bodyStyle(context).copyWith(
+            style: _bodyStyle(
+              context,
+            ).copyWith(
               color: colorScheme.onSurfaceVariant,
               fontSize: fontSize,
+              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
           ),
@@ -573,6 +583,7 @@ class _KnowledgeFooterState extends ConsumerState<_KnowledgeFooter> {
                   style: _bodyStyle(context).copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: fontSize,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -596,8 +607,9 @@ class _KnowledgeFooterState extends ConsumerState<_KnowledgeFooter> {
     if (_noticeMessage.isNotEmpty) {
       setState(() => _noticeMessage = '');
     }
-    final opened =
-        await ref.read(customerLinkLauncherProvider).openExternal(uri);
+    final opened = await ref
+        .read(customerLinkLauncherProvider)
+        .openExternal(uri);
     if (!opened && mounted) {
       setState(() => _noticeMessage = context.l10n.contentKnowledgeOpenFailed);
     }
@@ -631,7 +643,7 @@ class _KnowledgeFooterLink extends StatelessWidget {
             style: TextStyle(
               color: Theme.of(context).colorScheme.primary,
               fontSize: fontSize,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.45,
             ),
           ),
@@ -651,11 +663,13 @@ class _InfoInlineNotice extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
+        color:
+            Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
             colorScheme.errorContainer.withValues(alpha: 0.52),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Color.lerp(colorScheme.error, colorScheme.surface, 0.68) ??
+          color:
+              Color.lerp(colorScheme.error, colorScheme.surface, 0.68) ??
               colorScheme.error.withValues(alpha: 0.32),
         ),
       ),
@@ -674,45 +688,14 @@ class _InfoInlineNotice extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
+                  color: colorScheme.error,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionPill extends StatelessWidget {
-  const _SectionPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.9),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: colorScheme.primary,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-            height: 1,
-          ),
         ),
       ),
     );
@@ -734,10 +717,10 @@ class _NumberedText extends StatelessWidget {
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width <= 390;
     final colorScheme = Theme.of(context).colorScheme;
-    final fontSize = large ? (narrow ? 19.0 : 22.0) : (narrow ? 16.0 : 18.0);
-    final rowGap = large ? (narrow ? 14.0 : 18.0) : (narrow ? 14.0 : 16.0);
-    final gridWidth = large ? (narrow ? 38.0 : 42.0) : (narrow ? 38.0 : 40.0);
-    final bottom = large ? (narrow ? 24.0 : 28.0) : (narrow ? 18.0 : 20.0);
+    final fontSize = large ? (narrow ? 15.5 : 16.5) : (narrow ? 16.0 : 18.0);
+    final rowGap = large ? 10.0 : (narrow ? 14.0 : 16.0);
+    final gridWidth = large ? 32.0 : (narrow ? 38.0 : 40.0);
+    final bottom = large ? 16.0 : (narrow ? 18.0 : 20.0);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
@@ -747,8 +730,8 @@ class _NumberedText extends StatelessWidget {
           SizedBox(
             width: gridWidth,
             child: Container(
-              width: 34,
-              height: 34,
+              width: large ? 28 : 34,
+              height: large ? 28 : 34,
               alignment: Alignment.center,
               margin: EdgeInsets.only(top: large ? 3 : 2),
               decoration: BoxDecoration(
@@ -759,8 +742,8 @@ class _NumberedText extends StatelessWidget {
                 number,
                 style: TextStyle(
                   color: colorScheme.onPrimary,
-                  fontSize: large ? 18 : 17,
-                  fontWeight: FontWeight.w900,
+                  fontSize: large ? 14 : 17,
+                  fontWeight: large ? FontWeight.w700 : FontWeight.w900,
                   height: 1,
                 ),
               ),
@@ -772,8 +755,8 @@ class _NumberedText extends StatelessWidget {
               text,
               style: _bodyStyle(context).copyWith(
                 fontSize: fontSize,
-                fontWeight: FontWeight.w800,
-                height: large ? 1.55 : 1.6,
+                fontWeight: large ? FontWeight.w500 : FontWeight.w800,
+                height: large ? 1.58 : 1.6,
               ),
             ),
           ),
@@ -795,7 +778,7 @@ class _RewardTable extends StatelessWidget {
     final headerColor = AppTheme.heroGradientEnd(colorScheme.primary);
     final stripeColor =
         Color.lerp(colorScheme.primary, colorScheme.surface, 0.91) ??
-            colorScheme.primaryContainer;
+        colorScheme.primaryContainer;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(11),
@@ -821,7 +804,8 @@ class _RewardTable extends StatelessWidget {
                 count: rows[index].count,
                 amount: rows[index].amount,
                 background: index.isOdd ? stripeColor : colorScheme.surface,
-                foreground: Color.lerp(
+                foreground:
+                    Color.lerp(
                       colorScheme.onSurface,
                       colorScheme.primary,
                       0.2,
@@ -919,8 +903,8 @@ class _RewardTableCell extends StatelessWidget {
           alignment: textAlign == TextAlign.right
               ? Alignment.centerRight
               : textAlign == TextAlign.center
-                  ? Alignment.center
-                  : Alignment.centerLeft,
+              ? Alignment.center
+              : Alignment.centerLeft,
           child: Text(
             text,
             style: TextStyle(
@@ -948,8 +932,8 @@ class _KnowledgeCard extends StatelessWidget {
 
     return _InfoCard(
       padding: EdgeInsets.symmetric(
-        horizontal: narrow ? 22 : 26,
-        vertical: narrow ? 24 : 28,
+        horizontal: narrow ? 18 : 22,
+        vertical: narrow ? 20 : 22,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -957,13 +941,13 @@ class _KnowledgeCard extends StatelessWidget {
           Text(
             section.title,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: narrow ? 21 : 24,
-                  fontWeight: FontWeight.w900,
-                  height: 1.3,
-                ),
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: narrow ? 18 : 20,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           for (var index = 0; index < section.items.length; index++)
             _NumberedText(
               number: '${index + 1}',
@@ -1163,10 +1147,10 @@ class _RewardDefinition {
 TextStyle _bodyStyle(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
   return Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
-            height: 1.6,
-          ) ??
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w800,
+        height: 1.6,
+      ) ??
       TextStyle(
         color: colorScheme.onSurface,
         fontWeight: FontWeight.w800,
@@ -1177,68 +1161,68 @@ TextStyle _bodyStyle(BuildContext context) {
 bool _isNumberedLine(String line) => RegExp(r'^\d+\.\s*').hasMatch(line);
 
 List<_RewardDefinition> _rewardRows(CustomerLocalizations l10n) => [
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('first'),
-        count: l10n.contentRewardRowCount('first'),
-        amount: l10n.contentRewardRowAmount('first'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('second'),
-        count: l10n.contentRewardRowCount('second'),
-        amount: l10n.contentRewardRowAmount('second'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('third'),
-        count: l10n.contentRewardRowCount('third'),
-        amount: l10n.contentRewardRowAmount('third'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('fourth'),
-        count: l10n.contentRewardRowCount('fourth'),
-        amount: l10n.contentRewardRowAmount('fourth'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('fifth'),
-        count: l10n.contentRewardRowCount('fifth'),
-        amount: l10n.contentRewardRowAmount('fifth'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('adjacent_first'),
-        count: l10n.contentRewardRowCount('adjacent_first'),
-        amount: l10n.contentRewardRowAmount('adjacent_first'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('front3'),
-        count: l10n.contentRewardRowCount('front3'),
-        amount: l10n.contentRewardRowAmount('front3'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('last3'),
-        count: l10n.contentRewardRowCount('last3'),
-        amount: l10n.contentRewardRowAmount('last3'),
-      ),
-      _RewardDefinition(
-        title: l10n.contentRewardRowTitle('last2'),
-        count: l10n.contentRewardRowCount('last2'),
-        amount: l10n.contentRewardRowAmount('last2'),
-      ),
-    ];
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('first'),
+    count: l10n.contentRewardRowCount('first'),
+    amount: l10n.contentRewardRowAmount('first'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('second'),
+    count: l10n.contentRewardRowCount('second'),
+    amount: l10n.contentRewardRowAmount('second'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('third'),
+    count: l10n.contentRewardRowCount('third'),
+    amount: l10n.contentRewardRowAmount('third'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('fourth'),
+    count: l10n.contentRewardRowCount('fourth'),
+    amount: l10n.contentRewardRowAmount('fourth'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('fifth'),
+    count: l10n.contentRewardRowCount('fifth'),
+    amount: l10n.contentRewardRowAmount('fifth'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('adjacent_first'),
+    count: l10n.contentRewardRowCount('adjacent_first'),
+    amount: l10n.contentRewardRowAmount('adjacent_first'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('front3'),
+    count: l10n.contentRewardRowCount('front3'),
+    amount: l10n.contentRewardRowAmount('front3'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('last3'),
+    count: l10n.contentRewardRowCount('last3'),
+    amount: l10n.contentRewardRowAmount('last3'),
+  ),
+  _RewardDefinition(
+    title: l10n.contentRewardRowTitle('last2'),
+    count: l10n.contentRewardRowCount('last2'),
+    amount: l10n.contentRewardRowAmount('last2'),
+  ),
+];
 
 List<_KnowledgeSection> _knowledgeSections(CustomerLocalizations l10n) => [
-      _KnowledgeSection(
-        title: l10n.contentKnowledgeSectionTitle('digital_lottery'),
-        items: [
-          l10n.contentKnowledgeSectionItem('digital_lottery', 1),
-          l10n.contentKnowledgeSectionItem('digital_lottery', 2),
-          l10n.contentKnowledgeSectionItem('digital_lottery', 3),
-        ],
-      ),
-      _KnowledgeSection(
-        title: l10n.contentKnowledgeSectionTitle('sellers'),
-        items: [
-          l10n.contentKnowledgeSectionItem('sellers', 1),
-          l10n.contentKnowledgeSectionItem('sellers', 2),
-          l10n.contentKnowledgeSectionItem('sellers', 3),
-        ],
-      ),
-    ];
+  _KnowledgeSection(
+    title: l10n.contentKnowledgeSectionTitle('digital_lottery'),
+    items: [
+      l10n.contentKnowledgeSectionItem('digital_lottery', 1),
+      l10n.contentKnowledgeSectionItem('digital_lottery', 2),
+      l10n.contentKnowledgeSectionItem('digital_lottery', 3),
+    ],
+  ),
+  _KnowledgeSection(
+    title: l10n.contentKnowledgeSectionTitle('sellers'),
+    items: [
+      l10n.contentKnowledgeSectionItem('sellers', 1),
+      l10n.contentKnowledgeSectionItem('sellers', 2),
+      l10n.contentKnowledgeSectionItem('sellers', 3),
+    ],
+  ),
+];

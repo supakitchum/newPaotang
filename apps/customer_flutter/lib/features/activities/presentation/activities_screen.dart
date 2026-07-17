@@ -294,10 +294,11 @@ class _ActivitiesPageList extends StatelessWidget {
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
           ),
           child: CustomerPageBody(
-            top: 38,
+            top: 22,
             bottom: _bottomPadding,
             mobileHorizontal: mobileHorizontal,
             wideHorizontal: 0,
+            minViewportHeight: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: children,

@@ -32,6 +32,7 @@ import '../../../features/news/presentation/news_link_target.dart';
 import '../../../features/results/data/result_models.dart';
 import '../../../features/results/data/result_repository.dart';
 import '../../../features/results/presentation/result_widgets.dart';
+import '../../../features/wallet/data/wallet_repository.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -123,6 +124,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onCheckout: () => context.go('/checkout'),
               ),
             ),
+          Positioned(
+            top: 0,
+            right: 0,
+            left: 0,
+            child: _HomeFixedNavbar(heroHeight: heroHeight),
+          ),
         ],
       ),
     );
@@ -340,7 +347,7 @@ class _HomePageList extends StatelessWidget {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: minSheetHeight),
                   child: CustomerPageBody(
-                    top: 23,
+                    top: 18,
                     bottom: bottom,
                     alignment: Alignment.topCenter,
                     child: Column(
@@ -415,7 +422,7 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: heroHeight),
         child: CustomerPageBody(
-          top: MediaQuery.paddingOf(context).top + 12,
+          top: _homeFixedNavbarHeight(context) + 18,
           bottom: 32,
           mobileHorizontal: 20,
           wideHorizontal: 28,
@@ -423,8 +430,6 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _HomeHeroTopRow(),
-              const SizedBox(height: 22),
               Text(
                 l10n.homeProductTitle,
                 style: theme.textTheme.headlineMedium?.copyWith(
@@ -574,24 +579,84 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
   }
 }
 
-class _HomeHeroTopRow extends StatelessWidget {
-  const _HomeHeroTopRow();
+class _HomeFixedNavbar extends StatelessWidget {
+  const _HomeFixedNavbar({required this.heroHeight});
+
+  final double heroHeight;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      key: const ValueKey('home-fixed-navbar'),
+      height: _homeFixedNavbarHeight(context),
+      child: ClipRect(
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              right: 0,
+              left: 0,
+              height: heroHeight,
+              child: CustomerBlueHeroBackdrop(
+                primary: colorScheme.primary,
+                secondary: colorScheme.secondary,
+              ),
+            ),
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: CustomerPageBody(
+                  top: 0,
+                  bottom: 0,
+                  mobileHorizontal: 20,
+                  wideHorizontal: 28,
+                  includeBottomSafeArea: false,
+                  alignment: Alignment.center,
+                  child: const SizedBox(
+                    height: _homeFixedNavbarToolbarHeight,
+                    child: _HomeNavbarContent(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeNavbarContent extends ConsumerWidget {
+  const _HomeNavbarContent();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final wallet = ref.watch(walletSummaryProvider);
+    final amount = wallet.maybeWhen(
+      data: (summary) => formatBahtForLocale(
+        summary.balance,
+        localeTag: localeTag(l10n.locale),
+        unit: '',
+      ),
+      orElse: () => '--',
+    );
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(
-          width: 128,
+        const Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
             child: _HomeHeroBrandLockup(),
           ),
         ),
-        const Spacer(),
-        _HomePriceBadge(amount: l10n.homePriceAmount, unit: l10n.homePriceUnit),
+        const SizedBox(width: 14),
+        _HomeWalletBalanceButton(
+          label: l10n.commonWalletBalance,
+          amount: amount,
+          onTap: () => context.go('/my-wallet'),
+        ),
       ],
     );
   }
@@ -606,6 +671,20 @@ class _HomeHeroBrandLockup extends ConsumerWidget {
     final bootstrap = ref.watch(mobileBootstrapProvider);
     return bootstrap.maybeWhen(
       data: (data) {
+        final siteName = data.siteName.trim();
+        if (siteName.isNotEmpty) {
+          return Text(
+            siteName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colorScheme.onPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          );
+        }
         final rawLogoUrl = data.brand.logoUrl.trim();
         if (rawLogoUrl.isNotEmpty) {
           return SizedBox(
@@ -618,44 +697,7 @@ class _HomeHeroBrandLockup extends ConsumerWidget {
             ),
           );
         }
-        final siteName = data.siteName.trim();
-        final supportLabel = data.supportPhone.trim();
-        if (siteName.isEmpty && supportLabel.isEmpty) {
-          return const SizedBox(width: 128, height: 34);
-        }
-        return ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 128),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (siteName.isNotEmpty)
-                Text(
-                  siteName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    height: 0.92,
-                  ),
-                ),
-              if (supportLabel.isNotEmpty)
-                Text(
-                  supportLabel,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onPrimary.withValues(alpha: 0.9),
-                    fontSize: 6,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                ),
-            ],
-          ),
-        );
+        return const SizedBox(width: 128, height: 34);
       },
       orElse: () => const SizedBox(width: 128, height: 34),
     );
@@ -773,53 +815,59 @@ String _resolveHomeBrandLogoUrl(WidgetRef ref, String value) {
   return ref.watch(assetUrlResolverProvider)(trimmed);
 }
 
-class _HomePriceBadge extends StatelessWidget {
-  const _HomePriceBadge({required this.amount, required this.unit});
+class _HomeWalletBalanceButton extends StatelessWidget {
+  const _HomeWalletBalanceButton({
+    required this.label,
+    required this.amount,
+    required this.onTap,
+  });
 
+  final String label;
   final String amount;
-  final String unit;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colorScheme.tertiary,
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.16),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            amount,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: colorScheme.onTertiary,
-              fontWeight: FontWeight.w700,
-              height: 0.92,
+    final onPrimary = colorScheme.onPrimary;
+    return Semantics(
+      button: true,
+      label: '$label $amount',
+      child: Material(
+        key: const ValueKey('home-header-wallet'),
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: onPrimary,
+                  size: 20,
+                ),
+                const SizedBox(width: 7),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 132),
+                  child: Text(
+                    amount,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: onPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Text(
-            unit,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.onTertiary,
-              fontWeight: FontWeight.w700,
-              height: 1.05,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1375,28 +1423,8 @@ class _ActivitiesRail extends StatelessWidget {
                 onAction: () => context.go('/activities'),
               ),
               const SizedBox(height: 12),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final cardWidth = _activityCardWidth(constraints.maxWidth);
-                  final railHeight = (cardWidth * 9 / 16) + 116;
-                  return SizedBox(
-                    height: railHeight,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      primary: false,
-                      padding: EdgeInsets.zero,
-                      itemCount: items.length.clamp(0, 8),
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final activity = items[index];
-                        return _ActivityCard(
-                          activity: activity,
-                          width: cardWidth,
-                        );
-                      },
-                    ),
-                  );
-                },
+              _HomeActivityCarousel(
+                items: items.take(8).toList(growable: false),
               ),
             ],
           ),
@@ -1406,136 +1434,281 @@ class _ActivitiesRail extends StatelessWidget {
     );
   }
 
-  double _activityCardWidth(double availableWidth) {
-    if (availableWidth < 380) {
-      return (availableWidth * 0.68).clamp(196.0, 236.0).toDouble();
-    }
-    if (availableWidth < 720) {
-      return (availableWidth * 0.54).clamp(220.0, 270.0).toDouble();
-    }
-    return (availableWidth * 0.30).clamp(248.0, 286.0).toDouble();
+}
+
+class _HomeActivityCarousel extends StatefulWidget {
+  const _HomeActivityCarousel({required this.items});
+
+  final List<ActivityItem> items;
+
+  @override
+  State<_HomeActivityCarousel> createState() =>
+      _HomeActivityCarouselState();
+}
+
+class _HomeActivityCarouselState extends State<_HomeActivityCarousel> {
+  final PageController _controller = PageController();
+  int _currentPage = 0;
+  String _precacheSignature = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheActivityImages();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeActivityCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _precacheActivityImages();
+    if (oldWidget.items.length == widget.items.length) return;
+    _currentPage = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.hasClients) _controller.jumpToPage(0);
+    });
+  }
+
+  void _precacheActivityImages() {
+    final urls = widget.items
+        .map((item) => item.imageUrl.trim())
+        .where((url) => url.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final signature = urls.join('\n');
+    if (signature == _precacheSignature) return;
+    _precacheSignature = signature;
+    unawaited(_precacheHomeNetworkImages(context, urls));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final carouselWidth = constraints.maxWidth
+            .clamp(0.0, 920.0)
+            .toDouble();
+        final preferredItemsPerPage = carouselWidth >= 720 ? 3 : 2;
+        final itemsPerPage = widget.items.length < preferredItemsPerPage
+            ? widget.items.length
+            : preferredItemsPerPage;
+        const itemGap = 10.0;
+        final cardWidth =
+            (carouselWidth - (itemGap * (itemsPerPage - 1))) / itemsPerPage;
+        final carouselHeight = cardWidth * 9 / 16;
+        final pageCount = (widget.items.length / itemsPerPage).ceil();
+        final activePage = _currentPage.clamp(0, pageCount - 1);
+        return Align(
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: carouselWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  key: const ValueKey('home-activities-carousel'),
+                  height: carouselHeight,
+                  child: PageView.builder(
+                    controller: _controller,
+                    itemCount: pageCount,
+                    onPageChanged: (page) => setState(() {
+                      _currentPage = page;
+                    }),
+                    itemBuilder: (context, pageIndex) {
+                      final start = pageIndex * itemsPerPage;
+                      final end = (start + itemsPerPage)
+                          .clamp(0, widget.items.length)
+                          .toInt();
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var index = start; index < end; index++) ...[
+                            SizedBox(
+                              width: cardWidth,
+                              child: _ActivityCard(
+                                activity: widget.items[index],
+                              ),
+                            ),
+                            if (index < end - 1)
+                              const SizedBox(width: itemGap),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (pageCount > 1) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var index = 0; index < pageCount; index++)
+                        AnimatedContainer(
+                          key: ValueKey('home-activity-indicator-$index'),
+                          duration: const Duration(milliseconds: 180),
+                          width: index == activePage ? 18 : 6,
+                          height: 6,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: index == activePage
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.activity, required this.width});
+  const _ActivityCard({required this.activity});
 
   final ActivityItem activity;
-  final double width;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final slug = activity.slug.trim();
-    return SizedBox(
+    final hasRight = activity.hasRight || activity.rights.remainingCount > 0;
+    return Semantics(
       key: Key('home-activity-card-${activity.id}'),
-      width: width,
-      child: DecoratedBox(
-        decoration: _homeSurfaceDecoration(context, radius: 8),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: _HomeLinkGesture(
-            onTap: slug.isEmpty
-                ? null
-                : () => context.go('/activities/${Uri.encodeComponent(slug)}'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AspectRatio(
-                  key: Key('home-activity-artwork-${activity.id}'),
-                  aspectRatio: 16 / 9,
-                  child: ColoredBox(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: activity.imageUrl.isEmpty
-                        ? _ActivityImageFallback(width: width)
-                        : Image.network(
-                            activity.imageUrl,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _ActivityImageFallback(width: width),
-                          ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                  minHeight: 20,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                ),
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withValues(alpha: 0.10),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  l10n.activityTypeLabel(activity.type),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1,
-                                      ),
-                                ),
-                              ),
+      button: slug.isNotEmpty,
+      label: activityDisplayName(l10n, activity),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 220;
+          final badgeMaxWidth = (constraints.maxWidth * 0.46)
+              .clamp(52.0, 138.0)
+              .toDouble();
+          return DecoratedBox(
+            decoration: _homeSurfaceDecoration(context, radius: 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _HomeLinkGesture(
+                onTap: slug.isEmpty
+                    ? null
+                    : () => context.go(
+                        '/activities/${Uri.encodeComponent(slug)}',
+                      ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColoredBox(
+                      key: Key('home-activity-artwork-${activity.id}'),
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      child: activity.imageUrl.isEmpty
+                          ? const _ActivityImageFallback()
+                          : Image.network(
+                              activity.imageUrl,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.medium,
+                              errorBuilder: (_, __, ___) =>
+                                  const _ActivityImageFallback(),
                             ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.chevron_right,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          activityDisplayName(l10n, activity),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: _homeTitleColor(context),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                height: 1.28,
-                              ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          activityMetaText(l10n, activity),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                height: 1.25,
-                              ),
-                        ),
-                      ],
                     ),
-                  ),
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: badgeMaxWidth),
+                        child: _HomeActivityOverlayBadge(
+                          label: l10n.activityTypeLabel(activity.type),
+                          compact: compact,
+                        ),
+                      ),
+                    ),
+                    if (hasRight)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: badgeMaxWidth),
+                          child: _HomeActivityOverlayBadge(
+                            key: Key('home-activity-rights-${activity.id}'),
+                            label: activity.rights.remainingCount > 0
+                                ? l10n.activityRightsBadge(
+                                    activity.rights.remainingCount,
+                                  )
+                                : l10n.activityHasRightBadge,
+                            compact: compact,
+                            hasRight: true,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
+              ),
             ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HomeActivityOverlayBadge extends StatelessWidget {
+  const _HomeActivityOverlayBadge({
+    super.key,
+    required this.label,
+    required this.compact,
+    this.hasRight = false,
+  });
+
+  final String label;
+  final bool compact;
+  final bool hasRight;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final background = hasRight
+        ? AppTheme.appGreenPillEnd.withValues(alpha: 0.94)
+        : colorScheme.surface.withValues(alpha: 0.94);
+    final foreground = hasRight ? colorScheme.onPrimary : colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.14),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 6 : 9,
+          vertical: compact ? 5 : 6,
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: foreground,
+            fontSize: compact ? 9 : 11,
+            fontWeight: FontWeight.w700,
+            height: 1,
           ),
         ),
       ),
@@ -1544,52 +1717,55 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _ActivityImageFallback extends StatelessWidget {
-  const _ActivityImageFallback({required this.width});
-
-  final double width;
+  const _ActivityImageFallback();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.homeActivityFallbackStart(colorScheme.primary),
-            AppTheme.homeActivityFallbackEnd(
-              colorScheme.primary,
-              colorScheme.secondary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.homeActivityFallbackStart(colorScheme.primary),
+                AppTheme.homeActivityFallbackEnd(
+                  colorScheme.primary,
+                  colorScheme.secondary,
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: width < 280 ? -12 : -4,
-            top: 10,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.fallbackSpark(
-                  colorScheme.tertiary,
-                ).withValues(alpha: 0.82),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: width < 280 ? -12 : -4,
+                top: 10,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.fallbackSpark(
+                      colorScheme.tertiary,
+                    ).withValues(alpha: 0.82),
+                  ),
+                ),
               ),
-            ),
+              Center(
+                child: Icon(
+                  Icons.stars_rounded,
+                  color: colorScheme.onPrimary,
+                  size: width < 280 ? 28 : 34,
+                ),
+              ),
+            ],
           ),
-          Center(
-            child: Icon(
-              Icons.stars_rounded,
-              color: colorScheme.onPrimary,
-              size: width < 280 ? 28 : 34,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1659,14 +1835,92 @@ class _NewsRail extends StatefulWidget {
 }
 
 class _NewsRailState extends State<_NewsRail> {
-  final PageController _controller = PageController(viewportFraction: 0.90);
+  Timer? _slideshowTimer;
+  int _itemCount = 0;
   int _currentPage = 0;
   String _noticeMessage = '';
+  String? _precacheSignature;
+  bool _newsImagesReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _configureSlideshow(widget.value.valueOrNull?.length ?? 0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheNewsImages(
+      widget.value.valueOrNull ?? const <NewsItem>[],
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _NewsRail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final items = widget.value.valueOrNull ?? const <NewsItem>[];
+    _precacheNewsImages(items);
+    _configureSlideshow(items.length);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _slideshowTimer?.cancel();
     super.dispose();
+  }
+
+  void _configureSlideshow(int itemCount) {
+    if (_itemCount == itemCount) return;
+    _slideshowTimer?.cancel();
+    _itemCount = itemCount;
+    _currentPage = 0;
+    _startSlideshowTimer();
+  }
+
+  void _startSlideshowTimer() {
+    _slideshowTimer?.cancel();
+    if (!_newsImagesReady || _itemCount <= 1) return;
+    _slideshowTimer = Timer.periodic(_homeNewsSlideshowInterval, (_) {
+      if (!mounted || _itemCount <= 1) return;
+      setState(() => _currentPage = (_currentPage + 1) % _itemCount);
+    });
+  }
+
+  void _precacheNewsImages(List<NewsItem> items) {
+    final urls = items
+        .map((item) => item.coverUrl.trim())
+        .where((url) => url.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final signature = urls.join('\n');
+    if (signature == _precacheSignature) return;
+
+    _precacheSignature = signature;
+    _slideshowTimer?.cancel();
+    _newsImagesReady = urls.isEmpty;
+    if (_newsImagesReady) {
+      _startSlideshowTimer();
+      return;
+    }
+
+    unawaited(
+      _precacheHomeNetworkImages(context, urls).then((_) {
+        if (!mounted || signature != _precacheSignature) return;
+        setState(() => _newsImagesReady = true);
+        _startSlideshowTimer();
+      }),
+    );
+  }
+
+  void _showRelativeSlide(int offset) {
+    if (!_newsImagesReady || _itemCount <= 1) return;
+    _slideshowTimer?.cancel();
+    setState(() {
+      _currentPage = (_currentPage + offset) % _itemCount;
+      if (_currentPage < 0) _currentPage += _itemCount;
+    });
+    _startSlideshowTimer();
   }
 
   @override
@@ -1682,7 +1936,7 @@ class _NewsRailState extends State<_NewsRail> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _HomeNewsHeading(
+              CustomerSectionHeader(
                 title: l10n.homeNews,
                 actionLabel: l10n.commonViewAll,
                 onAction: () => context.go('/news'),
@@ -1694,44 +1948,59 @@ class _NewsRailState extends State<_NewsRail> {
               const SizedBox(height: 12),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final carouselWidth = constraints.maxWidth
-                      .clamp(0.0, 620.0)
+                  final slideshowWidth = constraints.maxWidth
+                      .clamp(0.0, 720.0)
                       .toDouble();
-                  final slideWidth = carouselWidth * 0.90;
-                  final carouselHeight = (slideWidth * 9 / 16)
-                      .clamp(148.0, 314.0)
+                  final slideshowHeight = (slideshowWidth * 9 / 16)
+                      .clamp(148.0, 405.0)
                       .toDouble();
                   final activePage = _currentPage
                       .clamp(0, items.length - 1)
                       .toInt();
+                  final activeItem = items[activePage];
                   return Align(
                     alignment: Alignment.centerLeft,
                     child: SizedBox(
-                      width: carouselWidth,
+                      width: slideshowWidth,
                       child: Column(
                         children: [
-                          SizedBox(
-                            height: carouselHeight,
-                            child: PageView.builder(
-                              key: const ValueKey('home-news-carousel'),
-                              controller: _controller,
-                              padEnds: false,
-                              itemCount: items.length,
-                              onPageChanged: (page) {
-                                setState(() => _currentPage = page);
-                              },
-                              itemBuilder: (context, index) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 10),
-                                  child: _HomeNewsSlide(
-                                    item: items[index],
-                                    onOpenFailed: () => setState(
-                                      () => _noticeMessage =
-                                          context.l10n.newsOpenFailed,
-                                    ),
-                                  ),
-                                );
-                              },
+                          GestureDetector(
+                            key: const ValueKey('home-news-slideshow'),
+                            behavior: HitTestBehavior.opaque,
+                            onHorizontalDragEnd: (details) {
+                              final velocity = details.primaryVelocity ?? 0.0;
+                              if (velocity.abs() < 120) return;
+                              _showRelativeSlide(velocity < 0 ? 1 : -1);
+                            },
+                            child: SizedBox(
+                              height: slideshowHeight,
+                              child: _newsImagesReady
+                                  ? AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 420,
+                                      ),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder: (child, animation) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      },
+                                      child: KeyedSubtree(
+                                        key: ValueKey(
+                                          'home-news-active-${activeItem.id}',
+                                        ),
+                                        child: _HomeNewsSlide(
+                                          item: activeItem,
+                                          onOpenFailed: () => setState(
+                                            () => _noticeMessage =
+                                                context.l10n.newsOpenFailed,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : const _HomeNewsSlideshowPreload(),
                             ),
                           ),
                           if (items.length > 1) ...[
@@ -1741,6 +2010,11 @@ class _NewsRailState extends State<_NewsRail> {
                               children: List.generate(items.length, (index) {
                                 final selected = index == activePage;
                                 return AnimatedContainer(
+                                  key: ValueKey(
+                                    selected
+                                        ? 'home-news-indicator-active-$index'
+                                        : 'home-news-indicator-$index',
+                                  ),
                                   duration: const Duration(milliseconds: 180),
                                   width: selected ? 18 : 6,
                                   height: 6,
@@ -1773,57 +2047,15 @@ class _NewsRailState extends State<_NewsRail> {
   }
 }
 
-class _HomeNewsHeading extends StatelessWidget {
-  const _HomeNewsHeading({
-    required this.title,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final String title;
-  final String actionLabel;
-  final VoidCallback onAction;
+class _HomeNewsSlideshowPreload extends StatelessWidget {
+  const _HomeNewsSlideshowPreload();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _homeTitleColor(context),
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              height: 1.25,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        TextButton(
-          onPressed: onAction,
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.primary,
-            minimumSize: Size.zero,
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            textStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              height: 1.2,
-            ),
-          ),
-          child: Text(
-            actionLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+    return ClipRRect(
+      key: const ValueKey('home-news-slideshow-preload'),
+      borderRadius: BorderRadius.circular(8),
+      child: const _HomeNewsImageFallback(),
     );
   }
 }
@@ -1859,6 +2091,8 @@ class _HomeNewsSlide extends ConsumerWidget {
                   : Image.network(
                       item.coverUrl,
                       fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.medium,
                       errorBuilder: (_, __, ___) =>
                           const _HomeNewsImageFallback(),
                     ),
@@ -2071,6 +2305,21 @@ Color _homeBodyColor(BuildContext context) =>
 Color _homeMutedColor(BuildContext context) =>
     Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
 
+Future<void> _precacheHomeNetworkImages(
+  BuildContext context,
+  Iterable<String> urls,
+) async {
+  await Future.wait<void>(
+    urls.map(
+      (url) => precacheImage(
+        NetworkImage(url),
+        context,
+        onError: (_, __) {},
+      ),
+    ),
+  );
+}
+
 double _homeHeroHeightFor(
   BuildContext context, {
   bool showDrawDaySaleNotice = false,
@@ -2129,3 +2378,9 @@ const _homeDrawDayNoticeNarrowExtraHeight = 160.0;
 const _homeDrawDayNoticeCompactExtraHeight = 140.0;
 const _homeDrawDayNoticeWideExtraHeight = 116.0;
 const _homeSheetOverlap = 34.0;
+const _homeFixedNavbarToolbarHeight = 64.0;
+const _homeNewsSlideshowInterval = Duration(seconds: 5);
+
+double _homeFixedNavbarHeight(BuildContext context) {
+  return MediaQuery.paddingOf(context).top + _homeFixedNavbarToolbarHeight;
+}

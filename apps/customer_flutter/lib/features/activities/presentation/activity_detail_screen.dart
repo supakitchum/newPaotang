@@ -494,6 +494,7 @@ class _ActivityDetailPageList extends StatelessWidget {
             bottom: _bottomPadding,
             mobileHorizontal: 16,
             wideHorizontal: 16,
+            minViewportHeight: true,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: children,
@@ -518,10 +519,7 @@ class _ActivityDetailContentSheet extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 620),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

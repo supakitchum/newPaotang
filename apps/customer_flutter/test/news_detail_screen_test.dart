@@ -5,6 +5,7 @@ import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/news/data/news_models.dart';
 import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/features/news/presentation/news_detail_screen.dart';
+import 'package:customer_flutter/shared/widgets/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,13 +42,13 @@ void main() {
         .getTopLeft(find.byKey(const ValueKey('news-detail-article')))
         .dy;
 
-    expect(sheetTop, closeTo(150, 1));
-    expect(articleTop, closeTo(sheetTop + 24, 1));
+    expect(sheetTop, closeTo(customerReferenceCompactHeroHeight, 1));
+    expect(articleTop, closeTo(sheetTop + 18, 1));
     expect(find.byKey(const ValueKey('news-detail-card')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('news detail media fills the mobile article band', (
+  testWidgets('news detail media keeps readable mobile edge spacing', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 900);
@@ -79,17 +80,21 @@ void main() {
       find.byKey(const ValueKey('news-detail-media')),
     );
 
-    expect(mediaSize.width, closeTo(articleSize.width, 1));
-    expect(mediaSize.width, closeTo(390, 1));
+    expect(mediaSize.width, closeTo(articleSize.width - 40, 1));
+    expect(mediaSize.width, closeTo(350, 1));
     expect(mediaSize.width / mediaSize.height, closeTo(16 / 9, 0.02));
     final titleTop = tester.getTopLeft(find.text('ข่าวพร้อมภาพปก')).dy;
     final mediaTop = tester
         .getTopLeft(find.byKey(const ValueKey('news-detail-media')))
         .dy;
+    final mediaLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('news-detail-media')))
+        .dx;
     final mediaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('news-detail-media')))
         .dy;
     expect(mediaTop, closeTo(articleTop, 1));
+    expect(mediaLeft, closeTo(20, 1));
     expect(titleTop, greaterThan(mediaBottom));
     expect(find.byKey(const ValueKey('news-detail-divider')), findsOneWidget);
     expect(find.byKey(const ValueKey('news-detail-card')), findsNothing);

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
@@ -1032,6 +1033,7 @@ class _TopupPageShell extends StatelessWidget {
                   bottom: 56,
                   mobileHorizontal: 16,
                   wideHorizontal: 0,
+                  minViewportHeight: true,
                   child: waiting!,
                 ),
               if (hasInstructionSheet)
@@ -1041,6 +1043,7 @@ class _TopupPageShell extends StatelessWidget {
                   bottom: 0,
                   mobileHorizontal: 0,
                   wideHorizontal: 0,
+                  minViewportHeight: true,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: instructionMinHeight,
@@ -1094,6 +1097,7 @@ class _TopupDetailPageShell extends StatelessWidget {
                 bottom: 56,
                 mobileHorizontal: 16,
                 wideHorizontal: 0,
+                minViewportHeight: true,
                 child: child,
               ),
             ],
@@ -1328,7 +1332,10 @@ class _TopupHeroBackButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return IconButton(
       tooltip: context.l10n.commonBack,
-      onPressed: () => context.go(backPath),
+      onPressed: () => navigateCustomerBack(
+        context,
+        fallbackPath: backPath,
+      ),
       icon: const Icon(Icons.arrow_back_ios_new, size: 31),
       style: IconButton.styleFrom(
         backgroundColor: Colors.transparent,

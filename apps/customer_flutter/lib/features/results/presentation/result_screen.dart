@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
-import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/result_repository.dart';
@@ -32,11 +31,6 @@ class ResultScreen extends ConsumerWidget {
       provider: resultProvider,
     );
     final result = ref.watch(resultProvider);
-    final hasFeaturedResult = result.valueOrNull?.selectedResult != null;
-    final heroHeight =
-        hasFeaturedResult && MediaQuery.sizeOf(context).width <= 520
-            ? 570.0
-            : 386.0;
 
     return AppShell(
       title: l10n.resultTitle,
@@ -46,25 +40,43 @@ class ResultScreen extends ConsumerWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: CustomerFixedHeaderLayout(
-              headerKey: const ValueKey('result-fixed-header'),
-              contentRegionKey: const ValueKey('result-content-region'),
-              headerHeight: heroHeight,
-              contentTopRadius: 12,
-              contentBackdropColor: resultHeroPrimary(context),
-              header: _ResultIndexHero(
-                result: result,
-                indexPath: indexPath,
-                onRetry: () => ref.invalidate(resultProvider),
-              ),
-              content: ListView(
-                key: const ValueKey('result-content-scroll'),
-                padding: EdgeInsets.zero,
-                physics: const AlwaysScrollableScrollPhysics(),
+            child: ColoredBox(
+              color: resultHeroPrimary(context),
+              child: Column(
                 children: [
-                  _ResultsHistorySheet(
-                    result: result,
-                    indexPath: indexPath,
+                  KeyedSubtree(
+                    key: const ValueKey('result-fixed-header'),
+                    child: _ResultIndexHero(
+                      result: result,
+                      indexPath: indexPath,
+                      onRetry: () => ref.invalidate(resultProvider),
+                    ),
+                  ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return CustomerContentViewportScope(
+                          minHeight: constraints.maxHeight,
+                          child: ClipRRect(
+                            key: const ValueKey('result-content-region'),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                            child: ListView(
+                              key: const ValueKey('result-content-scroll'),
+                              padding: EdgeInsets.zero,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                _ResultsHistorySheet(
+                                  result: result,
+                                  indexPath: indexPath,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -113,14 +125,19 @@ class _ResultIndexHero extends StatelessWidget {
               SizedBox(
                 height: 42,
                 child: Stack(
+                  clipBehavior: Clip.none,
                   alignment: Alignment.center,
                   children: [
                     Positioned(
                       top: 2,
                       left: -16,
                       child: IconButton(
+                        key: const ValueKey('result-back-button'),
                         tooltip: context.l10n.commonBack,
-                        onPressed: () => context.go('/'),
+                        onPressed: () => navigateCustomerBack(
+                          context,
+                          fallbackPath: '/',
+                        ),
                         icon: const Icon(Icons.arrow_back_ios_new),
                         iconSize: 31,
                         color: resultNuxtSurface,
@@ -195,6 +212,7 @@ class _ResultHeroContent extends StatelessWidget {
             );
           }
           return ResultSummaryCard(
+            key: const ValueKey('result-featured-card'),
             result: selected,
             variant: ResultSummaryCardVariant.featured,
             link: resultFullPathFor(indexPath, selected.id),
@@ -230,21 +248,21 @@ class _ResultsHistorySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
+      key: const ValueKey('result-history-sheet'),
       decoration: BoxDecoration(
         color: resultNuxtHistorySheet,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 540),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            CustomerPageBody(
-              top: 27,
-              bottom: 138,
-              mobileHorizontal: 24,
-              wideHorizontal: 24,
-              child: result.when(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CustomerPageBody(
+            top: 18,
+            bottom: 138,
+            mobileHorizontal: 24,
+            wideHorizontal: 24,
+            minViewportHeight: true,
+            child: result.when(
                 data: (bundle) {
                   final history = bundle.history
                       .where((item) => item.hasResolvedResult)
@@ -292,10 +310,9 @@ class _ResultsHistorySheet extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -70,64 +70,61 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
       showBottomNavigation: false,
       compactHeader: true,
       heroContent: const SizedBox.shrink(),
-      heroMinHeight: 96,
+      heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       heroContentTopGap: 0,
       child: _ActivityClaimsPageBody(
         child: _loadingInitial
             ? const _ActivityClaimsLoading()
             : _error.isNotEmpty
-                ? _ActivityClaimsError(
-                    message: _error,
-                    onRetry: () => _loadInitial(
-                      showLoading: true,
-                      preserveDataOnError: false,
-                    ),
-                  )
-                : _claims.isEmpty
-                    ? _ActivityClaimsEmpty(
-                        onActivities: () => context.go('/activities'),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (_refreshError.isNotEmpty)
-                            _ActivityClaimsInlineError(
-                              message: _refreshError,
-                              onRetry: () => _loadInitial(
-                                showLoading: false,
-                                preserveDataOnError: true,
-                              ),
-                            ),
-                          for (var index = 0; index < _claims.length; index++)
-                            _ActivityClaimTile(
-                              claim: _claims[index],
-                              onTap: () => context.go(
-                                '/activity-claims/${_claims[index].id}',
-                              ),
-                            ),
-                          if (_loadMoreError.isNotEmpty)
-                            _ActivityClaimsInlineError(
-                              message: _loadMoreError,
-                              onRetry: _loadMore,
-                            ),
-                          if (_hasMore)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Align(
-                                child: OutlinedButton(
-                                  style: _claimOutlinePillStyle(context),
-                                  onPressed: _loadingMore ? null : _loadMore,
-                                  child: Text(
-                                    _loadingMore
-                                        ? l10n.commonLoadingMore
-                                        : l10n.commonLoadMore,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
+            ? _ActivityClaimsError(
+                message: _error,
+                onRetry: () =>
+                    _loadInitial(showLoading: true, preserveDataOnError: false),
+              )
+            : _claims.isEmpty
+            ? _ActivityClaimsEmpty(
+                onActivities: () => context.go('/activities'),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_refreshError.isNotEmpty)
+                    _ActivityClaimsInlineError(
+                      message: _refreshError,
+                      onRetry: () => _loadInitial(
+                        showLoading: false,
+                        preserveDataOnError: true,
                       ),
+                    ),
+                  for (var index = 0; index < _claims.length; index++)
+                    _ActivityClaimTile(
+                      claim: _claims[index],
+                      onTap: () =>
+                          context.go('/activity-claims/${_claims[index].id}'),
+                    ),
+                  if (_loadMoreError.isNotEmpty)
+                    _ActivityClaimsInlineError(
+                      message: _loadMoreError,
+                      onRetry: _loadMore,
+                    ),
+                  if (_hasMore)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Align(
+                        child: OutlinedButton(
+                          style: _claimOutlinePillStyle(context),
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: Text(
+                            _loadingMore
+                                ? l10n.commonLoadingMore
+                                : l10n.commonLoadMore,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
@@ -138,10 +135,7 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
     }
     Future.microtask(() {
       if (mounted && !_loadingInitial && !_loadingMore) {
-        _loadInitial(
-          showLoading: false,
-          preserveDataOnError: true,
-        );
+        _loadInitial(showLoading: false, preserveDataOnError: true);
       }
     });
   }
@@ -183,15 +177,13 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
         error,
         context.l10n.activityClaimsLoadFailed,
       );
-      setState(
-        () {
-          if (preserveDataOnError && _claims.isNotEmpty) {
-            _refreshError = message;
-          } else {
-            _error = message;
-          }
-        },
-      );
+      setState(() {
+        if (preserveDataOnError && _claims.isNotEmpty) {
+          _refreshError = message;
+        } else {
+          _error = message;
+        }
+      });
     } finally {
       _refreshingInitial = false;
       if (mounted) setState(() => _loadingInitial = false);
@@ -208,8 +200,9 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
       _loadMoreError = '';
     });
     try {
-      final page =
-          await ref.read(activityClaimRepositoryProvider).list(cursor: cursor);
+      final page = await ref
+          .read(activityClaimRepositoryProvider)
+          .list(cursor: cursor);
       if (!mounted) return;
       setState(() {
         _claims.addAll(page.items);
@@ -261,6 +254,7 @@ class _ActivityClaimsPageBody extends StatelessWidget {
                   bottom: 22,
                   mobileHorizontal: 0,
                   wideHorizontal: 0,
+                  minViewportHeight: true,
                   child: child,
                 ),
               ),
@@ -273,10 +267,7 @@ class _ActivityClaimsPageBody extends StatelessWidget {
 }
 
 class _ActivityClaimTile extends StatelessWidget {
-  const _ActivityClaimTile({
-    required this.claim,
-    required this.onTap,
-  });
+  const _ActivityClaimTile({required this.claim, required this.onTap});
 
   final ActivityClaimItem claim;
   final VoidCallback onTap;
@@ -462,11 +453,11 @@ class _StatusChip extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: color,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
+          color: color,
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
       ),
     );
   }
@@ -484,7 +475,7 @@ class _ActivityClaimsEmpty extends StatelessWidget {
     final iconBackground = colorScheme.primary == AppTheme.appBlue
         ? _activityClaimEmptyIconBackground
         : Color.lerp(colorScheme.primary, colorScheme.surface, 0.91) ??
-            colorScheme.primaryContainer;
+              colorScheme.primaryContainer;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 54),
       child: Column(
@@ -506,21 +497,21 @@ class _ActivityClaimsEmpty extends StatelessWidget {
           Text(
             l10n.activityClaimsEmptyTitle,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: _activityClaimEmptyTitleColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
+              color: _activityClaimEmptyTitleColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 10),
           Text(
             l10n.activityClaimsEmptySubtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _activityClaimEmptyTextColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.45,
-                ),
+              color: _activityClaimEmptyTextColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.45,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -585,11 +576,11 @@ class _ActivityClaimsPrimaryPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ),
@@ -612,21 +603,18 @@ class _ActivityClaimsLoading extends StatelessWidget {
         context.l10n.activityClaimsLoading,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-            ),
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+        ),
       ),
     );
   }
 }
 
 class _ActivityClaimsError extends StatelessWidget {
-  const _ActivityClaimsError({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ActivityClaimsError({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -641,11 +629,11 @@ class _ActivityClaimsError extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: Theme.of(context).colorScheme.error,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 14),
           OutlinedButton(
@@ -678,10 +666,10 @@ class _ActivityClaimsInlineError extends StatelessWidget {
           final messageText = Text(
             message,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.error,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: colorScheme.error,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           );
           final retryButton = OutlinedButton(
             style: _claimOutlinePillStyle(context).copyWith(
@@ -778,9 +766,9 @@ ButtonStyle _claimOutlinePillStyle(BuildContext context) {
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+    textStyle: Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   ).copyWith(
     splashFactory: NoSplash.splashFactory,
     overlayColor: const WidgetStatePropertyAll(Colors.transparent),

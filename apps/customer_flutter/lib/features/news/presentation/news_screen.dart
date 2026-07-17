@@ -33,7 +33,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
       heroSheetOverlap: NewsPageShell.sheetOverlap,
       heroContent: const SizedBox.shrink(),
       child: NewsPageShell(
-        topPadding: 24,
+        topPadding: 18,
         mobileHorizontal: 16,
         wideHorizontal: 24,
         child: news.when(

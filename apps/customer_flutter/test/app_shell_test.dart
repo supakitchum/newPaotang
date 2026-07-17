@@ -1,5 +1,6 @@
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
+import 'package:customer_flutter/core/navigation/customer_back_navigation.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/shared/widgets/app_shell.dart';
@@ -194,6 +195,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('fixed header gives content only the remaining viewport height', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomerFixedHeaderLayout(
+            headerHeight: 150,
+            header: const ColoredBox(color: Colors.blue),
+            content: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                ColoredBox(
+                  key: const Key('fixed-content-sheet'),
+                  color: Colors.white,
+                  child: CustomerPageBody(
+                    top: 0,
+                    bottom: 0,
+                    minViewportHeight: true,
+                    child: const SizedBox(height: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(CustomerPageBody)).height, 630);
+    expect(
+      tester.getRect(find.byKey(const Key('fixed-content-sheet'))).bottom,
+      780,
+    );
+    expect(
+      tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .maxScrollExtent,
+      0,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('expanded AppShell applies the shared rounded content edge', (
     tester,
   ) async {
@@ -244,6 +294,112 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profile route'), findsOneWidget);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AppShell back returns to the actual previous go route', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                key: const Key('open-profile-route'),
+                onPressed: () => context.go('/profile'),
+                child: const Text('Open profile'),
+              ),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                key: const Key('open-news-route'),
+                onPressed: () => context.go('/news'),
+                child: const Text('Open news'),
+              ),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/news',
+          builder: (context, state) => const AppShell(
+            title: 'News',
+            backPath: '/fallback',
+            child: Center(child: Text('News route')),
+          ),
+        ),
+        GoRoute(
+          path: '/fallback',
+          builder: (context, state) => const Scaffold(
+            body: Center(child: Text('Fallback route')),
+          ),
+        ),
+      ],
+    );
+    customerBackNavigationHistory.attach(router);
+    addTearDown(() {
+      customerBackNavigationHistory.detach(router);
+      router.dispose();
+    });
+
+    await _pumpRouterShell(tester, router);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-profile-route')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-news-route')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('open-news-route')), findsOneWidget);
+    expect(find.text('Fallback route'), findsNothing);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AppShell direct entry back uses its flow fallback', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/news',
+      routes: [
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) => const Scaffold(
+            body: Center(child: Text('Profile fallback')),
+          ),
+        ),
+        GoRoute(
+          path: '/news',
+          builder: (context, state) => const AppShell(
+            title: 'News',
+            backPath: '/profile',
+            child: Center(child: Text('Direct news route')),
+          ),
+        ),
+      ],
+    );
+    customerBackNavigationHistory.attach(router);
+    addTearDown(() {
+      customerBackNavigationHistory.detach(router);
+      router.dispose();
+    });
+
+    await _pumpRouterShell(tester, router);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile fallback'), findsOneWidget);
     expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
     expect(tester.takeException(), isNull);
   });

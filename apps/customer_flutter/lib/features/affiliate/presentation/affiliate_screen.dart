@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
@@ -15,7 +16,14 @@ import '../data/affiliate_models.dart';
 import '../data/affiliate_repository.dart';
 
 class AffiliateScreen extends ConsumerStatefulWidget {
-  const AffiliateScreen({super.key});
+  const AffiliateScreen({
+    super.key,
+    this.tab = AffiliateTab.overview,
+    this.showPayoutSuccess = false,
+  });
+
+  final AffiliateTab tab;
+  final bool showPayoutSuccess;
 
   @override
   ConsumerState<AffiliateScreen> createState() => _AffiliateScreenState();
@@ -23,13 +31,10 @@ class AffiliateScreen extends ConsumerStatefulWidget {
 
 class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   AffiliateOverview _overview = AffiliateOverview.empty();
-  AffiliateTab _tab = AffiliateTab.overview;
   bool _loading = true;
   bool _submitting = false;
-  bool _commissionsLoaded = false;
   bool _commissionsLoading = false;
   bool _commissionsHasMore = false;
-  bool _payoutsLoaded = false;
   bool _payoutsLoading = false;
   bool _payoutsHasMore = false;
   String _loadError = '';
@@ -56,6 +61,16 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant AffiliateScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tab != widget.tab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refresh();
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _payoutAmountController.removeListener(_handlePayoutAmountChanged);
     _storeNameController.dispose();
@@ -66,26 +81,42 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final wide = MediaQuery.sizeOf(context).width >= 768;
+    final activeTab = _overview.isAffiliate
+        ? widget.tab
+        : AffiliateTab.overview;
+    final noticeMessage = _noticeMessage.isNotEmpty
+        ? _noticeMessage
+        : widget.showPayoutSuccess
+        ? l10n.affiliatePayoutSuccess
+        : '';
+    final showAffiliateNavigation =
+        !_loading && _loadError.isEmpty && _overview.isAffiliate;
 
     return AppShell(
-      title: l10n.affiliateTitle,
-      currentPath: '/affiliate',
+      title: _affiliatePageTitle(l10n, activeTab),
+      currentPath: affiliatePathForTab(activeTab),
       backPath: '/profile',
       sensitive: true,
-      showBottomNavigation: true,
-      heroMinHeight: 248,
-      heroSheetOverlap: wide ? 42 : 58,
-      heroContentTopGap: 18,
-      heroContent: const _AffiliateHero(),
+      showBottomNavigation: false,
+      bottomNavigation: showAffiliateNavigation
+          ? _AffiliateNavigationBar(
+              activeTab: activeTab,
+              onChanged: (tab) => context.go(affiliatePathForTab(tab)),
+            )
+          : null,
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: _AffiliateSheet(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_noticeMessage.isNotEmpty) ...[
+            if (noticeMessage.isNotEmpty) ...[
               _AffiliateInlineNotice(
-                message: _noticeMessage,
-                success: _noticeSuccess,
+                message: noticeMessage,
+                success: _noticeMessage.isEmpty || _noticeSuccess,
               ),
               const SizedBox(height: 12),
             ],
@@ -96,53 +127,44 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
             else if (!_overview.isAffiliate)
               _AffiliateRegisterCard(
                 controller: _storeNameController,
+                payoutPolicy: _overview.payoutPolicy,
                 submitting: _submitting,
                 onSubmit: _register,
               )
-            else ...[
-              _AffiliateStoreSummary(overview: _overview),
-              const SizedBox(height: 12),
-              _AffiliateStatsGrid(stats: _overview.stats),
-              const SizedBox(height: 12),
-              _AffiliateTabBar(
-                activeTab: _tab,
-                onChanged: _changeTab,
-              ),
-              const SizedBox(height: 12),
-              switch (_tab) {
+            else
+              switch (activeTab) {
                 AffiliateTab.overview => _AffiliateOverviewTab(
-                    overview: _overview,
-                    onCopy: _copyReferralLink,
-                  ),
+                  overview: _overview,
+                  onCopy: _copyReferralLink,
+                ),
                 AffiliateTab.withdraw => _AffiliateWithdrawTab(
-                    overview: _overview,
-                    amountController: _payoutAmountController,
-                    payoutMethod: _payoutMethod,
-                    submitting: _submitting,
-                    canSubmit: _canRequestPayout,
-                    onMethodChanged: (value) {
-                      setState(() => _payoutMethod = value);
-                    },
-                    onSubmit: _createPayout,
-                  ),
+                  overview: _overview,
+                  amountController: _payoutAmountController,
+                  payoutMethod: _payoutMethod,
+                  submitting: _submitting,
+                  canSubmit: _canRequestPayout,
+                  onMethodChanged: (value) {
+                    setState(() => _payoutMethod = value);
+                  },
+                  onSubmit: _createPayout,
+                ),
                 AffiliateTab.commissions => _AffiliateCommissionsTab(
-                    commissions: _commissions,
-                    loading: _commissionsLoading,
-                    error: _commissionsError,
-                    hasMore: _commissionsHasMore,
-                    onRetry: () => _loadCommissions(reset: true),
-                    onLoadMore: () => _loadCommissions(),
-                  ),
+                  commissions: _commissions,
+                  loading: _commissionsLoading,
+                  error: _commissionsError,
+                  hasMore: _commissionsHasMore,
+                  onRetry: () => _loadCommissions(reset: true),
+                  onLoadMore: () => _loadCommissions(),
+                ),
                 AffiliateTab.payouts => _AffiliatePayoutsTab(
-                    payouts: _payouts,
-                    loading: _payoutsLoading,
-                    error: _payoutsError,
-                    hasMore: _payoutsHasMore,
-                    onRetry: () => _loadPayouts(reset: true),
-                    onLoadMore: () => _loadPayouts(),
-                  ),
+                  payouts: _payouts,
+                  loading: _payoutsLoading,
+                  error: _payoutsError,
+                  hasMore: _payoutsHasMore,
+                  onRetry: () => _loadPayouts(reset: true),
+                  onLoadMore: () => _loadPayouts(),
+                ),
               },
-            ],
           ],
         ),
       ),
@@ -174,9 +196,9 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       final overview = await ref.read(affiliateRepositoryProvider).overview();
       if (!mounted) return;
       setState(() => _applyOverview(overview));
-      if (_tab == AffiliateTab.commissions) {
+      if (widget.tab == AffiliateTab.commissions) {
         await _loadCommissions(reset: true);
-      } else if (_tab == AffiliateTab.payouts) {
+      } else if (widget.tab == AffiliateTab.payouts) {
         await _loadPayouts(reset: true);
       }
     } catch (error) {
@@ -194,15 +216,6 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     }
   }
 
-  void _changeTab(AffiliateTab tab) {
-    setState(() => _tab = tab);
-    if (tab == AffiliateTab.commissions && !_commissionsLoaded) {
-      _loadCommissions(reset: true);
-    } else if (tab == AffiliateTab.payouts && !_payoutsLoaded) {
-      _loadPayouts(reset: true);
-    }
-  }
-
   Future<void> _loadCommissions({bool reset = false}) async {
     if (_commissionsLoading) return;
     if (!reset && !_commissionsHasMore) return;
@@ -217,22 +230,20 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     });
 
     try {
-      final page = await ref.read(affiliateRepositoryProvider).commissions(
-            cursor: reset ? '' : _commissionsCursor,
-          );
+      final page = await ref
+          .read(affiliateRepositoryProvider)
+          .commissions(cursor: reset ? '' : _commissionsCursor);
       if (!mounted) return;
       setState(() {
         _commissions = reset ? page.items : [..._commissions, ...page.items];
         _commissionsCursor = page.nextCursor;
         _commissionsHasMore = page.hasMore;
-        _commissionsLoaded = true;
       });
     } catch (error) {
       if (!mounted) return;
       if (await _handleOperationalError(error)) return;
       if (!mounted) return;
       setState(() {
-        _commissionsLoaded = true;
         _commissionsError = customerErrorMessage(
           error,
           context.l10n.affiliateLoadFailed,
@@ -257,22 +268,20 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     });
 
     try {
-      final page = await ref.read(affiliateRepositoryProvider).payouts(
-            cursor: reset ? '' : _payoutsCursor,
-          );
+      final page = await ref
+          .read(affiliateRepositoryProvider)
+          .payouts(cursor: reset ? '' : _payoutsCursor);
       if (!mounted) return;
       setState(() {
         _payouts = reset ? page.items : [..._payouts, ...page.items];
         _payoutsCursor = page.nextCursor;
         _payoutsHasMore = page.hasMore;
-        _payoutsLoaded = true;
       });
     } catch (error) {
       if (!mounted) return;
       if (await _handleOperationalError(error)) return;
       if (!mounted) return;
       setState(() {
-        _payoutsLoaded = true;
         _payoutsError = customerErrorMessage(
           error,
           context.l10n.affiliateLoadFailed,
@@ -294,8 +303,9 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       _noticeMessage = '';
     });
     try {
-      final overview =
-          await ref.read(affiliateRepositoryProvider).register(name: name);
+      final overview = await ref
+          .read(affiliateRepositoryProvider)
+          .register(name: name);
       if (!mounted) return;
       setState(() => _applyOverview(overview));
       _showNotice(context.l10n.affiliateRegisterSuccess, success: true);
@@ -331,7 +341,9 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       _noticeMessage = '';
     });
     try {
-      await ref.read(affiliateRepositoryProvider).createPayout(
+      await ref
+          .read(affiliateRepositoryProvider)
+          .createPayout(
             amount: amount,
             payoutMethod: _payoutMethod,
             bankAccount: _payoutMethod == 'bank_transfer'
@@ -341,10 +353,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       _payoutAmountController.clear();
       await _refresh();
       if (!mounted) return;
-      setState(() => _tab = AffiliateTab.payouts);
-      await _loadPayouts(reset: true);
-      if (!mounted) return;
-      _showNotice(context.l10n.affiliatePayoutSuccess, success: true);
+      context.go('/affiliate/payouts?created=1');
     } catch (error) {
       if (!mounted) return;
       if (await _handleOperationalError(error)) return;
@@ -391,21 +400,16 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     _commissions = overview.commissions;
     _commissionsCursor = '';
     _commissionsHasMore = false;
-    _commissionsLoaded = false;
     _commissionsError = '';
     _payouts = overview.payouts;
     _payoutsCursor = '';
     _payoutsHasMore = false;
-    _payoutsLoaded = false;
     _payoutsError = '';
   }
 }
 
 class _AffiliateInlineNotice extends StatelessWidget {
-  const _AffiliateInlineNotice({
-    required this.message,
-    this.success = false,
-  });
+  const _AffiliateInlineNotice({required this.message, this.success = false});
 
   final String message;
   final bool success;
@@ -443,73 +447,16 @@ class _AffiliateInlineNotice extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AffiliateHero extends StatelessWidget {
-  const _AffiliateHero();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final compact = MediaQuery.sizeOf(context).width <= 360;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            Icons.share,
-            color: colorScheme.primary,
-            size: 24,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.affiliateHeroFallbackTitle,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontSize: compact ? 20 : 22,
-                      fontWeight: FontWeight.w900,
-                      height: 1.28,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                l10n.affiliateHeroSubtitle,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      height: 1.28,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -525,9 +472,6 @@ class _AffiliateSheet extends StatelessWidget {
     final viewport = MediaQuery.sizeOf(context);
     final wide = viewport.width >= 768;
     final compact = viewport.width <= 360;
-    final minHeight = viewport.width <= 520
-        ? (viewport.height - 155).clamp(0.0, double.infinity)
-        : 620.0;
 
     return ListView(
       padding: EdgeInsets.zero,
@@ -537,16 +481,14 @@ class _AffiliateSheet extends StatelessWidget {
             color: colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
           ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: minHeight),
-            child: CustomerPageBody(
-              maxWidth: wide ? 920 : 420,
-              top: 16,
-              bottom: wide ? 140 : 132,
-              mobileHorizontal: compact ? 12 : 16,
-              wideHorizontal: 24,
-              child: child,
-            ),
+          child: CustomerPageBody(
+            maxWidth: wide ? 920 : 420,
+            top: 16,
+            bottom: wide ? 140 : 132,
+            mobileHorizontal: compact ? 12 : 16,
+            wideHorizontal: 24,
+            minViewportHeight: true,
+            child: child,
           ),
         ),
       ],
@@ -622,10 +564,10 @@ class _AffiliateStoreSummary extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -633,11 +575,11 @@ class _AffiliateStoreSummary extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        height: 1.25,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    height: 1.25,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -658,11 +600,13 @@ class _AffiliateStoreSummary extends StatelessWidget {
 class _AffiliateRegisterCard extends StatelessWidget {
   const _AffiliateRegisterCard({
     required this.controller,
+    required this.payoutPolicy,
     required this.submitting,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
+  final AffiliatePayoutPolicy payoutPolicy;
   final bool submitting;
   final VoidCallback onSubmit;
 
@@ -682,10 +626,9 @@ class _AffiliateRegisterCard extends StatelessWidget {
                 height: 72,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color:
-                      Theme.of(context).colorScheme.primaryContainer.withValues(
-                            alpha: 0.58,
-                          ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.58),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
@@ -700,33 +643,35 @@ class _AffiliateRegisterCard extends StatelessWidget {
               l10n.affiliateRegisterTitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    height: 1.25,
-                  ),
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                height: 1.25,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               l10n.affiliateRegisterDescription,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.45,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                height: 1.45,
+              ),
             ),
             const SizedBox(height: 16),
+            _AffiliateRegisterBenefits(policy: payoutPolicy),
+            const SizedBox(height: 20),
             _AffiliateFieldLabel(label: l10n.affiliateRegisterStoreLabel),
             const SizedBox(height: 8),
             TextField(
               controller: controller,
               maxLength: 80,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
               decoration: _affiliateInputDecoration(
                 context,
                 hintText: l10n.affiliateRegisterStoreHint,
@@ -744,6 +689,91 @@ class _AffiliateRegisterCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AffiliateRegisterBenefits extends StatelessWidget {
+  const _AffiliateRegisterBenefits({required this.policy});
+
+  final AffiliatePayoutPolicy policy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final benefits = [
+      (Icons.payments_outlined, l10n.affiliateRegisterBenefitCommission),
+      (Icons.link_rounded, l10n.affiliateRegisterBenefitReferral),
+      (
+        Icons.account_balance_wallet_outlined,
+        l10n.affiliateRegisterBenefitPayout(
+          l10n.formatBaht(policy.minimumPayout),
+        ),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.affiliateRegisterBenefitsTitle,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (var index = 0; index < benefits.length; index++) ...[
+          _AffiliateRegisterBenefitRow(
+            icon: benefits[index].$1,
+            label: benefits[index].$2,
+          ),
+          if (index < benefits.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _AffiliateRegisterBenefitRow extends StatelessWidget {
+  const _AffiliateRegisterBenefitRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.58),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: colorScheme.primary, size: 17),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -826,9 +856,9 @@ class _AffiliateStatsGrid extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -836,11 +866,11 @@ class _AffiliateStatsGrid extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        height: 1.12,
-                      ),
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    height: 1.12,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -848,9 +878,9 @@ class _AffiliateStatsGrid extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
@@ -861,8 +891,8 @@ class _AffiliateStatsGrid extends StatelessWidget {
   }
 }
 
-class _AffiliateTabBar extends StatelessWidget {
-  const _AffiliateTabBar({
+class _AffiliateNavigationBar extends StatelessWidget {
+  const _AffiliateNavigationBar({
     required this.activeTab,
     required this.onChanged,
   });
@@ -873,52 +903,64 @@ class _AffiliateTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final primary = Theme.of(context).colorScheme.primary;
     final tabs = [
       (
         AffiliateTab.overview,
         l10n.affiliateTabLabel('overview'),
-        Icons.grid_view
+        Icons.grid_view,
       ),
       (
         AffiliateTab.withdraw,
         l10n.affiliateTabLabel('withdraw'),
-        Icons.account_balance_outlined
+        Icons.account_balance_outlined,
       ),
       (
         AffiliateTab.commissions,
         l10n.affiliateTabLabel('commissions'),
-        Icons.payments_outlined
+        Icons.payments_outlined,
       ),
       (AffiliateTab.payouts, l10n.affiliateTabLabel('payouts'), Icons.history),
     ];
     return DecoratedBox(
+      key: const ValueKey('affiliate-navigation-bar'),
       decoration: BoxDecoration(
-        color: primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: [
-            for (final tab in tabs)
-              Expanded(
-                child: _AffiliateTabButton(
-                  label: tab.$2,
-                  icon: tab.$3,
-                  selected: activeTab == tab.$1,
-                  onTap: () => onChanged(tab.$1),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 76,
+          child: Row(
+            children: [
+              for (final tab in tabs)
+                Expanded(
+                  child: _AffiliateNavigationButton(
+                    label: tab.$2,
+                    icon: tab.$3,
+                    selected: activeTab == tab.$1,
+                    onTap: () {
+                      if (activeTab != tab.$1) onChanged(tab.$1);
+                    },
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _AffiliateTabButton extends StatelessWidget {
-  const _AffiliateTabButton({
+class _AffiliateNavigationButton extends StatelessWidget {
+  const _AffiliateNavigationButton({
     required this.label,
     required this.icon,
     required this.selected,
@@ -935,55 +977,43 @@ class _AffiliateTabButton extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     final colorScheme = Theme.of(context).colorScheme;
     final color = selected ? primary : colorScheme.onSurfaceVariant;
-    final wide = MediaQuery.sizeOf(context).width >= 768;
-    final contents = <Widget>[
-      Icon(icon, color: color, size: 16),
-      SizedBox(width: wide ? 5 : 0, height: wide ? 0 : 3),
-      Flexible(
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
-              ),
-        ),
-      ),
-    ];
     return Semantics(
       button: true,
       selected: selected,
       label: label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            constraints: BoxConstraints(minHeight: wide ? 46 : 54),
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+            height: 76,
+            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 7),
             decoration: BoxDecoration(
-              color: selected ? colorScheme.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(13),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: primary.withValues(alpha: 0.16),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : null,
+              color: selected
+                  ? primary.withValues(alpha: 0.09)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Flex(
-              direction: wide ? Axis.horizontal : Axis.vertical,
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: contents,
+              children: [
+                Icon(icon, color: color, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -993,10 +1023,7 @@ class _AffiliateTabButton extends StatelessWidget {
 }
 
 class _AffiliateOverviewTab extends StatelessWidget {
-  const _AffiliateOverviewTab({
-    required this.overview,
-    required this.onCopy,
-  });
+  const _AffiliateOverviewTab({required this.overview, required this.onCopy});
 
   final AffiliateOverview overview;
   final VoidCallback onCopy;
@@ -1004,9 +1031,13 @@ class _AffiliateOverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final bank = overview.bankAccount;
-    return _AffiliateResponsiveStack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _AffiliateStoreSummary(overview: overview),
+        const SizedBox(height: 12),
+        _AffiliateStatsGrid(stats: overview.stats),
+        const SizedBox(height: 12),
         _AffiliateSurface(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1019,19 +1050,101 @@ class _AffiliateOverviewTab extends StatelessWidget {
               if (overview.referralUrl.isEmpty)
                 _AffiliateEmptyLine(message: l10n.affiliateReferralEmpty)
               else
-                _AffiliateLinkBox(
+                _AffiliateReferralContent(
                   link: overview.referralUrl,
-                  tooltip: l10n.affiliateReferralCopyTooltip,
+                  copyTooltip: l10n.affiliateReferralCopyTooltip,
                   onCopy: onCopy,
                 ),
             ],
           ),
         ),
-        _AffiliateBankSummary(
-          bank: bank,
-          onEdit: () => context.go('/profile/reward-bank?redirect=/affiliate'),
+      ],
+    );
+  }
+}
+
+class _AffiliateReferralContent extends StatelessWidget {
+  const _AffiliateReferralContent({
+    required this.link,
+    required this.copyTooltip,
+    required this.onCopy,
+  });
+
+  final String link;
+  final String copyTooltip;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final qr = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: QrImageView(
+              key: const ValueKey('affiliate-referral-qr'),
+              data: link,
+              version: QrVersions.auto,
+              size: 156,
+              padding: const EdgeInsets.all(6),
+              backgroundColor: Colors.white,
+              errorCorrectionLevel: QrErrorCorrectLevel.M,
+              semanticsLabel: l10n.affiliateReferralQrTitle,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          l10n.affiliateReferralQrTitle,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          l10n.affiliateReferralQrDescription,
+          textAlign: TextAlign.center,
+          style: _affiliateMutedTextStyle(context),
         ),
       ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final linkBox = _AffiliateLinkBox(
+          link: link,
+          tooltip: copyTooltip,
+          onCopy: onCopy,
+        );
+        if (constraints.maxWidth < 520) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(child: qr),
+              const SizedBox(height: 16),
+              linkBox,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(width: 210, child: qr),
+            const SizedBox(width: 20),
+            Expanded(child: linkBox),
+          ],
+        );
+      },
     );
   }
 }
@@ -1107,7 +1220,7 @@ class _AffiliateBankSummary extends StatelessWidget {
                   OutlinedButton(
                     style: _affiliateSecondaryPillStyle(context),
                     onPressed: onEdit,
-                    child: Text(l10n.affiliateBankRequired),
+                    child: Text(l10n.affiliateBankSetupAction),
                   ),
                 ],
               ],
@@ -1139,20 +1252,20 @@ class _AffiliateSectionHead extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                height: 1.25,
-              ),
+            color: colorScheme.onSurface,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            height: 1.25,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 13,
-                height: 1.45,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 13,
+            height: 1.45,
+          ),
         ),
       ],
     );
@@ -1207,10 +1320,10 @@ class _AffiliateCodePill extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w900,
-              height: 1.15,
-            ),
+          color: colorScheme.primary,
+          fontWeight: FontWeight.w900,
+          height: 1.15,
+        ),
       ),
     );
   }
@@ -1246,11 +1359,11 @@ class _AffiliateLinkBox extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                    ),
+                  color: colorScheme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -1300,9 +1413,7 @@ class _AffiliateBankLine extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.24),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -1315,10 +1426,10 @@ class _AffiliateBankLine extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1348,10 +1459,7 @@ class _AffiliateEmptyLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      message,
-      style: _affiliateMutedTextStyle(context),
-    );
+    return Text(message, style: _affiliateMutedTextStyle(context));
   }
 }
 
@@ -1383,7 +1491,8 @@ class _AffiliateWithdrawTab extends StatelessWidget {
         _AffiliateBankSummary(
           bank: bank,
           withdrawMode: true,
-          onEdit: () => context.go('/profile/reward-bank?redirect=/affiliate'),
+          onEdit: () =>
+              context.go('/profile/reward-bank?redirect=/affiliate/withdraw'),
         ),
         _AffiliateSurface(
           child: Padding(
@@ -1400,9 +1509,9 @@ class _AffiliateWithdrawTab extends StatelessWidget {
                     formatBaht(overview.payoutPolicy.minimumPayout),
                   ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _AffiliateFieldLabel(
@@ -1412,13 +1521,14 @@ class _AffiliateWithdrawTab extends StatelessWidget {
                 const SizedBox(height: 6),
                 TextField(
                   controller: amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                   decoration: _affiliateInputDecoration(
                     context,
                     hintText: '0.00',
@@ -1433,15 +1543,24 @@ class _AffiliateWithdrawTab extends StatelessWidget {
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: payoutMethod,
+                  isExpanded: true,
                   decoration: _affiliateInputDecoration(context, radius: 12),
                   items: [
                     DropdownMenuItem(
                       value: 'bank_transfer',
-                      child: Text(l10n.affiliateWithdrawBankTransfer),
+                      child: Text(
+                        l10n.affiliateWithdrawBankTransfer,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     DropdownMenuItem(
                       value: 'wallet_credit',
-                      child: Text(l10n.affiliateWithdrawWalletCredit),
+                      child: Text(
+                        l10n.affiliateWithdrawWalletCredit,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                   onChanged: (value) {
@@ -1535,9 +1654,9 @@ class _AffiliateBankPreview extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -1754,25 +1873,22 @@ class _AffiliateHistoryRow extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-                height: 1.25,
-              ),
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w900,
+            height: 1.25,
+          ),
         ),
         const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: _affiliateMutedTextStyle(context),
-        ),
+        Text(subtitle, style: _affiliateMutedTextStyle(context)),
       ],
     );
     final amountText = Text(
       amount,
       textAlign: narrow ? TextAlign.left : TextAlign.right,
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w900,
+      ),
     );
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1817,19 +1933,16 @@ class _AffiliateInlineError extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: colorScheme.error,
-            ),
+            Icon(Icons.warning_amber_rounded, color: colorScheme.error),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                      fontWeight: FontWeight.w800,
-                      height: 1.35,
-                    ),
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
               ),
             ),
             OutlinedButton(
@@ -1861,9 +1974,9 @@ class _AffiliateLoadingCard extends StatelessWidget {
           context.l10n.commonLoadingData,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -1882,19 +1995,16 @@ class _AffiliateErrorCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Icon(
-            Icons.error_outline,
-            color: Theme.of(context).colorScheme.error,
-          ),
+          Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -1920,10 +2030,10 @@ class _AffiliateFieldLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: muted ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-          ),
+        color: muted ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
+        fontSize: 13,
+        fontWeight: FontWeight.w900,
+      ),
     );
   }
 }
@@ -1947,11 +2057,11 @@ class _AffiliateFormAlert extends StatelessWidget {
         child: Text(
           message,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.error,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
-              ),
+            color: colorScheme.error,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
         ),
       ),
     );
@@ -1959,10 +2069,7 @@ class _AffiliateFormAlert extends StatelessWidget {
 }
 
 class _AffiliateTextAction extends StatelessWidget {
-  const _AffiliateTextAction({
-    required this.label,
-    required this.onPressed,
-  });
+  const _AffiliateTextAction({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback? onPressed;
@@ -1987,11 +2094,11 @@ class _AffiliateTextAction extends StatelessWidget {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: enabled
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: enabled
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -2003,11 +2110,11 @@ class _AffiliateTextAction extends StatelessWidget {
 
 TextStyle? _affiliateMutedTextStyle(BuildContext context) {
   return Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        height: 1.35,
-      );
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+    height: 1.35,
+  );
 }
 
 ButtonStyle _affiliateSecondaryPillStyle(BuildContext context) {
@@ -2016,9 +2123,9 @@ ButtonStyle _affiliateSecondaryPillStyle(BuildContext context) {
     padding: const EdgeInsets.symmetric(horizontal: 16),
     shape: const StadiumBorder(),
     side: BorderSide(color: Theme.of(context).colorScheme.primary),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
-        ),
+    textStyle: Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
   );
 }
 
@@ -2038,10 +2145,10 @@ InputDecoration _affiliateInputDecoration(
     constraints: const BoxConstraints(minHeight: 48),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    ),
     enabledBorder: OutlineInputBorder(
       borderRadius: borderRadius,
       borderSide: BorderSide(color: colorScheme.outlineVariant),
@@ -2058,3 +2165,21 @@ InputDecoration _affiliateInputDecoration(
 }
 
 enum AffiliateTab { overview, withdraw, commissions, payouts }
+
+String affiliatePathForTab(AffiliateTab tab) {
+  return switch (tab) {
+    AffiliateTab.overview => '/affiliate',
+    AffiliateTab.withdraw => '/affiliate/withdraw',
+    AffiliateTab.commissions => '/affiliate/commissions',
+    AffiliateTab.payouts => '/affiliate/payouts',
+  };
+}
+
+String _affiliatePageTitle(CustomerLocalizations l10n, AffiliateTab tab) {
+  return switch (tab) {
+    AffiliateTab.overview => l10n.affiliateTitle,
+    AffiliateTab.withdraw => l10n.affiliateWithdrawTitle,
+    AffiliateTab.commissions => l10n.affiliateCommissionsTitle,
+    AffiliateTab.payouts => l10n.affiliatePayoutsTitle,
+  };
+}

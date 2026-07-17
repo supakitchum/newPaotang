@@ -121,6 +121,90 @@ Important Flutter primitives:
 
 Recent verified work:
 
+- Privacy and Terms now use the compact title-only shared header and an
+  unframed white reading surface. The former repeated runtime title/site
+  sub-header, section pill, rounded card, and card shadow were removed. Runtime
+  HTML/Markdown content is still normalized by the existing parser, but legal
+  clauses now use compact 30px numbered markers, regular 15.5-16.5px reading
+  text, responsive 20/24px gutters, and clearer paragraph/action spacing.
+  Privacy's runtime external-policy action and failure notice remain intact.
+  Lottery Knowledge keeps its existing section-card structure and runtime
+  support links while reducing section titles, numbered text, number markers,
+  card spacing, and footer typography to fit mobile screens more comfortably.
+  Focused analysis and all 28 legal/system-page tests passed. No database,
+  screenshot, clear-worktree, commit, or push process was used.
+- Result index responsive spacing now follows Nuxt's `min-height: 386px`
+  contract without Flutter's former fixed 570px mobile hero. The fixed header
+  sizes itself from the featured result card at each viewport width, so the
+  history sheet begins exactly after the source 24px hero bottom inset instead
+  of leaving a large blank block on narrow screens. The source `left: -16px`
+  back-button position is retained while allowing the complete 42px control to
+  paint inside the viewport. `/result` and `/results` provider, route-family,
+  detail-link, realtime, and payout-dock behavior are unchanged. Focused
+  analysis and all 11 Result screen tests passed, including 320px and 768px
+  layout checks. No database, screenshot, clear-worktree, commit, or push
+  process was used.
+- Shared content-panel height and spacing parity advanced across Flutter pages.
+  `CustomerFixedHeaderLayout` now publishes the exact remaining content height
+  as `viewport - (headerHeight - overlap)`, and `CustomerPageBody` uses that
+  scoped value for its opt-in `minViewportHeight` contract. Short content now
+  reaches the physical viewport bottom without creating the previous
+  `header + 100vh` empty scroll. Redundant 540/620/660px sheet minimums were
+  removed so they cannot reintroduce overflow on shorter viewports; genuinely
+  long content still grows and scrolls normally. The contract is enabled for
+  Wallet, Profile/settings, News, Activities, Buy/Cart/Checkout, Stores,
+  Tickets, Topup/detail/history, Claims, Results, purchase history, Affiliate,
+  and legal/info content sheets. Home retains its own equivalent calculation
+  because its hero scrolls with the page instead of using a fixed header.
+  Shared sheet top padding moved from 23px to 18px, with oversized page-specific
+  gaps tightened responsively. Focused analysis and all 63 shared-shell,
+  Wallet, and Tickets tests passed; the layout regression explicitly verifies
+  that a 780px viewport with a 150px header produces a 630px content sheet and
+  zero empty scroll. News/Topup focused suites also passed. No database,
+  screenshot, clear-worktree, commit, or push process was used.
+- Home Activities now uses a grouped responsive `PageView` carousel instead
+  of a free-scrolling horizontal list: each slide shows two 16:9 image cards
+  on mobile and three on wide layouts. Runtime activity images are prefetched,
+  the type badge is anchored 8px from the upper-left edge, and the compact
+  API-driven eligibility/remaining-right badge is independently anchored 8px
+  from the upper-right edge so its position no longer depends on the left
+  badge width. Activity names remain available to accessibility semantics and
+  encoded detail routes are unchanged. The Home News slideshow now precaches
+  every non-empty runtime cover URL before starting its timer and transitions,
+  uses a stable placeholder while warming the cache, and enables gapless image
+  playback to avoid first-load flicker. Focused analysis and all 8 Home tests
+  passed, including three-card wide carousel geometry, exact right badge inset,
+  overlay labels, and activity navigation. No database, screenshot,
+  clear-worktree, commit, or push process was used.
+- News Detail cover media no longer touches both mobile viewport edges. The
+  responsive 16:9 image now aligns with the article's 20px reading gutter and
+  uses a 14px radius, while wide layouts retain their constrained article width
+  and the content remains unframed rather than returning to a card. Focused
+  analysis and all 4 News Detail tests passed. No database, screenshot,
+  clear-worktree, commit, or push process was used.
+- Home's runtime Tenant name and API wallet balance now live in a fixed
+  safe-area-aware navbar above the page scroll. The lottery hero and every
+  content section continue to scroll normally underneath it, with the hero's
+  top spacing reserved responsively so content is not covered. The fixed bar
+  renders the top slice of a full-height Hero backdrop instead of starting a
+  second gradient/pattern, so its color, diagonal bands, and Hero background
+  remain visually continuous like the supplied GLO reference. The wallet
+  action is no longer a card or two-line label: it shows only the wallet icon
+  and localized balance on one line while preserving the `/my-wallet` route.
+  Focused analysis and all 8 Home tests passed, including fixed-navbar geometry
+  after scrolling, narrow viewport layout, and Wallet navigation. No database,
+  screenshot, clear-worktree, commit, or push process was used.
+- Customer back navigation now follows the actual in-app route history even
+  though most Flutter flows use `context.go()` rather than a poppable route
+  stack. A bounded URI history tracker is attached to the app router; shared
+  `AppShell` headers and custom headers in Buy More, Topup/history, purchase
+  receipt, Results, password recovery, social phone linking, automatic reward,
+  and ticket-claim flows return to the real previous URI first. Direct URL or
+  deep-link entry still uses each page's existing safe flow fallback instead
+  of leaving the customer stranded. Internal form/PIN step-back controls keep
+  their existing step behavior. Focused analysis passed and all 16 AppShell
+  tests passed, including actual-history and direct-entry fallback cases. No
+  database, screenshot, clear-worktree, commit, or push process was used.
 - Customer auth storage now follows Nuxt tenant isolation instead of sharing
   one native secure-storage namespace across every partner host. Production
   startup resolves the scope from the current Web host, configured
@@ -8475,28 +8559,31 @@ Next recommended work:
 Owner-reference compact header correction:
 
 - The latest owner direction standardizes title/back-only blue headers to the
-  150px scale shown in the supplied `8-อื่นๆ` reference, overriding older
-  214px/54px News and Activities shell notes. The content sheet starts flush
-  below the fixed header instead of overlapping a tall decorative band.
+  96px `reward-claims` geometry, superseding the earlier 150px
+  `8-อื่นๆ` interpretation and older 214px/54px News/Activities shell
+  notes. The content sheet starts flush below the fixed header with zero
+  overlap or extra hero-content gap.
 - The shared `AppShell` default and Buy/Search results, Checkout Pending,
   Activities current/history/detail, News list/detail, Profile Language,
-  and Reward Terms now use that compact geometry. A large
-  native safe-area inset can expand the header enough to prevent status-bar
-  collisions.
+  LINE Notifications, My Wallet, Purchase History, Auto Reward selection,
+  Result detail, and Reward Terms now use that compact geometry. Reward and
+  Activity Claims use the same shared token instead of a duplicate literal.
+  A large native safe-area inset can expand every compact header by the same
+  amount to prevent status-bar collisions.
 - Content-rich heroes were intentionally preserved: Home, Buy/Store tabs,
   Cart, Checkout, Tickets search/tabs, Topup, Results, Reward Bank,
-  Auto Reward, and Affiliate still use their page-specific
+  Auto Reward intro, and Affiliate still use their page-specific
   content-driven heights.
-- Focused analysis passed for all touched screens. AppShell, News detail,
-  Activities, and Profile Language suites passed 34 tests. No runtime database,
-  mutating API, screenshot automation, clear-worktree, commit, or push action
-  was used.
+- Focused analysis passed for all touched screens. AppShell, Wallet, News
+  detail, LINE Notifications, Reward Claims, and Activity Claims suites passed
+  71 tests. No runtime database, mutating API, screenshot automation,
+  clear-worktree, commit, or push action was used.
 
 Purchase History and shared content-sheet corner correction:
 
-- `/purchase-history` was compared with the supplied original screen and is an
-  exception to the owner-reference 150px title-header rule. It now restores the
-  original 176px BlueHeader and 22px flush content-sheet radius.
+- `/purchase-history` retains its owner-reference 22px content-sheet radius,
+  but its title/back-only BlueHeader now follows the newer shared 96px
+  `reward-claims` geometry instead of the previous 176px exception.
 - The large blank area above the first year/order was not an API/data issue.
   `CustomerPageBody` vertically centered short content inside the Nuxt 660px
   minimum sheet. Shared page content now follows normal top-aligned CSS flow,
@@ -8525,7 +8612,7 @@ Purchase History and shared content-sheet corner correction:
 My Wallet owner-directed header and history tabs:
 
 - The latest owner direction supersedes the earlier 304px expanded Wallet hero
-  note. `/my-wallet` now uses the shared 150px fixed blue header with only the
+  note. `/my-wallet` now uses the shared 96px fixed blue header with only the
   centered `กระเป๋าของฉัน` menu title and back action; the wallet balance card
   starts inside the rounded content sheet instead of occupying the header.
 - Wallet content keeps the responsive shared rail and light-gray sheet, with
@@ -8543,7 +8630,7 @@ My Wallet owner-directed header and history tabs:
 
 LINE Notifications owner-directed layout and entry gate:
 
-- `/profile/line-notifications` now uses the shared 150px title/back-only
+- `/profile/line-notifications` now uses the shared 96px title/back-only
   BlueHeader. The older LINE logo/copy hero was removed and this route no
   longer renders the customer bottom navigation.
 - The settings cards remain in the scrollable white sheet while the LINE
@@ -9947,11 +10034,79 @@ Home scroll and section-composition pass:
   hero and overlapping white content sheet share one vertical scroll, while the
   existing BottomNav remains anchored by `AppShell`.
 - Removed the top-right hero close action and removed the authenticated wallet
-  summary/actions from Home. Guest login/register actions remain available.
+  summary/actions panel from Home. The former 80-baht hero badge is now a
+  compact API-backed wallet balance action linking to `/my-wallet`, while guest
+  login/register actions remain available.
 - Reordered Home so the current result summary appears before Activities.
   Activities now use compact image-led horizontal cards, and News is a
-  responsive, image-only swipe carousel while preserving each backend-provided
-  internal or external target.
+  responsive, image-only slideshow that advances every five seconds, loops,
+  supports manual swiping, and preserves each backend-provided internal or
+  external target.
+- Activities and News now share `CustomerSectionHeader`, keeping the Home
+  "view all" actions on one font size, weight, padding, and tap target.
 - Focused Home analysis passed and all 7 Home widget tests passed. No database,
   runtime API mutation, screenshot automation, native-security expansion,
   clear-worktree, commit, or push action was used.
+
+Affiliate profile label and registration-benefit pass:
+
+- The Profile menu now localizes the Affiliate route as `ตัวแทนจำหน่าย`
+  in Thai and `Affiliate` in English. The duplicate Affiliate hero title,
+  icon, and description were removed; the page now uses the shared compact
+  title/back header and flush content-sheet geometry.
+- The pre-registration state now explains commission, referral-link, and
+  payout benefits before the store-name field. The payout threshold is read
+  from the overview API's `payout_policy.minimum_payout` value and formatted by
+  the active locale; no partner amount or commission rate is hardcoded.
+- Focused analysis passed and the Bootstrap/Affiliate suites passed 47 tests,
+  including the API-backed benefit threshold and removed hero-description
+  regression. No database, mutating API, screenshot automation,
+  clear-worktree, commit, or push action was used.
+
+Affiliate routed navigation pass:
+
+- Removed the global Customer BottomNav from the authenticated Affiliate area.
+  Affiliate now owns a fixed four-item bottom navigation for Overview,
+  Withdraw, Commissions, and History, with the active item derived from the
+  current route rather than an in-page tab state.
+- Split the former content tabs into sensitive routes `/affiliate`,
+  `/affiliate/withdraw`, `/affiliate/commissions`, and `/affiliate/payouts`.
+  Commission and payout data still load only on their matching pages, and a
+  completed withdrawal now opens the routed payout-history page with its
+  success notice. Editing a payout account from Withdraw returns to Withdraw.
+- Each route now renders only its own content. Store identity, aggregate stats,
+  and referral tools remain on Overview; Withdraw contains only its payout
+  account and request form; Commissions and History contain only their
+  respective records and route-specific states. The payout-account summary was
+  removed from Overview under the latest owner direction.
+- The Overview referral surface now generates a scannable QR Code directly
+  from the API-provided canonical/referral URL using `qr_flutter`; it does not
+  construct a partner URL in the widget. Mobile stacks the QR above the
+  copyable link while wide layouts place them side by side. Empty referral URLs
+  continue to use the existing empty state and do not render a QR placeholder.
+- `AppShell` now accepts an optional page-owned bottom navigation while keeping
+  the existing Customer BottomNav behavior unchanged for every other screen.
+  The Affiliate registration state intentionally has no Affiliate navigation
+  until the overview API confirms the customer is an affiliate.
+- The missing-bank action now has concise localized CTA copy, while the longer
+  validation copy remains reserved for notices. The withdrawal-method dropdown
+  is width-constrained and ellipsizes its selected label on narrow columns.
+- Focused analysis passed, the four-page content-isolation regression passed,
+  and Affiliate/route/PIN/AppShell coverage passed all 57 tests before the
+  isolation follow-up. No database, mutating API, screenshot automation,
+  clear-worktree, commit, or push action was used.
+
+Privacy, biometric, and lottery-knowledge title-header pass:
+
+- `/privacy`, `/profile/biometrics`, and `/lottery-knowledge` now use the shared
+  96px compact title/back header with zero sheet overlap and no hero content.
+  The former large icon/logo, repeated page title, site subtitle, and biometric
+  intro sub-header were removed while each page's functional content remains
+  in the white content region.
+- Runtime privacy body/policy links, lottery support website/phone behavior,
+  biometric capability/device loading, PIN confirmation, enablement, and revoke
+  behavior were not changed. Terms remains on its existing separate layout.
+- Focused analysis passed and the Info/System/Biometric suites passed all 39
+  tests, including compact-header geometry and duplicate-title regressions. No
+  database, mutating API, screenshot automation, clear-worktree, commit, or
+  push action was used.

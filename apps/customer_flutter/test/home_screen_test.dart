@@ -14,6 +14,8 @@ import 'package:customer_flutter/features/news/data/news_models.dart';
 import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
+import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
+import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,7 +35,14 @@ void main() {
     expect(find.text('เริ่มซื้อสลากดิจิทัล'), findsOneWidget);
     expect(find.text('เข้าสู่ระบบ'), findsOneWidget);
     expect(find.text('สมัครใช้งาน'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-fixed-navbar')),
+      findsOneWidget,
+    );
     expect(find.text('ยอดเงินในกระเป๋า'), findsNothing);
+    expect(find.text('0.00'), findsOneWidget);
+    expect(find.text('80'), findsNothing);
+    expect(find.text('บาท'), findsNothing);
 
     expect(find.text('287184', skipOffstage: false), findsOneWidget);
     expect(find.text('48', skipOffstage: false), findsOneWidget);
@@ -41,8 +50,8 @@ void main() {
     expect(find.text('758', skipOffstage: false), findsOneWidget);
 
     expect(find.text('ข่าวสาร', skipOffstage: false), findsWidgets);
-    expect(find.text('ดูทั้งหมด', skipOffstage: false), findsWidgets);
-    expect(find.byKey(const ValueKey('home-news-carousel')), findsOneWidget);
+    expect(find.text('ดูทั้งหมด', skipOffstage: false), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('home-news-slideshow')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('home-news-slide-news_1')),
       findsOneWidget,
@@ -57,6 +66,48 @@ void main() {
             .dy,
       ),
     );
+  });
+
+  testWidgets('home news slideshow advances automatically', (tester) async {
+    await _pumpHome(
+      tester,
+      news: const [
+        NewsItem(
+          id: 'news_slide_1',
+          title: 'ข่าวสไลด์หนึ่ง',
+          summary: '',
+          body: '',
+          slug: 'news-slide-one',
+          url: '',
+          coverUrl: '',
+          publishedAt: '2026-07-17T10:00:00+07:00',
+        ),
+        NewsItem(
+          id: 'news_slide_2',
+          title: 'ข่าวสไลด์สอง',
+          summary: '',
+          body: '',
+          slug: 'news-slide-two',
+          url: '',
+          coverUrl: '',
+          publishedAt: '2026-07-17T11:00:00+07:00',
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-news-indicator-active-0')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 5, milliseconds: 1));
+
+    expect(
+      find.byKey(const ValueKey('home-news-indicator-active-1')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('home screen keeps the hero usable on narrow mobile viewports', (
@@ -78,7 +129,9 @@ void main() {
     expect(sheet.bottom, greaterThanOrEqualTo(780));
 
     final headerFinder = find.byKey(const ValueKey('home-scroll-header'));
+    final navbarFinder = find.byKey(const ValueKey('home-fixed-navbar'));
     final initialHeaderRect = tester.getRect(headerFinder);
+    final initialNavbarRect = tester.getRect(navbarFinder);
     await tester.drag(
       find.byKey(const ValueKey('home-page-scroll')),
       const Offset(0, -240),
@@ -86,6 +139,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.getRect(headerFinder).top, lessThan(initialHeaderRect.top));
+    expect(tester.getRect(navbarFinder).top, initialNavbarRect.top);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('home-content-sheet'))).dy,
       lessThan(sheet.top),
@@ -143,7 +197,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('home activities rail stays aligned on wide viewports', (
+  testWidgets('home activities use an image-only carousel on wide viewports', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 900);
@@ -154,29 +208,46 @@ void main() {
     await _pumpHome(tester, activities: _activityFixtures);
     await tester.pumpAndSettle();
 
-    final activityList = find.byWidgetPredicate(
-      (widget) =>
-          widget is ListView && widget.scrollDirection == Axis.horizontal,
+    final activityCarousel =
+        find.byKey(const ValueKey('home-activities-carousel'));
+
+    expect(activityCarousel, findsOneWidget);
+    expect(find.text('กิจกรรมที่ 1'), findsNothing);
+    expect(find.text('กิจกรรมที่ 2'), findsNothing);
+    expect(find.text('แผงเลขนำโชค'), findsWidgets);
+    expect(find.text('มีสิทธิ์'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-activity-card-activity_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-activity-card-activity_2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-activity-card-activity_3')),
+      findsOneWidget,
     );
 
-    expect(activityList, findsOneWidget);
-    expect(find.text('กิจกรรมที่ 1'), findsOneWidget);
-    expect(find.text('กิจกรรมที่ 2'), findsOneWidget);
-    expect(find.text('คืนเงิน 5%'), findsOneWidget);
-
-    final listRect = tester.getRect(activityList);
-    expect(listRect.width, lessThanOrEqualTo(920));
-    expect(listRect.left, greaterThan(100));
-    expect(listRect.right, lessThan(1100));
+    final carouselRect = tester.getRect(activityCarousel);
+    expect(carouselRect.width, closeTo(920, 1));
+    expect(carouselRect.left, greaterThan(100));
+    expect(carouselRect.right, lessThan(1100));
     final artwork = tester.getRect(
       find.byKey(const ValueKey('home-activity-artwork-activity_1')),
     );
     expect(artwork.width / artwork.height, closeTo(16 / 9, 0.01));
-    expect(artwork.width, lessThan(300));
+    expect(artwork.width, closeTo(300, 1));
+    final rightsBadge = tester.getRect(
+      find.byKey(const ValueKey('home-activity-rights-activity_1')),
+    );
+    expect(artwork.right - rightsBadge.right, closeTo(8, 1));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('authenticated home omits the wallet panel', (tester) async {
+  testWidgets('authenticated home shows header wallet without the old panel', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -186,6 +257,10 @@ void main() {
       initialLocation: '/',
       routes: [
         GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+        GoRoute(
+          path: '/my-wallet',
+          builder: (context, state) => _RouteEcho(uri: state.uri),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -194,8 +269,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ยอดเงินในกระเป๋า', skipOffstage: false), findsNothing);
+    expect(find.text('2,240.00', skipOffstage: false), findsOneWidget);
     expect(find.text('เติมเงิน', skipOffstage: false), findsNothing);
     expect(find.text('เข้าสู่ระบบ', skipOffstage: false), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('home-header-wallet')));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/my-wallet',
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -301,8 +385,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('กิจกรรม slug เว้นวรรค'));
-    await tester.tap(find.text('กิจกรรม slug เว้นวรรค'));
+    final activityCard = find.byKey(
+      const ValueKey('home-activity-card-activity_spaced'),
+    );
+    await tester.ensureVisible(activityCard);
+    await tester.tap(activityCard);
     await tester.pumpAndSettle();
 
     expect(
@@ -414,6 +501,19 @@ Future<void> _pumpHomeRouter(
         appConfigProvider.overrideWithValue(_testConfig),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
         authControllerProvider.overrideWith((_) => _authenticatedController()),
+        walletSummaryProvider.overrideWith(
+          (_) async => const WalletSummary(
+            wallets: [
+              CustomerWallet(
+                id: 'wallet_1',
+                name: 'G Wallet',
+                type: '1',
+                balance: 2240,
+              ),
+            ],
+            ledger: [],
+          ),
+        ),
         activityListProvider.overrideWith((_) async => activities),
         newsListProvider.overrideWith((_) async => news),
         currentResultProvider.overrideWith((_) async => _homeResultBundle()),

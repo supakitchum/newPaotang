@@ -9,6 +9,7 @@ import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/profile/data/biometric_device_models.dart';
 import 'package:customer_flutter/features/profile/data/biometric_device_repository.dart';
 import 'package:customer_flutter/features/profile/presentation/biometric_devices_screen.dart';
+import 'package:customer_flutter/shared/widgets/app_shell.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -23,14 +24,17 @@ void main() {
     await _pumpScreen(tester);
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('customer-fixed-hero')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('customer-fixed-hero')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('customer-fixed-content-region')),
       findsOneWidget,
     );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('customer-fixed-hero'))).height,
+      customerReferenceCompactHeroHeight,
+    );
+    expect(find.text('Face ID / Biometric'), findsOneWidget);
+    expect(find.text('Use Face ID / Biometric instead of PIN'), findsNothing);
     expect(find.byType(AppBar), findsNothing);
   });
 
@@ -82,9 +86,8 @@ void main() {
         ),
         GoRoute(
           path: '/maintenance',
-          builder: (_, __) => const Scaffold(
-            body: Center(child: Text('Maintenance route')),
-          ),
+          builder: (_, __) =>
+              const Scaffold(body: Center(child: Text('Maintenance route'))),
         ),
       ],
     );
@@ -168,10 +171,9 @@ void main() {
     expect(biometricAuth.registeredPins, ['123456']);
     expect(biometricAuth.registeredPlatforms, ['ios']);
     expect(biometricAuth.registeredDeviceNames, ['This iPhone / iPad']);
-    expect(
-      biometricAuth.localizedReasons,
-      ['Authenticate to enable biometric unlock on this device'],
-    );
+    expect(biometricAuth.localizedReasons, [
+      'Authenticate to enable biometric unlock on this device',
+    ]);
     expect(
       find.text('Biometric unlock is enabled for this device.'),
       findsOneWidget,
@@ -327,35 +329,31 @@ Future<void> _enterBiometricPin(WidgetTester tester, String pin) async {
   await tester.pumpAndSettle();
 }
 
-final _mobileBootstrap = MobileBootstrap.fromJson(
-  const {
-    'mobile': {
-      'feature_flags': {'native_biometric_unlock': true},
-      'biometric': {
-        'enabled': true,
-        'platforms': {
-          'ios': ['local_auth'],
-          'android': ['biometric_prompt'],
-        },
+final _mobileBootstrap = MobileBootstrap.fromJson(const {
+  'mobile': {
+    'feature_flags': {'native_biometric_unlock': true},
+    'biometric': {
+      'enabled': true,
+      'platforms': {
+        'ios': ['local_auth'],
+        'android': ['biometric_prompt'],
       },
     },
   },
-);
+});
 
-final _mobileBootstrapWithRuntimePrompt = MobileBootstrap.fromJson(
-  const {
-    'mobile': {
-      'feature_flags': {'native_biometric_unlock': true},
-      'biometric': {
-        'enabled': true,
-        'biometricSetupReason': 'Runtime setup biometric prompt',
-        'platforms': {
-          'ios': ['local_auth'],
-        },
+final _mobileBootstrapWithRuntimePrompt = MobileBootstrap.fromJson(const {
+  'mobile': {
+    'feature_flags': {'native_biometric_unlock': true},
+    'biometric': {
+      'enabled': true,
+      'biometricSetupReason': 'Runtime setup biometric prompt',
+      'platforms': {
+        'ios': ['local_auth'],
       },
     },
   },
-);
+});
 
 const _activeDevice = BiometricDevice(
   id: 'bio_1',
@@ -398,7 +396,7 @@ class _BiometricDeviceRepository extends BiometricDeviceRepository {
 
 class _BiometricAuthService extends BiometricAuthService {
   _BiometricAuthService({this.registerError, this.localDeviceId})
-      : super(_testApiClient());
+    : super(_testApiClient());
 
   final Object? registerError;
   final String? localDeviceId;
@@ -455,10 +453,7 @@ DioException _apiException(
     response: Response<Map<String, dynamic>>(
       requestOptions: request,
       statusCode: statusCode,
-      data: {
-        if (code.isNotEmpty) 'code': code,
-        'message': message,
-      },
+      data: {if (code.isNotEmpty) 'code': code, 'message': message},
     ),
   );
 }

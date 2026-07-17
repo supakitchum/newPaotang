@@ -17,11 +17,7 @@ String resultDetailBackPathFor(String routePath) {
 }
 
 class ResultDetailScreen extends ConsumerWidget {
-  const ResultDetailScreen({
-    this.gameId,
-    this.backPath = '/result',
-    super.key,
-  });
+  const ResultDetailScreen({this.gameId, this.backPath = '/result', super.key});
 
   final String? gameId;
   final String backPath;
@@ -49,8 +45,9 @@ class ResultDetailScreen extends ConsumerWidget {
       currentPath: backPath,
       backPath: backPath,
       showBottomNavigation: false,
-      heroMinHeight: 121,
-      heroSheetOverlap: 16,
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
       heroSheetTopRadius: 12,
       heroContentTopGap: 0,
       heroContent: const SizedBox.shrink(),
@@ -135,6 +132,7 @@ class _ResultFullSheet extends StatelessWidget {
                   bottom: 138,
                   mobileHorizontal: 0,
                   wideHorizontal: 0,
+                  minViewportHeight: true,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -176,10 +174,7 @@ class _ResultFullSheet extends StatelessWidget {
           loading: () => _ResultDetailState.loading(context.l10n.resultLoading),
           error: (error, __) => _ResultDetailState.error(
             title: context.l10n.resultLoadFailedTitle,
-            message: customerErrorMessage(
-              error,
-              context.l10n.commonLoadFailed,
-            ),
+            message: customerErrorMessage(error, context.l10n.commonLoadFailed),
             onRetry: onRetry,
           ),
         ),
@@ -200,13 +195,13 @@ class _ResultDetailState extends StatelessWidget {
   });
 
   const _ResultDetailState.noResult()
-      : title = '',
-        subtitle = null,
-        icon = Icons.hourglass_empty,
-        loading = false,
-        error = false,
-        minHeight = 420,
-        onRetry = null;
+    : title = '',
+      subtitle = null,
+      icon = Icons.hourglass_empty,
+      loading = false,
+      error = false,
+      minHeight = 420,
+      onRetry = null;
 
   factory _ResultDetailState.loading(String title) {
     return _ResultDetailState(
@@ -239,11 +234,7 @@ class _ResultDetailState extends StatelessWidget {
   }
 
   factory _ResultDetailState.compact(String title, {String? subtitle}) {
-    return _ResultDetailState(
-      title: title,
-      subtitle: subtitle,
-      minHeight: 180,
-    );
+    return _ResultDetailState(title: title, subtitle: subtitle, minHeight: 180);
   }
 
   final String title;
@@ -282,11 +273,11 @@ class _ResultDetailState extends StatelessWidget {
               effectiveTitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: foreground,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    height: 1.25,
-                  ),
+                color: foreground,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
             ),
             if (loading) ...[
               const SizedBox(height: 8),
@@ -294,10 +285,10 @@ class _ResultDetailState extends StatelessWidget {
                 subtitle ?? l10n.commonLoadingData,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 16,
-                      height: 1.45,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 16,
+                  height: 1.45,
+                ),
               ),
             ] else if (subtitle != null && subtitle!.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -305,31 +296,35 @@ class _ResultDetailState extends StatelessWidget {
                 subtitle!,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 16,
-                      height: 1.45,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 16,
+                  height: 1.45,
+                ),
               ),
             ],
             if (onRetry != null) ...[
               const SizedBox(height: 22),
               OutlinedButton(
                 onPressed: onRetry,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor:
-                      AppTheme.primaryOutlineText(colorScheme.primary),
-                  minimumSize: const Size(0, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  side: BorderSide(
-                    color: AppTheme.primaryOutlineBorder(colorScheme.primary),
-                  ),
-                  shape: const StadiumBorder(),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
-                ).copyWith(
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
-                  ),
-                ),
+                style:
+                    OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryOutlineText(
+                        colorScheme.primary,
+                      ),
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      side: BorderSide(
+                        color: AppTheme.primaryOutlineBorder(
+                          colorScheme.primary,
+                        ),
+                      ),
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                    ),
                 child: Text(l10n.commonRetry),
               ),
             ],
@@ -351,11 +346,11 @@ class _ResultDrawDate extends StatelessWidget {
       context.l10n.resultDrawDate(drawDate),
       textAlign: TextAlign.center,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: const Color(0xFF20385F),
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            height: 1.3,
-          ),
+        color: const Color(0xFF20385F),
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        height: 1.3,
+      ),
     );
   }
 }
@@ -368,7 +363,7 @@ class _ResultUnofficialNotice extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final background =
         Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.82) ??
-            colorScheme.surface;
+        colorScheme.surface;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: background,
@@ -389,11 +384,11 @@ class _ResultUnofficialNotice extends StatelessWidget {
               child: Text(
                 context.l10n.resultUnofficial,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onTertiaryContainer,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
-                    ),
+                  color: colorScheme.onTertiaryContainer,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
               ),
             ),
           ],

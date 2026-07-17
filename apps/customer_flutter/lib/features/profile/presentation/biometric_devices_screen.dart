@@ -20,8 +20,9 @@ final _biometricCapabilityProvider = FutureProvider.autoDispose<bool>((ref) {
   return ref.watch(biometricAuthServiceProvider).canUseBiometric();
 });
 
-final _currentBiometricDeviceIdProvider =
-    FutureProvider.autoDispose<String?>((ref) {
+final _currentBiometricDeviceIdProvider = FutureProvider.autoDispose<String?>((
+  ref,
+) {
   return ref.watch(biometricAuthServiceProvider).currentDeviceId();
 });
 
@@ -43,21 +44,21 @@ class _BiometricDevicesScreenState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final devices = ref.watch(biometricDevicesProvider);
-    ref.listen<AsyncValue<List<BiometricDevice>>>(
-      biometricDevicesProvider,
-      (previous, next) {
-        final error = next.error;
-        if (error == null || identical(previous?.error, error)) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          handleCustomerOperationalError(
-            ref: ref,
-            context: context,
-            error: error,
-          );
-        });
-      },
-    );
+    ref.listen<AsyncValue<List<BiometricDevice>>>(biometricDevicesProvider, (
+      previous,
+      next,
+    ) {
+      final error = next.error;
+      if (error == null || identical(previous?.error, error)) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        handleCustomerOperationalError(
+          ref: ref,
+          context: context,
+          error: error,
+        );
+      });
+    });
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final platformKey = ref.watch(customerPlatformKeyProvider);
     final policyEnabled = bootstrap.maybeWhen(
@@ -77,17 +78,19 @@ class _BiometricDevicesScreenState
       backPath: '/profile',
       sensitive: true,
       showBottomNavigation: true,
-      heroMinHeight: 248,
-      heroSheetOverlap: MediaQuery.sizeOf(context).width >= 768 ? 28 : 38,
-      heroContentTopGap: 18,
-      heroContent: const _BiometricHeroContent(),
+      compactHeader: true,
+      heroMinHeight: customerReferenceCompactHeroHeight,
+      heroSheetOverlap: 0,
+      heroContentTopGap: 0,
+      heroContent: const SizedBox.shrink(),
       child: _BiometricContentSheet(
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(_biometricCapabilityProvider);
             ref.invalidate(_currentBiometricDeviceIdProvider);
-            final refreshedDevices =
-                ref.refresh(biometricDevicesProvider.future);
+            final refreshedDevices = ref.refresh(
+              biometricDevicesProvider.future,
+            );
             await refreshedDevices;
           },
           child: ListView(
@@ -97,6 +100,7 @@ class _BiometricDevicesScreenState
               CustomerPageBody(
                 top: 16,
                 bottom: 128,
+                minViewportHeight: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -169,7 +173,9 @@ class _BiometricDevicesScreenState
 
     setState(() => _saving = true);
     try {
-      await ref.read(biometricAuthServiceProvider).registerDevice(
+      await ref
+          .read(biometricAuthServiceProvider)
+          .registerDevice(
             pin: pin,
             platform: platformKey,
             localizedReason: mobileBiometricPromptReason(
@@ -330,20 +336,20 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
                     l10n.profileBiometricPinDialogTitle,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w900,
-                          height: 1.15,
-                        ),
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     l10n.profileBiometricIntroSubtitle,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          height: 1.45,
-                        ),
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
+                    ),
                   ),
                   SizedBox(height: compact ? 18 : 24),
                   _BiometricPinIndicator(length: _pin.length),
@@ -356,8 +362,9 @@ class _PinConfirmDialogState extends State<_PinConfirmDialog> {
                   ),
                   SizedBox(height: compact ? 4 : 10),
                   TextButton(
-                    onPressed:
-                        _submitted ? null : () => Navigator.of(context).pop(),
+                    onPressed: _submitted
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: Text(l10n.commonCancel),
                   ),
                 ],
@@ -453,9 +460,7 @@ class _BiometricRevokeDialog extends StatelessWidget {
                         children: [
                           Text(
                             l10n.profileBiometricRevokeDialogTitle,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   color: colors.onSurface,
                                   fontWeight: FontWeight.w900,
@@ -467,12 +472,12 @@ class _BiometricRevokeDialog extends StatelessWidget {
                             l10n.profileBiometricRevokeDialogMessage(
                               deviceName,
                             ),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colors.onSurfaceVariant,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.45,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.45,
+                                ),
                           ),
                         ],
                       ),
@@ -502,69 +507,6 @@ class _BiometricRevokeDialog extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BiometricHeroContent extends StatelessWidget {
-  const _BiometricHeroContent();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final onPrimary = colorScheme.onPrimary;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: onPrimary.withValues(alpha: 0.16),
-            border: Border.all(
-              color: onPrimary.withValues(alpha: 0.28),
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SizedBox.square(
-            dimension: 62,
-            child: Icon(
-              Icons.face_retouching_natural,
-              color: onPrimary,
-              size: 34,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.profileBiometricIntroTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: onPrimary,
-                      fontWeight: FontWeight.w900,
-                      height: 1.18,
-                    ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                l10n.profileBiometricIntroSubtitle,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: onPrimary.withValues(alpha: 0.92),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -612,16 +554,16 @@ class _EnableBiometricCard extends StatelessWidget {
     final title = checkingCapability
         ? l10n.commonLoadingData
         : unavailable
-            ? l10n.profileBiometricUnavailableTitle
-            : l10n.profileBiometricEnableTitle;
+        ? l10n.profileBiometricUnavailableTitle
+        : l10n.profileBiometricEnableTitle;
     final message = unavailable
         ? l10n.profileBiometricUnavailableMessage
         : l10n.profileBiometricEnableMessage;
     final icon = checkingCapability
         ? Icons.manage_search_outlined
         : unavailable
-            ? Icons.phonelink_lock_outlined
-            : Icons.verified_user_outlined;
+        ? Icons.phonelink_lock_outlined
+        : Icons.verified_user_outlined;
     final tone = unavailable ? colors.error : colors.primary;
 
     return _BiometricSurface(
@@ -632,19 +574,16 @@ class _EnableBiometricCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  icon,
-                  color: tone,
-                ),
+                Icon(icon, color: tone),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w900,
-                          height: 1.2,
-                        ),
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
@@ -653,10 +592,10 @@ class _EnableBiometricCard extends StatelessWidget {
             Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.4,
-                  ),
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
             ),
             if (checkingCapability) ...[
               const SizedBox(height: 12),
@@ -683,8 +622,9 @@ class _EnableBiometricCard extends StatelessWidget {
                               width: 18,
                               height: 14,
                               color: colors.onPrimary,
-                              trackColor:
-                                  colors.onPrimary.withValues(alpha: 0.24),
+                              trackColor: colors.onPrimary.withValues(
+                                alpha: 0.24,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -692,25 +632,26 @@ class _EnableBiometricCard extends StatelessWidget {
                         ],
                       )
                     : checkingCapability
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox.square(
-                                dimension: 16,
-                                child: CustomerLoadingMark(
-                                  width: 18,
-                                  height: 14,
-                                  color: colors.onPrimary,
-                                  trackColor:
-                                      colors.onPrimary.withValues(alpha: 0.24),
-                                ),
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox.square(
+                            dimension: 16,
+                            child: CustomerLoadingMark(
+                              width: 18,
+                              height: 14,
+                              color: colors.onPrimary,
+                              trackColor: colors.onPrimary.withValues(
+                                alpha: 0.24,
                               ),
-                              const SizedBox(width: 8),
-                              Text(l10n.commonLoadingData),
-                            ],
-                          )
-                        : Text(l10n.profileBiometricEnableButton),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(l10n.commonLoadingData),
+                        ],
+                      )
+                    : Text(l10n.profileBiometricEnableButton),
               ),
             ),
           ],
@@ -757,10 +698,10 @@ class _BiometricDeviceLoadingCard extends StatelessWidget {
                   child: Text(
                     l10n.commonLoadingData,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w900,
-                          height: 1.2,
-                        ),
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
@@ -813,20 +754,20 @@ class _DeviceList extends StatelessWidget {
               Text(
                 l10n.profileBiometricEmptyTitle,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.w900,
-                      height: 1.2,
-                    ),
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 l10n.profileBiometricEmptyMessage,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      height: 1.4,
-                    ),
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -839,10 +780,9 @@ class _DeviceList extends StatelessWidget {
       children: [
         Text(
           l10n.profileBiometricActiveDevices,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w900),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
         if (active.isEmpty)
@@ -861,10 +801,9 @@ class _DeviceList extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             l10n.profileBiometricRevokedDevices,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(fontWeight: FontWeight.w900),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
           for (final device in revoked) ...[
@@ -927,10 +866,8 @@ class _DeviceCard extends StatelessWidget {
                     children: [
                       Text(
                         _deviceName(device, l10n),
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 4),
                       Wrap(
@@ -1014,10 +951,10 @@ class _BiometricDevicePill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
+            color: color,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
         ),
       ),
     );
@@ -1041,20 +978,20 @@ class _DeviceMeta extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
           ),
         ),
         Expanded(
           child: Text(
             value,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: colors.onSurface,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
         ),
       ],
@@ -1075,20 +1012,16 @@ class _MutedInfoCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(
-              Icons.info_outline,
-              color: colors.onSurfaceVariant,
-              size: 20,
-            ),
+            Icon(Icons.info_outline, color: colors.onSurfaceVariant, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      height: 1.4,
-                    ),
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -1109,10 +1042,7 @@ String _deviceName(BiometricDevice device, CustomerLocalizations l10n) {
   };
 }
 
-String _deviceStatusLabel(
-  BiometricDevice device,
-  CustomerLocalizations l10n,
-) {
+String _deviceStatusLabel(BiometricDevice device, CustomerLocalizations l10n) {
   return device.isActive
       ? l10n.profileBiometricStatusActive
       : l10n.profileBiometricStatusRevoked;
@@ -1163,10 +1093,10 @@ class _ErrorCard extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w800,
-                    height: 1.4,
-                  ),
+                color: colors.onSurface,
+                fontWeight: FontWeight.w800,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -1249,10 +1179,10 @@ class _BiometricStatusPanel extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.w800,
-                      height: 1.35,
-                    ),
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
               ),
             ),
             IconButton(
@@ -1395,22 +1325,23 @@ class _BiometricPinKeypad extends StatelessWidget {
                   onPressed: !enabled
                       ? null
                       : key == 'back'
-                          ? onBackspace
-                          : () => onDigit(key),
+                      ? onBackspace
+                      : () => onDigit(key),
                   style: TextButton.styleFrom(
                     foregroundColor: key == 'back'
                         ? colors.onSurfaceVariant
                         : colors.onSurface,
-                    disabledForegroundColor:
-                        colors.onSurface.withValues(alpha: 0.38),
+                    disabledForegroundColor: colors.onSurface.withValues(
+                      alpha: 0.38,
+                    ),
                     minimumSize: Size(54, compact ? 36 : 42),
                     padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
                   ),
                   child: key == 'back'
                       ? const Icon(Icons.backspace_outlined, size: 20)

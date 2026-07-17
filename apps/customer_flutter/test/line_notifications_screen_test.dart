@@ -9,6 +9,7 @@ import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_models.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_repository.dart';
 import 'package:customer_flutter/features/profile/presentation/line_notifications_screen.dart';
+import 'package:customer_flutter/shared/widgets/app_shell.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -65,7 +66,7 @@ void main() {
       find.byKey(const ValueKey('line-action-footer')),
     );
 
-    expect(headerRect.height, 150);
+    expect(headerRect.height, customerReferenceCompactHeroHeight);
     expect(footerRect.bottom, 1200);
     expect(find.text('LINE notifications'), findsOneWidget);
     expect(find.text('Get every transaction update'), findsNothing);
@@ -135,10 +136,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('This store has not enabled LINE OA yet'),
-      findsOneWidget,
-    );
+    expect(find.text('This store has not enabled LINE OA yet'), findsOneWidget);
     expect(find.text('Connect LINE'), findsNothing);
     expect(find.byKey(const ValueKey('line-action-footer')), findsNothing);
     expect(tester.takeException(), isNull);
@@ -187,10 +185,7 @@ void main() {
         path: '/customer/auth/social/line/login',
       ),
     );
-    await _pumpScreen(
-      tester,
-      authRepository: authRepository,
-    );
+    await _pumpScreen(tester, authRepository: authRepository);
 
     await tester.pumpAndSettle();
     await tester.tap(find.text('Connect LINE'));
@@ -312,9 +307,8 @@ void main() {
         ),
         GoRoute(
           path: '/maintenance',
-          builder: (_, __) => const Scaffold(
-            body: Center(child: Text('Maintenance route')),
-          ),
+          builder: (_, __) =>
+              const Scaffold(body: Center(child: Text('Maintenance route'))),
         ),
       ],
     );
@@ -456,7 +450,7 @@ class _LineNotificationRepository extends LineNotificationRepository {
 
 class _LineAuthRepository extends AuthRepository {
   _LineAuthRepository({this.socialLoginUrlError})
-      : super(api: _testApiClient(), tokenStore: AuthTokenStore());
+    : super(api: _testApiClient(), tokenStore: AuthTokenStore());
 
   final Object? socialLoginUrlError;
   String? lastProvider;
@@ -511,10 +505,7 @@ DioException _apiException(
     response: Response<Map<String, dynamic>>(
       requestOptions: request,
       statusCode: statusCode,
-      data: {
-        if (code.isNotEmpty) 'code': code,
-        'message': message,
-      },
+      data: {if (code.isNotEmpty) 'code': code, 'message': message},
     ),
   );
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
@@ -219,7 +220,10 @@ class _TopupHistoryHeaderBar extends StatelessWidget {
             child: IconButton(
               key: const ValueKey('topup-history-back-action'),
               tooltip: context.l10n.commonBack,
-              onPressed: () => context.go(backPath),
+              onPressed: () => navigateCustomerBack(
+                context,
+                fallbackPath: backPath,
+              ),
               icon: const Icon(Icons.arrow_back_ios_new, size: 31),
               style: IconButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -272,16 +276,14 @@ class _TopupHistoryContentSheet extends StatelessWidget {
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 660),
-          child: CustomerPageBody(
-            maxWidth: customerContentMaxWidthTablet,
-            top: 24,
-            bottom: 56,
-            mobileHorizontal: 20,
-            wideHorizontal: 20,
-            child: child,
-          ),
+        child: CustomerPageBody(
+          maxWidth: customerContentMaxWidthTablet,
+          top: 18,
+          bottom: 56,
+          mobileHorizontal: 20,
+          wideHorizontal: 20,
+          minViewportHeight: true,
+          child: child,
         ),
       ),
     );

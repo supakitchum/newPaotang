@@ -713,6 +713,10 @@ void main() {
     expect(english.commonLoadingData, 'Loading data...');
     expect(thai.affiliateTitle, 'ตัวแทนจำหน่าย');
     expect(english.affiliateTitle, 'Affiliate');
+    expect(thai.customerRouteTitle('affiliate'), 'ตัวแทนจำหน่าย');
+    expect(english.customerRouteTitle('affiliate'), 'Affiliate');
+    expect(thai.affiliateRegisterBenefitsTitle, 'ผลประโยชน์ตัวแทน');
+    expect(english.affiliateRegisterBenefitsTitle, 'Affiliate benefits');
     expect(thai.affiliatePinTitle, 'ใส่รหัส PIN 6 หลัก');
     expect(english.affiliatePinTitle, 'Enter 6-digit PIN');
     expect(thai.affiliateStatTitle('available'), 'ยอดถอนได้');

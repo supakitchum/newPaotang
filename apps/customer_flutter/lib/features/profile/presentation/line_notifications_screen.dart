@@ -87,9 +87,10 @@ class _LineNotificationsScreenState
                 padding: EdgeInsets.zero,
                 children: [
                   CustomerPageBody(
-                    top: 20,
+                    top: 16,
                     bottom: 40,
                     mobileHorizontal: 14,
+                    minViewportHeight: true,
                     child: _WarningCard(
                       title: l10n.profileLineStoreUnavailableTitle,
                       message: l10n.profileLineStoreUnavailableMessage,
@@ -107,9 +108,10 @@ class _LineNotificationsScreenState
                     padding: EdgeInsets.zero,
                     children: [
                       CustomerPageBody(
-                        top: 20,
+                        top: 16,
                         bottom: 28,
                         mobileHorizontal: 16,
+                        minViewportHeight: true,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -162,6 +164,7 @@ class _LineNotificationsScreenState
                 top: 16,
                 bottom: 128,
                 mobileHorizontal: 14,
+                minViewportHeight: true,
                 child: Column(
                   children: [
                     _LineSkeletonCard(lines: 3),
@@ -181,6 +184,7 @@ class _LineNotificationsScreenState
                 top: 16,
                 bottom: 128,
                 mobileHorizontal: 14,
+                minViewportHeight: true,
                 child: _ErrorState(
                   message: authErrorMessage(error, l10n.profileLineLoadFailed),
                   onRetry: () =>

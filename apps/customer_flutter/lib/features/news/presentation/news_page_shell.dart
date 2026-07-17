@@ -9,7 +9,7 @@ class NewsPageShell extends StatelessWidget {
     required this.child,
     super.key,
     this.maxWidth = 760,
-    this.topPadding = 20,
+    this.topPadding = 16,
     this.mobileHorizontal = 16,
     this.wideHorizontal = 16,
   });
@@ -35,6 +35,7 @@ class NewsPageShell extends StatelessWidget {
             bottom: 96,
             mobileHorizontal: mobileHorizontal,
             wideHorizontal: wideHorizontal,
+            minViewportHeight: true,
             alignment: Alignment.topCenter,
             child: child,
           ),
@@ -51,21 +52,13 @@ class _NewsContentSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewport = MediaQuery.sizeOf(context);
-    final minHeight = viewport.width <= 520
-        ? (viewport.height - 155).clamp(0.0, double.infinity)
-        : 620.0;
-
     return DecoratedBox(
       key: const ValueKey('news-content-sheet'),
       decoration: BoxDecoration(
         color: newsCardSurfaceColor(context),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: minHeight),
-        child: child,
-      ),
+      child: child,
     );
   }
 }

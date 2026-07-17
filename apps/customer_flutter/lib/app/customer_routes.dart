@@ -193,6 +193,24 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     sensitive: true,
   ),
   CustomerFeatureRoute(
+    path: '/affiliate/withdraw',
+    key: 'affiliate_withdraw',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/affiliate/commissions',
+    key: 'affiliate_commissions',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/affiliate/payouts',
+    key: 'affiliate_payouts',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/profile',
     key: 'profile',
     group: CustomerFeatureGroup.account,

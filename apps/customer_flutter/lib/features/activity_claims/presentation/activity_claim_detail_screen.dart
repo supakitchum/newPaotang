@@ -53,10 +53,9 @@ class ActivityClaimDetailScreen extends ConsumerWidget {
     );
     final claim = ref.watch(activityClaimDetailProvider(claimId));
     final l10n = context.l10n;
-    final reviewerName = ref.watch(mobileBootstrapProvider).maybeWhen(
-          data: (data) => data.siteName.trim(),
-          orElse: () => '',
-        );
+    final reviewerName = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(data: (data) => data.siteName.trim(), orElse: () => '');
 
     return AppShell(
       title: l10n.activityClaimDetailTitle,
@@ -66,15 +65,13 @@ class ActivityClaimDetailScreen extends ConsumerWidget {
       showBottomNavigation: false,
       compactHeader: true,
       heroContent: const SizedBox.shrink(),
-      heroMinHeight: 96,
+      heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       heroContentTopGap: 0,
       child: _ActivityClaimDetailPageBody(
         child: claim.when(
-          data: (item) => _ActivityClaimReceipt(
-            claim: item,
-            reviewerName: reviewerName,
-          ),
+          data: (item) =>
+              _ActivityClaimReceipt(claim: item, reviewerName: reviewerName),
           loading: () => _ActivityClaimDetailState(
             message: l10n.activityClaimDetailLoading,
           ),
@@ -114,6 +111,7 @@ class _ActivityClaimDetailPageBody extends StatelessWidget {
                   bottom: 24,
                   mobileHorizontal: 10,
                   wideHorizontal: 10,
+                  minViewportHeight: true,
                   child: child,
                 ),
               ),
@@ -142,7 +140,7 @@ class _ActivityClaimReceipt extends StatelessWidget {
     final logoBorder = colorScheme.primary == AppTheme.appBlue
         ? _activityClaimDetailLogoBorder
         : Color.lerp(colorScheme.primary, colorScheme.surface, 0.84) ??
-            colorScheme.primaryContainer;
+              colorScheme.primaryContainer;
     return ColoredBox(
       color: _activityClaimDetailSurface,
       child: Padding(
@@ -159,9 +157,7 @@ class _ActivityClaimReceipt extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: logoBorder,
-                    ),
+                    border: Border.all(color: logoBorder),
                   ),
                   child: Icon(
                     Icons.card_giftcard_outlined,
@@ -176,21 +172,21 @@ class _ActivityClaimReceipt extends StatelessWidget {
                     children: [
                       Text(
                         l10n.activityClaimRewardTitle,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: _activityClaimDetailText,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: _activityClaimDetailText,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         localizedActivityClaimActivityName(context, claim),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: _activityClaimDetailMuted,
-                              fontWeight: FontWeight.w800,
-                              height: 1.35,
-                            ),
+                          color: _activityClaimDetailMuted,
+                          fontWeight: FontWeight.w800,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ),
@@ -321,13 +317,14 @@ class _ReceiptRow extends StatelessWidget {
         .where((line) => line.isNotEmpty)
         .toList(growable: false);
     final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: _activityClaimDetailMuted,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          height: 1.35,
-        );
+      color: _activityClaimDetailMuted,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      height: 1.35,
+    );
     final valueStyle = TextStyle(
-      color: valueColor ??
+      color:
+          valueColor ??
           (highlighted
               ? AppTheme.detailKicker(primary)
               : _activityClaimDetailText),
@@ -368,9 +365,7 @@ class _ReceiptRow extends StatelessWidget {
               child: Text(label, style: labelStyle),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: valueWidget,
-            ),
+            Expanded(child: valueWidget),
           ],
         );
       },
@@ -392,8 +387,9 @@ class _ReceiptValueLines extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         for (var index = 0; index < lines.length; index++) ...[
           Text(
@@ -447,17 +443,17 @@ class _MoneyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: total ? _activityClaimDetailText : _activityClaimDetailMuted,
-          fontSize: total ? 19 : 15,
-          fontWeight: FontWeight.w500,
-          height: 1.35,
-        );
+      color: total ? _activityClaimDetailText : _activityClaimDetailMuted,
+      fontSize: total ? 19 : 15,
+      fontWeight: FontWeight.w500,
+      height: 1.35,
+    );
     final valueStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: _activityClaimDetailText,
-          fontSize: total ? 19 : 17,
-          fontWeight: total ? FontWeight.w500 : FontWeight.w900,
-          height: 1.35,
-        );
+      color: _activityClaimDetailText,
+      fontSize: total ? 19 : 17,
+      fontWeight: total ? FontWeight.w500 : FontWeight.w900,
+      height: 1.35,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -484,11 +480,7 @@ class _MoneyRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                style: valueStyle,
-              ),
+              child: Text(value, textAlign: TextAlign.right, style: valueStyle),
             ),
           ],
         );
@@ -521,11 +513,11 @@ class _NoticeBox extends StatelessWidget {
           text,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                height: 1.45,
-              ),
+            color: color,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            height: 1.45,
+          ),
         ),
       ),
     );
@@ -533,10 +525,7 @@ class _NoticeBox extends StatelessWidget {
 }
 
 class _AdminNote extends StatelessWidget {
-  const _AdminNote({
-    required this.note,
-    this.rejected = false,
-  });
+  const _AdminNote({required this.note, this.rejected = false});
 
   final String note;
   final bool rejected;
@@ -563,11 +552,11 @@ class _AdminNote extends StatelessWidget {
         child: Text(
           note,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                height: 1.45,
-              ),
+            color: color,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            height: 1.45,
+          ),
         ),
       ),
     );
@@ -598,13 +587,11 @@ class _ActivityClaimDetailState extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: error
-                        ? colorScheme.error
-                        : colorScheme.onSurfaceVariant,
-                    fontSize: 18,
-                    fontWeight: error ? FontWeight.w800 : FontWeight.w700,
-                    height: 1.35,
-                  ),
+                color: error ? colorScheme.error : colorScheme.onSurfaceVariant,
+                fontSize: 18,
+                fontWeight: error ? FontWeight.w800 : FontWeight.w700,
+                height: 1.35,
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 14),
@@ -631,9 +618,9 @@ ButtonStyle _activityClaimDetailOutlinePillStyle(BuildContext context) {
     minimumSize: const Size(160, 40),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+    textStyle: Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   ).copyWith(
     side: WidgetStateProperty.resolveWith(
       (states) => BorderSide(

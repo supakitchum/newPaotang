@@ -234,7 +234,7 @@ void main() {
     );
     final summary = tester.getRect(find.text('สลากฯ งวดวันที่'));
 
-    expect(summary.top - sheet.top, inInclusiveRange(20, 28));
+    expect(summary.top - sheet.top, closeTo(18, 1));
     expect(find.text('ทั้งหมด 2 ใบ'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

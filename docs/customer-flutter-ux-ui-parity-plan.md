@@ -5975,3 +5975,21 @@ actions. The current Tickets draw and rows must use the same public current game
 id. Prefer current-game `draw_at` over a stale mutable game name, and never
 relabel older customer tickets as the current draw when a newer tenant or
 platform game exists.
+
+Result index responsive-header parity: keep Nuxt's 386px value as a minimum,
+not a fixed mobile height. The featured card must be allowed to grow naturally
+for narrow widths and localized text while the history sheet remains the only
+scrolling content region below the fixed hero. Preserve the 24px hero bottom
+inset between the featured card and history sheet. The source `left: -16px`
+back control may extend outside the centered content row, but Flutter must not
+clip any part of its 42px visual control.
+
+Owner-directed legal reading override: `/terms` and `/privacy` use the shared
+compact title-only header followed by a continuous white reading surface. Do
+not restore the parsed runtime title/site-name hero, section pill, rounded
+content card, or card shadow. Continue to source legal copy and the optional
+privacy-policy URL from mobile bootstrap, normalize supported HTML/Markdown,
+and preserve safe external-link handling. `/lottery-knowledge` retains its
+section cards, but its headings, list copy, number markers, and support footer
+must stay at the reduced mobile-readable scale rather than the oversized Nuxt
+19-24px list hierarchy.

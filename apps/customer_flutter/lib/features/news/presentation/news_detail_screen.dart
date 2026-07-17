@@ -57,7 +57,7 @@ class _NewsDetailBody extends StatelessWidget {
 
     return NewsPageShell(
       maxWidth: 900,
-      topPadding: 24,
+      topPadding: 18,
       mobileHorizontal: 0,
       wideHorizontal: 28,
       child: _NewsDetailContent(
@@ -73,15 +73,14 @@ class _NewsDetailBody extends StatelessWidget {
 }
 
 class _NewsDetailMedia extends StatelessWidget {
-  const _NewsDetailMedia({required this.imageUrl, required this.rounded});
+  const _NewsDetailMedia({required this.imageUrl});
 
   final String imageUrl;
-  final bool rounded;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: rounded ? BorderRadius.circular(14) : BorderRadius.zero,
+      borderRadius: BorderRadius.circular(14),
       child: AspectRatio(
         key: const ValueKey('news-detail-media'),
         aspectRatio: 16 / 9,
@@ -138,7 +137,12 @@ class _NewsDetailContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (imageUrl.isNotEmpty) ...[
-                  _NewsDetailMedia(imageUrl: imageUrl, rounded: wide),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: wide ? 0 : textHorizontal,
+                    ),
+                    child: _NewsDetailMedia(imageUrl: imageUrl),
+                  ),
                   const SizedBox(height: 24),
                 ],
                 Padding(

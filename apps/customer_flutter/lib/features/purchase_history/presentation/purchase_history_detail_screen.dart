@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/asset_url.dart';
@@ -114,7 +114,10 @@ class _PurchaseHistoryDetailScreenState
               top: MediaQuery.paddingOf(context).top + 34,
               left: 18,
               child: _PurchaseReceiptBackButton(
-                onPressed: () => context.go('/purchase-history'),
+                onPressed: () => navigateCustomerBack(
+                  context,
+                  fallbackPath: '/purchase-history',
+                ),
               ),
             ),
           ],
