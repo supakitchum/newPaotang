@@ -1189,6 +1189,7 @@ void main() {
     expect(mobileBiometricAllowedForPlatform(bootstrap, 'macos'), isFalse);
     expect(mobileBiometricAllowedForPlatform(disabled, 'ios'), isFalse);
     expect(mobileBiometricAllowedForPlatform(legacyNative, 'android'), isTrue);
+    expect(mobileBiometricAllowedForPlatform(legacyNative, 'macos'), isFalse);
     expect(mobileBiometricAllowedForPlatform(legacyNative, 'web'), isFalse);
   });
 

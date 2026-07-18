@@ -10165,3 +10165,73 @@ Tenant PWA identity and Partner upload pass (2026-07-18):
   tenant asset/theme/bootstrap API chain passed 27 assertions against
   `newpaotang_test`. No runtime database, screenshot automation,
   clear-worktree, commit, or push action was used.
+
+Native screen-security and biometric production pass (2026-07-19):
+
+- Android now hosts Flutter from `FlutterFragmentActivity` and uses AppCompat
+  launch/normal themes, matching the active `local_auth` plugin contract on
+  older and current Android versions. Sensitive routes retain `FLAG_SECURE`,
+  recent-app preview protection, and Android 14 screenshot callbacks.
+- Android assertion keys remain package-scoped ES256 Android Keystore keys,
+  require strong biometric authentication without device-credential fallback,
+  and are invalidated when biometric enrollment changes. A permanently
+  invalidated key and its local device id are now deleted before Flutter falls
+  back to the shared PIN flow.
+- iOS challenge signing now supplies the runtime localized reason through one
+  `LAContext` directly to the `biometryCurrentSet` key operation. This removes
+  the former duplicate Face ID/Touch ID prompt while preserving Secure Enclave
+  use on physical devices, PIN fallback, and backend challenge verification.
+  Missing keys caused by enrollment changes clear the stale Keychain/device-id
+  pair; cancellation or an ordinary failed scan does not delete the key.
+- iOS live recording/mirroring and app-switcher states keep the native privacy
+  cover active. A static screenshot still emits the route-scoped audit/lock
+  event, but its cover now dismisses after 450ms so the customer can reach the
+  shared PIN screen instead of being stranded behind the overlay. Public iOS
+  APIs cannot block a static screenshot before capture; Android `FLAG_SECURE`
+  remains the stronger platform behavior.
+- Flutter serializes native enable/disable policy calls so rapid navigation
+  cannot apply stale route protection out of order. Native hook failures are
+  non-fatal to navigation, and runtime biometric policy now enables only iOS
+  and Android rather than accidentally exposing desktop platforms.
+- Production preflight now rejects Android hosts without
+  `FlutterFragmentActivity`/AppCompat, missing Android enrollment-invalidation
+  cleanup, iOS signing without `LAContext`, missing iOS stale-key cleanup, or
+  removal of the transient static-screenshot recovery path.
+- Verification passed: focused analyzer, 287 security/auth/bootstrap/preflight
+  tests, all-target production preflight with temporary matching association
+  artifacts, Android debug APK, Android Release smoke APK, iOS Debug simulator
+  app, and iOS device Release compile with code signing disabled. Release build
+  identity values were command-scoped smoke values and were not written into
+  source. No database, runtime API mutation, screenshot automation,
+  clear-worktree, commit, or push action was used.
+- Automated implementation is closed for this pass. Final production
+  acceptance still requires physical-device QA: strong-biometric setup,
+  unlock, cancellation, enrollment change, recents/screenshot/recording on
+  Android; and one-prompt Face ID setup/unlock, cancellation, enrollment
+  change, screenshot, recording/mirroring, and app switching on iPhone. Keep
+  the active security goal open until that matrix is signed off.
+
+Native security runtime harness follow-up (2026-07-19):
+
+- Added `integration_test/native_security_smoke_test.dart` to exercise the real
+  native MethodChannels instead of replacing them with Flutter mocks. The
+  harness covers screen-security enable/report/disable, native biometric key
+  create/sign/delete, and an opt-in Android biometric-enrollment-change run.
+- Android API 33 emulator runtime passed strong-biometric authentication,
+  package-scoped ES256 key creation, DER challenge signing, stable device-id
+  lookup, and key/device-id cleanup. The sensitive-route runtime also exposed
+  `SECURE` in WindowManager while the policy was active, confirming that
+  `FLAG_SECURE` reached the host window. The native screen-security callback
+  preserved the active `/my-wallet` route and reason payload.
+- Android enrollment invalidation now recognizes both
+  `KeyPermanentlyInvalidatedException` and the wrapped
+  `UnrecoverableKeyException`, clears the invalid key/device id, and reports
+  `biometric_key_invalidated` to the shared PIN fallback. The opt-in emulator
+  harness remains a manually orchestrated acceptance check because changing
+  enrollment moves Settings to the foreground and the emulator biometric
+  prompt must be matched at the correct time; unsuccessful automation attempts
+  were not counted as a product pass.
+- iOS Simulator passed the real native screen-security MethodChannel flow. The
+  one-prompt Face ID sign/cancel/enrollment matrix remains pending because it
+  requires Simulator biometric controls or a person responding on the attached
+  physical iPhone. No screenshot automation or database/API mutation was used.

@@ -235,6 +235,15 @@ docs/api-conventions.md
   resolves those values before localized fallback copy for PIN unlock,
   affiliate PIN gate, reward-bank profile update, Profile biometric setup,
   ticket reward claim, and activity claim local_auth prompts.
+- Biometric native authentication binding note: Android runs `local_auth` from
+  `FlutterFragmentActivity` with AppCompat themes, then signs through a
+  package-scoped ES256 Android Keystore key restricted to strong biometrics.
+  iOS sends the resolved runtime prompt reason to one `LAContext` attached to
+  the `biometryCurrentSet` Keychain/Secure Enclave key lookup, so assertion
+  signing presents one Face ID/Touch ID prompt rather than a local-auth prompt
+  followed by a second key prompt. Enrollment-invalidated keys clear their
+  local device id and fall back to the centralized PIN flow; ordinary user
+  cancellation does not revoke the key or log out the session.
 | native screen security event audit | screenshot/screen-recording privacy flow | `POST /customer/auth/security-events` | Flutter records matched sensitive-route native security events with `event`, `route`, `reason`, and runtime platform on a best-effort path. Native event aliases such as camelCase screen-capture, screen-recording, screenshot, and exit-request names are normalized before audit/session-lock handling, including `screenCaptured`, `recordingStopped`, `screenshotTaken`, `securityExitRequested`, `eventName`, `event_type`, `eventType`, `eventAction`, `nativeEvent`, and `action`; route/reason fallbacks accept `path`/`screen`/`url`/`location`, `routeName`/`route_name`, `routePath`/`route_path`, `routeUrl`/`route_url`, `currentRoute`/`current_route`, `activeRoute`/`active_route`, `targetRoute`/`target_route`, `routerPath`/`router_path`, `targetPath`/`target_path`, `currentPage`/`current_page`, `activePage`/`active_page`, `pageRoute`/`page_route`, `pageName`/`page_name`, `screenName`/`screen_name`, `screenPath`/`screen_path`, `currentPath`/`current_path`, `activePath`/`active_path`, `currentUrl`/`current_url`, `activeUrl`/`active_url`, `targetUrl`/`target_url`, `routerUrl`/`router_url`, `urlString`/`url_string`, `pageUrl`/`page_url`, `webUrl`/`web_url`, `requestUrl`/`request_url`, `deepLink`/`deep_link`, `href`, `uri`, and `cause`/`message`/`reasonName`/`reason_name`/`reasonText`/`reason_text`/`detail`/`details`; native bridge payload wrappers such as `payload`, `data`, `eventPayload`, `eventBody`, `body`, `securityEvent`, and `screen_security_event` are merged before parsing, including JSON-string object wrappers and JSON-string route objects, with nested event/route/reason groups overriding stale wrapper values and route objects such as `{ route: { currentUrl: ... } }` resolved before normalization; full HTTPS URLs, encoded URL strings, hashbang paths such as `#!/my-wallet`, hash routes, URL query route keys such as `route`/`path`/`screen`/`page`/`currentUrl`/`targetUrl`/`activeUrl`/`href`, hash-fragment query route keys such as `#/callback?route=/my-wallet` or `#screen=/checkout/pending`, and query-string routes are normalized back to Flutter paths before sensitive-route matching, audit, or PIN locking. Parent callback routes and pattern callback routes such as `/reward-claims` or `/reward-claims/:claimId` still match the active claim detail receipt before audit/PIN handling, while mismatched sensitive families are ignored. Android keeps the active sensitive route from `enable` and forwards `reportSecurityEvent` back into Flutter as `securityEvent`, so report-only/native bridge events still hit the same audit and lock path even when the callback omits a route. Audit failures are swallowed so privacy overlays, PIN locks, and `overlay_only` reporting never block the active customer flow |
 
 - Native screen-security bridge alias note: Flutter also accepts
@@ -280,6 +289,15 @@ docs/api-conventions.md
   `privacyOverlayTitle`, and `privacyOverlayDescription` before applying the
   native overlay or forwarding `securityEvent`. This keeps iOS native reports
   aligned with the same route-scoped audit/lock path as Android and Flutter.
+- Native screen-security lifecycle note: Flutter serializes native
+  enable/disable calls so rapid route changes cannot leave an earlier
+  sensitive-route policy active after navigation. iOS keeps its cover for live
+  recording/mirroring and app switching; the static-screenshot cover emits the
+  same audit/session-lock event but dismisses after 450ms when the app is active
+  and no live capture remains, keeping the centralized PIN recovery screen
+  reachable. This is detection-and-recovery because public iOS APIs cannot
+  prevent a static screenshot before capture. Android continues to prevent
+  capture with `FLAG_SECURE` where the platform supports it.
 - Android 14 screenshot callback note: the Android manifest now declares
   `android.permission.DETECT_SCREEN_CAPTURE`, and `MainActivity` registers
   `Activity.ScreenCaptureCallback` only while a sensitive route is active. A

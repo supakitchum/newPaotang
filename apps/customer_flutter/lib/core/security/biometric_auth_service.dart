@@ -17,8 +17,10 @@ class BiometricAuthService {
     this._api, {
     LocalAuthentication? localAuth,
     MethodChannel? keyChannel,
+    TargetPlatform? targetPlatform,
   })  : _localAuth = localAuth ?? LocalAuthentication(),
-        _keyChannel = keyChannel ?? _defaultKeyChannel;
+        _keyChannel = keyChannel ?? _defaultKeyChannel,
+        _targetPlatform = targetPlatform ?? defaultTargetPlatform;
 
   static const _defaultKeyChannel =
       MethodChannel('customer_flutter/biometric_keys');
@@ -26,6 +28,7 @@ class BiometricAuthService {
   final ApiClient _api;
   final LocalAuthentication _localAuth;
   final MethodChannel _keyChannel;
+  final TargetPlatform _targetPlatform;
 
   Future<bool> canUseBiometric() async {
     if (kIsWeb) return false;
@@ -126,12 +129,18 @@ class BiometricAuthService {
         BiometricChallengePayload.fromResponse(challengeResponse);
     if (!challengePayload.isComplete) return null;
 
-    final unlocked = await _authenticateWithBiometric(localizedReason);
-    if (!unlocked) return null;
+    // The iOS Secure Enclave key is protected by biometryCurrentSet. Let the
+    // key operation present Face ID/Touch ID itself so the user is not asked
+    // once by local_auth and then a second time by Security.framework.
+    if (_targetPlatform != TargetPlatform.iOS) {
+      final unlocked = await _authenticateWithBiometric(localizedReason);
+      if (!unlocked) return null;
+    }
 
     final signaturePayload = await _safeSignChallenge(
       challenge: challengePayload.challenge,
       purpose: purpose,
+      localizedReason: localizedReason,
       metadata: challengePayload.metadata,
     );
     if (signaturePayload == null || !signaturePayload.isComplete) return null;
@@ -211,6 +220,7 @@ class BiometricAuthService {
   Future<_BiometricSignaturePayload?> _safeSignChallenge({
     required String challenge,
     required String purpose,
+    required String localizedReason,
     Map<String, dynamic> metadata = const {},
   }) async {
     try {
@@ -220,6 +230,8 @@ class BiometricAuthService {
           ...metadata,
           'challenge': challenge,
           'purpose': purpose,
+          'localizedReason': localizedReason,
+          'localized_reason': localizedReason,
         },
       );
       if (value is String || value is num || value is bool) {

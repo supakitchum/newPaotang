@@ -6025,3 +6025,16 @@ tenant's current name and icon. Prefer `brand.favicon_url`; use
 `brand.logo_url` only as fallback. Existing installed PWAs may retain OS icon
 caches until removed and added again, but a fresh install must never inherit a
 different tenant's identity.
+
+Native security acceptance rule: native privacy and biometric behavior must
+preserve the existing centralized PIN screen and route return flow. Android
+uses `FLAG_SECURE` plus protected recent-app previews on configured sensitive
+routes. iOS keeps a cover while recording/mirroring or inactive, while a
+single static-screenshot event must lock the sensitive session and then remove
+its native cover quickly enough for the same shared PIN screen to remain
+usable. Face ID/Touch ID assertion signing must present only one native prompt
+through the biometric-bound key operation; Android must use strong biometrics
+without device-credential fallback. Changing enrolled biometrics invalidates
+and clears the local assertion key but never logs the customer out; PIN remains
+the fallback. Web focus/watermark security remains disabled under the current
+owner direction and must not be reintroduced as part of native QA.

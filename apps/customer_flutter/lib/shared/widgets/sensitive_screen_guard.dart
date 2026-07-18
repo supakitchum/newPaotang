@@ -43,6 +43,7 @@ class SensitiveScreenGuard extends ConsumerStatefulWidget {
 class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
   late final ScreenSecurityService _screenSecurity;
   StreamSubscription<ScreenSecurityEvent>? _subscription;
+  Future<void> _protectionQueue = Future<void>.value();
 
   @override
   void initState() {
@@ -76,7 +77,7 @@ class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
   @override
   void dispose() {
     _subscription?.cancel();
-    _screenSecurity.disable();
+    _queueProtectionUpdate(_screenSecurity.disable);
     super.dispose();
   }
 
@@ -87,27 +88,47 @@ class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
     if (!widget.enabled) {
       _subscription?.cancel();
       _subscription = null;
-      _screenSecurity.disable();
+      _queueProtectionUpdate(_screenSecurity.disable);
       return;
     }
 
     _subscription ??= _screenSecurity.events.listen(_handleSecurityEvent);
     final l10n = context.l10n;
-    _screenSecurity.enable(
-      route: widget.route,
-      overlayTitle: _runtimeCopy(
-        widget.privacyOverlayTitle,
-        l10n.securityCaptureTitle,
+    final route = widget.route;
+    final privacyOverlayTitle = widget.privacyOverlayTitle;
+    final privacyOverlayDescription = widget.privacyOverlayDescription;
+    final securityCaptureTitle = l10n.securityCaptureTitle;
+    final securityCaptureDescription = l10n.securityCaptureDescription;
+    final androidFlagSecure = widget.androidFlagSecure;
+    final androidProtectRecentAppPreview =
+        widget.androidProtectRecentAppPreview;
+    final iosScreenshotPolicy = widget.iosScreenshotPolicy;
+    final iosScreenCaptureOverlay = widget.iosScreenCaptureOverlay;
+    final iosExitApp = widget.iosExitApp;
+    _queueProtectionUpdate(
+      () => _screenSecurity.enable(
+        route: route,
+        overlayTitle: _runtimeCopy(
+          privacyOverlayTitle,
+          securityCaptureTitle,
+        ),
+        overlayDescription: _runtimeCopy(
+          privacyOverlayDescription,
+          securityCaptureDescription,
+        ),
+        androidFlagSecure: androidFlagSecure,
+        androidProtectRecentAppPreview: androidProtectRecentAppPreview,
+        iosScreenshotPolicy: iosScreenshotPolicy,
+        iosScreenCaptureOverlay: iosScreenCaptureOverlay,
+        iosExitApp: iosExitApp,
       ),
-      overlayDescription: _runtimeCopy(
-        widget.privacyOverlayDescription,
-        l10n.securityCaptureDescription,
-      ),
-      androidFlagSecure: widget.androidFlagSecure,
-      androidProtectRecentAppPreview: widget.androidProtectRecentAppPreview,
-      iosScreenshotPolicy: widget.iosScreenshotPolicy,
-      iosScreenCaptureOverlay: widget.iosScreenCaptureOverlay,
-      iosExitApp: widget.iosExitApp,
+    );
+  }
+
+  void _queueProtectionUpdate(Future<void> Function() operation) {
+    _protectionQueue = _protectionQueue.then<void>(
+      (_) => operation(),
+      onError: (_, __) => operation(),
     );
   }
 

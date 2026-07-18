@@ -1,4 +1,5 @@
 import Flutter
+import LocalAuthentication
 import UIKit
 
 @main
@@ -9,6 +10,7 @@ import UIKit
   private var screenSecurityChannel: FlutterMethodChannel?
   private var sensitiveRoute: String?
   private var privacyOverlay: UIView?
+  private var screenshotOverlayDismissWorkItem: DispatchWorkItem?
   private var privacyOverlayTitle = "Screen capture is not allowed"
   private var privacyOverlayDescription = "Sensitive information is hidden. Please unlock again to continue."
   private var iosScreenshotPolicy = "lock_and_blank"
@@ -417,10 +419,16 @@ import UIKit
     DispatchQueue.main.async { [weak self] in
       guard let self, let window = self.activeWindow() else { return }
 
+      self.screenshotOverlayDismissWorkItem?.cancel()
+      self.screenshotOverlayDismissWorkItem = nil
+
       if let overlay = self.privacyOverlay {
         overlay.frame = window.bounds
         if overlay.superview == nil {
           window.addSubview(overlay)
+        }
+        if reason == "screenshot" {
+          self.scheduleScreenshotOverlayDismissal()
         }
         return
       }
@@ -468,14 +476,32 @@ import UIKit
 
       self.privacyOverlay = overlay
       window.addSubview(overlay)
+      if reason == "screenshot" {
+        self.scheduleScreenshotOverlayDismissal()
+      }
     }
   }
 
   private func hidePrivacyOverlay() {
     DispatchQueue.main.async { [weak self] in
+      self?.screenshotOverlayDismissWorkItem?.cancel()
+      self?.screenshotOverlayDismissWorkItem = nil
       self?.privacyOverlay?.removeFromSuperview()
       self?.privacyOverlay = nil
     }
+  }
+
+  private func scheduleScreenshotOverlayDismissal() {
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.screenshotOverlayDismissWorkItem = nil
+      guard !UIScreen.main.isCaptured else { return }
+      guard UIApplication.shared.applicationState == .active else { return }
+      self.privacyOverlay?.removeFromSuperview()
+      self.privacyOverlay = nil
+    }
+    screenshotOverlayDismissWorkItem = workItem
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: workItem)
   }
 
   private func activeWindow() -> UIWindow? {
@@ -522,6 +548,11 @@ import UIKit
         case "signChallenge":
           let args = call.arguments as? [String: Any]
           let challenge = args?["challenge"] as? String ?? ""
+          let localizedReason = self.stringArg(
+            args,
+            keys: ["localizedReason", "localized_reason", "authenticationReason", "authentication_reason"],
+            fallback: "Confirm your identity to continue"
+          ) ?? "Confirm your identity to continue"
           guard !challenge.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             result(FlutterError(
               code: "invalid_challenge",
@@ -530,7 +561,23 @@ import UIKit
             ))
             return
           }
-          result(try self.signBiometricChallengePayload(challenge))
+          do {
+            result(try self.signBiometricChallengePayload(
+              challenge,
+              localizedReason: localizedReason
+            ))
+          } catch {
+            if self.shouldInvalidateBiometricKey(error) {
+              try? self.deleteBiometricKeyPair()
+              result(FlutterError(
+                code: "biometric_key_invalidated",
+                message: "Biometric enrollment changed. Register this device again.",
+                details: nil
+              ))
+              return
+            }
+            throw error
+          }
         default:
           result(FlutterMethodNotImplemented)
         }
@@ -563,7 +610,7 @@ import UIKit
     }
 
     guard hasExistingBiometricKeyPair() else {
-      UserDefaults.standard.removeObject(forKey: biometricDeviceIdKey)
+      try? deleteBiometricKeyPair()
       return nil
     }
 
@@ -634,10 +681,15 @@ import UIKit
     return try publicKeyPem(publicKey)
   }
 
-  private func signBiometricChallenge(_ challenge: String) throws -> String {
-    guard let privateKey = findBiometricPrivateKey() else {
-      throw BiometricKeyError.privateKeyUnavailable
-    }
+  private func signBiometricChallenge(
+    _ challenge: String,
+    localizedReason: String
+  ) throws -> String {
+    let context = LAContext()
+    context.localizedReason = localizedReason
+    context.localizedFallbackTitle = ""
+
+    let privateKey = try authenticatedBiometricPrivateKey(context)
 
     guard SecKeyIsAlgorithmSupported(
       privateKey,
@@ -663,8 +715,14 @@ import UIKit
     return (signature as Data).base64EncodedString()
   }
 
-  private func signBiometricChallengePayload(_ challenge: String) throws -> [String: Any] {
-    let signature = try signBiometricChallenge(challenge)
+  private func signBiometricChallengePayload(
+    _ challenge: String,
+    localizedReason: String
+  ) throws -> [String: Any] {
+    let signature = try signBiometricChallenge(
+      challenge,
+      localizedReason: localizedReason
+    )
     let deviceId = existingBiometricDeviceId() ?? ""
     var payload: [String: Any] = [
       "signature": signature,
@@ -683,13 +741,16 @@ import UIKit
     return payload
   }
 
-  private func findBiometricPrivateKey() -> SecKey? {
-    let query: [String: Any] = [
+  private func findBiometricPrivateKey(authenticationContext: LAContext? = nil) -> SecKey? {
+    var query: [String: Any] = [
       kSecClass as String: kSecClassKey,
       kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
       kSecAttrApplicationTag as String: Data(biometricKeyTag.utf8),
       kSecReturnRef as String: true,
     ]
+    if let authenticationContext {
+      query[kSecUseAuthenticationContext as String] = authenticationContext
+    }
     var item: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &item)
 
@@ -698,6 +759,35 @@ import UIKit
     }
 
     return (item as! SecKey)
+  }
+
+  private func authenticatedBiometricPrivateKey(_ context: LAContext) throws -> SecKey {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrApplicationTag as String: Data(biometricKeyTag.utf8),
+      kSecReturnRef as String: true,
+      kSecUseAuthenticationContext as String: context,
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    guard status == errSecSuccess else {
+      throw NSError(
+        domain: NSOSStatusErrorDomain,
+        code: Int(status),
+        userInfo: [NSLocalizedDescriptionKey: SecCopyErrorMessageString(status, nil) ?? "Biometric key is unavailable."]
+      )
+    }
+    guard let item else {
+      throw BiometricKeyError.privateKeyUnavailable
+    }
+    return (item as! SecKey)
+  }
+
+  private func shouldInvalidateBiometricKey(_ error: Error) -> Bool {
+    let nativeError = error as NSError
+    guard nativeError.domain == NSOSStatusErrorDomain else { return false }
+    return nativeError.code == Int(errSecItemNotFound)
   }
 
   private func publicKeyPem(_ publicKey: SecKey) throws -> String {

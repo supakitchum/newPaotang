@@ -1199,6 +1199,48 @@ void main() {
     });
   });
 
+  test('iOS biometric assertion authenticates through the Secure Enclave key',
+      () async {
+    final calls = <MethodCall>[];
+    const channel = MethodChannel('test/biometric_keys/ios_key_auth');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      if (call.method == 'existingDeviceId') return 'ios-device';
+      if (call.method == 'signChallenge') return 'ios-signature';
+      return null;
+    });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    final localAuth = _AvailableLocalAuthentication(
+      biometrics: const [BiometricType.face],
+    );
+    final service = BiometricAuthService(
+      _BiometricAssertionApiClient(),
+      localAuth: localAuth,
+      keyChannel: channel,
+      targetPlatform: TargetPlatform.iOS,
+    );
+
+    expect(
+      await service.requestPinAssertion(
+        localizedReason: 'Use Face ID to continue',
+      ),
+      'assertion-local',
+    );
+    expect(localAuth.authenticateCalls, 0);
+    expect(calls.map((call) => call.method), [
+      'existingDeviceId',
+      'signChallenge',
+    ]);
+    final signArgs = Map<String, dynamic>.from(calls.last.arguments as Map);
+    expect(signArgs['localizedReason'], 'Use Face ID to continue');
+    expect(signArgs['localized_reason'], 'Use Face ID to continue');
+  });
+
   test('biometric challenge parser accepts standard data payload', () {
     final payload = BiometricChallengePayload.fromResponse({
       'data': {
@@ -1729,6 +1771,7 @@ class _AvailableLocalAuthentication extends LocalAuthentication {
   });
 
   final List<BiometricType> biometrics;
+  int authenticateCalls = 0;
 
   @override
   Future<bool> isDeviceSupported() async => true;
@@ -1747,6 +1790,7 @@ class _AvailableLocalAuthentication extends LocalAuthentication {
     Iterable authMessages = const [],
     AuthenticationOptions options = const AuthenticationOptions(),
   }) async {
+    authenticateCalls++;
     return true;
   }
 }

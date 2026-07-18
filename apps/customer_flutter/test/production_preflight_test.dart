@@ -628,6 +628,7 @@ class BiometricAuthService {
         issues.map((issue) => issue.code),
         containsAll({
           'flutter_biometric_channel_binding_missing',
+          'flutter_biometric_key_bound_prompt_missing',
           'flutter_biometric_soft_fallback_missing',
           'flutter_biometric_local_key_cleanup_missing',
           'flutter_biometric_alias_parsing_missing',
@@ -1397,6 +1398,8 @@ class MainActivity {
             'android_custom_scheme_callback_missing',
             'android_app_links_missing',
             'android_runtime_config_missing',
+            'android_biometric_fragment_activity_missing',
+            'android_biometric_appcompat_theme_missing',
           }),
         );
       } finally {
@@ -1760,6 +1763,7 @@ class AppDelegate {
           'ios_release_xcconfig_hardcoded',
           'ios_entitlements_missing',
           'ios_project_config_missing',
+          'ios_biometric_authentication_context_missing',
         }),
       );
     } finally {

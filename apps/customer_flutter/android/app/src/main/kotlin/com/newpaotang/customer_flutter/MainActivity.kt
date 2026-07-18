@@ -5,20 +5,22 @@ import android.app.Activity
 import android.os.Build
 import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.Signature
+import java.security.UnrecoverableKeyException
 import java.security.spec.ECGenParameterSpec
 import java.util.UUID
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val screenSecurityChannel = "customer_flutter/screen_security"
     private val biometricKeysChannel = "customer_flutter/biometric_keys"
     private val keyAlias: String
@@ -140,11 +142,20 @@ class MainActivity : FlutterActivity() {
                         else -> result.notImplemented()
                     }
                 } catch (error: Exception) {
-                    result.error(
-                        "biometric_key_error",
-                        error.message ?: "Biometric key operation failed.",
-                        null
-                    )
+                    if (isBiometricKeyInvalidated(error)) {
+                        runCatching { deleteKeyPair() }
+                        result.error(
+                            "biometric_key_invalidated",
+                            "Biometric enrollment changed. Register this device again.",
+                            null
+                        )
+                    } else {
+                        result.error(
+                            "biometric_key_error",
+                            error.message ?: "Biometric key operation failed.",
+                            null
+                        )
+                    }
                 }
         }
     }
@@ -434,6 +445,19 @@ class MainActivity : FlutterActivity() {
             .edit()
             .remove(deviceIdKey)
             .apply()
+    }
+
+    private fun isBiometricKeyInvalidated(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            if (current is KeyPermanentlyInvalidatedException ||
+                current is UnrecoverableKeyException
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
     }
 
     private fun ensureKeyPair(): String {

@@ -887,6 +887,54 @@ void main() {
   });
 
   testWidgets(
+      'SensitiveScreenGuard serializes route protection after native failure',
+      (tester) async {
+    final screenSecurity = _SequencedScreenSecurityService();
+    var route = '/tickets';
+    late StateSetter setRouteState;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          screenSecurityServiceProvider.overrideWithValue(screenSecurity),
+        ],
+        child: MaterialApp(
+          locale: const Locale('en', 'US'),
+          supportedLocales: const [Locale('th', 'TH'), Locale('en', 'US')],
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setRouteState = setState;
+              return SensitiveScreenGuard(
+                route: route,
+                child: const Text('Sensitive route'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(screenSecurity.startedRoutes, ['/tickets']);
+
+    setRouteState(() => route = '/my-wallet');
+    await tester.pump();
+    expect(screenSecurity.startedRoutes, ['/tickets']);
+
+    screenSecurity.firstEnable.completeError(StateError('native unavailable'));
+    await tester.pump();
+
+    expect(screenSecurity.startedRoutes, ['/tickets', '/my-wallet']);
+    expect(screenSecurity.enabledRoute, '/my-wallet');
+  });
+
+  testWidgets(
       'SensitiveScreenGuard matches parent and pattern native route events',
       (tester) async {
     final authController = _testAuthController()..pinRequired = false;
@@ -2232,6 +2280,29 @@ class _FakeScreenSecurityService extends ScreenSecurityService {
   }
 
   void emit(ScreenSecurityEvent event) => _controller.add(event);
+}
+
+class _SequencedScreenSecurityService extends ScreenSecurityService {
+  final firstEnable = Completer<void>();
+  final startedRoutes = <String>[];
+  String enabledRoute = '';
+
+  @override
+  Future<void> enable({
+    required String route,
+    String? overlayTitle,
+    String? overlayDescription,
+    bool? androidFlagSecure,
+    bool? androidProtectRecentAppPreview,
+    String? iosScreenshotPolicy,
+    bool? iosScreenCaptureOverlay,
+    bool? iosExitApp,
+  }) {
+    startedRoutes.add(route);
+    if (startedRoutes.length == 1) return firstEnable.future;
+    enabledRoute = route;
+    return Future<void>.value();
+  }
 }
 
 class _FakeScreenSecurityAuditService extends ScreenSecurityAuditService {

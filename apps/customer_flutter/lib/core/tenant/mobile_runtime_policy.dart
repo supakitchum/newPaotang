@@ -28,7 +28,7 @@ bool mobileBiometricAllowedForPlatform(
   String platform,
 ) {
   final platformKey = platform.trim().toLowerCase();
-  if (platformKey == 'web') return false;
+  if (!const {'ios', 'android'}.contains(platformKey)) return false;
   if (!bootstrap.biometric.enabled) return false;
   if (!bootstrap.featureFlags
       .enabled('native_biometric_unlock', fallback: true)) {

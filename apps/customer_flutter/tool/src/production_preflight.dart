@@ -1140,6 +1140,20 @@ void _checkFlutterBiometricBinding(
   _requireAllSnippets(
     source,
     const [
+      'TargetPlatform.iOS',
+      '_targetPlatform != TargetPlatform.iOS',
+      "'localizedReason': localizedReason",
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_biometric_key_bound_prompt_missing',
+      message:
+          'Flutter biometric unlock must let the iOS protected key authenticate once and pass runtime prompt copy into the native signing operation.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
       'isDeviceSupported',
       'getAvailableBiometrics',
       'BiometricType.weak',
@@ -2610,6 +2624,43 @@ void _checkAndroidNativeSecurity(
   final source = mainActivity.readAsStringSync();
   _requireSnippet(
     source,
+    'FlutterFragmentActivity',
+    const ProductionPreflightIssue(
+      code: 'android_biometric_fragment_activity_missing',
+      message:
+          'Android MainActivity must extend FlutterFragmentActivity for local_auth biometric prompts.',
+    ),
+    issues,
+  );
+  final androidStyles = [
+    File(
+      _join(
+        input.projectRoot,
+        'android/app/src/main/res/values/styles.xml',
+      ),
+    ),
+    File(
+      _join(
+        input.projectRoot,
+        'android/app/src/main/res/values-night/styles.xml',
+      ),
+    ),
+  ];
+  if (androidStyles.any(
+    (file) =>
+        !file.existsSync() ||
+        !file.readAsStringSync().contains('Theme.AppCompat'),
+  )) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_biometric_appcompat_theme_missing',
+        message:
+            'Android LaunchTheme and NormalTheme must inherit from Theme.AppCompat in light and night resources for biometric compatibility.',
+      ),
+    );
+  }
+  _requireSnippet(
+    source,
     'WindowManager.LayoutParams.FLAG_SECURE',
     const ProductionPreflightIssue(
       code: 'android_flag_secure_missing',
@@ -2737,6 +2788,10 @@ void _checkAndroidNativeSecurity(
       'setUserAuthenticationRequired(true)',
       'AUTH_BIOMETRIC_STRONG',
       'setInvalidatedByBiometricEnrollment(true)',
+      'KeyPermanentlyInvalidatedException',
+      'UnrecoverableKeyException',
+      'isBiometricKeyInvalidated',
+      'biometric_key_invalidated',
       'packageName',
     ],
     const ProductionPreflightIssue(
@@ -3062,6 +3117,8 @@ void _checkIosNativeSecurity(
       '"currentRoute"',
       '"reasonText"',
       'showPrivacyOverlay',
+      'scheduleScreenshotOverlayDismissal',
+      'DispatchQueue.main.asyncAfter',
       'securityEvent',
     ],
     const ProductionPreflightIssue(
@@ -3167,12 +3224,31 @@ void _checkIosNativeSecurity(
       '"signedPayload"',
       '"keyAlgorithm"',
       'SecKeyCreateSignature',
+      'shouldInvalidateBiometricKey',
+      'errSecItemNotFound',
+      'biometric_key_invalidated',
       'Bundle.main.bundleIdentifier',
     ],
     const ProductionPreflightIssue(
       code: 'ios_biometric_keyguard_missing',
       message:
           'iOS biometric keys must be bundle-scoped, device-bound, biometric-bound, and able to sign challenges.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'import LocalAuthentication',
+      'LAContext()',
+      'context.localizedReason',
+      'kSecUseAuthenticationContext',
+      'localizedReason: localizedReason',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_biometric_authentication_context_missing',
+      message:
+          'iOS biometric signing must authenticate the biometryCurrentSet key with an LAContext and runtime localized reason.',
     ),
     issues,
   );

@@ -128,7 +128,9 @@ class ScreenSecurityService {
     try {
       await _channel.invokeMethod<void>(method, arguments);
     } on MissingPluginException {
-      // Web/iOS fallback is intentionally non-fatal while native hooks are added per platform.
+      // Unsupported platforms keep the Flutter flow usable without native hooks.
+    } on PlatformException {
+      // A native privacy hook must not strand the customer on a broken route.
     }
   }
 
