@@ -2371,6 +2371,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       _writeFile(root, 'web/index.html', r'''
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Customer application.">
     <meta name="theme-color" content="#087FF0">
     <meta name="msapplication-TileColor" content="#087FF0">
@@ -2382,6 +2383,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     <meta name="twitter:description" content="Customer application.">
     <meta name="twitter:url" content=".">
     <meta name="twitter:image" content="icons/Icon-512.png">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Customer">
     <link rel="icon" href="favicon.png">
     <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -2424,7 +2426,17 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       const appName = firstConfigValue(["appName", "webAppName", "web_app_name"], "Customer");
       const shortName = firstConfigValue(["shortName", "short_name", "webShortName", "web_short_name"], appName);
       const description = firstConfigValue(["description", "webDescription", "web_description"], "Customer application.");
-      const customerIdentityThemeColor = "#087FF0";
+      function normalizeThemeColor(value) {
+        const normalized = configScalar(value);
+        return /^#[0-9a-fA-F]{6}$/.test(normalized)
+          ? normalized.toUpperCase()
+          : "#087FF0";
+      }
+      const themeColor = normalizeThemeColor(firstConfigValue([
+        "themeColor", "theme_color", "manifestThemeColor",
+        "manifest_theme_color", "primaryColor", "primary_color",
+        "primary", "brandColor", "brand_color"
+      ], "#087FF0"));
       const backgroundColor = firstConfigValue(["manifestBackgroundColor", "manifest_background_color", "backgroundColor", "background_color"], "#FFFFFF");
       const faviconUrl = firstConfigValue(["faviconUrl", "favicon_url"], "favicon.png");
       const appleTouchIconUrl = firstConfigValue(["appleTouchIconUrl", "apple_touch_icon_url"], "icons/Icon-192.png");
@@ -2446,9 +2458,10 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       document.title = appName;
       if (htmlLang) document.documentElement.setAttribute("lang", htmlLang);
       if (htmlDir) document.documentElement.setAttribute("dir", htmlDir);
+      document.documentElement.style.setProperty("--customer-theme-color", themeColor);
       document.querySelector('meta[name="description"]').setAttribute("content", description);
-      document.querySelector('meta[name="theme-color"]').setAttribute("content", customerIdentityThemeColor);
-      document.querySelector('meta[name="msapplication-TileColor"]').setAttribute("content", customerIdentityThemeColor);
+      document.querySelector('meta[name="theme-color"]').setAttribute("content", themeColor);
+      document.querySelector('meta[name="msapplication-TileColor"]').setAttribute("content", themeColor);
       document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute("content", shortName);
       document.querySelector('meta[property="og:title"]').setAttribute("content", socialTitle);
       document.querySelector('meta[property="og:description"]').setAttribute("content", socialDescription);
@@ -2469,7 +2482,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
         scope: manifestScope,
         display: manifestDisplay,
         background_color: backgroundColor,
-        theme_color: customerIdentityThemeColor,
+        theme_color: themeColor,
         description: description,
         orientation: manifestOrientation,
         icons: [
@@ -2511,21 +2524,27 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     }
   });
 
-  test('web runtime manifest keeps customer blue theme-color identity', () {
+  test('web runtime system chrome follows runtime theme aliases', () {
     final indexSource = File('web/index.html').readAsStringSync();
     final manifestSource = File('web/manifest.json').readAsStringSync();
 
     expect(indexSource, contains('content="#087FF0"'));
     expect(
       indexSource,
-      contains('const customerIdentityThemeColor = "#087FF0";'),
+      contains('const themeColor = normalizeThemeColor(firstConfigValue(['),
     );
-    expect(indexSource, isNot(contains('firstConfigValue(["themeColor"')));
-    expect(indexSource, isNot(contains('runtimeConfig.themeColor')));
-    expect(indexSource, isNot(contains('"manifestThemeColor"')));
     expect(
       indexSource,
-      isNot(contains('"primaryColor", "primary_color", "brandColor"')),
+      contains('"primaryColor",'),
+    );
+    expect(indexSource, contains('"manifestThemeColor",'));
+    expect(indexSource, contains('viewport-fit=cover'));
+    expect(indexSource, contains('content="black-translucent"'));
+    expect(
+      indexSource,
+      contains(
+        'document.documentElement.style.setProperty("--customer-theme-color", themeColor)',
+      ),
     );
     expect(indexSource, contains('"#FFFFFF"'));
     expect(manifestSource, contains('"theme_color": "#087FF0"'));

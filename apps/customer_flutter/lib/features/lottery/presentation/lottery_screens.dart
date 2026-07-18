@@ -77,7 +77,6 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
       backPath: '/',
       showBottomNavigation: false,
       heroMinHeight: 258,
-      heroSheetOverlap: 0,
       heroContent: const LotteryStoreSegmentTabs(activePath: '/buy'),
       child: _LotteryDockedPage(
         dock: _cart.reservationIds.isEmpty
@@ -243,14 +242,22 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
       number: widget.query['number'] ?? '',
       digits: digits.map((value) => value ?? '').toList(),
       storeId: widget.query['store_id'] ?? '',
+      storeName: widget.query['store_name'] ?? '',
     );
+    final storeId = (widget.query['store_id'] ?? '').trim();
+    final backPath = storeId.isEmpty
+        ? '/buy'
+        : lotteryStorePath(
+            storeId: storeId,
+            storeName: widget.query['store_name'] ?? '',
+          );
     final searchCardTitle = (widget.query['store_id'] ?? '').trim().isEmpty
         ? l10n.lotterySearchCardTitle
         : l10n.lotterySearchStoreCardTitle;
     return AppShell(
       title: l10n.lotterySearchPageTitle,
       currentPath: '/buy',
-      backPath: '/buy',
+      backPath: backPath,
       showBottomNavigation: false,
       heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
@@ -344,6 +351,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
       lotterySearchPath(
         digits: _digits.map((controller) => controller.text).toList(),
         storeId: widget.query['store_id'] ?? '',
+        storeName: widget.query['store_name'] ?? '',
       ),
     );
   }
@@ -354,7 +362,12 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
       controller.clear();
     }
     setState(() => _showResults = false);
-    context.go(lotterySearchPath(storeId: widget.query['store_id'] ?? ''));
+    context.go(
+      lotterySearchPath(
+        storeId: widget.query['store_id'] ?? '',
+        storeName: widget.query['store_name'] ?? '',
+      ),
+    );
   }
 
   Future<CurrentGame?> _loadCurrentGame() async {

@@ -90,6 +90,23 @@ Future<void> runCustomerAppSmokeHarness(
         ? Brightness.light
         : Brightness.dark,
   );
+  final statusBarBackground = find.byKey(
+    const ValueKey('customer-status-bar-background'),
+  );
+  final topInset = tester.view.viewPadding.top / tester.view.devicePixelRatio;
+  if (topInset > 0) {
+    expect(statusBarBackground, findsOneWidget);
+    final background = tester.widget<ColoredBox>(
+      find.descendant(
+        of: statusBarBackground,
+        matching: find.byType(ColoredBox),
+      ),
+    );
+    expect(background.color, homeTheme.colorScheme.primary);
+    expect(tester.getSize(statusBarBackground).height, topInset);
+  } else {
+    expect(statusBarBackground, findsNothing);
+  }
   expect(
     tester.widget<WebPrivacyGuard>(find.byType(WebPrivacyGuard)).enabled,
     isFalse,

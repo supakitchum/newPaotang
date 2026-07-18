@@ -10110,3 +10110,58 @@ Privacy, biometric, and lottery-knowledge title-header pass:
   tests, including compact-header geometry and duplicate-title regressions. No
   database, mutating API, screenshot automation, clear-worktree, commit, or
   push action was used.
+
+Buy and store-flow visual correction (2026-07-18):
+
+- Buy now uses the same responsive Nuxt content-sheet overlap as Stores instead
+  of forcing zero overlap, removing the oversized blue gap below the segment
+  tabs without fixing the layout to one device height.
+- The Stores search surface keeps its pill/shadow but explicitly removes every
+  TextField border state and the redundant outer stroke, eliminating the
+  nested input outline observed on iOS.
+- Store navigation now carries the API-provided `store_id` and `store_name` to
+  the detail route. Store-scoped search, clear/search transitions, More-number
+  back paths, and dynamic back navigation preserve that identity, while API
+  stock filtering continues to use `store_id` only.
+- Focused analysis passed and the Lottery navigation, Buy/Stores, and Store
+  Lotteries suites passed all 40 tests. No database, mutating API, screenshot
+  automation, clear-worktree, commit, or push action was used.
+
+Runtime iPhone status-bar theme pass (2026-07-18):
+
+- The iPhone notch/status safe area is now painted with the active
+  `Theme.colorScheme.primary`, while status icons retain automatic contrasting
+  brightness. This applies the default customer blue before bootstrap and the
+  API-provided primary color after runtime theme loading.
+- Flutter Web now updates browser `theme-color`, tile color, and the page
+  background from runtime web config before startup and from the bootstrap API
+  after Flutter loads. iOS PWA metadata uses `viewport-fit=cover` and
+  `black-translucent` so the themed app background can extend beneath the
+  status bar instead of leaving an unrelated white strip.
+- Production preflight now requires runtime theme-color aliases and iOS safe
+  area metadata rather than rejecting dynamic web theme colors. Focused
+  CustomerApp and production-preflight coverage passed all 71 tests. No
+  database, mutating API, screenshot automation, clear-worktree, commit, or
+  push action was used.
+
+Tenant PWA identity and Partner upload pass (2026-07-18):
+
+- Flutter Web now replaces the live PWA manifest name, short name, document
+  title, Apple home-screen title, favicon, Apple touch icon, and install icons
+  after mobile bootstrap resolves. The name comes from the localized tenant
+  `site.site_name`; the icon uses `brand.favicon_url` and falls back to
+  `brand.logo_url`. No tenant name, logo, or icon is fixed in Flutter code.
+- The Partner Tenant Settings theme panel now supports direct image upload for
+  both Customer logo and PWA app icon while retaining public-URL entry. Upload
+  uses tenant-scoped asset intent, storage relay, commit, and a partial theme
+  update, so the committed public URL is applied automatically without
+  replacing unrelated theme fields.
+- Platform asset commits now expose public URLs only for the public brand image
+  purposes (`tenant_logo`, `tenant_favicon`, `tenant_og_image`, and partner
+  lottery branding), and both declared and uploaded MIME types must be images.
+  Private admin attachments remain unaffected.
+- Partner lint/test and production build passed; focused Flutter analysis,
+  Flutter Web release build, and the 71 CustomerApp/preflight tests passed. The
+  tenant asset/theme/bootstrap API chain passed 27 assertions against
+  `newpaotang_test`. No runtime database, screenshot automation,
+  clear-worktree, commit, or push action was used.

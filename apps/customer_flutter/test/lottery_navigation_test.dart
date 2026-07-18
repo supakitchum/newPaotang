@@ -7,6 +7,7 @@ void main() {
       lotterySearchPath(
         digits: ['2', 'x', '3', '', '7', '09'],
         storeId: 'store_1',
+        storeName: 'ร้านทดสอบ',
       ),
     );
 
@@ -17,6 +18,20 @@ void main() {
     expect(uri.queryParameters['d5'], '7');
     expect(uri.queryParameters['d6'], '0');
     expect(uri.queryParameters['store_id'], 'store_1');
+    expect(uri.queryParameters['store_name'], 'ร้านทดสอบ');
+  });
+
+  test('lotteryStorePath preserves the selected store identity', () {
+    final uri = Uri.parse(
+      lotteryStorePath(
+        storeId: ' store_1 ',
+        storeName: ' ร้านทดสอบ ',
+      ),
+    );
+
+    expect(uri.path, '/stores/lotteries');
+    expect(uri.queryParameters['store_id'], 'store_1');
+    expect(uri.queryParameters['store_name'], 'ร้านทดสอบ');
   });
 
   test('lotterySearchPath uses exact number before digit filters', () {

@@ -67,7 +67,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits' | 'allocation-partner-percent-list'
+  type?: 'text' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'image-upload' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits' | 'allocation-partner-percent-list'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -88,6 +88,9 @@ export type OperationFormField = {
   placeholder?: string
   defaultValue?: any
   help?: string
+  uploadPurpose?: 'tenant_logo' | 'tenant_favicon' | 'tenant_og_image'
+  accept?: string
+  maxSizeBytes?: number
   min?: number
   max?: number
   step?: number
@@ -997,8 +1000,26 @@ const tenantSettingsFields: OperationFormField[] = [
   { key: 'api.asset_cdn_base_url', label: 'Asset CDN base URL', sourceKey: 'api.asset_cdn_base_url' },
 ]
 const tenantThemeFields: OperationFormField[] = [
-  { key: 'brand.logo_url', label: 'Logo URL', sourceKey: 'brand.logo_url' },
-  { key: 'brand.favicon_url', label: 'Favicon URL', sourceKey: 'brand.favicon_url' },
+  {
+    key: 'brand.logo_url',
+    label: 'Customer logo',
+    type: 'image-upload',
+    sourceKey: 'brand.logo_url',
+    uploadPurpose: 'tenant_logo',
+    accept: 'image/png,image/jpeg,image/webp,image/svg+xml',
+    maxSizeBytes: 5242880,
+    help: 'Used by customer screens. Upload an image up to 5 MB or enter a public asset URL.',
+  },
+  {
+    key: 'brand.favicon_url',
+    label: 'PWA app icon',
+    type: 'image-upload',
+    sourceKey: 'brand.favicon_url',
+    uploadPurpose: 'tenant_favicon',
+    accept: 'image/png,image/jpeg,image/webp',
+    maxSizeBytes: 5242880,
+    help: 'Used when customers add the app to their home screen. A square image of at least 512 x 512 px is recommended.',
+  },
   { key: 'brand.og_image_url', label: 'Open graph image URL', sourceKey: 'brand.og_image_url' },
   { key: 'theme.primary_color', label: 'Primary color', type: 'color', sourceKey: 'theme.primary_color', defaultValue: '#087FF0' },
   { key: 'theme.secondary_color', label: 'Secondary color', type: 'color', sourceKey: 'theme.secondary_color', defaultValue: '#19B8EF' },

@@ -16,6 +16,12 @@ use Illuminate\Support\Str;
 class AssetService
 {
     private const PARTNER_LOTTERY_BRANDING_PURPOSE = 'partner_lottery_branding';
+    private const PUBLIC_BRAND_IMAGE_PURPOSES = [
+        'tenant_logo',
+        'tenant_favicon',
+        'tenant_og_image',
+        self::PARTNER_LOTTERY_BRANDING_PURPOSE,
+    ];
     private const PARTNER_LOTTERY_BRANDING_FILES = [
         'logo_qr' => 'logo_qr.webp',
         'right_sidebar' => 'rightsidebar.webp',
@@ -257,8 +263,11 @@ class AssetService
                 'updated_at' => now(),
             ];
 
-            if ((string) $asset->purpose === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
+            if (in_array((string) $asset->purpose, self::PUBLIC_BRAND_IMAGE_PURPOSES, true)) {
                 $updates['public_url'] = $this->publicAssetUrl((string) $asset->storage_key);
+            }
+
+            if ((string) $asset->purpose === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
                 $updates['content_type'] = (string) config('lottery_images.content_type', 'image/webp');
                 $updates['file_name'] = $this->canonicalBrandingFileName((string) ($metadata['branding_slot'] ?? ''));
             }
@@ -322,6 +331,13 @@ class AssetService
 
         if (! in_array($payload['purpose'], self::PURPOSES, true)) {
             $errors['purpose'][] = 'The purpose field is invalid.';
+        }
+
+        if (
+            in_array($payload['purpose'], self::PUBLIC_BRAND_IMAGE_PURPOSES, true)
+            && ! str_starts_with(strtolower((string) $payload['content_type']), 'image/')
+        ) {
+            $errors['content_type'][] = 'The content_type field must be an image type for brand assets.';
         }
 
         if ($payload['purpose'] === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
@@ -412,7 +428,10 @@ class AssetService
             $errors['file'][] = 'The uploaded file size does not match the upload intent.';
         }
 
-        if ((string) $asset->purpose === self::PARTNER_LOTTERY_BRANDING_PURPOSE && ! str_starts_with((string) $file->getMimeType(), 'image/')) {
+        if (
+            in_array((string) $asset->purpose, self::PUBLIC_BRAND_IMAGE_PURPOSES, true)
+            && ! str_starts_with(strtolower((string) $file->getMimeType()), 'image/')
+        ) {
             $errors['file'][] = 'The uploaded file must be an image.';
         }
 

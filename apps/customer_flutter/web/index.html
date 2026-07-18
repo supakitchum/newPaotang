@@ -17,6 +17,7 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Customer application.">
   <meta name="theme-color" content="#087FF0">
@@ -33,12 +34,16 @@
   <meta name="twitter:image" content="icons/Icon-512.png">
 
   <style>
+    :root {
+      --customer-theme-color: #087FF0;
+    }
+
     html,
     body {
       width: 100%;
       min-height: 100%;
       margin: 0;
-      background: #fff;
+      background: var(--customer-theme-color);
     }
 
     flutter-view {
@@ -48,7 +53,7 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Customer">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -177,7 +182,24 @@
       const appName = firstConfigValue(["appName", "webAppName", "siteName", "name", "title", "app_name", "web_app_name", "site_name", "displayName", "display_name"], "Customer");
       const shortName = firstConfigValue(["shortName", "webShortName", "appShortName", "short_name", "web_short_name", "app_short_name"], appName);
       const description = firstConfigValue(["description", "webDescription", "appDescription", "siteDescription", "web_description", "app_description", "site_description", "summary"], "Customer application.");
-      const customerIdentityThemeColor = "#087FF0";
+      function normalizeThemeColor(value) {
+        const normalized = configScalar(value);
+        return /^#[0-9a-fA-F]{6}$/.test(normalized)
+          ? normalized.toUpperCase()
+          : "#087FF0";
+      }
+
+      const themeColor = normalizeThemeColor(firstConfigValue([
+        "themeColor",
+        "theme_color",
+        "manifestThemeColor",
+        "manifest_theme_color",
+        "primaryColor",
+        "primary_color",
+        "primary",
+        "brandColor",
+        "brand_color"
+      ], "#087FF0"));
       const backgroundColor = firstConfigValue(["manifestBackgroundColor", "manifest_background_color", "backgroundColor", "background_color"], "#FFFFFF");
       const icon192Url = firstConfigValue(["icon192Url", "icon192URL", "iconUrl", "iconURL", "icon_192_url", "icon_url", "icon192", "icon_192"], "icons/Icon-192.png");
       const icon512Url = firstConfigValue(["icon512Url", "icon512URL", "iconUrl", "iconURL", "icon_512_url", "icon_url", "icon512", "icon_512"], "icons/Icon-512.png");
@@ -204,6 +226,8 @@
       if (htmlDir === "ltr" || htmlDir === "rtl" || htmlDir === "auto") {
         document.documentElement.setAttribute("dir", htmlDir);
       }
+      document.documentElement.style.setProperty("--customer-theme-color", themeColor);
+      document.body.style.setProperty("--customer-theme-color", themeColor);
 
       function updateMeta(selector, value) {
         const node = document.querySelector(selector);
@@ -213,8 +237,8 @@
       }
 
       updateMeta('meta[name="description"]', description);
-      updateMeta('meta[name="theme-color"]', customerIdentityThemeColor);
-      updateMeta('meta[name="msapplication-TileColor"]', customerIdentityThemeColor);
+      updateMeta('meta[name="theme-color"]', themeColor);
+      updateMeta('meta[name="msapplication-TileColor"]', themeColor);
       updateMeta('meta[name="apple-mobile-web-app-title"]', shortName);
       updateMeta('meta[property="og:title"]', socialTitle);
       updateMeta('meta[property="og:description"]', socialDescription);
@@ -244,7 +268,7 @@
         scope: manifestScope,
         display: manifestDisplay,
         background_color: backgroundColor,
-        theme_color: customerIdentityThemeColor,
+        theme_color: themeColor,
         description: description,
         orientation: manifestOrientation,
         prefer_related_applications: false,
@@ -274,12 +298,55 @@
         ]
       };
       const manifestLink = document.querySelector('link[rel="manifest"]');
-      if (manifestLink) {
+      let manifestObjectUrl = "";
+
+      function publishManifest() {
+        if (!manifestLink) return;
         const blob = new Blob([JSON.stringify(manifest)], {
           type: "application/manifest+json"
         });
-        manifestLink.setAttribute("href", URL.createObjectURL(blob));
+        const nextManifestObjectUrl = URL.createObjectURL(blob);
+        manifestLink.setAttribute("href", nextManifestObjectUrl);
+        if (manifestObjectUrl) {
+          URL.revokeObjectURL(manifestObjectUrl);
+        }
+        manifestObjectUrl = nextManifestObjectUrl;
       }
+
+      window.customerApplyPwaIdentity = function (runtimeName, runtimeIconUrl) {
+        const tenantName = configScalar(runtimeName);
+        const tenantIconUrl = configScalar(runtimeIconUrl);
+
+        if (tenantName) {
+          manifest.name = tenantName;
+          manifest.short_name = tenantName;
+          document.title = tenantName;
+          updateMeta('meta[name="apple-mobile-web-app-title"]', tenantName);
+          updateMeta('meta[property="og:title"]', tenantName);
+          updateMeta('meta[name="twitter:title"]', tenantName);
+        }
+
+        if (tenantIconUrl) {
+          manifest.icons = [
+            {
+              src: tenantIconUrl,
+              sizes: "192x192",
+              purpose: "any"
+            },
+            {
+              src: tenantIconUrl,
+              sizes: "512x512",
+              purpose: "any"
+            }
+          ];
+          updateLink('link[rel="icon"]', tenantIconUrl);
+          updateLink('link[rel="apple-touch-icon"]', tenantIconUrl);
+        }
+
+        publishManifest();
+      };
+
+      publishManifest();
     })();
   </script>
   <!--

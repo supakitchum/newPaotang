@@ -205,7 +205,7 @@
           <AdminApiState :error="secondaryErrors[panel.key]" />
           <AdminLoader v-if="secondaryLoading[panel.key]" />
           <div v-else-if="secondaryForms[panel.key]" class="row g-3">
-            <div v-for="field in panel.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+            <div v-for="field in panel.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'image-upload' ? 'col-12' : 'col-md-6'">
               <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
                 <input :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-check-input" type="checkbox">
                 <label class="form-check-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
@@ -217,6 +217,44 @@
                   <option value="">Select</option>
                   <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
                 </select>
+                <div v-else-if="field.type === 'image-upload'" class="np-brand-asset-field">
+                  <div v-if="secondaryForms[panel.key][field.key]" class="np-brand-asset-preview">
+                    <img :src="secondaryForms[panel.key][field.key]" :alt="field.label">
+                  </div>
+                  <div class="input-group">
+                    <input
+                      :id="fieldId(`secondary-${panel.key}-${field.key}`)"
+                      class="form-control"
+                      type="file"
+                      :accept="field.accept || 'image/*'"
+                      :disabled="secondaryAssetUploadState(panel.key, field.key).uploading"
+                      @change="selectSecondaryAssetFile(panel, field, $event)"
+                    >
+                    <button
+                      class="btn btn-outline-primary btn-wave"
+                      type="button"
+                      :disabled="!secondaryAssetUploadState(panel.key, field.key).file || secondaryAssetUploadState(panel.key, field.key).uploading"
+                      @click="uploadSecondaryAsset(panel, field)"
+                    >
+                      <span v-if="secondaryAssetUploadState(panel.key, field.key).uploading" class="spinner-border spinner-border-sm me-1" />
+                      <i v-else class="ri-upload-cloud-2-line me-1" />
+                      Upload
+                    </button>
+                  </div>
+                  <div v-if="secondaryAssetUploadState(panel.key, field.key).error" class="invalid-feedback d-block">
+                    {{ secondaryAssetUploadState(panel.key, field.key).error }}
+                  </div>
+                  <div v-if="secondaryAssetUploadState(panel.key, field.key).message" class="text-success fs-12 mt-2">
+                    {{ secondaryAssetUploadState(panel.key, field.key).message }}
+                  </div>
+                  <input
+                    :id="fieldId(`secondary-${panel.key}-${field.key}-url`)"
+                    v-model="secondaryForms[panel.key][field.key]"
+                    class="form-control mt-2"
+                    type="url"
+                    placeholder="https://cdn.example.com/asset.png"
+                  >
+                </div>
                 <textarea
                   v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
                   :id="fieldId(`secondary-${panel.key}-${field.key}`)"
@@ -821,6 +859,19 @@ const secondaryForms = reactive<Record<string, Record<string, any>>>({})
 const secondaryLoading = reactive<Record<string, boolean>>({})
 const secondarySaving = reactive<Record<string, boolean>>({})
 const secondaryErrors = reactive<Record<string, any>>({})
+type SecondaryAssetUploadState = {
+  file: File | null
+  uploading: boolean
+  error: string
+  message: string
+}
+const secondaryAssetUploads = reactive<Record<string, SecondaryAssetUploadState>>({})
+const emptySecondaryAssetUploadState: SecondaryAssetUploadState = {
+  file: null,
+  uploading: false,
+  error: '',
+  message: '',
+}
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const stockSummaryRefreshKey = ref(0)
@@ -2752,6 +2803,155 @@ const resetSecondarySettingsForm = (panel: OperationSettingsPanel) => {
   secondaryForms[panel.key] = form
 }
 
+const secondaryAssetUploadKey = (panelKey: string, fieldKey: string) => `${panelKey}:${fieldKey}`
+
+const secondaryAssetUploadState = (panelKey: string, fieldKey: string) => (
+  secondaryAssetUploads[secondaryAssetUploadKey(panelKey, fieldKey)] || emptySecondaryAssetUploadState
+)
+
+const ensureSecondaryAssetUploadState = (panelKey: string, fieldKey: string) => {
+  const key = secondaryAssetUploadKey(panelKey, fieldKey)
+  secondaryAssetUploads[key] = secondaryAssetUploads[key] || {
+    file: null,
+    uploading: false,
+    error: '',
+    message: '',
+  }
+  return secondaryAssetUploads[key]
+}
+
+const selectSecondaryAssetFile = (panel: OperationSettingsPanel, field: OperationFormField, event: Event) => {
+  const input = event.target as HTMLInputElement
+  const state = ensureSecondaryAssetUploadState(panel.key, field.key)
+  const file = input.files?.[0] || null
+  state.file = file
+  state.error = ''
+  state.message = ''
+
+  if (!file) return
+
+  if (!file.type.toLowerCase().startsWith('image/')) {
+    state.file = null
+    state.error = 'Choose a PNG, JPEG, WebP, or other supported image file.'
+    input.value = ''
+    return
+  }
+
+  const maxSizeBytes = field.maxSizeBytes || 5 * 1024 * 1024
+  if (file.size > maxSizeBytes) {
+    state.file = null
+    state.error = `The image must not exceed ${Math.round(maxSizeBytes / 1024 / 1024)} MB.`
+    input.value = ''
+  }
+}
+
+const secondaryAssetChecksum = async (file: File) => {
+  if (!import.meta.client || !window.crypto?.subtle) return null
+  const hash = await window.crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(hash)).map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+const uploadSecondaryAssetToStorage = async (intent: any, file: File) => {
+  const assetId = String(intent?.asset_id || intent?.id || '').trim()
+  const storageMode = String(intent?.storage_mode || '')
+  const uploadStrategy = String(intent?.upload_strategy || '')
+  const usesApiRelay = uploadStrategy === 'server_relay' || ['local_dev_metadata_only', 'server_relay_aws_s3'].includes(storageMode)
+
+  if (!intent?.upload_url || intent.production_storage_ready === false || usesApiRelay) {
+    if (!assetId) throw new Error('The upload intent did not return an asset ID.')
+    const body = new FormData()
+    body.append('file', file)
+    await api.apiFetch(`/admin/tenant/assets/${encodeURIComponent(assetId)}/local-upload`, apiOptions({
+      method: 'POST',
+      successMessage: false,
+      body,
+    }))
+    return
+  }
+
+  const method = String(intent.method || 'PUT').toUpperCase()
+  if (method === 'POST' && intent.form_fields && typeof intent.form_fields === 'object') {
+    const body = new FormData()
+    Object.entries(intent.form_fields).forEach(([key, value]) => body.append(key, String(value)))
+    body.append('file', file)
+    await $fetch(intent.upload_url, { method: 'POST', body })
+    return
+  }
+
+  await $fetch(intent.upload_url, {
+    method,
+    headers: intent.headers || {},
+    body: file,
+  })
+}
+
+const uploadSecondaryAsset = async (panel: OperationSettingsPanel, field: OperationFormField) => {
+  const state = ensureSecondaryAssetUploadState(panel.key, field.key)
+  const file = state.file
+  if (!file || !field.uploadPurpose || state.uploading) return
+
+  state.uploading = true
+  state.error = ''
+  state.message = ''
+  secondaryErrors[panel.key] = null
+
+  try {
+    const checksum = await secondaryAssetChecksum(file)
+    const intent: any = await api.apiFetch('/admin/tenant/assets/uploads', apiOptions({
+      method: 'POST',
+      successMessage: false,
+      idempotencyKey: api.idempotencyKey(),
+      body: {
+        purpose: field.uploadPurpose,
+        file_name: file.name,
+        content_type: file.type,
+        size_bytes: file.size,
+        checksum_sha256: checksum,
+        metadata: { theme_field: field.key },
+      },
+    }))
+
+    await uploadSecondaryAssetToStorage(intent, file)
+    const assetId = String(intent?.asset_id || intent?.id || '').trim()
+    const committed: any = await api.apiFetch(`/admin/tenant/assets/${encodeURIComponent(assetId)}/commit`, apiOptions({
+      method: 'POST',
+      successMessage: false,
+      idempotencyKey: api.idempotencyKey(),
+      body: {
+        checksum_sha256: checksum,
+        metadata: {
+          theme_field: field.key,
+          source_file_name: file.name,
+        },
+      },
+    }))
+    const assetUrl = String(committed?.url || committed?.public_url || '').trim()
+    if (!assetUrl) throw new Error('The uploaded asset did not return a public URL.')
+
+    const payload: Record<string, any> = {}
+    setPath(payload, field.key, assetUrl)
+    const response = await api.apiFetch(panel.updateEndpoint, apiOptions({
+      method: panel.updateMethod || 'PATCH',
+      successMessage: false,
+      idempotencyKey: api.idempotencyKey(),
+      body: payload,
+    }))
+    secondaryDetails[panel.key] = extractData(response)
+    secondaryForms[panel.key][field.key] = getPath(secondaryDetails[panel.key], field.sourceKey || field.key) || assetUrl
+    state.file = null
+    state.message = `${field.label} uploaded and applied.`
+
+    if (import.meta.client) {
+      const input = document.getElementById(fieldId(`secondary-${panel.key}-${field.key}`)) as HTMLInputElement | null
+      if (input) input.value = ''
+    }
+  } catch (err: any) {
+    state.error = String(err?.message || err?.data?.error?.message || 'The image could not be uploaded. Please try again.')
+  } finally {
+    state.uploading = false
+  }
+}
+
 const saveSecondarySettingsForm = async (panel: OperationSettingsPanel) => {
   secondarySaving[panel.key] = true
   secondaryErrors[panel.key] = null
@@ -4416,6 +4616,29 @@ const formatLines = (value: any, valueKey?: string) => {
 </script>
 
 <style scoped>
+.np-brand-asset-field {
+  max-width: 42rem;
+}
+
+.np-brand-asset-preview {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  min-height: 7rem;
+  padding: 1rem;
+}
+
+.np-brand-asset-preview img {
+  display: block;
+  max-height: 8rem;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 .np-related-tabs {
   align-items: center;
   background: #fff;

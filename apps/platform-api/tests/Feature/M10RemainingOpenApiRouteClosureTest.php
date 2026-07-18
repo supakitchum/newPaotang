@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Tests\Support\PartnerStoreFixtures;
@@ -82,7 +83,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
         $this->insertActivePartnerTenantWithDomain('par_asset_m10', 'ten_asset_m10', 'asset.m10.test');
 
         $central = $this->createCentralSession(['asset.manage'], 'adm_central_asset', 'central-asset@example.test');
-        $tenant = $this->createTenantSession('ten_asset_m10', 'par_asset_m10', ['asset.manage'], 'adm_tenant_asset', 'tenant-asset@example.test');
+        $tenant = $this->createTenantSession('ten_asset_m10', 'par_asset_m10', ['asset.manage', 'settings.manage'], 'adm_tenant_asset', 'tenant-asset@example.test');
 
         $centralIntent = $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/assets/uploads', [
@@ -105,12 +106,18 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertJsonPath('id', $centralIntent['asset_id'])
             ->assertJsonPath('tenant_id', null);
 
+        $tenantLogoBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true);
+        $this->assertIsString($tenantLogoBytes);
+        $tenantLogo = UploadedFile::fake()->createWithContent('logo.png', $tenantLogoBytes);
+        $tenantLogoChecksum = hash('sha256', $tenantLogoBytes);
+
         $tenantIntent = $this->withToken($tenant['access_token'])
             ->postJson('/api/v1/admin/tenant/assets/uploads', [
                 'purpose' => 'tenant_logo',
                 'file_name' => 'logo.png',
                 'content_type' => 'image/png',
-                'size_bytes' => 2048,
+                'size_bytes' => strlen($tenantLogoBytes),
+                'checksum_sha256' => $tenantLogoChecksum,
                 'metadata' => ['slot' => 'header'],
             ], [
                 'X-Admin-Scope' => 'tenant',
@@ -122,7 +129,19 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->json();
 
         $this->withToken($tenant['access_token'])
+            ->post('/api/v1/admin/tenant/assets/'.$tenantIntent['asset_id'].'/local-upload', [
+                'file' => $tenantLogo,
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_asset_m10',
+            ])
+            ->assertOk()
+            ->assertJsonPath('content_type', 'image/png')
+            ->assertJsonPath('metadata.storage_boundary', 'local_dev_uploaded');
+
+        $committedTenantLogo = $this->withToken($tenant['access_token'])
             ->postJson('/api/v1/admin/tenant/assets/'.$tenantIntent['asset_id'].'/commit', [
+                'checksum_sha256' => $tenantLogoChecksum,
                 'metadata' => ['uploaded_by' => 'test'],
             ], [
                 'X-Admin-Scope' => 'tenant',
@@ -132,7 +151,26 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'committed')
             ->assertJsonPath('production_storage_ready', false)
-            ->assertJsonPath('metadata.storage_boundary', 'local_dev_metadata_only');
+            ->assertJsonPath('metadata.storage_boundary', 'local_dev_uploaded')
+            ->json();
+
+        $this->assertIsString($committedTenantLogo['url']);
+        $this->assertStringContainsString('/api/v1/public/assets/tenants/ten_asset_m10/assets/', $committedTenantLogo['url']);
+
+        $this->withToken($tenant['access_token'])
+            ->patchJson('/api/v1/admin/tenant/theme', [
+                'brand' => ['logo_url' => $committedTenantLogo['url']],
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_asset_m10',
+                'Idempotency-Key' => 'tenant-logo-theme-m10',
+            ])
+            ->assertOk()
+            ->assertJsonPath('brand.logo_url', $committedTenantLogo['url']);
+
+        $this->getJson('http://asset.m10.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->assertJsonPath('data.brand.logo_url', $committedTenantLogo['url']);
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'asset.committed_local_dev',

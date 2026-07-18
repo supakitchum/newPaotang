@@ -58,6 +58,16 @@ void main() {
     expect(find.text('สลากฯ ทั้งหมด'), findsOneWidget);
     expect(find.text('ร้านค้า'), findsOneWidget);
     expect(find.text('ระบบสุ่มสลับรายการทุกครั้งที่โหลดใหม่'), findsNothing);
+    final hero = find.byKey(const ValueKey('customer-fixed-hero'));
+    final content = find.byKey(
+      const ValueKey('customer-fixed-content-region'),
+    );
+    expect(hero, findsOneWidget);
+    expect(content, findsOneWidget);
+    expect(
+      tester.getBottomLeft(hero).dy - tester.getTopLeft(content).dy,
+      greaterThanOrEqualTo(34),
+    );
 
     await tester.tap(find.text('ร้านค้า'));
     await tester.pumpAndSettle();
@@ -126,7 +136,8 @@ void main() {
           path: '/stores/lotteries',
           builder: (context, state) => Scaffold(
             body: Text(
-              'Store lotteries ${state.uri.queryParameters['store_id']}',
+              'Store lotteries ${state.uri.queryParameters['store_id']} '
+              '${state.uri.queryParameters['store_name']}',
             ),
           ),
         ),
@@ -147,6 +158,17 @@ void main() {
     expect(find.text('ร้านสลากฯ แนะนำ'), findsOneWidget);
     expect(find.text('ร้านทดสอบ'), findsOneWidget);
     expect(find.text('รหัสร้าน ST1'), findsNothing);
+    final searchBox = find.byKey(const ValueKey('store-search-box'));
+    expect(searchBox, findsOneWidget);
+    final searchDecoration =
+        tester.widget<DecoratedBox>(searchBox).decoration as BoxDecoration;
+    expect(searchDecoration.border, isNull);
+    final searchField = tester.widget<TextField>(
+      find.descendant(of: searchBox, matching: find.byType(TextField)),
+    );
+    expect(searchField.decoration?.border, InputBorder.none);
+    expect(searchField.decoration?.enabledBorder, InputBorder.none);
+    expect(searchField.decoration?.focusedBorder, InputBorder.none);
     final storeRow = find.byKey(const ValueKey('store-list-row-store_1'));
     expect(storeRow, findsOneWidget);
     expect(
@@ -159,7 +181,7 @@ void main() {
     await tester.tap(storeRow);
     await tester.pumpAndSettle();
 
-    expect(find.text('Store lotteries store_1'), findsOneWidget);
+    expect(find.text('Store lotteries store_1 ร้านทดสอบ'), findsOneWidget);
 
     router.go('/stores');
     await tester.pumpAndSettle();

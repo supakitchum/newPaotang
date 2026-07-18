@@ -3687,6 +3687,9 @@ void _checkWebRuntimeMetadata(
       'meta[name="description"]',
       'meta[name="theme-color"]',
       'meta[name="msapplication-TileColor"]',
+      'viewport-fit=cover',
+      'apple-mobile-web-app-status-bar-style',
+      'black-translucent',
       'meta[name="apple-mobile-web-app-title"]',
       'meta[property="og:title"]',
       'meta[property="og:description"]',
@@ -3704,7 +3707,16 @@ void _checkWebRuntimeMetadata(
       '"web_short_name"',
       '"webDescription"',
       '"web_description"',
-      'customerIdentityThemeColor',
+      'normalizeThemeColor',
+      '"themeColor"',
+      '"theme_color"',
+      '"manifestThemeColor"',
+      '"manifest_theme_color"',
+      '"primaryColor"',
+      '"primary_color"',
+      '"brandColor"',
+      '"brand_color"',
+      'document.documentElement.style.setProperty("--customer-theme-color"',
       '"manifestBackgroundColor"',
       '"manifest_background_color"',
       '"backgroundColor"',
@@ -3771,26 +3783,6 @@ void _checkWebRuntimeMetadata(
     ),
     issues,
   );
-  const forbiddenThemeColorRuntimeBindings = [
-    'firstConfigValue(["themeColor"',
-    "firstConfigValue(['themeColor'",
-    'runtimeConfig.themeColor',
-    'runtimeConfig["themeColor"]',
-    'runtimeConfig.theme_color',
-    'runtimeConfig["theme_color"]',
-    '"manifestThemeColor"',
-    '"manifest_theme_color"',
-    'primaryColor", "primary_color", "brandColor"',
-  ];
-  if (forbiddenThemeColorRuntimeBindings.any(indexSource.contains)) {
-    issues.add(
-      const ProductionPreflightIssue(
-        code: 'web_runtime_theme_color_identity_drift',
-        message:
-            'Web/PWA theme-color must stay on the Nuxt customer blue identity instead of runtime partner/provider theme colors.',
-      ),
-    );
-  }
 }
 
 File? _findFirstFile(Directory root, String fileName) {

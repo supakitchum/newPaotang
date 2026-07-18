@@ -112,8 +112,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       for (final store in _stores)
                         _StoreCard(
                           store: store,
-                          onTap: () =>
-                              context.go(_storeLotteriesPath(store.id)),
+                          onTap: () => context.go(
+                            _storeLotteriesPath(
+                              store.id,
+                              storeName: store.name,
+                            ),
+                          ),
                         ),
                     if (_error.isNotEmpty && _stores.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -299,9 +303,6 @@ class _StoreSearchBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-        ),
         boxShadow: [
           BoxShadow(
             color: colorScheme.shadow.withValues(alpha: 0.14),
@@ -325,12 +326,20 @@ class _StoreSearchBox extends StatelessWidget {
               child: TextField(
                 controller: controller,
                 textInputAction: TextInputAction.search,
-                decoration: InputDecoration.collapsed(
+                decoration: InputDecoration(
                   hintText: hintText,
                   hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
                       ),
+                  isCollapsed: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
                 ),
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
@@ -658,6 +667,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             storeId: widget.storeId,
                             backPath: _storeLotteriesBackPath(
                               widget.storeId,
+                              storeName: storeName,
                             ),
                           ),
                           canReserve: _canReserve,
@@ -818,7 +828,12 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   }
 
   void _openStoreSearch() {
-    context.go(lotterySearchPath(storeId: widget.storeId));
+    context.go(
+      lotterySearchPath(
+        storeId: widget.storeId,
+        storeName: _storeName,
+      ),
+    );
   }
 
   bool get _refreshDisabled {
@@ -1987,17 +2002,18 @@ class _StoreLotteryNumber extends StatelessWidget {
   }
 }
 
-String _storeLotteriesBackPath(String storeId) {
-  return _storeLotteriesPath(storeId);
+String _storeLotteriesBackPath(
+  String storeId, {
+  String storeName = '',
+}) {
+  return _storeLotteriesPath(storeId, storeName: storeName);
 }
 
-String _storeLotteriesPath(String storeId) {
-  final normalizedStoreId = storeId.trim();
-  return Uri(
-    path: '/stores/lotteries',
-    queryParameters:
-        normalizedStoreId.isEmpty ? null : {'store_id': normalizedStoreId},
-  ).toString();
+String _storeLotteriesPath(
+  String storeId, {
+  String storeName = '',
+}) {
+  return lotteryStorePath(storeId: storeId, storeName: storeName);
 }
 
 bool _storeLotteryTicketsChanged(

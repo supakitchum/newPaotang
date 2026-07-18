@@ -5958,11 +5958,15 @@ the initial server-served HTML, static manifest, and
 producer is not sufficient. Container rendering must be HTML-escaped,
 idempotent across restarts, and no-store cached so the active title, canonical
 URL, Open Graph/Twitter values, locale, direction, and PWA icons are visible
-before Flutter starts. Native/PWA launcher artwork is build-time identity, not
-mobile-bootstrap data. Generate it per partner through
+before Flutter starts. Native launcher artwork remains build-time identity and
+must be generated per partner through
 `tool/prepare_release_branding.dart` and require the SHA-256 branding
-manifest for final artifacts; Flutter scaffold icons are permitted only for
-local smoke builds and must never reach a store/PWA release.
+manifest for final artifacts. Installed PWA identity is runtime tenant data:
+after bootstrap, replace the manifest/app title with localized
+`site.site_name`, use `brand.favicon_url` as the install icon, and fall back to
+`brand.logo_url`. The static generated PWA artwork is only the pre-bootstrap
+fallback. Flutter scaffold icons are permitted only for local smoke builds and
+must never reach a store/PWA release.
 
 Owner-directed Tickets search override: the current Tickets magnifier opens
 the dedicated sensitive `/tickets/search` route instead of expanding Nuxt's
@@ -5993,3 +5997,31 @@ and preserve safe external-link handling. `/lottery-knowledge` retains its
 section cards, but its headings, list copy, number markers, and support footer
 must stay at the reduced mobile-readable scale rather than the oversized Nuxt
 19-24px list hierarchy.
+
+Buy/Stores owner visual correction: `/buy` must retain Nuxt's responsive
+negative content-sheet overlap below the lottery/store segment tabs; a zero
+overlap creates an incorrect empty blue band. `/stores` keeps the raised search
+pill but the editable input itself must have no border in default, focused,
+disabled, or error states. Opening a store must preserve both the backend store
+id and display name through detail, store-scoped search, More-number, and back
+routes. Only the id is an API filter; the name is route display context and
+must never be replaced by a hardcoded partner/store label.
+
+Runtime system-chrome parity: the iOS notch/status safe area, native status-bar
+overlay, Safari theme color, and installed Web/PWA status area must resolve
+from the same runtime `Theme.colorScheme.primary` used by the customer header.
+Use `#087FF0` only as the pre-bootstrap fallback. When bootstrap changes the
+primary token, update native and browser chrome without rebuilding or
+hardcoding a partner color in page widgets. Keep contrast-aware native status
+icons, `viewport-fit=cover`, and the iOS translucent status-bar mode so a white
+browser strip cannot appear above the themed application.
+
+Runtime PWA tenant identity: Partner users manage Customer logo and PWA app
+icon in Tenant Settings > Theme And Branding through tenant-scoped asset
+uploads, not source files or hardcoded URLs. The API must return a committed
+public asset URL and persist it to the corresponding `brand` field. Flutter Web
+must republish its blob manifest after bootstrap so Add to Home Screen sees the
+tenant's current name and icon. Prefer `brand.favicon_url`; use
+`brand.logo_url` only as fallback. Existing installed PWAs may retain OS icon
+caches until removed and added again, but a fresh install must never inherit a
+different tenant's identity.

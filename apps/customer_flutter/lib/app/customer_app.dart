@@ -14,6 +14,7 @@ import '../core/i18n/customer_locale_controller.dart';
 import '../core/i18n/customer_localizations.dart';
 import '../core/i18n/customer_translation_repository.dart';
 import '../core/navigation/deep_link_listener.dart';
+import '../core/navigation/web_runtime.dart' as web_runtime;
 import '../core/realtime/customer_realtime_monitor.dart';
 import '../core/tenant/mobile_bootstrap_controller.dart';
 import '../core/tenant/mobile_runtime_policy.dart';
@@ -124,7 +125,21 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
           AppTheme.light(tokens: data.theme, useRuntimeBrandColors: true),
       orElse: AppTheme.light,
     );
+    final pwaIconUrl = bootstrap.maybeWhen(
+      data: (data) {
+        final faviconUrl = data.brand.faviconUrl.trim();
+        return faviconUrl.isNotEmpty ? faviconUrl : data.brand.logoUrl.trim();
+      },
+      orElse: () => '',
+    );
     final systemUiOverlayStyle = _systemUiOverlayStyleFor(appTheme);
+    web_runtime.syncWebSystemChromeColor(
+      appTheme.colorScheme.primary.toARGB32(),
+    );
+    web_runtime.syncWebPwaIdentity(
+      appName: appTitle,
+      iconUrl: pwaIconUrl,
+    );
     final screenSecurityEnabled = bootstrap.maybeWhen(
       data: (data) =>
           mobileNativeScreenSecurityAllowedForPlatform(data, platformKey),
@@ -143,31 +158,34 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
         return AnnotatedRegion<SystemUiOverlayStyle>(
           key: const ValueKey('customer-system-ui-overlay'),
           value: systemUiOverlayStyle,
-          child: CustomerDeepLinkListener(
-            child: AppSplashHost(
-              child: CustomerRealtimeMonitor(
-                child: ResultRealtimeMonitor(
-                  child: LotteryStockRealtimeMonitor(
-                    child: CustomerRevenueRealtimeMonitor(
-                      child: CustomerTopupRealtimeMonitor(
-                        child: CustomerClaimRealtimeMonitor(
-                          child: PublicVisitMonitor(
-                            router: router,
-                            child: AffiliateReferralMonitor(
+          child: _CustomerStatusBarBackground(
+            color: appTheme.colorScheme.primary,
+            child: CustomerDeepLinkListener(
+              child: AppSplashHost(
+                child: CustomerRealtimeMonitor(
+                  child: ResultRealtimeMonitor(
+                    child: LotteryStockRealtimeMonitor(
+                      child: CustomerRevenueRealtimeMonitor(
+                        child: CustomerTopupRealtimeMonitor(
+                          child: CustomerClaimRealtimeMonitor(
+                            child: PublicVisitMonitor(
                               router: router,
-                              child: AppAlertHost(
-                                child: AnnouncementModalHost(
-                                  router: router,
-                                  child: SaleClosureGuard(
+                              child: AffiliateReferralMonitor(
+                                router: router,
+                                child: AppAlertHost(
+                                  child: AnnouncementModalHost(
                                     router: router,
-                                    child: _CustomerRuntimeSecurityLayer(
+                                    child: SaleClosureGuard(
                                       router: router,
-                                      bootstrap: bootstrap,
-                                      platformKey: platformKey,
-                                      screenSecurityEnabled:
-                                          screenSecurityEnabled,
-                                      webPrivacyEnabled: webPrivacyEnabled,
-                                      child: appChild,
+                                      child: _CustomerRuntimeSecurityLayer(
+                                        router: router,
+                                        bootstrap: bootstrap,
+                                        platformKey: platformKey,
+                                        screenSecurityEnabled:
+                                            screenSecurityEnabled,
+                                        webPrivacyEnabled: webPrivacyEnabled,
+                                        child: appChild,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -194,6 +212,36 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       localeResolutionCallback: (deviceLocale, supportedLocales) {
         return resolveCustomerLocale(deviceLocale, supportedLocales);
       },
+    );
+  }
+}
+
+class _CustomerStatusBarBackground extends StatelessWidget {
+  const _CustomerStatusBarBackground({
+    required this.color,
+    required this.child,
+  });
+
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.viewPaddingOf(context).top;
+    if (topInset <= 0) return child;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Positioned(
+          key: const ValueKey('customer-status-bar-background'),
+          top: 0,
+          left: 0,
+          right: 0,
+          height: topInset,
+          child: IgnorePointer(child: ColoredBox(color: color)),
+        ),
+      ],
     );
   }
 }

@@ -2,6 +2,7 @@ String lotterySearchPath({
   String number = '',
   List<String> digits = const [],
   String storeId = '',
+  String storeName = '',
 }) {
   final query = <String, String>{};
   final normalizedNumber = _digitsOnly(number, maxLength: 6);
@@ -17,10 +18,34 @@ String lotterySearchPath({
   }
 
   final normalizedStoreId = storeId.trim();
-  if (normalizedStoreId.isNotEmpty) query['store_id'] = normalizedStoreId;
+  if (normalizedStoreId.isNotEmpty) {
+    query['store_id'] = normalizedStoreId;
+    final normalizedStoreName = storeName.trim();
+    if (normalizedStoreName.isNotEmpty) {
+      query['store_name'] = normalizedStoreName;
+    }
+  }
 
   return Uri(
     path: '/buy/search',
+    queryParameters: query.isEmpty ? null : query,
+  ).toString();
+}
+
+String lotteryStorePath({
+  required String storeId,
+  String storeName = '',
+  String gameId = '',
+}) {
+  final query = <String, String>{};
+  final normalizedStoreId = storeId.trim();
+  final normalizedStoreName = storeName.trim();
+  final normalizedGameId = gameId.trim();
+  if (normalizedStoreId.isNotEmpty) query['store_id'] = normalizedStoreId;
+  if (normalizedStoreName.isNotEmpty) query['store_name'] = normalizedStoreName;
+  if (normalizedGameId.isNotEmpty) query['game_id'] = normalizedGameId;
+  return Uri(
+    path: '/stores/lotteries',
     queryParameters: query.isEmpty ? null : query,
   ).toString();
 }

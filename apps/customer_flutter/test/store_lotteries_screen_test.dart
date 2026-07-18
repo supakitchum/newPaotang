@@ -197,7 +197,8 @@ void main() {
           builder: (context, state) => Scaffold(
             body: Center(
               child: Text(
-                'Search route ${state.uri.queryParameters['store_id'] ?? ''}',
+                'Search route ${state.uri.queryParameters['store_id'] ?? ''} '
+                '${state.uri.queryParameters['store_name'] ?? ''}',
               ),
             ),
           ),
@@ -234,7 +235,7 @@ void main() {
     await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Search route store_1'), findsOneWidget);
+    expect(find.text('Search route store_1 ร้านทดสอบ'), findsOneWidget);
   });
 
   testWidgets('guest store stock selection keeps Nuxt-style login redirect', (
