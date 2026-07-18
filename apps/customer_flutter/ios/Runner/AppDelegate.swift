@@ -576,6 +576,14 @@ import UIKit
               ))
               return
             }
+            if self.isBiometricCancellation(error) {
+              result(FlutterError(
+                code: "biometric_cancelled",
+                message: "Biometric authentication was cancelled.",
+                details: nil
+              ))
+              return
+            }
             throw error
           }
         default:
@@ -785,9 +793,38 @@ import UIKit
   }
 
   private func shouldInvalidateBiometricKey(_ error: Error) -> Bool {
-    let nativeError = error as NSError
-    guard nativeError.domain == NSOSStatusErrorDomain else { return false }
-    return nativeError.code == Int(errSecItemNotFound)
+    return errorChain(error).contains { nativeError in
+      nativeError.domain == NSOSStatusErrorDomain &&
+        nativeError.code == Int(errSecItemNotFound)
+    }
+  }
+
+  private func isBiometricCancellation(_ error: Error) -> Bool {
+    return errorChain(error).contains { nativeError in
+      if nativeError.domain == NSOSStatusErrorDomain {
+        return nativeError.code == Int(errSecUserCanceled)
+      }
+      guard nativeError.domain == LAError.errorDomain else { return false }
+      return [
+        LAError.Code.userCancel.rawValue,
+        LAError.Code.appCancel.rawValue,
+        LAError.Code.systemCancel.rawValue,
+        LAError.Code.userFallback.rawValue,
+      ].contains(nativeError.code)
+    }
+  }
+
+  private func errorChain(_ error: Error) -> [NSError] {
+    var chain: [NSError] = []
+    var current: NSError? = error as NSError
+    var seen = Set<ObjectIdentifier>()
+    while let nativeError = current {
+      let identifier = ObjectIdentifier(nativeError)
+      guard seen.insert(identifier).inserted else { break }
+      chain.append(nativeError)
+      current = nativeError.userInfo[NSUnderlyingErrorKey] as? NSError
+    }
+    return chain
   }
 
   private func publicKeyPem(_ publicKey: SecKey) throws -> String {

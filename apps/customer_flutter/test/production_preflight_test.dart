@@ -567,6 +567,7 @@ final menu = [
           'flutter_sensitive_screen_guard_missing',
           'flutter_biometric_service_missing',
           'ios_face_id_usage_missing',
+          'ios_face_id_localization_missing',
           'ios_privacy_manifest_missing',
           'ios_xcconfig_missing',
           'ios_release_config_guard_missing',
@@ -629,6 +630,7 @@ class BiometricAuthService {
         containsAll({
           'flutter_biometric_channel_binding_missing',
           'flutter_biometric_key_bound_prompt_missing',
+          'flutter_biometric_lifecycle_coordination_missing',
           'flutter_biometric_soft_fallback_missing',
           'flutter_biometric_local_key_cleanup_missing',
           'flutter_biometric_alias_parsing_missing',
@@ -2537,10 +2539,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       indexSource,
       contains('const themeColor = normalizeThemeColor(firstConfigValue(['),
     );
-    expect(
-      indexSource,
-      contains('"primaryColor",'),
-    );
+    expect(indexSource, contains('"primaryColor",'));
     expect(indexSource, contains('"manifestThemeColor",'));
     expect(indexSource, contains('viewport-fit=cover'));
     expect(indexSource, contains('content="black-translucent"'));

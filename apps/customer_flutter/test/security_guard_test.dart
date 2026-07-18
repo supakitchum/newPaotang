@@ -34,23 +34,24 @@ import 'package:go_router/go_router.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('ScreenSecurityService sends localized overlay copy to native',
-      (tester) async {
+  testWidgets('ScreenSecurityService sends localized overlay copy to native', (
+    tester,
+  ) async {
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('customer_flutter/screen_security'),
-      (call) async {
-        calls.add(call);
-        return null;
-      },
-    );
+          const MethodChannel('customer_flutter/screen_security'),
+          (call) async {
+            calls.add(call);
+            return null;
+          },
+        );
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('customer_flutter/screen_security'),
-        null,
-      );
+            const MethodChannel('customer_flutter/screen_security'),
+            null,
+          );
     });
 
     final service = ScreenSecurityService();
@@ -69,23 +70,24 @@ void main() {
     });
   });
 
-  testWidgets('ScreenSecurityService sends native policy to platform channel',
-      (tester) async {
+  testWidgets('ScreenSecurityService sends native policy to platform channel', (
+    tester,
+  ) async {
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('customer_flutter/screen_security'),
-      (call) async {
-        calls.add(call);
-        return null;
-      },
-    );
+          const MethodChannel('customer_flutter/screen_security'),
+          (call) async {
+            calls.add(call);
+            return null;
+          },
+        );
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('customer_flutter/screen_security'),
-        null,
-      );
+            const MethodChannel('customer_flutter/screen_security'),
+            null,
+          );
     });
 
     final service = ScreenSecurityService();
@@ -110,8 +112,9 @@ void main() {
     });
   });
 
-  testWidgets('ScreenSecurityService normalizes native event aliases',
-      (tester) async {
+  testWidgets('ScreenSecurityService normalizes native event aliases', (
+    tester,
+  ) async {
     final service = ScreenSecurityService();
     final events = <ScreenSecurityEvent>[];
     final subscription = service.events.listen(events.add);
@@ -119,16 +122,16 @@ void main() {
 
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'type': 'screenCaptureStarted',
-          'path': '/my-wallet',
-          'cause': 'recording',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'type': 'screenCaptureStarted',
+              'path': '/my-wallet',
+              'cause': 'recording',
+            }),
+          ),
+          (_) {},
+        );
     await tester.pump();
 
     expect(events, hasLength(1));
@@ -138,73 +141,73 @@ void main() {
 
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'event': 'screenCaptured',
-          'url': 'https://shop.example.test/tickets?tab=current',
-          'message': 'native_capture',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'event': 'screenCaptured',
+              'url': 'https://shop.example.test/tickets?tab=current',
+              'message': 'native_capture',
+            }),
+          ),
+          (_) {},
+        );
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'event': 'recordingStopped',
-          'location': 'https://shop.example.test/#/tickets?tab=current',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'event': 'recordingStopped',
+              'location': 'https://shop.example.test/#/tickets?tab=current',
+            }),
+          ),
+          (_) {},
+        );
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'name': 'screenshotTaken',
-          'route': '/reward-claims',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'name': 'screenshotTaken',
+              'route': '/reward-claims',
+            }),
+          ),
+          (_) {},
+        );
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'name': 'securityExitRequested',
-          'screen': '/checkout',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'name': 'securityExitRequested',
+              'screen': '/checkout',
+            }),
+          ),
+          (_) {},
+        );
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'eventName': 'screenRecordingStarted',
-          'routeName': '/activity-claims',
-          'reasonName': 'ios_recorder',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'eventName': 'screenRecordingStarted',
+              'routeName': '/activity-claims',
+              'reasonName': 'ios_recorder',
+            }),
+          ),
+          (_) {},
+        );
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'event_type': 'screenSecurityExit',
-          'pageName': '/reward-claims/claim_1',
-          'detail': 'native_policy',
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('securityEvent', {
+              'event_type': 'screenSecurityExit',
+              'pageName': '/reward-claims/claim_1',
+              'detail': 'native_policy',
+            }),
+          ),
+          (_) {},
+        );
     await tester.pump();
 
     expect(events.map((event) => event.event), [
@@ -228,428 +231,433 @@ void main() {
   });
 
   testWidgets(
-      'ScreenSecurityService normalizes nested native event payloads and URL route queries',
-      (tester) async {
-    final service = ScreenSecurityService();
-    final events = <ScreenSecurityEvent>[];
-    final subscription = service.events.listen(events.add);
-    addTearDown(subscription.cancel);
+    'ScreenSecurityService normalizes nested native event payloads and URL route queries',
+    (tester) async {
+      final service = ScreenSecurityService();
+      final events = <ScreenSecurityEvent>[];
+      final subscription = service.events.listen(events.add);
+      addTearDown(subscription.cancel);
 
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'route': '/public-route',
-          'payload': {
-            'eventName': 'screenCaptureDetected',
-            'url':
-                'customer://screen-security?route=%2Fmy-wallet%3Ftab%3Dsummary',
-            'reasonCode': 'nested_capture',
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'screen_security_event': {
-            'event_type': 'securityExitRequested',
-            'location':
-                'https://shop.example.test/security?screen=%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
-            'policyName': 'ios_exit_app',
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'path': '/public-route',
-          'eventPayload': {
-            'event': 'screenCaptureStarted',
-            'route': {
-              'currentUrl':
-                  'https://shop.example.test/activity-claims/claim_2?tab=summary',
-            },
-            'details': 'route_object',
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('securityEvent', {
-          'event': 'recordingStopped',
-          'notification': {
-            'userInfo': {
-              'eventName': 'screenCaptured',
-              'params': {
-                'screenUrl': 'https://shop.example.test/tickets?tab=current',
-              },
-              'details': 'ios_user_info',
-            },
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'arguments': convert.jsonEncode({
-            'eventAction': 'screenSecurityExit',
-            'activeScreen':
-                'https://shop.example.test/activity-claims/claim_5?tab=detail',
-            'reasonText': 'android_arguments',
-          }),
-        }),
-      ),
-      (_) {},
-    );
-    await tester.pump();
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('securityEvent', {
+                'route': '/public-route',
+                'payload': {
+                  'eventName': 'screenCaptureDetected',
+                  'url':
+                      'customer://screen-security?route=%2Fmy-wallet%3Ftab%3Dsummary',
+                  'reasonCode': 'nested_capture',
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('securityEvent', {
+                'screen_security_event': {
+                  'event_type': 'securityExitRequested',
+                  'location':
+                      'https://shop.example.test/security?screen=%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
+                  'policyName': 'ios_exit_app',
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('securityEvent', {
+                'path': '/public-route',
+                'eventPayload': {
+                  'event': 'screenCaptureStarted',
+                  'route': {
+                    'currentUrl':
+                        'https://shop.example.test/activity-claims/claim_2?tab=summary',
+                  },
+                  'details': 'route_object',
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('securityEvent', {
+                'event': 'recordingStopped',
+                'notification': {
+                  'userInfo': {
+                    'eventName': 'screenCaptured',
+                    'params': {
+                      'screenUrl':
+                          'https://shop.example.test/tickets?tab=current',
+                    },
+                    'details': 'ios_user_info',
+                  },
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'arguments': convert.jsonEncode({
+                  'eventAction': 'screenSecurityExit',
+                  'activeScreen':
+                      'https://shop.example.test/activity-claims/claim_5?tab=detail',
+                  'reasonText': 'android_arguments',
+                }),
+              }),
+            ),
+            (_) {},
+          );
+      await tester.pump();
 
-    expect(events, hasLength(5));
-    expect(events.first.event, 'screen_capture_active');
-    expect(events.first.route, '/my-wallet');
-    expect(events.first.reason, 'nested_capture');
-    expect(events[1].event, 'screen_security_exit_requested');
-    expect(events[1].route, '/checkout/pending');
-    expect(events[1].reason, 'ios_exit_app');
-    expect(events[2].event, 'screen_capture_active');
-    expect(events[2].route, '/activity-claims/claim_2');
-    expect(events[2].reason, 'route_object');
-    expect(events[3].event, 'screen_capture_active');
-    expect(events[3].route, '/tickets');
-    expect(events[3].reason, 'ios_user_info');
-    expect(events.last.event, 'screen_security_exit_requested');
-    expect(events.last.route, '/activity-claims/claim_5');
-    expect(events.last.reason, 'android_arguments');
-  });
-
-  testWidgets(
-      'ScreenSecurityService normalizes JSON-string native event payloads and route aliases',
-      (tester) async {
-    final service = ScreenSecurityService();
-    final events = <ScreenSecurityEvent>[];
-    final subscription = service.events.listen(events.add);
-    addTearDown(subscription.cancel);
-
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'route': '/public-route',
-          'data': convert.jsonEncode({
-            'eventAction': 'screenCaptureDetected',
-            'routePath': convert.jsonEncode({
-              'activeUrl': 'https://shop.example.test/my-wallet?tab=summary',
-            }),
-            'reasonText': 'json_string_payload',
-          }),
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventBody': convert.jsonEncode({
-            'nativeEvent': 'securityExitRequested',
-            'urlString':
-                'customer://screen-security?activeUrl=https%3A%2F%2Fshop.example.test%2Freward-claims%2Fclaim_9%3Ftab%3Dreceipt',
-            'reason_text': 'exit_alias',
-          }),
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventPayload': {
-            'eventName': 'screenCaptureDetected',
-            'targetUrl':
-                'https://shop.example.test/purchase-history/ord_2?tab=receipt',
-            'reasonText': 'target_url_alias',
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'payload': {
-            'event': 'screenCaptureStarted',
-            'route': {
-              'routerPath': '/tickets/ticket_7?tab=image',
-            },
-            'details': 'router_path_alias',
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await tester.pump();
-
-    expect(events, hasLength(4));
-    expect(events.first.event, 'screen_capture_active');
-    expect(events.first.route, '/my-wallet');
-    expect(events.first.reason, 'json_string_payload');
-    expect(events[1].event, 'screen_security_exit_requested');
-    expect(events[1].route, '/reward-claims/claim_9');
-    expect(events[1].reason, 'exit_alias');
-    expect(events[2].event, 'screen_capture_active');
-    expect(events[2].route, '/purchase-history/ord_2');
-    expect(events[2].reason, 'target_url_alias');
-    expect(events.last.event, 'screen_capture_active');
-    expect(events.last.route, '/tickets/ticket_7');
-    expect(events.last.reason, 'router_path_alias');
-  });
+      expect(events, hasLength(5));
+      expect(events.first.event, 'screen_capture_active');
+      expect(events.first.route, '/my-wallet');
+      expect(events.first.reason, 'nested_capture');
+      expect(events[1].event, 'screen_security_exit_requested');
+      expect(events[1].route, '/checkout/pending');
+      expect(events[1].reason, 'ios_exit_app');
+      expect(events[2].event, 'screen_capture_active');
+      expect(events[2].route, '/activity-claims/claim_2');
+      expect(events[2].reason, 'route_object');
+      expect(events[3].event, 'screen_capture_active');
+      expect(events[3].route, '/tickets');
+      expect(events[3].reason, 'ios_user_info');
+      expect(events.last.event, 'screen_security_exit_requested');
+      expect(events.last.route, '/activity-claims/claim_5');
+      expect(events.last.reason, 'android_arguments');
+    },
+  );
 
   testWidgets(
-      'ScreenSecurityService normalizes capture-state events and bridge route aliases',
-      (tester) async {
-    final service = ScreenSecurityService();
-    final events = <ScreenSecurityEvent>[];
-    final subscription = service.events.listen(events.add);
-    addTearDown(subscription.cancel);
+    'ScreenSecurityService normalizes JSON-string native event payloads and route aliases',
+    (tester) async {
+      final service = ScreenSecurityService();
+      final events = <ScreenSecurityEvent>[];
+      final subscription = service.events.listen(events.add);
+      addTearDown(subscription.cancel);
 
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventKey': 'screenCaptureChanged',
-          'isCaptured': false,
-          'fullPath': '/my-wallet?tab=summary',
-          'trigger': 'native_state_changed',
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventCode': 'screenCaptureChanged',
-          'captureActive': true,
-          'hash': '#/checkout/pending?order_id=ord_1',
-          'source': 'android_capture_state',
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'securityEventName': 'screenRecordingChanged',
-          'screenRecordingActive': true,
-          'query':
-              'returnUrl=https%3A%2F%2Fshop.example.test%2Freward-claims%2Fclaim_12%3Ftab%3Dreceipt',
-          'triggerName': 'browser_visibility',
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'screenSecurityEventName': 'captureInactive',
-          'redirectUrl':
-              'customer://screen-security?route=/activity-claims/claim_7',
-          'sourceName': 'ios_capture_state',
-        }),
-      ),
-      (_) {},
-    );
-    await tester.pump();
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'route': '/public-route',
+                'data': convert.jsonEncode({
+                  'eventAction': 'screenCaptureDetected',
+                  'routePath': convert.jsonEncode({
+                    'activeUrl':
+                        'https://shop.example.test/my-wallet?tab=summary',
+                  }),
+                  'reasonText': 'json_string_payload',
+                }),
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventBody': convert.jsonEncode({
+                  'nativeEvent': 'securityExitRequested',
+                  'urlString':
+                      'customer://screen-security?activeUrl=https%3A%2F%2Fshop.example.test%2Freward-claims%2Fclaim_9%3Ftab%3Dreceipt',
+                  'reason_text': 'exit_alias',
+                }),
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventPayload': {
+                  'eventName': 'screenCaptureDetected',
+                  'targetUrl':
+                      'https://shop.example.test/purchase-history/ord_2?tab=receipt',
+                  'reasonText': 'target_url_alias',
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'payload': {
+                  'event': 'screenCaptureStarted',
+                  'route': {'routerPath': '/tickets/ticket_7?tab=image'},
+                  'details': 'router_path_alias',
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await tester.pump();
 
-    expect(events, hasLength(4));
-    expect(events.first.event, 'screen_capture_ended');
-    expect(events.first.route, '/my-wallet');
-    expect(events.first.reason, 'native_state_changed');
-    expect(events[1].event, 'screen_capture_active');
-    expect(events[1].route, '/checkout/pending');
-    expect(events[1].reason, 'android_capture_state');
-    expect(events[2].event, 'screen_capture_active');
-    expect(events[2].route, '/reward-claims/claim_12');
-    expect(events[2].reason, 'browser_visibility');
-    expect(events.last.event, 'screen_capture_ended');
-    expect(events.last.route, '/activity-claims/claim_7');
-    expect(events.last.reason, 'ios_capture_state');
-  });
-
-  testWidgets(
-      'ScreenSecurityService merges grouped native route event and capture wrappers',
-      (tester) async {
-    final service = ScreenSecurityService();
-    final events = <ScreenSecurityEvent>[];
-    final subscription = service.events.listen(events.add);
-    addTearDown(subscription.cancel);
-
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'event': 'screenCaptureDetected',
-          'route': '/public-route',
-          'routeInfo': {
-            'navigationUrl': {
-              'rawValue':
-                  'customer://screen-security?viewUrl=https%3A%2F%2Fshop.example.test%2Fmy-wallet%3Ftab%3Dsummary',
-            },
-          },
-          'screenInfo': {
-            'state': {'label': 'screenCaptureChanged'},
-          },
-          'captureStateInfo': {
-            'screenCaptureStatus': {'text': 'running'},
-          },
-          'recordingInfo': {
-            'sourceName': {'text': 'grouped_capture_state'},
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventBody': {
-            'kind': {'text': 'mediaProjectionChanged'},
-            'navigation': {
-              'currentViewUrl':
-                  'https://shop.example.test/activity-claims/claim_3?tab=receipt',
-            },
-            'projectionStateInfo': {
-              'mediaProjectionStatus': {'rawValue': 'stopped'},
-            },
-            'captureInfo': {
-              'message': {'label': 'grouped_projection_state'},
-            },
-          },
-        }),
-      ),
-      (_) {},
-    );
-    await tester.pump();
-
-    expect(events, hasLength(2));
-    expect(events.first.event, 'screen_capture_active');
-    expect(events.first.route, '/my-wallet');
-    expect(events.first.reason, 'grouped_capture_state');
-    expect(events.last.event, 'screen_capture_ended');
-    expect(events.last.route, '/activity-claims/claim_3');
-    expect(events.last.reason, 'grouped_projection_state');
-  });
+      expect(events, hasLength(4));
+      expect(events.first.event, 'screen_capture_active');
+      expect(events.first.route, '/my-wallet');
+      expect(events.first.reason, 'json_string_payload');
+      expect(events[1].event, 'screen_security_exit_requested');
+      expect(events[1].route, '/reward-claims/claim_9');
+      expect(events[1].reason, 'exit_alias');
+      expect(events[2].event, 'screen_capture_active');
+      expect(events[2].route, '/purchase-history/ord_2');
+      expect(events[2].reason, 'target_url_alias');
+      expect(events.last.event, 'screen_capture_active');
+      expect(events.last.route, '/tickets/ticket_7');
+      expect(events.last.reason, 'router_path_alias');
+    },
+  );
 
   testWidgets(
-      'ScreenSecurityService normalizes iOS notification and Android projection aliases',
-      (tester) async {
-    final service = ScreenSecurityService();
-    final events = <ScreenSecurityEvent>[];
-    final subscription = service.events.listen(events.add);
-    addTearDown(subscription.cancel);
+    'ScreenSecurityService normalizes capture-state events and bridge route aliases',
+    (tester) async {
+      final service = ScreenSecurityService();
+      final events = <ScreenSecurityEvent>[];
+      final subscription = service.events.listen(events.add);
+      addTearDown(subscription.cancel);
 
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'name': 'UIScreenCapturedDidChangeNotification',
-          'isCaptured': false,
-          'route': '/my-wallet?tab=summary',
-          'reason': 'ios_capture_notification',
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventName': 'UIScreen.capturedDidChangeNotification',
-          'screenCaptureState': 'capturing',
-          'currentUrl':
-              'https://shop.example.test/checkout/pending?order_id=ord_9',
-          'reasonText': 'ios_capture_swift_notification',
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'nativeEvent': 'UIApplicationUserDidTakeScreenshotNotification',
-          'currentUrl': 'https://shop.example.test/tickets?tab=current',
-          'reasonText': 'ios_screenshot_notification',
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventAction': 'mediaProjectionStopped',
-          'path': '/reward-claims/claim_1?tab=receipt',
-          'sourceName': 'android_media_projection',
-        }),
-      ),
-      (_) {},
-    );
-    await tester.pump();
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventKey': 'screenCaptureChanged',
+                'isCaptured': false,
+                'fullPath': '/my-wallet?tab=summary',
+                'trigger': 'native_state_changed',
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventCode': 'screenCaptureChanged',
+                'captureActive': true,
+                'hash': '#/checkout/pending?order_id=ord_1',
+                'source': 'android_capture_state',
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'securityEventName': 'screenRecordingChanged',
+                'screenRecordingActive': true,
+                'query':
+                    'returnUrl=https%3A%2F%2Fshop.example.test%2Freward-claims%2Fclaim_12%3Ftab%3Dreceipt',
+                'triggerName': 'browser_visibility',
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'screenSecurityEventName': 'captureInactive',
+                'redirectUrl':
+                    'customer://screen-security?route=/activity-claims/claim_7',
+                'sourceName': 'ios_capture_state',
+              }),
+            ),
+            (_) {},
+          );
+      await tester.pump();
 
-    expect(events, hasLength(4));
-    expect(events.first.event, 'screen_capture_ended');
-    expect(events.first.route, '/my-wallet');
-    expect(events.first.reason, 'ios_capture_notification');
-    expect(events[1].event, 'screen_capture_active');
-    expect(events[1].route, '/checkout/pending');
-    expect(events[1].reason, 'ios_capture_swift_notification');
-    expect(events[2].event, 'screenshot_detected');
-    expect(events[2].route, '/tickets');
-    expect(events[2].reason, 'ios_screenshot_notification');
-    expect(events.last.event, 'screen_capture_ended');
-    expect(events.last.route, '/reward-claims/claim_1');
-    expect(events.last.reason, 'android_media_projection');
-  });
+      expect(events, hasLength(4));
+      expect(events.first.event, 'screen_capture_ended');
+      expect(events.first.route, '/my-wallet');
+      expect(events.first.reason, 'native_state_changed');
+      expect(events[1].event, 'screen_capture_active');
+      expect(events[1].route, '/checkout/pending');
+      expect(events[1].reason, 'android_capture_state');
+      expect(events[2].event, 'screen_capture_active');
+      expect(events[2].route, '/reward-claims/claim_12');
+      expect(events[2].reason, 'browser_visibility');
+      expect(events.last.event, 'screen_capture_ended');
+      expect(events.last.route, '/activity-claims/claim_7');
+      expect(events.last.reason, 'ios_capture_state');
+    },
+  );
 
   testWidgets(
-      'ScreenSecurityService unwraps object scalar native event payloads',
-      (tester) async {
+    'ScreenSecurityService merges grouped native route event and capture wrappers',
+    (tester) async {
+      final service = ScreenSecurityService();
+      final events = <ScreenSecurityEvent>[];
+      final subscription = service.events.listen(events.add);
+      addTearDown(subscription.cancel);
+
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'event': 'screenCaptureDetected',
+                'route': '/public-route',
+                'routeInfo': {
+                  'navigationUrl': {
+                    'rawValue':
+                        'customer://screen-security?viewUrl=https%3A%2F%2Fshop.example.test%2Fmy-wallet%3Ftab%3Dsummary',
+                  },
+                },
+                'screenInfo': {
+                  'state': {'label': 'screenCaptureChanged'},
+                },
+                'captureStateInfo': {
+                  'screenCaptureStatus': {'text': 'running'},
+                },
+                'recordingInfo': {
+                  'sourceName': {'text': 'grouped_capture_state'},
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventBody': {
+                  'kind': {'text': 'mediaProjectionChanged'},
+                  'navigation': {
+                    'currentViewUrl':
+                        'https://shop.example.test/activity-claims/claim_3?tab=receipt',
+                  },
+                  'projectionStateInfo': {
+                    'mediaProjectionStatus': {'rawValue': 'stopped'},
+                  },
+                  'captureInfo': {
+                    'message': {'label': 'grouped_projection_state'},
+                  },
+                },
+              }),
+            ),
+            (_) {},
+          );
+      await tester.pump();
+
+      expect(events, hasLength(2));
+      expect(events.first.event, 'screen_capture_active');
+      expect(events.first.route, '/my-wallet');
+      expect(events.first.reason, 'grouped_capture_state');
+      expect(events.last.event, 'screen_capture_ended');
+      expect(events.last.route, '/activity-claims/claim_3');
+      expect(events.last.reason, 'grouped_projection_state');
+    },
+  );
+
+  testWidgets(
+    'ScreenSecurityService normalizes iOS notification and Android projection aliases',
+    (tester) async {
+      final service = ScreenSecurityService();
+      final events = <ScreenSecurityEvent>[];
+      final subscription = service.events.listen(events.add);
+      addTearDown(subscription.cancel);
+
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'name': 'UIScreenCapturedDidChangeNotification',
+                'isCaptured': false,
+                'route': '/my-wallet?tab=summary',
+                'reason': 'ios_capture_notification',
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventName': 'UIScreen.capturedDidChangeNotification',
+                'screenCaptureState': 'capturing',
+                'currentUrl':
+                    'https://shop.example.test/checkout/pending?order_id=ord_9',
+                'reasonText': 'ios_capture_swift_notification',
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'nativeEvent': 'UIApplicationUserDidTakeScreenshotNotification',
+                'currentUrl': 'https://shop.example.test/tickets?tab=current',
+                'reasonText': 'ios_screenshot_notification',
+              }),
+            ),
+            (_) {},
+          );
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'customer_flutter/screen_security',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('securityEvent', {
+                'eventAction': 'mediaProjectionStopped',
+                'path': '/reward-claims/claim_1?tab=receipt',
+                'sourceName': 'android_media_projection',
+              }),
+            ),
+            (_) {},
+          );
+      await tester.pump();
+
+      expect(events, hasLength(4));
+      expect(events.first.event, 'screen_capture_ended');
+      expect(events.first.route, '/my-wallet');
+      expect(events.first.reason, 'ios_capture_notification');
+      expect(events[1].event, 'screen_capture_active');
+      expect(events[1].route, '/checkout/pending');
+      expect(events[1].reason, 'ios_capture_swift_notification');
+      expect(events[2].event, 'screenshot_detected');
+      expect(events[2].route, '/tickets');
+      expect(events[2].reason, 'ios_screenshot_notification');
+      expect(events.last.event, 'screen_capture_ended');
+      expect(events.last.route, '/reward-claims/claim_1');
+      expect(events.last.reason, 'android_media_projection');
+    },
+  );
+
+  testWidgets('ScreenSecurityService unwraps object scalar native event payloads', (
+    tester,
+  ) async {
     final service = ScreenSecurityService();
     final events = <ScreenSecurityEvent>[];
     final subscription = service.events.listen(events.add);
@@ -657,55 +665,55 @@ void main() {
 
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'event': {'value': 'screenCaptureChanged'},
-          'screenCaptureActive': {'value': 'off'},
-          'route': {
-            'value':
-                'customer://screen-security?route=%2Fmy-wallet%3Ftab%3Dsummary',
-          },
-          'reason': {'code': 'object_capture_state'},
-        }),
-      ),
-      (_) {},
-    );
-    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'payload': convert.jsonEncode({
-            'eventAction': {'value': 'securityExitRequested'},
-            'route': {
-              'currentUrl': {
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            MethodCall('securityEvent', {
+              'event': {'value': 'screenCaptureChanged'},
+              'screenCaptureActive': {'value': 'off'},
+              'route': {
                 'value':
-                    'https://shop.example.test/checkout/pending?order_id=ord_4',
+                    'customer://screen-security?route=%2Fmy-wallet%3Ftab%3Dsummary',
               },
-            },
-            'reasonText': {'value': 'object_json_wrapper'},
-          }),
-        }),
-      ),
-      (_) {},
-    );
+              'reason': {'code': 'object_capture_state'},
+            }),
+          ),
+          (_) {},
+        );
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
-      'customer_flutter/screen_security',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('securityEvent', {
-          'eventPayload': {
-            'nativeEvent': {'key': 'screenCaptured'},
-            'targetRoute': {
-              'path': {'value': '/tickets/ticket_8?tab=image'},
-            },
-            'details': {'value': 'object_route_map'},
-          },
-        }),
-      ),
-      (_) {},
-    );
+          'customer_flutter/screen_security',
+          StandardMethodCodec().encodeMethodCall(
+            MethodCall('securityEvent', {
+              'payload': convert.jsonEncode({
+                'eventAction': {'value': 'securityExitRequested'},
+                'route': {
+                  'currentUrl': {
+                    'value':
+                        'https://shop.example.test/checkout/pending?order_id=ord_4',
+                  },
+                },
+                'reasonText': {'value': 'object_json_wrapper'},
+              }),
+            }),
+          ),
+          (_) {},
+        );
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          'customer_flutter/screen_security',
+          const StandardMethodCodec().encodeMethodCall(
+            MethodCall('securityEvent', {
+              'eventPayload': {
+                'nativeEvent': {'key': 'screenCaptured'},
+                'targetRoute': {
+                  'path': {'value': '/tickets/ticket_8?tab=image'},
+                },
+                'details': {'value': 'object_route_map'},
+              },
+            }),
+          ),
+          (_) {},
+        );
     await tester.pump();
 
     expect(events, hasLength(3));
@@ -766,9 +774,7 @@ void main() {
       '/my-wallet',
     );
     expect(
-      normalizeScreenSecurityRoute(
-        '#%2Fcheckout%2Fpending%3Forder_id%3Dord_2',
-      ),
+      normalizeScreenSecurityRoute('#%2Fcheckout%2Fpending%3Forder_id%3Dord_2'),
       '/checkout/pending',
     );
     expect(
@@ -827,8 +833,9 @@ void main() {
     );
   });
 
-  testWidgets('SensitiveScreenGuard matches native full URL route events',
-      (tester) async {
+  testWidgets('SensitiveScreenGuard matches native full URL route events', (
+    tester,
+  ) async {
     final authController = _testAuthController()..pinRequired = false;
     final screenSecurity = _FakeScreenSecurityService();
     final audit = _FakeScreenSecurityAuditService();
@@ -887,167 +894,167 @@ void main() {
   });
 
   testWidgets(
-      'SensitiveScreenGuard serializes route protection after native failure',
-      (tester) async {
-    final screenSecurity = _SequencedScreenSecurityService();
-    var route = '/tickets';
-    late StateSetter setRouteState;
+    'SensitiveScreenGuard serializes route protection after native failure',
+    (tester) async {
+      final screenSecurity = _SequencedScreenSecurityService();
+      var route = '/tickets';
+      late StateSetter setRouteState;
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          screenSecurityServiceProvider.overrideWithValue(screenSecurity),
-        ],
-        child: MaterialApp(
-          locale: const Locale('en', 'US'),
-          supportedLocales: const [Locale('th', 'TH'), Locale('en', 'US')],
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            screenSecurityServiceProvider.overrideWithValue(screenSecurity),
           ],
-          home: StatefulBuilder(
-            builder: (context, setState) {
-              setRouteState = setState;
-              return SensitiveScreenGuard(
-                route: route,
-                child: const Text('Sensitive route'),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(screenSecurity.startedRoutes, ['/tickets']);
-
-    setRouteState(() => route = '/my-wallet');
-    await tester.pump();
-    expect(screenSecurity.startedRoutes, ['/tickets']);
-
-    screenSecurity.firstEnable.completeError(StateError('native unavailable'));
-    await tester.pump();
-
-    expect(screenSecurity.startedRoutes, ['/tickets', '/my-wallet']);
-    expect(screenSecurity.enabledRoute, '/my-wallet');
-  });
-
-  testWidgets(
-      'SensitiveScreenGuard matches parent and pattern native route events',
-      (tester) async {
-    final authController = _testAuthController()..pinRequired = false;
-    final screenSecurity = _FakeScreenSecurityService();
-    final audit = _FakeScreenSecurityAuditService();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authControllerProvider.overrideWith((_) => authController),
-          screenSecurityServiceProvider.overrideWithValue(screenSecurity),
-          screenSecurityAuditServiceProvider.overrideWithValue(audit),
-        ],
-        child: const MaterialApp(
-          locale: Locale('en', 'US'),
-          supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
-          localizationsDelegates: [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-          ],
-          home: SensitiveScreenGuard(
-            route: '/reward-claims/claim_1',
-            child: Text('Reward claim detail'),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    screenSecurity.emit(
-      const ScreenSecurityEvent(
-        event: 'screenshot_detected',
-        route: '/reward-claims/',
-      ),
-    );
-    await tester.pump();
-
-    expect(authController.pinRequired, isTrue);
-    expect(audit.recordedRoutes, ['/reward-claims']);
-
-    authController
-      ..pinRequired = false
-      ..isSecurityLocked = false;
-    screenSecurity.emit(
-      const ScreenSecurityEvent(
-        event: 'screen_capture_active',
-        route: '/reward-claims/:claimId',
-      ),
-    );
-    await tester.pump();
-
-    expect(authController.pinRequired, isTrue);
-    expect(audit.recordedRoutes, [
-      '/reward-claims',
-      '/reward-claims/:claimId',
-    ]);
-
-    authController
-      ..pinRequired = false
-      ..isSecurityLocked = false;
-    screenSecurity.emit(
-      const ScreenSecurityEvent(
-        event: 'screen_capture_active',
-        route: '/activity-claims',
-      ),
-    );
-    await tester.pump();
-
-    expect(authController.pinRequired, isFalse);
-    expect(audit.recordedRoutes, [
-      '/reward-claims',
-      '/reward-claims/:claimId',
-    ]);
-  });
-
-  testWidgets(
-      'CustomerApp enables native screen security only on sensitive routes',
-      (tester) async {
-    final router = GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Text('Root route'),
-        ),
-        GoRoute(
-          path: '/my-wallet',
-          builder: (context, state) => const Text('Wallet route'),
-        ),
-      ],
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(
-            const AppConfig(
-              apiBaseUrl: 'https://partner.example.com/api/v1',
-              defaultLocale: 'th-TH',
+          child: MaterialApp(
+            locale: const Locale('en', 'US'),
+            supportedLocales: const [Locale('th', 'TH'), Locale('en', 'US')],
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                setRouteState = setState;
+                return SensitiveScreenGuard(
+                  route: route,
+                  child: const Text('Sensitive route'),
+                );
+              },
             ),
           ),
-          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
-          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
-          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
-          publicVisitMonitorEnabledProvider.overrideWithValue(false),
-          customerPlatformKeyProvider.overrideWithValue('android'),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
+        ),
+      );
+      await tester.pump();
+
+      expect(screenSecurity.startedRoutes, ['/tickets']);
+
+      setRouteState(() => route = '/my-wallet');
+      await tester.pump();
+      expect(screenSecurity.startedRoutes, ['/tickets']);
+
+      screenSecurity.firstEnable.completeError(
+        StateError('native unavailable'),
+      );
+      await tester.pump();
+
+      expect(screenSecurity.startedRoutes, ['/tickets', '/my-wallet']);
+      expect(screenSecurity.enabledRoute, '/my-wallet');
+    },
+  );
+
+  testWidgets(
+    'SensitiveScreenGuard matches parent and pattern native route events',
+    (tester) async {
+      final authController = _testAuthController()..pinRequired = false;
+      final screenSecurity = _FakeScreenSecurityService();
+      final audit = _FakeScreenSecurityAuditService();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((_) => authController),
+            screenSecurityServiceProvider.overrideWithValue(screenSecurity),
+            screenSecurityAuditServiceProvider.overrideWithValue(audit),
+          ],
+          child: const MaterialApp(
+            locale: Locale('en', 'US'),
+            supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
+            localizationsDelegates: [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            home: SensitiveScreenGuard(
+              route: '/reward-claims/claim_1',
+              child: Text('Reward claim detail'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      screenSecurity.emit(
+        const ScreenSecurityEvent(
+          event: 'screenshot_detected',
+          route: '/reward-claims/',
+        ),
+      );
+      await tester.pump();
+
+      expect(authController.pinRequired, isTrue);
+      expect(audit.recordedRoutes, ['/reward-claims']);
+
+      authController
+        ..pinRequired = false
+        ..isSecurityLocked = false;
+      screenSecurity.emit(
+        const ScreenSecurityEvent(
+          event: 'screen_capture_active',
+          route: '/reward-claims/:claimId',
+        ),
+      );
+      await tester.pump();
+
+      expect(authController.pinRequired, isTrue);
+      expect(audit.recordedRoutes, [
+        '/reward-claims',
+        '/reward-claims/:claimId',
+      ]);
+
+      authController
+        ..pinRequired = false
+        ..isSecurityLocked = false;
+      screenSecurity.emit(
+        const ScreenSecurityEvent(
+          event: 'screen_capture_active',
+          route: '/activity-claims',
+        ),
+      );
+      await tester.pump();
+
+      expect(authController.pinRequired, isFalse);
+      expect(audit.recordedRoutes, [
+        '/reward-claims',
+        '/reward-claims/:claimId',
+      ]);
+    },
+  );
+
+  testWidgets(
+    'CustomerApp enables native screen security only on sensitive routes',
+    (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Text('Root route'),
+          ),
+          GoRoute(
+            path: '/my-wallet',
+            builder: (context, state) => const Text('Wallet route'),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              const AppConfig(
+                apiBaseUrl: 'https://partner.example.com/api/v1',
+                defaultLocale: 'th-TH',
+              ),
+            ),
+            authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+            newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+            resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+            publicVisitMonitorEnabledProvider.overrideWithValue(false),
+            customerPlatformKeyProvider.overrideWithValue('android'),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
                 'mobile': {
                   'screen_security': {
                     'android': {'flag_secure': true},
@@ -1055,58 +1062,59 @@ void main() {
                     'privacyOverlayDescription': 'Runtime privacy description',
                   },
                 },
-              },
+              }),
             ),
-          ),
-          appRouterProvider.overrideWithValue(router),
-        ],
-        child: const CustomerApp(),
-      ),
-    );
+            appRouterProvider.overrideWithValue(router),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
 
-    await tester.pump();
+      await tester.pump();
 
-    expect(find.byType(SensitiveScreenGuard), findsOneWidget);
-    expect(
-      tester
-          .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
-          .enabled,
-      isFalse,
-    );
-    expect(find.text('Root route'), findsOneWidget);
+      expect(find.byType(SensitiveScreenGuard), findsOneWidget);
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .enabled,
+        isFalse,
+      );
+      expect(find.text('Root route'), findsOneWidget);
 
-    router.go('/my-wallet');
-    await tester.pumpAndSettle();
+      router.go('/my-wallet');
+      await tester.pumpAndSettle();
 
-    expect(find.text('Wallet route'), findsOneWidget);
-    expect(
-      tester
-          .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
-          .enabled,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
-          .androidFlagSecure,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
-          .privacyOverlayTitle,
-      'Runtime privacy title',
-    );
-    expect(
-      tester
-          .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
-          .privacyOverlayDescription,
-      'Runtime privacy description',
-    );
-  });
+      expect(find.text('Wallet route'), findsOneWidget);
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .enabled,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .androidFlagSecure,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .privacyOverlayTitle,
+        'Runtime privacy title',
+      );
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .privacyOverlayDescription,
+        'Runtime privacy description',
+      );
+    },
+  );
 
-  testWidgets('SensitiveScreenGuard locks session on native capture events',
-      (tester) async {
+  testWidgets('SensitiveScreenGuard locks session on native capture events', (
+    tester,
+  ) async {
     final authController = _testAuthController()..pinRequired = false;
     final screenSecurity = _FakeScreenSecurityService();
     final audit = _FakeScreenSecurityAuditService();
@@ -1154,8 +1162,9 @@ void main() {
     expect(audit.recordedEvents.single.event, 'screenshot_detected');
   });
 
-  testWidgets('SensitiveScreenGuard can report overlay-only capture events',
-      (tester) async {
+  testWidgets('SensitiveScreenGuard can report overlay-only capture events', (
+    tester,
+  ) async {
     final authController = _testAuthController()..pinRequired = false;
     final screenSecurity = _FakeScreenSecurityService();
     final audit = _FakeScreenSecurityAuditService();
@@ -1216,29 +1225,25 @@ void main() {
   });
 
   testWidgets(
-      'CustomerApp disables native screen security and leaves public web routes uncovered',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(
-            const AppConfig(
-              apiBaseUrl: 'https://partner.example.com/api/v1',
-              defaultLocale: 'th-TH',
+    'CustomerApp disables native screen security and leaves public web routes uncovered',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              const AppConfig(
+                apiBaseUrl: 'https://partner.example.com/api/v1',
+                defaultLocale: 'th-TH',
+              ),
             ),
-          ),
-          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
-          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
-          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
-          publicVisitMonitorEnabledProvider.overrideWithValue(false),
-          customerPlatformKeyProvider.overrideWithValue('web'),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
+            authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+            newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+            resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+            publicVisitMonitorEnabledProvider.overrideWithValue(false),
+            customerPlatformKeyProvider.overrideWithValue('web'),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
                 'mobile': {
                   'screen_security': {
                     'android': {'flag_secure': true},
@@ -1246,36 +1251,36 @@ void main() {
                   },
                   'feature_flags': {'screen_security_native': true},
                 },
-              },
+              }),
             ),
-          ),
-          appRouterProvider.overrideWithValue(
-            GoRouter(
-              routes: [
-                GoRoute(
-                  path: '/',
-                  builder: (context, state) => const Text('Root route'),
-                ),
-              ],
+            appRouterProvider.overrideWithValue(
+              GoRouter(
+                routes: [
+                  GoRoute(
+                    path: '/',
+                    builder: (context, state) => const Text('Root route'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-        child: const CustomerApp(),
-      ),
-    );
+          ],
+          child: const CustomerApp(),
+        ),
+      );
 
-    await tester.pump();
+      await tester.pump();
 
-    final guard = tester.widget<SensitiveScreenGuard>(
-      find.byType(SensitiveScreenGuard),
-    );
-    expect(guard.enabled, isFalse);
-    final webGuard = tester.widget<WebPrivacyGuard>(
-      find.byType(WebPrivacyGuard),
-    );
-    expect(webGuard.enabled, isFalse);
-    expect(find.text('Root route'), findsOneWidget);
-  });
+      final guard = tester.widget<SensitiveScreenGuard>(
+        find.byType(SensitiveScreenGuard),
+      );
+      expect(guard.enabled, isFalse);
+      final webGuard = tester.widget<WebPrivacyGuard>(
+        find.byType(WebPrivacyGuard),
+      );
+      expect(webGuard.enabled, isFalse);
+      expect(find.text('Root route'), findsOneWidget);
+    },
+  );
 
   testWidgets('CustomerApp lifecycle lock only applies on sensitive routes', (
     tester,
@@ -1316,19 +1321,14 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('android'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'screen_security': {
-                    'android': {'flag_secure': true},
-                  },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'android': {'flag_secure': true},
                 },
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(router),
         ],
@@ -1383,14 +1383,9 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-              },
-            ),
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+            }),
           ),
           appRouterProvider.overrideWithValue(
             GoRouter(
@@ -1417,8 +1412,88 @@ void main() {
     expect(authController.pinRequired, isFalse);
   });
 
-  testWidgets('CustomerApp keeps web privacy guard disabled for now',
-      (tester) async {
+  testWidgets(
+    'CustomerApp does not lifecycle lock during a native biometric prompt',
+    (tester) async {
+      addTearDown(() {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+      });
+
+      final authController = _testAuthController()
+        ..isAuthenticated = true
+        ..pinRequired = false;
+      final promptCoordinator = BiometricPromptCoordinator();
+      final promptCompletion = Completer<void>();
+      final promptFuture = promptCoordinator.track(
+        () => promptCompletion.future,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              const AppConfig(
+                apiBaseUrl: 'https://partner.example.com/api/v1',
+                defaultLocale: 'th-TH',
+              ),
+            ),
+            authControllerProvider.overrideWith((_) => authController),
+            authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+            biometricPromptCoordinatorProvider.overrideWithValue(
+              promptCoordinator,
+            ),
+            newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+            resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+            publicVisitMonitorEnabledProvider.overrideWithValue(false),
+            customerPlatformKeyProvider.overrideWithValue('ios'),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+                'mobile': {
+                  'screen_security': {
+                    'ios': {'screen_capture_overlay': true},
+                  },
+                },
+              }),
+            ),
+            appRouterProvider.overrideWithValue(
+              GoRouter(
+                initialLocation: '/my-wallet',
+                routes: [
+                  GoRoute(
+                    path: '/my-wallet',
+                    builder: (context, state) => const Text('Wallet route'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.text('Wallet route'), findsOneWidget);
+      expect(promptCoordinator.isActive, isTrue);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(authController.pinRequired, isFalse);
+
+      promptCompletion.complete();
+      await promptFuture;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      expect(authController.pinRequired, isTrue);
+    },
+  );
+
+  testWidgets('CustomerApp keeps web privacy guard disabled for now', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1434,22 +1509,17 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'screen_security': {
-                    'web': {'watermark_enabled': true},
-                    'privacyOverlayTitle': 'Runtime web privacy',
-                    'privacyOverlayDescription':
-                        'Runtime web sensitive content is hidden.',
-                  },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'web': {'watermark_enabled': true},
+                  'privacyOverlayTitle': 'Runtime web privacy',
+                  'privacyOverlayDescription':
+                      'Runtime web sensitive content is hidden.',
                 },
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(
             GoRouter(
@@ -1487,8 +1557,9 @@ void main() {
     expect(find.text('Wallet route'), findsOneWidget);
   });
 
-  testWidgets('CustomerApp honors iOS overlay-only capture policy',
-      (tester) async {
+  testWidgets('CustomerApp honors iOS overlay-only capture policy', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1504,23 +1575,18 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('ios'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'screen_security': {
-                    'ios': {
-                      'screenshot_policy': 'overlay_only',
-                      'screen_capture_overlay': true,
-                      'exit_app': false,
-                    },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'ios': {
+                    'screenshot_policy': 'overlay_only',
+                    'screen_capture_overlay': true,
+                    'exit_app': false,
                   },
                 },
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(
             GoRouter(
@@ -1550,8 +1616,9 @@ void main() {
     expect(find.text('Wallet route'), findsOneWidget);
   });
 
-  testWidgets('CustomerApp ignores limited web privacy mode for now',
-      (tester) async {
+  testWidgets('CustomerApp ignores limited web privacy mode for now', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1567,22 +1634,17 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'screen_security': {
-                    'web': {
-                      'sensitive_screen_mode': 'limited',
-                      'watermark_enabled': false,
-                    },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'web': {
+                    'sensitive_screen_mode': 'limited',
+                    'watermark_enabled': false,
                   },
                 },
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(
             GoRouter(
@@ -1612,90 +1674,90 @@ void main() {
   });
 
   testWidgets(
-      'WebPrivacyGuard covers content while browser lifecycle is hidden',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('en', 'US'),
-        supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
-        localizationsDelegates: [
-          CustomerLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        home: WebPrivacyGuard(
-          enabled: true,
-          watermarkEnabled: false,
-          privacyOverlayTitle: 'Partner privacy mode',
-          privacyOverlayDescription: 'Partner sensitive content is hidden.',
-          child: Text('Sensitive wallet'),
+    'WebPrivacyGuard covers content while browser lifecycle is hidden',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          locale: Locale('en', 'US'),
+          supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
+          localizationsDelegates: [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: WebPrivacyGuard(
+            enabled: true,
+            watermarkEnabled: false,
+            privacyOverlayTitle: 'Partner privacy mode',
+            privacyOverlayDescription: 'Partner sensitive content is hidden.',
+            child: Text('Sensitive wallet'),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(find.text('Sensitive wallet'), findsOneWidget);
-    expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
+      expect(find.text('Sensitive wallet'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-    await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
 
-    expect(find.text('Sensitive wallet'), findsOneWidget);
-    expect(find.byIcon(Icons.visibility_off_rounded), findsOneWidget);
-    expect(find.text('Partner privacy mode'), findsOneWidget);
-    expect(find.text('Partner sensitive content is hidden.'), findsOneWidget);
+      expect(find.text('Sensitive wallet'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_rounded), findsOneWidget);
+      expect(find.text('Partner privacy mode'), findsOneWidget);
+      expect(find.text('Partner sensitive content is hidden.'), findsOneWidget);
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
 
-    expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
-  });
+      expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
+    },
+  );
 
-  testWidgets('WebPrivacyGuard watermark-only mode renders no watermark cover',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        locale: Locale('en', 'US'),
-        supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
-        localizationsDelegates: [
-          CustomerLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-        ],
-        home: WebPrivacyGuard(
-          enabled: true,
-          mode: 'watermark-only',
-          watermarkEnabled: false,
-          privacyOverlayTitle: 'Partner watermark',
-          privacyOverlayDescription: 'Lifecycle cover is disabled.',
-          child: Text('Sensitive wallet'),
+  testWidgets(
+    'WebPrivacyGuard watermark-only mode renders no watermark cover',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          locale: Locale('en', 'US'),
+          supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
+          localizationsDelegates: [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: WebPrivacyGuard(
+            enabled: true,
+            mode: 'watermark-only',
+            watermarkEnabled: false,
+            privacyOverlayTitle: 'Partner watermark',
+            privacyOverlayDescription: 'Lifecycle cover is disabled.',
+            child: Text('Sensitive wallet'),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(_privacyWatermarkFinder, findsNothing);
+      expect(_privacyWatermarkFinder, findsNothing);
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-    await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
 
-    expect(find.text('Sensitive wallet'), findsOneWidget);
-    expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
-    expect(find.text('Partner watermark'), findsNothing);
-    expect(_privacyWatermarkFinder, findsNothing);
+      expect(find.text('Sensitive wallet'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_rounded), findsNothing);
+      expect(find.text('Partner watermark'), findsNothing);
+      expect(_privacyWatermarkFinder, findsNothing);
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
-  });
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+    },
+  );
 
   test('web privacy browser activity covers pagehide, freeze, and print', () {
     expect(
-      webPrivacyBrowserShouldCover(
-        documentHidden: false,
-        windowFocused: true,
-      ),
+      webPrivacyBrowserShouldCover(documentHidden: false, windowFocused: true),
       isFalse,
     );
     expect(
@@ -1723,10 +1785,7 @@ void main() {
       isTrue,
     );
     expect(
-      webPrivacyBrowserShouldCover(
-        documentHidden: false,
-        windowFocused: false,
-      ),
+      webPrivacyBrowserShouldCover(documentHidden: false, windowFocused: false),
       isTrue,
     );
     expect(
@@ -1755,8 +1814,9 @@ void main() {
     );
   });
 
-  testWidgets('CustomerApp honors runtime sensitive route patterns',
-      (tester) async {
+  testWidgets('CustomerApp honors runtime sensitive route patterns', (
+    tester,
+  ) async {
     final router = GoRouter(
       initialLocation: '/tenant-claims/claim_123',
       routes: [
@@ -1790,23 +1850,18 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('android'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'screen_security': {
-                    'android': {'flag_secure': true},
-                    'sensitive_routes': [
-                      'https://partner.example.com/tenant-claims/:claimId?source=bo',
-                      'customer://screen-security?route=%2Fvip-secure%2F*%3Fsource%3Dbo',
-                    ],
-                  },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'android': {'flag_secure': true},
+                  'sensitive_routes': [
+                    'https://partner.example.com/tenant-claims/:claimId?source=bo',
+                    'customer://screen-security?route=%2Fvip-secure%2F*%3Fsource%3Dbo',
+                  ],
                 },
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(router),
         ],
@@ -1847,36 +1902,39 @@ void main() {
     );
   });
 
-  test('web privacy cover decision preserves raw state across mode switches',
-      () {
-    expect(
-      webPrivacyModeShouldShowCover(
-        'limited',
-        lifecycleShouldCover: true,
-        browserShouldCover: false,
-      ),
-      isTrue,
-    );
-    expect(
-      webPrivacyModeShouldShowCover(
-        'watermark-only',
-        lifecycleShouldCover: true,
-        browserShouldCover: false,
-      ),
-      isFalse,
-    );
-    expect(
-      webPrivacyModeShouldShowCover(
-        'strict',
-        lifecycleShouldCover: false,
-        browserShouldCover: true,
-      ),
-      isTrue,
-    );
-  });
+  test(
+    'web privacy cover decision preserves raw state across mode switches',
+    () {
+      expect(
+        webPrivacyModeShouldShowCover(
+          'limited',
+          lifecycleShouldCover: true,
+          browserShouldCover: false,
+        ),
+        isTrue,
+      );
+      expect(
+        webPrivacyModeShouldShowCover(
+          'watermark-only',
+          lifecycleShouldCover: true,
+          browserShouldCover: false,
+        ),
+        isFalse,
+      );
+      expect(
+        webPrivacyModeShouldShowCover(
+          'strict',
+          lifecycleShouldCover: false,
+          browserShouldCover: true,
+        ),
+        isTrue,
+      );
+    },
+  );
 
-  testWidgets('CustomerApp can disable web privacy guard by tenant policy',
-      (tester) async {
+  testWidgets('CustomerApp can disable web privacy guard by tenant policy', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1892,22 +1950,17 @@ void main() {
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'screen_security': {
-                    'web': {
-                      'sensitive_screen_mode': 'off',
-                      'watermark_enabled': false,
-                    },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'web': {
+                    'sensitive_screen_mode': 'off',
+                    'watermark_enabled': false,
                   },
                 },
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(
             GoRouter(
@@ -1933,8 +1986,9 @@ void main() {
     expect(find.text('Root route'), findsOneWidget);
   });
 
-  testWidgets('CustomerApp honors bootstrap screen security feature flag',
-      (tester) async {
+  testWidgets('CustomerApp honors bootstrap screen security feature flag', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1949,17 +2003,12 @@ void main() {
           resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'site': {
-                  'display_name': 'Test Shop',
-                  'locale': 'th-TH',
-                },
-                'mobile': {
-                  'feature_flags': {'screen_security_native': false},
-                },
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'feature_flags': {'screen_security_native': false},
               },
-            ),
+            }),
           ),
           appRouterProvider.overrideWithValue(
             GoRouter(
@@ -1985,64 +2034,63 @@ void main() {
     expect(find.text('Root route'), findsOneWidget);
   });
 
-  testWidgets('PinScreen hides biometric unlock when tenant policy disables it',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authControllerProvider.overrideWith((_) => _testAuthController()),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
+  testWidgets(
+    'PinScreen hides biometric unlock when tenant policy disables it',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((_) => _testAuthController()),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
                 'mobile': {
                   'feature_flags': {'native_biometric_unlock': false},
                 },
-              },
+              }),
             ),
-          ),
-        ],
-        child: const MaterialApp(
-          locale: Locale('en', 'US'),
-          supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
-          localizationsDelegates: [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
           ],
-          home: PinScreen(),
+          child: const MaterialApp(
+            locale: Locale('en', 'US'),
+            supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
+            localizationsDelegates: [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            home: PinScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Use Face ID / Biometric'), findsNothing);
-    expect(find.text('Forgot PIN?'), findsOneWidget);
-  });
+      expect(find.text('Use Face ID / Biometric'), findsNothing);
+      expect(find.text('Forgot PIN?'), findsOneWidget);
+    },
+  );
 
-  testWidgets('PinScreen hides native biometric unlock on web platform',
-      (tester) async {
+  testWidgets('PinScreen hides native biometric unlock on web platform', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authControllerProvider.overrideWith((_) => _testAuthController()),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'mobile': {
-                  'biometric': {
-                    'enabled': true,
-                    'platforms': {
-                      'ios': ['face_id'],
-                      'android': ['biometric_prompt'],
-                    },
+            (_) async => MobileBootstrap.fromJson({
+              'mobile': {
+                'biometric': {
+                  'enabled': true,
+                  'platforms': {
+                    'ios': ['face_id'],
+                    'android': ['biometric_prompt'],
                   },
-                  'feature_flags': {'native_biometric_unlock': true},
                 },
+                'feature_flags': {'native_biometric_unlock': true},
               },
-            ),
+            }),
           ),
         ],
         child: const MaterialApp(
@@ -2065,8 +2113,9 @@ void main() {
     expect(find.text('Forgot PIN?'), findsOneWidget);
   });
 
-  testWidgets('PinScreen switches to setup mode when customer has no PIN',
-      (tester) async {
+  testWidgets('PinScreen switches to setup mode when customer has no PIN', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -2074,20 +2123,18 @@ void main() {
             (_) => _testAuthController(pinSetupRequired: true),
           ),
           mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(
-              {
-                'mobile': {
-                  'biometric': {
-                    'enabled': true,
-                    'platforms': {
-                      'ios': ['face_id'],
-                      'android': ['biometric_prompt'],
-                    },
+            (_) async => MobileBootstrap.fromJson({
+              'mobile': {
+                'biometric': {
+                  'enabled': true,
+                  'platforms': {
+                    'ios': ['face_id'],
+                    'android': ['biometric_prompt'],
                   },
-                  'feature_flags': {'native_biometric_unlock': true},
                 },
+                'feature_flags': {'native_biometric_unlock': true},
               },
-            ),
+            }),
           ),
         ],
         child: const MaterialApp(
@@ -2111,8 +2158,9 @@ void main() {
     expect(find.text('Forgot PIN?'), findsNothing);
   });
 
-  testWidgets('AppShell leaves capture protection to the root guard',
-      (tester) async {
+  testWidgets('AppShell leaves capture protection to the root guard', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -2135,8 +2183,9 @@ void main() {
     expect(find.text('Secure content'), findsOneWidget);
   });
 
-  testWidgets('public AppShell pages are still renderable under root policy',
-      (tester) async {
+  testWidgets('public AppShell pages are still renderable under root policy', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -2161,17 +2210,17 @@ void main() {
 
 class _NoopNewsRepository extends NewsRepository {
   _NoopNewsRepository()
-      : super(
-          ApiClient(
-            const AppConfig(
-              apiBaseUrl: 'https://partner.example.com/api/v1',
-              defaultLocale: 'th-TH',
-            ),
-            AuthTokenStore(),
-            localeTag: 'th-TH',
+    : super(
+        ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            defaultLocale: 'th-TH',
           ),
-          (value) => value,
-        );
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        ),
+        (value) => value,
+      );
 
   @override
   Future<NewsItem?> modal() async => null;
@@ -2192,16 +2241,16 @@ class _NoopNewsRepository extends NewsRepository {
 
 class _NoopResultRepository extends ResultRepository {
   _NoopResultRepository()
-      : super(
-          ApiClient(
-            const AppConfig(
-              apiBaseUrl: 'https://partner.example.com/api/v1',
-              defaultLocale: 'th-TH',
-            ),
-            AuthTokenStore(),
-            localeTag: 'th-TH',
+    : super(
+        ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            defaultLocale: 'th-TH',
           ),
-        );
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        ),
+      );
 
   @override
   Future<CurrentGame?> currentGame() async => null;
@@ -2238,10 +2287,10 @@ AuthController _testAuthController({bool pinSetupRequired = false}) {
   );
 
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..pinRequired = true
     ..pinSetupRequired = pinSetupRequired;
 }

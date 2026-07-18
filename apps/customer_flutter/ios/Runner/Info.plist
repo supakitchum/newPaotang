@@ -40,7 +40,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
-	<string>ใช้ Face ID เพื่อยืนยันตัวตนแทน PIN 6 หลักในรายการที่ต้องการความปลอดภัย</string>
+	<string>Use Face ID to confirm your identity instead of a 6-digit PIN for protected actions.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ใช้เพื่อเลือกรูปสลิปชำระเงินสำหรับส่งให้ร้านค้าตรวจสอบรายการเติมเงิน</string>
 	<key>UIApplicationSceneManifest</key>

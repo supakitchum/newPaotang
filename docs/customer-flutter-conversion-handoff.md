@@ -10235,3 +10235,40 @@ Native security runtime harness follow-up (2026-07-19):
   one-prompt Face ID sign/cancel/enrollment matrix remains pending because it
   requires Simulator biometric controls or a person responding on the attached
   physical iPhone. No screenshot automation or database/API mutation was used.
+
+Native Face ID lifecycle and cancellation follow-up (2026-07-19):
+
+- Added one shared biometric-prompt coordinator around Android `local_auth`
+  and native key signing. `CustomerApp` now ignores transient inactive/hidden
+  lifecycle signals only while that coordinator is active, preventing a Face
+  ID/Biometric system dialog from routing a protected action back to PIN while
+  it is still being confirmed. A real app switch outside the prompt continues
+  to lock sensitive routes. Production preflight and widget coverage enforce
+  both sides of this behavior.
+- iOS native signing now separates cancellation from key invalidation. User,
+  app, system, and fallback cancellation paths return
+  `biometric_cancelled` without deleting the Keychain key/device id;
+  `errSecItemNotFound` remains the enrollment-invalidated cleanup path. The
+  integration harness has an opt-in cross-platform cancellation case that also
+  verifies the registered local device survives cancellation.
+- Added English and Thai `NSFaceIDUsageDescription` localizations as a real
+  Xcode variant resource. Both localization files were found inside the built
+  Simulator and device `.app` bundles, and production preflight now rejects a
+  build that drops either file or its resource binding.
+- Verification passed: full Flutter analyzer, 277 focused biometric/security/
+  parsing/preflight tests, Android API 33 native biometric success/sign/clear,
+  Android native cancellation with key preservation, Android screen-security
+  bridge and runtime `FLAG_SECURE`, Android Release smoke APK, iOS Debug
+  Simulator build, iOS Release device compile without signing, and all-target
+  production preflight. Smoke partner identifiers were command-scoped and were
+  not written to source.
+- Android enrollment addition succeeded in Settings during the opt-in harness,
+  but the headless emulator returned `false` from `local_auth` after Settings
+  took foreground, so that attempt is recorded as harness timing failure and
+  not as product acceptance. Remaining sign-off is physical Android enrollment
+  change plus recents/screenshot/recording, and physical iPhone one-prompt Face
+  ID success/cancel/enrollment change plus screenshot, recording/mirroring, and
+  app switching. The active security goal remains open until those checks are
+  observed.
+- No runtime database, runtime API mutation, screenshot automation, commit,
+  push, or clear-worktree action was used in this follow-up.

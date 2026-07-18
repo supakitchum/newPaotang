@@ -9,8 +9,30 @@ import '../network/api_client.dart';
 import '../utils/api_payload.dart';
 
 final biometricAuthServiceProvider = Provider<BiometricAuthService>((ref) {
-  return BiometricAuthService(ref.watch(apiClientProvider));
+  return BiometricAuthService(
+    ref.watch(apiClientProvider),
+    promptCoordinator: ref.watch(biometricPromptCoordinatorProvider),
+  );
 });
+
+final biometricPromptCoordinatorProvider = Provider<BiometricPromptCoordinator>(
+  (_) => BiometricPromptCoordinator(),
+);
+
+class BiometricPromptCoordinator {
+  int _activeOperations = 0;
+
+  bool get isActive => _activeOperations > 0;
+
+  Future<T> track<T>(Future<T> Function() operation) async {
+    _activeOperations += 1;
+    try {
+      return await operation();
+    } finally {
+      _activeOperations -= 1;
+    }
+  }
+}
 
 class BiometricAuthService {
   BiometricAuthService(
@@ -18,17 +40,21 @@ class BiometricAuthService {
     LocalAuthentication? localAuth,
     MethodChannel? keyChannel,
     TargetPlatform? targetPlatform,
-  })  : _localAuth = localAuth ?? LocalAuthentication(),
-        _keyChannel = keyChannel ?? _defaultKeyChannel,
-        _targetPlatform = targetPlatform ?? defaultTargetPlatform;
+    BiometricPromptCoordinator? promptCoordinator,
+  }) : _localAuth = localAuth ?? LocalAuthentication(),
+       _keyChannel = keyChannel ?? _defaultKeyChannel,
+       _targetPlatform = targetPlatform ?? defaultTargetPlatform,
+       _promptCoordinator = promptCoordinator ?? BiometricPromptCoordinator();
 
-  static const _defaultKeyChannel =
-      MethodChannel('customer_flutter/biometric_keys');
+  static const _defaultKeyChannel = MethodChannel(
+    'customer_flutter/biometric_keys',
+  );
 
   final ApiClient _api;
   final LocalAuthentication _localAuth;
   final MethodChannel _keyChannel;
   final TargetPlatform _targetPlatform;
+  final BiometricPromptCoordinator _promptCoordinator;
 
   Future<bool> canUseBiometric() async {
     if (kIsWeb) return false;
@@ -62,10 +88,10 @@ class BiometricAuthService {
       throw StateError('Biometric authentication was cancelled or failed.');
     }
 
-    final key = await _keyChannel.invokeMethod<Object?>(
-      'createKeyPair',
-      {'platform': platform, 'deviceName': deviceName},
-    );
+    final key = await _keyChannel.invokeMethod<Object?>('createKeyPair', {
+      'platform': platform,
+      'deviceName': deviceName,
+    });
     final keyPayload = _biometricKeyPairPayload(key);
     final deviceId = _biometricDeviceIdFromPayload(keyPayload);
     final publicKeyPem = _biometricPublicKeyFromPayload(keyPayload);
@@ -125,8 +151,9 @@ class BiometricAuthService {
       data: {'device_id': deviceId, 'purpose': purpose},
     );
     if (challengeResponse == null) return null;
-    final challengePayload =
-        BiometricChallengePayload.fromResponse(challengeResponse);
+    final challengePayload = BiometricChallengePayload.fromResponse(
+      challengeResponse,
+    );
     if (!challengePayload.isComplete) return null;
 
     // The iOS Secure Enclave key is protected by biometryCurrentSet. Let the
@@ -164,10 +191,7 @@ class BiometricAuthService {
     required Map<String, dynamic> data,
   }) async {
     try {
-      final response = await _api.post<Map<String, dynamic>>(
-        path,
-        data: data,
-      );
+      final response = await _api.post<Map<String, dynamic>>(path, data: data);
       return response.data;
     } catch (_) {
       return null;
@@ -176,11 +200,13 @@ class BiometricAuthService {
 
   Future<bool> _authenticateWithBiometric(String localizedReason) async {
     try {
-      return _localAuth.authenticate(
-        localizedReason: localizedReason,
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
+      return _promptCoordinator.track(
+        () => _localAuth.authenticate(
+          localizedReason: localizedReason,
+          options: const AuthenticationOptions(
+            biometricOnly: true,
+            stickyAuth: true,
+          ),
         ),
       );
     } on PlatformException {
@@ -193,23 +219,20 @@ class BiometricAuthService {
       final value = await _keyChannel.invokeMethod<Object?>('existingDeviceId');
       final scalar = _firstScalarString([value]);
       if (scalar.isNotEmpty) return scalar;
-      final payload = _unwrapBiometricPayload(
-        value,
-        const [
-          'device',
-          'biometric_device',
-          'biometricDevice',
-          'native_device',
-          'nativeDevice',
-          'credential',
-          'biometric_credential',
-          'biometricCredential',
-          'key_pair',
-          'keyPair',
-          'native_key_pair',
-          'nativeKeyPair',
-        ],
-      );
+      final payload = _unwrapBiometricPayload(value, const [
+        'device',
+        'biometric_device',
+        'biometricDevice',
+        'native_device',
+        'nativeDevice',
+        'credential',
+        'biometric_credential',
+        'biometricCredential',
+        'key_pair',
+        'keyPair',
+        'native_key_pair',
+        'nativeKeyPair',
+      ]);
       final deviceId = _biometricDeviceIdFromPayload(payload);
       return deviceId.isEmpty ? null : deviceId;
     } on PlatformException {
@@ -224,15 +247,14 @@ class BiometricAuthService {
     Map<String, dynamic> metadata = const {},
   }) async {
     try {
-      final value = await _keyChannel.invokeMethod<Object?>(
-        'signChallenge',
-        {
+      final value = await _promptCoordinator.track(
+        () => _keyChannel.invokeMethod<Object?>('signChallenge', {
           ...metadata,
           'challenge': challenge,
           'purpose': purpose,
           'localizedReason': localizedReason,
           'localized_reason': localizedReason,
-        },
+        }),
       );
       if (value is String || value is num || value is bool) {
         final scalar = _firstScalarString([value]);
@@ -240,35 +262,32 @@ class BiometricAuthService {
           return _BiometricSignaturePayload(signature: scalar);
         }
       }
-      final payload = _unwrapBiometricPayload(
-        value,
-        const [
-          'signature',
-          'biometric_signature',
-          'biometricSignature',
-          'signature_payload',
-          'signaturePayload',
-          'native_signature',
-          'nativeSignature',
-          'signature_data',
-          'signatureData',
-          'assertion_signature',
-          'assertionSignature',
-          'signed_payload',
-          'signedPayload',
-          'response',
-          'authenticator_response',
-          'authenticatorResponse',
-          'credential_response',
-          'credentialResponse',
-          'assertion_response',
-          'assertionResponse',
-          'credential',
-          'biometric_credential',
-          'biometricCredential',
-          'proof',
-        ],
-      );
+      final payload = _unwrapBiometricPayload(value, const [
+        'signature',
+        'biometric_signature',
+        'biometricSignature',
+        'signature_payload',
+        'signaturePayload',
+        'native_signature',
+        'nativeSignature',
+        'signature_data',
+        'signatureData',
+        'assertion_signature',
+        'assertionSignature',
+        'signed_payload',
+        'signedPayload',
+        'response',
+        'authenticator_response',
+        'authenticatorResponse',
+        'credential_response',
+        'credentialResponse',
+        'assertion_response',
+        'assertionResponse',
+        'credential',
+        'biometric_credential',
+        'biometricCredential',
+        'proof',
+      ]);
       final signature = _firstString([
         payload['signature'],
         payload['signature_base64'],
@@ -327,9 +346,7 @@ class BiometricAuthService {
     }
   }
 
-  static bool _hasNativeKeyCompatibleBiometric(
-    List<BiometricType> biometrics,
-  ) {
+  static bool _hasNativeKeyCompatibleBiometric(List<BiometricType> biometrics) {
     if (biometrics.isEmpty) return false;
     return biometrics.any((type) => type != BiometricType.weak);
   }
@@ -348,27 +365,24 @@ class _BiometricSignaturePayload {
 }
 
 Map<String, dynamic> _biometricKeyPairPayload(Object? response) {
-  return _unwrapBiometricPayload(
-    response,
-    const [
-      'key_pair',
-      'keyPair',
-      'biometric_key',
-      'biometricKey',
-      'biometric_key_pair',
-      'biometricKeyPair',
-      'device',
-      'biometric_device',
-      'biometricDevice',
-      'native_key',
-      'nativeKey',
-      'native_key_pair',
-      'nativeKeyPair',
-      'credential',
-      'biometric_credential',
-      'biometricCredential',
-    ],
-  );
+  return _unwrapBiometricPayload(response, const [
+    'key_pair',
+    'keyPair',
+    'biometric_key',
+    'biometricKey',
+    'biometric_key_pair',
+    'biometricKeyPair',
+    'device',
+    'biometric_device',
+    'biometricDevice',
+    'native_key',
+    'nativeKey',
+    'native_key_pair',
+    'nativeKeyPair',
+    'credential',
+    'biometric_credential',
+    'biometricCredential',
+  ]);
 }
 
 String _biometricDeviceIdFromPayload(Map<String, dynamic> payload) {
@@ -451,16 +465,17 @@ String _biometricAlgorithmFromPayload(Map<String, dynamic> payload) {
     payload['cose_algorithm'],
     payload['coseAlgorithm'],
   ]);
-  final normalized =
-      algorithm.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9-]'), '');
+  final normalized = algorithm.trim().toUpperCase().replaceAll(
+    RegExp(r'[^A-Z0-9-]'),
+    '',
+  );
   return switch (normalized) {
     '' => 'ES256',
     'ES256' ||
     'ECDSA256' ||
     'ECDSAP256SHA256' ||
     'SHA256WITHECDSA' ||
-    '-7' =>
-      'ES256',
+    '-7' => 'ES256',
     'RS256' || 'RSA256' || 'SHA256WITHRSA' || '-257' => 'RS256',
     _ => 'ES256',
   };
@@ -644,31 +659,28 @@ class BiometricChallengePayload {
   });
 
   factory BiometricChallengePayload.fromResponse(Object? response) {
-    final payload = _unwrapBiometricPayload(
-      response,
-      const [
-        'challenge',
-        'biometric_challenge',
-        'biometricChallenge',
-        'auth_challenge',
-        'authChallenge',
-        'credential_challenge',
-        'credentialChallenge',
-        'public_key',
-        'publicKey',
-        'public_key_credential_request_options',
-        'publicKeyCredentialRequestOptions',
-        'request_options',
-        'requestOptions',
-        'options',
-        'biometric_credential',
-        'biometricCredential',
-        'verification',
-        'biometric_auth',
-        'biometricAuth',
-        'auth',
-      ],
-    );
+    final payload = _unwrapBiometricPayload(response, const [
+      'challenge',
+      'biometric_challenge',
+      'biometricChallenge',
+      'auth_challenge',
+      'authChallenge',
+      'credential_challenge',
+      'credentialChallenge',
+      'public_key',
+      'publicKey',
+      'public_key_credential_request_options',
+      'publicKeyCredentialRequestOptions',
+      'request_options',
+      'requestOptions',
+      'options',
+      'biometric_credential',
+      'biometricCredential',
+      'verification',
+      'biometric_auth',
+      'biometricAuth',
+      'auth',
+    ]);
     final challengeId = _firstString([
       payload['challenge_id'],
       payload['challengeId'],
@@ -890,37 +902,30 @@ Map<String, dynamic> _biometricChallengeMetadataFromPayload(
 }
 
 Object? _biometricAllowCredentialsFromPayload(Map<String, dynamic> payload) {
-  return _biometricCredentialsFromPayload(
-    payload,
-    const [
-      'allow_credentials',
-      'allowCredentials',
-      'allowed_credentials',
-      'allowedCredentials',
-      'credentials',
-      'credential_descriptors',
-      'credentialDescriptors',
-      'public_key_credentials',
-      'publicKeyCredentials',
-      'public_key_credential_descriptors',
-      'publicKeyCredentialDescriptors',
-    ],
-    fallbackToPayload: true,
-  );
+  return _biometricCredentialsFromPayload(payload, const [
+    'allow_credentials',
+    'allowCredentials',
+    'allowed_credentials',
+    'allowedCredentials',
+    'credentials',
+    'credential_descriptors',
+    'credentialDescriptors',
+    'public_key_credentials',
+    'publicKeyCredentials',
+    'public_key_credential_descriptors',
+    'publicKeyCredentialDescriptors',
+  ], fallbackToPayload: true);
 }
 
 Object? _biometricExcludeCredentialsFromPayload(Map<String, dynamic> payload) {
-  return _biometricCredentialsFromPayload(
-    payload,
-    const [
-      'exclude_credentials',
-      'excludeCredentials',
-      'excluded_credentials',
-      'excludedCredentials',
-      'exclude_credential_descriptors',
-      'excludeCredentialDescriptors',
-    ],
-  );
+  return _biometricCredentialsFromPayload(payload, const [
+    'exclude_credentials',
+    'excludeCredentials',
+    'excluded_credentials',
+    'excludedCredentials',
+    'exclude_credential_descriptors',
+    'excludeCredentialDescriptors',
+  ]);
 }
 
 Object? _biometricCredentialsFromPayload(
@@ -928,9 +933,7 @@ Object? _biometricCredentialsFromPayload(
   List<String> keys, {
   bool fallbackToPayload = false,
 }) {
-  for (final value in [
-    for (final key in keys) payload[key],
-  ]) {
+  for (final value in [for (final key in keys) payload[key]]) {
     final normalized = _biometricAllowCredentialsValue(value);
     if (normalized != null) return normalized;
   }
@@ -1116,25 +1119,22 @@ String _biometricCredentialDescriptorIdFromMap(Map<String, dynamic> map) {
 }
 
 String biometricPinAssertionTokenFromResponse(Object? response) {
-  final payload = _unwrapBiometricPayload(
-    response,
-    const [
-      'verification',
-      'biometric_verification',
-      'biometricVerification',
-      'pin_assertion',
-      'pinAssertion',
-      'assertion',
-      'auth_result',
-      'authResult',
-      'verify',
-      'verifyResult',
-      'verificationResult',
-      'credential',
-      'biometric_credential',
-      'biometricCredential',
-    ],
-  );
+  final payload = _unwrapBiometricPayload(response, const [
+    'verification',
+    'biometric_verification',
+    'biometricVerification',
+    'pin_assertion',
+    'pinAssertion',
+    'assertion',
+    'auth_result',
+    'authResult',
+    'verify',
+    'verifyResult',
+    'verificationResult',
+    'credential',
+    'biometric_credential',
+    'biometricCredential',
+  ]);
   return _firstString([
     payload['pin_assertion_token'],
     payload['pinAssertionToken'],
@@ -1180,13 +1180,7 @@ Map<String, dynamic> _unwrapBiometricMap(
 ]) {
   if (depth >= 6 || payload.isEmpty) return payload;
 
-  for (final key in [
-    ...wrapperKeys,
-    'resource',
-    'data',
-    'result',
-    'payload',
-  ]) {
+  for (final key in [...wrapperKeys, 'resource', 'data', 'result', 'payload']) {
     final nested = _asBiometricMap(payload[key]);
     if (nested.isEmpty) continue;
     final resolved = _unwrapBiometricMap(nested, wrapperKeys, depth + 1);

@@ -1123,7 +1123,7 @@ void _checkFlutterBiometricBinding(
   _requireAllSnippets(
     source,
     const [
-      "MethodChannel('customer_flutter/biometric_keys')",
+      "'customer_flutter/biometric_keys'",
       "'existingDeviceId'",
       "'deleteKeyPair'",
       "'signChallenge'",
@@ -1151,6 +1151,20 @@ void _checkFlutterBiometricBinding(
     ),
     issues,
   );
+  final app = File(_join(input.projectRoot, 'lib/app/customer_app.dart'));
+  final appSource = app.existsSync() ? app.readAsStringSync() : '';
+  if (!source.contains('BiometricPromptCoordinator') ||
+      !source.contains('_promptCoordinator.track(') ||
+      !appSource.contains('biometricPromptCoordinatorProvider') ||
+      !appSource.contains('.isActive')) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_biometric_lifecycle_coordination_missing',
+        message:
+            'Flutter must suppress sensitive-route lifecycle locking only while a native biometric prompt is active.',
+      ),
+    );
+  }
   _requireAllSnippets(
     source,
     const [
@@ -2634,10 +2648,7 @@ void _checkAndroidNativeSecurity(
   );
   final androidStyles = [
     File(
-      _join(
-        input.projectRoot,
-        'android/app/src/main/res/values/styles.xml',
-      ),
+      _join(input.projectRoot, 'android/app/src/main/res/values/styles.xml'),
     ),
     File(
       _join(
@@ -3073,6 +3084,31 @@ void _checkIosNativeSecurity(
     _checkIosImagePickerUsageDescriptions(input, plist, issues);
   }
 
+  final localizedFaceIdUsage = [
+    File(_join(input.projectRoot, 'ios/Runner/en.lproj/InfoPlist.strings')),
+    File(_join(input.projectRoot, 'ios/Runner/th.lproj/InfoPlist.strings')),
+  ];
+  final iosProject = File(
+    _join(input.projectRoot, 'ios/Runner.xcodeproj/project.pbxproj'),
+  );
+  final hasLocalizedFaceIdUsage =
+      localizedFaceIdUsage.every(
+        (file) =>
+            file.existsSync() &&
+            file.readAsStringSync().contains('NSFaceIDUsageDescription'),
+      ) &&
+      iosProject.existsSync() &&
+      iosProject.readAsStringSync().contains('InfoPlist.strings in Resources');
+  if (!hasLocalizedFaceIdUsage) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_face_id_localization_missing',
+        message:
+            'iOS must bundle English and Thai NSFaceIDUsageDescription localizations for native Face ID permission prompts.',
+      ),
+    );
+  }
+
   _checkIosEntitlements(input, issues);
   _checkIosXcconfig(input, issues);
   _checkIosPrivacyManifest(input, issues);
@@ -3227,6 +3263,10 @@ void _checkIosNativeSecurity(
       'shouldInvalidateBiometricKey',
       'errSecItemNotFound',
       'biometric_key_invalidated',
+      'isBiometricCancellation',
+      'errSecUserCanceled',
+      'LAError.Code.userCancel',
+      'biometric_cancelled',
       'Bundle.main.bundleIdentifier',
     ],
     const ProductionPreflightIssue(

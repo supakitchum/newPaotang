@@ -6037,4 +6037,10 @@ through the biometric-bound key operation; Android must use strong biometrics
 without device-credential fallback. Changing enrolled biometrics invalidates
 and clears the local assertion key but never logs the customer out; PIN remains
 the fallback. Web focus/watermark security remains disabled under the current
-owner direction and must not be reintroduced as part of native QA.
+owner direction and must not be reintroduced as part of native QA. The native
+biometric prompt itself must temporarily suppress lifecycle locking so Face ID
+or Android Biometric cannot route to PIN while its system dialog is still
+active; a real app switch before or after that prompt must continue to lock a
+sensitive route. Bundle English and Thai `NSFaceIDUsageDescription` values in
+the iOS app so the permission sheet is readable before Flutter/runtime copy is
+available. Cancelling a scan preserves the current local key and device id.

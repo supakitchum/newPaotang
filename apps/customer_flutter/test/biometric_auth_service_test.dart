@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
@@ -15,195 +17,200 @@ void main() {
     const channel = MethodChannel('test/biometric_keys/current_device');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_existing';
-      if (call.method == 'deviceId') {
-        fail('currentDeviceId must not create a native device id.');
-      }
-      return null;
-    });
+          calls.add(call);
+          if (call.method == 'existingDeviceId') return 'device_existing';
+          if (call.method == 'deviceId') {
+            fail('currentDeviceId must not create a native device id.');
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
     });
 
-    final service = BiometricAuthService(
-      _testApiClient(),
-      keyChannel: channel,
-    );
+    final service = BiometricAuthService(_testApiClient(), keyChannel: channel);
 
     expect(await service.currentDeviceId(), 'device_existing');
     expect(calls.map((call) => call.method), ['existingDeviceId']);
   });
 
-  test('biometric currentDeviceId accepts credential id wrapper aliases',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/current_credential');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') {
-        return {
-          'data': {
-            'device': {'credentialId': 'credential_existing'},
-          },
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric currentDeviceId accepts credential id wrapper aliases',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/current_credential');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') {
+              return {
+                'data': {
+                  'device': {'credentialId': 'credential_existing'},
+                },
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final service = BiometricAuthService(
-      _testApiClient(),
-      keyChannel: channel,
-    );
+      final service = BiometricAuthService(
+        _testApiClient(),
+        keyChannel: channel,
+      );
 
-    expect(await service.currentDeviceId(), 'credential_existing');
-    expect(calls.map((call) => call.method), ['existingDeviceId']);
-  });
+      expect(await service.currentDeviceId(), 'credential_existing');
+      expect(calls.map((call) => call.method), ['existingDeviceId']);
+    },
+  );
 
-  test('biometric currentDeviceId accepts JSON string wrapper payloads',
-      () async {
-    const channel = MethodChannel('test/biometric_keys/current_json_wrapper');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'existingDeviceId') {
-        return {
-          'payload': '{"device":{"credentialId":"credential_json"}}',
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric currentDeviceId accepts JSON string wrapper payloads',
+    () async {
+      const channel = MethodChannel('test/biometric_keys/current_json_wrapper');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'existingDeviceId') {
+              return {
+                'payload': '{"device":{"credentialId":"credential_json"}}',
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final service = BiometricAuthService(
-      _testApiClient(),
-      keyChannel: channel,
-    );
+      final service = BiometricAuthService(
+        _testApiClient(),
+        keyChannel: channel,
+      );
 
-    expect(await service.currentDeviceId(), 'credential_json');
-  });
+      expect(await service.currentDeviceId(), 'credential_json');
+    },
+  );
 
-  test('biometric clearLocalDeviceKey deletes only the current device key',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/clear_current');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'deleteKeyPair') return true;
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric clearLocalDeviceKey deletes only the current device key',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/clear_current');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'deleteKeyPair') return true;
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final service = BiometricAuthService(
-      _testApiClient(),
-      keyChannel: channel,
-    );
+      final service = BiometricAuthService(
+        _testApiClient(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.clearLocalDeviceKey(deviceId: 'device_remote'),
-      isFalse,
-    );
-    expect(calls.map((call) => call.method), ['existingDeviceId']);
+      expect(
+        await service.clearLocalDeviceKey(deviceId: 'device_remote'),
+        isFalse,
+      );
+      expect(calls.map((call) => call.method), ['existingDeviceId']);
 
-    calls.clear();
-    expect(
-      await service.clearLocalDeviceKey(deviceId: 'device_local'),
-      isTrue,
-    );
-    expect(calls.map((call) => call.method), [
-      'existingDeviceId',
-      'deleteKeyPair',
-    ]);
-    expect(calls.last.arguments, {'deviceId': 'device_local'});
-  });
+      calls.clear();
+      expect(
+        await service.clearLocalDeviceKey(deviceId: 'device_local'),
+        isTrue,
+      );
+      expect(calls.map((call) => call.method), [
+        'existingDeviceId',
+        'deleteKeyPair',
+      ]);
+      expect(calls.last.arguments, {'deviceId': 'device_local'});
+    },
+  );
 
-  test('biometric register cleans up native key when backend rejects device',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/register_cleanup');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      switch (call.method) {
-        case 'createKeyPair':
-          return {
-            'deviceId': 'device_local',
-            'publicKeyPem':
-                '-----BEGIN PUBLIC KEY-----\nkey\n-----END PUBLIC KEY-----',
-            'algorithm': 'ES256',
-          };
-        case 'existingDeviceId':
-          return 'device_local';
-        case 'deleteKeyPair':
-          return true;
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric register cleans up native key when backend rejects device',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/register_cleanup');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            switch (call.method) {
+              case 'createKeyPair':
+                return {
+                  'deviceId': 'device_local',
+                  'publicKeyPem':
+                      '-----BEGIN PUBLIC KEY-----\nkey\n-----END PUBLIC KEY-----',
+                  'algorithm': 'ES256',
+                };
+              case 'existingDeviceId':
+                return 'device_local';
+              case 'deleteKeyPair':
+                return true;
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _RejectingBiometricApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _RejectingBiometricApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    await expectLater(
-      service.registerDevice(
-        pin: '123456',
-        platform: 'ios',
-        localizedReason: 'Enable Face ID',
-        deviceName: 'iPhone',
-        appVersion: '1.2.3',
-      ),
-      throwsA(isA<DioException>()),
-    );
+      await expectLater(
+        service.registerDevice(
+          pin: '123456',
+          platform: 'ios',
+          localizedReason: 'Enable Face ID',
+          deviceName: 'iPhone',
+          appVersion: '1.2.3',
+        ),
+        throwsA(isA<DioException>()),
+      );
 
-    expect(api.posts, ['/customer/auth/biometric/devices']);
-    expect(calls.map((call) => call.method), [
-      'createKeyPair',
-      'existingDeviceId',
-      'deleteKeyPair',
-    ]);
-    expect(calls.last.arguments, {'deviceId': 'device_local'});
-  });
+      expect(api.posts, ['/customer/auth/biometric/devices']);
+      expect(calls.map((call) => call.method), [
+        'createKeyPair',
+        'existingDeviceId',
+        'deleteKeyPair',
+      ]);
+      expect(calls.last.arguments, {'deviceId': 'device_local'});
+    },
+  );
 
   test('biometric register accepts native key pair alias payloads', () async {
     final calls = <MethodCall>[];
     const channel = MethodChannel('test/biometric_keys/register_aliases');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'createKeyPair') {
-        return {
-          'data': {
-            'biometric_key_pair': {
-              'device_id': 'device_alias',
-              'public_key_pem':
-                  '-----BEGIN PUBLIC KEY-----\nalias\n-----END PUBLIC KEY-----',
-              'alg': 'ES256',
-            },
-          },
-        };
-      }
-      return null;
-    });
+          calls.add(call);
+          if (call.method == 'createKeyPair') {
+            return {
+              'data': {
+                'biometric_key_pair': {
+                  'device_id': 'device_alias',
+                  'public_key_pem':
+                      '-----BEGIN PUBLIC KEY-----\nalias\n-----END PUBLIC KEY-----',
+                  'alg': 'ES256',
+                },
+              },
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -242,20 +249,20 @@ void main() {
     const channel = MethodChannel('test/biometric_keys/register_credential');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        return {
-          'resource': {
-            'keyPair': {
-              'credentialId': 'credential_alias',
-              'publicKey':
-                  '-----BEGIN PUBLIC KEY-----\ncredential\n-----END PUBLIC KEY-----',
-              'signingAlgorithm': 'ES256',
-            },
-          },
-        };
-      }
-      return null;
-    });
+          if (call.method == 'createKeyPair') {
+            return {
+              'resource': {
+                'keyPair': {
+                  'credentialId': 'credential_alias',
+                  'publicKey':
+                      '-----BEGIN PUBLIC KEY-----\ncredential\n-----END PUBLIC KEY-----',
+                  'signingAlgorithm': 'ES256',
+                },
+              },
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -288,14 +295,14 @@ void main() {
     const channel = MethodChannel('test/biometric_keys/register_json_wrapper');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        return {
-          'data':
-              '{"keyPair":{"deviceId":"device_json","publicKeyPem":"-----BEGIN PUBLIC KEY-----\\njson\\n-----END PUBLIC KEY-----","algorithm":"ES256"}}',
-        };
-      }
-      return null;
-    });
+          if (call.method == 'createKeyPair') {
+            return {
+              'data':
+                  '{"keyPair":{"deviceId":"device_json","publicKeyPem":"-----BEGIN PUBLIC KEY-----\\njson\\n-----END PUBLIC KEY-----","algorithm":"ES256"}}',
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -323,24 +330,24 @@ void main() {
     );
   });
 
-  test('biometric register accepts native key pair production aliases',
-      () async {
-    const channel =
-        MethodChannel('test/biometric_keys/register_native_key_aliases');
+  test('biometric register accepts native key pair production aliases', () async {
+    const channel = MethodChannel(
+      'test/biometric_keys/register_native_key_aliases',
+    );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        return {
-          'nativeKeyPair': {
-            'nativeDeviceId': 'native-device-alias',
-            'keyPem':
-                '-----BEGIN PUBLIC KEY-----\nnative\n-----END PUBLIC KEY-----',
-            'coseAlgorithm': 'ES384',
-          },
-        };
-      }
-      return null;
-    });
+          if (call.method == 'createKeyPair') {
+            return {
+              'nativeKeyPair': {
+                'nativeDeviceId': 'native-device-alias',
+                'keyPem':
+                    '-----BEGIN PUBLIC KEY-----\nnative\n-----END PUBLIC KEY-----',
+                'coseAlgorithm': 'ES384',
+              },
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -370,24 +377,25 @@ void main() {
   });
 
   test('biometric register normalizes provider COSE algorithms', () async {
-    const channel =
-        MethodChannel('test/biometric_keys/register_cose_algorithm');
+    const channel = MethodChannel(
+      'test/biometric_keys/register_cose_algorithm',
+    );
     var created = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        created += 1;
-        return {
-          'credential': {
-            'rawId': 'credential-$created',
-            'publicKey':
-                '-----BEGIN PUBLIC KEY-----\ncose-$created\n-----END PUBLIC KEY-----',
-            'coseAlgorithm': created == 1 ? -7 : '-257',
-          },
-        };
-      }
-      return null;
-    });
+          if (call.method == 'createKeyPair') {
+            created += 1;
+            return {
+              'credential': {
+                'rawId': 'credential-$created',
+                'publicKey':
+                    '-----BEGIN PUBLIC KEY-----\ncose-$created\n-----END PUBLIC KEY-----',
+                'coseAlgorithm': created == 1 ? -7 : '-257',
+              },
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -418,22 +426,23 @@ void main() {
   });
 
   test('biometric register accepts provider public-key aliases', () async {
-    const channel =
-        MethodChannel('test/biometric_keys/register_provider_public_key');
+    const channel = MethodChannel(
+      'test/biometric_keys/register_provider_public_key',
+    );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        return {
-          'credential': {
-            'nativeDeviceId': 'provider-device-alias',
-            'credentialPublicKey':
-                '-----BEGIN PUBLIC KEY-----\nprovider\n-----END PUBLIC KEY-----',
-            'keyAlgorithm': 'ES256',
-          },
-        };
-      }
-      return null;
-    });
+          if (call.method == 'createKeyPair') {
+            return {
+              'credential': {
+                'nativeDeviceId': 'provider-device-alias',
+                'credentialPublicKey':
+                    '-----BEGIN PUBLIC KEY-----\nprovider\n-----END PUBLIC KEY-----',
+                'keyAlgorithm': 'ES256',
+              },
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -462,74 +471,76 @@ void main() {
     expect(api.payloads.single['algorithm'], 'ES256');
   });
 
-  test('biometric register accepts passkey raw id and JWK public key aliases',
-      () async {
-    const channel = MethodChannel('test/biometric_keys/register_passkey_jwk');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        return {
-          'credential': {
-            'rawId': 'passkey-raw-device',
-            'publicKeyJwk': {
-              'kty': 'EC',
-              'kid': 'passkey-key',
-              'crv': 'P-256',
-            },
-            'alg': 'ES256',
-          },
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric register accepts passkey raw id and JWK public key aliases',
+    () async {
+      const channel = MethodChannel('test/biometric_keys/register_passkey_jwk');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'createKeyPair') {
+              return {
+                'credential': {
+                  'rawId': 'passkey-raw-device',
+                  'publicKeyJwk': {
+                    'kty': 'EC',
+                    'kid': 'passkey-key',
+                    'crv': 'P-256',
+                  },
+                  'alg': 'ES256',
+                },
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _CapturingBiometricDeviceApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _CapturingBiometricDeviceApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    await service.registerDevice(
-      pin: '258147',
-      platform: 'ios',
-      localizedReason: 'Enable Face ID',
-      deviceName: 'iPhone',
-      appVersion: '5.3.0',
-    );
+      await service.registerDevice(
+        pin: '258147',
+        platform: 'ios',
+        localizedReason: 'Enable Face ID',
+        deviceName: 'iPhone',
+        appVersion: '5.3.0',
+      );
 
-    expect(api.payloads.single['device_id'], 'passkey-raw-device');
-    expect(
-      api.payloads.single['public_key_pem'],
-      '{"kty":"EC","kid":"passkey-key","crv":"P-256"}',
-    );
-    expect(api.payloads.single['algorithm'], 'ES256');
-  });
+      expect(api.payloads.single['device_id'], 'passkey-raw-device');
+      expect(
+        api.payloads.single['public_key_pem'],
+        '{"kty":"EC","kid":"passkey-key","crv":"P-256"}',
+      );
+      expect(api.payloads.single['algorithm'], 'ES256');
+    },
+  );
 
   test('biometric register accepts object scalar native key rows', () async {
     const channel = MethodChannel('test/biometric_keys/register_object_scalar');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'createKeyPair') {
-        return {
-          'payload': {
-            'nativeKeyPair': {
-              'nativeDeviceId': {'value': 'native-device-object'},
-              'keyPem': {
-                'value':
-                    '-----BEGIN PUBLIC KEY-----\nobject\n-----END PUBLIC KEY-----',
+          if (call.method == 'createKeyPair') {
+            return {
+              'payload': {
+                'nativeKeyPair': {
+                  'nativeDeviceId': {'value': 'native-device-object'},
+                  'keyPem': {
+                    'value':
+                        '-----BEGIN PUBLIC KEY-----\nobject\n-----END PUBLIC KEY-----',
+                  },
+                  'coseAlgorithm': {'code': 'ES256'},
+                },
               },
-              'coseAlgorithm': {'code': 'ES256'},
-            },
-          },
-        };
-      }
-      return null;
-    });
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -570,82 +581,86 @@ void main() {
     expect(await service.canUseBiometric(), isFalse);
   });
 
-  test('biometric PIN assertion falls back before native key lookup when weak',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/weak_fallback');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion falls back before native key lookup when weak',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/weak_fallback');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final service = BiometricAuthService(
-      _testApiClient(),
-      localAuth: _AvailableLocalAuthentication(
-        biometrics: const [BiometricType.weak],
-      ),
-      keyChannel: channel,
-    );
+      final service = BiometricAuthService(
+        _testApiClient(),
+        localAuth: _AvailableLocalAuthentication(
+          biometrics: const [BiometricType.weak],
+        ),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(localizedReason: 'Unlock with face'),
-      isNull,
-    );
-    expect(calls, isEmpty);
-  });
+      expect(
+        await service.requestPinAssertion(localizedReason: 'Unlock with face'),
+        isNull,
+      );
+      expect(calls, isEmpty);
+    },
+  );
 
-  test('biometric PIN assertion falls back when challenge API rejects',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/challenge_reject');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        fail('challenge rejection must not ask the native key to sign.');
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion falls back when challenge API rejects',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/challenge_reject');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'signChallenge') {
+              fail('challenge rejection must not ask the native key to sign.');
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _BiometricAssertionApiClient(rejectChallenge: true);
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _BiometricAssertionApiClient(rejectChallenge: true);
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'reward_claim',
-        localizedReason: 'Unlock with face',
-      ),
-      isNull,
-    );
-    expect(api.posts, ['/customer/auth/biometric/challenge']);
-    expect(api.payloads.single['purpose'], 'reward_claim');
-    expect(calls.map((call) => call.method), ['existingDeviceId']);
-  });
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'reward_claim',
+          localizedReason: 'Unlock with face',
+        ),
+        isNull,
+      );
+      expect(api.posts, ['/customer/auth/biometric/challenge']);
+      expect(api.payloads.single['purpose'], 'reward_claim');
+      expect(calls.map((call) => call.method), ['existingDeviceId']);
+    },
+  );
 
   test('biometric PIN assertion falls back when verify API rejects', () async {
     final calls = <MethodCall>[];
     const channel = MethodChannel('test/biometric_keys/verify_reject');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') return 'signature-local';
-      return null;
-    });
+          calls.add(call);
+          if (call.method == 'existingDeviceId') return 'device_local';
+          if (call.method == 'signChallenge') return 'signature-local';
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -679,179 +694,182 @@ void main() {
     ]);
   });
 
-  test('biometric PIN assertion accepts native signature alias payloads',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/signature_aliases');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'data': {'signature': 'signature-from-map'},
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion accepts native signature alias payloads',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/signature_aliases');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'signChallenge') {
+              return {
+                'data': {'signature': 'signature-from-map'},
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _BiometricAssertionApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _BiometricAssertionApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'profile_update',
-        localizedReason: 'Unlock with biometric',
-      ),
-      'assertion-local',
-    );
-    expect(api.posts, [
-      '/customer/auth/biometric/challenge',
-      '/customer/auth/biometric/verify',
-    ]);
-    expect(api.payloads.last['challenge_id'], 'challenge-local');
-    expect(api.payloads.last['signed_payload'], 'payload-local');
-    expect(api.payloads.last['signature'], 'signature-from-map');
-    expect(calls.map((call) => call.method), [
-      'existingDeviceId',
-      'signChallenge',
-    ]);
-  });
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'profile_update',
+          localizedReason: 'Unlock with biometric',
+        ),
+        'assertion-local',
+      );
+      expect(api.posts, [
+        '/customer/auth/biometric/challenge',
+        '/customer/auth/biometric/verify',
+      ]);
+      expect(api.payloads.last['challenge_id'], 'challenge-local');
+      expect(api.payloads.last['signed_payload'], 'payload-local');
+      expect(api.payloads.last['signature'], 'signature-from-map');
+      expect(calls.map((call) => call.method), [
+        'existingDeviceId',
+        'signChallenge',
+      ]);
+    },
+  );
 
-  test('biometric PIN assertion accepts native signature payload aliases',
-      () async {
-    const channel = MethodChannel('test/biometric_keys/signature_payload');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'payload': {
-            'signaturePayload': 'signature-payload-from-native',
-          },
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion accepts native signature payload aliases',
+    () async {
+      const channel = MethodChannel('test/biometric_keys/signature_payload');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'signChallenge') {
+              return {
+                'payload': {
+                  'signaturePayload': 'signature-payload-from-native',
+                },
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _BiometricAssertionApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _BiometricAssertionApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'wallet_update',
-        localizedReason: 'Unlock with biometric',
-      ),
-      'assertion-local',
-    );
-    expect(
-      api.payloads.last['signature'],
-      'signature-payload-from-native',
-    );
-  });
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'wallet_update',
+          localizedReason: 'Unlock with biometric',
+        ),
+        'assertion-local',
+      );
+      expect(api.payloads.last['signature'], 'signature-payload-from-native');
+    },
+  );
 
-  test('biometric PIN assertion accepts encoded native signature aliases',
-      () async {
-    const channel = MethodChannel('test/biometric_keys/signature_encoded');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'data': {
-            'signatureBase64': 'signature-base64-from-native',
-          },
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion accepts encoded native signature aliases',
+    () async {
+      const channel = MethodChannel('test/biometric_keys/signature_encoded');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'signChallenge') {
+              return {
+                'data': {'signatureBase64': 'signature-base64-from-native'},
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _BiometricAssertionApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _BiometricAssertionApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'ticket_claim',
-        localizedReason: 'Unlock with biometric',
-      ),
-      'assertion-local',
-    );
-    expect(api.payloads.last['signature'], 'signature-base64-from-native');
-  });
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'ticket_claim',
+          localizedReason: 'Unlock with biometric',
+        ),
+        'assertion-local',
+      );
+      expect(api.payloads.last['signature'], 'signature-base64-from-native');
+    },
+  );
 
-  test('biometric PIN assertion accepts JSON string native signature wrappers',
-      () async {
-    const channel = MethodChannel('test/biometric_keys/signature_json_wrapper');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'resource': '{"signaturePayload":"signature-json-from-native"}',
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion accepts JSON string native signature wrappers',
+    () async {
+      const channel = MethodChannel(
+        'test/biometric_keys/signature_json_wrapper',
+      );
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'signChallenge') {
+              return {
+                'resource': '{"signaturePayload":"signature-json-from-native"}',
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _BiometricAssertionApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _BiometricAssertionApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'wallet_update',
-        localizedReason: 'Unlock with biometric',
-      ),
-      'assertion-local',
-    );
-    expect(api.payloads.last['signature'], 'signature-json-from-native');
-  });
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'wallet_update',
+          localizedReason: 'Unlock with biometric',
+        ),
+        'assertion-local',
+      );
+      expect(api.payloads.last['signature'], 'signature-json-from-native');
+    },
+  );
 
   test('biometric PIN assertion accepts provider signature aliases', () async {
     const channel = MethodChannel('test/biometric_keys/signature_provider');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'credential': {
-            'signatureJws': 'signature-jws-from-provider',
-          },
-        };
-      }
-      return null;
-    });
+          if (call.method == 'existingDeviceId') return 'device_local';
+          if (call.method == 'signChallenge') {
+            return {
+              'credential': {'signatureJws': 'signature-jws-from-provider'},
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -874,152 +892,155 @@ void main() {
     expect(api.payloads.last['signature'], 'signature-jws-from-provider');
   });
 
-  test('biometric PIN assertion accepts passkey response signature wrappers',
-      () async {
-    const channel = MethodChannel('test/biometric_keys/signature_response');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'existingDeviceId') {
-        return {
-          'credential': {'rawId': 'device_local'},
-        };
-      }
-      if (call.method == 'signChallenge') {
-        return {
-          'credential': {
-            'rawId': 'passkey-credential-id',
-            'alg': -7,
-            'response': {
-              'signature': 'signature-from-response',
-              'clientDataJSON': 'client-data-json',
-              'authenticatorData': 'authenticator-data',
-            },
-          },
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'biometric PIN assertion accepts passkey response signature wrappers',
+    () async {
+      const channel = MethodChannel('test/biometric_keys/signature_response');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'existingDeviceId') {
+              return {
+                'credential': {'rawId': 'device_local'},
+              };
+            }
+            if (call.method == 'signChallenge') {
+              return {
+                'credential': {
+                  'rawId': 'passkey-credential-id',
+                  'alg': -7,
+                  'response': {
+                    'signature': 'signature-from-response',
+                    'clientDataJSON': 'client-data-json',
+                    'authenticatorData': 'authenticator-data',
+                  },
+                },
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final api = _BiometricAssertionApiClient();
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
+      final api = _BiometricAssertionApiClient();
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
 
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'reward_claim',
-        localizedReason: 'Unlock with biometric',
-      ),
-      'assertion-local',
-    );
-    expect(api.payloads.last['signature'], 'signature-from-response');
-    expect(api.payloads.last['credential_id'], 'passkey-credential-id');
-    expect(api.payloads.last['client_data_json'], 'client-data-json');
-    expect(api.payloads.last['authenticator_data'], 'authenticator-data');
-    expect(api.payloads.last['algorithm'], 'ES256');
-  });
-
-  test('biometric PIN assertion forwards WebAuthn challenge options to native',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/webauthn_options');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'credential': {
-            'rawId': 'passkey-credential-id',
-            'alg': -7,
-            'response': {
-              'signature': 'signature-from-webauthn',
-              'clientDataJSON': 'client-data-json',
-              'authenticatorData': 'authenticator-data',
-            },
-          },
-        };
-      }
-      return null;
-    });
-    addTearDown(() {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
-
-    final api = _BiometricAssertionApiClient(
-      challengeResponse: {
-        'data': {
-          'challengeId': 'challenge-webauthn',
-          'publicKey': {
-            'challenge': 'payload-webauthn',
-            'rpId': 'partner.example.com',
-            'userVerification': 'required',
-            'allowCredentials': [
-              {'type': 'public-key', 'id': 'device_local'},
-            ],
-            'timeout': 60000,
-          },
-        },
-      },
-    );
-    final service = BiometricAuthService(
-      api,
-      localAuth: _AvailableLocalAuthentication(),
-      keyChannel: channel,
-    );
-
-    expect(
-      await service.requestPinAssertion(
-        purpose: 'reward_claim',
-        localizedReason: 'Unlock with biometric',
-      ),
-      'assertion-local',
-    );
-
-    final signCall = calls.singleWhere(
-      (call) => call.method == 'signChallenge',
-    );
-    final signArgs = Map<String, dynamic>.from(signCall.arguments as Map);
-    expect(signArgs['challenge'], 'payload-webauthn');
-    expect(signArgs['purpose'], 'reward_claim');
-    expect(signArgs['rp_id'], 'partner.example.com');
-    expect(signArgs['user_verification'], 'required');
-    expect(signArgs['timeout'], 60000);
-    expect(signArgs['allow_credentials'], [
-      {'type': 'public-key', 'id': 'device_local'},
-    ]);
-    expect(api.payloads.last['challenge_id'], 'challenge-webauthn');
-    expect(api.payloads.last['signed_payload'], 'payload-webauthn');
-    expect(api.payloads.last['signature'], 'signature-from-webauthn');
-    expect(api.payloads.last['credential_id'], 'passkey-credential-id');
-  });
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'reward_claim',
+          localizedReason: 'Unlock with biometric',
+        ),
+        'assertion-local',
+      );
+      expect(api.payloads.last['signature'], 'signature-from-response');
+      expect(api.payloads.last['credential_id'], 'passkey-credential-id');
+      expect(api.payloads.last['client_data_json'], 'client-data-json');
+      expect(api.payloads.last['authenticator_data'], 'authenticator-data');
+      expect(api.payloads.last['algorithm'], 'ES256');
+    },
+  );
 
   test(
-      'biometric PIN assertion forwards extended WebAuthn options and '
+    'biometric PIN assertion forwards WebAuthn challenge options to native',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('test/biometric_keys/webauthn_options');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') return 'device_local';
+            if (call.method == 'signChallenge') {
+              return {
+                'credential': {
+                  'rawId': 'passkey-credential-id',
+                  'alg': -7,
+                  'response': {
+                    'signature': 'signature-from-webauthn',
+                    'clientDataJSON': 'client-data-json',
+                    'authenticatorData': 'authenticator-data',
+                  },
+                },
+              };
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      final api = _BiometricAssertionApiClient(
+        challengeResponse: {
+          'data': {
+            'challengeId': 'challenge-webauthn',
+            'publicKey': {
+              'challenge': 'payload-webauthn',
+              'rpId': 'partner.example.com',
+              'userVerification': 'required',
+              'allowCredentials': [
+                {'type': 'public-key', 'id': 'device_local'},
+              ],
+              'timeout': 60000,
+            },
+          },
+        },
+      );
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
+
+      expect(
+        await service.requestPinAssertion(
+          purpose: 'reward_claim',
+          localizedReason: 'Unlock with biometric',
+        ),
+        'assertion-local',
+      );
+
+      final signCall = calls.singleWhere(
+        (call) => call.method == 'signChallenge',
+      );
+      final signArgs = Map<String, dynamic>.from(signCall.arguments as Map);
+      expect(signArgs['challenge'], 'payload-webauthn');
+      expect(signArgs['purpose'], 'reward_claim');
+      expect(signArgs['rp_id'], 'partner.example.com');
+      expect(signArgs['user_verification'], 'required');
+      expect(signArgs['timeout'], 60000);
+      expect(signArgs['allow_credentials'], [
+        {'type': 'public-key', 'id': 'device_local'},
+      ]);
+      expect(api.payloads.last['challenge_id'], 'challenge-webauthn');
+      expect(api.payloads.last['signed_payload'], 'payload-webauthn');
+      expect(api.payloads.last['signature'], 'signature-from-webauthn');
+      expect(api.payloads.last['credential_id'], 'passkey-credential-id');
+    },
+  );
+
+  test('biometric PIN assertion forwards extended WebAuthn options and '
       'credential containers to native', () async {
     final calls = <MethodCall>[];
     const channel = MethodChannel('test/biometric_keys/webauthn_extended');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'credentialResponse': {
-            'signature': 'signature-from-extended-webauthn',
-            'credentialId': 'credential-from-native',
-          },
-        };
-      }
-      return null;
-    });
+          calls.add(call);
+          if (call.method == 'existingDeviceId') return 'device_local';
+          if (call.method == 'signChallenge') {
+            return {
+              'credentialResponse': {
+                'signature': 'signature-from-extended-webauthn',
+                'credentialId': 'credential-from-native',
+              },
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -1115,23 +1136,22 @@ void main() {
     expect(api.payloads.last['credential_id'], 'credential-from-native');
   });
 
-  test(
-      'biometric PIN assertion normalizes WebAuthn credential descriptors '
+  test('biometric PIN assertion normalizes WebAuthn credential descriptors '
       'before native signing', () async {
     final calls = <MethodCall>[];
     const channel = MethodChannel('test/biometric_keys/webauthn_descriptor');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'device_local';
-      if (call.method == 'signChallenge') {
-        return {
-          'signature': 'signature-from-descriptor-test',
-          'credentialId': 'credential-from-native',
-        };
-      }
-      return null;
-    });
+          calls.add(call);
+          if (call.method == 'existingDeviceId') return 'device_local';
+          if (call.method == 'signChallenge') {
+            return {
+              'signature': 'signature-from-descriptor-test',
+              'credentialId': 'credential-from-native',
+            };
+          }
+          return null;
+        });
     addTearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, null);
@@ -1153,9 +1173,7 @@ void main() {
               },
               {'rawId': 'raw-credential-from-alias'},
             ],
-            'extensions': {
-              'appid': 'https://partner.example.com',
-            },
+            'extensions': {'appid': 'https://partner.example.com'},
           },
         },
       },
@@ -1194,59 +1212,65 @@ void main() {
         'type': 'public-key',
       },
     ]);
-    expect(signArgs['extensions'], {
-      'appid': 'https://partner.example.com',
-    });
+    expect(signArgs['extensions'], {'appid': 'https://partner.example.com'});
   });
 
-  test('iOS biometric assertion authenticates through the Secure Enclave key',
-      () async {
-    final calls = <MethodCall>[];
-    const channel = MethodChannel('test/biometric_keys/ios_key_auth');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      if (call.method == 'existingDeviceId') return 'ios-device';
-      if (call.method == 'signChallenge') return 'ios-signature';
-      return null;
-    });
-    addTearDown(() {
+  test(
+    'iOS biometric assertion authenticates through the Secure Enclave key',
+    () async {
+      final calls = <MethodCall>[];
+      final promptCoordinator = BiometricPromptCoordinator();
+      final signStarted = Completer<void>();
+      final signResult = Completer<Object?>();
+      const channel = MethodChannel('test/biometric_keys/ios_key_auth');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
-    });
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') return 'ios-device';
+            if (call.method == 'signChallenge') {
+              signStarted.complete();
+              return signResult.future;
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
 
-    final localAuth = _AvailableLocalAuthentication(
-      biometrics: const [BiometricType.face],
-    );
-    final service = BiometricAuthService(
-      _BiometricAssertionApiClient(),
-      localAuth: localAuth,
-      keyChannel: channel,
-      targetPlatform: TargetPlatform.iOS,
-    );
+      final localAuth = _AvailableLocalAuthentication(
+        biometrics: const [BiometricType.face],
+      );
+      final service = BiometricAuthService(
+        _BiometricAssertionApiClient(),
+        localAuth: localAuth,
+        keyChannel: channel,
+        targetPlatform: TargetPlatform.iOS,
+        promptCoordinator: promptCoordinator,
+      );
 
-    expect(
-      await service.requestPinAssertion(
+      final assertionFuture = service.requestPinAssertion(
         localizedReason: 'Use Face ID to continue',
-      ),
-      'assertion-local',
-    );
-    expect(localAuth.authenticateCalls, 0);
-    expect(calls.map((call) => call.method), [
-      'existingDeviceId',
-      'signChallenge',
-    ]);
-    final signArgs = Map<String, dynamic>.from(calls.last.arguments as Map);
-    expect(signArgs['localizedReason'], 'Use Face ID to continue');
-    expect(signArgs['localized_reason'], 'Use Face ID to continue');
-  });
+      );
+      await signStarted.future;
+      expect(promptCoordinator.isActive, isTrue);
+      signResult.complete('ios-signature');
+      expect(await assertionFuture, 'assertion-local');
+      expect(promptCoordinator.isActive, isFalse);
+      expect(localAuth.authenticateCalls, 0);
+      expect(calls.map((call) => call.method), [
+        'existingDeviceId',
+        'signChallenge',
+      ]);
+      final signArgs = Map<String, dynamic>.from(calls.last.arguments as Map);
+      expect(signArgs['localizedReason'], 'Use Face ID to continue');
+      expect(signArgs['localized_reason'], 'Use Face ID to continue');
+    },
+  );
 
   test('biometric challenge parser accepts standard data payload', () {
     final payload = BiometricChallengePayload.fromResponse({
-      'data': {
-        'challenge_id': 'challenge-1',
-        'challenge': 'payload-to-sign',
-      },
+      'data': {'challenge_id': 'challenge-1', 'challenge': 'payload-to-sign'},
     });
 
     expect(payload.challengeId, 'challenge-1');
@@ -1256,10 +1280,7 @@ void main() {
 
   test('biometric challenge parser accepts legacy result payload', () {
     final payload = BiometricChallengePayload.fromResponse({
-      'result': {
-        'challenge_id': 'challenge-2',
-        'challenge': 'legacy-payload',
-      },
+      'result': {'challenge_id': 'challenge-2', 'challenge': 'legacy-payload'},
     });
 
     expect(payload.challengeId, 'challenge-2');
@@ -1312,10 +1333,7 @@ void main() {
 
   test('biometric challenge parser accepts id and payload aliases', () {
     final payload = BiometricChallengePayload.fromResponse({
-      'data': {
-        'id': 'challenge-alias',
-        'payload': 'payload-alias',
-      },
+      'data': {'id': 'challenge-alias', 'payload': 'payload-alias'},
     });
 
     expect(payload.challengeId, 'challenge-alias');
@@ -1338,34 +1356,36 @@ void main() {
     expect(payload.isComplete, isTrue);
   });
 
-  test('biometric challenge parser accepts provider id and signing aliases',
-      () {
-    final payload = BiometricChallengePayload.fromResponse({
-      'resource': {
-        'authChallenge': {
-          'authChallengeId': 'auth-challenge-alias',
-          'payloadToSign': 'provider-payload-to-sign',
+  test(
+    'biometric challenge parser accepts provider id and signing aliases',
+    () {
+      final payload = BiometricChallengePayload.fromResponse({
+        'resource': {
+          'authChallenge': {
+            'authChallengeId': 'auth-challenge-alias',
+            'payloadToSign': 'provider-payload-to-sign',
+          },
         },
-      },
-    });
+      });
 
-    expect(payload.challengeId, 'auth-challenge-alias');
-    expect(payload.challenge, 'provider-payload-to-sign');
-    expect(payload.isComplete, isTrue);
+      expect(payload.challengeId, 'auth-challenge-alias');
+      expect(payload.challenge, 'provider-payload-to-sign');
+      expect(payload.isComplete, isTrue);
 
-    final biometricPayload = BiometricChallengePayload.fromResponse({
-      'data': {
-        'biometricChallenge': {
-          'biometricChallengeId': 'biometric-challenge-alias',
-          'challengeNonce': 'nonce-provider-payload',
+      final biometricPayload = BiometricChallengePayload.fromResponse({
+        'data': {
+          'biometricChallenge': {
+            'biometricChallengeId': 'biometric-challenge-alias',
+            'challengeNonce': 'nonce-provider-payload',
+          },
         },
-      },
-    });
+      });
 
-    expect(biometricPayload.challengeId, 'biometric-challenge-alias');
-    expect(biometricPayload.challenge, 'nonce-provider-payload');
-    expect(biometricPayload.isComplete, isTrue);
-  });
+      expect(biometricPayload.challengeId, 'biometric-challenge-alias');
+      expect(biometricPayload.challenge, 'nonce-provider-payload');
+      expect(biometricPayload.isComplete, isTrue);
+    },
+  );
 
   test('biometric challenge parser accepts verification wrapper aliases', () {
     final payload = BiometricChallengePayload.fromResponse({
@@ -1475,10 +1495,7 @@ void main() {
 
     final noncePayload = BiometricChallengePayload.fromResponse({
       'resource': {
-        'authChallenge': {
-          'id': 'challenge-nonce',
-          'nonce': 'nonce-to-sign',
-        },
+        'authChallenge': {'id': 'challenge-nonce', 'nonce': 'nonce-to-sign'},
       },
     });
 
@@ -1569,9 +1586,7 @@ void main() {
     expect(
       biometricPinAssertionTokenFromResponse({
         'resource': {
-          'pinAssertion': {
-            'pinAssertion': 'nested-pin-assertion-token',
-          },
+          'pinAssertion': {'pinAssertion': 'nested-pin-assertion-token'},
         },
       }),
       'nested-pin-assertion-token',
@@ -1634,14 +1649,14 @@ ApiClient _testApiClient() {
 
 class _RejectingBiometricApiClient extends ApiClient {
   _RejectingBiometricApiClient()
-      : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'en-US',
-          ),
-          AuthTokenStore(),
-          localeTag: 'en-US',
-        );
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'en-US',
+        ),
+        AuthTokenStore(),
+        localeTag: 'en-US',
+      );
 
   final posts = <String>[];
 
@@ -1669,14 +1684,14 @@ class _RejectingBiometricApiClient extends ApiClient {
 
 class _CapturingBiometricDeviceApiClient extends ApiClient {
   _CapturingBiometricDeviceApiClient()
-      : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'en-US',
-          ),
-          AuthTokenStore(),
-          localeTag: 'en-US',
-        );
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'en-US',
+        ),
+        AuthTokenStore(),
+        localeTag: 'en-US',
+      );
 
   final posts = <String>[];
   final payloads = <Map<String, dynamic>>[];
@@ -1702,13 +1717,13 @@ class _BiometricAssertionApiClient extends ApiClient {
     this.rejectVerify = false,
     this.challengeResponse,
   }) : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'en-US',
-          ),
-          AuthTokenStore(),
-          localeTag: 'en-US',
-        );
+         const AppConfig(
+           apiBaseUrl: 'https://partner.example.com/api/v1',
+           defaultLocale: 'en-US',
+         ),
+         AuthTokenStore(),
+         localeTag: 'en-US',
+       );
 
   final bool rejectChallenge;
   final bool rejectVerify;
@@ -1745,14 +1760,14 @@ class _BiometricAssertionApiClient extends ApiClient {
 
     final response = path.endsWith('/challenge')
         ? challengeResponse ??
-            {
-              'resource': {
-                'data': {
-                  'challenge_id': 'challenge-local',
-                  'challenge': 'payload-local',
+              {
+                'resource': {
+                  'data': {
+                    'challenge_id': 'challenge-local',
+                    'challenge': 'payload-local',
+                  },
                 },
-              },
-            }
+              }
         : {
             'resource': {
               'data': {'pin_assertion_token': 'assertion-local'},

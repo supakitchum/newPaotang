@@ -16,6 +16,7 @@ import '../core/i18n/customer_translation_repository.dart';
 import '../core/navigation/deep_link_listener.dart';
 import '../core/navigation/web_runtime.dart' as web_runtime;
 import '../core/realtime/customer_realtime_monitor.dart';
+import '../core/security/biometric_auth_service.dart';
 import '../core/tenant/mobile_bootstrap_controller.dart';
 import '../core/tenant/mobile_runtime_policy.dart';
 import '../core/theme/app_theme.dart';
@@ -58,6 +59,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final platformKey = ref.read(customerPlatformKeyProvider);
     if (platformKey.trim().toLowerCase() == 'web') return;
+    if (ref.read(biometricPromptCoordinatorProvider).isActive) return;
     if (_shouldLockForLifecycleState(state) && _currentRouteIsSensitive()) {
       ref.read(authControllerProvider).lockForAppLifecycle();
     }
@@ -136,10 +138,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
     web_runtime.syncWebSystemChromeColor(
       appTheme.colorScheme.primary.toARGB32(),
     );
-    web_runtime.syncWebPwaIdentity(
-      appName: appTitle,
-      iconUrl: pwaIconUrl,
-    );
+    web_runtime.syncWebPwaIdentity(appName: appTitle, iconUrl: pwaIconUrl);
     final screenSecurityEnabled = bootstrap.maybeWhen(
       data: (data) =>
           mobileNativeScreenSecurityAllowedForPlatform(data, platformKey),
