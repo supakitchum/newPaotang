@@ -26,6 +26,7 @@ use App\Models\SyncOutbox;
 use App\Models\Ticket;
 use App\Models\WalletLedger;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
@@ -60,6 +61,7 @@ class GrowthService
         private readonly AuditLogger $auditLogger,
         private readonly IdempotencyService $idempotency,
         private readonly CentralTelegramNotificationService $telegramNotifications,
+        private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
     ) {
     }
 
@@ -870,6 +872,11 @@ class GrowthService
                 if ($affiliate !== null) {
                     $this->ensureCustomerAffiliateLink($tenantId, $affiliate);
                 }
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateRegistered(
+                    $tenantId,
+                    $customer->customerId(),
+                    $affiliateId,
+                ));
 
                 return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 201];
             },
@@ -1175,6 +1182,7 @@ class GrowthService
                 $resource = $this->payoutResource(AffiliatePayout::query()->where('tenant_id', $tenantId)->where('id', $payoutId)->first());
                 $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
                 $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
 
                 return ['resource' => $resource, 'status' => 201];
             },
@@ -1594,6 +1602,7 @@ class GrowthService
                 $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
                 $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
                 $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
 
                 return ['resource' => $resource, 'status' => 201];
             },
@@ -1640,6 +1649,7 @@ class GrowthService
                 $this->auditAdmin($actor, $request, 'payout.approved', 'affiliate_payout', $payoutId, $payload, $tenantId);
                 $this->telegramNotifications->enqueue($tenantId, 'commission.status_updated', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource, 'อนุมัติแล้ว', $actor->adminUser));
                 $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
 
                 return ['resource' => $resource, 'status' => 200];
             },
@@ -2054,6 +2064,11 @@ class GrowthService
                 ]);
 
                 $this->insertCommissionOutbox($payload, (string) $lockedOrder->tenant_id, (string) $lockedOrder->game_id, $transactionId);
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateCommissionAvailable(
+                    (string) $lockedOrder->tenant_id,
+                    (string) $affiliate->id,
+                    $transactionId,
+                ));
                 $created++;
             }
 

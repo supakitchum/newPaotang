@@ -5,6 +5,7 @@ namespace App\Modules\Auth\Services;
 use App\Models\CustomerBiometricChallenge;
 use App\Models\CustomerBiometricDevice;
 use App\Models\CustomerPinAssertion;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Shared\Auth\CustomerSessionContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,8 +15,10 @@ class CustomerBiometricAuthService
     private const CHALLENGE_TTL_SECONDS = 120;
     private const ASSERTION_TTL_SECONDS = 180;
 
-    public function __construct(private readonly CustomerAuthService $customerAuth)
-    {
+    public function __construct(
+        private readonly CustomerAuthService $customerAuth,
+        private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
+    ) {
     }
 
     /**
@@ -92,6 +95,13 @@ class CustomerBiometricAuthService
             'platform' => $platform,
             'algorithm' => $algorithm,
         ]);
+        $this->customerNotificationEvents->biometricDeviceChanged(
+            $context->tenantId(),
+            $context->customerId(),
+            (string) $device->id,
+            'active',
+            $now->toISOString(),
+        );
 
         return ['resource' => ['data' => $this->deviceResource($device->refresh())]];
     }
@@ -101,6 +111,7 @@ class CustomerBiometricAuthService
      */
     public function revokeDevice(CustomerSessionContext $context, string $id): array
     {
+        $now = now();
         $updated = CustomerBiometricDevice::query()
             ->where('tenant_id', $context->tenantId())
             ->where('customer_id', $context->customerId())
@@ -108,8 +119,8 @@ class CustomerBiometricAuthService
             ->where('status', 'active')
             ->update([
                 'status' => 'revoked',
-                'revoked_at' => now(),
-                'updated_at' => now(),
+                'revoked_at' => $now,
+                'updated_at' => $now,
             ]);
 
         if ($updated < 1) {
@@ -117,6 +128,13 @@ class CustomerBiometricAuthService
         }
 
         $this->audit('biometric.device.revoked', $context, $id);
+        $this->customerNotificationEvents->biometricDeviceChanged(
+            $context->tenantId(),
+            $context->customerId(),
+            $id,
+            'revoked',
+            $now->toISOString(),
+        );
 
         return ['resource' => ['data' => ['revoked' => true]]];
     }

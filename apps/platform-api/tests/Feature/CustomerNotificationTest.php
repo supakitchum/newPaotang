@@ -6,10 +6,16 @@ use App\Jobs\FanoutCustomerNotificationRecipientsJob;
 use App\Jobs\SendCustomerPushNotificationJob;
 use App\Models\CustomerNotificationDelivery;
 use App\Models\CustomerPushDevice;
+use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\Commerce\Events\CustomerOrderUpdated;
+use App\Modules\Commerce\Events\CustomerTopupUpdated;
+use App\Modules\Commerce\Events\CustomerWalletUpdated;
 use App\Modules\CustomerNotifications\Events\CustomerNotificationChanged;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\CustomerNotifications\Services\FirebaseCloudMessagingClient;
+use App\Modules\Reward\Events\RewardClaimUpdated;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -349,6 +355,282 @@ class CustomerNotificationTest extends TestCase
         $this->assertSame('Notification Operator', $history['data'][0]['creator']['name']);
         $this->assertSame('cus_notify_composer_a', $history['data'][0]['recipients'][0]['customer']['id']);
         $this->assertSame('not_registered', $history['data'][0]['recipients'][0]['push']['status']);
+    }
+
+    public function test_domain_events_create_deduplicated_notifications_and_suppress_derived_wallet_entries(): void
+    {
+        $this->seedTenant('par_notify_domain', 'ten_notify_domain', 'notify-domain.test');
+        $this->seedCustomer('ten_notify_domain', 'cus_notify_domain', 'CUS-NOTIFY-DOMAIN');
+
+        $paidOrder = [
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'order_id' => 'ord_notify_domain',
+            'game_id' => 'gam_notify_domain',
+            'status' => 'paid',
+            'payment_status' => 'paid',
+        ];
+        CustomerOrderUpdated::dispatch($paidOrder);
+        CustomerOrderUpdated::dispatch($paidOrder);
+
+        $pendingTopup = [
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'topup_id' => 'top_notify_domain',
+            'source_status' => 'pending',
+            'topup' => ['status' => 'pending_review'],
+        ];
+        CustomerTopupUpdated::dispatch($pendingTopup);
+        CustomerTopupUpdated::dispatch($pendingTopup);
+        CustomerTopupUpdated::dispatch([
+            ...$pendingTopup,
+            'source_status' => 'succeeded',
+            'topup' => ['status' => 'approved'],
+        ]);
+
+        CustomerWalletUpdated::dispatch([
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'wallet_id' => 'wal_notify_domain',
+            'ledger_id' => 'wle_notify_topup',
+            'entry_type' => 'credit',
+            'amount' => 10000,
+            'reference_type' => 'topup',
+            'reference_id' => 'top_notify_domain',
+        ]);
+        CustomerWalletUpdated::dispatch([
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'wallet_id' => 'wal_notify_domain',
+            'ledger_id' => 'wle_notify_adjustment',
+            'entry_type' => 'adjustment',
+            'amount' => 500,
+            'reference_type' => 'admin_wallet_adjust',
+            'reference_id' => 'wal_notify_domain',
+        ]);
+
+        RewardClaimUpdated::dispatch([
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'claim_id' => 'rcl_notify_domain',
+            'claim' => ['id' => 'rcl_notify_domain', 'status' => 'submitted'],
+        ]);
+        RewardClaimUpdated::dispatch([
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'claim_id' => 'rcl_notify_domain',
+            'claim' => ['id' => 'rcl_notify_domain', 'status' => 'approved'],
+        ]);
+        ActivityClaimUpdated::dispatch([
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'claim_id' => 'acl_notify_domain',
+            'claim' => ['id' => 'acl_notify_domain', 'status' => 'submitted'],
+        ]);
+        ActivityClaimUpdated::dispatch([
+            'tenant_id' => 'ten_notify_domain',
+            'customer_id' => 'cus_notify_domain',
+            'claim_id' => 'acl_notify_domain',
+            'claim' => ['id' => 'acl_notify_domain', 'status' => 'paid'],
+        ]);
+
+        $this->assertDatabaseCount('customer_notifications', 8);
+        $this->assertDatabaseCount('customer_notification_recipients', 8);
+        $this->assertDatabaseMissing('customer_notifications', ['subject_id' => 'wle_notify_topup']);
+        foreach ([
+            'order.paid',
+            'topup.submitted',
+            'topup.approved',
+            'wallet.credited',
+            'reward_claim.submitted',
+            'reward_claim.approved',
+            'activity_claim.submitted',
+            'activity_claim.paid',
+        ] as $eventKey) {
+            $this->assertDatabaseHas('customer_notifications', [
+                'tenant_id' => 'ten_notify_domain',
+                'event_key' => $eventKey,
+            ]);
+        }
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'order.paid',
+            'action_key' => 'tickets',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'topup.approved',
+            'action_key' => 'topup',
+            'action_entity_id' => 'top_notify_domain',
+        ]);
+    }
+
+    public function test_domain_notification_failures_do_not_escape_and_suspended_accounts_keep_security_inbox_events(): void
+    {
+        $this->seedTenant('par_notify_failure', 'ten_notify_failure', 'notify-failure.test');
+        $this->seedCustomer('ten_notify_failure', 'cus_notify_suspended', 'CUS-NOTIFY-SUSPENDED', 'suspended');
+
+        app(CustomerNotificationDomainEventService::class)->accountStatusChanged(
+            'ten_notify_failure',
+            'cus_notify_suspended',
+            'suspended',
+            'status-transition-1',
+        );
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_notify_failure',
+            'event_key' => 'account.suspended',
+            'subject_id' => 'cus_notify_suspended',
+        ]);
+
+        $this->mock(CustomerNotificationService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createForCustomer')->once()->andThrow(new \RuntimeException('notification storage unavailable'));
+        });
+        $this->app->forgetInstance(CustomerNotificationDomainEventService::class);
+
+        app(CustomerNotificationDomainEventService::class)->orderUpdated([
+            'tenant_id' => 'ten_notify_failure',
+            'customer_id' => 'cus_notify_suspended',
+            'order_id' => 'ord_notify_failure',
+            'status' => 'failed',
+            'payment_status' => 'failed',
+        ]);
+
+        $this->assertTrue(true);
+    }
+
+    public function test_reward_result_fanout_notifies_each_owner_once_and_routes_winners_to_their_ticket(): void
+    {
+        $this->seedTenant('par_notify_result', 'ten_notify_result', 'notify-result.test');
+        $this->seedCustomer('ten_notify_result', 'cus_notify_winner', 'CUS-NOTIFY-WINNER');
+        $this->seedCustomer('ten_notify_result', 'cus_notify_non_winner', 'CUS-NOTIFY-NON-WINNER');
+        $now = now();
+
+        DB::table('games')->insert([
+            'id' => 'gam_notify_result',
+            'code' => 'NOTIFY-RESULT',
+            'name' => 'Notification Draw',
+            'draw_at' => $now,
+            'status' => 'reward_published',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        foreach ([
+            ['suffix' => 'winner', 'customer_id' => 'cus_notify_winner', 'number' => '123456'],
+            ['suffix' => 'non_winner', 'customer_id' => 'cus_notify_non_winner', 'number' => '654321'],
+        ] as $owner) {
+            DB::table('stock_items')->insert([
+                'id' => 'stk_notify_'.$owner['suffix'],
+                'game_id' => 'gam_notify_result',
+                'full_number' => $owner['number'],
+                'status' => 'sold',
+                'partner_id' => 'par_notify_result',
+                'tenant_id' => 'ten_notify_result',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('local_stock_items')->insert([
+                'id' => 'lst_notify_'.$owner['suffix'],
+                'tenant_id' => 'ten_notify_result',
+                'partner_id' => 'par_notify_result',
+                'game_id' => 'gam_notify_result',
+                'stock_item_id' => 'stk_notify_'.$owner['suffix'],
+                'full_number' => $owner['number'],
+                'status' => 'sold',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('stock_reservations')->insert([
+                'id' => 'res_notify_'.$owner['suffix'],
+                'tenant_id' => 'ten_notify_result',
+                'customer_id' => $owner['customer_id'],
+                'game_id' => 'gam_notify_result',
+                'status' => 'converted',
+                'expires_at' => $now->copy()->addHour(),
+                'converted_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('orders')->insert([
+                'id' => 'ord_notify_'.$owner['suffix'],
+                'tenant_id' => 'ten_notify_result',
+                'customer_id' => $owner['customer_id'],
+                'reservation_id' => 'res_notify_'.$owner['suffix'],
+                'game_id' => 'gam_notify_result',
+                'payment_method' => 'wallet',
+                'status' => 'paid',
+                'payment_status' => 'paid',
+                'total_amount' => 8000,
+                'currency' => 'THB',
+                'paid_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('tickets')->insert([
+                'id' => 'tic_notify_'.$owner['suffix'],
+                'tenant_id' => 'ten_notify_result',
+                'customer_id' => $owner['customer_id'],
+                'order_id' => 'ord_notify_'.$owner['suffix'],
+                'local_stock_item_id' => 'lst_notify_'.$owner['suffix'],
+                'game_id' => 'gam_notify_result',
+                'full_number' => $owner['number'],
+                'status' => 'active',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        DB::table('reward_results')->insert([
+            'id' => 'rrs_notify_result',
+            'game_id' => 'gam_notify_result',
+            'status' => 'published',
+            'version' => 3,
+            'published_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('reward_prizes')->insert([
+            'id' => 'rpr_notify_result',
+            'reward_result_id' => 'rrs_notify_result',
+            'game_id' => 'gam_notify_result',
+            'prize_type' => 'first_prize',
+            'prize_number' => '123456',
+            'amount' => 600000000,
+            'currency' => 'THB',
+            'sort_order' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('winning_tickets')->insert([
+            'id' => 'wti_notify_result',
+            'tenant_id' => 'ten_notify_result',
+            'game_id' => 'gam_notify_result',
+            'ticket_id' => 'tic_notify_winner',
+            'reward_result_id' => 'rrs_notify_result',
+            'reward_prize_id' => 'rpr_notify_result',
+            'prize_type' => 'first_prize',
+            'prize_number' => '123456',
+            'amount' => 600000000,
+            'currency' => 'THB',
+            'status' => 'verified',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $service = app(CustomerNotificationDomainEventService::class);
+        $service->fanOutRewardResultChunk('rrs_notify_result');
+        $service->fanOutRewardResultChunk('rrs_notify_result');
+
+        $this->assertDatabaseCount('customer_notifications', 2);
+        $this->assertDatabaseCount('customer_notification_recipients', 2);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'lottery.result.winning',
+            'action_key' => 'ticket',
+            'action_entity_id' => 'tic_notify_winner',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'lottery.result.published',
+            'action_key' => 'tickets',
+            'action_entity_id' => null,
+        ]);
     }
 
     private function customerToken(string $tenantId, string $customerId): string

@@ -20,6 +20,7 @@ use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Modules\Commerce\Services\CommerceService;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
@@ -59,6 +60,7 @@ class TenantActivityService
         private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
         private readonly CustomerNotificationService $customerNotifications,
+        private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
     ) {
     }
 
@@ -529,6 +531,15 @@ class TenantActivityService
             }
             $this->lineNotifications->enqueue($tenantId, $customer->customerId(), 'activity.entry.created', 'tenant_activity_entry', $entryId, $this->lineActivityEntryVariables($tenantId, $activity, $resource));
             $this->telegramNotifications->enqueue($tenantId, 'activity.entry.created', 'tenant_activity_entry', $entryId, $this->telegramActivityEntryVariables($tenantId, $customer->customerId(), $activity, $resource));
+            DB::afterCommit(function () use ($tenantId, $customer, $entryId, $activity): void {
+                $this->customerNotificationEvents->activityEntrySubmitted(
+                    $tenantId,
+                    $customer->customerId(),
+                    $entryId,
+                    (string) $activity->id,
+                    (string) $activity->slug,
+                );
+            });
 
             return [
                 'resource' => $resource,
@@ -1113,7 +1124,7 @@ class TenantActivityService
                             continue;
                         }
 
-                        TenantActivityAward::query()->create([
+                        $award = TenantActivityAward::query()->create([
                             'id' => 'awa_'.Str::ulid()->toBase32(),
                             'tenant_id' => (string) $activity->tenant_id,
                             'activity_id' => (string) $activity->id,
@@ -1130,6 +1141,13 @@ class TenantActivityService
                             'created_at' => $now,
                             'updated_at' => $now,
                         ]);
+                        $this->customerNotificationEvents->activityAwardGranted(
+                            (string) $activity->tenant_id,
+                            (string) $entry->customer_id,
+                            (string) $award->id,
+                            (string) $activity->id,
+                            (string) $activity->slug,
+                        );
                         $created++;
                     }
                 });
@@ -1187,7 +1205,7 @@ class TenantActivityService
                 }
 
                 $now = now();
-                TenantActivityAward::query()->create([
+                $award = TenantActivityAward::query()->create([
                     'id' => 'awa_'.Str::ulid()->toBase32(),
                     'tenant_id' => (string) $tenantId,
                     'activity_id' => (string) $best['activity']->id,
@@ -1207,6 +1225,13 @@ class TenantActivityService
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
+                $this->customerNotificationEvents->activityAwardGranted(
+                    (string) $tenantId,
+                    $customerId,
+                    (string) $award->id,
+                    (string) $best['activity']->id,
+                    (string) $best['activity']->slug,
+                );
                 $created++;
             }
         }

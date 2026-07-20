@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Modules\CustomerNotifications\Listeners\CustomerNotificationDomainEventSubscriber;
 use App\Shared\Safety\RuntimeDatabaseCommandGuard;
 use App\Shared\Tenancy\TenantContext;
 use Illuminate\Console\Events\CommandStarting;
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+        Event::subscribe(CustomerNotificationDomainEventSubscriber::class);
 
         if ($this->app->runningInConsole()) {
             Event::listen(CommandStarting::class, function (CommandStarting $event): void {

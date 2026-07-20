@@ -7,6 +7,7 @@ use App\Models\CustomerAuthSession;
 use App\Models\CustomerPinAssertion;
 use App\Models\PartnerTenant;
 use App\Models\Wallet;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Modules\SmsOtp\Services\SmsOtpService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
@@ -30,6 +31,7 @@ class CustomerAuthService
         private readonly IdempotencyService $idempotency,
         private readonly CustomerSuspensionService $customerSuspensions,
         private readonly SmsOtpService $smsOtp,
+        private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
     ) {
     }
 
@@ -439,6 +441,11 @@ class CustomerAuthService
             ]);
 
             $this->markSessionPinVerified((string) $context->session['id'], $now);
+            DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
+                $context->tenantId(),
+                $context->customerId(),
+                $now->toISOString(),
+            ));
             $fresh = Customer::whereKey($customer->id)->first();
 
             return ['resource' => $this->pinResponse($fresh, true)];
@@ -516,6 +523,11 @@ class CustomerAuthService
             ]);
 
             $this->markSessionPinVerified((string) $context->session['id'], $now);
+            DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
+                $context->tenantId(),
+                $context->customerId(),
+                $now->toISOString(),
+            ));
             $fresh = Customer::whereKey($customer->id)->first();
 
             return ['resource' => $this->pinResponse($fresh, true)];
@@ -602,6 +614,11 @@ class CustomerAuthService
 
             Cache::forget($this->pinResetCacheKey($context));
             $this->markSessionPinVerified((string) $context->session['id'], $now);
+            DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
+                $context->tenantId(),
+                $context->customerId(),
+                $now->toISOString(),
+            ));
             $fresh = Customer::whereKey($customer->id)->first();
 
             return ['resource' => $this->pinResponse($fresh, true)];
@@ -641,6 +658,11 @@ class CustomerAuthService
 
             Cache::forget($this->pinResetCacheKey($context));
             $this->markSessionPinVerified((string) $context->session['id'], $now);
+            DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
+                $context->tenantId(),
+                $context->customerId(),
+                $now->toISOString(),
+            ));
             $fresh = Customer::whereKey($customer->id)->first();
 
             return ['resource' => $this->pinResponse($fresh, true)];

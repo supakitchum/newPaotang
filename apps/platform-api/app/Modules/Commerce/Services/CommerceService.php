@@ -1122,6 +1122,20 @@ class CommerceService
             $resource = $this->adminOrderDetailResource(Order::where('id', $orderId)->first());
             $this->idempotency->storeResponse($tenantId, 'tenant_admin', $actor->adminUser['id'], $routeKey.':'.$orderId, $idempotencyKey, $payload, 200, $resource, $permissionCode);
             $this->auditAdmin($actor, $request, $auditAction, 'order', $orderId, $payload, $tenantId);
+            $this->queueCustomerOrderUpdatedBroadcast([
+                'event_type' => 'order.updated',
+                'tenant_id' => $tenantId,
+                'customer_id' => (string) ($resource['customer']['id'] ?? $order->customer_id),
+                'order_id' => $orderId,
+                'game_id' => (string) ($resource['game_id'] ?? $order->game_id),
+                'status' => (string) ($resource['status'] ?? $order->status),
+                'payment_status' => (string) ($resource['payment_status'] ?? $order->payment_status),
+                'ticket_ids' => array_values(array_filter(array_map(
+                    static fn (mixed $ticket): string => is_array($ticket) ? trim((string) ($ticket['id'] ?? '')) : '',
+                    is_array($resource['tickets'] ?? null) ? $resource['tickets'] : [],
+                ))),
+                'updated_at' => now()->toISOString(),
+            ]);
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -3892,6 +3906,8 @@ class CommerceService
                 'tenant_id' => $tenantId,
                 'customer_id' => (string) $topup->customer_id,
                 'topup_id' => $topupId,
+                'source_status' => (string) $topup->status,
+                'status' => $this->topupPresentationStatus($topup),
                 'topup' => $this->topupResource($topup),
                 'updated_at' => now()->toISOString(),
             ]);

@@ -25,6 +25,7 @@ use App\Models\TenantPriceRule;
 use App\Models\Wallet;
 use App\Models\WebhookCallback;
 use App\Modules\Reward\Services\TenantRewardPriceRuleService;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
@@ -54,6 +55,7 @@ class BoMenuCompletionService
         private readonly AuditLogger $auditLogger,
         private readonly TenantRewardPriceRuleService $rewardPriceRules,
         private readonly CustomerSuspensionService $customerSuspensions,
+        private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
     ) {
     }
 
@@ -1167,16 +1169,23 @@ class BoMenuCompletionService
         }
 
         return DB::transaction(function () use ($tenantId, $memberId, $status, $reason, $durationType, $durationDays, $payload, $actor, $request): array {
+            $member = Customer::query()->forTenant($tenantId)->where('id', $memberId)->lockForUpdate()->first();
+            if ($member === null) {
+                return ['error' => 'not_found'];
+            }
+
+            $previousStatus = (string) $member->status;
+            $changedAt = now();
             $updates = [
                 'status' => $status,
-                'updated_at' => now(),
+                'updated_at' => $changedAt,
             ];
 
             if ($this->customerSuspensions->storageReady()) {
                 if ($status === 'suspended') {
                     $updates += [
-                        'suspended_at' => now(),
-                        'suspended_until' => $durationType === 'days' ? now()->addDays($durationDays) : null,
+                        'suspended_at' => $changedAt,
+                        'suspended_until' => $durationType === 'days' ? $changedAt->copy()->addDays($durationDays) : null,
                         'suspension_reason' => $reason,
                         'suspended_by_admin_id' => (string) $actor->adminUser['id'],
                     ];
@@ -1204,6 +1213,14 @@ class BoMenuCompletionService
             }
 
             $this->audit($actor, $request, 'member.status_changed', 'customer', $memberId, $payload, tenantId: $tenantId);
+            if ($previousStatus !== $status && ($status === 'suspended' || ($previousStatus === 'suspended' && $status === 'active'))) {
+                DB::afterCommit(fn () => $this->customerNotificationEvents->accountStatusChanged(
+                    $tenantId,
+                    $memberId,
+                    $status,
+                    $changedAt->toISOString(),
+                ));
+            }
 
             return ['resource' => $this->findMember($tenantId, $memberId)];
         });

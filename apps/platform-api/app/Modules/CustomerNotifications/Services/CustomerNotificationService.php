@@ -238,13 +238,15 @@ class CustomerNotificationService
         array $content,
         array $context = [],
     ): ?array {
-        $customerExists = Customer::query()
+        $customerQuery = Customer::query()
             ->where('tenant_id', $tenantId)
-            ->where('id', $customerId)
-            ->where('status', 'active')
-            ->exists();
+            ->where('id', $customerId);
 
-        if (! $customerExists) {
+        if (($context['allow_inactive_customer'] ?? false) !== true) {
+            $customerQuery->where('status', 'active');
+        }
+
+        if (! $customerQuery->exists()) {
             return null;
         }
 

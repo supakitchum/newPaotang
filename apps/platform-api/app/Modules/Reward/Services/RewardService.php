@@ -16,6 +16,7 @@ use App\Models\SyncOutbox;
 use App\Models\Ticket;
 use App\Models\Wallet;
 use App\Models\WinningTicket;
+use App\Jobs\FanoutRewardResultCustomerNotificationsJob;
 use App\Jobs\ProcessTenantActivitiesForGameJob;
 use App\Modules\Reward\Events\RewardClaimUpdated;
 use App\Modules\Reward\Events\RewardLiveResultUpdated;
@@ -1943,6 +1944,11 @@ class RewardService
             'published_at' => $publishedAt->toISOString(),
         ]);
         $this->createAutomaticRewardClaimsForResult($rewardResultId, $publishedAt);
+        try {
+            FanoutRewardResultCustomerNotificationsJob::dispatch($rewardResultId)->afterCommit();
+        } catch (\Throwable) {
+            // Publishing the official result must not depend on notification infrastructure.
+        }
         $activityResultAt = $this->tenantActivityResultAt((string) $fresh->game_id) ?? $publishedAt;
         ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'lucky')->delay($activityResultAt);
         ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'cashback')->delay($activityResultAt);

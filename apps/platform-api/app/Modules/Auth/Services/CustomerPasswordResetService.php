@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\CustomerAuthSession;
 use App\Models\CustomerLineIdentity;
 use App\Models\CustomerPasswordResetRequest;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,10 @@ class CustomerPasswordResetService
 {
     private const RESET_TTL_MINUTES = 30;
     private const TABLE = 'customer_password_reset_requests';
+
+    public function __construct(private readonly CustomerNotificationDomainEventService $customerNotificationEvents)
+    {
+    }
 
     public function storageReady(): bool
     {
@@ -333,6 +338,11 @@ class CustomerPasswordResetService
                 ]);
 
             $this->revokeCustomerSessions((string) $customer->id);
+            DB::afterCommit(fn () => $this->customerNotificationEvents->passwordChanged(
+                (string) $customer->tenant_id,
+                (string) $customer->id,
+                (string) $reset->id,
+            ));
 
             return [
                 'resource' => [
@@ -380,8 +390,9 @@ class CustomerPasswordResetService
                     'updated_at' => now(),
                 ]);
 
+            $resetRequestId = 'cpr_'.Str::ulid()->toBase32();
             CustomerPasswordResetRequest::query()->create([
-                'id' => 'cpr_'.Str::ulid()->toBase32(),
+                'id' => $resetRequestId,
                 'tenant_id' => $tenantId,
                 'customer_id' => (string) $customer->id,
                 'channel' => 'sms_otp',
@@ -404,6 +415,11 @@ class CustomerPasswordResetService
             ]);
 
             $this->revokeCustomerSessions((string) $customer->id);
+            DB::afterCommit(fn () => $this->customerNotificationEvents->passwordChanged(
+                $tenantId,
+                (string) $customer->id,
+                $resetRequestId,
+            ));
 
             return [
                 'resource' => [
