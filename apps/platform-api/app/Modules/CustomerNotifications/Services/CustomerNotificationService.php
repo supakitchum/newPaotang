@@ -194,7 +194,10 @@ class CustomerNotificationService
             $this->broadcastRead($tenantId, $customerId, null);
         }
 
-        return ['updated_count' => $updated, 'unread_count' => 0];
+        return [
+            'updated_count' => $updated,
+            'unread_count' => $this->unreadCount($tenantId, $customerId),
+        ];
     }
 
     /**
@@ -956,8 +959,13 @@ class CustomerNotificationService
         $title = $this->localizedMap($payload['title'] ?? []);
         $body = $this->localizedMap($payload['body'] ?? []);
         $actionKey = trim((string) ($payload['action_key'] ?? 'none')) ?: 'none';
+        $customerExists = $customerId !== '' && Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $customerId)
+            ->where('status', 'active')
+            ->exists();
 
-        if ($customerId === '' || ! Customer::query()->where('tenant_id', $tenantId)->where('id', $customerId)->where('status', 'active')->exists()) {
+        if (! $customerExists) {
             $errors['customer_id'][] = 'The selected customer was not found in this tenant.';
         }
         if ($this->mapEmpty($title)) {
@@ -979,18 +987,68 @@ class CustomerNotificationService
         if (in_array($actionKey, self::ADMIN_ACTION_ENTITY_KEYS, true) && $actionEntityId === '') {
             $errors['action_entity_id'][] = 'The selected destination requires a record ID.';
         }
-        if (
+        $entityFormatInvalid =
             $actionEntityId !== ''
             && (
                 mb_strlen($actionEntityId) > 100
                 || str_contains($actionEntityId, '://')
                 || preg_match('/[\/?#]/u', $actionEntityId) === 1
-            )
-        ) {
+            );
+        if ($entityFormatInvalid) {
             $errors['action_entity_id'][] = 'The destination record ID format is invalid.';
+        }
+        if (
+            $customerExists
+            && $actionEntityId !== ''
+            && ! $entityFormatInvalid
+            && in_array($actionKey, self::ADMIN_ACTION_ENTITY_KEYS, true)
+            && ! $this->adminActionEntityExists($tenantId, $customerId, $actionKey, $actionEntityId)
+        ) {
+            $errors['action_entity_id'][] = 'The destination record was not found for this customer in this tenant.';
         }
 
         return $errors;
+    }
+
+    private function adminActionEntityExists(
+        string $tenantId,
+        string $customerId,
+        string $actionKey,
+        string $entityId,
+    ): bool {
+        return match ($actionKey) {
+            'ticket' => DB::table('tickets')
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customerId)
+                ->where('id', $entityId)
+                ->exists(),
+            'topup' => DB::table('topup_requests')
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customerId)
+                ->where('id', $entityId)
+                ->exists(),
+            'reward_claim' => DB::table('reward_claims')
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customerId)
+                ->where('id', $entityId)
+                ->exists(),
+            'activity_claim' => DB::table('activity_claims')
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customerId)
+                ->where('id', $entityId)
+                ->exists(),
+            'activity' => DB::table('tenant_activities')
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->where('slug', $entityId)
+                ->exists(),
+            'news' => DB::table('tenant_announcements')
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->where('slug', $entityId)
+                ->exists(),
+            default => true,
+        };
     }
 
     /** @return array<string, string> */

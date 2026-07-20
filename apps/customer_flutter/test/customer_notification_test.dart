@@ -143,7 +143,7 @@ void main() {
   });
 
   testWidgets(
-    'native push lifecycle registers refreshes opens and revokes one installation',
+    'native push lifecycle registers refreshes opens and cleans up logout token',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       try {
@@ -155,6 +155,7 @@ void main() {
         addTearDown(tokenRefresh.close);
 
         var permissionRequests = 0;
+        var deletedTokens = 0;
         final platform = CustomerPushPlatform.test(
           foregroundMessages: foreground.stream,
           notificationTaps: taps.stream,
@@ -164,10 +165,14 @@ void main() {
             return _authorizedNotificationSettings;
           },
           token: () async => 'fcm-token-initial-1234567890',
+          deleteToken: () async {
+            deletedTokens += 1;
+          },
         );
         addTearDown(platform.dispose);
 
         final tokenStore = AuthTokenStore();
+        final logoutGate = Completer<void>();
         final api = ApiClient(
           const AppConfig(
             apiBaseUrl: 'https://partner.example.test/api/v1',
@@ -181,6 +186,7 @@ void main() {
                 authRepository: _PushAuthRepository(
                   api: api,
                   tokenStore: tokenStore,
+                  logoutGate: logoutGate,
                 ),
                 tokenStore: tokenStore,
                 biometricAuth: BiometricAuthService(api),
@@ -188,7 +194,7 @@ void main() {
               ..isAuthenticated = true
               ..pinRequired = false
               ..pinSetupRequired = false;
-        final repository = _PushNotificationRepository(api);
+        final repository = _PushNotificationRepository(api, failRevoke: true);
         final installationStore = _PushInstallationStore();
         final router = GoRouter(
           routes: [
@@ -269,9 +275,124 @@ void main() {
         expect(repository.readNotificationIds, ['cnt_wallet']);
         expect(router.routeInformationProvider.value.uri.path, '/my-wallet');
 
-        await auth.logout();
-        await tester.pumpAndSettle();
+        final logout = auth.logout();
+        await tester.pump();
         expect(repository.revokedInstallationIds, ['install_push_test_001']);
+        expect(deletedTokens, 1);
+
+        tokenRefresh.add('fcm-token-during-logout-1234567890');
+        await tester.pump();
+        expect(repository.registeredTokens, [
+          'fcm-token-initial-1234567890',
+          'fcm-token-refreshed-1234567890',
+        ]);
+
+        logoutGate.complete();
+        await logout;
+        await tester.pumpAndSettle();
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'initial notification tap opens after auth unlock when push permission is denied',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        var permissionRequests = 0;
+        var tokenReads = 0;
+        final platform = CustomerPushPlatform.test(
+          initialTap: const CustomerPushMessage(
+            notificationId: 'cnt_denied_initial',
+            actionKey: 'wallet',
+            actionEntityId: '',
+            title: 'Wallet',
+            body: 'Updated',
+          ),
+          requestPermission: () async {
+            permissionRequests += 1;
+            return _deniedNotificationSettings;
+          },
+          token: () async {
+            tokenReads += 1;
+            return 'token-must-not-register';
+          },
+        );
+        addTearDown(platform.dispose);
+
+        final tokenStore = AuthTokenStore();
+        final api = ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          tokenStore,
+          localeTag: 'th-TH',
+        );
+        final auth =
+            AuthController(
+                authRepository: _PushAuthRepository(
+                  api: api,
+                  tokenStore: tokenStore,
+                ),
+                tokenStore: tokenStore,
+                biometricAuth: BiometricAuthService(api),
+              )
+              ..isAuthenticated = true
+              ..pinRequired = false
+              ..pinSetupRequired = false;
+        final repository = _PushNotificationRepository(api);
+        final router = GoRouter(
+          routes: [
+            GoRoute(path: '/', builder: (_, __) => const Text('home')),
+            GoRoute(
+              path: '/notifications',
+              builder: (_, __) => const Text('notifications'),
+            ),
+            GoRoute(
+              path: '/my-wallet',
+              builder: (_, __) => const Text('wallet'),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWithValue(
+                const AppConfig(
+                  apiBaseUrl: 'https://partner.example.test/api/v1',
+                  defaultLocale: 'th-TH',
+                ),
+              ),
+              authControllerProvider.overrideWith((_) => auth),
+              customerPushPlatformProvider.overrideWithValue(platform),
+              customerPushInstallationStoreProvider.overrideWithValue(
+                _PushInstallationStore(),
+              ),
+              customerNotificationRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              builder: (context, child) => CustomerPushLifecycleMonitor(
+                router: router,
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(permissionRequests, 1);
+        expect(tokenReads, 0);
+        expect(repository.registeredTokens, isEmpty);
+        expect(repository.readNotificationIds, ['cnt_denied_initial']);
+        expect(router.routeInformationProvider.value.uri.path, '/my-wallet');
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -294,6 +415,21 @@ const _authorizedNotificationSettings = NotificationSettings(
   providesAppNotificationSettings: AppleNotificationSetting.disabled,
 );
 
+const _deniedNotificationSettings = NotificationSettings(
+  alert: AppleNotificationSetting.disabled,
+  announcement: AppleNotificationSetting.disabled,
+  authorizationStatus: AuthorizationStatus.denied,
+  badge: AppleNotificationSetting.disabled,
+  carPlay: AppleNotificationSetting.disabled,
+  lockScreen: AppleNotificationSetting.disabled,
+  notificationCenter: AppleNotificationSetting.disabled,
+  showPreviews: AppleShowPreviewSetting.never,
+  timeSensitive: AppleNotificationSetting.disabled,
+  criticalAlert: AppleNotificationSetting.disabled,
+  sound: AppleNotificationSetting.disabled,
+  providesAppNotificationSettings: AppleNotificationSetting.disabled,
+);
+
 class _PushInstallationStore extends CustomerPushInstallationStore {
   _PushInstallationStore() : super(storageScope: 'push-test');
 
@@ -312,7 +448,9 @@ class _PushInstallationStore extends CustomerPushInstallationStore {
 }
 
 class _PushNotificationRepository extends CustomerNotificationRepository {
-  _PushNotificationRepository(super.api);
+  _PushNotificationRepository(super.api, {this.failRevoke = false});
+
+  final bool failRevoke;
 
   final List<String> registeredTokens = [];
   final List<String> readNotificationIds = [];
@@ -348,12 +486,21 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
   @override
   Future<void> revokeDevice(String installationId) async {
     revokedInstallationIds.add(installationId);
+    if (failRevoke) throw StateError('offline revoke');
   }
 }
 
 class _PushAuthRepository extends AuthRepository {
-  _PushAuthRepository({required super.api, required super.tokenStore});
+  _PushAuthRepository({
+    required super.api,
+    required super.tokenStore,
+    this.logoutGate,
+  });
+
+  final Completer<void>? logoutGate;
 
   @override
-  Future<void> logout() async {}
+  Future<void> logout() async {
+    await logoutGate?.future;
+  }
 }

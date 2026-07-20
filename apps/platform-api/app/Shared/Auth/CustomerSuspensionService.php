@@ -3,11 +3,18 @@
 namespace App\Shared\Auth;
 
 use App\Models\Customer;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class CustomerSuspensionService
 {
+    public function __construct(
+        private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
+    ) {
+    }
+
     public function storageReady(): bool
     {
         return Schema::hasColumn('customers', 'suspended_at')
@@ -28,6 +35,10 @@ class CustomerSuspensionService
             return $customer;
         }
 
+        $tenantId = (string) $customer->tenant_id;
+        $customerId = (string) $customer->id;
+        $transitionId = 'suspension-expired:'.$suspendedUntil->getTimestamp();
+
         $customer->forceFill([
             'status' => 'active',
             'suspended_at' => null,
@@ -36,6 +47,13 @@ class CustomerSuspensionService
             'suspended_by_admin_id' => null,
             'updated_at' => now(),
         ])->save();
+
+        DB::afterCommit(fn () => $this->customerNotificationEvents->accountStatusChanged(
+            $tenantId,
+            $customerId,
+            'active',
+            $transitionId,
+        ));
 
         return $customer->refresh();
     }

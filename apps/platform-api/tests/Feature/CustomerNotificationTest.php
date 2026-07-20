@@ -392,6 +392,18 @@ class CustomerNotificationTest extends TestCase
         $this->seedCustomer('ten_notify_composer_a', 'cus_notify_composer_suspended', 'CUS-COMPOSER-S', 'suspended');
         $this->seedTenant('par_notify_composer_b', 'ten_notify_composer_b', 'notify-composer-b.test');
         $this->seedCustomer('ten_notify_composer_b', 'cus_notify_composer_b', 'CUS-COMPOSER-B');
+        foreach ([
+            ['id' => 'ann_notify_composer_a', 'tenant_id' => 'ten_notify_composer_a', 'slug' => 'announcement-2026'],
+            ['id' => 'ann_notify_composer_b', 'tenant_id' => 'ten_notify_composer_b', 'slug' => 'other-tenant-announcement'],
+        ] as $announcement) {
+            DB::table('tenant_announcements')->insert([
+                ...$announcement,
+                'title' => 'Notification announcement',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
         DB::table('admin_users')->insert([
             'id' => 'adm_notify_composer',
             'email' => 'notify-composer@example.test',
@@ -446,9 +458,23 @@ class CustomerNotificationTest extends TestCase
             $request,
             'notify-composer-external-entity',
         );
+        $crossTenantEntity = $service->sendFromAdmin(
+            'ten_notify_composer_a',
+            $actor,
+            [
+                'customer_id' => 'cus_notify_composer_a',
+                'title' => ['th-TH' => 'ข่าวสำคัญ'],
+                'body' => ['th-TH' => 'อ่านรายละเอียดข่าว'],
+                'action_key' => 'news',
+                'action_entity_id' => 'other-tenant-announcement',
+            ],
+            $request,
+            'notify-composer-cross-tenant-entity',
+        );
 
         $this->assertArrayHasKey('action_entity_id', $missingEntity['errors'] ?? []);
         $this->assertArrayHasKey('action_entity_id', $externalEntity['errors'] ?? []);
+        $this->assertArrayHasKey('action_entity_id', $crossTenantEntity['errors'] ?? []);
 
         $sent = $service->sendFromAdmin(
             'ten_notify_composer_a',
@@ -513,6 +539,18 @@ class CustomerNotificationTest extends TestCase
             'reference_type' => 'topup',
             'reference_id' => 'top_notify_domain',
         ]);
+        foreach (['affiliate_payout', 'refund'] as $referenceType) {
+            CustomerWalletUpdated::dispatch([
+                'tenant_id' => 'ten_notify_domain',
+                'customer_id' => 'cus_notify_domain',
+                'wallet_id' => 'wal_notify_domain',
+                'ledger_id' => 'wle_notify_'.$referenceType,
+                'entry_type' => 'credit',
+                'amount' => 10000,
+                'reference_type' => $referenceType,
+                'reference_id' => 'ref_notify_'.$referenceType,
+            ]);
+        }
         CustomerWalletUpdated::dispatch([
             'tenant_id' => 'ten_notify_domain',
             'customer_id' => 'cus_notify_domain',
@@ -552,6 +590,8 @@ class CustomerNotificationTest extends TestCase
         $this->assertDatabaseCount('customer_notifications', 8);
         $this->assertDatabaseCount('customer_notification_recipients', 8);
         $this->assertDatabaseMissing('customer_notifications', ['subject_id' => 'wle_notify_topup']);
+        $this->assertDatabaseMissing('customer_notifications', ['subject_id' => 'wle_notify_affiliate_payout']);
+        $this->assertDatabaseMissing('customer_notifications', ['subject_id' => 'wle_notify_refund']);
         foreach ([
             'order.paid',
             'topup.submitted',

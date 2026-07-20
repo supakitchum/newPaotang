@@ -15,9 +15,11 @@ class CustomerNotificationDomainEventService
 
     private const WALLET_SUPPRESSED_REFERENCE_TYPES = [
         'activity_claim',
+        'affiliate_payout',
         'order',
         'order_cancel',
         'order_refund',
+        'refund',
         'reward_claim',
         'topup',
         'topup_webhook',

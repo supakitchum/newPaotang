@@ -334,6 +334,13 @@ class CustomerAuthTest extends TestCase
             'suspension_reason' => null,
             'suspended_until' => null,
         ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_auth_suspend',
+            'event_key' => 'account.restored',
+            'subject_type' => 'customer',
+            'subject_id' => $registered['user']['id'],
+        ]);
+        $this->assertDatabaseCount('customer_notifications', 1);
     }
 
     public function test_CustomerAuth_rejects_bearer_session_on_different_tenant_host_without_revoking_session(): void

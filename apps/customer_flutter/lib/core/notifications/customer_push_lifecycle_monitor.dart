@@ -39,6 +39,7 @@ class _CustomerPushLifecycleMonitorState
   CustomerPushMessage? _pendingTap;
   String _registeredSignature = '';
   bool _syncing = false;
+  bool _flushingTap = false;
   bool _loggingOut = false;
 
   @override
@@ -71,7 +72,8 @@ class _CustomerPushLifecycleMonitorState
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AuthController>(authControllerProvider, (_, __) {
+    ref.listen<AuthController>(authControllerProvider, (_, auth) {
+      if (!auth.isAuthenticated) _loggingOut = false;
       WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
     });
     ref.listen<Locale>(customerLocaleProvider, (_, __) {
@@ -95,6 +97,7 @@ class _CustomerPushLifecycleMonitorState
 
     _syncing = true;
     try {
+      await _flushPendingTap();
       final store = ref.read(customerPushInstallationStoreProvider);
       NotificationSettings? settings;
       if (!await store.permissionRequested()) {
@@ -107,7 +110,6 @@ class _CustomerPushLifecycleMonitorState
 
       final token = (await platform.token())?.trim() ?? '';
       if (token.isNotEmpty) await _registerToken(token);
-      await _flushPendingTap();
     } catch (_) {
       // Inbox and realtime remain usable when native registration is unavailable.
     } finally {
@@ -170,38 +172,47 @@ class _CustomerPushLifecycleMonitorState
   }
 
   Future<void> _flushPendingTap() async {
+    if (_flushingTap) return;
     final message = _pendingTap;
     if (message == null || !_isUnlocked(ref.read(authControllerProvider))) {
       return;
     }
 
-    final route =
-        customerNotificationRoute(
-          CustomerNotificationAction(
-            key: message.actionKey,
-            entityId: message.actionEntityId,
-          ),
-        ) ??
-        '/notifications';
-    final notificationId = message.notificationId.trim();
-    if (notificationId.isNotEmpty) {
-      try {
-        await ref
-            .read(customerNotificationRepositoryProvider)
-            .markRead(notificationId);
-      } catch (_) {
-        // Navigation to the inbox still lets the customer retry the read state.
-        if (route != '/notifications') {
-          widget.router.go('/notifications');
-          return;
+    _flushingTap = true;
+    try {
+      final route =
+          customerNotificationRoute(
+            CustomerNotificationAction(
+              key: message.actionKey,
+              entityId: message.actionEntityId,
+            ),
+          ) ??
+          '/notifications';
+      final notificationId = message.notificationId.trim();
+      if (notificationId.isNotEmpty) {
+        try {
+          await ref
+              .read(customerNotificationRepositoryProvider)
+              .markRead(notificationId);
+        } catch (_) {
+          // Navigation to the inbox still lets the customer retry the read state.
+          if (route != '/notifications') {
+            widget.router.go('/notifications');
+            return;
+          }
         }
       }
-    }
 
-    if (!mounted || !_isUnlocked(ref.read(authControllerProvider))) return;
-    _pendingTap = null;
-    ref.invalidate(customerNotificationUnreadCountProvider);
-    widget.router.go(route);
+      if (!mounted || !_isUnlocked(ref.read(authControllerProvider))) return;
+      if (identical(_pendingTap, message)) _pendingTap = null;
+      ref.invalidate(customerNotificationUnreadCountProvider);
+      widget.router.go(route);
+    } finally {
+      _flushingTap = false;
+      if (mounted && _pendingTap != null && !identical(_pendingTap, message)) {
+        unawaited(_flushPendingTap());
+      }
+    }
   }
 
   Future<void> _revokeForLogout() async {
@@ -219,8 +230,11 @@ class _CustomerPushLifecycleMonitorState
           .revokeDevice(installationId);
     } catch (_) {
       // Explicit logout remains available even if the device revoke is offline.
-    } finally {
-      _loggingOut = false;
+    }
+    try {
+      await platform.deleteToken();
+    } catch (_) {
+      // Local token cleanup is best effort and must not block explicit logout.
     }
   }
 }
