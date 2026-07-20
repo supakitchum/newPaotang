@@ -284,6 +284,12 @@
                 <input v-model.number="form.sort_order" type="number" class="form-control" :class="invalidClass('sort_order')">
                 <div class="invalid-feedback">{{ fieldError('sort_order') }}</div>
               </div>
+              <div class="col-12">
+                <label class="form-check form-switch mb-0">
+                  <input v-model="form.notify_customers" class="form-check-input" type="checkbox" :disabled="!canNotifyCustomers">
+                  <span class="form-check-label">{{ phrase('Notify customers') }}</span>
+                </label>
+              </div>
 
               <template v-if="form.type === 'lucky_board'">
                 <div class="col-12">
@@ -484,6 +490,7 @@ const fieldErrors = ref<Record<string, string[]>>({})
 const selectedImage = ref<File | null>(null)
 const previewUrl = ref('')
 const imageError = ref('')
+const originalStatus = ref('')
 const form = reactive<AnyRecord>(defaultForm())
 const selectedActivity = ref<AnyRecord | null>(null)
 const detailTab = ref<'entries' | 'awards' | 'claims'>('entries')
@@ -498,6 +505,14 @@ const saveDisabled = computed(() => (
   || !String(form.game_id || '').trim()
   || Boolean(imageError.value)
 ))
+const canNotifyCustomers = computed(() => (
+  form.status === 'active'
+  && (!form.id || originalStatus.value !== 'active')
+))
+
+watch(canNotifyCustomers, (enabled) => {
+  if (!enabled) form.notify_customers = false
+})
 const hasActivityFilters = computed(() => (
   Boolean(filters.q || filters.status || filters.type)
   || Boolean(defaultFilterGameId.value && filters.game_id && filters.game_id !== defaultFilterGameId.value)
@@ -532,6 +547,7 @@ function defaultForm() {
     type: 'lucky_board',
     status: 'draft',
     sort_order: 0,
+    notify_customers: false,
     image_full_url: '',
     image_thumb_url: '',
     config: {
@@ -708,6 +724,7 @@ const openCreateModal = async () => {
 
 const openEditModal = (row: AnyRecord) => {
   clearPreview()
+  originalStatus.value = String(row.status || '')
   Object.assign(form, defaultForm(), {
     id: row.id,
     name: row.name,
@@ -733,6 +750,7 @@ const closeFormModal = () => {
 
 const resetForm = () => {
   clearPreview()
+  originalStatus.value = ''
   Object.assign(form, defaultForm())
   if (games.value.length > 0) {
     const defaultGame = games.value.find((game) => game.is_default) || games.value[0]
@@ -876,6 +894,7 @@ const buildPayload = () => {
     type: form.type,
     status: form.status,
     sort_order: Number.isFinite(Number(form.sort_order)) ? Number(form.sort_order) : 0,
+    notify_customers: canNotifyCustomers.value && Boolean(form.notify_customers),
     config,
   }
 }

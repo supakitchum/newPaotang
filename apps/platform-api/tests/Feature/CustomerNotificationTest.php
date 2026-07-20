@@ -267,6 +267,90 @@ class CustomerNotificationTest extends TestCase
         $this->assertDatabaseCount('customer_notifications', 0);
     }
 
+    public function test_admin_composer_options_search_and_history_are_tenant_scoped(): void
+    {
+        $this->seedTenant('par_notify_composer_a', 'ten_notify_composer_a', 'notify-composer-a.test');
+        $this->seedCustomer('ten_notify_composer_a', 'cus_notify_composer_a', 'CUS-COMPOSER-A');
+        $this->seedCustomer('ten_notify_composer_a', 'cus_notify_composer_suspended', 'CUS-COMPOSER-S', 'suspended');
+        $this->seedTenant('par_notify_composer_b', 'ten_notify_composer_b', 'notify-composer-b.test');
+        $this->seedCustomer('ten_notify_composer_b', 'cus_notify_composer_b', 'CUS-COMPOSER-B');
+        DB::table('admin_users')->insert([
+            'id' => 'adm_notify_composer',
+            'email' => 'notify-composer@example.test',
+            'username' => 'notify-composer',
+            'name' => 'Notification Operator',
+            'password_hash' => Hash::make('password'),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $service = app(CustomerNotificationService::class);
+        $options = $service->adminCustomerOptions('ten_notify_composer_a', ['q' => 'COMPOSER']);
+
+        $this->assertCount(1, $options['data']);
+        $this->assertSame('cus_notify_composer_a', $options['data'][0]['id']);
+        $this->assertNotContains('cus_notify_composer_b', array_column($options['data'], 'id'));
+        $newsAction = collect($options['meta']['action_options'])->firstWhere('key', 'news');
+        $this->assertSame(true, $newsAction['entity_required'] ?? null);
+
+        $actor = new AdminSessionContext(
+            ['scope_type' => 'tenant', 'scope_id' => 'scp_notify_composer', 'tenant_id' => 'ten_notify_composer_a'],
+            ['id' => 'adm_notify_composer'],
+            [],
+        );
+        $request = Request::create('/api/v1/admin/tenant/customer-notifications', 'POST');
+        $missingEntity = $service->sendFromAdmin(
+            'ten_notify_composer_a',
+            $actor,
+            [
+                'customer_id' => 'cus_notify_composer_a',
+                'title' => ['th-TH' => 'ข่าวสำคัญ'],
+                'body' => ['th-TH' => 'อ่านรายละเอียดข่าว'],
+                'action_key' => 'news',
+            ],
+            $request,
+            'notify-composer-missing-entity',
+        );
+        $externalEntity = $service->sendFromAdmin(
+            'ten_notify_composer_a',
+            $actor,
+            [
+                'customer_id' => 'cus_notify_composer_a',
+                'title' => ['th-TH' => 'ข่าวสำคัญ'],
+                'body' => ['th-TH' => 'อ่านรายละเอียดข่าว'],
+                'action_key' => 'news',
+                'action_entity_id' => 'https://external.example.test/news',
+            ],
+            $request,
+            'notify-composer-external-entity',
+        );
+
+        $this->assertArrayHasKey('action_entity_id', $missingEntity['errors'] ?? []);
+        $this->assertArrayHasKey('action_entity_id', $externalEntity['errors'] ?? []);
+
+        $sent = $service->sendFromAdmin(
+            'ten_notify_composer_a',
+            $actor,
+            [
+                'customer_id' => 'cus_notify_composer_a',
+                'title' => ['th-TH' => 'ข่าวสำคัญ', 'en-US' => 'Important news'],
+                'body' => ['th-TH' => 'อ่านรายละเอียดข่าว', 'en-US' => 'Read the news detail'],
+                'action_key' => 'news',
+                'action_entity_id' => 'announcement-2026',
+            ],
+            $request,
+            'notify-composer-valid',
+        );
+
+        $this->assertArrayHasKey('resource', $sent);
+        $history = $service->adminList('ten_notify_composer_a', ['creator_type' => 'tenant_admin']);
+        $this->assertCount(1, $history['data']);
+        $this->assertSame('Notification Operator', $history['data'][0]['creator']['name']);
+        $this->assertSame('cus_notify_composer_a', $history['data'][0]['recipients'][0]['customer']['id']);
+        $this->assertSame('not_registered', $history['data'][0]['recipients'][0]['push']['status']);
+    }
+
     private function customerToken(string $tenantId, string $customerId): string
     {
         $session = app(CustomerAuthService::class)->issueSession(

@@ -695,6 +695,8 @@ Route::post('/admin/tenant/announcements/{announcement_id}/image', [TenantAnnoun
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/customer-notifications', [TenantCustomerNotificationController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/customer-notifications/customers', [TenantCustomerNotificationController::class, 'customers'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/customer-notifications', [TenantCustomerNotificationController::class, 'store'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/line-notifications', [TenantLineNotificationController::class, 'show'])

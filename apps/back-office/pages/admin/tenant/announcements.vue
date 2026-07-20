@@ -146,6 +146,10 @@
                   <input v-model="form.important" class="form-check-input" type="checkbox">
                   <span class="form-check-label">{{ phrase('Important') }}</span>
                 </label>
+                <label class="form-check form-switch mb-0">
+                  <input v-model="form.notify_customers" class="form-check-input" type="checkbox" :disabled="!canNotifyCustomers">
+                  <span class="form-check-label">{{ phrase('Notify customers') }}</span>
+                </label>
               </div>
               <div class="col-12">
                 <label class="form-label">{{ phrase('Summary') }} ({{ localeLabel(contentLocale) }})</label>
@@ -251,6 +255,7 @@ const fieldErrors = ref<Record<string, string[]>>({})
 const selectedImage = ref<File | null>(null)
 const previewUrl = ref('')
 const imageError = ref('')
+const originalStatus = ref('')
 const form = reactive<Record<string, any>>(defaultForm())
 
 const saveDisabled = computed(() => (
@@ -259,6 +264,14 @@ const saveDisabled = computed(() => (
   || !firstLocalizedValue(form.title_i18n, form.title)
   || Boolean(imageError.value)
 ))
+const canNotifyCustomers = computed(() => (
+  form.status === 'active'
+  && (!form.id || originalStatus.value !== 'active')
+))
+
+watch(canNotifyCustomers, (enabled) => {
+  if (!enabled) form.notify_customers = false
+})
 
 function defaultForm() {
   return {
@@ -273,6 +286,7 @@ function defaultForm() {
     status: 'draft',
     modal_enabled: true,
     important: false,
+    notify_customers: false,
     display_start_at: '',
     display_end_at: '',
     sort_order: 0,
@@ -341,6 +355,7 @@ const handleSort = (next: { key: string, direction: 'asc' | 'desc' }) => {
 
 const selectAnnouncement = (row: Announcement) => {
   clearPreview()
+  originalStatus.value = String(row.status || '')
   Object.assign(form, defaultForm(), {
     ...row,
     title_i18n: localizedFrom(row.title_i18n, row.title),
@@ -370,6 +385,7 @@ const closeFormModal = () => {
 
 const resetForm = () => {
   clearPreview()
+  originalStatus.value = ''
   Object.assign(form, defaultForm())
   fieldErrors.value = {}
   error.value = null
@@ -468,6 +484,7 @@ const buildPayload = () => ({
   status: form.status || 'draft',
   modal_enabled: Boolean(form.modal_enabled),
   important: Boolean(form.important),
+  notify_customers: canNotifyCustomers.value && Boolean(form.notify_customers),
   display_start_at: toApiDateTime(form.display_start_at),
   display_end_at: toApiDateTime(form.display_end_at),
   sort_order: Number.isFinite(Number(form.sort_order)) ? Number(form.sort_order) : 0,

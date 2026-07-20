@@ -1832,6 +1832,12 @@ const tenant: OperationResource[] = [
     confirmContextFields: memberActionContext,
     actions: [
       {
+        key: 'send-notification',
+        label: 'Send notification',
+        route: adminUiRoute('tenant', 'customer-notifications?customer_id={id}'),
+        variant: 'info',
+      },
+      {
         key: 'update',
         label: 'Update member',
         method: 'PATCH',

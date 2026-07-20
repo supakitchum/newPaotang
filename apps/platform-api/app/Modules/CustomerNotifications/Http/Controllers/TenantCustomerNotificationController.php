@@ -30,6 +30,15 @@ class TenantCustomerNotificationController extends Controller
             : $context;
     }
 
+    public function customers(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'customer_notification.send');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->notifications->adminCustomerOptions((string) $context->activeTenantId(), $request->query()))
+            : $context;
+    }
+
     public function store(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request, 'customer_notification.send');

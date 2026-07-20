@@ -4,6 +4,7 @@ namespace App\Modules\CustomerNotifications\Services;
 
 use App\Jobs\FanoutCustomerNotificationRecipientsJob;
 use App\Jobs\SendCustomerPushNotificationJob;
+use App\Models\AdminUser;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
 use App\Models\CustomerNotificationDelivery;
@@ -51,6 +52,15 @@ class CustomerNotificationService
         'activity_claims',
         'activity_claim',
         'affiliate',
+        'news',
+    ];
+
+    private const ACTION_ENTITY_KEYS = [
+        'ticket',
+        'topup',
+        'reward_claim',
+        'activity',
+        'activity_claim',
         'news',
     ];
 
@@ -497,14 +507,105 @@ class CustomerNotificationService
         $rows = $builder->orderByDesc('id')->limit($limit + 1)->get()->all();
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
+        $creatorIds = collect($rows)
+            ->filter(fn (CustomerNotification $notification): bool => $notification->creator_type === 'tenant_admin')
+            ->pluck('creator_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $creators = AdminUser::query()
+            ->whereIn('id', $creatorIds)
+            ->get(['id', 'name', 'username', 'email'])
+            ->keyBy('id');
 
         return [
-            'data' => array_map(fn (CustomerNotification $notification): array => $this->adminResource($notification), $rows),
+            'data' => array_map(
+                fn (CustomerNotification $notification): array => $this->adminResource(
+                    $notification,
+                    $creators->get($notification->creator_id),
+                ),
+                $rows,
+            ),
             'meta' => [
                 'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
+                'action_options' => $this->adminActionOptions(),
             ],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $query
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function adminCustomerOptions(string $tenantId, array $query): array
+    {
+        $limit = max(1, min(50, (int) ($query['limit'] ?? 20)));
+        $builder = Customer::query()
+            ->forTenant($tenantId)
+            ->where('status', 'active');
+
+        $customerId = trim((string) ($query['customer_id'] ?? ''));
+        if ($customerId !== '') {
+            $builder->whereKey($customerId);
+        }
+
+        $search = trim((string) ($query['q'] ?? ''));
+        if ($search !== '') {
+            $builder->where(function (Builder $nested) use ($search): void {
+                $nested->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('phone', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%')
+                    ->orWhere('customer_no', 'like', '%'.strtoupper($search).'%');
+            });
+        }
+
+        return [
+            'data' => $builder
+                ->orderBy('name')
+                ->orderBy('id')
+                ->limit($limit)
+                ->get(['id', 'customer_no', 'name', 'phone', 'email', 'status'])
+                ->map(static fn (Customer $customer): array => [
+                    'id' => (string) $customer->id,
+                    'customer_no' => $customer->customer_no,
+                    'name' => $customer->name,
+                    'phone' => $customer->phone,
+                    'email' => $customer->email,
+                    'status' => (string) $customer->status,
+                ])
+                ->values()
+                ->all(),
+            'meta' => ['action_options' => $this->adminActionOptions()],
+        ];
+    }
+
+    /** @return array<int, array{key: string, label: string, entity_required: bool}> */
+    public function adminActionOptions(): array
+    {
+        $labels = [
+            'none' => 'No destination',
+            'home' => 'Home',
+            'wallet' => 'Wallet',
+            'tickets' => 'Tickets',
+            'ticket' => 'Ticket detail',
+            'topups' => 'Topup history',
+            'topup' => 'Topup detail',
+            'reward_claims' => 'Reward claims',
+            'reward_claim' => 'Reward claim detail',
+            'activities' => 'Activities',
+            'activity' => 'Activity detail',
+            'activity_claims' => 'Activity claims',
+            'activity_claim' => 'Activity claim detail',
+            'affiliate' => 'Affiliate',
+            'news' => 'News detail',
+        ];
+
+        return array_map(static fn (string $key): array => [
+            'key' => $key,
+            'label' => $labels[$key] ?? Str::of($key)->replace('_', ' ')->title()->toString(),
+            'entity_required' => in_array($key, self::ACTION_ENTITY_KEYS, true),
+        ], self::ACTION_KEYS);
     }
 
     public function processDelivery(string $deliveryId): void
@@ -674,7 +775,7 @@ class CustomerNotificationService
     }
 
     /** @return array<string, mixed> */
-    private function adminResource(CustomerNotification $notification): array
+    private function adminResource(CustomerNotification $notification, ?AdminUser $creator = null): array
     {
         return [
             'id' => (string) $notification->id,
@@ -685,7 +786,13 @@ class CustomerNotificationService
             'icon_key' => (string) $notification->icon_key,
             'action' => ['key' => $notification->action_key, 'entity_id' => $notification->action_entity_id],
             'subject' => ['type' => $notification->subject_type, 'id' => $notification->subject_id],
-            'creator' => ['type' => $notification->creator_type, 'id' => $notification->creator_id],
+            'creator' => [
+                'type' => $notification->creator_type,
+                'id' => $notification->creator_id,
+                'name' => $creator?->name,
+                'username' => $creator?->username,
+                'email' => $creator?->email,
+            ],
             'published_at' => $notification->published_at?->toISOString(),
             'recipients' => $notification->recipients->map(function (CustomerNotificationRecipient $recipient): array {
                 $deliveries = $recipient->deliveries;
@@ -791,6 +898,20 @@ class CustomerNotificationService
         }
         if (! in_array($actionKey, self::ACTION_KEYS, true)) {
             $errors['action_key'][] = 'The notification destination is invalid.';
+        }
+        $actionEntityId = trim((string) ($payload['action_entity_id'] ?? ''));
+        if (in_array($actionKey, self::ACTION_ENTITY_KEYS, true) && $actionEntityId === '') {
+            $errors['action_entity_id'][] = 'The selected destination requires a record ID.';
+        }
+        if (
+            $actionEntityId !== ''
+            && (
+                mb_strlen($actionEntityId) > 100
+                || str_contains($actionEntityId, '://')
+                || preg_match('/[\/?#]/u', $actionEntityId) === 1
+            )
+        ) {
+            $errors['action_entity_id'][] = 'The destination record ID format is invalid.';
         }
 
         return $errors;
