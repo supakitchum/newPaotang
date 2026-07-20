@@ -10272,3 +10272,35 @@ Native Face ID lifecycle and cancellation follow-up (2026-07-19):
   observed.
 - No runtime database, runtime API mutation, screenshot automation, commit,
   push, or clear-worktree action was used in this follow-up.
+
+Native integration-driver and device-availability follow-up (2026-07-19):
+
+- Added the standard `test_driver/integration_test.dart` entry point so the
+  native security suite can run through `flutter drive`. This is required for
+  wirelessly connected iOS devices because Flutter 3.44.4 hard-disables mDNS
+  port publication in `flutter test`, while `flutter drive --publish-port`
+  supports that deployment path. A `NATIVE_SECURITY_SCREEN_ONLY` define keeps
+  bridge-only runs from unexpectedly opening a biometric prompt, and the
+  opt-in cancellation case now supports a host-controlled hold interval.
+- iOS 26.5 Simulator passed the real screen-security bridge and native P-256
+  key create/sign/device-id/delete flow through `flutter drive`. The Simulator
+  also signed a `biometryCurrentSet` key while the app was backgrounded, so it
+  does not model physical Secure Enclave/Face ID cancellation semantics. Those
+  attempts are recorded as Simulator limitations, not cancellation acceptance.
+- The paired iPhone `Dank12` was visible to Flutter, but physical deployment
+  stopped before app launch because the Mac currently has zero valid iOS code
+  signing identities. `flutter drive --publish-port` reached the device build
+  path and then reported `No development certificates available to code sign
+  app for device deployment`. Physical Face ID and capture/app-switch tests
+  therefore remain pending until an Apple Development certificate and profile
+  are available on the host.
+- Android API 33 passed the same `flutter drive` harness for native biometric
+  create/authenticate/sign/delete. The opt-in cancellation run dismissed the
+  system biometric dialog and passed the key-preservation assertion. A held
+  `/my-wallet` policy exposed `SECURE` on the active WindowManager window; no
+  screenshot or recording automation was used.
+- Remaining production acceptance is unchanged: physical Android enrollment
+  change plus recents/screenshot/recording, and physical iPhone one-prompt Face
+  ID success/cancel/enrollment change plus screenshot, recording/mirroring, and
+  app switching. No runtime database or runtime API mutation was used. This
+  follow-up did not use screenshot automation.

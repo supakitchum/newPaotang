@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:customer_flutter/core/security/screen_security_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -51,7 +52,8 @@ void main() {
   testWidgets(
     'native biometric key signs and clears a challenge',
     (tester) async {
-      if (!Platform.isIOS && !Platform.isAndroid) return;
+      const screenOnly = bool.fromEnvironment('NATIVE_SECURITY_SCREEN_ONLY');
+      if ((!Platform.isIOS && !Platform.isAndroid) || screenOnly) return;
 
       const keyChannel = MethodChannel('customer_flutter/biometric_keys');
       final localAuth = LocalAuthentication();
@@ -207,9 +209,16 @@ void main() {
       final deviceId = created['deviceId']?.toString().trim() ?? '';
       expect(deviceId, isNotEmpty);
 
-      stdout.writeln(
-        'NATIVE_BIOMETRIC_CANCEL_PROMPT_READY:${Platform.isIOS ? 'ios' : 'android'}',
+      const cancellationHoldSeconds = int.fromEnvironment(
+        'NATIVE_BIOMETRIC_CANCEL_HOLD_SECONDS',
       );
+      debugPrint(
+        'NATIVE_BIOMETRIC_CANCEL_PROMPT_READY:'
+        '${Platform.isIOS ? 'ios' : 'android'}',
+      );
+      if (cancellationHoldSeconds > 0) {
+        await Future<void>.delayed(Duration(seconds: cancellationHoldSeconds));
+      }
       if (Platform.isAndroid) {
         final authenticated = await localAuth.authenticate(
           localizedReason: 'Cancel the native security integration test',
