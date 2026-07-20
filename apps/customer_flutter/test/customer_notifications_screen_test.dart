@@ -115,6 +115,63 @@ void main() {
     final tile = find.byKey(const ValueKey('customer-notification-old'));
     final material = find.descendant(of: tile, matching: find.byType(Material));
     expect(tester.widget<Material>(material.first).color, Colors.white);
+    expect(
+      tester
+          .widget<TextButton>(
+            find.byKey(const ValueKey('customer-notification-read-all')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('read-all uses authoritative unread count beyond loaded rows', (
+    tester,
+  ) async {
+    final repository = _InboxRepository(
+      listResponses: [
+        () async => _page([
+          _item('visible-read', 'รายการที่อ่านแล้ว', isRead: true),
+        ], unreadCount: 4),
+        () async => _page([
+          _item('visible-read', 'รายการที่อ่านแล้ว', isRead: true),
+        ], unreadCount: 0),
+      ],
+    );
+    await _pumpInbox(tester, repository);
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(const ValueKey('customer-notification-read-all'));
+    expect(tester.widget<TextButton>(button).onPressed, isNotNull);
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(repository.markAllReadCalls, 1);
+    expect(tester.widget<TextButton>(button).onPressed, isNull);
+  });
+
+  testWidgets('read-all failure restores authoritative unread count', (
+    tester,
+  ) async {
+    final repository = _InboxRepository(
+      listResponses: [
+        () async => _page([
+          _item('visible-read', 'รายการที่อ่านแล้ว', isRead: true),
+        ], unreadCount: 4),
+      ],
+      markAllReadHandler: () async => throw StateError('offline'),
+    );
+    await _pumpInbox(tester, repository);
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(const ValueKey('customer-notification-read-all'));
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(repository.markAllReadCalls, 1);
+    expect(tester.widget<TextButton>(button).onPressed, isNotNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -224,6 +281,7 @@ class _InboxRepository extends CustomerNotificationRepository {
   final Future<CustomerNotificationItem> Function(String id)? markReadHandler;
   final Future<int> Function()? markAllReadHandler;
   int listCalls = 0;
+  int markAllReadCalls = 0;
 
   @override
   Future<CustomerNotificationPage> list({
@@ -244,15 +302,21 @@ class _InboxRepository extends CustomerNotificationRepository {
   }
 
   @override
-  Future<int> markAllRead() => markAllReadHandler?.call() ?? Future.value(0);
+  Future<int> markAllRead() {
+    markAllReadCalls++;
+    return markAllReadHandler?.call() ?? Future.value(0);
+  }
 }
 
-CustomerNotificationPage _page(List<CustomerNotificationItem> items) {
+CustomerNotificationPage _page(
+  List<CustomerNotificationItem> items, {
+  int? unreadCount,
+}) {
   return CustomerNotificationPage(
     items: items,
     nextCursor: '',
     hasMore: false,
-    unreadCount: items.where((item) => !item.isRead).length,
+    unreadCount: unreadCount ?? items.where((item) => !item.isRead).length,
   );
 }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\FanoutCustomerNotificationRecipientsJob;
 use App\Modules\Activities\Services\TenantActivityService;
 use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Shared\Auth\AdminSessionContext;
@@ -9,6 +10,7 @@ use App\Shared\Auth\CustomerSessionContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
 
@@ -610,6 +612,72 @@ class TenantActivityTest extends TestCase
             'min_ticket_count' => 0,
             'min_purchase_amount' => 120000,
         ]);
+    }
+
+    public function test_activity_customer_notification_requires_explicit_publish_transition_opt_in(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_notify', 'ten_act_notify', 'act-notify.test');
+        $this->insertGame('gam_act_notify', 'open');
+        $this->createAdmin('adm_act_notify', 'act-notify-admin@example.test');
+        $actor = $this->adminContext('ten_act_notify', 'par_act_notify', 'adm_act_notify');
+        Queue::fake();
+
+        $basePayload = [
+            'game_id' => 'gam_act_notify',
+            'type' => 'lucky_board',
+            'config' => [
+                'prediction_type' => 'last2',
+                'eligibility_rule' => 'cumulative_tickets',
+                'threshold_tickets' => 1,
+                'last2_amount' => 10000,
+            ],
+        ];
+        $withoutNotification = $service->create('ten_act_notify', [
+            ...$basePayload,
+            'name' => 'Active without notification',
+            'status' => 'active',
+            'notify_customers' => false,
+        ], $actor, Request::create('/api/v1/admin/tenant/activities', 'POST'));
+        $this->assertArrayHasKey('resource', $withoutNotification);
+
+        $draft = $service->create('ten_act_notify', [
+            ...$basePayload,
+            'name' => 'Draft notification activity',
+            'status' => 'draft',
+            'notify_customers' => true,
+        ], $actor, Request::create('/api/v1/admin/tenant/activities', 'POST'));
+        $this->assertArrayHasKey('resource', $draft);
+        $this->assertDatabaseCount('customer_notifications', 0);
+        Queue::assertNotPushed(FanoutCustomerNotificationRecipientsJob::class);
+
+        $published = $service->update(
+            'ten_act_notify',
+            (string) $draft['resource']['id'],
+            ['status' => 'active', 'notify_customers' => true],
+            $actor,
+            Request::create('/api/v1/admin/tenant/activities/'.$draft['resource']['id'], 'PATCH'),
+        );
+        $this->assertArrayHasKey('resource', $published);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_act_notify',
+            'event_key' => 'content.activity.published',
+            'action_key' => 'activity',
+            'action_entity_id' => $published['resource']['slug'],
+            'subject_type' => 'tenant_activity',
+            'subject_id' => $draft['resource']['id'],
+        ]);
+        Queue::assertPushed(FanoutCustomerNotificationRecipientsJob::class, 1);
+
+        $service->update(
+            'ten_act_notify',
+            (string) $draft['resource']['id'],
+            ['name' => 'Edited active activity', 'notify_customers' => true],
+            $actor,
+            Request::create('/api/v1/admin/tenant/activities/'.$draft['resource']['id'], 'PATCH'),
+        );
+        $this->assertDatabaseCount('customer_notifications', 1);
+        Queue::assertPushed(FanoutCustomerNotificationRecipientsJob::class, 1);
     }
 
     public function test_cashback_uses_order_totals_once_and_keeps_only_highest_activity(): void

@@ -33,6 +33,7 @@ class _CustomerNotificationsScreenState
   bool _refreshing = false;
   bool _realtimeRefreshPending = false;
   bool _markingAll = false;
+  int _unreadCount = 0;
   String _error = '';
   String _inlineError = '';
 
@@ -86,7 +87,6 @@ class _CustomerNotificationsScreenState
       );
     }
 
-    final unreadCount = _items.where((item) => !item.isRead).length;
     return RefreshIndicator(
       onRefresh: () => _loadInitial(showLoading: false),
       child: ListView(
@@ -110,7 +110,7 @@ class _CustomerNotificationsScreenState
                 ),
                 TextButton(
                   key: const ValueKey('customer-notification-read-all'),
-                  onPressed: unreadCount == 0 || _markingAll
+                  onPressed: _unreadCount == 0 || _markingAll
                       ? null
                       : _markAllRead,
                   child: Text(
@@ -197,6 +197,7 @@ class _CustomerNotificationsScreenState
           ..addAll(page.items);
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
+        _unreadCount = page.unreadCount;
       });
       ref.invalidate(customerNotificationUnreadCountProvider);
     } catch (error) {
@@ -243,6 +244,7 @@ class _CustomerNotificationsScreenState
         _items.addAll(page.items.where((item) => existingIds.add(item.id)));
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
+        _unreadCount = page.unreadCount;
       });
     } catch (error) {
       if (!mounted) return;
@@ -269,6 +271,7 @@ class _CustomerNotificationsScreenState
           isRead: true,
           readAt: optimisticReadAt,
         );
+        if (_unreadCount > 0) _unreadCount--;
         _inlineError = '';
       });
       ref.invalidate(customerNotificationUnreadCountProvider);
@@ -279,7 +282,9 @@ class _CustomerNotificationsScreenState
         if (!mounted) return;
         final currentIndex = _items.indexWhere((entry) => entry.id == item.id);
         if (currentIndex >= 0) {
-          setState(() => _items[currentIndex] = authoritative);
+          setState(() {
+            _replaceItemAndAdjustUnread(currentIndex, authoritative);
+          });
         }
       } catch (error) {
         if (!mounted) return;
@@ -288,6 +293,7 @@ class _CustomerNotificationsScreenState
           if (currentIndex >= 0 &&
               _items[currentIndex].readAt == optimisticReadAt) {
             _items[currentIndex] = previous;
+            _unreadCount++;
           }
           _inlineError = _notificationErrorMessage(
             error,
@@ -310,6 +316,7 @@ class _CustomerNotificationsScreenState
       for (final item in _items)
         if (!item.isRead) item.id: item,
     };
+    final previousUnreadCount = _unreadCount;
     final optimisticReadAt = DateTime.now();
     setState(() {
       _markingAll = true;
@@ -322,22 +329,33 @@ class _CustomerNotificationsScreenState
           );
         }
       }
+      _unreadCount = 0;
     });
     ref.invalidate(customerNotificationUnreadCountProvider);
     try {
-      await ref.read(customerNotificationRepositoryProvider).markAllRead();
+      final authoritativeUnreadCount = await ref
+          .read(customerNotificationRepositoryProvider)
+          .markAllRead();
       if (mounted) {
+        setState(() => _unreadCount = authoritativeUnreadCount);
         _realtimeRefreshPending = true;
         _drainRealtimeRefresh();
       }
     } catch (error) {
       if (!mounted) return;
       setState(() {
+        var restoredUnreadCount = 0;
         for (final entry in previousUnread.entries) {
           final index = _items.indexWhere((item) => item.id == entry.key);
           if (index >= 0 && _items[index].readAt == optimisticReadAt) {
             _items[index] = entry.value;
+            restoredUnreadCount++;
           }
+        }
+        if (restoredUnreadCount == previousUnread.length) {
+          _unreadCount = previousUnreadCount;
+        } else {
+          _unreadCount += restoredUnreadCount;
         }
         _inlineError = _notificationErrorMessage(
           error,
@@ -348,6 +366,18 @@ class _CustomerNotificationsScreenState
     } finally {
       if (mounted) setState(() => _markingAll = false);
     }
+  }
+
+  void _replaceItemAndAdjustUnread(
+    int index,
+    CustomerNotificationItem replacement,
+  ) {
+    final current = _items[index];
+    if (current.isRead != replacement.isRead) {
+      _unreadCount += replacement.isRead ? -1 : 1;
+      if (_unreadCount < 0) _unreadCount = 0;
+    }
+    _items[index] = replacement;
   }
 }
 

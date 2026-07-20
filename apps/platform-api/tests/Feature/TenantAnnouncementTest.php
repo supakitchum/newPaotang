@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\FanoutCustomerNotificationRecipientsJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
@@ -123,5 +125,73 @@ class TenantAnnouncementTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'announcement.created', 'target_id' => $important['id']]);
         $this->assertSame(2, DB::table('platform_assets')->where('tenant_id', 'ten_ann')->where('purpose', 'tenant_announcement_image')->count());
+    }
+
+    public function test_customer_notification_requires_explicit_publish_transition_opt_in(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_ann_notify', 'ten_ann_notify', 'ann-notify.example.test');
+        $admin = $this->createTenantSession(
+            'ten_ann_notify',
+            'par_ann_notify',
+            ['announcement.view', 'announcement.manage'],
+            'adm_ann_notify',
+            'tenant-ann-notify@example.test',
+        );
+        $headers = [
+            'X-Admin-Scope' => 'tenant',
+            'X-Tenant-Id' => 'ten_ann_notify',
+        ];
+        Queue::fake();
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/announcements', [
+                'title' => 'Published without notification',
+                'summary' => 'No customer notification requested.',
+                'status' => 'active',
+                'notify_customers' => false,
+            ], $headers + ['Idempotency-Key' => 'ann-notify-active-off'])
+            ->assertCreated();
+
+        $draft = $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/announcements', [
+                'title' => 'Draft with notification selected',
+                'summary' => 'The draft must not notify yet.',
+                'status' => 'draft',
+                'notify_customers' => true,
+            ], $headers + ['Idempotency-Key' => 'ann-notify-draft'])
+            ->assertCreated()
+            ->json();
+
+        $this->assertDatabaseCount('customer_notifications', 0);
+        Queue::assertNotPushed(FanoutCustomerNotificationRecipientsJob::class);
+
+        $published = $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/tenant/announcements/'.$draft['id'], [
+                'status' => 'active',
+                'notify_customers' => true,
+            ], $headers + ['Idempotency-Key' => 'ann-notify-publish'])
+            ->assertOk()
+            ->json();
+
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_ann_notify',
+            'event_key' => 'content.news.published',
+            'action_key' => 'news',
+            'action_entity_id' => $published['slug'],
+            'subject_type' => 'tenant_announcement',
+            'subject_id' => $draft['id'],
+        ]);
+        Queue::assertPushed(FanoutCustomerNotificationRecipientsJob::class, 1);
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/tenant/announcements/'.$draft['id'], [
+                'summary' => 'Editing active content must not resend.',
+                'notify_customers' => true,
+            ], $headers + ['Idempotency-Key' => 'ann-notify-active-edit'])
+            ->assertOk();
+
+        $this->assertDatabaseCount('customer_notifications', 1);
+        Queue::assertPushed(FanoutCustomerNotificationRecipientsJob::class, 1);
     }
 }
