@@ -31,6 +31,7 @@ class _CustomerNotificationsScreenState
   bool _loadingInitial = true;
   bool _loadingMore = false;
   bool _refreshing = false;
+  bool _realtimeRefreshPending = false;
   bool _markingAll = false;
   String _error = '';
   String _inlineError = '';
@@ -127,7 +128,11 @@ class _CustomerNotificationsScreenState
               onRetry: () => _loadInitial(showLoading: false),
             ),
           for (final item in _items)
-            _NotificationTile(item: item, onTap: () => _open(item)),
+            _NotificationTile(
+              key: ValueKey('customer-notification-${item.id}'),
+              item: item,
+              onTap: () => _open(item),
+            ),
           if (_hasMore)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -146,7 +151,25 @@ class _CustomerNotificationsScreenState
   }
 
   void _scheduleRealtimeRefresh() {
-    if (!mounted || _loadingInitial || _loadingMore || _refreshing) return;
+    if (!mounted) return;
+    if (_loadingInitial || _loadingMore || _refreshing) {
+      _realtimeRefreshPending = true;
+      return;
+    }
+    Future.microtask(() {
+      if (mounted) _loadInitial(showLoading: false, preserveOnError: true);
+    });
+  }
+
+  void _drainRealtimeRefresh() {
+    if (!mounted ||
+        !_realtimeRefreshPending ||
+        _loadingInitial ||
+        _loadingMore ||
+        _refreshing) {
+      return;
+    }
+    _realtimeRefreshPending = false;
     Future.microtask(() {
       if (mounted) _loadInitial(showLoading: false, preserveOnError: true);
     });
@@ -200,6 +223,7 @@ class _CustomerNotificationsScreenState
     } finally {
       _refreshing = false;
       if (mounted) setState(() => _loadingInitial = false);
+      _drainRealtimeRefresh();
     }
   }
 
@@ -230,6 +254,7 @@ class _CustomerNotificationsScreenState
       });
     } finally {
       if (mounted) setState(() => _loadingMore = false);
+      _drainRealtimeRefresh();
     }
   }
 
@@ -238,19 +263,32 @@ class _CustomerNotificationsScreenState
       final index = _items.indexWhere((entry) => entry.id == item.id);
       if (index < 0) return;
       final previous = _items[index];
+      final optimisticReadAt = DateTime.now();
       setState(() {
-        _items[index] = previous.copyWith(isRead: true, readAt: DateTime.now());
+        _items[index] = previous.copyWith(
+          isRead: true,
+          readAt: optimisticReadAt,
+        );
         _inlineError = '';
       });
       ref.invalidate(customerNotificationUnreadCountProvider);
       try {
-        await ref
+        final authoritative = await ref
             .read(customerNotificationRepositoryProvider)
             .markRead(item.id);
+        if (!mounted) return;
+        final currentIndex = _items.indexWhere((entry) => entry.id == item.id);
+        if (currentIndex >= 0) {
+          setState(() => _items[currentIndex] = authoritative);
+        }
       } catch (error) {
         if (!mounted) return;
+        final currentIndex = _items.indexWhere((entry) => entry.id == item.id);
         setState(() {
-          _items[index] = previous;
+          if (currentIndex >= 0 &&
+              _items[currentIndex].readAt == optimisticReadAt) {
+            _items[currentIndex] = previous;
+          }
           _inlineError = _notificationErrorMessage(
             error,
             context.l10n.notificationsMarkReadFailed,
@@ -268,26 +306,39 @@ class _CustomerNotificationsScreenState
 
   Future<void> _markAllRead() async {
     if (_markingAll) return;
-    final previous = List<CustomerNotificationItem>.of(_items);
+    final previousUnread = <String, CustomerNotificationItem>{
+      for (final item in _items)
+        if (!item.isRead) item.id: item,
+    };
+    final optimisticReadAt = DateTime.now();
     setState(() {
       _markingAll = true;
       _inlineError = '';
-      final now = DateTime.now();
       for (var index = 0; index < _items.length; index++) {
         if (!_items[index].isRead) {
-          _items[index] = _items[index].copyWith(isRead: true, readAt: now);
+          _items[index] = _items[index].copyWith(
+            isRead: true,
+            readAt: optimisticReadAt,
+          );
         }
       }
     });
     ref.invalidate(customerNotificationUnreadCountProvider);
     try {
       await ref.read(customerNotificationRepositoryProvider).markAllRead();
+      if (mounted) {
+        _realtimeRefreshPending = true;
+        _drainRealtimeRefresh();
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _items
-          ..clear()
-          ..addAll(previous);
+        for (final entry in previousUnread.entries) {
+          final index = _items.indexWhere((item) => item.id == entry.key);
+          if (index >= 0 && _items[index].readAt == optimisticReadAt) {
+            _items[index] = entry.value;
+          }
+        }
         _inlineError = _notificationErrorMessage(
           error,
           context.l10n.notificationsMarkAllFailed,
@@ -330,7 +381,7 @@ class _NotificationPageBody extends StatelessWidget {
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.item, required this.onTap});
+  const _NotificationTile({required this.item, required this.onTap, super.key});
 
   final CustomerNotificationItem item;
   final VoidCallback onTap;

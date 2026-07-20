@@ -188,5 +188,25 @@ class TenantTopupTest extends TestCase
             'action' => 'topup.approved',
             'target_id' => $topups['approve']['id'],
         ]);
+        foreach ([
+            'approve' => 'approved',
+            'reject' => 'rejected',
+            'cancel' => 'cancelled',
+        ] as $action => $transition) {
+            $this->assertDatabaseHas('customer_notifications', [
+                'tenant_id' => 'ten_tenant_topup',
+                'event_key' => 'topup.'.$transition,
+                'action_key' => 'topup',
+                'action_entity_id' => $topups[$action]['id'],
+            ]);
+        }
+        $this->assertDatabaseMissing('customer_notifications', [
+            'event_key' => 'topup.succeeded',
+            'subject_id' => $topups['approve']['id'],
+        ]);
+        $this->assertDatabaseMissing('customer_notifications', [
+            'event_key' => 'topup.failed',
+            'subject_id' => $topups['reject']['id'],
+        ]);
     }
 }

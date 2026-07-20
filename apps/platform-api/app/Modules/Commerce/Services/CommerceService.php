@@ -1860,7 +1860,7 @@ class CommerceService
                 'currency' => 'THB',
                 'posted_balance' => $ledger['balance_after'],
             ]);
-        }, 'topup.approved');
+        }, 'topup.approved', 'approved');
     }
 
     /**
@@ -1878,7 +1878,7 @@ class CommerceService
                 'updated_at' => now(),
             ]);
             $this->markTopupPaymentReviewed($topup, 'failed');
-        }, 'topup.rejected');
+        }, 'topup.rejected', 'rejected');
     }
 
     /**
@@ -1896,18 +1896,29 @@ class CommerceService
                 'updated_at' => now(),
             ]);
             $this->markTopupPaymentReviewed($topup, 'cancelled');
-        }, 'topup.cancelled');
+        }, 'topup.cancelled', 'cancelled');
     }
 
     /**
      * @param callable(object): void $mutator
      * @return array{resource?: array<string, mixed>, status?: int, error?: string}
      */
-    private function adminTopupWrite(string $tenantId, AdminSessionContext $actor, string $topupId, array $payload, Request $request, string $routeKey, string $permissionCode, callable $mutator, string $auditAction): array
+    private function adminTopupWrite(
+        string $tenantId,
+        AdminSessionContext $actor,
+        string $topupId,
+        array $payload,
+        Request $request,
+        string $routeKey,
+        string $permissionCode,
+        callable $mutator,
+        string $auditAction,
+        string $notificationStatus,
+    ): array
     {
         $idempotencyKey = (string) $request->header('Idempotency-Key');
 
-        return DB::transaction(function () use ($tenantId, $actor, $topupId, $payload, $request, $routeKey, $permissionCode, $mutator, $auditAction, $idempotencyKey): array {
+        return DB::transaction(function () use ($tenantId, $actor, $topupId, $payload, $request, $routeKey, $permissionCode, $mutator, $auditAction, $notificationStatus, $idempotencyKey): array {
             $replay = $this->idempotency->replayOrConflict($tenantId, 'tenant_admin', $actor->adminUser['id'], $routeKey.':'.$topupId, $idempotencyKey, $payload, $permissionCode, true);
 
             if (is_array($replay)) {
@@ -1932,7 +1943,7 @@ class CommerceService
             $resource = $this->adminTopupDetailResource(TopupRequest::where('id', $topupId)->first());
             $this->idempotency->storeResponse($tenantId, 'tenant_admin', $actor->adminUser['id'], $routeKey.':'.$topupId, $idempotencyKey, $payload, 200, $resource, $permissionCode);
             $this->auditAdmin($actor, $request, $auditAction, 'topup_request', $topupId, $payload, $tenantId);
-            $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
+            $this->queueTopupUpdatedBroadcast($tenantId, $topupId, $notificationStatus);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $resource['customer_id'] ?? $topup->customer_id), 'topup.status_updated', 'topup_request', $topupId, $this->lineTopupVariables($tenantId, $resource));
             $this->telegramNotifications->enqueue($tenantId, 'topup.status_updated', 'topup_request', $topupId, $this->telegramTopupVariables($tenantId, $resource, $actor->adminUser));
 
@@ -3879,9 +3890,13 @@ class CommerceService
         return $reason === '' ? null : $reason;
     }
 
-    private function queueTopupUpdatedBroadcast(string $tenantId, string $topupId): void
+    private function queueTopupUpdatedBroadcast(
+        string $tenantId,
+        string $topupId,
+        ?string $notificationStatus = null,
+    ): void
     {
-        DB::afterCommit(function () use ($tenantId, $topupId): void {
+        DB::afterCommit(function () use ($tenantId, $topupId, $notificationStatus): void {
             $topup = TopupRequest::query()
                 ->forTenant($tenantId)
                 ->where('id', $topupId)
@@ -3906,6 +3921,7 @@ class CommerceService
                 'tenant_id' => $tenantId,
                 'customer_id' => (string) $topup->customer_id,
                 'topup_id' => $topupId,
+                'notification_status' => $notificationStatus,
                 'source_status' => (string) $topup->status,
                 'status' => $this->topupPresentationStatus($topup),
                 'topup' => $this->topupResource($topup),

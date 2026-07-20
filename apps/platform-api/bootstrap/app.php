@@ -17,6 +17,7 @@ use App\Console\Commands\PruneLotteryBackgroundAssetSetsCommand;
 use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
+use App\Console\Commands\RecoverCustomerNotificationDeliveriesCommand;
 use App\Console\Commands\RecoverStaleLotteryBackgroundZipImportsCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
 use App\Console\Commands\SeedCustomerContentFixturesCommand;
@@ -62,6 +63,7 @@ return Application::configure(basePath: dirname(__DIR__))
         LotteryImageReadinessCommand::class,
         PruneLotteryBackgroundAssetSetsCommand::class,
         PruneTopupSlipsCommand::class,
+        RecoverCustomerNotificationDeliveriesCommand::class,
         RecoverStaleLotteryBackgroundZipImportsCommand::class,
         SeedRuntimeMockDataCommand::class,
         SyncStaticTranslationsCommand::class,

@@ -243,6 +243,8 @@ void main() {
         expect(permissionRequests, 1);
         expect(installationStore.markedPermissionRequested, isTrue);
         expect(repository.registeredTokens, ['fcm-token-initial-1234567890']);
+        expect(repository.registeredInstallationIds, ['install_push_test_001']);
+        expect(repository.registeredPlatforms, ['android']);
 
         tokenRefresh.add('fcm-token-refreshed-1234567890');
         await tester.pumpAndSettle();
@@ -398,6 +400,212 @@ void main() {
       }
     },
   );
+
+  testWidgets('native push retries token registration when the app resumes', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      var permissionRequests = 0;
+      var settingsReads = 0;
+      var tokenReads = 0;
+      final platform = CustomerPushPlatform.test(
+        requestPermission: () async {
+          permissionRequests += 1;
+          return _authorizedNotificationSettings;
+        },
+        notificationSettings: () async {
+          settingsReads += 1;
+          return _authorizedNotificationSettings;
+        },
+        token: () async {
+          tokenReads += 1;
+          if (tokenReads == 1) throw StateError('APNs token is not ready');
+          return 'fcm-token-after-resume-1234567890';
+        },
+      );
+      addTearDown(platform.dispose);
+
+      final tokenStore = AuthTokenStore();
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.test/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        tokenStore,
+        localeTag: 'th-TH',
+      );
+      final auth =
+          AuthController(
+              authRepository: _PushAuthRepository(
+                api: api,
+                tokenStore: tokenStore,
+              ),
+              tokenStore: tokenStore,
+              biometricAuth: BiometricAuthService(api),
+            )
+            ..isAuthenticated = true
+            ..pinRequired = false
+            ..pinSetupRequired = false;
+      final repository = _PushNotificationRepository(api);
+      final router = GoRouter(
+        routes: [GoRoute(path: '/', builder: (_, __) => const Text('home'))],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              const AppConfig(
+                apiBaseUrl: 'https://partner.example.test/api/v1',
+                defaultLocale: 'th-TH',
+              ),
+            ),
+            authControllerProvider.overrideWith((_) => auth),
+            customerPushPlatformProvider.overrideWithValue(platform),
+            customerPushInstallationStoreProvider.overrideWithValue(
+              _PushInstallationStore(),
+            ),
+            customerNotificationRepositoryProvider.overrideWithValue(
+              repository,
+            ),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            builder: (context, child) => CustomerPushLifecycleMonitor(
+              router: router,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(permissionRequests, 1);
+      expect(tokenReads, 1);
+      expect(repository.registeredTokens, isEmpty);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(settingsReads, 1);
+      expect(tokenReads, 2);
+      expect(repository.registeredTokens, [
+        'fcm-token-after-resume-1234567890',
+      ]);
+      expect(repository.registeredInstallationIds, ['install_push_test_001']);
+      expect(repository.registeredPlatforms, ['android']);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('token refresh failure is retried on resume without escaping', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      final tokenRefresh = StreamController<String>.broadcast();
+      addTearDown(tokenRefresh.close);
+      var currentToken = 'fcm-token-before-refresh-1234567890';
+      final platform = CustomerPushPlatform.test(
+        tokenRefresh: tokenRefresh.stream,
+        requestPermission: () async => _authorizedNotificationSettings,
+        notificationSettings: () async => _authorizedNotificationSettings,
+        token: () async => currentToken,
+      );
+      addTearDown(platform.dispose);
+
+      final tokenStore = AuthTokenStore();
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.test/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        tokenStore,
+        localeTag: 'th-TH',
+      );
+      final auth =
+          AuthController(
+              authRepository: _PushAuthRepository(
+                api: api,
+                tokenStore: tokenStore,
+              ),
+              tokenStore: tokenStore,
+              biometricAuth: BiometricAuthService(api),
+            )
+            ..isAuthenticated = true
+            ..pinRequired = false
+            ..pinSetupRequired = false;
+      final repository = _PushNotificationRepository(
+        api,
+        failRegistrationTokensOnce: {'fcm-token-after-refresh-1234567890'},
+      );
+      final router = GoRouter(
+        routes: [GoRoute(path: '/', builder: (_, __) => const Text('home'))],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              const AppConfig(
+                apiBaseUrl: 'https://partner.example.test/api/v1',
+                defaultLocale: 'th-TH',
+              ),
+            ),
+            authControllerProvider.overrideWith((_) => auth),
+            customerPushPlatformProvider.overrideWithValue(platform),
+            customerPushInstallationStoreProvider.overrideWithValue(
+              _PushInstallationStore(),
+            ),
+            customerNotificationRepositoryProvider.overrideWithValue(
+              repository,
+            ),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            builder: (context, child) => CustomerPushLifecycleMonitor(
+              router: router,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      currentToken = 'fcm-token-after-refresh-1234567890';
+      tokenRefresh.add(currentToken);
+      await tester.pumpAndSettle();
+
+      expect(repository.registrationAttempts, [
+        'fcm-token-before-refresh-1234567890',
+        'fcm-token-after-refresh-1234567890',
+      ]);
+      expect(repository.registeredTokens, [
+        'fcm-token-before-refresh-1234567890',
+      ]);
+      expect(tester.takeException(), isNull);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(repository.registrationAttempts, [
+        'fcm-token-before-refresh-1234567890',
+        'fcm-token-after-refresh-1234567890',
+        'fcm-token-after-refresh-1234567890',
+      ]);
+      expect(repository.registeredTokens, [
+        'fcm-token-before-refresh-1234567890',
+        'fcm-token-after-refresh-1234567890',
+      ]);
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
 
 const _authorizedNotificationSettings = NotificationSettings(
@@ -448,11 +656,19 @@ class _PushInstallationStore extends CustomerPushInstallationStore {
 }
 
 class _PushNotificationRepository extends CustomerNotificationRepository {
-  _PushNotificationRepository(super.api, {this.failRevoke = false});
+  _PushNotificationRepository(
+    super.api, {
+    this.failRevoke = false,
+    Set<String> failRegistrationTokensOnce = const {},
+  }) : failRegistrationTokensOnce = {...failRegistrationTokensOnce};
 
   final bool failRevoke;
+  final Set<String> failRegistrationTokensOnce;
 
   final List<String> registeredTokens = [];
+  final List<String> registrationAttempts = [];
+  final List<String> registeredInstallationIds = [];
+  final List<String> registeredPlatforms = [];
   final List<String> readNotificationIds = [];
   final List<String> revokedInstallationIds = [];
 
@@ -466,8 +682,12 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
     String deviceName = '',
     Map<String, dynamic> metadata = const {},
   }) async {
-    expect(installationId, 'install_push_test_001');
-    expect(platform, 'android');
+    registrationAttempts.add(fcmToken);
+    if (failRegistrationTokensOnce.remove(fcmToken)) {
+      throw StateError('device registration offline');
+    }
+    registeredInstallationIds.add(installationId);
+    registeredPlatforms.add(platform);
     registeredTokens.add(fcmToken);
   }
 

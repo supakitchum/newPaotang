@@ -115,8 +115,10 @@ class CustomerNotificationDomainEventService
         $topupId = $this->text($payload['topup_id'] ?? null);
         $topup = is_array($payload['topup'] ?? null) ? $payload['topup'] : [];
         $status = strtolower($this->text(
-            $payload['source_status']
+            $payload['notification_status']
+                ?? $payload['source_status']
                 ?? $payload['status']
+                ?? $topup['notification_status']
                 ?? $topup['source_status']
                 ?? $topup['status']
                 ?? null,

@@ -32,7 +32,8 @@ class CustomerPushLifecycleMonitor extends ConsumerStatefulWidget {
 }
 
 class _CustomerPushLifecycleMonitorState
-    extends ConsumerState<CustomerPushLifecycleMonitor> {
+    extends ConsumerState<CustomerPushLifecycleMonitor>
+    with WidgetsBindingObserver {
   final List<StreamSubscription<Object?>> _subscriptions = [];
   Future<void> _syncQueue = Future<void>.value();
   VoidCallback? _removeLogoutHook;
@@ -45,6 +46,7 @@ class _CustomerPushLifecycleMonitorState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final platform = ref.read(customerPushPlatformProvider);
     _subscriptions.add(
       platform.foregroundMessages.listen(_handleForegroundMessage),
@@ -63,11 +65,17 @@ class _CustomerPushLifecycleMonitorState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _removeLogoutHook?.call();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _scheduleSync();
   }
 
   @override
@@ -146,7 +154,15 @@ class _CustomerPushLifecycleMonitorState
   }
 
   void _handleTokenRefresh(String token) {
-    unawaited(_registerToken(token));
+    unawaited(_registerTokenSafely(token));
+  }
+
+  Future<void> _registerTokenSafely(String token) async {
+    try {
+      await _registerToken(token);
+    } catch (_) {
+      // A resume/auth sync retries the current token without crashing the app.
+    }
   }
 
   void _handleForegroundMessage(CustomerPushMessage message) {

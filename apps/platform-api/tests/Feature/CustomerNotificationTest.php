@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -269,6 +270,160 @@ class CustomerNotificationTest extends TestCase
             'last_error_code' => 'invalid_payload',
         ]);
         $this->assertNull($activeDevice->refresh()->revoked_at);
+    }
+
+    public function test_delivery_claim_prevents_duplicate_send_and_recovers_a_stale_worker(): void
+    {
+        $this->seedTenant('par_notify_lease', 'ten_notify_lease', 'notify-lease.test');
+        $this->seedCustomer('ten_notify_lease', 'cus_notify_lease', 'CUS-NOTIFY-LEASE');
+        $service = app(CustomerNotificationService::class);
+        $service->registerDevice('ten_notify_lease', 'cus_notify_lease', [
+            'installation_id' => 'install_notify_lease',
+            'platform' => 'android',
+            'fcm_token' => str_repeat('lease-fcm-token-', 10),
+            'locale' => 'th-TH',
+        ]);
+        $service->createForCustomer(
+            'ten_notify_lease',
+            'cus_notify_lease',
+            'account.password.changed',
+            [
+                'category' => 'account',
+                'title' => 'Password changed',
+                'body' => 'Your password was changed.',
+                'action_key' => 'none',
+                'subject_type' => 'customer',
+                'subject_id' => 'cus_notify_lease',
+            ],
+            ['dedupe_key' => 'password-change:delivery-lease'],
+        );
+
+        $delivery = CustomerNotificationDelivery::query()->firstOrFail();
+        $delivery->forceFill([
+            'status' => 'sending',
+            'attempts' => 1,
+            'updated_at' => now(),
+        ])->save();
+
+        $this->mock(FirebaseCloudMessagingClient::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('send')->once()->andReturn([
+                'ok' => true,
+                'message_id' => 'projects/test/messages/lease-recovered',
+            ]);
+        });
+        $this->app->forgetInstance(CustomerNotificationService::class);
+        $service = app(CustomerNotificationService::class);
+
+        $service->processDelivery((string) $delivery->id);
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'id' => $delivery->id,
+            'status' => 'sending',
+            'attempts' => 1,
+        ]);
+
+        $delivery->forceFill(['updated_at' => now()->subMinutes(11)])->save();
+        $service->processDelivery((string) $delivery->id);
+
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'id' => $delivery->id,
+            'status' => 'sent',
+            'attempts' => 2,
+            'provider_message_id' => 'projects/test/messages/lease-recovered',
+        ]);
+    }
+
+    public function test_recovery_command_redispatches_missed_and_stale_deliveries_only(): void
+    {
+        $this->seedTenant('par_notify_recover', 'ten_notify_recover', 'notify-recover.test');
+        $this->seedCustomer('ten_notify_recover', 'cus_notify_recover', 'CUS-NOTIFY-RECOVER');
+        $service = app(CustomerNotificationService::class);
+        $service->registerDevice('ten_notify_recover', 'cus_notify_recover', [
+            'installation_id' => 'install_notify_recover',
+            'platform' => 'ios',
+            'fcm_token' => str_repeat('recover-fcm-token-', 10),
+            'locale' => 'th-TH',
+        ]);
+
+        foreach (['missed', 'stale', 'fresh'] as $transition) {
+            $service->createForCustomer(
+                'ten_notify_recover',
+                'cus_notify_recover',
+                'account.pin.changed',
+                [
+                    'category' => 'account',
+                    'title' => 'PIN changed',
+                    'body' => 'Your PIN was changed.',
+                    'action_key' => 'none',
+                    'subject_type' => 'customer',
+                    'subject_id' => 'cus_notify_recover',
+                ],
+                ['dedupe_key' => 'pin-change:delivery-'.$transition],
+            );
+        }
+
+        $deliveries = CustomerNotificationDelivery::query()->orderBy('created_at')->orderBy('id')->get();
+        $this->assertCount(3, $deliveries);
+        $deliveries[0]->forceFill([
+            'status' => 'queued',
+            'attempts' => 0,
+            'next_retry_at' => null,
+            'created_at' => now()->subMinutes(5),
+            'updated_at' => now()->subMinutes(5),
+        ])->save();
+        $deliveries[1]->forceFill([
+            'status' => 'sending',
+            'attempts' => 1,
+            'next_retry_at' => null,
+            'updated_at' => now()->subMinutes(11),
+        ])->save();
+        $deliveries[2]->forceFill([
+            'status' => 'queued',
+            'attempts' => 0,
+            'next_retry_at' => null,
+            'updated_at' => now(),
+        ])->save();
+        $fanoutNotificationId = 'cnt_'.Str::ulid()->toBase32();
+        DB::table('customer_notifications')->insert([
+            'id' => $fanoutNotificationId,
+            'tenant_id' => 'ten_notify_recover',
+            'event_key' => 'content.news.published',
+            'category' => 'news',
+            'title_json' => json_encode(['th-TH' => 'ข่าวใหม่'], JSON_THROW_ON_ERROR),
+            'body_json' => json_encode(['th-TH' => 'อ่านข่าวใหม่'], JSON_THROW_ON_ERROR),
+            'icon_key' => 'news',
+            'action_key' => 'news',
+            'action_entity_id' => 'news-recovery',
+            'subject_type' => 'tenant_announcement',
+            'subject_id' => 'ann_notify_recover',
+            'creator_type' => 'system',
+            'creator_id' => null,
+            'dedupe_key' => hash('sha256', 'notify-recover-fanout'),
+            'metadata_json' => json_encode(['audience' => 'tenant'], JSON_THROW_ON_ERROR),
+            'published_at' => now()->subMinutes(5),
+            'created_at' => now()->subMinutes(5),
+            'updated_at' => now()->subMinutes(5),
+        ]);
+        Queue::fake();
+
+        $this->artisan('customer-notifications:recover-deliveries --limit=100')
+            ->expectsOutput('Recovered customer push deliveries: 2')
+            ->expectsOutput('Recovered customer notification fan-outs: 1')
+            ->assertSuccessful();
+
+        Queue::assertPushed(SendCustomerPushNotificationJob::class, 2);
+        Queue::assertPushed(
+            FanoutCustomerNotificationRecipientsJob::class,
+            fn (FanoutCustomerNotificationRecipientsJob $job): bool => $job->notificationId === $fanoutNotificationId
+                && $job->afterCustomerId === null,
+        );
+        $this->assertNotNull($deliveries[0]->refresh()->next_retry_at);
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'id' => $deliveries[1]->id,
+            'status' => 'queued',
+            'attempts' => 1,
+            'last_error_code' => 'worker_stale_requeued',
+        ]);
+        $this->assertNull($deliveries[2]->refresh()->next_retry_at);
     }
 
     public function test_fcm_failure_classification_only_revokes_token_specific_invalid_arguments(): void
@@ -661,6 +816,155 @@ class CustomerNotificationTest extends TestCase
                 'action_key' => 'topup',
             ]);
         }
+    }
+
+    public function test_claim_affiliate_activity_and_security_catalog_has_every_safe_transition(): void
+    {
+        $this->seedTenant('par_notify_full_catalog', 'ten_notify_full_catalog', 'notify-full-catalog.test');
+        $this->seedCustomer('ten_notify_full_catalog', 'cus_notify_full_catalog', 'CUS-NOTIFY-FULL-CATALOG');
+        $events = app(CustomerNotificationDomainEventService::class);
+        $now = now();
+
+        foreach (['submitted', 'under_review', 'approved', 'rejected', 'cancelled', 'paid'] as $status) {
+            $events->rewardClaimUpdated([
+                'tenant_id' => 'ten_notify_full_catalog',
+                'customer_id' => 'cus_notify_full_catalog',
+                'claim_id' => 'rcl_notify_'.$status,
+                'claim' => ['id' => 'rcl_notify_'.$status, 'status' => $status],
+            ]);
+            $events->activityClaimUpdated([
+                'tenant_id' => 'ten_notify_full_catalog',
+                'customer_id' => 'cus_notify_full_catalog',
+                'claim_id' => 'acl_notify_'.$status,
+                'claim' => ['id' => 'acl_notify_'.$status, 'status' => $status],
+            ]);
+        }
+
+        $events->activityEntrySubmitted(
+            'ten_notify_full_catalog',
+            'cus_notify_full_catalog',
+            'aen_notify_catalog',
+            'act_notify_catalog',
+            'activity-notify-catalog',
+        );
+        $events->activityAwardGranted(
+            'ten_notify_full_catalog',
+            'cus_notify_full_catalog',
+            'awa_notify_catalog',
+            'act_notify_catalog',
+            'activity-notify-catalog',
+        );
+
+        DB::table('affiliate_accounts')->insert([
+            'id' => 'aff_notify_catalog',
+            'tenant_id' => 'ten_notify_full_catalog',
+            'customer_id' => 'cus_notify_full_catalog',
+            'code' => 'AFF-NOTIFY-CATALOG',
+            'name' => 'Notification Affiliate',
+            'status' => 'active',
+            'wallet_balance_amount' => 0,
+            'currency' => 'THB',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('affiliate_payouts')->insert([
+            'id' => 'pyo_notify_catalog',
+            'tenant_id' => 'ten_notify_full_catalog',
+            'affiliate_account_id' => 'aff_notify_catalog',
+            'status' => 'pending',
+            'payout_method' => 'bank_transfer',
+            'amount' => 10000,
+            'currency' => 'THB',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $events->affiliateRegistered('ten_notify_full_catalog', 'cus_notify_full_catalog', 'aff_notify_catalog');
+        $events->affiliateCommissionAvailable('ten_notify_full_catalog', 'aff_notify_catalog', 'ctx_notify_catalog');
+        foreach (['pending', 'approved', 'rejected', 'cancelled', 'paid'] as $status) {
+            DB::table('affiliate_payouts')->where('id', 'pyo_notify_catalog')->update([
+                'status' => $status,
+                'updated_at' => now(),
+            ]);
+            $events->affiliatePayoutUpdated('ten_notify_full_catalog', 'pyo_notify_catalog');
+        }
+
+        $events->pinChanged('ten_notify_full_catalog', 'cus_notify_full_catalog', 'pin-transition');
+        $events->passwordChanged('ten_notify_full_catalog', 'cus_notify_full_catalog', 'password-transition');
+        $events->biometricDeviceChanged(
+            'ten_notify_full_catalog',
+            'cus_notify_full_catalog',
+            'cbd_notify_catalog',
+            'active',
+            'biometric-added-transition',
+        );
+        $events->biometricDeviceChanged(
+            'ten_notify_full_catalog',
+            'cus_notify_full_catalog',
+            'cbd_notify_catalog',
+            'revoked',
+            'biometric-revoked-transition',
+        );
+        $events->accountStatusChanged(
+            'ten_notify_full_catalog',
+            'cus_notify_full_catalog',
+            'suspended',
+            'account-suspended-transition',
+        );
+        $events->accountStatusChanged(
+            'ten_notify_full_catalog',
+            'cus_notify_full_catalog',
+            'active',
+            'account-restored-transition',
+        );
+
+        foreach (['submitted', 'under_review', 'approved', 'rejected', 'cancelled', 'paid'] as $status) {
+            $this->assertDatabaseHas('customer_notifications', [
+                'event_key' => 'reward_claim.'.$status,
+                'action_key' => 'reward_claim',
+                'action_entity_id' => 'rcl_notify_'.$status,
+            ]);
+            $this->assertDatabaseHas('customer_notifications', [
+                'event_key' => 'activity_claim.'.$status,
+                'action_key' => 'activity_claim',
+                'action_entity_id' => 'acl_notify_'.$status,
+            ]);
+        }
+        foreach ([
+            'activity.entry.submitted',
+            'activity.award.granted',
+            'affiliate.registration.completed',
+            'affiliate.commission.available',
+            'affiliate.payout.submitted',
+            'affiliate.payout.approved',
+            'affiliate.payout.rejected',
+            'affiliate.payout.cancelled',
+            'affiliate.payout.paid',
+            'account.pin.changed',
+            'account.password.changed',
+            'account.biometric.added',
+            'account.biometric.revoked',
+            'account.suspended',
+            'account.restored',
+        ] as $eventKey) {
+            $this->assertDatabaseHas('customer_notifications', [
+                'tenant_id' => 'ten_notify_full_catalog',
+                'event_key' => $eventKey,
+            ]);
+        }
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'activity.entry.submitted',
+            'action_key' => 'activity',
+            'action_entity_id' => 'activity-notify-catalog',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'affiliate.payout.paid',
+            'action_key' => 'affiliate',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'account.password.changed',
+            'action_key' => 'none',
+            'subject_id' => 'cus_notify_full_catalog',
+        ]);
     }
 
     public function test_domain_notification_failures_do_not_escape_and_suspended_accounts_keep_security_inbox_events(): void

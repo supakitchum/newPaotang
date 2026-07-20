@@ -10356,3 +10356,44 @@ Customer notification production hardening pass (2026-07-21):
   both physical-device matrices pass.
 - The worktree intentionally remains dirty with this hardening batch. No
   commit, push, or clear-worktree action was performed in this continuation.
+
+Customer notification inbox concurrency and queue recovery follow-up
+(2026-07-21):
+
+- The previously accumulated notification hardening was committed and pushed
+  to `develop` as `5a95a029`. This follow-up extends that production hardening
+  with inbox concurrency, delivery recovery, event-catalog, and native token
+  lifecycle coverage.
+- Flutter notification list refresh now retains a pending realtime event while
+  initial loading, pagination, or another refresh is active. Optimistic
+  read/read-all rollback is scoped to rows changed by that operation, so a
+  newer realtime list cannot be overwritten or lose newly arrived messages.
+  The authoritative mark-read response wins a stale list response, and a
+  successful read-all schedules a fresh server snapshot.
+- Push delivery now acquires an atomic ten-minute `sending` lease before FCM,
+  preventing duplicate jobs from delivering concurrently. A new scheduled
+  `customer-notifications:recover-deliveries` command redispatches queue writes
+  that were missed, retry-due deliveries, stale workers, and incomplete tenant
+  news/activity fan-outs. Exhausted delivery leases become inspectable failed
+  rows; queue dispatch errors remain recoverable without failing the durable
+  inbox or realtime broadcast.
+- Admin topup approval/rejection/cancellation now carries an explicit semantic
+  notification status, so the production write paths emit `topup.approved`,
+  `topup.rejected`, and `topup.cancelled` instead of leaking storage statuses.
+  The backend event-catalog contract now covers claim, affiliate, activity,
+  security, order, topup, and wallet transitions and their safe destinations.
+- Native push registration now retries when the app resumes, covering an APNs
+  token that is not ready during startup, restored OS permission, and transient
+  network failure. Token-refresh registration failures are contained and the
+  current token is retried on resume without surfacing an unhandled async error.
+- Verification passed: Flutter analyzer, 12 focused notification
+  lifecycle/inbox tests, PHP syntax and command/schedule registration, the
+  backend notification/topup suites with 15 tests and 197 assertions on
+  verified `newpaotang_test`, Back Office lint/test, and
+  `git diff --check`. Runtime DB `newpaotang` was not touched and no screenshot
+  automation was used.
+- Native acceptance remains open exactly as before: real FCM foreground,
+  background, terminated, permission denial, token refresh, Login/PIN tap, and
+  logout revocation must pass on physical iOS and Android. The iPhone signing
+  identity, physical Android device, and real Firebase/APNs credentials remain
+  external prerequisites before this goal can be marked complete.

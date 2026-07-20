@@ -24,6 +24,10 @@ class CustomerNotificationService
 {
     private const FANOUT_CHUNK_SIZE = 250;
 
+    private const DELIVERY_MAX_ATTEMPTS = 4;
+
+    private const DELIVERY_LEASE_MINUTES = 10;
+
     public const CATEGORIES = [
         'order',
         'lottery',
@@ -421,7 +425,10 @@ class CustomerNotificationService
                 'subject_id' => $normalized['subject_id'],
                 'creator_type' => trim((string) ($context['creator_type'] ?? 'system')) ?: 'system',
                 'creator_id' => $this->nullableText($context['creator_id'] ?? null, 30),
-                'metadata_json' => is_array($context['metadata'] ?? null) ? $context['metadata'] : null,
+                'metadata_json' => [
+                    ...(is_array($context['metadata'] ?? null) ? $context['metadata'] : []),
+                    'audience' => 'tenant',
+                ],
                 'published_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -685,12 +692,55 @@ class CustomerNotificationService
 
     public function processDelivery(string $deliveryId): void
     {
+        $claimed = DB::transaction(function () use ($deliveryId): bool {
+            $delivery = CustomerNotificationDelivery::query()
+                ->whereKey($deliveryId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($delivery === null || in_array((string) $delivery->status, ['sent', 'failed', 'skipped'], true)) {
+                return false;
+            }
+
+            if (
+                (string) $delivery->status === 'sending'
+                && $delivery->updated_at?->isAfter(now()->subMinutes(self::DELIVERY_LEASE_MINUTES))
+            ) {
+                return false;
+            }
+
+            if ((int) $delivery->attempts >= self::DELIVERY_MAX_ATTEMPTS) {
+                $delivery->forceFill([
+                    'status' => 'failed',
+                    'last_error_code' => 'delivery_attempts_exhausted',
+                    'next_retry_at' => null,
+                    'failed_at' => now(),
+                    'updated_at' => now(),
+                ])->save();
+
+                return false;
+            }
+
+            $delivery->forceFill([
+                'status' => 'sending',
+                'attempts' => (int) $delivery->attempts + 1,
+                'next_retry_at' => null,
+                'updated_at' => now(),
+            ])->save();
+
+            return true;
+        });
+
+        if (! $claimed) {
+            return;
+        }
+
         $delivery = CustomerNotificationDelivery::query()
             ->with(['recipient.notification', 'device'])
             ->whereKey($deliveryId)
             ->first();
 
-        if ($delivery === null || in_array((string) $delivery->status, ['sent', 'failed', 'skipped'], true)) {
+        if ($delivery === null) {
             return;
         }
 
@@ -707,8 +757,7 @@ class CustomerNotificationService
             return;
         }
 
-        $attempts = (int) $delivery->attempts + 1;
-        $delivery->forceFill(['status' => 'sending', 'attempts' => $attempts, 'updated_at' => now()])->save();
+        $attempts = (int) $delivery->attempts;
         $locale = $device->locale ?: 'th-TH';
         $result = $this->fcm->send([
             'token' => (string) $device->fcm_token_encrypted,
@@ -749,7 +798,7 @@ class CustomerNotificationService
             $device->forceFill(['revoked_at' => now(), 'updated_at' => now()])->save();
         }
 
-        $retryable = ($result['retryable'] ?? false) === true && $attempts < 4;
+        $retryable = ($result['retryable'] ?? false) === true && $attempts < self::DELIVERY_MAX_ATTEMPTS;
         $delivery->forceFill([
             'status' => $retryable ? 'queued' : ($errorCode === 'provider_unavailable' ? 'skipped' : 'failed'),
             'last_error_code' => $errorCode,
@@ -761,6 +810,163 @@ class CustomerNotificationService
         if ($retryable) {
             throw new \RuntimeException('Customer push delivery is retryable: '.$errorCode);
         }
+    }
+
+    public function recoverStaleDeliveries(
+        int $limit = 100,
+        int $queuedMinutes = 2,
+        int $staleMinutes = self::DELIVERY_LEASE_MINUTES,
+    ): int {
+        $limit = max(1, min(500, $limit));
+        $queuedCutoff = now()->subMinutes(max(1, $queuedMinutes));
+        $staleCutoff = now()->subMinutes(max(self::DELIVERY_LEASE_MINUTES, $staleMinutes));
+        $now = now();
+
+        $candidateIds = CustomerNotificationDelivery::query()
+            ->where(function (Builder $query) use ($now, $queuedCutoff, $staleCutoff): void {
+                $query->where(function (Builder $queued) use ($now, $queuedCutoff): void {
+                    $queued->where('status', 'queued')
+                        ->where(function (Builder $due) use ($now, $queuedCutoff): void {
+                            $due->where('next_retry_at', '<=', $now)
+                                ->orWhere(function (Builder $neverDispatched) use ($queuedCutoff): void {
+                                    $neverDispatched->whereNull('next_retry_at')
+                                        ->where('created_at', '<=', $queuedCutoff);
+                                });
+                        });
+                })->orWhere(function (Builder $sending) use ($staleCutoff): void {
+                    $sending->where('status', 'sending')
+                        ->where('updated_at', '<=', $staleCutoff);
+                });
+            })
+            ->orderBy('updated_at')
+            ->limit($limit)
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+
+        $dispatched = 0;
+        foreach ($candidateIds as $deliveryId) {
+            $reserved = DB::transaction(function () use ($deliveryId, $now, $queuedCutoff, $staleCutoff): bool {
+                $delivery = CustomerNotificationDelivery::query()
+                    ->whereKey($deliveryId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($delivery === null) {
+                    return false;
+                }
+
+                $queuedIsDue = (string) $delivery->status === 'queued'
+                    && (
+                        $delivery->next_retry_at?->lessThanOrEqualTo($now)
+                        || ($delivery->next_retry_at === null && $delivery->created_at?->lessThanOrEqualTo($queuedCutoff))
+                    );
+                $sendingIsStale = (string) $delivery->status === 'sending'
+                    && $delivery->updated_at?->lessThanOrEqualTo($staleCutoff);
+
+                if (! $queuedIsDue && ! $sendingIsStale) {
+                    return false;
+                }
+
+                if ((int) $delivery->attempts >= self::DELIVERY_MAX_ATTEMPTS) {
+                    $delivery->forceFill([
+                        'status' => 'failed',
+                        'last_error_code' => 'delivery_attempts_exhausted',
+                        'next_retry_at' => null,
+                        'failed_at' => now(),
+                        'updated_at' => now(),
+                    ])->save();
+
+                    return false;
+                }
+
+                $delivery->forceFill([
+                    'status' => 'queued',
+                    'last_error_code' => $sendingIsStale
+                        ? 'worker_stale_requeued'
+                        : $delivery->last_error_code,
+                    'next_retry_at' => now()->addMinute(),
+                    'failed_at' => null,
+                    'updated_at' => now(),
+                ])->save();
+
+                return true;
+            });
+
+            if (! $reserved) {
+                continue;
+            }
+
+            try {
+                SendCustomerPushNotificationJob::dispatch($deliveryId);
+                $dispatched++;
+            } catch (\Throwable) {
+                CustomerNotificationDelivery::query()
+                    ->whereKey($deliveryId)
+                    ->where('status', 'queued')
+                    ->update([
+                        'last_error_code' => 'queue_dispatch_failed',
+                        'next_retry_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+
+        return $dispatched;
+    }
+
+    public function recoverTenantFanouts(int $limit = 25, int $queuedMinutes = 2): int
+    {
+        $notifications = CustomerNotification::query()
+            ->where('created_at', '<=', now()->subMinutes(max(1, $queuedMinutes)))
+            ->where(function (Builder $query): void {
+                $query->where('metadata_json->audience', 'tenant')
+                    ->orWhereIn('event_key', [
+                        'content.activity.published',
+                        'content.news.published',
+                    ]);
+            })
+            ->orderBy('created_at')
+            ->limit(max(1, min(100, $limit)))
+            ->get();
+
+        $dispatched = 0;
+        foreach ($notifications as $notification) {
+            $missingCustomerId = Customer::query()
+                ->where('tenant_id', $notification->tenant_id)
+                ->where('status', 'active')
+                ->whereNotExists(function ($query) use ($notification): void {
+                    $query->selectRaw('1')
+                        ->from('customer_notification_recipients')
+                        ->whereColumn('customer_notification_recipients.customer_id', 'customers.id')
+                        ->where('customer_notification_recipients.notification_id', $notification->id);
+                })
+                ->orderBy('id')
+                ->value('id');
+
+            if ($missingCustomerId === null) {
+                continue;
+            }
+
+            $afterCustomerId = Customer::query()
+                ->where('tenant_id', $notification->tenant_id)
+                ->where('status', 'active')
+                ->where('id', '<', $missingCustomerId)
+                ->orderByDesc('id')
+                ->value('id');
+
+            try {
+                FanoutCustomerNotificationRecipientsJob::dispatch(
+                    (string) $notification->id,
+                    $afterCustomerId === null ? null : (string) $afterCustomerId,
+                );
+                $dispatched++;
+            } catch (\Throwable) {
+                // The next scheduled recovery run will retry this immutable source.
+            }
+        }
+
+        return $dispatched;
     }
 
     private function dispatchCreated(CustomerNotificationRecipient $recipient): void
@@ -806,7 +1012,15 @@ class CustomerNotificationService
             );
 
             if ($delivery->wasRecentlyCreated) {
-                SendCustomerPushNotificationJob::dispatch((string) $delivery->id)->afterCommit();
+                try {
+                    SendCustomerPushNotificationJob::dispatch((string) $delivery->id)->afterCommit();
+                } catch (\Throwable) {
+                    $delivery->forceFill([
+                        'last_error_code' => 'queue_dispatch_failed',
+                        'next_retry_at' => now(),
+                        'updated_at' => now(),
+                    ])->save();
+                }
             }
         }
     }

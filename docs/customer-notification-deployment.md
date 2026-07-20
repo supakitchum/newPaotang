@@ -40,6 +40,19 @@ failures use bounded retries; missing provider configuration records a skipped
 `INVALID_ARGUMENT` revoke the device. A generic invalid message payload does
 not revoke a valid token.
 
+The application scheduler must run every minute. It invokes
+`customer-notifications:recover-deliveries --limit=100`, which redispatches a
+never-dispatched or retry-due delivery, recovers a worker left in `sending`
+after its ten-minute lease, and resumes incomplete tenant news/activity
+fan-outs. Delivery rows are claimed under a database lock and fan-out jobs are
+unique by notification/cursor, so a delayed original job and a recovery job do
+not send the same push concurrently. Confirm scheduler registration after a
+deploy without printing secrets:
+
+```bash
+php artisan schedule:list | grep customer-notifications:recover-deliveries
+```
+
 ## Android Build
 
 Download `google-services.json` for the partner release application ID and

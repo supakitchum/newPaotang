@@ -324,6 +324,18 @@ Run focused feature tests only against `newpaotang_test` and verify:
   ID and refreshed FCM token, generic invalid payloads do not revoke valid
   devices, order/topup transitions preserve exact destinations/statuses, and
   internal order action keys are unavailable to tenant-admin direct sends.
+- Inbox concurrency and queue recovery hardening completed: realtime events
+  received during list loading are replayed, read/read-all rollback cannot
+  overwrite a newer server list, and authoritative read responses win stale
+  refreshes. Push delivery uses an atomic sending lease, scheduled recovery
+  redispatches missed/retry-due deliveries and stale workers, and incomplete
+  tenant news/activity fan-outs resume through cursor-unique jobs.
+- Production topup writes now distinguish semantic approval, rejection, and
+  cancellation from storage statuses, while the event-catalog contract covers
+  every safe claim, affiliate, activity, security, order, topup, and wallet
+  transition. Native registration also retries on app resume when APNs/FCM is
+  temporarily unavailable, permission changes in OS settings, or token-refresh
+  registration fails without escaping into the app lifecycle.
 - External acceptance remains open: real FCM must pass on physical iOS and
   Android for foreground, background, terminated, permission denial, token
   refresh, notification tap through Login/PIN, and explicit logout revocation.

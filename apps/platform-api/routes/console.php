@@ -46,6 +46,11 @@ Schedule::command('lottery-images:recover-stale-zip-imports --limit=25')
     ->withoutOverlapping()
     ->description('Recover stale lottery background zip imports that lost their worker heartbeat.');
 
+Schedule::command('customer-notifications:recover-deliveries --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->description('Redispatch customer push deliveries missed by the queue or abandoned by a worker.');
+
 Schedule::command('platform:alerts:check --dry-run --format=json')
     ->everyFiveMinutes()
     ->withoutOverlapping()
