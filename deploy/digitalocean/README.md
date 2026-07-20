@@ -63,6 +63,13 @@ Edit these placeholders before first deploy:
 - `deploy/digitalocean/kustomization.yaml`
   - DOCR registry name and initial image tag if deploying manually
 
+Customer native notification credentials and the physical-device acceptance
+procedure are documented in
+[`docs/customer-notification-deployment.md`](../../docs/customer-notification-deployment.md).
+The Firebase service-account JSON, Android `google-services.json`, iOS
+`GoogleService-Info.plist`, and APNs credentials must come from deployment or
+build secrets and must not be committed.
+
 Apply manifests:
 
 ```bash

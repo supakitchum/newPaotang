@@ -12,6 +12,7 @@ import 'package:customer_flutter/features/activities/data/activity_repository.da
 import 'package:customer_flutter/features/home/presentation/home_screen.dart';
 import 'package:customer_flutter/features/news/data/news_models.dart';
 import 'package:customer_flutter/features/news/data/news_repository.dart';
+import 'package:customer_flutter/features/notifications/data/customer_notification_repository.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
@@ -330,6 +331,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('home notification bell caps unread badge and opens inbox', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => _RouteEcho(uri: state.uri),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await _pumpHomeRouter(tester, router, notificationUnreadCount: 123);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-header-notification-badge')),
+      findsOneWidget,
+    );
+    expect(find.text('99+'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('home-header-notifications')));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/notifications',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('home engagement cards preserve Nuxt activity and news routes', (
     tester,
   ) async {
@@ -494,6 +533,7 @@ Future<void> _pumpHomeRouter(
   GoRouter router, {
   List<ActivityItem> activities = const <ActivityItem>[],
   List<NewsItem> news = _homeNewsFixtures,
+  int notificationUnreadCount = 0,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -513,6 +553,9 @@ Future<void> _pumpHomeRouter(
             ],
             ledger: [],
           ),
+        ),
+        customerNotificationUnreadCountProvider.overrideWith(
+          (_) async => notificationUnreadCount,
         ),
         activityListProvider.overrideWith((_) async => activities),
         newsListProvider.overrideWith((_) async => news),

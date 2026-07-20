@@ -86,12 +86,56 @@ class CustomerPushPlatform {
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
     CustomerPushMessage? initialTap,
+    Stream<String>? tokenRefresh,
+    Future<NotificationSettings?> Function()? requestPermission,
+    Future<NotificationSettings?> Function()? notificationSettings,
+    Future<String?> Function()? token,
+    Future<void> Function()? deleteToken,
   }) : _messaging = messaging,
        _localNotifications = localNotifications,
-       _initialTap = initialTap;
+       _initialTap = initialTap,
+       _tokenRefresh = tokenRefresh ?? const Stream<String>.empty(),
+       _requestPermission = requestPermission,
+       _notificationSettings = notificationSettings,
+       _token = token,
+       _deleteToken = deleteToken;
 
   factory CustomerPushPlatform.disabled() {
     return CustomerPushPlatform._(available: false);
+  }
+
+  @visibleForTesting
+  factory CustomerPushPlatform.test({
+    bool available = true,
+    Stream<CustomerPushMessage>? foregroundMessages,
+    Stream<CustomerPushMessage>? notificationTaps,
+    Stream<String>? tokenRefresh,
+    CustomerPushMessage? initialTap,
+    Future<NotificationSettings?> Function()? requestPermission,
+    Future<NotificationSettings?> Function()? notificationSettings,
+    Future<String?> Function()? token,
+    Future<void> Function()? deleteToken,
+  }) {
+    final platform = CustomerPushPlatform._(
+      available: available,
+      initialTap: initialTap,
+      tokenRefresh: tokenRefresh,
+      requestPermission: requestPermission,
+      notificationSettings: notificationSettings,
+      token: token,
+      deleteToken: deleteToken,
+    );
+    if (foregroundMessages != null) {
+      platform._subscriptions.add(
+        foregroundMessages.listen(platform._foregroundMessages.add),
+      );
+    }
+    if (notificationTaps != null) {
+      platform._subscriptions.add(
+        notificationTaps.listen(platform._notificationTaps.add),
+      );
+    }
+    return platform;
   }
 
   static const channelId = 'customer_updates';
@@ -99,6 +143,11 @@ class CustomerPushPlatform {
   final bool available;
   final FirebaseMessaging? _messaging;
   final FlutterLocalNotificationsPlugin? _localNotifications;
+  final Stream<String> _tokenRefresh;
+  final Future<NotificationSettings?> Function()? _requestPermission;
+  final Future<NotificationSettings?> Function()? _notificationSettings;
+  final Future<String?> Function()? _token;
+  final Future<void> Function()? _deleteToken;
   final _foregroundMessages = StreamController<CustomerPushMessage>.broadcast();
   final _notificationTaps = StreamController<CustomerPushMessage>.broadcast();
   final List<StreamSubscription<Object?>> _subscriptions = [];
@@ -108,7 +157,7 @@ class CustomerPushPlatform {
       _foregroundMessages.stream;
   Stream<CustomerPushMessage> get notificationTaps => _notificationTaps.stream;
   Stream<String> get tokenRefresh =>
-      _messaging?.onTokenRefresh ?? const Stream<String>.empty();
+      _messaging?.onTokenRefresh ?? _tokenRefresh;
 
   CustomerPushMessage? takeInitialTap() {
     final value = _initialTap;
@@ -185,6 +234,7 @@ class CustomerPushPlatform {
   }
 
   Future<NotificationSettings?> requestPermission() async {
+    if (_requestPermission != null) return _requestPermission();
     final messaging = _messaging;
     if (!available || messaging == null) return null;
     return messaging.requestPermission(
@@ -199,18 +249,21 @@ class CustomerPushPlatform {
   }
 
   Future<NotificationSettings?> notificationSettings() async {
+    if (_notificationSettings != null) return _notificationSettings();
     final messaging = _messaging;
     if (!available || messaging == null) return null;
     return messaging.getNotificationSettings();
   }
 
   Future<String?> token() async {
+    if (_token != null) return _token();
     final messaging = _messaging;
     if (!available || messaging == null) return null;
     return messaging.getToken();
   }
 
   Future<void> deleteToken() async {
+    if (_deleteToken != null) return _deleteToken();
     final messaging = _messaging;
     if (!available || messaging == null) return;
     await messaging.deleteToken();

@@ -173,6 +173,7 @@ class CustomerNotificationTest extends TestCase
                 'ok' => false,
                 'error_code' => 'unregistered',
                 'retryable' => false,
+                'revoke_device' => true,
             ]);
         });
 
@@ -189,6 +190,117 @@ class CustomerNotificationTest extends TestCase
         $this->withToken($token)
             ->deleteJson('http://notify-device.test/api/v1/customer/notification-devices/install_notify_device_001')
             ->assertNoContent();
+    }
+
+    public function test_device_installation_and_token_move_to_the_latest_customer_without_payload_error_revocation(): void
+    {
+        $this->seedTenant('par_notify_move_a', 'ten_notify_move_a', 'notify-move-a.test');
+        $this->seedCustomer('ten_notify_move_a', 'cus_notify_move_a', 'CUS-NOTIFY-MOVE-A');
+        $this->seedTenant('par_notify_move_b', 'ten_notify_move_b', 'notify-move-b.test');
+        $this->seedCustomer('ten_notify_move_b', 'cus_notify_move_b', 'CUS-NOTIFY-MOVE-B');
+        $service = app(CustomerNotificationService::class);
+        $firstToken = str_repeat('first-fcm-token-', 10);
+        $refreshedToken = str_repeat('refreshed-fcm-token-', 10);
+
+        $service->registerDevice('ten_notify_move_a', 'cus_notify_move_a', [
+            'installation_id' => 'install_notify_shared',
+            'platform' => 'android',
+            'fcm_token' => $firstToken,
+            'locale' => 'th-TH',
+        ]);
+        $service->registerDevice('ten_notify_move_b', 'cus_notify_move_b', [
+            'installation_id' => 'install_notify_shared',
+            'platform' => 'android',
+            'fcm_token' => $refreshedToken,
+            'locale' => 'en-US',
+        ]);
+
+        $this->assertNotNull(CustomerPushDevice::query()
+            ->where('customer_id', 'cus_notify_move_a')
+            ->firstOrFail()
+            ->revoked_at);
+        $activeDevice = CustomerPushDevice::query()
+            ->where('customer_id', 'cus_notify_move_b')
+            ->firstOrFail();
+        $this->assertNull($activeDevice->revoked_at);
+
+        $service->registerDevice('ten_notify_move_a', 'cus_notify_move_a', [
+            'installation_id' => 'install_notify_reassigned',
+            'platform' => 'android',
+            'fcm_token' => $refreshedToken,
+            'locale' => 'th-TH',
+        ]);
+        $this->assertNotNull($activeDevice->refresh()->revoked_at);
+        $activeDevice = CustomerPushDevice::query()
+            ->where('customer_id', 'cus_notify_move_a')
+            ->where('installation_id', 'install_notify_reassigned')
+            ->firstOrFail();
+        $this->assertNull($activeDevice->revoked_at);
+
+        $service->createForCustomer(
+            'ten_notify_move_a',
+            'cus_notify_move_a',
+            'account.password.changed',
+            [
+                'category' => 'account',
+                'title' => 'Password changed',
+                'body' => 'Your password was changed.',
+                'action_key' => 'none',
+                'subject_type' => 'customer',
+                'subject_id' => 'cus_notify_move_a',
+            ],
+            ['dedupe_key' => 'password-change:payload-validation'],
+        );
+        $delivery = CustomerNotificationDelivery::query()->firstOrFail();
+        $this->mock(FirebaseCloudMessagingClient::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('send')->once()->andReturn([
+                'ok' => false,
+                'error_code' => 'invalid_payload',
+                'retryable' => false,
+                'revoke_device' => false,
+            ]);
+        });
+
+        app(CustomerNotificationService::class)->processDelivery((string) $delivery->id);
+
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'id' => $delivery->id,
+            'status' => 'failed',
+            'last_error_code' => 'invalid_payload',
+        ]);
+        $this->assertNull($activeDevice->refresh()->revoked_at);
+    }
+
+    public function test_fcm_failure_classification_only_revokes_token_specific_invalid_arguments(): void
+    {
+        $genericInvalid = FirebaseCloudMessagingClient::classifyFailure(400, [
+            'status' => 'INVALID_ARGUMENT',
+            'details' => [[
+                '@type' => 'type.googleapis.com/google.rpc.BadRequest',
+                'fieldViolations' => [['field' => 'message.notification.title']],
+            ]],
+        ]);
+        $tokenInvalid = FirebaseCloudMessagingClient::classifyFailure(400, [
+            'status' => 'INVALID_ARGUMENT',
+            'details' => [[
+                '@type' => 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                'errorCode' => 'INVALID_ARGUMENT',
+            ]],
+        ]);
+        $unregistered = FirebaseCloudMessagingClient::classifyFailure(404, [
+            'status' => 'NOT_FOUND',
+            'details' => [[
+                '@type' => 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                'errorCode' => 'UNREGISTERED',
+            ]],
+        ]);
+
+        $this->assertSame('invalid_payload', $genericInvalid['error_code']);
+        $this->assertFalse($genericInvalid['revoke_device']);
+        $this->assertSame('invalid_argument', $tokenInvalid['error_code']);
+        $this->assertTrue($tokenInvalid['revoke_device']);
+        $this->assertSame('unregistered', $unregistered['error_code']);
+        $this->assertTrue($unregistered['revoke_device']);
     }
 
     public function test_tenant_fanout_is_chunked_idempotent_and_excludes_inactive_customers(): void
@@ -299,6 +411,9 @@ class CustomerNotificationTest extends TestCase
         $this->assertNotContains('cus_notify_composer_b', array_column($options['data'], 'id'));
         $newsAction = collect($options['meta']['action_options'])->firstWhere('key', 'news');
         $this->assertSame(true, $newsAction['entity_required'] ?? null);
+        $adminActionKeys = array_column($options['meta']['action_options'], 'key');
+        $this->assertNotContains('order', $adminActionKeys);
+        $this->assertNotContains('checkout_pending', $adminActionKeys);
 
         $actor = new AdminSessionContext(
             ['scope_type' => 'tenant', 'scope_id' => 'scp_notify_composer', 'tenant_id' => 'ten_notify_composer_a'],
@@ -440,7 +555,7 @@ class CustomerNotificationTest extends TestCase
         foreach ([
             'order.paid',
             'topup.submitted',
-            'topup.approved',
+            'topup.succeeded',
             'wallet.credited',
             'reward_claim.submitted',
             'reward_claim.approved',
@@ -457,10 +572,55 @@ class CustomerNotificationTest extends TestCase
             'action_key' => 'tickets',
         ]);
         $this->assertDatabaseHas('customer_notifications', [
-            'event_key' => 'topup.approved',
+            'event_key' => 'topup.succeeded',
             'action_key' => 'topup',
             'action_entity_id' => 'top_notify_domain',
         ]);
+    }
+
+    public function test_order_and_topup_catalog_preserves_customer_destinations_and_business_statuses(): void
+    {
+        $this->seedTenant('par_notify_catalog', 'ten_notify_catalog', 'notify-catalog.test');
+        $this->seedCustomer('ten_notify_catalog', 'cus_notify_catalog', 'CUS-NOTIFY-CATALOG');
+        $events = app(CustomerNotificationDomainEventService::class);
+
+        foreach (['pending_payment', 'failed', 'cancelled', 'expired', 'refunded'] as $status) {
+            $events->orderUpdated([
+                'tenant_id' => 'ten_notify_catalog',
+                'customer_id' => 'cus_notify_catalog',
+                'order_id' => 'ord_notify_'.$status,
+                'status' => $status,
+                'payment_status' => $status === 'refunded' ? 'refunded' : 'pending',
+            ]);
+        }
+
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'order.waiting_payment',
+            'action_key' => 'checkout_pending',
+            'action_entity_id' => 'ord_notify_pending_payment',
+        ]);
+        foreach (['failed', 'cancelled', 'expired', 'refunded'] as $status) {
+            $this->assertDatabaseHas('customer_notifications', [
+                'event_key' => 'order.'.$status,
+                'action_key' => 'order',
+                'action_entity_id' => 'ord_notify_'.$status,
+            ]);
+        }
+
+        foreach (['pending', 'succeeded', 'approved', 'failed', 'rejected', 'cancelled', 'expired', 'reversed'] as $status) {
+            $events->topupUpdated([
+                'tenant_id' => 'ten_notify_catalog',
+                'customer_id' => 'cus_notify_catalog',
+                'topup_id' => 'top_notify_'.$status,
+                'source_status' => $status,
+            ]);
+        }
+        foreach (['submitted', 'succeeded', 'approved', 'failed', 'rejected', 'cancelled', 'expired', 'reversed'] as $transition) {
+            $this->assertDatabaseHas('customer_notifications', [
+                'event_key' => 'topup.'.$transition,
+                'action_key' => 'topup',
+            ]);
+        }
     }
 
     public function test_domain_notification_failures_do_not_escape_and_suspended_accounts_keep_security_inbox_events(): void

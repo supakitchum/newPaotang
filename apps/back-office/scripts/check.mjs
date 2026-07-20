@@ -12,6 +12,7 @@ const requiredFiles = [
   'pages/admin/central/dashboard/index.vue',
   'pages/admin/tenant/dashboard.vue',
   'pages/admin/tenant/maintenance.vue',
+  'pages/admin/tenant/customer-notifications.vue',
   'pages/admin/tenant/support-access/index.vue',
   'pages/admin/tenant/support-access/[id].vue',
   'pages/admin/tenant/winners/index.vue',
@@ -185,6 +186,12 @@ const tenantMaintenancePage = existsSync(join(root, 'pages/admin/tenant/maintena
 const tenantAnnouncementsPage = existsSync(join(root, 'pages/admin/tenant/announcements.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/announcements.vue'), 'utf8')
   : ''
+const tenantActivitiesPage = existsSync(join(root, 'pages/admin/tenant/activities.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/activities.vue'), 'utf8')
+  : ''
+const tenantCustomerNotificationsPage = existsSync(join(root, 'pages/admin/tenant/customer-notifications.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/customer-notifications.vue'), 'utf8')
+  : ''
 const tenantLineNotificationsPage = existsSync(join(root, 'pages/admin/tenant/line-notifications.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/line-notifications.vue'), 'utf8')
   : ''
@@ -308,6 +315,10 @@ for (const evidence of [
   ['LINE notification connection lets tenant configure LIFF ID', tenantLineNotificationsPage.includes('LINE LIFF ID') && tenantLineNotificationsPage.includes('connectionForm.liff_id') && tenantLineNotificationsPage.includes('Used when customers open the storefront from LINE LIFF')],
   ['LINE notification connection can be disconnected from tenant BO', tenantLineNotificationsPage.includes('ยกเลิกการเชื่อมต่อ') && tenantLineNotificationsPage.includes('disconnectConnection') && tenantLineNotificationsPage.includes("method: 'DELETE'") && tenantLineNotificationsPage.includes("'/admin/tenant/line-notifications/connection'")],
   ['LINE notification callback URL uses backend storefront value instead of BO origin', tenantLineNotificationsPage.includes('Customer callback URL') && tenantLineNotificationsPage.includes('connection.value.callback_url') && !tenantLineNotificationsPage.includes('window.location.origin')],
+  ['customer notification composer is tenant scoped and idempotent', tenantCustomerNotificationsPage.includes("'/admin/tenant/customer-notifications/customers'") && tenantCustomerNotificationsPage.includes("'/admin/tenant/customer-notifications'") && tenantCustomerNotificationsPage.includes('scope: \'tenant\'') && tenantCustomerNotificationsPage.includes('idempotencyKey: api.idempotencyKey()')],
+  ['customer notification composer confirms direct sends and shows read/push history', tenantCustomerNotificationsPage.includes('confirmationOpen') && tenantCustomerNotificationsPage.includes('Confirm notification') && tenantCustomerNotificationsPage.includes('recipient?.is_read') && tenantCustomerNotificationsPage.includes('recipient?.push?.status')],
+  ['news customer notification opt-in stays explicit and off by default', tenantAnnouncementsPage.includes('v-model="form.notify_customers"') && tenantAnnouncementsPage.includes('notify_customers: false') && tenantAnnouncementsPage.includes('notify_customers: canNotifyCustomers.value && Boolean(form.notify_customers)')],
+  ['activity customer notification opt-in stays explicit and off by default', tenantActivitiesPage.includes('v-model="form.notify_customers"') && tenantActivitiesPage.includes('notify_customers: false') && tenantActivitiesPage.includes('notify_customers: canNotifyCustomers.value && Boolean(form.notify_customers)')],
 ]) {
   if (!evidence[1]) {
     failures.push(`Production readiness guardrail missing: ${evidence[0]}`)

@@ -136,6 +136,7 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   }
   if (input.checkFiles &&
       (input.target.includesAndroid || input.target.includesIos)) {
+    _checkFlutterNativePushBinding(input, issues);
     _checkFlutterScreenSecurityBinding(input, issues);
     _checkFlutterBiometricBinding(input, issues);
   }
@@ -143,6 +144,133 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   if (input.target.includesIos) _checkIos(input, issues);
 
   return issues;
+}
+
+void _checkFlutterNativePushBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final commonFiles = <String, List<String>>{
+    'pubspec.yaml': const [
+      'firebase_core:',
+      'firebase_messaging:',
+      'flutter_local_notifications:',
+    ],
+    'lib/main.dart': const [
+      'CustomerPushPlatform.initialize()',
+      'customerPushPlatformProvider.overrideWithValue(pushPlatform)',
+    ],
+    'lib/app/customer_app.dart': const ['CustomerPushLifecycleMonitor('],
+    'lib/core/notifications/customer_push_platform.dart': const [
+      'customerFirebaseMessagingBackgroundHandler',
+      'FirebaseMessaging.onBackgroundMessage',
+      'FirebaseMessaging.onMessage.listen',
+      'FirebaseMessaging.onMessageOpenedApp.listen',
+      'messaging.getInitialMessage()',
+      'AndroidNotificationChannel(',
+      "channelId = 'customer_updates'",
+    ],
+    'lib/core/notifications/customer_push_lifecycle_monitor.dart': const [
+      'platform.tokenRefresh.listen',
+      'registerBeforeLogoutHook',
+      '.registerDevice(',
+      '.revokeDevice(installationId)',
+      "widget.router.go('/notifications')",
+    ],
+  };
+
+  final missingCommon = _missingFileSnippets(input.projectRoot, commonFiles);
+  if (missingCommon.isNotEmpty) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'flutter_native_push_binding_missing',
+        message:
+            'Native customer releases must initialize FCM, present foreground notifications, register refreshed tokens, preserve notification taps through auth/PIN, and revoke the installation on logout. Missing: ${missingCommon.join(', ')}',
+      ),
+    );
+  }
+
+  if (input.target.includesAndroid) {
+    final missingAndroid = _missingFileSnippets(input.projectRoot, {
+      'android/app/src/main/AndroidManifest.xml': const [
+        'android.permission.POST_NOTIFICATIONS',
+        'com.google.firebase.messaging.default_notification_channel_id',
+        'com.google.firebase.messaging.default_notification_icon',
+        '@drawable/ic_stat_customer_notification',
+      ],
+      'android/app/build.gradle.kts': const [
+        'google-services.json',
+        'com.google.gms.google-services',
+        'releaseTaskRequested && !customerFirebaseConfig.exists()',
+        'Firebase config is required for customer_flutter Android release builds',
+      ],
+      'android/app/src/main/res/drawable/ic_stat_customer_notification.xml':
+          const ['<vector'],
+    });
+    if (missingAndroid.isNotEmpty) {
+      issues.add(
+        ProductionPreflightIssue(
+          code: 'android_native_push_config_missing',
+          message:
+              'Android native push requires notification permission, a stable channel/icon, conditional Google Services wiring, and a release build failure when the injected Firebase secret is absent. Missing: ${missingAndroid.join(', ')}',
+        ),
+      );
+    }
+  }
+
+  if (input.target.includesIos) {
+    final missingIos = _missingFileSnippets(input.projectRoot, {
+      'ios/Runner/Runner.entitlements': const [
+        '<key>aps-environment</key>',
+        r'$(CUSTOMER_FLUTTER_APS_ENVIRONMENT)',
+      ],
+      'ios/Runner/Info.plist': const [
+        '<key>UIBackgroundModes</key>',
+        '<string>remote-notification</string>',
+      ],
+      'ios/scripts/copy_firebase_config.sh': const [
+        'CUSTOMER_FLUTTER_FIREBASE_IOS_PLIST',
+        'PRODUCT_BUNDLE_IDENTIFIER',
+        'GoogleService-Info.plist',
+        r'configured_bundle_id="$(plist_value BUNDLE_ID)"',
+      ],
+      'ios/Runner.xcodeproj/project.pbxproj': const [
+        'Copy Firebase Config',
+        'scripts/copy_firebase_config.sh',
+      ],
+    });
+    if (missingIos.isNotEmpty) {
+      issues.add(
+        ProductionPreflightIssue(
+          code: 'ios_native_push_config_missing',
+          message:
+              'iOS native push requires the APNs entitlement, remote-notification background mode, and secret-injected Firebase plist validation against the release bundle ID. Missing: ${missingIos.join(', ')}',
+        ),
+      );
+    }
+  }
+}
+
+List<String> _missingFileSnippets(
+  String projectRoot,
+  Map<String, List<String>> requiredFiles,
+) {
+  final missing = <String>[];
+  for (final entry in requiredFiles.entries) {
+    final file = File(_join(projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missing.add(entry.key);
+      continue;
+    }
+
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missing.add('${entry.key} missing $snippet');
+      }
+    }
+  }
+  return missing;
 }
 
 void _checkFlutterRuntimeThemeBinding(

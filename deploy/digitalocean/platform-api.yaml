@@ -81,6 +81,10 @@ spec:
                 name: newpaotang-platform-config
             - secretRef:
                 name: newpaotang-platform-secret
+          volumeMounts:
+            - name: firebase-service-account
+              mountPath: /var/run/secrets/newpaotang
+              readOnly: true
           resources:
             requests:
               cpu: 150m
@@ -126,6 +130,13 @@ spec:
         - name: nginx-config
           configMap:
             name: platform-api-nginx-config
+        - name: firebase-service-account
+          secret:
+            secretName: newpaotang-platform-secret
+            optional: true
+            items:
+              - key: firebase-service-account.json
+                path: firebase-service-account.json
 ---
 apiVersion: v1
 kind: Service
@@ -178,6 +189,10 @@ spec:
                 name: newpaotang-platform-config
             - secretRef:
                 name: newpaotang-platform-secret
+          volumeMounts:
+            - name: firebase-service-account
+              mountPath: /var/run/secrets/newpaotang
+              readOnly: true
           resources:
             requests:
               cpu: 150m
@@ -185,6 +200,14 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
+      volumes:
+        - name: firebase-service-account
+          secret:
+            secretName: newpaotang-platform-secret
+            optional: true
+            items:
+              - key: firebase-service-account.json
+                path: firebase-service-account.json
 ---
 apiVersion: apps/v1
 kind: Deployment

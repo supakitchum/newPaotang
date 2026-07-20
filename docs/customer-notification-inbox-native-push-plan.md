@@ -311,3 +311,22 @@ Run focused feature tests only against `newpaotang_test` and verify:
   explicitly requested in that turn.
 - This notification project does not expand biometric/native screen-security
   scope.
+
+## Implementation Status (2026-07-21)
+
+- Implemented and focused-verified: durable inbox/unread/read-all, private
+  realtime refresh, Home bell badge, safe action routes, automatic domain
+  event catalog, tenant-admin direct send/history, explicit news/activity
+  publish opt-in, FCM HTTP v1 delivery tracking, Flutter native lifecycle,
+  Android/iOS build wiring, OpenAPI, deployment manifests, and release
+  preflight.
+- Production hardening completed: one active customer owns each installation
+  ID and refreshed FCM token, generic invalid payloads do not revoke valid
+  devices, order/topup transitions preserve exact destinations/statuses, and
+  internal order action keys are unavailable to tenant-admin direct sends.
+- External acceptance remains open: real FCM must pass on physical iOS and
+  Android for foreground, background, terminated, permission denial, token
+  refresh, notification tap through Login/PIN, and explicit logout revocation.
+  The currently visible iPhone cannot be deployed from this host because no
+  valid code-signing identity is installed, and no physical Android device is
+  connected. Do not mark this plan complete until both matrices are observed.

@@ -10304,3 +10304,55 @@ Native integration-driver and device-availability follow-up (2026-07-19):
   ID success/cancel/enrollment change plus screenshot, recording/mirroring, and
   app switching. No runtime database or runtime API mutation was used. This
   follow-up did not use screenshot automation.
+
+Customer notification production hardening pass (2026-07-21):
+
+- Customer notification OpenAPI closure now documents inbox list/count,
+  read/read-all, native device register/revoke, tenant admin direct send,
+  customer search, and delivery history resources. The Back Office active-path
+  snapshot and production checks now require the dedicated composer,
+  confirmation, read/push history, and explicit unchecked news/activity
+  `notify_customers` controls.
+- Automatic order notifications now open the exact pending or purchase-history
+  route instead of Home. Topup notifications preserve succeeded/approved and
+  failed/rejected as distinct business transitions. The internal order action
+  keys are not exposed in the tenant-admin destination allowlist.
+- Registering an installation ID or refreshed FCM token now revokes any prior
+  active owner before activating the current tenant/customer installation.
+  This closes the cross-account push risk even when a previous explicit logout
+  could not reach the revoke endpoint and FCM rotated the token meanwhile.
+  PostgreSQL transaction-scoped locks serialize concurrent ownership changes.
+  Generic invalid FCM message payloads no longer revoke a valid device; only
+  `UNREGISTERED` and token-specific `INVALID_ARGUMENT` do.
+- Flutter now has focused lifecycle coverage for permission-once, initial
+  token registration, token refresh, foreground refresh, notification tap,
+  mark-read, exact route navigation, auth/PIN destination retention, Home
+  `99+` badge behavior, and explicit-logout revocation. Native push production
+  preflight checks common Flutter wiring plus Android permission/channel/icon
+  and secret-required Google Services setup, and iOS APNs/background mode,
+  build-phase plist injection, and Firebase bundle-ID validation.
+- DigitalOcean manifests now mount the Firebase ADC service-account JSON
+  read-only for the API and critical notification worker, configure the FCM
+  endpoint/timeouts, and keep the `notification` queue on that worker. The
+  secret template, API map, deploy README, and dedicated
+  `docs/customer-notification-deployment.md` runbook document secret injection,
+  APNs setup, safe failure behavior, and the physical-device acceptance matrix.
+- Verification passed: Flutter analyzer with no findings; 103 focused Flutter
+  notification/router/Home/preflight tests; Back Office lint, static tests,
+  and production build under Node 24; focused backend/OpenAPI closure with 12
+  tests and 104 assertions, followed by the final push-ownership rerun with 11
+  tests and 98 assertions; related backend regression with 79 tests and 1,716
+  assertions; Android Debug APK and iOS Debug Simulator builds;
+  OpenAPI/Kubernetes YAML parsing, internal OpenAPI reference resolution, and
+  `kubectl kustomize`. Database tests explicitly resolved to
+  `newpaotang_test`; runtime DB `newpaotang` was not touched. No screenshot
+  automation was used.
+- Native push is not yet production-accepted. A physical iPhone (`Dank12`) is
+  visible, but the host currently reports zero valid code-signing identities;
+  no physical Android device is connected, and real Firebase/APNs credentials
+  were not available for this pass. Real FCM foreground, background,
+  terminated, token-refresh, permission-denial, tap, and logout-revocation
+  checks therefore remain blockers. Keep the notification goal active until
+  both physical-device matrices pass.
+- The worktree intentionally remains dirty with this hardening batch. No
+  commit, push, or clear-worktree action was performed in this continuation.

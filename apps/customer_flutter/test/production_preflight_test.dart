@@ -1410,6 +1410,43 @@ class MainActivity {
     },
   );
 
+  test('production preflight rejects missing native push release wiring', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_preflight_native_push_',
+    );
+    try {
+      final issues = runCustomerFlutterProductionPreflight(
+        ProductionPreflightInput(
+          target: CustomerFlutterTarget.all,
+          production: true,
+          checkFiles: true,
+          androidRequireSigning: false,
+          projectRoot: root.path,
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          appDisplayName: 'Partner Lottery',
+          androidPackage: 'com.partner.customer',
+          androidCallbackScheme: 'partnerlottery',
+          androidCallbackHost: 'partner.example.com',
+          iosTeamId: 'ABCDE12345',
+          iosBundleId: 'com.partner.customer',
+          iosUrlScheme: 'partnerlottery',
+          iosAssociatedDomain: 'applinks:partner.example.com',
+        ),
+      );
+
+      expect(
+        issues.map((issue) => issue.code),
+        containsAll({
+          'flutter_native_push_binding_missing',
+          'android_native_push_config_missing',
+          'ios_native_push_config_missing',
+        }),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
+  });
+
   test('production preflight rejects Android backup-enabled manifests', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_android_backup_',

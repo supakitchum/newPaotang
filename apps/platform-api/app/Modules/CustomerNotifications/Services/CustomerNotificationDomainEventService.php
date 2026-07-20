@@ -47,7 +47,7 @@ class CustomerNotificationDomainEventService
                 'event_key' => 'order.waiting_payment',
                 'title' => ['th-TH' => 'รอชำระเงินค่าสลาก', 'en-US' => 'Lottery payment required'],
                 'body' => ['th-TH' => 'กรุณาชำระเงินเพื่อดำเนินรายการซื้อสลากให้เสร็จสมบูรณ์', 'en-US' => 'Complete payment to finish your lottery purchase.'],
-                'action_key' => 'home',
+                'action_key' => 'checkout_pending',
             ],
             'paid' => [
                 'event_key' => 'order.paid',
@@ -59,25 +59,25 @@ class CustomerNotificationDomainEventService
                 'event_key' => 'order.failed',
                 'title' => ['th-TH' => 'รายการซื้อสลากไม่สำเร็จ', 'en-US' => 'Lottery purchase failed'],
                 'body' => ['th-TH' => 'รายการซื้อสลากไม่สำเร็จ กรุณาตรวจสอบและลองใหม่อีกครั้ง', 'en-US' => 'Your lottery purchase could not be completed. Please review and try again.'],
-                'action_key' => 'home',
+                'action_key' => 'order',
             ],
             'cancelled' => [
                 'event_key' => 'order.cancelled',
                 'title' => ['th-TH' => 'ยกเลิกรายการซื้อสลากแล้ว', 'en-US' => 'Lottery purchase cancelled'],
                 'body' => ['th-TH' => 'รายการซื้อสลากนี้ถูกยกเลิกแล้ว', 'en-US' => 'This lottery purchase has been cancelled.'],
-                'action_key' => 'home',
+                'action_key' => 'order',
             ],
             'expired' => [
                 'event_key' => 'order.expired',
                 'title' => ['th-TH' => 'รายการซื้อสลากหมดอายุ', 'en-US' => 'Lottery purchase expired'],
                 'body' => ['th-TH' => 'รายการซื้อสลากหมดอายุก่อนชำระเงิน กรุณาเลือกสลากใหม่', 'en-US' => 'The purchase expired before payment. Please select tickets again.'],
-                'action_key' => 'home',
+                'action_key' => 'order',
             ],
             'refunded' => [
                 'event_key' => 'order.refunded',
                 'title' => ['th-TH' => 'คืนเงินรายการซื้อสลากแล้ว', 'en-US' => 'Lottery purchase refunded'],
                 'body' => ['th-TH' => 'ระบบดำเนินการคืนเงินสำหรับรายการซื้อสลากแล้ว', 'en-US' => 'The refund for this lottery purchase has been processed.'],
-                'action_key' => 'wallet',
+                'action_key' => 'order',
             ],
             default => null,
         };
@@ -96,6 +96,7 @@ class CustomerNotificationDomainEventService
                 'body' => $template['body'],
                 'icon_key' => 'ticket',
                 'action_key' => $template['action_key'],
+                'action_entity_id' => in_array($template['action_key'], ['order', 'checkout_pending'], true) ? $orderId : null,
                 'subject_type' => 'order',
                 'subject_id' => $orderId,
             ],
@@ -121,8 +122,10 @@ class CustomerNotificationDomainEventService
 
         $transition = match ($status) {
             'pending', 'processing', 'pending_payment', 'pending_review' => 'submitted',
-            'succeeded', 'approved' => 'approved',
-            'failed', 'rejected' => 'rejected',
+            'succeeded' => 'succeeded',
+            'approved' => 'approved',
+            'failed' => 'failed',
+            'rejected' => 'rejected',
             'cancelled' => 'cancelled',
             'expired' => 'expired',
             'reversed' => 'reversed',
@@ -134,9 +137,13 @@ class CustomerNotificationDomainEventService
                 'title' => ['th-TH' => 'รับคำขอเติมเงินแล้ว', 'en-US' => 'Top-up request received'],
                 'body' => ['th-TH' => 'ระบบรับคำขอเติมเงินแล้ว คุณสามารถติดตามสถานะได้ที่รายละเอียดรายการ', 'en-US' => 'Your top-up request was received. Track it from the request detail.'],
             ],
-            'approved' => [
+            'succeeded', 'approved' => [
                 'title' => ['th-TH' => 'เติมเงินสำเร็จ', 'en-US' => 'Top-up complete'],
                 'body' => ['th-TH' => 'รายการเติมเงินได้รับการอนุมัติและยอดเงินเข้ากระเป๋าแล้ว', 'en-US' => 'Your top-up was approved and the wallet balance was updated.'],
+            ],
+            'failed' => [
+                'title' => ['th-TH' => 'รายการเติมเงินไม่สำเร็จ', 'en-US' => 'Top-up failed'],
+                'body' => ['th-TH' => 'ระบบไม่สามารถดำเนินรายการเติมเงินได้ กรุณาดูรายละเอียดรายการ', 'en-US' => 'The top-up could not be completed. Review the request detail.'],
             ],
             'rejected' => [
                 'title' => ['th-TH' => 'รายการเติมเงินไม่ผ่านการตรวจสอบ', 'en-US' => 'Top-up not approved'],

@@ -40,6 +40,8 @@ class CustomerNotificationService
     public const ACTION_KEYS = [
         'none',
         'home',
+        'order',
+        'checkout_pending',
         'wallet',
         'tickets',
         'ticket',
@@ -56,6 +58,35 @@ class CustomerNotificationService
     ];
 
     private const ACTION_ENTITY_KEYS = [
+        'order',
+        'checkout_pending',
+        'ticket',
+        'topup',
+        'reward_claim',
+        'activity',
+        'activity_claim',
+        'news',
+    ];
+
+    private const ADMIN_ACTION_KEYS = [
+        'none',
+        'home',
+        'wallet',
+        'tickets',
+        'ticket',
+        'topups',
+        'topup',
+        'reward_claims',
+        'reward_claim',
+        'activities',
+        'activity',
+        'activity_claims',
+        'activity_claim',
+        'affiliate',
+        'news',
+    ];
+
+    private const ADMIN_ACTION_ENTITY_KEYS = [
         'ticket',
         'topup',
         'reward_claim',
@@ -179,32 +210,71 @@ class CustomerNotificationService
 
         $installationId = trim((string) $payload['installation_id']);
         $token = trim((string) $payload['fcm_token']);
-        $now = now();
-        $device = CustomerPushDevice::query()->firstOrNew([
-            'tenant_id' => $tenantId,
-            'customer_id' => $customerId,
-            'installation_id' => $installationId,
-        ]);
+        $tokenHash = hash_hmac('sha256', $token, (string) config('app.key'));
+        $device = DB::transaction(function () use ($tenantId, $customerId, $installationId, $token, $tokenHash, $payload): CustomerPushDevice {
+            $this->lockPushRegistrationIdentity($installationId, $tokenHash);
+            $now = now();
+            $device = CustomerPushDevice::query()
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customerId)
+                ->where('installation_id', $installationId)
+                ->lockForUpdate()
+                ->first();
 
-        if (! $device->exists) {
-            $device->id = 'cpd_'.Str::ulid()->toBase32();
-            $device->created_at = $now;
-        }
+            if ($device === null) {
+                $device = new CustomerPushDevice([
+                    'id' => 'cpd_'.Str::ulid()->toBase32(),
+                    'tenant_id' => $tenantId,
+                    'customer_id' => $customerId,
+                    'installation_id' => $installationId,
+                    'created_at' => $now,
+                ]);
+            }
 
-        $device->fill([
-            'platform' => strtolower(trim((string) $payload['platform'])),
-            'fcm_token_encrypted' => $token,
-            'token_hash' => hash_hmac('sha256', $token, (string) config('app.key')),
-            'locale' => $this->localeKey($payload['locale'] ?? null),
-            'app_version' => $this->nullableText($payload['app_version'] ?? null, 40),
-            'device_name' => $this->nullableText($payload['device_name'] ?? null, 255),
-            'metadata_json' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : null,
-            'last_seen_at' => $now,
-            'revoked_at' => null,
-            'updated_at' => $now,
-        ])->save();
+            // One app installation and its current token can have only one
+            // active customer owner, including after an offline logout.
+            CustomerPushDevice::query()
+                ->where(function (Builder $query) use ($installationId, $tokenHash): void {
+                    $query->where('installation_id', $installationId)
+                        ->orWhere('token_hash', $tokenHash);
+                })
+                ->whereNull('revoked_at')
+                ->when($device->exists, fn (Builder $query) => $query->where('id', '!=', $device->id))
+                ->update(['revoked_at' => $now, 'updated_at' => $now]);
+
+            $device->fill([
+                'platform' => strtolower(trim((string) $payload['platform'])),
+                'fcm_token_encrypted' => $token,
+                'token_hash' => $tokenHash,
+                'locale' => $this->localeKey($payload['locale'] ?? null),
+                'app_version' => $this->nullableText($payload['app_version'] ?? null, 40),
+                'device_name' => $this->nullableText($payload['device_name'] ?? null, 255),
+                'metadata_json' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : null,
+                'last_seen_at' => $now,
+                'revoked_at' => null,
+                'updated_at' => $now,
+            ])->save();
+
+            return $device;
+        });
 
         return ['resource' => $this->deviceResource($device->refresh())];
+    }
+
+    private function lockPushRegistrationIdentity(string $installationId, string $tokenHash): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        $locks = [
+            'customer-push-installation:'.$installationId,
+            'customer-push-token:'.$tokenHash,
+        ];
+        sort($locks, SORT_STRING);
+        foreach ($locks as $lock) {
+            DB::select('select pg_advisory_xact_lock(hashtextextended(?, 0))', [$lock]);
+        }
     }
 
     public function revokeDevice(string $tenantId, string $customerId, string $installationId): bool
@@ -606,8 +676,8 @@ class CustomerNotificationService
         return array_map(static fn (string $key): array => [
             'key' => $key,
             'label' => $labels[$key] ?? Str::of($key)->replace('_', ' ')->title()->toString(),
-            'entity_required' => in_array($key, self::ACTION_ENTITY_KEYS, true),
-        ], self::ACTION_KEYS);
+            'entity_required' => in_array($key, self::ADMIN_ACTION_ENTITY_KEYS, true),
+        ], self::ADMIN_ACTION_KEYS);
     }
 
     public function processDelivery(string $deliveryId): void
@@ -671,7 +741,7 @@ class CustomerNotificationService
         }
 
         $errorCode = trim((string) ($result['error_code'] ?? 'provider_error')) ?: 'provider_error';
-        $terminalToken = in_array($errorCode, ['unregistered', 'invalid_argument'], true);
+        $terminalToken = ($result['revoke_device'] ?? false) === true;
         if ($terminalToken) {
             $device->forceFill(['revoked_at' => now(), 'updated_at' => now()])->save();
         }
@@ -840,6 +910,10 @@ class CustomerNotificationService
     {
         $category = trim((string) ($content['category'] ?? 'account'));
         $actionKey = trim((string) ($content['action_key'] ?? 'none'));
+        $actionEntityId = $this->nullableText($content['action_entity_id'] ?? null, 100);
+        if (in_array($actionKey, self::ACTION_ENTITY_KEYS, true) && $actionEntityId === null) {
+            $actionKey = 'none';
+        }
 
         return [
             'category' => in_array($category, self::CATEGORIES, true) ? $category : 'account',
@@ -847,7 +921,7 @@ class CustomerNotificationService
             'body' => $this->localizedMap($content['body'] ?? ''),
             'icon_key' => $this->nullableText($content['icon_key'] ?? null, 40) ?: 'notification',
             'action_key' => in_array($actionKey, self::ACTION_KEYS, true) ? $actionKey : 'none',
-            'action_entity_id' => $this->nullableText($content['action_entity_id'] ?? null, 100),
+            'action_entity_id' => $actionEntityId,
             'subject_type' => $this->nullableText($content['subject_type'] ?? null, 60),
             'subject_id' => $this->nullableText($content['subject_id'] ?? null, 100),
         ];
@@ -898,11 +972,11 @@ class CustomerNotificationService
         foreach ($body as $value) {
             if (mb_strlen($value) > 1000) $errors['body'][] = 'Notification bodies must not exceed 1000 characters.';
         }
-        if (! in_array($actionKey, self::ACTION_KEYS, true)) {
+        if (! in_array($actionKey, self::ADMIN_ACTION_KEYS, true)) {
             $errors['action_key'][] = 'The notification destination is invalid.';
         }
         $actionEntityId = trim((string) ($payload['action_entity_id'] ?? ''));
-        if (in_array($actionKey, self::ACTION_ENTITY_KEYS, true) && $actionEntityId === '') {
+        if (in_array($actionKey, self::ADMIN_ACTION_ENTITY_KEYS, true) && $actionEntityId === '') {
             $errors['action_entity_id'][] = 'The selected destination requires a record ID.';
         }
         if (

@@ -87,6 +87,29 @@ void main() {
     );
   });
 
+  test('notification deep links retain inbox through login and PIN', () {
+    expect(
+      customerRedirectPath(
+        path: '/notifications',
+        requestedLocation: '/notifications',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+      ),
+      '/login?redirect=%2Fnotifications',
+    );
+    expect(
+      customerRedirectPath(
+        path: '/notifications',
+        requestedLocation: '/notifications',
+        isAuthenticated: true,
+        pinRequired: true,
+        isSecurityLocked: false,
+      ),
+      '/pin?redirect=%2Fnotifications',
+    );
+  });
+
   test('authenticated customer must verify PIN before home or public content',
       () {
     for (final path in ['/', '/news', '/activities', '/result']) {

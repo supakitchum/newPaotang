@@ -1763,6 +1763,150 @@ paths:
           $ref: "#/components/responses/AuthenticationRequired"
         "503":
           $ref: "#/components/responses/MaintenanceActive"
+  /customer/notifications:
+    get:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: List the authenticated customer's notification inbox
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, unread]
+            default: all
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CustomerNotificationCategory"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Notifications ordered newest first with authoritative unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerNotificationListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/notifications/unread-count:
+    get:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Read the server-authoritative notification unread count
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Current unread count across all installations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerNotificationUnreadCount"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/notifications/{notification_id}/read:
+    patch:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Idempotently mark one notification read for the current customer
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated notification recipient resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerNotification"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /customer/notifications/read-all:
+    post:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Idempotently mark every current notification read
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Read-all result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerNotificationReadAllResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/notification-devices:
+    post:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Register or refresh the current native push installation
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPushDeviceRegistrationRequest"
+      responses:
+        "201":
+          description: Native push installation registered or refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPushDevice"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/notification-devices/{installation_id}:
+    delete:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Revoke the current customer's matching push installation
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: installation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Push installation revoked
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /customer/wallet:
     get:
       tags: [Customer]
@@ -5661,6 +5805,110 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RealtimeAuthResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/tenant/customer-notifications:
+    get:
+      tags: [Tenant Admin]
+      summary: List tenant customer notification send and delivery history
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: customer_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CustomerNotificationCategory"
+        - name: event_key
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: creator_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Tenant-scoped notification history with read and push delivery state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantCustomerNotificationListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+    post:
+      tags: [Tenant Admin]
+      summary: Send one allowlisted notification to one active-tenant customer
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantCustomerNotificationSendRequest"
+      responses:
+        "201":
+          description: Direct notification created for the selected customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerNotification"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/tenant/customer-notifications/customers:
+    get:
+      tags: [Tenant Admin]
+      summary: Search active customers in the current tenant for direct notification
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: customer_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Matching active customers and allowlisted destination options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantCustomerNotificationCustomerOptionsResponse"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
@@ -9684,6 +9932,293 @@ components:
         currency:
           type: string
           example: THB
+    CustomerNotificationCategory:
+      type: string
+      enum: [order, lottery, topup, wallet, reward, activity, affiliate, news, account, admin]
+    CustomerNotificationActionKey:
+      type: string
+      enum: [none, home, order, checkout_pending, wallet, tickets, ticket, topups, topup, reward_claims, reward_claim, activities, activity, activity_claims, activity_claim, affiliate, news]
+    CustomerNotificationAction:
+      type: object
+      required: [key]
+      properties:
+        key:
+          $ref: "#/components/schemas/CustomerNotificationActionKey"
+        entity_id:
+          type: string
+          nullable: true
+    CustomerNotificationSubject:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        id:
+          type: string
+          nullable: true
+    CustomerNotification:
+      type: object
+      required: [id, category, event_key, title, body, icon_key, action, subject, is_read, created_at]
+      properties:
+        id:
+          type: string
+        recipient_id:
+          type: string
+        category:
+          $ref: "#/components/schemas/CustomerNotificationCategory"
+        event_key:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        icon_key:
+          type: string
+        action:
+          $ref: "#/components/schemas/CustomerNotificationAction"
+        subject:
+          $ref: "#/components/schemas/CustomerNotificationSubject"
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    CustomerNotificationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerNotification"
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/CursorMeta"
+            - type: object
+              required: [unread_count]
+              properties:
+                unread_count:
+                  type: integer
+                  minimum: 0
+    CustomerNotificationUnreadCount:
+      type: object
+      required: [unread_count]
+      properties:
+        unread_count:
+          type: integer
+          minimum: 0
+    CustomerNotificationReadAllResponse:
+      type: object
+      required: [updated_count, unread_count]
+      properties:
+        updated_count:
+          type: integer
+          minimum: 0
+        unread_count:
+          type: integer
+          minimum: 0
+    CustomerPushDeviceRegistrationRequest:
+      type: object
+      required: [installation_id, platform, fcm_token]
+      properties:
+        installation_id:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: "^[A-Za-z0-9._:-]+$"
+        platform:
+          type: string
+          enum: [ios, android]
+        fcm_token:
+          type: string
+          minLength: 20
+          maxLength: 4096
+        locale:
+          type: string
+        app_version:
+          type: string
+          maxLength: 40
+        device_name:
+          type: string
+          maxLength: 255
+        metadata:
+          type: object
+          additionalProperties: true
+    CustomerPushDevice:
+      type: object
+      required: [installation_id, platform, registered, last_seen_at]
+      properties:
+        installation_id:
+          type: string
+        platform:
+          type: string
+          enum: [ios, android]
+        locale:
+          type: string
+          nullable: true
+        app_version:
+          type: string
+          nullable: true
+        device_name:
+          type: string
+          nullable: true
+        last_seen_at:
+          type: string
+          format: date-time
+        registered:
+          type: boolean
+    CustomerNotificationLocalizedText:
+      type: object
+      additionalProperties:
+        type: string
+      example:
+        th-TH: แจ้งเตือนจากร้านค้า
+        en-US: Store notification
+    TenantCustomerNotificationSendRequest:
+      type: object
+      required: [customer_id, title, body, action_key]
+      properties:
+        customer_id:
+          type: string
+        title:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        body:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        action_key:
+          type: string
+          enum: [none, home, wallet, tickets, ticket, topups, topup, reward_claims, reward_claim, activities, activity, activity_claims, activity_claim, affiliate, news]
+        action_entity_id:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Required only for allowlisted detail destinations; URL-like values are rejected.
+    TenantCustomerNotificationActionOption:
+      type: object
+      required: [key, label, entity_required]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        entity_required:
+          type: boolean
+    TenantCustomerNotificationCustomerOption:
+      type: object
+      required: [id, customer_no, name, phone, status]
+      properties:
+        id:
+          type: string
+        customer_no:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active]
+    TenantCustomerNotificationCustomerOptionsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantCustomerNotificationCustomerOption"
+        meta:
+          type: object
+          required: [action_options]
+          properties:
+            action_options:
+              type: array
+              items:
+                $ref: "#/components/schemas/TenantCustomerNotificationActionOption"
+    TenantCustomerNotificationRecipientHistory:
+      type: object
+      required: [customer, is_read, push]
+      properties:
+        customer:
+          $ref: "#/components/schemas/TenantCustomerNotificationCustomerOption"
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        push:
+          type: object
+          required: [status, sent_count, failed_count]
+          properties:
+            status:
+              type: string
+              enum: [not_registered, queued, sending, sent, failed, skipped]
+            sent_count:
+              type: integer
+              minimum: 0
+            failed_count:
+              type: integer
+              minimum: 0
+            last_error_code:
+              type: string
+              nullable: true
+    TenantCustomerNotificationHistory:
+      type: object
+      required: [id, event_key, category, title, body, action, creator, published_at, recipients]
+      properties:
+        id:
+          type: string
+        event_key:
+          type: string
+        category:
+          $ref: "#/components/schemas/CustomerNotificationCategory"
+        title:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        body:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        icon_key:
+          type: string
+        action:
+          $ref: "#/components/schemas/CustomerNotificationAction"
+        subject:
+          $ref: "#/components/schemas/CustomerNotificationSubject"
+        creator:
+          type: object
+          additionalProperties: true
+        published_at:
+          type: string
+          format: date-time
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantCustomerNotificationRecipientHistory"
+    TenantCustomerNotificationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantCustomerNotificationHistory"
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/CursorMeta"
+            - type: object
+              required: [action_options]
+              properties:
+                action_options:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/TenantCustomerNotificationActionOption"
     DashboardSummary:
       type: object
       required: [scope, generated_at, kpis]

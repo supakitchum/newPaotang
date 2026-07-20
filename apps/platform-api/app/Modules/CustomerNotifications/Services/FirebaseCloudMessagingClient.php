@@ -11,7 +11,7 @@ class FirebaseCloudMessagingClient
 
     /**
      * @param array<string, mixed> $message
-     * @return array{ok: bool, message_id?: string, error_code?: string, retryable?: bool}
+     * @return array{ok: bool, message_id?: string, error_code?: string, retryable?: bool, revoke_device?: bool}
      */
     public function send(array $message): array
     {
@@ -45,24 +45,55 @@ class FirebaseCloudMessagingClient
                 ];
             }
 
-            $status = $response->status();
-            $providerStatus = strtoupper(trim((string) $response->json('error.status')));
-            $errorCode = match ($providerStatus) {
-                'UNREGISTERED' => 'unregistered',
-                'INVALID_ARGUMENT' => 'invalid_argument',
-                'QUOTA_EXCEEDED', 'RESOURCE_EXHAUSTED' => 'quota_exceeded',
-                'UNAVAILABLE' => 'provider_unavailable',
-                'UNAUTHENTICATED', 'PERMISSION_DENIED' => 'provider_auth_failed',
-                default => 'provider_error',
-            };
-
-            return [
-                'ok' => false,
-                'error_code' => $errorCode,
-                'retryable' => $status === 429 || $status >= 500,
-            ];
+            return ['ok' => false, ...self::classifyFailure(
+                $response->status(),
+                is_array($response->json('error')) ? $response->json('error') : [],
+            )];
         } catch (\Throwable) {
             return ['ok' => false, 'error_code' => 'provider_unavailable', 'retryable' => true];
         }
+    }
+
+    /**
+     * Separate payload validation failures from token-specific FCM failures.
+     * A generic HTTP INVALID_ARGUMENT must not revoke an otherwise valid token.
+     *
+     * @param array<string, mixed> $error
+     * @return array{error_code: string, retryable: bool, revoke_device: bool}
+     */
+    public static function classifyFailure(int $httpStatus, array $error): array
+    {
+        $providerStatus = strtoupper(trim((string) ($error['status'] ?? '')));
+        $fcmErrorCode = '';
+
+        foreach (is_array($error['details'] ?? null) ? $error['details'] : [] as $detail) {
+            if (! is_array($detail)) {
+                continue;
+            }
+
+            $type = strtolower(trim((string) ($detail['@type'] ?? '')));
+            if (str_contains($type, 'google.firebase.fcm.v1.fcmerror')) {
+                $fcmErrorCode = strtoupper(trim((string) ($detail['errorCode'] ?? $detail['error_code'] ?? '')));
+                break;
+            }
+        }
+
+        $revokeDevice = $providerStatus === 'UNREGISTERED'
+            || in_array($fcmErrorCode, ['UNREGISTERED', 'INVALID_ARGUMENT'], true);
+        $errorCode = match (true) {
+            $providerStatus === 'UNREGISTERED', $fcmErrorCode === 'UNREGISTERED' => 'unregistered',
+            $fcmErrorCode === 'INVALID_ARGUMENT' => 'invalid_argument',
+            $providerStatus === 'INVALID_ARGUMENT' => 'invalid_payload',
+            in_array($providerStatus, ['QUOTA_EXCEEDED', 'RESOURCE_EXHAUSTED'], true) => 'quota_exceeded',
+            $providerStatus === 'UNAVAILABLE' => 'provider_unavailable',
+            in_array($providerStatus, ['UNAUTHENTICATED', 'PERMISSION_DENIED'], true) => 'provider_auth_failed',
+            default => 'provider_error',
+        };
+
+        return [
+            'error_code' => $errorCode,
+            'retryable' => $httpStatus === 429 || $httpStatus >= 500,
+            'revoke_device' => $revokeDevice,
+        ];
     }
 }

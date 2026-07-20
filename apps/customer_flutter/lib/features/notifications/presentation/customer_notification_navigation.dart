@@ -7,6 +7,14 @@ String? customerNotificationRoute(CustomerNotificationAction action) {
   return switch (key) {
     'none' || '' => null,
     'home' => '/',
+    'order' =>
+      entityId.isEmpty
+          ? '/purchase-history'
+          : '/purchase-history/${Uri.encodeComponent(entityId)}',
+    'checkout_pending' => Uri(
+      path: '/checkout/pending',
+      queryParameters: {if (entityId.isNotEmpty) 'order_id': entityId},
+    ).toString(),
     'wallet' => '/my-wallet',
     'tickets' => '/tickets',
     'ticket' =>

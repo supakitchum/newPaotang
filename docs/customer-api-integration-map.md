@@ -46,13 +46,14 @@ docs/openapi.yaml
 docs/api-conventions.md
 ```
 
-## OpenAPI Customer Route Closure (2026-07-17)
+## OpenAPI Customer Route Closure (2026-07-21)
 
 - Every `/public` and `/customer` route/method currently declared in
   `apps/platform-api/routes/api.php` is represented in `docs/openapi.yaml`,
   including mobile bootstrap/translations, News/Activities, OTP/password/PIN,
   generic Social auth, LINE notification settings, Orders, Activity Claims,
-  and Topup slip upload.
+  Topup slip upload, notification inbox/read state, and native push device
+  registration/revocation.
 - `CustomerOpenApiContractTest` reads the Laravel route source and OpenAPI
   document without accessing a database. It fails when a covered route/method
   is undocumented or when one OpenAPI path repeats the same HTTP method key.
@@ -71,6 +72,7 @@ docs/api-conventions.md
 | home reward summary / result index | `GET /reward` | `GET /public/games/current`, `GET /public/results/live/{game_id}`, `GET /public/results/{game_id}`, `GET /public/results/latest` | Home and modern `/result` remain current-game aware: load the current game, prefer its live result, fall back to its published result, keep the current game as a pending result only when both result calls return 404, and use latest published only as a different-game history row. Legacy `/results` retains its separate Nuxt source and calls `GET /public/results/live/latest` before `GET /public/results/latest` without a current-game lookup. Flutter result parsing accepts recursive `data`/`resource`/`result`/`rewardResult`/summary wrappers, camelCase fields, nested game context, object scalar IDs/status/dates/completion values, `rewardItems`/`prizeItems`, array number aliases, and hyphenated prize types. Maintenance/auth/PIN/suspension errors are rethrown into the shared operational route flow; ordinary failures preserve backend copy instead of silently becoming empty data. |
 | full result | `GET /reward` | `GET /public/results/live/{game_id}`, `GET /public/results/{game_id}` | Keep the Nuxt result UI and route family while changing only the data source: `/result` cards carry the selected encoded `game_id` into `/result/full`, which remains current-game aware and prefers live before published; legacy `/results` cards remain under `/results/full`, whose data source is published-only like `ResultFullPage.vue`. Each detail back action returns to its owning index. Current `/result/full` keeps the title-only header plus centered in-sheet draw date; legacy `/results/full` keeps its dated header. 404 remains a no-result/pending state, operational failures redirect through the shared handler, and ordinary detail failures preserve backend API copy plus the Nuxt retry action. Result realtime refresh invalidates modern/legacy index providers and both current/published detail families. |
 | home news | `GET /news` | `GET /public/news`, `GET /public/news/modal` | Adapter maps `cover_url` to current `cover` if needed and now preserves `display_end_at` for detail display-window parity; Flutter accepts news list/detail/modal payloads from direct rows plus wrapped `news`, `newsItem`, `announcement`, `items`, `newsPage`, and `announcementPage` resources, with cursor/pagination aliases such as `nextCursor`, `hasMore`, and camelCase news fields such as `newsId`, `newsSlug`, `imageThumbUrl`, `imageFullUrl`, `coverUrl`, `displayStartAt`, `displayEndAt`, and `targetUrl`; Flutter also resolves nested production media/target maps such as `media.thumbnailUrl`, `media.fullImageUrl`, `media.fullUrl`, `assets.publicUrl`, `target.href`, `externalUrl`, `actionUrl`, and `seo.slug` while ignoring object/map rows as scalar URL text; Flutter keeps Nuxt's image priority split by using thumbnail-first images for Home/list cards and full-image-first artwork for `/news/{slug}` detail and `/public/news/modal`, falling back to cover/thumb aliases only when full artwork is absent; modal rows that only provide full artwork remain valid; `/news/{slug}` detail trims and percent-encodes the runtime slug before the API call like Nuxt, normalizes production raw or entity-escaped `html`/`content` body aliases into readable text paragraphs, and preserves Nuxt's summary/body ordering; Flutter Home news rail, news list cards, and the announcement modal honor runtime `news.url`/`targetUrl` before `news.slug` like Nuxt, route internal relative URLs inside Flutter, open external URLs through the shared safe link launcher, and reject unsafe schemes; Flutter announcement modal keeps Nuxt's suppressed-route behavior for `/news`, `/news/{slug}`, and maintenance routes and does not reload the modal later after a suppressed initial route; news publication/display-window instants are rendered in Bangkok time like Nuxt regardless of the device timezone |
+| customer notifications | Flutter Home bell, `/notifications`, native FCM lifecycle | `GET /customer/notifications`, `GET /customer/notifications/unread-count`, `PATCH /customer/notifications/{notification_id}/read`, `POST /customer/notifications/read-all`, `POST /customer/notification-devices`, `DELETE /customer/notification-devices/{installation_id}` | Server recipient rows own unread state across Web/iOS/Android. Flutter cursor-loads the inbox, invalidates count/list after private `customer.notification.created` and `.read` events, marks one item read before opening an allowlisted route, and retains push destinations through the existing Login/PIN gate. Native registration starts only after authenticated PIN unlock, refreshes the FCM token, and revokes the installation during explicit logout. Web keeps inbox/realtime without browser push. Device tokens never appear in customer resources or logs. |
 | browse lotteries | `GET /stores` or `GET /lotteries/guest` | `GET /public/stock/search?mode=random&random_seed=...` | Auth state does not change UI flow; guest browsing must not depend on `/customer/cart`; API still resolves tenant by host; Flutter keeps a Nuxt-style random seed for stable browse pagination, creates a new seed on manual refresh, and maps runtime image payload/status/error into the stock-card image frame |
 | search lotteries | `POST /lotteries/search` | `GET /public/stock/search?number=...&random_seed=...` | Adapter converts `n1..n6/full_number` to `number`, keeps Nuxt-style seeded partial/random search ordering, preserves Nuxt's legacy `/search` alias for `/buy/search`, keeps `/buy/more` as an unseeded same-number lookup without manual refresh controls, skips `/customer/cart` while guest browsing, maps buy availability such as `bet_status`/`can_buy` plus item-level case-insensitive unavailable status aliases and image payload/status/error into UI disabled and image fallback state, and preserves API payload messages on stock load failures while hiding internal/client exception text |
 | search next page | `POST /offline/lotteries/search` | `GET /public/stock/search?cursor=...&random_seed=...` | Adapter maps current seed/page state to API cursor and reuses the same `random_seed` while loading more Buy/search results, accepting boolean/numeric/string `has_more` pagination aliases; `/buy/more` uses the same cursor contract for same-number pagination but remains unseeded |
@@ -703,6 +705,39 @@ Do not rename customer routes, redesign screens, or rewrite checkout/cart behavi
 - Presence membership/count payloads are consumed only from the configured
   customer presence channel. Public site-config or other subscription
   acknowledgements must never reset the online count.
+
+## Customer Notification Contract (2026-07-21)
+
+- `GET /customer/notifications` returns flattened, tenant/customer-scoped
+  recipient resources ordered newest first. `meta.unread_count` is
+  authoritative; push display or delivery does not change it.
+- Read-one and read-all operations are idempotent. Flutter refreshes the
+  server count after local commands and private notification realtime events
+  instead of treating the event payload as a complete resource.
+- Customer actions are server allowlisted. Detail actions require an entity
+  identifier and map only to internal Flutter routes. Missing or unknown
+  actions remain in `/notifications`; arbitrary URLs are rejected.
+- Order follow-up actions route waiting payments to
+  `/checkout/pending?order_id=...` and other order statuses to the exact
+  purchase-history detail. Topup transitions preserve submitted, succeeded,
+  approved, failed, rejected, cancelled, expired, and reversed event keys.
+- Native device registration encrypts the FCM token and stores only a keyed
+  hash for lookup. Registering the same installation ID or refreshed token for
+  another customer revokes its prior active owner so an offline logout cannot
+  leak push across accounts. PostgreSQL transaction-scoped identity locks also
+  serialize concurrent first registration. Explicit logout revokes the current
+  installation.
+- Tenant admin APIs `GET/POST /admin/tenant/customer-notifications` and
+  `GET /admin/tenant/customer-notifications/customers` enforce active-tenant
+  customer scope, permission checks, idempotency, localized content, safe
+  action options, and read/push delivery history.
+- News and activity publication fanout occurs only when the admin explicitly
+  submits `notify_customers=true` during the transition into published state.
+  The default is false and later ordinary edits do not resend.
+- FCM delivery is asynchronous on the `notification` queue. Missing provider
+  config and retryable provider failures cannot roll back the business write.
+  Only `UNREGISTERED` or token-specific valid-payload `INVALID_ARGUMENT`
+  revokes the device; a generic invalid message payload does not.
 
 ## Money, Ticket, And Claim Operational Error Contract
 

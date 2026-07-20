@@ -1,6 +1,6 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-27",
+  "updated": "2026-07-21",
   "note": "Static active-BO admin path snapshot used inside the back-office Docker mount. Retired legacy write paths may remain documented in docs/openapi.yaml but are excluded from active BO workflow coverage.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
@@ -109,6 +109,8 @@
     "/admin/tenant/commission-transactions": ["get"],
     "/admin/tenant/commission-transactions/{commission_id}": ["get"],
     "/admin/tenant/commission-transactions/{commission_id}/approve": ["post"],
+    "/admin/tenant/customer-notifications": ["get", "post"],
+    "/admin/tenant/customer-notifications/customers": ["get"],
     "/admin/tenant/domains": ["get", "post"],
     "/admin/tenant/domains/{domain_id}": ["get", "patch", "delete"],
     "/admin/tenant/domains/{domain_id}/verify": ["post"],
