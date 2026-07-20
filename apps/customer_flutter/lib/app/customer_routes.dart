@@ -265,6 +265,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     sensitive: true,
   ),
   CustomerFeatureRoute(
+    path: '/notifications',
+    key: 'notifications',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/stores',
     key: 'stores',
     group: CustomerFeatureGroup.storefront,

@@ -23,9 +23,9 @@ class AuthController extends ChangeNotifier {
     required AuthRepository authRepository,
     required AuthTokenStore tokenStore,
     required BiometricAuthService biometricAuth,
-  })  : _authRepository = authRepository,
-        _tokenStore = tokenStore,
-        _biometricAuth = biometricAuth {
+  }) : _authRepository = authRepository,
+       _tokenStore = tokenStore,
+       _biometricAuth = biometricAuth {
     isAuthenticated = _tokenStore.hasSessionCredential;
     pinRequired = isAuthenticated;
   }
@@ -41,6 +41,12 @@ class AuthController extends ChangeNotifier {
   String preferredLocale = '';
   String startupRedirectPath = '';
   Future<void>? _sessionRestoreInFlight;
+  final Set<Future<void> Function()> _beforeLogoutHooks = {};
+
+  VoidCallback registerBeforeLogoutHook(Future<void> Function() hook) {
+    _beforeLogoutHooks.add(hook);
+    return () => _beforeLogoutHooks.remove(hook);
+  }
 
   Future<void> restoreSession() {
     final pending = _sessionRestoreInFlight;
@@ -78,8 +84,9 @@ class AuthController extends ChangeNotifier {
       if (info.isAuthenticationExpired || info.isCustomerSuspended) {
         await _authRepository.clearLocalSession();
         _setGuestSession(
-          redirectPath:
-              info.isCustomerSuspended ? info.customerSuspendedPath : '',
+          redirectPath: info.isCustomerSuspended
+              ? info.customerSuspendedPath
+              : '',
         );
         return;
       }
@@ -150,6 +157,13 @@ class AuthController extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
+      for (final hook in List<Future<void> Function()>.of(_beforeLogoutHooks)) {
+        try {
+          await hook();
+        } catch (_) {
+          // Push-device cleanup must not prevent an explicit customer logout.
+        }
+      }
       await _authRepository.logout();
     } catch (_) {
       // Local logout must still succeed when the server rejects an expired

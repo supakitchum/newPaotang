@@ -35,13 +35,12 @@ Uri buildRealtimeSocketUri({
       .replaceFirst(RegExp('^http:', caseSensitive: false), 'ws:')
       .replaceFirst(RegExp('^https:', caseSensitive: false), 'wss:')
       .trim();
-  final withAppPath = _realtimeSocketUrlWithAppPath(
-    normalizedBase,
-    encodedKey,
-  );
+  final withAppPath = _realtimeSocketUrlWithAppPath(normalizedBase, encodedKey);
   final separator = withAppPath.contains('?') ? '&' : '?';
-  final hasProtocol =
-      RegExp(r'(^|[?&])protocol=', caseSensitive: false).hasMatch(withAppPath);
+  final hasProtocol = RegExp(
+    r'(^|[?&])protocol=',
+    caseSensitive: false,
+  ).hasMatch(withAppPath);
 
   return Uri.parse(
     hasProtocol
@@ -56,8 +55,10 @@ String _realtimeSocketUrlWithAppPath(String baseUrl, String encodedKey) {
       ? baseUrl.replaceFirst(RegExp(r'/+$'), '')
       : baseUrl.substring(0, queryIndex).replaceFirst(RegExp(r'/+$'), '');
   final query = queryIndex == -1 ? '' : baseUrl.substring(queryIndex);
-  final appPath = RegExp(r'/app(?:/([^/?#]+))?$', caseSensitive: false)
-      .firstMatch(basePath);
+  final appPath = RegExp(
+    r'/app(?:/([^/?#]+))?$',
+    caseSensitive: false,
+  ).firstMatch(basePath);
   if (appPath != null) {
     final existingKey = appPath.group(1)?.trim() ?? '';
     return existingKey.isEmpty
@@ -155,8 +156,9 @@ String normalizeRealtimeEventName(String eventName) {
   if (normalized.isEmpty) return '';
 
   final className = normalized.split('\\').last;
-  final compactKey =
-      className.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '').toLowerCase();
+  final compactKey = className
+      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '')
+      .toLowerCase();
   return _canonicalRealtimeEvents[compactKey] ?? normalized;
 }
 
@@ -202,10 +204,7 @@ String _providerPayloadRealtimeEventName(Map<String, dynamic> payload) {
   return '';
 }
 
-String _payloadRealtimeEventNameFromValue(
-  Object? value, {
-  required int depth,
-}) {
+String _payloadRealtimeEventNameFromValue(Object? value, {required int depth}) {
   if (depth > 2) return '';
   if (value is Map) {
     return _payloadRealtimeEventNameFromMap(
@@ -671,6 +670,9 @@ const Map<String, String> _canonicalRealtimeEvents = {
   'customeractivityclaimfailed': 'activity.claim.updated',
   'customeractivityclaimcancelled': 'activity.claim.updated',
   'customeractivityclaimpaid': 'activity.claim.updated',
+  'customernotificationcreated': 'customer.notification.created',
+  'customernotificationread': 'customer.notification.read',
+  'customernotificationupdated': 'customer.notification.updated',
   'rewardresultpublished': 'reward.result.live.updated',
   'rewardresultliveupdated': 'reward.result.live.updated',
   'rewardresultupdated': 'reward.result.live.updated',
@@ -754,6 +756,13 @@ String customerActivityClaimChannel({
   return 'private-customer.tenant.$tenantId.customer.$customerId.activity-claims';
 }
 
+String customerNotificationChannel({
+  required String tenantId,
+  required String customerId,
+}) {
+  return 'private-customer.tenant.$tenantId.customer.$customerId.notifications';
+}
+
 String customerPresenceChannel({required String tenantId}) {
   return 'presence-customer.tenant.$tenantId.customers';
 }
@@ -774,9 +783,9 @@ class CustomerRealtimeMessage {
   });
 
   const CustomerRealtimeMessage.empty()
-      : event = '',
-        channel = '',
-        data = const {};
+    : event = '',
+      channel = '',
+      data = const {};
 
   factory CustomerRealtimeMessage.fromJson(Map<String, dynamic> json) {
     final data = _realtimeMessageData(json);
@@ -841,10 +850,7 @@ bool _hasRealtimeMessageData(Object? value) {
   return true;
 }
 
-String _firstRealtimeMessageText(
-  Map<String, dynamic> json,
-  List<String> keys,
-) {
+String _firstRealtimeMessageText(Map<String, dynamic> json, List<String> keys) {
   for (final key in keys) {
     final text = _realtimeMessageTextFromValue(json[key], keys: keys);
     if (text.isNotEmpty) return text;

@@ -21,6 +21,7 @@ import '../features/home/presentation/home_screen.dart';
 import '../features/lottery/presentation/lottery_screens.dart';
 import '../features/news/presentation/news_detail_screen.dart';
 import '../features/news/presentation/news_screen.dart';
+import '../features/notifications/presentation/customer_notifications_screen.dart';
 import '../features/pin/presentation/pin_screen.dart';
 import '../features/profile/presentation/auto_reward_screen.dart';
 import '../features/profile/presentation/account_deletion_screen.dart';
@@ -315,6 +316,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const CustomerNotificationsScreen(),
+      ),
+      GoRoute(
         path: '/reward-claims',
         builder: (context, state) => const RewardClaimsScreen(),
       ),
@@ -394,21 +399,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/affiliate',
-        builder: (context, state) => const AffiliateScreen(
-          tab: AffiliateTab.overview,
-        ),
+        builder: (context, state) =>
+            const AffiliateScreen(tab: AffiliateTab.overview),
       ),
       GoRoute(
         path: '/affiliate/withdraw',
-        builder: (context, state) => const AffiliateScreen(
-          tab: AffiliateTab.withdraw,
-        ),
+        builder: (context, state) =>
+            const AffiliateScreen(tab: AffiliateTab.withdraw),
       ),
       GoRoute(
         path: '/affiliate/commissions',
-        builder: (context, state) => const AffiliateScreen(
-          tab: AffiliateTab.commissions,
-        ),
+        builder: (context, state) =>
+            const AffiliateScreen(tab: AffiliateTab.commissions),
       ),
       GoRoute(
         path: '/affiliate/payouts',

@@ -6,6 +6,7 @@ import 'app/customer_app.dart';
 import 'core/auth/auth_token_store.dart';
 import 'core/config/app_config.dart';
 import 'core/navigation/web_runtime.dart';
+import 'core/notifications/customer_push_platform.dart';
 import 'core/tenant/customer_tenant_host.dart';
 
 Future<void> main() async {
@@ -21,11 +22,13 @@ Future<void> main() async {
     ),
   );
   await authTokenStore.restore();
+  final pushPlatform = await CustomerPushPlatform.initialize();
   runApp(
     ProviderScope(
       overrides: [
         appConfigProvider.overrideWithValue(appConfig),
         authTokenStoreProvider.overrideWithValue(authTokenStore),
+        customerPushPlatformProvider.overrideWithValue(pushPlatform),
       ],
       child: const CustomerApp(),
     ),

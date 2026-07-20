@@ -15,6 +15,7 @@ import '../core/i18n/customer_localizations.dart';
 import '../core/i18n/customer_translation_repository.dart';
 import '../core/navigation/deep_link_listener.dart';
 import '../core/navigation/web_runtime.dart' as web_runtime;
+import '../core/notifications/customer_push_lifecycle_monitor.dart';
 import '../core/realtime/customer_realtime_monitor.dart';
 import '../core/security/biometric_auth_service.dart';
 import '../core/tenant/mobile_bootstrap_controller.dart';
@@ -26,6 +27,7 @@ import '../features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import '../features/lottery/presentation/sale_closure_guard.dart';
 import '../features/monitoring/presentation/public_visit_monitor.dart';
 import '../features/news/presentation/announcement_modal_host.dart';
+import '../features/notifications/presentation/customer_notification_realtime_monitor.dart';
 import '../features/results/presentation/result_realtime_monitor.dart';
 import '../features/reward_claims/presentation/claim_realtime_monitor.dart';
 import '../features/topup/presentation/topup_realtime_monitor.dart';
@@ -162,28 +164,34 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
             child: CustomerDeepLinkListener(
               child: AppSplashHost(
                 child: CustomerRealtimeMonitor(
-                  child: ResultRealtimeMonitor(
-                    child: LotteryStockRealtimeMonitor(
-                      child: CustomerRevenueRealtimeMonitor(
-                        child: CustomerTopupRealtimeMonitor(
-                          child: CustomerClaimRealtimeMonitor(
-                            child: PublicVisitMonitor(
-                              router: router,
-                              child: AffiliateReferralMonitor(
-                                router: router,
-                                child: AppAlertHost(
-                                  child: AnnouncementModalHost(
+                  child: CustomerPushLifecycleMonitor(
+                    router: router,
+                    child: CustomerNotificationRealtimeMonitor(
+                      child: ResultRealtimeMonitor(
+                        child: LotteryStockRealtimeMonitor(
+                          child: CustomerRevenueRealtimeMonitor(
+                            child: CustomerTopupRealtimeMonitor(
+                              child: CustomerClaimRealtimeMonitor(
+                                child: PublicVisitMonitor(
+                                  router: router,
+                                  child: AffiliateReferralMonitor(
                                     router: router,
-                                    child: SaleClosureGuard(
-                                      router: router,
-                                      child: _CustomerRuntimeSecurityLayer(
+                                    child: AppAlertHost(
+                                      child: AnnouncementModalHost(
                                         router: router,
-                                        bootstrap: bootstrap,
-                                        platformKey: platformKey,
-                                        screenSecurityEnabled:
-                                            screenSecurityEnabled,
-                                        webPrivacyEnabled: webPrivacyEnabled,
-                                        child: appChild,
+                                        child: SaleClosureGuard(
+                                          router: router,
+                                          child: _CustomerRuntimeSecurityLayer(
+                                            router: router,
+                                            bootstrap: bootstrap,
+                                            platformKey: platformKey,
+                                            screenSecurityEnabled:
+                                                screenSecurityEnabled,
+                                            webPrivacyEnabled:
+                                                webPrivacyEnabled,
+                                            child: appChild,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),

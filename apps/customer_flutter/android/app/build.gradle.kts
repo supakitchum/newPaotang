@@ -4,6 +4,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val customerFirebaseConfig = file("google-services.json")
+if (customerFirebaseConfig.exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 fun propertyOrEnv(name: String): String? {
     return (project.findProperty(name) as String?)?.takeIf { it.isNotBlank() }
         ?: System.getenv(name)?.takeIf { it.isNotBlank() }
@@ -31,6 +36,12 @@ val allowDebugReleaseSigning = propertyOrEnv("CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEA
     ?: false
 val releaseTaskRequested = gradle.startParameter.taskNames.any {
     it.lowercase().contains("release")
+}
+if (releaseTaskRequested && !customerFirebaseConfig.exists()) {
+    throw org.gradle.api.GradleException(
+        "Firebase config is required for customer_flutter Android release builds. " +
+            "Inject android/app/google-services.json from deployment secrets before building."
+    )
 }
 
 fun requireReleaseValue(name: String, value: String?) {
@@ -99,6 +110,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -175,4 +187,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

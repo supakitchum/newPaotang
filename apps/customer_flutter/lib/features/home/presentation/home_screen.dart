@@ -33,6 +33,7 @@ import '../../../features/results/data/result_models.dart';
 import '../../../features/results/data/result_repository.dart';
 import '../../../features/results/presentation/result_widgets.dart';
 import '../../../features/wallet/data/wallet_repository.dart';
+import '../../notifications/data/customer_notification_repository.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -657,7 +658,90 @@ class _HomeNavbarContent extends ConsumerWidget {
           amount: amount,
           onTap: () => context.go('/my-wallet'),
         ),
+        const SizedBox(width: 2),
+        const _HomeNotificationButton(),
       ],
+    );
+  }
+}
+
+class _HomeNotificationButton extends ConsumerWidget {
+  const _HomeNotificationButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final count = ref
+        .watch(customerNotificationUnreadCountProvider)
+        .maybeWhen(data: (value) => value, orElse: () => 0);
+    final label = count > 99 ? '99+' : count.toString();
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
+    return Semantics(
+      button: true,
+      label: count > 0
+          ? '${l10n.notificationsHomeTooltip} $label'
+          : l10n.notificationsHomeTooltip,
+      child: SizedBox.square(
+        dimension: 44,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IconButton(
+                key: const ValueKey('home-header-notifications'),
+                tooltip: l10n.notificationsHomeTooltip,
+                onPressed: () => context.go('/notifications'),
+                icon: Icon(
+                  Icons.notifications_none_rounded,
+                  color: onPrimary,
+                  size: 24,
+                ),
+                style:
+                    IconButton.styleFrom(
+                      fixedSize: const Size.square(44),
+                      minimumSize: const Size.square(44),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                    ),
+              ),
+            ),
+            if (count > 0)
+              Positioned(
+                top: 2,
+                right: 0,
+                child: Container(
+                  key: const ValueKey('home-header-notification-badge'),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFED2C25),
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: onPrimary, width: 1.5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1433,7 +1517,6 @@ class _ActivitiesRail extends StatelessWidget {
       orElse: () => const SizedBox.shrink(),
     );
   }
-
 }
 
 class _HomeActivityCarousel extends StatefulWidget {
@@ -1442,8 +1525,7 @@ class _HomeActivityCarousel extends StatefulWidget {
   final List<ActivityItem> items;
 
   @override
-  State<_HomeActivityCarousel> createState() =>
-      _HomeActivityCarouselState();
+  State<_HomeActivityCarousel> createState() => _HomeActivityCarouselState();
 }
 
 class _HomeActivityCarouselState extends State<_HomeActivityCarousel> {
@@ -1490,9 +1572,7 @@ class _HomeActivityCarouselState extends State<_HomeActivityCarousel> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final carouselWidth = constraints.maxWidth
-            .clamp(0.0, 920.0)
-            .toDouble();
+        final carouselWidth = constraints.maxWidth.clamp(0.0, 920.0).toDouble();
         final preferredItemsPerPage = carouselWidth >= 720 ? 3 : 2;
         final itemsPerPage = widget.items.length < preferredItemsPerPage
             ? widget.items.length
@@ -1534,8 +1614,7 @@ class _HomeActivityCarouselState extends State<_HomeActivityCarousel> {
                                 activity: widget.items[index],
                               ),
                             ),
-                            if (index < end - 1)
-                              const SizedBox(width: itemGap),
+                            if (index < end - 1) const SizedBox(width: itemGap),
                           ],
                         ],
                       );
@@ -1557,9 +1636,7 @@ class _HomeActivityCarouselState extends State<_HomeActivityCarousel> {
                           decoration: BoxDecoration(
                             color: index == activePage
                                 ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant,
+                                : Theme.of(context).colorScheme.outlineVariant,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1851,9 +1928,7 @@ class _NewsRailState extends State<_NewsRail> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _precacheNewsImages(
-      widget.value.valueOrNull ?? const <NewsItem>[],
-    );
+    _precacheNewsImages(widget.value.valueOrNull ?? const <NewsItem>[]);
   }
 
   @override
@@ -2311,11 +2386,7 @@ Future<void> _precacheHomeNetworkImages(
 ) async {
   await Future.wait<void>(
     urls.map(
-      (url) => precacheImage(
-        NetworkImage(url),
-        context,
-        onError: (_, __) {},
-      ),
+      (url) => precacheImage(NetworkImage(url), context, onError: (_, __) {}),
     ),
   );
 }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\CustomerNotifications\Services;
 
+use App\Jobs\FanoutCustomerNotificationRecipientsJob;
 use App\Jobs\SendCustomerPushNotificationJob;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
@@ -20,6 +21,8 @@ use Illuminate\Support\Str;
 
 class CustomerNotificationService
 {
+    private const FANOUT_CHUNK_SIZE = 250;
+
     public const CATEGORIES = [
         'order',
         'lottery',
@@ -284,6 +287,119 @@ class CustomerNotificationService
         return $notification === null
             ? null
             : $this->recipientResource($recipient, $notification, 'th-TH');
+    }
+
+    /**
+     * Queue a tenant-wide notification without creating recipients in the
+     * publish request. Duplicate publish requests reuse the immutable source
+     * and do not enqueue another fan-out chain.
+     *
+     * @param array<string, mixed> $content
+     * @param array<string, mixed> $context
+     */
+    public function createForTenantAudience(
+        string $tenantId,
+        string $eventKey,
+        array $content,
+        array $context = [],
+    ): ?string {
+        $tenantExists = PartnerTenant::query()
+            ->whereKey($tenantId)
+            ->where('status', 'active')
+            ->exists();
+
+        if (! $tenantExists) {
+            return null;
+        }
+
+        $normalized = $this->normalizedContent($content);
+        $dedupeSource = trim((string) ($context['dedupe_key'] ?? ''));
+        $dedupeKey = hash('sha256', implode('|', [
+            $tenantId,
+            'tenant_audience',
+            $eventKey,
+            $dedupeSource !== '' ? $dedupeSource : ($normalized['subject_type'] ?? '').':'.($normalized['subject_id'] ?? ''),
+        ]));
+
+        $notification = CustomerNotification::query()->firstOrCreate(
+            ['tenant_id' => $tenantId, 'dedupe_key' => $dedupeKey],
+            [
+                'id' => 'cnt_'.Str::ulid()->toBase32(),
+                'event_key' => $eventKey,
+                'category' => $normalized['category'],
+                'title_json' => $normalized['title'],
+                'body_json' => $normalized['body'],
+                'icon_key' => $normalized['icon_key'],
+                'action_key' => $normalized['action_key'],
+                'action_entity_id' => $normalized['action_entity_id'],
+                'subject_type' => $normalized['subject_type'],
+                'subject_id' => $normalized['subject_id'],
+                'creator_type' => trim((string) ($context['creator_type'] ?? 'system')) ?: 'system',
+                'creator_id' => $this->nullableText($context['creator_id'] ?? null, 30),
+                'metadata_json' => is_array($context['metadata'] ?? null) ? $context['metadata'] : null,
+                'published_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        if ($notification->wasRecentlyCreated) {
+            FanoutCustomerNotificationRecipientsJob::dispatch((string) $notification->id)->afterCommit();
+        }
+
+        return (string) $notification->id;
+    }
+
+    public function fanOutTenantChunk(string $notificationId, ?string $afterCustomerId = null): void
+    {
+        $notification = CustomerNotification::query()->whereKey($notificationId)->first();
+        if ($notification === null) {
+            return;
+        }
+
+        $customerQuery = Customer::query()
+            ->where('tenant_id', $notification->tenant_id)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->limit(self::FANOUT_CHUNK_SIZE);
+
+        $cursor = trim((string) $afterCustomerId);
+        if ($cursor !== '') {
+            $customerQuery->where('id', '>', $cursor);
+        }
+
+        $customerIds = $customerQuery->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
+        if ($customerIds === []) {
+            return;
+        }
+
+        $recipients = DB::transaction(function () use ($notification, $customerIds): array {
+            $rows = [];
+            foreach ($customerIds as $customerId) {
+                $rows[] = CustomerNotificationRecipient::query()->firstOrCreate(
+                    ['notification_id' => $notification->id, 'customer_id' => $customerId],
+                    [
+                        'id' => 'cnr_'.Str::ulid()->toBase32(),
+                        'tenant_id' => $notification->tenant_id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
+                );
+            }
+
+            return $rows;
+        });
+
+        foreach ($recipients as $recipient) {
+            $this->dispatchCreated($recipient);
+        }
+
+        if (count($customerIds) === self::FANOUT_CHUNK_SIZE) {
+            FanoutCustomerNotificationRecipientsJob::dispatch(
+                $notificationId,
+                end($customerIds) ?: null,
+            )->afterCommit();
+        }
     }
 
     /**

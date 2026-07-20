@@ -20,6 +20,7 @@ use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Modules\Commerce\Services\CommerceService;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
@@ -57,6 +58,7 @@ class TenantActivityService
         private readonly TenantLineNotificationService $lineNotifications,
         private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
+        private readonly CustomerNotificationService $customerNotifications,
     ) {
     }
 
@@ -152,7 +154,7 @@ class TenantActivityService
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        return DB::transaction(function () use ($tenantId, $normalized, $configPayload, $payload, $actor, $request, $tenant): array {
+        $result = DB::transaction(function () use ($tenantId, $normalized, $configPayload, $payload, $actor, $request, $tenant): array {
             $activityId = 'act_'.Str::ulid()->toBase32();
             TenantActivity::query()->create($normalized + [
                 'id' => $activityId,
@@ -166,6 +168,12 @@ class TenantActivityService
 
             return ['resource' => $this->find($tenantId, $activityId)];
         });
+
+        if ($this->notifyCustomersRequested($payload) && ($result['resource']['status'] ?? null) === 'active') {
+            $this->notifyPublishedActivity($tenantId, $result['resource'], $actor, $request);
+        }
+
+        return $result;
     }
 
     /**
@@ -209,7 +217,8 @@ class TenantActivityService
             return ['error' => 'resource_conflict'];
         }
 
-        return DB::transaction(function () use ($tenantId, $activityId, $normalized, $configPayload, $type, $payload, $actor, $request, $tenant): array {
+        $wasActive = (string) $activity->status === 'active';
+        $result = DB::transaction(function () use ($tenantId, $activityId, $normalized, $configPayload, $type, $payload, $actor, $request, $tenant): array {
             if ($normalized !== []) {
                 TenantActivity::query()->forTenant($tenantId)->where('id', $activityId)->update($normalized + ['updated_at' => now()]);
             }
@@ -222,6 +231,12 @@ class TenantActivityService
 
             return ['resource' => $this->find($tenantId, $activityId)];
         });
+
+        if (! $wasActive && $this->notifyCustomersRequested($payload) && ($result['resource']['status'] ?? null) === 'active') {
+            $this->notifyPublishedActivity($tenantId, $result['resource'], $actor, $request);
+        }
+
+        return $result;
     }
 
     /**
@@ -3279,6 +3294,56 @@ class TenantActivityService
             'en', 'en-us', 'en-gb' => 'en-US',
             default => null,
         };
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function notifyCustomersRequested(array $payload): bool
+    {
+        return array_key_exists('notify_customers', $payload)
+            && filter_var($payload['notify_customers'], FILTER_VALIDATE_BOOL) === true;
+    }
+
+    /** @param array<string, mixed> $activity */
+    private function notifyPublishedActivity(
+        string $tenantId,
+        array $activity,
+        AdminSessionContext $actor,
+        Request $request,
+    ): void {
+        try {
+            $name = is_array($activity['name_i18n'] ?? null)
+                ? $activity['name_i18n']
+                : [];
+            $fallbackName = trim((string) ($activity['name'] ?? ''));
+            if ($name === [] && $fallbackName !== '') {
+                $name = ['th-TH' => $fallbackName, 'en-US' => $fallbackName];
+            }
+
+            $activityId = (string) ($activity['id'] ?? '');
+            $publishedVersion = (string) ($activity['updated_at'] ?? $activity['created_at'] ?? '');
+            $this->customerNotifications->createForTenantAudience(
+                $tenantId,
+                'content.activity.published',
+                [
+                    'category' => 'activity',
+                    'title' => $name,
+                    'body' => $name,
+                    'icon_key' => 'activity',
+                    'action_key' => 'activity',
+                    'action_entity_id' => (string) ($activity['slug'] ?? ''),
+                    'subject_type' => 'tenant_activity',
+                    'subject_id' => $activityId,
+                ],
+                [
+                    'creator_type' => 'tenant_admin',
+                    'creator_id' => (string) $actor->adminUser['id'],
+                    'dedupe_key' => 'activity:published:'.$activityId.':'.$publishedVersion,
+                    'metadata' => ['request_id' => $request->header('X-Request-Id')],
+                ],
+            );
+        } catch (\Throwable) {
+            // Activity publishing remains authoritative if notification delivery fails.
+        }
     }
 
     /**

@@ -35,6 +35,34 @@ class CustomerLocalizations {
   String get appAlertDefaultButton => _text('app_alert.default_button');
   String get appSplashPreparing => _text('app_splash.preparing');
   String get saleClosureAlertMessage => _text('sale_closure.alert_message');
+  String get notificationsTitle => _text('notifications.title');
+  String get notificationsInboxLabel => _text('notifications.inbox_label');
+  String get notificationsHomeTooltip => _text('notifications.home_tooltip');
+  String get notificationsMarkAll => _text('notifications.mark_all');
+  String get notificationsMarkingAll => _text('notifications.marking_all');
+  String get notificationsLoadFailed => _text('notifications.load_failed');
+  String get notificationsLoadMoreFailed =>
+      _text('notifications.load_more_failed');
+  String get notificationsMarkReadFailed =>
+      _text('notifications.mark_read_failed');
+  String get notificationsMarkAllFailed =>
+      _text('notifications.mark_all_failed');
+  String get notificationsRetry => _text('notifications.retry');
+  String get notificationsLoadMore => _text('notifications.load_more');
+  String get notificationsLoadingMore => _text('notifications.loading_more');
+  String get notificationsEmptyTitle => _text('notifications.empty.title');
+  String get notificationsEmptySubtitle =>
+      _text('notifications.empty.subtitle');
+  String get notificationsJustNow => _text('notifications.time.just_now');
+  String notificationsMinutesAgo(int count) => _text(
+    'notifications.time.minutes_ago',
+  ).replaceAll('{count}', count.toString());
+  String notificationsHoursAgo(int count) => _text(
+    'notifications.time.hours_ago',
+  ).replaceAll('{count}', count.toString());
+  String notificationsDaysAgo(int count) => _text(
+    'notifications.time.days_ago',
+  ).replaceAll('{count}', count.toString());
 
   String get loginTitle => _text('auth.login.title');
   String get loginHeroBadge => _text('auth.login.hero_badge');
@@ -2564,6 +2592,25 @@ const _localizedValues = <String, Map<String, String>>{
     'app_splash.preparing': 'กำลังเตรียมข้อมูลระบบ',
     'sale_closure.alert_message':
         'ระบบพาไปหน้ารอออกผลแล้ว กรุณาตรวจผลรางวัลหลังประกาศผล',
+    'notifications.title': 'การแจ้งเตือน',
+    'notifications.inbox_label': 'รายการแจ้งเตือน',
+    'notifications.home_tooltip': 'ดูการแจ้งเตือน',
+    'notifications.mark_all': 'อ่านทั้งหมด',
+    'notifications.marking_all': 'กำลังบันทึก...',
+    'notifications.load_failed': 'ไม่สามารถโหลดรายการแจ้งเตือนได้',
+    'notifications.load_more_failed': 'ไม่สามารถโหลดรายการเพิ่มเติมได้',
+    'notifications.mark_read_failed': 'ไม่สามารถบันทึกสถานะอ่านแล้วได้',
+    'notifications.mark_all_failed': 'ไม่สามารถบันทึกสถานะอ่านทั้งหมดได้',
+    'notifications.retry': 'ลองใหม่',
+    'notifications.load_more': 'ดูเพิ่มเติม',
+    'notifications.loading_more': 'กำลังโหลด...',
+    'notifications.empty.title': 'ยังไม่มีการแจ้งเตือน',
+    'notifications.empty.subtitle':
+        'ข่าวสาร กิจกรรม และสถานะรายการต่างๆ จะแสดงที่หน้านี้',
+    'notifications.time.just_now': 'เมื่อสักครู่',
+    'notifications.time.minutes_ago': '{count} นาทีที่แล้ว',
+    'notifications.time.hours_ago': '{count} ชั่วโมงที่แล้ว',
+    'notifications.time.days_ago': '{count} วันที่แล้ว',
     'routes.home.title': 'หน้าหลัก',
     'routes.home.description':
         'ค้นหาเลขเด็ด กระเป๋าเงิน กิจกรรม ข่าวสาร และผลรางวัลล่าสุด',
@@ -2618,6 +2665,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.profile_account_deletion.title': 'ลบบัญชีผู้ใช้',
     'routes.purchase_history.title': 'ประวัติการซื้อสลาก',
     'routes.purchase_history_detail.title': 'รายละเอียดการซื้อสลาก',
+    'routes.notifications.title': 'การแจ้งเตือน',
     'routes.stores.title': 'ร้านค้า',
     'routes.store_lotteries.title': 'ร้านสลากหกหลักแบบดิจิทัล',
     'routes.news.title': 'ข่าวสาร',
@@ -4220,6 +4268,27 @@ const _localizedValues = <String, Map<String, String>>{
     'app_splash.preparing': 'Preparing system data',
     'sale_closure.alert_message':
         'You have been moved to the waiting-for-results page. Please check the results after they are announced.',
+    'notifications.title': 'Notifications',
+    'notifications.inbox_label': 'Notifications',
+    'notifications.home_tooltip': 'View notifications',
+    'notifications.mark_all': 'Mark all as read',
+    'notifications.marking_all': 'Saving...',
+    'notifications.load_failed': 'Could not load notifications.',
+    'notifications.load_more_failed': 'Could not load more notifications.',
+    'notifications.mark_read_failed':
+        'Could not mark this notification as read.',
+    'notifications.mark_all_failed':
+        'Could not mark all notifications as read.',
+    'notifications.retry': 'Try again',
+    'notifications.load_more': 'Load more',
+    'notifications.loading_more': 'Loading...',
+    'notifications.empty.title': 'No notifications yet',
+    'notifications.empty.subtitle':
+        'News, activities, and transaction updates will appear here.',
+    'notifications.time.just_now': 'Just now',
+    'notifications.time.minutes_ago': '{count} min ago',
+    'notifications.time.hours_ago': '{count} hr ago',
+    'notifications.time.days_ago': '{count} days ago',
     'routes.home.title': 'Home',
     'routes.home.description':
         'Number search, wallet, activities, news, and latest results',
@@ -4278,6 +4347,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.profile_account_deletion.title': 'Delete Account',
     'routes.purchase_history.title': 'Purchase History',
     'routes.purchase_history_detail.title': 'Purchase Detail',
+    'routes.notifications.title': 'Notifications',
     'routes.stores.title': 'Stores',
     'routes.store_lotteries.title': 'Store Lotteries',
     'routes.news.title': 'News',

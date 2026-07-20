@@ -5,6 +5,7 @@ namespace App\Modules\AdminOperations\Services;
 use App\Models\PartnerTenant;
 use App\Models\PlatformAsset;
 use App\Models\TenantAnnouncement;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
@@ -24,8 +25,8 @@ class TenantAnnouncementService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly RuntimeStorageService $storage,
-    )
-    {
+        private readonly CustomerNotificationService $customerNotifications,
+    ) {
     }
 
     /**
@@ -118,7 +119,7 @@ class TenantAnnouncementService
             return ['error' => 'resource_conflict'];
         }
 
-        return DB::transaction(function () use ($tenantId, $payload, $normalized, $actor, $request, $tenant): array {
+        $result = DB::transaction(function () use ($tenantId, $payload, $normalized, $actor, $request, $tenant): array {
             $announcementId = 'ann_'.Str::ulid()->toBase32();
 
             TenantAnnouncement::query()->create($normalized + [
@@ -132,6 +133,12 @@ class TenantAnnouncementService
 
             return ['resource' => $this->find($tenantId, $announcementId)];
         });
+
+        if ($this->notifyCustomersRequested($payload) && ($result['resource']['status'] ?? null) === 'active') {
+            $this->notifyPublished($tenantId, $result['resource'], $actor, $request);
+        }
+
+        return $result;
     }
 
     /**
@@ -161,7 +168,8 @@ class TenantAnnouncementService
             return ['error' => 'resource_conflict'];
         }
 
-        return DB::transaction(function () use ($tenantId, $announcementId, $payload, $normalized, $actor, $request, $tenant): array {
+        $wasActive = (string) $announcement->status === 'active';
+        $result = DB::transaction(function () use ($tenantId, $announcementId, $payload, $normalized, $actor, $request, $tenant): array {
             if ($normalized !== []) {
                 TenantAnnouncement::query()->forTenant($tenantId)->where('id', $announcementId)->update($normalized + ['updated_at' => now()]);
             }
@@ -170,6 +178,12 @@ class TenantAnnouncementService
 
             return ['resource' => $this->find($tenantId, $announcementId)];
         });
+
+        if (! $wasActive && $this->notifyCustomersRequested($payload) && ($result['resource']['status'] ?? null) === 'active') {
+            $this->notifyPublished($tenantId, $result['resource'], $actor, $request);
+        }
+
+        return $result;
     }
 
     /**
@@ -702,6 +716,63 @@ class TenantAnnouncementService
             'en', 'en-us', 'en-gb' => 'en-US',
             default => null,
         };
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function notifyCustomersRequested(array $payload): bool
+    {
+        return array_key_exists('notify_customers', $payload)
+            && filter_var($payload['notify_customers'], FILTER_VALIDATE_BOOL) === true;
+    }
+
+    /** @param array<string, mixed> $announcement */
+    private function notifyPublished(
+        string $tenantId,
+        array $announcement,
+        AdminSessionContext $actor,
+        Request $request,
+    ): void {
+        try {
+            $title = is_array($announcement['title_i18n'] ?? null)
+                ? $announcement['title_i18n']
+                : [];
+            $summary = is_array($announcement['summary_i18n'] ?? null)
+                ? $announcement['summary_i18n']
+                : [];
+            $fallbackTitle = trim((string) ($announcement['title'] ?? ''));
+            $fallbackSummary = trim((string) ($announcement['summary'] ?? ''));
+            if ($title === [] && $fallbackTitle !== '') {
+                $title = ['th-TH' => $fallbackTitle, 'en-US' => $fallbackTitle];
+            }
+            if ($summary === [] && $fallbackSummary !== '') {
+                $summary = ['th-TH' => $fallbackSummary, 'en-US' => $fallbackSummary];
+            }
+
+            $announcementId = (string) ($announcement['id'] ?? '');
+            $publishedVersion = (string) ($announcement['updated_at'] ?? $announcement['created_at'] ?? '');
+            $this->customerNotifications->createForTenantAudience(
+                $tenantId,
+                'content.news.published',
+                [
+                    'category' => 'news',
+                    'title' => $title,
+                    'body' => $summary,
+                    'icon_key' => 'news',
+                    'action_key' => 'news',
+                    'action_entity_id' => (string) ($announcement['slug'] ?? ''),
+                    'subject_type' => 'tenant_announcement',
+                    'subject_id' => $announcementId,
+                ],
+                [
+                    'creator_type' => 'tenant_admin',
+                    'creator_id' => (string) $actor->adminUser['id'],
+                    'dedupe_key' => 'news:published:'.$announcementId.':'.$publishedVersion,
+                    'metadata' => ['request_id' => $request->header('X-Request-Id')],
+                ],
+            );
+        } catch (\Throwable) {
+            // Publishing content must succeed even when notification delivery is unavailable.
+        }
     }
 
     /**
