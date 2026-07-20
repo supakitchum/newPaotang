@@ -5,6 +5,7 @@
   "license": "proprietary",
   "require": {
     "php": "^8.4",
+    "google/auth": "^1.48",
     "laravel/framework": "^13.0",
     "laravel/reverb": "^1.10",
     "laravel/tinker": "^3.0",

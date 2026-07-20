@@ -78,6 +78,7 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantTenantAnnouncementsToPartnerOwners($now);
         $this->grantTenantActivitiesToPartnerOwners($now);
         $this->grantTenantLineNotificationsToPartnerOwners($now);
+        $this->grantTenantCustomerNotificationsToPartnerOwners($now);
         $this->grantTenantSocialLoginToPartnerOwners($now);
         $this->grantTenantSmsOtpToPartnerOwners($now);
         $this->grantTenantPasswordResetToPartnerOwners($now);
@@ -160,6 +161,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'customer.create' => 'Create customers',
                 'customer.update' => 'Update customers',
                 'customer.suspend' => 'Suspend or disable customers',
+                'customer_notification.view' => 'View customer notification history',
+                'customer_notification.send' => 'Send notifications to tenant customers',
                 'customer_password_reset.view' => 'View customer password reset requests',
                 'customer_password_reset.manage' => 'Issue customer password reset links',
                 'wallet.view' => 'View wallets',
@@ -299,6 +302,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'affiliate_attributions' => 'affiliate_attribution.view',
                 'commission_rules' => 'commission_rule.view',
                 'announcements' => 'announcement.view',
+                'customer_notifications' => 'customer_notification.view',
                 'line_notifications' => 'line_notification.view',
                 'social_login' => 'social_login.view',
                 'sms_otp' => 'sms_otp.view',
@@ -431,6 +435,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:agent_quotas' => '/admin/tenant/growth/agents',
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
             'tenant:announcements' => '/admin/tenant/announcements',
+            'tenant:customer_notifications' => '/admin/tenant/customer-notifications',
             'tenant:line_notifications' => '/admin/tenant/line-notifications',
             'tenant:social_login' => '/admin/tenant/social-login',
             'tenant:sms_otp' => '/admin/tenant/sms-otp',
@@ -494,6 +499,10 @@ class DefaultRbacMenuSeeder extends Seeder
 
         if ($code === 'line_notifications') {
             return 'LINE Notifications';
+        }
+
+        if ($code === 'customer_notifications') {
+            return 'Customer Notifications';
         }
 
         if ($code === 'social_login') {
@@ -578,6 +587,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:tickets',
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
+            'tenant:customer_notifications' => 'Store Operations',
             'tenant:line_notifications',
             'tenant:social_login',
             'tenant:sms_otp' => 'Plugins',
@@ -629,6 +639,7 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'quota') => 'ri-speed-up-line',
             str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
             str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
+            str_contains($code, 'customer_notification') => 'ri-notification-3-line',
             str_contains($code, 'announcement') => 'ri-megaphone-line',
             str_contains($code, 'telegram') => 'ri-telegram-line',
             str_contains($code, 'storage') => 'ri-database-2-line',
@@ -1624,6 +1635,67 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'tenant')
             ->where('code', 'line_notifications')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantCustomerNotificationsToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['customer_notification.view', 'customer_notification.send'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'customer_notifications')
             ->where('status', 'active')
             ->pluck('id')
             ->all();

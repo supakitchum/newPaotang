@@ -57,6 +57,8 @@ use App\Modules\Maintenance\Http\Controllers\CentralMaintenanceController;
 use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
 use App\Modules\LineNotifications\Http\Controllers\CustomerLineNotificationController;
 use App\Modules\LineNotifications\Http\Controllers\TenantLineNotificationController;
+use App\Modules\CustomerNotifications\Http\Controllers\CustomerNotificationController;
+use App\Modules\CustomerNotifications\Http\Controllers\TenantCustomerNotificationController;
 use App\Modules\SmsOtp\Http\Controllers\CustomerSmsOtpController;
 use App\Modules\SmsOtp\Http\Controllers\TenantSmsOtpController;
 use App\Modules\TelegramNotifications\Http\Controllers\CentralTelegramNotificationController;
@@ -135,6 +137,12 @@ Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile
 Route::get('/customer/line-notifications', [CustomerLineNotificationController::class, 'show'])->middleware('customer.auth');
 Route::patch('/customer/line-notifications', [CustomerLineNotificationController::class, 'update'])->middleware('customer.auth');
 Route::delete('/customer/line-notifications', [CustomerLineNotificationController::class, 'disconnect'])->middleware('customer.auth');
+Route::get('/customer/notifications', [CustomerNotificationController::class, 'index'])->middleware('customer.auth');
+Route::get('/customer/notifications/unread-count', [CustomerNotificationController::class, 'unreadCount'])->middleware('customer.auth');
+Route::patch('/customer/notifications/{notification_id}/read', [CustomerNotificationController::class, 'markRead'])->middleware('customer.auth');
+Route::post('/customer/notifications/read-all', [CustomerNotificationController::class, 'markAllRead'])->middleware('customer.auth');
+Route::post('/customer/notification-devices', [CustomerNotificationController::class, 'registerDevice'])->middleware('customer.auth');
+Route::delete('/customer/notification-devices/{installation_id}', [CustomerNotificationController::class, 'revokeDevice'])->middleware('customer.auth');
 Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');
 Route::get('/customer/cart', [CustomerCommerceController::class, 'cart'])->middleware('customer.auth');
 Route::post('/customer/checkout', [CustomerCommerceController::class, 'checkout'])->middleware('customer.auth');
@@ -684,6 +692,10 @@ Route::patch('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncemen
 Route::delete('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncementController::class, 'destroy'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/announcements/{announcement_id}/image', [TenantAnnouncementController::class, 'uploadImage'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/customer-notifications', [TenantCustomerNotificationController::class, 'index'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/customer-notifications', [TenantCustomerNotificationController::class, 'store'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/line-notifications', [TenantLineNotificationController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
