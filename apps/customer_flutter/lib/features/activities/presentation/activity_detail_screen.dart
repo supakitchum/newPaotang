@@ -107,10 +107,7 @@ String activityDetailPinRedirectPath(Uri currentUri) {
   ).toString();
 }
 
-String activityDetailBackPath({
-  required String from,
-  required String gameId,
-}) {
+String activityDetailBackPath({required String from, required String gameId}) {
   if (from != 'history') return '/activities';
 
   final trimmedGameId = gameId.trim();
@@ -157,8 +154,9 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
         resultAnnounced || _activityResultHasArrived(activity);
     final canLoadAwards =
         widget.authenticated && activity.id.isNotEmpty && resultHasArrived;
-    final awardsProvider =
-        canLoadAwards ? activityAwardListProvider(activity.id) : null;
+    final awardsProvider = canLoadAwards
+        ? activityAwardListProvider(activity.id)
+        : null;
     if (awardsProvider != null) {
       listenForCustomerOperationalError<List<ActivityAwardItem>>(
         ref: ref,
@@ -269,7 +267,9 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
       _activityNoticeMessage = '';
     });
     try {
-      await ref.read(activityRepositoryProvider).createEntry(
+      await ref
+          .read(activityRepositoryProvider)
+          .createEntry(
             activityId: activity.id,
             predictionType: activity.numberBoard.predictionType,
             selectedNumber: number,
@@ -285,10 +285,7 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
       final code = _errorCode(error);
       final message = code == 'activity_entry_closed'
           ? context.l10n.activitySubmitEntryClosed
-          : activityErrorMessage(
-              error,
-              context.l10n.activitySubmitEntryFailed,
-            );
+          : activityErrorMessage(error, context.l10n.activitySubmitEntryFailed);
       if (await handleCustomerOperationalError(
         ref: ref,
         context: context,
@@ -318,7 +315,7 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
         onClaimed: (claimId) {
           ref.invalidate(activityAwardListProvider(activity.id));
           if (claimId.isNotEmpty) {
-            context.go('/activity-claims/$claimId');
+            context.push('/activity-claims/$claimId');
           }
         },
       ),
@@ -326,8 +323,9 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   }
 
   Future<void> _startCashbackManualClaim(ActivityAwardItem? award) async {
-    final redirect =
-        Uri.encodeComponent(GoRouterState.of(context).uri.toString());
+    final redirect = Uri.encodeComponent(
+      GoRouterState.of(context).uri.toString(),
+    );
     if (!widget.authenticated) {
       context.go('/login?redirect=$redirect');
       return;
@@ -340,13 +338,14 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   }
 
   void _goAutoReward() {
-    final redirect =
-        Uri.encodeComponent(GoRouterState.of(context).uri.toString());
+    final redirect = Uri.encodeComponent(
+      GoRouterState.of(context).uri.toString(),
+    );
     if (!widget.authenticated) {
       context.go('/login?redirect=$redirect');
       return;
     }
-    context.go('/profile/auto-reward?redirect=$redirect');
+    context.push('/profile/auto-reward?redirect=$redirect');
   }
 
   String _errorCode(Object error) {
@@ -363,10 +362,7 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
 }
 
 class _NumberConfirmDialog extends StatelessWidget {
-  const _NumberConfirmDialog({
-    required this.number,
-    required this.message,
-  });
+  const _NumberConfirmDialog({required this.number, required this.message});
 
   final String number;
   final String message;
@@ -389,16 +385,16 @@ class _NumberConfirmDialog extends StatelessWidget {
                 Text(
                   l10n.activityConfirmNumberEyebrow,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   l10n.activityConfirmNumberTitle,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 16),
                 DecoratedBox(
@@ -412,9 +408,9 @@ class _NumberConfirmDialog extends StatelessWidget {
                       number,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
@@ -423,10 +419,10 @@ class _NumberConfirmDialog extends StatelessWidget {
                   message,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -558,19 +554,13 @@ class _ActivityDetailSurface extends StatelessWidget {
               ]
             : null,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: child,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
     );
   }
 }
 
 class _ActivityNoticePanel extends StatelessWidget {
-  const _ActivityNoticePanel({
-    required this.message,
-    required this.isError,
-  });
+  const _ActivityNoticePanel({required this.message, required this.isError});
 
   final String message;
   final bool isError;
@@ -644,12 +634,7 @@ class _ActivityHeroCard extends StatelessWidget {
                 imageUrl,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                frameBuilder: (
-                  context,
-                  child,
-                  frame,
-                  wasSynchronouslyLoaded,
-                ) {
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   if (wasSynchronouslyLoaded || frame != null) return child;
                   return const ActivityImageLoadingFrame();
                 },
@@ -667,26 +652,24 @@ class _ActivityHeroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ActivityTypePill(
-                  label: l10n.activityTypeLabel(activity.type),
-                ),
+                _ActivityTypePill(label: l10n.activityTypeLabel(activity.type)),
                 const SizedBox(height: 10),
                 Text(
                   activityDisplayName(l10n, activity),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w900,
-                        height: 1.25,
-                      ),
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    height: 1.25,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   activityConditionText(l10n, activity),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.55,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.55,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _ActivityInfoRow(
@@ -737,10 +720,10 @@ class _ActivityTypePill extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
         ),
       ),
     );
@@ -761,8 +744,9 @@ class _ActivityInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color =
-        danger ? activityErrorForeground(colorScheme) : colorScheme.primary;
+    final color = danger
+        ? activityErrorForeground(colorScheme)
+        : colorScheme.primary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -772,10 +756,10 @@ class _ActivityInfoRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: color,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
         ),
       ],
@@ -784,10 +768,7 @@ class _ActivityInfoRow extends StatelessWidget {
 }
 
 class _PanelHeading extends StatelessWidget {
-  const _PanelHeading({
-    required this.title,
-    this.trailing,
-  });
+  const _PanelHeading({required this.title, this.trailing});
 
   final String title;
   final String? trailing;
@@ -802,10 +783,10 @@ class _PanelHeading extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w900,
-                  height: 1.25,
-                ),
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+              height: 1.25,
+            ),
           ),
         ),
         if (trailing != null) ...[
@@ -815,10 +796,10 @@ class _PanelHeading extends StatelessWidget {
               trailing!,
               textAlign: TextAlign.right,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                    height: 1.35,
-                  ),
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w900,
+                height: 1.35,
+              ),
             ),
           ),
         ],
@@ -841,8 +822,8 @@ class _ActivityResultCard extends StatelessWidget {
     final numberColor = won
         ? activitySuccessForeground(colorScheme)
         : lost
-            ? activityWarningForeground(colorScheme)
-            : colorScheme.primary;
+        ? activityWarningForeground(colorScheme)
+        : colorScheme.primary;
     final winningNumbers = summary.winningNumbers.isEmpty
         ? [summary.winningNumber].where((number) => number.isNotEmpty).toList()
         : summary.winningNumbers;
@@ -851,13 +832,13 @@ class _ActivityResultCard extends StatelessWidget {
       borderColor: won
           ? colorScheme.primary.withValues(alpha: 0.24)
           : lost
-              ? activityWarningBorder(colorScheme)
-              : colorScheme.primary.withValues(alpha: 0.20),
+          ? activityWarningBorder(colorScheme)
+          : colorScheme.primary.withValues(alpha: 0.20),
       background: won
           ? activitySuccessTint(colorScheme)
           : lost
-              ? activityWarningTint(colorScheme)
-              : colorScheme.primary.withValues(alpha: 0.03),
+          ? activityWarningTint(colorScheme)
+          : colorScheme.primary.withValues(alpha: 0.03),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -870,10 +851,10 @@ class _ActivityResultCard extends StatelessWidget {
                   child: Text(
                     l10n.activityResultTitle,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: colorScheme.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -884,17 +865,15 @@ class _ActivityResultCard extends StatelessWidget {
                             formatBaht(summary.customerAwardAmount),
                           )
                         : lost
-                            ? l10n.activityResultCustomerLost
-                            : l10n.activityResultWinnerCount(
-                                summary.winnerCount,
-                              ),
+                        ? l10n.activityResultCustomerLost
+                        : l10n.activityResultWinnerCount(summary.winnerCount),
                     textAlign: TextAlign.right,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          height: 1.25,
-                        ),
+                      color: colorScheme.onSurface,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      height: 1.25,
+                    ),
                   ),
                 ),
               ],
@@ -905,10 +884,7 @@ class _ActivityResultCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 for (final number in winningNumbers)
-                  _ActivityResultNumberPill(
-                    number: number,
-                    color: numberColor,
-                  ),
+                  _ActivityResultNumberPill(number: number, color: numberColor),
               ],
             ),
             const SizedBox(height: 8),
@@ -917,11 +893,11 @@ class _ActivityResultCard extends StatelessWidget {
                 l10n.activityPredictionLabel(summary.predictionType),
               ),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    height: 1.45,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                height: 1.45,
+              ),
             ),
             if (summary.customerWinningNumbers.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -941,12 +917,12 @@ class _ActivityResultCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           l10n.activityResultCustomerWinningNumbers,
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -954,14 +930,12 @@ class _ActivityResultCard extends StatelessWidget {
                         child: Text(
                           summary.customerWinningNumbers.join(', '),
                           textAlign: TextAlign.right,
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: activitySuccessForeground(
-                                      colorScheme,
-                                    ),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: activitySuccessForeground(colorScheme),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
                         ),
                       ),
                     ],
@@ -977,10 +951,7 @@ class _ActivityResultCard extends StatelessWidget {
 }
 
 class _ActivityResultNumberPill extends StatelessWidget {
-  const _ActivityResultNumberPill({
-    required this.number,
-    required this.color,
-  });
+  const _ActivityResultNumberPill({required this.number, required this.color});
 
   final String number;
   final Color color;
@@ -994,24 +965,18 @@ class _ActivityResultNumberPill extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: 92,
-          minHeight: 52,
-        ),
+        constraints: BoxConstraints(minWidth: 92, minHeight: 52),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Text(
             number,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: color,
-                  height: 1,
-                ),
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: color,
+              height: 1,
+            ),
           ),
         ),
       ),
@@ -1173,11 +1138,13 @@ class _ActivityEntryDeadlineBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background =
-        closed ? const Color(0xFFFEF2F2) : const Color(0xFFFFF7ED);
+    final background = closed
+        ? const Color(0xFFFEF2F2)
+        : const Color(0xFFFFF7ED);
     final border = closed ? const Color(0xFFFECACA) : const Color(0xFFFED7AA);
-    final foreground =
-        closed ? const Color(0xFFB42318) : const Color(0xFFC2410C);
+    final foreground = closed
+        ? const Color(0xFFB42318)
+        : const Color(0xFFC2410C);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: background,
@@ -1211,19 +1178,19 @@ class _ActivityEntryDeadlineBanner extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: foreground,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: foreground,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     detail,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: foreground,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: foreground,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -1257,12 +1224,11 @@ class _ActivityParticipationNote extends StatelessWidget {
           message,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color:
-                    danger ? const Color(0xFFB42318) : const Color(0xFFB76B00),
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                height: 1.45,
-              ),
+            color: danger ? const Color(0xFFB42318) : const Color(0xFFB76B00),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            height: 1.45,
+          ),
         ),
       ),
     );
@@ -1270,10 +1236,7 @@ class _ActivityParticipationNote extends StatelessWidget {
 }
 
 class _ActivityLoginLink extends StatelessWidget {
-  const _ActivityLoginLink({
-    required this.label,
-    required this.onPressed,
-  });
+  const _ActivityLoginLink({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -1295,11 +1258,11 @@ class _ActivityLoginLink extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: activityBrandActionForeground(colorScheme),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  height: 1.45,
-                ),
+              color: activityBrandActionForeground(colorScheme),
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              height: 1.45,
+            ),
           ),
         ),
       ),
@@ -1408,9 +1371,7 @@ class _ActivityAwardStatusPanel extends StatelessWidget {
                                     loading
                                         ? l10n.activityAwardStatusPendingMessage
                                         : _emptyMessage(l10n),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.w800,
@@ -1490,42 +1451,43 @@ class _ActivityAwardStatusPanel extends StatelessWidget {
   Color border,
   Color iconBackground,
   Color iconForeground,
-  List<Color> strip
-}) _awardStatusColors(String variant, ColorScheme colorScheme) {
+  List<Color> strip,
+})
+_awardStatusColors(String variant, ColorScheme colorScheme) {
   return switch (variant) {
     'claimable' || 'paid' || 'awarded' => (
-        background: activitySuccessTint(colorScheme),
-        border: colorScheme.primary.withValues(alpha: 0.24),
-        iconBackground: activitySuccessTint(colorScheme),
-        iconForeground: activitySuccessForeground(colorScheme),
-        strip: [
-          colorScheme.primary,
-          Color.lerp(colorScheme.primary, colorScheme.secondary, 0.34) ??
-              colorScheme.primary,
-        ],
-      ),
+      background: activitySuccessTint(colorScheme),
+      border: colorScheme.primary.withValues(alpha: 0.24),
+      iconBackground: activitySuccessTint(colorScheme),
+      iconForeground: activitySuccessForeground(colorScheme),
+      strip: [
+        colorScheme.primary,
+        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.34) ??
+            colorScheme.primary,
+      ],
+    ),
     'missed' => (
-        background: activityErrorTint(colorScheme),
-        border: activityErrorBorder(colorScheme),
-        iconBackground: activityErrorTint(colorScheme),
-        iconForeground: activityErrorForeground(colorScheme),
-        strip: [
-          colorScheme.error,
-          Color.lerp(colorScheme.error, colorScheme.surface, 0.44) ??
-              colorScheme.error,
-        ],
-      ),
+      background: activityErrorTint(colorScheme),
+      border: activityErrorBorder(colorScheme),
+      iconBackground: activityErrorTint(colorScheme),
+      iconForeground: activityErrorForeground(colorScheme),
+      strip: [
+        colorScheme.error,
+        Color.lerp(colorScheme.error, colorScheme.surface, 0.44) ??
+            colorScheme.error,
+      ],
+    ),
     _ => (
-        background: activityWarningTint(colorScheme),
-        border: activityWarningBorder(colorScheme),
-        iconBackground: activityWarningTint(colorScheme),
-        iconForeground: activityWarningForeground(colorScheme),
-        strip: [
-          colorScheme.tertiary,
-          Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.44) ??
-              colorScheme.tertiary,
-        ],
-      ),
+      background: activityWarningTint(colorScheme),
+      border: activityWarningBorder(colorScheme),
+      iconBackground: activityWarningTint(colorScheme),
+      iconForeground: activityWarningForeground(colorScheme),
+      strip: [
+        colorScheme.tertiary,
+        Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.44) ??
+            colorScheme.tertiary,
+      ],
+    ),
   };
 }
 
@@ -1540,10 +1502,7 @@ IconData _awardStatusIcon(String variant) {
 }
 
 class _AwardRow extends StatelessWidget {
-  const _AwardRow({
-    required this.award,
-    required this.onClaim,
-  });
+  const _AwardRow({required this.award, required this.onClaim});
 
   final ActivityAwardItem award;
   final ValueChanged<ActivityAwardItem> onClaim;
@@ -1561,9 +1520,7 @@ class _AwardRow extends StatelessWidget {
             colorScheme.surface,
           ],
         ),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.12)),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
@@ -1609,11 +1566,7 @@ class _AwardRow extends StatelessWidget {
             if (narrow) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  copy,
-                  const SizedBox(height: 14),
-                  action,
-                ],
+                children: [copy, const SizedBox(height: 14), action],
               );
             }
 
@@ -1660,9 +1613,9 @@ class _AwardCopy extends StatelessWidget {
         Text(
           activityAwardTitle(l10n, award),
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-              ),
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 6),
         DecoratedBox(
@@ -1678,10 +1631,10 @@ class _AwardCopy extends StatelessWidget {
             child: Text(
               formatBaht(award.amount),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: activitySuccessForeground(colorScheme),
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
+                color: activitySuccessForeground(colorScheme),
+                fontWeight: FontWeight.w900,
+                height: 1.05,
+              ),
             ),
           ),
         ),
@@ -1689,19 +1642,16 @@ class _AwardCopy extends StatelessWidget {
         Text(
           status,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
   }
 }
 
-String _cashbackMinimumText(
-  CustomerLocalizations l10n,
-  ActivityItem activity,
-) {
+String _cashbackMinimumText(CustomerLocalizations l10n, ActivityItem activity) {
   final progress = activity.cashbackProgress;
   final minimumType = progress.minimumType.isNotEmpty
       ? progress.minimumType
@@ -1720,10 +1670,7 @@ String _cashbackMinimumText(
       : l10n.activityCashbackNoMinimum;
 }
 
-String _cashbackRewardText(
-  CustomerLocalizations l10n,
-  ActivityItem activity,
-) {
+String _cashbackRewardText(CustomerLocalizations l10n, ActivityItem activity) {
   if (activity.estimatedCashbackAmount > 0) {
     return l10n.activityMetaCashbackEstimate(
       formatBaht(activity.estimatedCashbackAmount),
@@ -1767,10 +1714,10 @@ class _CashbackPanel extends StatelessWidget {
     final displayEstimatedAmount = progress.estimatedAmount > 0
         ? progress.estimatedAmount
         : activity.estimatedCashbackAmount > 0
-            ? activity.estimatedCashbackAmount
-            : activity.config.fixedAmount > 0
-                ? activity.config.fixedAmount
-                : progress.potentialAmount;
+        ? activity.estimatedCashbackAmount
+        : activity.config.fixedAmount > 0
+        ? activity.config.fixedAmount
+        : progress.potentialAmount;
 
     return _ActivityDetailSurface(
       child: Padding(
@@ -1806,9 +1753,9 @@ class _CashbackPanel extends StatelessWidget {
                     Text(
                       rewardText,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -1816,10 +1763,10 @@ class _CashbackPanel extends StatelessWidget {
                           ? l10n.activityCashbackEligibleTitle
                           : l10n.activityCashbackPendingTitle,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w900,
-                            height: 1.25,
-                          ),
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -1830,10 +1777,10 @@ class _CashbackPanel extends StatelessWidget {
                               resultTime,
                             ),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            height: 1.45,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        height: 1.45,
+                      ),
                     ),
                   ],
                 ),
@@ -1865,30 +1812,28 @@ class _CashbackPanel extends StatelessWidget {
                     Text(
                       l10n.activityCashbackExpectedLabel,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color:
-                                colorScheme.onPrimary.withValues(alpha: 0.82),
-                            fontWeight: FontWeight.w800,
-                          ),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       formatBaht(displayEstimatedAmount),
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: colorScheme.onPrimary,
-                                fontWeight: FontWeight.w900,
-                                height: 1.05,
-                              ),
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: colorScheme.onPrimary,
+                            fontWeight: FontWeight.w900,
+                            height: 1.05,
+                          ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       l10n.activityCashbackExpectedHint(resultTime),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                colorScheme.onPrimary.withValues(alpha: 0.82),
-                            fontWeight: FontWeight.w800,
-                            height: 1.35,
-                          ),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                        fontWeight: FontWeight.w800,
+                        height: 1.35,
+                      ),
                     ),
                   ],
                 ),
@@ -1991,10 +1936,7 @@ class _CashbackPanel extends StatelessWidget {
 }
 
 class _CashbackMetric extends StatelessWidget {
-  const _CashbackMetric({
-    required this.label,
-    required this.value,
-  });
+  const _CashbackMetric({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -2018,9 +1960,9 @@ class _CashbackMetric extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 3),
             Text(
@@ -2028,9 +1970,9 @@ class _CashbackMetric extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -2074,10 +2016,7 @@ class _CashbackDetailList extends StatelessWidget {
 }
 
 class _CashbackDetailRow extends StatelessWidget {
-  const _CashbackDetailRow({
-    required this.label,
-    required this.value,
-  });
+  const _CashbackDetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -2095,9 +2034,9 @@ class _CashbackDetailRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -2105,10 +2044,10 @@ class _CashbackDetailRow extends StatelessWidget {
             child: Text(
               value,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                    height: 1.45,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+                height: 1.45,
+              ),
             ),
           ),
         ],
@@ -2167,18 +2106,18 @@ class _CashbackActionButton extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            height: 1.35,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
                     ),
                   ],
                 ),
@@ -2213,17 +2152,17 @@ class _RightsMetric extends StatelessWidget {
             Text(
               value,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 3),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -2259,9 +2198,9 @@ class _SelectedNumbersPanel extends StatelessWidget {
                   child: Text(
                     l10n.activitySelectedNumbersTitle,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
                 DecoratedBox(
@@ -2273,15 +2212,17 @@ class _SelectedNumbersPanel extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 6,
+                    ),
                     child: Text(
                       l10n.activitySelectedNumbersCount(entries.length),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
@@ -2309,10 +2250,10 @@ class _SelectedNumbersPanel extends StatelessWidget {
                       child: Text(
                         entry.selectedNumber,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w900,
-                              height: 1,
-                            ),
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
                       ),
                     ),
                   ),
@@ -2346,7 +2287,8 @@ class _NumberBoardCard extends StatelessWidget {
     if (!board.isReady) return const SizedBox.shrink();
 
     final selected = _selectedBoardNumbers(activity);
-    final canSelect = enabled &&
+    final canSelect =
+        enabled &&
         !submitting &&
         !activity.rights.entryClosed &&
         activity.rights.remainingCount > 0;
@@ -2371,9 +2313,9 @@ class _NumberBoardCard extends StatelessWidget {
                           l10n.activityPredictionLabel(board.predictionType),
                         ),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w900,
-                            ),
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -2383,10 +2325,10 @@ class _NumberBoardCard extends StatelessWidget {
                           board.totalCount.toString(),
                         ),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w800,
-                              height: 1.35,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ),
@@ -2398,17 +2340,19 @@ class _NumberBoardCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     child: Text(
                       activity.rights.entryClosed
                           ? l10n.activityNumberBoardEntryClosedHint
                           : l10n.activityNumberBoardReservedHint,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
@@ -2467,10 +2411,7 @@ int _numberBoardColumns({required double width, required int digits}) {
   return compact ? 4 : 5;
 }
 
-double _numberBoardTileHeight({
-  required double width,
-  required int columns,
-}) {
+double _numberBoardTileHeight({required double width, required int columns}) {
   const gap = 8.0;
   final cellWidth = (width - (gap * (columns - 1))) / columns;
   final aspectHeight = cellWidth * 0.72;
@@ -2500,13 +2441,13 @@ class _NumberTile extends StatelessWidget {
     final background = selected
         ? colorScheme.primary
         : reserved
-            ? activityErrorTint(colorScheme)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.36);
+        ? activityErrorTint(colorScheme)
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.36);
     final foreground = selected
         ? colorScheme.onPrimary
         : reserved
-            ? activityErrorForeground(colorScheme)
-            : colorScheme.onSurface;
+        ? activityErrorForeground(colorScheme)
+        : colorScheme.onSurface;
     final border = reserved
         ? activityErrorBorder(colorScheme)
         : colorScheme.outlineVariant.withValues(alpha: 0.82);
@@ -2526,9 +2467,9 @@ class _NumberTile extends StatelessWidget {
               child: Text(
                 number,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: foreground,
-                    ),
+                  fontWeight: FontWeight.w900,
+                  color: foreground,
+                ),
               ),
             ),
             if (reserved)
@@ -2574,9 +2515,9 @@ Iterable<ActivityEntry> _activeBoardEntries(ActivityItem activity) {
 }
 
 Set<String> _selectedBoardNumbers(ActivityItem activity) {
-  return _activeBoardEntries(activity)
-      .map((entry) => entry.selectedNumber)
-      .toSet();
+  return _activeBoardEntries(
+    activity,
+  ).map((entry) => entry.selectedNumber).toSet();
 }
 
 class _ActivityClaimSheet extends ConsumerStatefulWidget {
@@ -2746,7 +2687,9 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
   }) async {
     setState(() => _submitting = true);
     try {
-      final claim = await ref.read(activityClaimRepositoryProvider).create(
+      final claim = await ref
+          .read(activityClaimRepositoryProvider)
+          .create(
             awardId: widget.award.id,
             payoutMethod: _method,
             pin: pinAssertionToken.isEmpty ? _pin : '',
@@ -2778,10 +2721,10 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
         _error = code == 'pin_invalid'
             ? pinInvalidMessage
             : code == 'pin_locked'
-                ? pinLockedMessage
-                : code == 'pin_setup_required' || code == 'pin_required'
-                    ? pinSetupRequiredMessage
-                    : activityErrorMessage(error, failedMessage);
+            ? pinLockedMessage
+            : code == 'pin_setup_required' || code == 'pin_required'
+            ? pinSetupRequiredMessage
+            : activityErrorMessage(error, failedMessage);
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -2795,15 +2738,16 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
       _error = '';
     });
     try {
-      final token =
-          await ref.read(biometricAuthServiceProvider).requestPinAssertion(
-                purpose: 'activity_claim',
-                localizedReason: mobileBiometricPromptReason(
-                  ref.read(mobileBootstrapProvider).valueOrNull,
-                  purpose: 'activity_claim',
-                  fallback: context.l10n.pinBiometricReason,
-                ),
-              );
+      final token = await ref
+          .read(biometricAuthServiceProvider)
+          .requestPinAssertion(
+            purpose: 'activity_claim',
+            localizedReason: mobileBiometricPromptReason(
+              ref.read(mobileBootstrapProvider).valueOrNull,
+              purpose: 'activity_claim',
+              fallback: context.l10n.pinBiometricReason,
+            ),
+          );
       if (!mounted) return;
       if (token == null || token.isEmpty) {
         setState(() => _error = context.l10n.activityClaimBiometricUnavailable);
@@ -2856,9 +2800,9 @@ class _ClaimProfileLoadingPanel extends StatelessWidget {
             child: Text(
               eyebrow,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -2867,9 +2811,9 @@ class _ClaimProfileLoadingPanel extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
           const SizedBox(height: 22),
@@ -2882,10 +2826,10 @@ class _ClaimProfileLoadingPanel extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                  height: 1.4,
-                ),
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 12),
           const ActivityProgressLine(width: 138),
@@ -2921,17 +2865,17 @@ class _ClaimProfileErrorPanel extends StatelessWidget {
           Text(
             eyebrow,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w900,
-                ),
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w900,
-                ),
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           const SizedBox(height: 16),
           _ClaimErrorMessage(message: message),
@@ -2947,9 +2891,9 @@ class _ClaimProfileErrorPanel extends StatelessWidget {
                   color: colorScheme.primary.withValues(alpha: 0.36),
                 ),
                 shape: const StadiumBorder(),
-                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               child: Text(context.l10n.commonRetry),
             ),
@@ -3005,9 +2949,9 @@ class _ClaimSelectPanel extends StatelessWidget {
                 child: Text(
                   l10n.activityClaimSheetEyebrow,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3031,9 +2975,9 @@ class _ClaimSelectPanel extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             l10n.activityClaimSheetTitle,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
           DecoratedBox(
@@ -3061,18 +3005,18 @@ class _ClaimSelectPanel extends StatelessWidget {
                   Text(
                     l10n.activityClaimAvailableAmount,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.82),
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     formatBaht(award.amount),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: colorScheme.onPrimary,
-                          height: 1.05,
-                        ),
+                      fontWeight: FontWeight.w900,
+                      color: colorScheme.onPrimary,
+                      height: 1.05,
+                    ),
                   ),
                 ],
               ),
@@ -3082,11 +3026,7 @@ class _ClaimSelectPanel extends StatelessWidget {
           _PayoutOptionTile(
             method: ActivityClaimPayoutMethod.walletCredit,
             selected: method == ActivityClaimPayoutMethod.walletCredit,
-            title: _activityClaimWalletOptionTitle(
-              l10n,
-              walletId,
-              walletName,
-            ),
+            title: _activityClaimWalletOptionTitle(l10n, walletId, walletName),
             subtitle: l10n.activityClaimWalletSubtitle(reviewerName),
             icon: Icons.account_balance_wallet,
             onTap: onMethodChanged,
@@ -3115,9 +3055,8 @@ class _ClaimSelectPanel extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: TextButton(
-                onPressed: () => context.go(
-                  _profileRewardBankRedirectPath(returnPath),
-                ),
+                onPressed: () =>
+                    context.push(_profileRewardBankRedirectPath(returnPath)),
                 style: TextButton.styleFrom(
                   backgroundColor: colorScheme.primary.withValues(alpha: 0.10),
                   foregroundColor: colorScheme.primary,
@@ -3128,9 +3067,9 @@ class _ClaimSelectPanel extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                  textStyle: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 child: Text(l10n.activityClaimSetupBank),
               ),
@@ -3170,11 +3109,11 @@ class _ClaimErrorMessage extends StatelessWidget {
         child: Text(
           message,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: activityErrorForeground(colorScheme),
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                height: 1.45,
-              ),
+            color: activityErrorForeground(colorScheme),
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            height: 1.45,
+          ),
         ),
       ),
     );
@@ -3199,17 +3138,15 @@ String _activityClaimWalletOptionTitle(
 ) {
   final suffix = _activityClaimWalletSuffix(walletId);
   if (suffix.isEmpty) return l10n.activityClaimWalletTitleFor(walletName);
-  return l10n.activityClaimWalletAccountTitle(
-    suffix,
-    walletName: walletName,
-  );
+  return l10n.activityClaimWalletAccountTitle(suffix, walletName: walletName);
 }
 
 String _activityClaimWalletSuffix(String value) {
   final digits = value.replaceAll(RegExp(r'\D'), '');
   if (digits.isEmpty) return '';
-  final suffix =
-      digits.length <= 3 ? digits : digits.substring(digits.length - 3);
+  final suffix = digits.length <= 3
+      ? digits
+      : digits.substring(digits.length - 3);
   return suffix.padLeft(3, '0');
 }
 
@@ -3312,23 +3249,24 @@ class _PayoutOptionTile extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: foreground,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            height: 1.25,
-                          ),
+                        color: foreground,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: disabled
-                                ? colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.58)
-                                : colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w800,
-                            height: 1.35,
-                          ),
+                        color: disabled
+                            ? colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.58,
+                              )
+                            : colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                        height: 1.35,
+                      ),
                     ),
                   ],
                 ),
@@ -3346,8 +3284,9 @@ class _PayoutOptionTile extends StatelessWidget {
                 ),
                 child: Icon(
                   icon,
-                  color:
-                      disabled ? colorScheme.onSurfaceVariant : iconForeground,
+                  color: disabled
+                      ? colorScheme.onSurfaceVariant
+                      : iconForeground,
                   size: 21,
                 ),
               ),
@@ -3404,21 +3343,21 @@ class _ClaimBankPreview extends StatelessWidget {
                 Text(
                   bankAccount.bankName,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        height: 1.25,
-                      ),
+                    color: colorScheme.onSurface,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    height: 1.25,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '$accountName · ${bankAccount.maskedNumber}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        height: 1.35,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -3450,9 +3389,9 @@ class _ClaimActionButtons extends StatelessWidget {
         foregroundColor: colorScheme.primary,
         side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.42)),
         shape: const StadiumBorder(),
-        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
+        textStyle: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
       ),
       child: Text(context.l10n.commonCancel),
     );
@@ -3469,11 +3408,7 @@ class _ClaimActionButtons extends StatelessWidget {
         if (constraints.maxWidth <= 300) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              cancel,
-              const SizedBox(height: 10),
-              next,
-            ],
+            children: [cancel, const SizedBox(height: 10), next],
           );
         }
 
@@ -3545,19 +3480,19 @@ class _PinConfirmPanel extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            height: 1.35,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -3572,9 +3507,9 @@ class _PinConfirmPanel extends StatelessWidget {
           Text(
             context.l10n.activityClaimPinProgress(pin.length),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           if (error.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -3591,9 +3526,9 @@ class _PinConfirmPanel extends StatelessWidget {
                   color: colorScheme.primary.withValues(alpha: 0.32),
                 ),
                 shape: const StadiumBorder(),
-                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               icon: const Icon(Icons.face_retouching_natural),
               label: Text(context.l10n.activityClaimBiometricButton),
@@ -3668,16 +3603,16 @@ class _PinKeypad extends StatelessWidget {
               onPressed: !enabled
                   ? null
                   : key == 'back'
-                      ? onBackspace
-                      : () => onDigit(key),
+                  ? onBackspace
+                  : () => onDigit(key),
               style: TextButton.styleFrom(
                 foregroundColor: colorScheme.onSurface,
-                disabledForegroundColor:
-                    colorScheme.onSurfaceVariant.withValues(alpha: 0.58),
+                disabledForegroundColor: colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.58),
                 shape: const CircleBorder(),
                 textStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               child: key == 'back'
                   ? const Icon(Icons.backspace_outlined, size: 23)
@@ -3715,21 +3650,21 @@ class _ActivityDetailStateView extends StatelessWidget {
                       Text(
                         l10n.activityMissingTitle,
                         textAlign: TextAlign.center,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         l10n.activityMissingMessage,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              height: 1.45,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.45,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 18),
                       _ActivityPrimaryPill(
@@ -3741,16 +3676,16 @@ class _ActivityDetailStateView extends StatelessWidget {
                 : Text(
                     error
                         ? (message.trim().isEmpty
-                            ? l10n.activityDetailLoadFailed
-                            : message.trim())
+                              ? l10n.activityDetailLoadFailed
+                              : message.trim())
                         : l10n.activityDetailLoading,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: error
-                              ? colorScheme.error
-                              : colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: error
+                          ? colorScheme.error
+                          : colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
           ),
         ),
@@ -3760,10 +3695,7 @@ class _ActivityDetailStateView extends StatelessWidget {
 }
 
 class _ActivityPrimaryPill extends StatelessWidget {
-  const _ActivityPrimaryPill({
-    required this.label,
-    required this.onPressed,
-  });
+  const _ActivityPrimaryPill({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -3807,11 +3739,11 @@ class _ActivityPrimaryPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          height: 1.2,
-                        ),
+                      color: colorScheme.onPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ),

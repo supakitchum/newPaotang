@@ -377,10 +377,7 @@ void main() {
       await tester.tap(find.text('เติมเงิน').first);
       await tester.pumpAndSettle();
 
-      expect(
-        router.routerDelegate.currentConfiguration.uri.toString(),
-        '/topup?back=/my-wallet',
-      );
+      expect(router.canPop(), isTrue);
       expect(find.text('/topup?back=/my-wallet'), findsOneWidget);
 
       router.go('/my-wallet');

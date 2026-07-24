@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $errors = [
                 'ticket_closed' => [409, 'ticket_closed', 'This support ticket is closed.'],
                 'ticket_not_closed' => [409, 'ticket_not_closed', 'This support ticket must be closed first.'],
+                'ticket_waiting_for_agent' => [409, 'ticket_waiting_for_agent', 'A support agent must accept this ticket before chat becomes available.'],
                 'permission_denied' => [403, 'support_permission_denied', 'You do not have permission for this support ticket.'],
             ];
             $mapped = $errors[$exception->getMessage()] ?? null;

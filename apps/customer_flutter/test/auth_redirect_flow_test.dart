@@ -465,7 +465,7 @@ void main() {
   });
 
   testWidgets(
-    'PIN waits two seconds before automatically using an enabled biometric credential',
+    'PIN waits one second before automatically using an enabled biometric credential',
     (tester) async {
       final repo = _AuthRedirectRepository();
       final biometric = _AutoBiometricAuthService(
@@ -500,7 +500,7 @@ void main() {
       expect(biometric.eligibilityChecks, 0);
       expect(biometric.assertionRequests, 0);
 
-      await tester.pump(const Duration(milliseconds: 1999));
+      await tester.pump(const Duration(milliseconds: 999));
       expect(biometric.eligibilityChecks, 0);
       expect(biometric.assertionRequests, 0);
 
@@ -550,7 +550,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(biometric.eligibilityChecks, 1);
 
@@ -604,7 +604,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(biometric.eligibilityChecks, 1);
       expect(biometric.assertionRequests, 0);

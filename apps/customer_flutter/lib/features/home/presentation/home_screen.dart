@@ -13,6 +13,7 @@ import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/provider_cache.dart';
 import '../../../features/activities/data/activity_models.dart';
 import '../../../features/activities/data/activity_repository.dart';
 import '../../../features/activities/presentation/activity_localization.dart';
@@ -43,6 +44,7 @@ import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/flexible_image.dart';
 
 final _homeCartProvider = FutureProvider.autoDispose<LotteryCart>((ref) async {
+  ref.keepForCustomerNavigation();
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired) {
     return LotteryCart.empty();
@@ -124,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               bottom: homeCartDockBottom,
               child: _HomeFloatingCartDock(
                 cart: cart,
-                onCheckout: () => context.go('/checkout'),
+                onCheckout: () => context.push('/checkout'),
               ),
             ),
           Positioned(
@@ -578,7 +580,7 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
   }
 
   void _goSearch() {
-    context.go(lotterySearchPath());
+    context.push(lotterySearchPath());
   }
 }
 
@@ -666,7 +668,7 @@ class _HomeNavbarContent extends ConsumerWidget {
         _HomeWalletBalanceButton(
           label: l10n.commonWalletBalance,
           amount: amount,
-          onTap: () => context.go('/my-wallet'),
+          onTap: () => context.push('/my-wallet'),
         ),
       ],
     );
@@ -696,7 +698,7 @@ class _HomeSupportButton extends ConsumerWidget {
               child: IconButton(
                 key: const ValueKey('home-header-support'),
                 tooltip: l10n.support('home.tooltip'),
-                onPressed: () => context.go('/support'),
+                onPressed: () => context.push('/support'),
                 icon: Icon(
                   Icons.headset_mic_outlined,
                   color: onPrimary,
@@ -770,7 +772,7 @@ class _HomeNotificationButton extends ConsumerWidget {
               child: IconButton(
                 key: const ValueKey('home-header-notifications'),
                 tooltip: l10n.notificationsHomeTooltip,
-                onPressed: () => context.go('/notifications'),
+                onPressed: () => context.push('/notifications'),
                 icon: Icon(
                   Icons.notifications_none_rounded,
                   color: onPrimary,
@@ -1142,7 +1144,7 @@ class _HomeQuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _HomeLinkGesture(
-      onTap: () => context.go(path),
+      onTap: () => context.push(path),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Column(
@@ -1583,7 +1585,7 @@ class _ActivitiesRail extends StatelessWidget {
               CustomerSectionHeader(
                 title: context.l10n.homeActivities,
                 actionLabel: context.l10n.commonViewAll,
-                onAction: () => context.go('/activities'),
+                onAction: () => context.push('/activities'),
               ),
               const SizedBox(height: 12),
               _HomeActivityCarousel(
@@ -1758,7 +1760,7 @@ class _ActivityCard extends StatelessWidget {
               child: _HomeLinkGesture(
                 onTap: slug.isEmpty
                     ? null
-                    : () => context.go(
+                    : () => context.push(
                         '/activities/${Uri.encodeComponent(slug)}',
                       ),
                 child: Stack(
@@ -2116,7 +2118,7 @@ class _NewsRailState extends State<_NewsRail> {
               CustomerSectionHeader(
                 title: l10n.homeNews,
                 actionLabel: l10n.commonViewAll,
-                onAction: () => context.go('/news'),
+                onAction: () => context.push('/news'),
               ),
               if (_noticeMessage.isNotEmpty) ...[
                 const SizedBox(height: 10),
@@ -2287,7 +2289,7 @@ class _HomeNewsSlide extends ConsumerWidget {
   ) async {
     final internalPath = newsInternalPath(item);
     if (internalPath != null) {
-      context.go(internalPath);
+      context.push(internalPath);
       return;
     }
 
@@ -2368,7 +2370,7 @@ class _FeatureLinkCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: _HomeLinkGesture(
-            onTap: () => context.go(path),
+            onTap: () => context.push(path),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(

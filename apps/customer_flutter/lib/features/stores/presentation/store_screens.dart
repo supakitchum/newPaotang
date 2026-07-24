@@ -90,9 +90,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       onSubmitted: (_) => _load(reset: true),
                     ),
                     const SizedBox(height: 48),
-                    _StoreSectionHeader(
-                      title: l10n.storesRecommendedTitle,
-                    ),
+                    _StoreSectionHeader(title: l10n.storesRecommendedTitle),
                     const SizedBox(height: 24),
                     const _StoreFilterPills(),
                     const SizedBox(height: 24),
@@ -112,7 +110,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       for (final store in _stores)
                         _StoreCard(
                           store: store,
-                          onTap: () => context.go(
+                          onTap: () => context.push(
                             _storeLotteriesPath(
                               store.id,
                               storeName: store.name,
@@ -148,7 +146,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
               child: _StoreFixedPaymentDockContainer(
                 child: _StoreCartSelectionDock(
                   cart: _cart,
-                  onReview: () => context.go('/cart'),
+                  onReview: () => context.push('/cart'),
                 ),
               ),
             ),
@@ -170,10 +168,9 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
       }
     });
     try {
-      final page = await ref.read(storeRepositoryProvider).list(
-            q: _search.text,
-            cursor: reset ? '' : _cursor,
-          );
+      final page = await ref
+          .read(storeRepositoryProvider)
+          .list(q: _search.text, cursor: reset ? '' : _cursor);
       if (!mounted) return;
       setState(() {
         _stores.addAll(page.items);
@@ -250,10 +247,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
 }
 
 class _StoreSectionHeader extends StatelessWidget {
-  const _StoreSectionHeader({
-    required this.title,
-    this.action,
-  });
+  const _StoreSectionHeader({required this.title, this.action});
 
   final String title;
   final Widget? action;
@@ -269,16 +263,13 @@ class _StoreSectionHeader extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  height: 1.12,
-                ),
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.12,
+            ),
           ),
         ),
-        if (action != null) ...[
-          const SizedBox(width: 12),
-          action!,
-        ],
+        if (action != null) ...[const SizedBox(width: 12), action!],
       ],
     );
   }
@@ -316,11 +307,7 @@ class _StoreSearchBox extends StatelessWidget {
         child: Row(
           children: [
             const SizedBox(width: 16),
-            Icon(
-              Icons.search,
-              size: 22,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            Icon(Icons.search, size: 22, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
@@ -329,9 +316,9 @@ class _StoreSearchBox extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: hintText,
                   hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
                   isCollapsed: true,
                   contentPadding: EdgeInsets.zero,
                   border: InputBorder.none,
@@ -341,9 +328,9 @@ class _StoreSearchBox extends StatelessWidget {
                   errorBorder: InputBorder.none,
                   focusedErrorBorder: InputBorder.none,
                 ),
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                 onSubmitted: onSubmitted,
               ),
             ),
@@ -419,8 +406,9 @@ class _StoreFilterPill extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 39),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color:
-                selected ? colorScheme.surface : colorScheme.surfaceContainer,
+            color: selected
+                ? colorScheme.surface
+                : colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected ? colorScheme.primary : Colors.transparent,
@@ -436,9 +424,9 @@ class _StoreFilterPill extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: foreground,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: foreground,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -542,8 +530,9 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
 
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final storeName =
-        _storeName.isEmpty ? l10n.storesFallbackStoreName : _storeName;
+    final storeName = _storeName.isEmpty
+        ? l10n.storesFallbackStoreName
+        : _storeName;
     final showCartDock = _storeCartSelectionReviewEnabled(_cart);
     return AppShell(
       title: l10n.storesLotteriesTitle,
@@ -568,22 +557,22 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                       children: [
                         Text(
                           l10n.storesLotteriesSubtitle,
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                         if (_drawDateLabel.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
                             _drawDateLabel,
-                            style:
-                                Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.25,
-                                    ),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.25,
+                                ),
                           ),
                         ],
                         const SizedBox(height: 27),
@@ -595,8 +584,9 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             enabledBorderColor: colorScheme.outlineVariant,
                             focusedBorderColor: colorScheme.primary,
                             hintColor: colorScheme.outlineVariant,
-                            shadowColor:
-                                colorScheme.shadow.withValues(alpha: 0.12),
+                            shadowColor: colorScheme.shadow.withValues(
+                              alpha: 0.12,
+                            ),
                             borderRadius: 8,
                             spacing: 0,
                             verticalPadding: 8,
@@ -636,9 +626,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                         onAction: () => _load(reset: true),
                       )
                     else if (_tickets.isEmpty)
-                      _StoreEmptyState(
-                        message: l10n.storesLotteriesEmptyTitle,
-                      )
+                      _StoreEmptyState(message: l10n.storesLotteriesEmptyTitle)
                     else ...[
                       if (_stockNoticeMessage.isNotEmpty) ...[
                         _StoreInlineNoticeCard(
@@ -648,7 +636,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                               ? l10n.lotteryCartAction
                               : null,
                           onAction: _stockNoticeSuccess
-                              ? () => context.go('/cart')
+                              ? () => context.push('/cart')
                               : null,
                         ),
                         const SizedBox(height: 12),
@@ -705,7 +693,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
               child: _StoreFixedPaymentDockContainer(
                 child: _StoreCartSelectionDock(
                   cart: _cart,
-                  onReview: () => context.go('/cart'),
+                  onReview: () => context.push('/cart'),
                 ),
               ),
             ),
@@ -828,11 +816,8 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   }
 
   void _openStoreSearch() {
-    context.go(
-      lotterySearchPath(
-        storeId: widget.storeId,
-        storeName: _storeName,
-      ),
+    context.push(
+      lotterySearchPath(storeId: widget.storeId, storeName: _storeName),
     );
   }
 
@@ -896,9 +881,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     List<StoreLotteryTicket> tickets,
     LotteryStockPricePatch patch,
   ) {
-    return [
-      for (final ticket in tickets) _ticketWithPricePatch(ticket, patch),
-    ];
+    return [for (final ticket in tickets) _ticketWithPricePatch(ticket, patch)];
   }
 
   StoreLotteryTicket _ticketWithPricePatch(
@@ -953,10 +936,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         for (var index = 0; index < _tickets.length; index++) {
           final ticket = _tickets[index];
           if (ticket.priceFlashKey == flashKey) {
-            _tickets[index] = ticket.copyWith(
-              priceTrend: '',
-              priceFlashKey: 0,
-            );
+            _tickets[index] = ticket.copyWith(priceTrend: '', priceFlashKey: 0);
           }
         }
       });
@@ -1157,10 +1137,7 @@ bool _storeHasReservationDeadline(LotteryReservation reservation) {
 }
 
 class _StoreCartSelectionDock extends StatelessWidget {
-  const _StoreCartSelectionDock({
-    required this.cart,
-    required this.onReview,
-  });
+  const _StoreCartSelectionDock({required this.cart, required this.onReview});
 
   final LotteryCart cart;
   final VoidCallback onReview;
@@ -1204,11 +1181,11 @@ class _StoreCartSelectionDock extends StatelessWidget {
                       Text(
                         l10n.cartSelectionCountLabel,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppTheme.appMuted,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                            ),
+                          color: AppTheme.appMuted,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
                       ),
                       const SizedBox(height: 5),
                       CustomerPaymentSelectionCountText(
@@ -1247,10 +1224,7 @@ class _StoreCartSelectionDock extends StatelessWidget {
 }
 
 class _StoreContentSheet extends StatelessWidget {
-  const _StoreContentSheet({
-    required this.children,
-    required this.bottom,
-  });
+  const _StoreContentSheet({required this.children, required this.bottom});
 
   final List<Widget> children;
   final double bottom;
@@ -1356,11 +1330,11 @@ class _StoreReservationCountdownTextState
     return Text(
       text,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: remaining.inSeconds <= 0
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w800,
-          ),
+        color: remaining.inSeconds <= 0
+            ? Theme.of(context).colorScheme.error
+            : Theme.of(context).colorScheme.primary,
+        fontWeight: FontWeight.w800,
+      ),
     );
   }
 
@@ -1397,10 +1371,7 @@ String _storeLotteriesDrawDateLabel(
 }
 
 class _StoreCard extends StatelessWidget {
-  const _StoreCard({
-    required this.store,
-    required this.onTap,
-  });
+  const _StoreCard({required this.store, required this.onTap});
 
   final StoreItem store;
   final VoidCallback onTap;
@@ -1409,8 +1380,9 @@ class _StoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final storeName =
-        store.name.isEmpty ? l10n.storesFallbackStoreName : store.name;
+    final storeName = store.name.isEmpty
+        ? l10n.storesFallbackStoreName
+        : store.name;
     return Semantics(
       key: ValueKey('store-list-row-${store.id}'),
       button: true,
@@ -1453,9 +1425,9 @@ class _StoreCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1464,18 +1436,16 @@ class _StoreCard extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: onTap,
                       style: _storeOutlinePillButtonStyle(context).copyWith(
-                        minimumSize: const WidgetStatePropertyAll(
-                          Size(88, 40),
-                        ),
+                        minimumSize: const WidgetStatePropertyAll(Size(88, 40)),
                         padding: const WidgetStatePropertyAll(
                           EdgeInsets.symmetric(horizontal: 10),
                         ),
                         textStyle: WidgetStatePropertyAll(
                           Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 1,
-                              ),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            height: 1,
+                          ),
                         ),
                       ),
                       child: Text(
@@ -1557,9 +1527,9 @@ class _StoreLotteriesHero extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1577,9 +1547,7 @@ class _StoreLotteriesHero extends StatelessWidget {
 }
 
 class _StoreSkeletonRows extends StatelessWidget {
-  const _StoreSkeletonRows({
-    this.keyPrefix = 'store-list-skeleton',
-  });
+  const _StoreSkeletonRows({this.keyPrefix = 'store-list-skeleton'});
 
   final String keyPrefix;
 
@@ -1587,8 +1555,9 @@ class _StoreSkeletonRows extends StatelessWidget {
   Widget build(BuildContext context) {
     const count = 6;
     final colorScheme = Theme.of(context).colorScheme;
-    final placeholderColor =
-        colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    final placeholderColor = colorScheme.surfaceContainerHighest.withValues(
+      alpha: 0.72,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1686,15 +1655,15 @@ class _LotteryTicketCard extends StatelessWidget {
         : ticket.sellerName;
     final actionLabel = busy
         ? reserved
-            ? l10n.lotteryRemoving
-            : l10n.lotterySelecting
+              ? l10n.lotteryRemoving
+              : l10n.lotterySelecting
         : reserved
-            ? l10n.lotteryRemove
-            : !ticket.isAvailable
-                ? l10n.lotterySoldOut
-                : canReserve
-                    ? l10n.lotterySelect
-                    : l10n.lotterySaleClosedAction;
+        ? l10n.lotteryRemove
+        : !ticket.isAvailable
+        ? l10n.lotterySoldOut
+        : canReserve
+        ? l10n.lotterySelect
+        : l10n.lotterySaleClosedAction;
     final canToggle = reserved || (canReserve && ticket.isAvailable);
     final actionButton = reserved
         ? DecoratedBox(
@@ -1714,41 +1683,43 @@ class _LotteryTicketCard extends StatelessWidget {
             ),
             child: FilledButton(
               onPressed: busy || !canToggle ? null : onToggle,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                disabledBackgroundColor: Colors.transparent,
-                foregroundColor: AppTheme.appSheet,
-                disabledForegroundColor: AppTheme.appOutlinePillDisabledText,
-                shadowColor: Colors.transparent,
-                minimumSize: const Size(84, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                shape: const StadiumBorder(),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  height: 1.1,
-                ),
-              ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              ),
+              style:
+                  FilledButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    disabledBackgroundColor: Colors.transparent,
+                    foregroundColor: AppTheme.appSheet,
+                    disabledForegroundColor:
+                        AppTheme.appOutlinePillDisabledText,
+                    shadowColor: Colors.transparent,
+                    minimumSize: const Size(84, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                    ),
+                  ).copyWith(
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                  ),
               child: Text(actionLabel),
             ),
           )
         : OutlinedButton(
             onPressed: busy || !canToggle ? null : onToggle,
-            style: _storeOutlinePillButtonStyle(
-              context,
-              enabled: canToggle,
-            ).copyWith(
-              minimumSize: const WidgetStatePropertyAll(Size(84, 40)),
-              textStyle: WidgetStatePropertyAll(
-                Theme.of(context).textTheme.labelLarge?.copyWith(
+            style: _storeOutlinePillButtonStyle(context, enabled: canToggle)
+                .copyWith(
+                  minimumSize: const WidgetStatePropertyAll(Size(84, 40)),
+                  textStyle: WidgetStatePropertyAll(
+                    Theme.of(context).textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                       height: 1.1,
                     ),
-              ),
-            ),
+                  ),
+                ),
             child: Text(actionLabel),
           );
     return LotteryUnavailableRowVisualState(
@@ -1838,9 +1809,9 @@ class _LotteryTicketCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.appMuted,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: AppTheme.appMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1878,13 +1849,13 @@ class _StoreLotteryPriceText extends StatelessWidget {
     final trendColor = priceTrend == lotteryStockPriceTrendDown
         ? colorScheme.error
         : priceTrend == lotteryStockPriceTrendUp
-            ? colorScheme.tertiary
-            : colorScheme.onSurface;
+        ? colorScheme.tertiary
+        : colorScheme.onSurface;
     final trendIcon = priceTrend == lotteryStockPriceTrendDown
         ? Icons.arrow_downward
         : priceTrend == lotteryStockPriceTrendUp
-            ? Icons.arrow_upward
-            : null;
+        ? Icons.arrow_upward
+        : null;
     return Row(
       key: const ValueKey('store-lottery-ticket-price-row'),
       mainAxisSize: MainAxisSize.min,
@@ -1902,9 +1873,9 @@ class _StoreLotteryPriceText extends StatelessWidget {
           formatBaht(ticket.price),
           key: const ValueKey('store-lottery-ticket-price'),
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: trendColor,
-                fontWeight: FontWeight.w700,
-              ),
+            color: trendColor,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
@@ -1912,10 +1883,7 @@ class _StoreLotteryPriceText extends StatelessWidget {
 }
 
 class _StoreLotteryMetaColumn extends StatelessWidget {
-  const _StoreLotteryMetaColumn({
-    required this.label,
-    required this.value,
-  });
+  const _StoreLotteryMetaColumn({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1934,11 +1902,11 @@ class _StoreLotteryMetaColumn extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.15,
-                ),
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.15,
+            ),
           ),
           const SizedBox(height: 3),
           Text(
@@ -2002,17 +1970,11 @@ class _StoreLotteryNumber extends StatelessWidget {
   }
 }
 
-String _storeLotteriesBackPath(
-  String storeId, {
-  String storeName = '',
-}) {
+String _storeLotteriesBackPath(String storeId, {String storeName = ''}) {
   return _storeLotteriesPath(storeId, storeName: storeName);
 }
 
-String _storeLotteriesPath(
-  String storeId, {
-  String storeName = '',
-}) {
+String _storeLotteriesPath(String storeId, {String storeName = ''}) {
   return lotteryStorePath(storeId: storeId, storeName: storeName);
 }
 
@@ -2036,9 +1998,7 @@ bool _storeLotteryTicketsChanged(
 }
 
 class _StoreSaleClosedNotice extends StatelessWidget {
-  const _StoreSaleClosedNotice({
-    required this.title,
-  });
+  const _StoreSaleClosedNotice({required this.title});
 
   final String title;
 
@@ -2065,11 +2025,11 @@ class _StoreSaleClosedNotice extends StatelessWidget {
               child: Text(
                 title,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
+                  color: foreground,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
               ),
             ),
           ],
@@ -2127,11 +2087,11 @@ class _StoreInlineNoticeCard extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
@@ -2212,14 +2172,15 @@ List<MapEntry<String, String>> _storeCartReservationEntries(LotteryCart cart) {
     if (reservationId.isEmpty) continue;
     entries.addAll(
       {
-        item.localStockItemId,
-        item.reserveStockItemId,
-        item.stockRef,
-        item.id,
-        item.token,
-      }.map((value) => value.trim()).where((value) => value.isNotEmpty).map(
-            (key) => MapEntry(key, reservationId),
-          ),
+            item.localStockItemId,
+            item.reserveStockItemId,
+            item.stockRef,
+            item.id,
+            item.token,
+          }
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .map((key) => MapEntry(key, reservationId)),
     );
   }
   return entries;
@@ -2239,11 +2200,11 @@ class _StoreEmptyState extends StatelessWidget {
         message,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          height: 1.35,
+        ),
       ),
     );
   }

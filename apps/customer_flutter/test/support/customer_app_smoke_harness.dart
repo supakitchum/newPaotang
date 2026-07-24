@@ -67,7 +67,7 @@ Future<void> runCustomerAppSmokeHarness(
   final systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
     find.byKey(const ValueKey('customer-system-ui-overlay')),
   );
-  expect(systemUiOverlay.value.statusBarColor, homeTheme.colorScheme.primary);
+  expect(systemUiOverlay.value.statusBarColor, Colors.transparent);
   expect(
     systemUiOverlay.value.systemNavigationBarColor,
     homeTheme.scaffoldBackgroundColor,
@@ -90,23 +90,10 @@ Future<void> runCustomerAppSmokeHarness(
         ? Brightness.light
         : Brightness.dark,
   );
-  final statusBarBackground = find.byKey(
-    const ValueKey('customer-status-bar-background'),
+  expect(
+    find.byKey(const ValueKey('customer-status-bar-background')),
+    findsNothing,
   );
-  final topInset = tester.view.viewPadding.top / tester.view.devicePixelRatio;
-  if (topInset > 0) {
-    expect(statusBarBackground, findsOneWidget);
-    final background = tester.widget<ColoredBox>(
-      find.descendant(
-        of: statusBarBackground,
-        matching: find.byType(ColoredBox),
-      ),
-    );
-    expect(background.color, homeTheme.colorScheme.primary);
-    expect(tester.getSize(statusBarBackground).height, topInset);
-  } else {
-    expect(statusBarBackground, findsNothing);
-  }
   expect(
     tester.widget<WebPrivacyGuard>(find.byType(WebPrivacyGuard)).enabled,
     isFalse,
@@ -115,7 +102,7 @@ Future<void> runCustomerAppSmokeHarness(
     tester
         .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
         .enabled,
-    isFalse,
+    effectivePlatformKey == 'ios',
   );
 
   router.go('/privacy');

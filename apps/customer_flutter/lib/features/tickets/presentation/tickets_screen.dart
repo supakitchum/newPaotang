@@ -15,6 +15,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/provider_cache.dart';
 import '../../../features/profile/data/profile_settings_models.dart';
 import '../../../features/profile/data/profile_settings_repository.dart';
 import '../../../shared/utils/customer_operational_error.dart';
@@ -195,7 +196,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
           title: l10n.ticketsTitle,
           current: _TicketRouteTab.current,
           searchTooltip: l10n.ticketsSearchNumbers,
-          onSearch: () => context.go('/tickets/search'),
+          onSearch: () => context.push('/tickets/search'),
           onHistoryTab: _showHistoryTab,
         ),
         children: [
@@ -773,7 +774,7 @@ class _TicketRouteHeroContent extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: colorScheme.onPrimary,
-                        fontSize: 22,
+                        fontSize: customerHeaderTitleFontSize,
                         fontWeight: FontWeight.w700,
                         height: 1.15,
                       ),
@@ -1008,9 +1009,7 @@ class _TicketHistoryFilterHeader extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    showOnlyWinning
-                        ? Icons.list_alt
-                        : Icons.playlist_add_check,
+                    showOnlyWinning ? Icons.list_alt : Icons.playlist_add_check,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -1505,7 +1504,7 @@ class _TicketTile extends StatelessWidget {
     } else if (ticket.id.isEmpty) {
       openTicket = null;
     } else {
-      openTicket = () => context.go(
+      openTicket = () => context.push(
         '/tickets/view?id=${Uri.encodeComponent(ticket.id)}'
         '${fromHistory ? '&from=history' : ''}',
       );
@@ -1927,7 +1926,7 @@ class _TicketStubRewardStrip extends StatelessWidget {
               enabled: actionPath.isNotEmpty,
               onPressed: actionPath.isEmpty
                   ? null
-                  : () => context.go(actionPath),
+                  : () => context.push(actionPath),
             ),
           ],
         ),
@@ -2352,6 +2351,7 @@ bool _ticketIsWinning(CustomerTicket ticket) {
 
 final _ticketViewLookupProvider = FutureProvider.autoDispose
     .family<CustomerTicket?, _TicketViewLookup>((ref, lookup) async {
+      ref.keepForCustomerNavigation();
       final repository = ref.watch(ticketRepositoryProvider);
       if (lookup.ticketId.isNotEmpty) {
         return repository.detail(lookup.ticketId);
@@ -2850,7 +2850,8 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
             const SizedBox(height: 12),
           ],
           _ExistingRewardClaimCard(
-            onOpen: () => context.go('/reward-claims/${ticket.rewardClaimId}'),
+            onOpen: () =>
+                context.push('/reward-claims/${ticket.rewardClaimId}'),
           ),
         ],
       );
@@ -3618,7 +3619,7 @@ class _ClaimPayoutCard extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
-                      onPressed: () => context.go(
+                      onPressed: () => context.push(
                         '/profile/reward-bank?redirect=/tickets/claim/${ticket.id}',
                       ),
                       style: TextButton.styleFrom(

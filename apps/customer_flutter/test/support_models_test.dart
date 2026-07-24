@@ -20,6 +20,7 @@ void main() {
         'category': {'id': 'scat_general', 'name': 'ปัญหาทั่วไป'},
         'subject': 'ชำระเงินไม่สำเร็จ',
         'status': 'queued',
+        'chat_available': false,
         'last_message_preview': 'กรุณาตรวจสอบรายการ',
         'unread_count': 2,
         'queue_position': 3,
@@ -35,6 +36,7 @@ void main() {
     expect(bootstrap.activeTicket?.categoryName, 'ปัญหาทั่วไป');
     expect(bootstrap.activeTicket?.queuePosition, 3);
     expect(bootstrap.activeTicket?.isQueued, isTrue);
+    expect(bootstrap.activeTicket?.chatAvailable, isFalse);
     expect(bootstrap.historyCount, 4);
     expect(bootstrap.unreadCount, 2);
     expect(bootstrap.limits.attachmentsPerMessage, 3);
@@ -49,6 +51,7 @@ void main() {
       'category': {'name': 'รายการสั่งซื้อ'},
       'subject': 'ต้องการตรวจสอบคำสั่งซื้อ',
       'status': 'closed',
+      'chat_available': false,
       'last_message_preview': 'ดำเนินการเรียบร้อยแล้ว',
       'unread_count': 0,
       'opened_at': '2026-07-22T09:00:00+07:00',
@@ -64,6 +67,7 @@ void main() {
     });
 
     expect(ticket.isClosed, isTrue);
+    expect(ticket.chatAvailable, isFalse);
     expect(ticket.categoryName, 'รายการสั่งซื้อ');
     expect(ticket.agent?.name, 'Support One');
     expect(ticket.closedByName, 'Support One');
@@ -104,6 +108,7 @@ void main() {
     final ticket = SupportTicket.fromJson({
       'id': 'stic_legacy',
       'status': 'assigned',
+      'chat_available': true,
     });
     final message = SupportMessage.fromJson({
       'id': 'smsg_legacy',
@@ -113,6 +118,7 @@ void main() {
     expect(ticket.categoryName, isEmpty);
     expect(ticket.closedByName, isEmpty);
     expect(ticket.rating, isNull);
+    expect(ticket.chatAvailable, isTrue);
     expect(message.attachments, isEmpty);
     expect(message.readByCounterpart, isNull);
   });

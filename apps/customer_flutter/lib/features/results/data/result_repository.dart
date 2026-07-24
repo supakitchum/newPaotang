@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'result_models.dart';
 
 final resultRepositoryProvider = Provider<ResultRepository>((ref) {
@@ -12,23 +13,28 @@ final resultRepositoryProvider = Provider<ResultRepository>((ref) {
 final currentResultProvider = FutureProvider.autoDispose<RewardResultBundle>((
   ref,
 ) async {
+  ref.keepForCustomerNavigation();
   return ref.watch(resultRepositoryProvider).current();
 });
 
-final resultDetailProvider =
-    FutureProvider.autoDispose.family<RewardResultBundle, String?>((ref, id) {
-  return ref.watch(resultRepositoryProvider).current(gameId: id);
-});
+final resultDetailProvider = FutureProvider.autoDispose
+    .family<RewardResultBundle, String?>((ref, id) {
+      ref.keepForCustomerNavigation();
+      return ref.watch(resultRepositoryProvider).current(gameId: id);
+    });
 
-final legacyResultProvider =
-    FutureProvider.autoDispose<RewardResultBundle>((ref) async {
+final legacyResultProvider = FutureProvider.autoDispose<RewardResultBundle>((
+  ref,
+) async {
+  ref.keepForCustomerNavigation();
   return ref.watch(resultRepositoryProvider).legacy();
 });
 
-final publishedResultDetailProvider =
-    FutureProvider.autoDispose.family<RewardResultBundle, String?>((ref, id) {
-  return ref.watch(resultRepositoryProvider).published(gameId: id);
-});
+final publishedResultDetailProvider = FutureProvider.autoDispose
+    .family<RewardResultBundle, String?>((ref, id) {
+      ref.keepForCustomerNavigation();
+      return ref.watch(resultRepositoryProvider).published(gameId: id);
+    });
 
 class ResultRepository {
   const ResultRepository(this._api);
@@ -56,8 +62,9 @@ class ResultRepository {
   Future<RewardResultBundle> current({String? gameId}) async {
     final game = await _currentGameForResults();
     final requestedGameId = gameId?.trim() ?? '';
-    final targetGameId =
-        requestedGameId.isNotEmpty ? requestedGameId : game?.id.trim();
+    final targetGameId = requestedGameId.isNotEmpty
+        ? requestedGameId
+        : game?.id.trim();
     final live = await _attemptResult(gameId: targetGameId, live: true);
     final published = live.value == null
         ? await _attemptResult(gameId: targetGameId, live: false)
@@ -94,9 +101,7 @@ class ResultRepository {
     return RewardResultBundle(
       currentGame: null,
       selectedResult: selected,
-      history: [
-        if (selected != null) selected,
-      ],
+      history: [if (selected != null) selected],
     );
   }
 
@@ -134,11 +139,11 @@ class ResultRepository {
     final encodedGameId = Uri.encodeComponent(normalizedGameId);
     final endpoint = live
         ? (normalizedGameId.isEmpty
-            ? '/public/results/live/latest'
-            : '/public/results/live/$encodedGameId')
+              ? '/public/results/live/latest'
+              : '/public/results/live/$encodedGameId')
         : (normalizedGameId.isEmpty
-            ? '/public/results/latest'
-            : '/public/results/$encodedGameId');
+              ? '/public/results/latest'
+              : '/public/results/$encodedGameId');
     final response = await _api.get<Map<String, dynamic>>(
       endpoint,
       auth: false,
@@ -171,10 +176,7 @@ bool _isOperationalResultError(Object error) {
 }
 
 class _ResultAttempt {
-  const _ResultAttempt({
-    this.value,
-    this.error,
-  });
+  const _ResultAttempt({this.value, this.error});
 
   final RewardResultGame? value;
   final Object? error;

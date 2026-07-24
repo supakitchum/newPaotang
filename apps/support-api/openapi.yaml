@@ -149,7 +149,7 @@ paths:
           $ref: "#/components/responses/MessagePage"
     post:
       tags: [Customer Support]
-      summary: Send an immutable customer message
+      summary: Send an immutable customer message after an agent accepts the ticket
       parameters:
         - $ref: "#/components/parameters/TicketId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -528,7 +528,7 @@ components:
     Forbidden:
       description: Support role or channel permission denied
     Conflict:
-      description: Closed-ticket, one-open-ticket, or idempotency conflict
+      description: Closed-ticket, waiting-for-agent, one-open-ticket, or idempotency conflict
     SupportUnavailable:
       description: Tenant Support is disabled
   schemas:
@@ -554,7 +554,7 @@ components:
         answer: {type: string}
     Ticket:
       type: object
-      required: [id, public_no, subject, status]
+      required: [id, public_no, subject, status, chat_available]
       properties:
         id: {type: string}
         public_no: {type: string}
@@ -563,6 +563,9 @@ components:
         status:
           type: string
           enum: [queued, assigned, in_progress, waiting_customer, closed]
+        chat_available:
+          type: boolean
+          description: True only after an agent is assigned and before the ticket closes.
         queue_ahead: {type: integer, minimum: 0}
         latest_sequence: {type: integer, minimum: 0}
         unread_count: {type: integer, minimum: 0}

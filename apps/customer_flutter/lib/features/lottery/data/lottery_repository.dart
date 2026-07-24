@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/payment/checkout_payment_config.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import '../../results/data/result_repository.dart';
 import 'lottery_models.dart';
 
@@ -12,6 +13,7 @@ final lotteryRepositoryProvider = Provider<LotteryRepository>((ref) {
 });
 
 final currentGameIdProvider = FutureProvider.autoDispose<String>((ref) async {
+  ref.keepForCustomerNavigation();
   final game = await ref.watch(resultRepositoryProvider).currentGame();
   return game?.id ?? '';
 });

@@ -4,6 +4,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import '../../results/data/result_models.dart';
 import '../../results/data/result_repository.dart';
 import 'ticket_models.dart';
@@ -14,6 +15,7 @@ final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
 
 final currentTicketsProvider = FutureProvider.autoDispose<List<CustomerTicket>>(
   (ref) async {
+    ref.keepForCustomerNavigation();
     final auth = ref.watch(authControllerProvider);
     if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
       return const [];
@@ -25,6 +27,7 @@ final currentTicketsProvider = FutureProvider.autoDispose<List<CustomerTicket>>(
 final currentTicketGameProvider = FutureProvider.autoDispose<CurrentGame?>((
   ref,
 ) async {
+  ref.keepForCustomerNavigation();
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
     return null;
@@ -34,6 +37,7 @@ final currentTicketGameProvider = FutureProvider.autoDispose<CurrentGame?>((
 
 final ticketDetailProvider = FutureProvider.autoDispose
     .family<CustomerTicket, String>((ref, id) async {
+      ref.keepForCustomerNavigation();
       return ref.watch(ticketRepositoryProvider).detail(id);
     });
 

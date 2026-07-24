@@ -77,20 +77,21 @@ void main() {
     );
   });
 
-  testWidgets('CustomerApp paints iPhone status safe area from runtime theme', (
-    tester,
-  ) async {
-    tester.view.viewPadding = const FakeViewPadding(top: 47);
-    addTearDown(tester.view.resetViewPadding);
+  testWidgets(
+    'CustomerApp leaves iPhone status safe area transparent over runtime theme',
+    (tester) async {
+      tester.view.viewPadding = const FakeViewPadding(top: 47);
+      addTearDown(tester.view.resetViewPadding);
 
-    await runCustomerAppSmokeHarness(
-      tester,
-      platformKey: 'ios',
-      bootstrapPayload: const {
-        'tenant_id': 'tenant_status_bar',
-        'theme': {'primary_color': '#0055AA'},
-      },
-      expectedPrimaryColor: const Color(0xFF0055AA),
-    );
-  });
+      await runCustomerAppSmokeHarness(
+        tester,
+        platformKey: 'ios',
+        bootstrapPayload: const {
+          'tenant_id': 'tenant_status_bar',
+          'theme': {'primary_color': '#0055AA'},
+        },
+        expectedPrimaryColor: const Color(0xFF0055AA),
+      );
+    },
+  );
 }

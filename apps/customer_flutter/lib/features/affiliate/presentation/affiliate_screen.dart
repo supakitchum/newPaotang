@@ -14,6 +14,7 @@ import '../../../shared/widgets/customer_page_body.dart';
 import '../../profile/data/profile_settings_models.dart';
 import '../data/affiliate_models.dart';
 import '../data/affiliate_repository.dart';
+import 'affiliate_referral_share_service.dart';
 
 class AffiliateScreen extends ConsumerStatefulWidget {
   const AffiliateScreen({
@@ -147,6 +148,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
                 AffiliateTab.referral => _AffiliateReferralTab(
                   overview: _overview,
                   onCopy: _copyReferralLink,
+                  onShare: _shareReferralLink,
                 ),
                 AffiliateTab.withdraw => _AffiliateWithdrawHistoryTab(
                   overview: _overview,
@@ -468,6 +470,25 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     await Clipboard.setData(ClipboardData(text: link));
     if (!mounted) return;
     _showNotice(context.l10n.affiliateLinkCopied, success: true);
+  }
+
+  Future<void> _shareReferralLink(BuildContext shareContext) async {
+    final link = _overview.referralUrl;
+    if (link.isEmpty) return;
+    final l10n = context.l10n;
+    try {
+      await ref
+          .read(affiliateReferralShareServiceProvider)
+          .share(
+            text: '${l10n.affiliateReferralDescription}\n$link',
+            subject: l10n.affiliateReferralTitle,
+            sharePositionOrigin: _affiliateSharePositionOrigin(shareContext),
+          );
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: link));
+      if (!mounted) return;
+      _showNotice(l10n.affiliateLinkCopied, success: true);
+    }
   }
 
   void _showNotice(String message, {bool success = false}) {
@@ -1406,8 +1427,9 @@ class _AffiliateNavigationBar extends StatelessWidget {
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
+      child: MediaQuery.removePadding(
+        context: context,
+        removeBottom: true,
         child: SizedBox(
           height: 82,
           child: Row(
@@ -2255,10 +2277,15 @@ TextStyle? _affiliateLeaderboardHeaderStyle(BuildContext context) {
 }
 
 class _AffiliateReferralTab extends StatelessWidget {
-  const _AffiliateReferralTab({required this.overview, required this.onCopy});
+  const _AffiliateReferralTab({
+    required this.overview,
+    required this.onCopy,
+    required this.onShare,
+  });
 
   final AffiliateOverview overview;
   final VoidCallback onCopy;
+  final ValueChanged<BuildContext> onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -2279,6 +2306,7 @@ class _AffiliateReferralTab extends StatelessWidget {
               link: overview.referralUrl,
               copyTooltip: l10n.affiliateReferralCopyTooltip,
               onCopy: onCopy,
+              onShare: onShare,
             ),
         ],
       ),
@@ -2291,11 +2319,13 @@ class _AffiliateReferralContent extends StatelessWidget {
     required this.link,
     required this.copyTooltip,
     required this.onCopy,
+    required this.onShare,
   });
 
   final String link;
   final String copyTooltip;
   final VoidCallback onCopy;
+  final ValueChanged<BuildContext> onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -2349,13 +2379,46 @@ class _AffiliateReferralContent extends StatelessWidget {
           tooltip: copyTooltip,
           onCopy: onCopy,
         );
+        final linkActions = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            linkBox,
+            const SizedBox(height: 12),
+            Builder(
+              builder: (shareContext) {
+                return SizedBox(
+                  key: const ValueKey('affiliate-referral-share-action'),
+                  width: double.infinity,
+                  child: CustomerGradientButton(
+                    height: 46,
+                    shadow: false,
+                    onPressed: () => onShare(shareContext),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.ios_share_rounded,
+                          color: colorScheme.onPrimary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(l10n.affiliateReferralShareAction),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
         if (constraints.maxWidth < 520) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(child: qr),
               const SizedBox(height: 16),
-              linkBox,
+              linkActions,
             ],
           );
         }
@@ -2364,12 +2427,18 @@ class _AffiliateReferralContent extends StatelessWidget {
           children: [
             SizedBox(width: 210, child: qr),
             const SizedBox(width: 20),
-            Expanded(child: linkBox),
+            Expanded(child: linkActions),
           ],
         );
       },
     );
   }
+}
+
+Rect? _affiliateSharePositionOrigin(BuildContext context) {
+  final renderObject = context.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+  return renderObject.localToGlobal(Offset.zero) & renderObject.size;
 }
 
 class _AffiliateResponsiveStack extends StatelessWidget {
@@ -2893,7 +2962,7 @@ class _AffiliateWithdrawTab extends StatelessWidget {
           bank: bank,
           withdrawMode: true,
           onEdit: () =>
-              context.go('/profile/reward-bank?redirect=/affiliate/withdraw'),
+              context.push('/profile/reward-bank?redirect=/affiliate/withdraw'),
         ),
         _AffiliateSurface(
           child: Padding(

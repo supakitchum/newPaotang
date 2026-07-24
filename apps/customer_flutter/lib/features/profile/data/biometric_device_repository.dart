@@ -4,17 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'biometric_device_models.dart';
 
-final biometricDeviceRepositoryProvider =
-    Provider<BiometricDeviceRepository>((ref) {
+final biometricDeviceRepositoryProvider = Provider<BiometricDeviceRepository>((
+  ref,
+) {
   return BiometricDeviceRepository(ref.watch(apiClientProvider));
 });
 
 final biometricDevicesProvider =
     FutureProvider.autoDispose<List<BiometricDevice>>((ref) async {
-  return ref.watch(biometricDeviceRepositoryProvider).list();
-});
+      ref.keepForCustomerNavigation();
+      return ref.watch(biometricDeviceRepositoryProvider).list();
+    });
 
 class BiometricDeviceRepository {
   const BiometricDeviceRepository(this._api);
@@ -22,11 +25,12 @@ class BiometricDeviceRepository {
   final ApiClient _api;
 
   Future<List<BiometricDevice>> list() async {
-    final response = await _api
-        .get<Map<String, dynamic>>('/customer/auth/biometric/devices');
-    return _biometricDeviceRows(response.data)
-        .map(BiometricDevice.fromJson)
-        .toList(growable: false);
+    final response = await _api.get<Map<String, dynamic>>(
+      '/customer/auth/biometric/devices',
+    );
+    return _biometricDeviceRows(
+      response.data,
+    ).map(BiometricDevice.fromJson).toList(growable: false);
   }
 
   Future<void> revoke(String id) async {
@@ -122,8 +126,9 @@ List<Map<String, dynamic>> _keyedBiometricDeviceRows(
   Map<String, dynamic> payload,
 ) {
   final mappedValues = payload.values.map(_asBiometricDeviceMap).toList();
-  final nonEmptyValues =
-      mappedValues.where((row) => row.isNotEmpty).toList(growable: false);
+  final nonEmptyValues = mappedValues
+      .where((row) => row.isNotEmpty)
+      .toList(growable: false);
   if (nonEmptyValues.isEmpty || nonEmptyValues.length != mappedValues.length) {
     return const [];
   }
@@ -133,10 +138,7 @@ List<Map<String, dynamic>> _keyedBiometricDeviceRows(
   return nonEmptyValues;
 }
 
-bool _looksLikeBiometricDeviceRow(
-  Map<String, dynamic> row, [
-  int depth = 0,
-]) {
+bool _looksLikeBiometricDeviceRow(Map<String, dynamic> row, [int depth = 0]) {
   if (depth >= 3 || row.isEmpty) return false;
   for (final key in const [
     'id',

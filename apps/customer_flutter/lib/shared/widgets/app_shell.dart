@@ -13,6 +13,7 @@ import 'customer_page_body.dart';
 enum CustomerHeroHeaderVariant { standard, compact, rewardFlow }
 
 const double customerReferenceCompactHeroHeight = 96;
+const double customerHeaderTitleFontSize = 22;
 
 class AppShell extends StatelessWidget {
   const AppShell({
@@ -147,9 +148,9 @@ class AppShell extends StatelessWidget {
         titleSpacing: 0,
         titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
           color: colorScheme.onPrimary,
-          fontSize: compactHeader ? 16 : 20,
-          fontWeight: compactHeader ? FontWeight.w900 : FontWeight.w700,
-          height: 1.25,
+          fontSize: customerHeaderTitleFontSize,
+          fontWeight: FontWeight.w700,
+          height: 1.15,
         ),
         actions: actions,
         backgroundColor: Colors.transparent,
@@ -229,12 +230,17 @@ class AppShell extends StatelessWidget {
     }
 
     if (!automaticallyImplyBack) return null;
-    if (!_shouldShowAutoBack(routePath)) return null;
+    if (!_shouldShowAutoBack(context, routePath)) return null;
     return () => _goBackFrom(context, routePath);
   }
 
-  bool _shouldShowAutoBack(String path) {
+  bool _shouldShowAutoBack(BuildContext context, String path) {
     if (path.isEmpty) return false;
+    try {
+      if (GoRouter.of(context).canPop()) return true;
+    } catch (_) {
+      // Widget-only previews may not have a router.
+    }
     return !_customerRootRoutes.contains(path);
   }
 
@@ -316,7 +322,8 @@ class _AppShellBottomNavOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final navigation = bottomNavigation ??
+    final navigation =
+        bottomNavigation ??
         (showBottomNavigation
             ? _CustomerBottomNav(currentPath: currentPath)
             : null);
@@ -327,12 +334,7 @@ class _AppShellBottomNavOverlay extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(child: child),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            left: 0,
-            child: navigation,
-          ),
+          Positioned(right: 0, bottom: 0, left: 0, child: navigation),
         ],
       ),
     );
@@ -568,17 +570,9 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                                 style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
                                       color: colorScheme.onPrimary,
-                                      fontSize: compactHeader
-                                          ? 16
-                                          : rewardFlow
-                                          ? 20
-                                          : 22,
-                                      fontWeight: compactHeader || rewardFlow
-                                          ? FontWeight.w900
-                                          : FontWeight.w700,
-                                      height: compactHeader || rewardFlow
-                                          ? 1.25
-                                          : 1.15,
+                                      fontSize: customerHeaderTitleFontSize,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.15,
                                     ),
                               ),
                             ),

@@ -3,18 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import '../../profile/data/profile_settings_models.dart';
 import 'activity_claim_models.dart';
 
-final activityClaimRepositoryProvider =
-    Provider<ActivityClaimRepository>((ref) {
+final activityClaimRepositoryProvider = Provider<ActivityClaimRepository>((
+  ref,
+) {
   return ActivityClaimRepository(ref.watch(apiClientProvider));
 });
 
-final activityClaimDetailProvider =
-    FutureProvider.autoDispose.family<ActivityClaimItem, String>(
-  (ref, id) async => ref.watch(activityClaimRepositoryProvider).detail(id),
-);
+final activityClaimDetailProvider = FutureProvider.autoDispose
+    .family<ActivityClaimItem, String>((ref, id) async {
+      ref.keepForCustomerNavigation();
+      return ref.watch(activityClaimRepositoryProvider).detail(id);
+    });
 
 class ActivityClaimRepository {
   const ActivityClaimRepository(this._api);

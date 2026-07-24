@@ -109,6 +109,25 @@ class MainActivity : FlutterFragmentActivity() {
                 try {
                     when (call.method) {
                         "existingDeviceId" -> result.success(existingDeviceId())
+                        "hasExistingKeyPair" -> result.success(hasExistingKeyPair())
+                        "restoreDeviceId" -> {
+                            val args = call.arguments as? Map<*, *>
+                            val deviceId = (
+                                args?.get("deviceId")
+                                    ?: args?.get("device_id")
+                                    ?: args?.get("credentialId")
+                                    ?: args?.get("credential_id")
+                                )?.toString()?.trim().orEmpty()
+                            if (deviceId.isBlank() || !hasExistingKeyPair()) {
+                                result.success(false)
+                            } else {
+                                getSharedPreferences(prefsName, MODE_PRIVATE)
+                                    .edit()
+                                    .putString(deviceIdKey, deviceId)
+                                    .apply()
+                                result.success(true)
+                            }
+                        }
                         "deviceId" -> result.success(currentDeviceId())
                         "deleteKeyPair" -> {
                             deleteKeyPair()

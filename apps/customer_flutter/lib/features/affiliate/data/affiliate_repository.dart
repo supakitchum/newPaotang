@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'affiliate_models.dart';
 
 final affiliateRepositoryProvider = Provider<AffiliateRepository>((ref) {
@@ -11,6 +12,7 @@ final affiliateRepositoryProvider = Provider<AffiliateRepository>((ref) {
 
 final affiliateOverviewProvider = FutureProvider.autoDispose<AffiliateOverview>(
   (ref) async {
+    ref.keepForCustomerNavigation();
     return ref.watch(affiliateRepositoryProvider).overview();
   },
 );

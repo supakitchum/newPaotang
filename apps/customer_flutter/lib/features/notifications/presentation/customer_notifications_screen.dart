@@ -307,7 +307,7 @@ class _CustomerNotificationsScreenState
 
     if (!mounted) return;
     final route = customerNotificationRoute(item.action);
-    if (route != null) context.go(route);
+    if (route != null) context.push(route);
   }
 
   Future<void> _markAllRead() async {

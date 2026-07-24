@@ -5,63 +5,65 @@ import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'activity_models.dart';
 
 final activityRepositoryProvider = Provider<ActivityRepository>((ref) {
   final resolveAssetUrl = ref.watch(assetUrlResolverProvider);
-  return ActivityRepository(
-    ref.watch(apiClientProvider),
-    resolveAssetUrl.call,
-  );
+  return ActivityRepository(ref.watch(apiClientProvider), resolveAssetUrl.call);
 });
 
-final activityListProvider =
-    FutureProvider.autoDispose<List<ActivityItem>>((ref) async {
+final activityListProvider = FutureProvider.autoDispose<List<ActivityItem>>((
+  ref,
+) async {
+  ref.keepForCustomerNavigation();
   final auth = ref.watch(authControllerProvider);
-  return ref.watch(activityRepositoryProvider).listAll(
-        authenticated: auth.isAuthenticated && !auth.pinRequired,
-      );
+  return ref
+      .watch(activityRepositoryProvider)
+      .listAll(authenticated: auth.isAuthenticated && !auth.pinRequired);
 });
 
-final activityListPageProvider =
-    FutureProvider.autoDispose<ActivityListPage>((ref) async {
+final activityListPageProvider = FutureProvider.autoDispose<ActivityListPage>((
+  ref,
+) async {
+  ref.keepForCustomerNavigation();
   final auth = ref.watch(authControllerProvider);
-  return ref.watch(activityRepositoryProvider).listPage(
-        authenticated: auth.isAuthenticated && !auth.pinRequired,
-      );
+  return ref
+      .watch(activityRepositoryProvider)
+      .listPage(authenticated: auth.isAuthenticated && !auth.pinRequired);
 });
 
-final activityDetailProvider =
-    FutureProvider.autoDispose.family<ActivityItem, ActivityDetailRequest>(
-  (ref, request) {
-    return ref.watch(activityRepositoryProvider).detail(
-          request.slug,
-          authenticated: request.authenticated,
-        );
-  },
-);
+final activityDetailProvider = FutureProvider.autoDispose
+    .family<ActivityItem, ActivityDetailRequest>((ref, request) {
+      ref.keepForCustomerNavigation();
+      return ref
+          .watch(activityRepositoryProvider)
+          .detail(request.slug, authenticated: request.authenticated);
+    });
 
 final activityHistoryProvider = FutureProvider.autoDispose
     .family<ActivityListPage, String>((ref, gameId) async {
-  final auth = ref.watch(authControllerProvider);
-  return ref.watch(activityRepositoryProvider).listPage(
-        authenticated: auth.isAuthenticated && !auth.pinRequired,
-        history: true,
-        gameId: gameId,
-      );
-});
+      ref.keepForCustomerNavigation();
+      final auth = ref.watch(authControllerProvider);
+      return ref
+          .watch(activityRepositoryProvider)
+          .listPage(
+            authenticated: auth.isAuthenticated && !auth.pinRequired,
+            history: true,
+            gameId: gameId,
+          );
+    });
 
-final activityAwardListProvider =
-    FutureProvider.autoDispose.family<List<ActivityAwardItem>, String>(
-  (ref, activityId) async {
-    final auth = ref.watch(authControllerProvider);
-    if (!auth.isAuthenticated || auth.pinRequired) return const [];
-    final awards = await ref.watch(activityRepositoryProvider).awardsAll();
-    return awards
-        .where((award) => award.activityId == activityId)
-        .toList(growable: false);
-  },
-);
+final activityAwardListProvider = FutureProvider.autoDispose
+    .family<List<ActivityAwardItem>, String>((ref, activityId) async {
+      ref.keepForCustomerNavigation();
+      final auth = ref.watch(authControllerProvider);
+      if (!auth.isAuthenticated || auth.pinRequired) return const [];
+      final awards = await ref.watch(activityRepositoryProvider).awardsAll();
+      return awards
+          .where((award) => award.activityId == activityId)
+          .toList(growable: false);
+    });
 
 class ActivityDetailRequest {
   const ActivityDetailRequest({
@@ -228,11 +230,7 @@ class ActivityRepository {
     var cursor = '';
 
     for (var pageIndex = 0; pageIndex < maxPages; pageIndex++) {
-      final page = await awards(
-        limit: limit,
-        cursor: cursor,
-        status: status,
-      );
+      final page = await awards(limit: limit, cursor: cursor, status: status);
       items.addAll(page.items);
 
       final nextCursor = page.nextCursor?.trim() ?? '';

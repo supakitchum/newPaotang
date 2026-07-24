@@ -55,6 +55,7 @@ class BiometricAuthService {
   final MethodChannel _keyChannel;
   final TargetPlatform _targetPlatform;
   final BiometricPromptCoordinator _promptCoordinator;
+  Future<bool>? _deviceIdRecoveryInFlight;
 
   Future<bool> canUseBiometric() async {
     if (kIsWeb) return false;
@@ -74,7 +75,8 @@ class BiometricAuthService {
   Future<bool> canUnlockCurrentDevice() async {
     if (!await canUseBiometric()) return false;
     final deviceId = await _safeExistingDeviceId();
-    return deviceId != null && deviceId.isNotEmpty;
+    if (deviceId != null && deviceId.isNotEmpty) return true;
+    return _recoverMissingDeviceId();
   }
 
   Future<void> registerDevice({
@@ -243,6 +245,88 @@ class BiometricAuthService {
       return deviceId.isEmpty ? null : deviceId;
     } on PlatformException {
       return null;
+    }
+  }
+
+  Future<bool> _recoverMissingDeviceId() {
+    final pending = _deviceIdRecoveryInFlight;
+    if (pending != null) return pending;
+    final recovery = _recoverMissingDeviceIdNow();
+    _deviceIdRecoveryInFlight = recovery;
+    return recovery.whenComplete(() {
+      if (identical(_deviceIdRecoveryInFlight, recovery)) {
+        _deviceIdRecoveryInFlight = null;
+      }
+    });
+  }
+
+  Future<bool> _recoverMissingDeviceIdNow() async {
+    if (_targetPlatform != TargetPlatform.iOS &&
+        _targetPlatform != TargetPlatform.android) {
+      return false;
+    }
+    if (!await _safeHasExistingKeyPair()) return false;
+
+    try {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/customer/auth/biometric/devices',
+      );
+      final platform = _targetPlatform == TargetPlatform.iOS
+          ? 'ios'
+          : 'android';
+      final candidates = unwrapDataList(response.data)
+          .where((row) {
+            final status = _firstString([
+              row['status'],
+              row['device_status'],
+              row['deviceStatus'],
+            ]).toLowerCase();
+            final devicePlatform = _firstString([
+              row['platform'],
+              row['device_platform'],
+              row['devicePlatform'],
+            ]).toLowerCase();
+            return status == 'active' && devicePlatform == platform;
+          })
+          .map(
+            (row) => _firstString([
+              row['device_id'],
+              row['deviceId'],
+              row['credential_id'],
+              row['credentialId'],
+            ]),
+          )
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+
+      // The local private key is the proof of device ownership, but the list
+      // endpoint intentionally does not expose public keys. Restore only an
+      // unambiguous binding; challenge verification still proves the key.
+      if (candidates.length != 1) return false;
+      return _safeRestoreDeviceId(candidates.single);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _safeHasExistingKeyPair() async {
+    try {
+      return await _keyChannel.invokeMethod<bool>('hasExistingKeyPair') == true;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<bool> _safeRestoreDeviceId(String deviceId) async {
+    try {
+      final restored = await _keyChannel.invokeMethod<bool>('restoreDeviceId', {
+        'deviceId': deviceId,
+      });
+      if (restored != true) return false;
+      return await _safeExistingDeviceId() == deviceId;
+    } on PlatformException {
+      return false;
     }
   }
 

@@ -5,14 +5,17 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'wallet_models.dart';
 
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {
   return WalletRepository(ref.watch(apiClientProvider));
 });
 
-final walletSummaryProvider =
-    FutureProvider.autoDispose<WalletSummary>((ref) async {
+final walletSummaryProvider = FutureProvider.autoDispose<WalletSummary>((
+  ref,
+) async {
+  ref.keepForCustomerNavigation();
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
     return const WalletSummary(wallets: [], ledger: []);
@@ -65,10 +68,11 @@ class WalletRepository {
         response.data,
       ).map(WalletLedgerEntry.fromJson).toList(growable: false),
       nextCursor: nextCursor,
-      hasMore: _walletLedgerMetaBool(
-        meta,
-        const ['has_more', 'hasMore', 'more'],
-      ),
+      hasMore: _walletLedgerMetaBool(meta, const [
+        'has_more',
+        'hasMore',
+        'more',
+      ]),
     );
   }
 
@@ -140,10 +144,7 @@ class WalletRepository {
 }
 
 class _WalletsPayload {
-  const _WalletsPayload({
-    required this.wallets,
-    required this.customerNo,
-  });
+  const _WalletsPayload({required this.wallets, required this.customerNo});
 
   final List<CustomerWallet> wallets;
   final String customerNo;
@@ -165,10 +166,7 @@ class _WalletLedgerPayload {
   final bool hasMore;
 }
 
-String _walletLedgerMetaText(
-  Map<String, dynamic> payload,
-  List<String> keys,
-) {
+String _walletLedgerMetaText(Map<String, dynamic> payload, List<String> keys) {
   for (final key in keys) {
     final value = payload[key];
     if (value == null) continue;
@@ -178,10 +176,7 @@ String _walletLedgerMetaText(
   return '';
 }
 
-bool _walletLedgerMetaBool(
-  Map<String, dynamic> payload,
-  List<String> keys,
-) {
+bool _walletLedgerMetaBool(Map<String, dynamic> payload, List<String> keys) {
   for (final key in keys) {
     final value = payload[key];
     if (value is bool) return value;

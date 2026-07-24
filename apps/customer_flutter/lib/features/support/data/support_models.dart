@@ -80,6 +80,7 @@ class SupportTicket {
     required this.categoryName,
     required this.subject,
     required this.status,
+    required this.chatAvailable,
     required this.lastMessage,
     required this.unreadCount,
     required this.queuePosition,
@@ -98,13 +99,20 @@ class SupportTicket {
     final rating = json['rating'];
     final category = json['category'];
     final closedBy = json['closed_by'];
+    final status = '${json['status'] ?? ''}';
+    final parsedAgent = agent is Map
+        ? SupportAgent.fromJson(Map<String, dynamic>.from(agent))
+        : null;
     return SupportTicket(
       id: '${json['id'] ?? ''}',
       publicNo: '${json['public_no'] ?? ''}',
       categoryId: '${json['category_id'] ?? ''}',
       categoryName: category is Map ? '${category['name'] ?? ''}' : '',
       subject: '${json['subject'] ?? ''}',
-      status: '${json['status'] ?? ''}',
+      status: status,
+      chatAvailable: json['chat_available'] is bool
+          ? json['chat_available'] as bool
+          : status != 'queued' && status != 'closed' && parsedAgent != null,
       lastMessage: '${json['last_message_preview'] ?? ''}',
       unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
       queuePosition: (json['queue_position'] as num?)?.toInt(),
@@ -112,9 +120,7 @@ class SupportTicket {
       updatedAt: parseDate(json['last_message_at']),
       closedAt: parseDate(json['closed_at']),
       closedByName: closedBy is Map ? '${closedBy['name'] ?? ''}' : '',
-      agent: agent is Map
-          ? SupportAgent.fromJson(Map<String, dynamic>.from(agent))
-          : null,
+      agent: parsedAgent,
       rating: rating is Map
           ? SupportRating.fromJson(Map<String, dynamic>.from(rating))
           : null,
@@ -127,6 +133,7 @@ class SupportTicket {
   final String categoryName;
   final String subject;
   final String status;
+  final bool chatAvailable;
   final String lastMessage;
   final int unreadCount;
   final int? queuePosition;

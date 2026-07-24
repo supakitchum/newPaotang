@@ -9,10 +9,7 @@ import '../data/result_models.dart';
 import 'result_visual_tokens.dart';
 
 class ResultPageBody extends StatelessWidget {
-  const ResultPageBody({
-    required this.child,
-    super.key,
-  });
+  const ResultPageBody({required this.child, super.key});
 
   final Widget child;
 
@@ -48,10 +45,10 @@ class ResultSummaryCard extends StatelessWidget {
     final padding = wide
         ? const EdgeInsets.symmetric(horizontal: 26, vertical: 25)
         : featured
-            ? const EdgeInsets.fromLTRB(24, 24, 24, 26)
-            : history
-                ? const EdgeInsets.fromLTRB(24, 26, 24, 31)
-                : const EdgeInsets.symmetric(horizontal: 18, vertical: 20);
+        ? const EdgeInsets.fromLTRB(24, 24, 24, 26)
+        : history
+        ? const EdgeInsets.fromLTRB(24, 26, 24, 31)
+        : const EdgeInsets.symmetric(horizontal: 18, vertical: 20);
     const mutedForeground = resultNuxtMuted;
 
     final content = ClipRRect(
@@ -65,24 +62,23 @@ class ResultSummaryCard extends StatelessWidget {
             children: [
               if (!history)
                 _ResultFeaturedHeader(
-                  drawDate:
-                      drawDate.isEmpty ? l10n.resultPendingDrawDate : drawDate,
+                  drawDate: drawDate.isEmpty
+                      ? l10n.resultPendingDrawDate
+                      : drawDate,
                   link: link,
                   boldDate: featured,
                 )
               else
                 _ResultHistoryHeader(
-                  drawDate:
-                      drawDate.isEmpty ? l10n.resultPendingDrawDate : drawDate,
+                  drawDate: drawDate.isEmpty
+                      ? l10n.resultPendingDrawDate
+                      : drawDate,
                   link: link,
                 ),
               if (history)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 22),
-                  child: Divider(
-                    height: 1,
-                    color: resultNuxtDivider,
-                  ),
+                  child: Divider(height: 1, color: resultNuxtDivider),
                 )
               else
                 const SizedBox(height: 16),
@@ -138,10 +134,7 @@ class ResultSummaryCard extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        card,
-        const _UnofficialBadge(),
-      ],
+      children: [card, const _UnofficialBadge()],
     );
   }
 }
@@ -195,8 +188,9 @@ class _ResultFeaturedHeader extends StatelessWidget {
                     TextSpan(
                       text: drawDate,
                       style: TextStyle(
-                        fontWeight:
-                            boldDate ? FontWeight.w700 : FontWeight.w400,
+                        fontWeight: boldDate
+                            ? FontWeight.w700
+                            : FontWeight.w400,
                       ),
                     ),
                   ],
@@ -304,14 +298,10 @@ class _ResultCardChevron extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => context.go(link),
+          onTap: () => context.push(link),
           child: const Padding(
             padding: EdgeInsets.all(2),
-            child: Icon(
-              Icons.chevron_right,
-              size: 30,
-              color: resultNuxtLink,
-            ),
+            child: Icon(Icons.chevron_right, size: 30, color: resultNuxtLink),
           ),
         ),
       ),
@@ -332,7 +322,7 @@ class ResultDetailGroupCard extends StatelessWidget {
     final besideFirst = group.slug == 'reward_beside_1';
     final barColor =
         Color.lerp(colorScheme.surface, colorScheme.outlineVariant, 0.34) ??
-            colorScheme.surfaceContainerHighest;
+        colorScheme.surfaceContainerHighest;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -346,10 +336,7 @@ class ResultDetailGroupCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    l10n.resultRewardTitle(
-                      group.slug,
-                      fallback: group.title,
-                    ),
+                    l10n.resultRewardTitle(group.slug, fallback: group.title),
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: colorScheme.onSurface,
                       fontSize: 16,
@@ -411,20 +398,12 @@ class ResultDetailHighlight extends StatelessWidget {
         _ResultDetailHighlightRow(
           left: _ResultDetailHighlightBlock(
             label: l10n.resultRewardTitle('reward_three_digit_1'),
-            amount: _rewardAmountLabel(
-              context,
-              result,
-              'reward_three_digit_1',
-            ),
+            amount: _rewardAmountLabel(context, result, 'reward_three_digit_1'),
             numbers: summary.front3,
           ),
           right: _ResultDetailHighlightBlock(
             label: l10n.resultRewardTitle('reward_three_digit_2'),
-            amount: _rewardAmountLabel(
-              context,
-              result,
-              'reward_three_digit_2',
-            ),
+            amount: _rewardAmountLabel(context, result, 'reward_three_digit_2'),
             numbers: summary.last3,
           ),
         ),
@@ -457,11 +436,11 @@ class ResultPayoutDock extends StatelessWidget {
           context.l10n.resultPayoutHint,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: resultNuxtMuted,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.45,
-              ),
+            color: resultNuxtMuted,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            height: 1.45,
+          ),
         ),
       ),
     );
@@ -509,21 +488,21 @@ class _ResultDetailHighlightBlock extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
         ),
         const SizedBox(height: 1),
         Text(
           amount,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 1.35,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.35,
+          ),
         ),
         SizedBox(height: firstPrize ? 18 : 16),
         _ResultNumberGrid(
@@ -564,10 +543,7 @@ class _ResultNumberGrid extends StatelessWidget {
         final effectiveColumns = columns ?? 4;
         final gapTotal = horizontalGap * (effectiveColumns - 1);
         final itemWidth = ((width - gapTotal) / effectiveColumns)
-            .clamp(
-              0.0,
-              width,
-            )
+            .clamp(0.0, width)
             .toDouble();
         return Wrap(
           spacing: horizontalGap,
@@ -583,8 +559,9 @@ class _ResultNumberGrid extends StatelessWidget {
                       ? FontWeight.w700
                       : FontWeight.w500,
                   lineHeight: prominent || highlight ? 1 : 1.2,
-                  color:
-                      prominent ? resultNuxtStateText : resultNuxtSmallNumber,
+                  color: prominent
+                      ? resultNuxtStateText
+                      : resultNuxtSmallNumber,
                   align: TextAlign.left,
                 ),
               ),
@@ -600,7 +577,8 @@ String _rewardAmountLabel(
   RewardResultGame result,
   String slug,
 ) {
-  final amount = result.reward(slug)?.amount ??
+  final amount =
+      result.reward(slug)?.amount ??
       (rewardDefinitions[slug]?.amount ?? 0).toDouble();
   return context.l10n.resultPrizeEach(_resultPrizeAmountText(amount));
 }
@@ -650,16 +628,16 @@ class ResultInfoCard extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 3),
                     Text(
                       subtitle!,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],
@@ -720,11 +698,11 @@ class _ResultNumberBlock extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: labelColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
-              ),
+            color: labelColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 1.5,
+          ),
         ),
         Wrap(
           spacing: prominent ? 8 : 20,
@@ -759,14 +737,10 @@ class _ResultInfoLink extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => context.go('/term-reward'),
+            onTap: () => context.push('/term-reward'),
             child: Padding(
               padding: const EdgeInsets.all(2),
-              child: Icon(
-                Icons.info_outline,
-                size: 16,
-                color: resultNuxtMuted,
-              ),
+              child: Icon(Icons.info_outline, size: 16, color: resultNuxtMuted),
             ),
           ),
         ),

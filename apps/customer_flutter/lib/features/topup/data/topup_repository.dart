@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'topup_models.dart';
 
 final topupRepositoryProvider = Provider<TopupRepository>((ref) {
@@ -14,18 +15,23 @@ final topupRepositoryProvider = Provider<TopupRepository>((ref) {
 final topupOverviewProvider = FutureProvider.autoDispose<TopupOverview>((
   ref,
 ) async {
+  ref.keepForCustomerNavigation();
   return ref.watch(topupRepositoryProvider).overview();
 });
 
-final topupHistoryProvider =
-    FutureProvider.autoDispose.family<TopupOverview, int>((ref, page) async {
-  return ref.watch(topupRepositoryProvider).overview(page: page, perPage: 8);
-});
+final topupHistoryProvider = FutureProvider.autoDispose
+    .family<TopupOverview, int>((ref, page) async {
+      ref.keepForCustomerNavigation();
+      return ref
+          .watch(topupRepositoryProvider)
+          .overview(page: page, perPage: 8);
+    });
 
-final topupDetailProvider =
-    FutureProvider.autoDispose.family<TopupRequestItem, String>((ref, id) {
-  return ref.watch(topupRepositoryProvider).detail(id);
-});
+final topupDetailProvider = FutureProvider.autoDispose
+    .family<TopupRequestItem, String>((ref, id) {
+      ref.keepForCustomerNavigation();
+      return ref.watch(topupRepositoryProvider).detail(id);
+    });
 
 class TopupRepository {
   const TopupRepository(this._api);
@@ -64,10 +70,7 @@ class TopupRepository {
           'channel': channel.apiValue,
           'amount': _amountToMinor(amount),
           if (transferAt != null) 'transfer_at': transferAt.toIso8601String(),
-          'slip': MultipartFile.fromBytes(
-            slip.bytes,
-            filename: slip.filename,
-          ),
+          'slip': MultipartFile.fromBytes(slip.bytes, filename: slip.filename),
         }),
       );
       return TopupRequestItem.fromJson(
@@ -119,10 +122,7 @@ class TopupRepository {
       '/customer/topups/$id/slip',
       headers: {'Idempotency-Key': newIdempotencyKey('customer_topup_slip')},
       data: FormData.fromMap({
-        'slip': MultipartFile.fromBytes(
-          slip.bytes,
-          filename: slip.filename,
-        ),
+        'slip': MultipartFile.fromBytes(slip.bytes, filename: slip.filename),
         if (transferAt != null) 'transfer_at': transferAt.toIso8601String(),
       }),
     );

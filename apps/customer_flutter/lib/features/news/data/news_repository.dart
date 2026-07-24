@@ -3,23 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'news_models.dart';
 
 final newsRepositoryProvider = Provider<NewsRepository>((ref) {
   final resolveAssetUrl = ref.watch(assetUrlResolverProvider);
-  return NewsRepository(
-    ref.watch(apiClientProvider),
-    resolveAssetUrl.call,
-  );
+  return NewsRepository(ref.watch(apiClientProvider), resolveAssetUrl.call);
 });
 
-final newsListProvider =
-    FutureProvider.autoDispose<List<NewsItem>>((ref) async {
+final newsListProvider = FutureProvider.autoDispose<List<NewsItem>>((
+  ref,
+) async {
+  ref.keepForCustomerNavigation();
   return ref.watch(newsRepositoryProvider).listAll();
 });
 
-final newsDetailProvider =
-    FutureProvider.autoDispose.family<NewsItem, String>((ref, slug) async {
+final newsDetailProvider = FutureProvider.autoDispose.family<NewsItem, String>((
+  ref,
+  slug,
+) async {
+  ref.keepForCustomerNavigation();
   return ref.watch(newsRepositoryProvider).detail(slug);
 });
 

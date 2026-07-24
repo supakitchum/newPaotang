@@ -85,8 +85,8 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
           onRefreshRetry: () =>
               _loadInitial(showLoading: false, preserveDataOnError: true),
           onLoadMore: _loadMore,
-          onTickets: () => context.go('/tickets/history'),
-          onClaim: (claim) => context.go('/reward-claims/${claim.id}'),
+          onTickets: () => context.push('/tickets/history'),
+          onClaim: (claim) => context.push('/reward-claims/${claim.id}'),
         ),
       ),
     );

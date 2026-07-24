@@ -45,10 +45,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('app-splash-product-mark')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('app-splash-product-mark')), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -68,10 +65,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('app-splash-product-mark')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('app-splash-product-mark')), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -104,11 +98,41 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(
-      find.byKey(const ValueKey('app-splash-product-mark')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('app-splash-product-mark')), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
+  });
+
+  testWidgets('AppSplashHost keeps its first-frame color while theme changes', (
+    tester,
+  ) async {
+    final bootstrap = Completer<MobileBootstrap>();
+    final theme = ValueNotifier<Color>(const Color(0xFF087FF0));
+    addTearDown(theme.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appSplashMinimumDurationProvider.overrideWithValue(
+            const Duration(seconds: 5),
+          ),
+          mobileBootstrapProvider.overrideWith((_) => bootstrap.future),
+        ],
+        child: ValueListenableBuilder<Color>(
+          valueListenable: theme,
+          builder: (_, primary, __) => _SplashThemeHarness(primary: primary),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    Material splashSurface() => tester.widget<Material>(
+      find.byKey(const ValueKey('app-splash-surface')),
+    );
+    expect(splashSurface().color, const Color(0xFF087FF0));
+
+    theme.value = const Color(0xFF16A085);
+    await tester.pump();
+    expect(splashSurface().color, const Color(0xFF087FF0));
   });
 
   testWidgets('TenantBrandHeader resolves relative partner logo URLs', (
@@ -158,12 +182,10 @@ void main() {
         overrides: [
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson({
-              'siteConfig': {
-                'displayName': longPartnerName,
-                'locale': 'th-TH',
-              },
+              'siteConfig': {'displayName': longPartnerName, 'locale': 'th-TH'},
               'brandConfig': {
-                'logoUrl': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
+                'logoUrl':
+                    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
                     'CAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
               },
             }),
@@ -196,31 +218,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('TenantBrandLogo uses runtime identity without partner fallback',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson({
-              'site': {
-                'display_name': 'Runtime Lucky Shop',
-                'support_phone': '02-000-0000',
-                'locale': 'th-TH',
-              },
-            }),
-          ),
-        ],
-        child: const _BrandLogoHarness(),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'TenantBrandLogo uses runtime identity without partner fallback',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {
+                  'display_name': 'Runtime Lucky Shop',
+                  'support_phone': '02-000-0000',
+                  'locale': 'th-TH',
+                },
+              }),
+            ),
+          ],
+          child: const _BrandLogoHarness(),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Runtime Lucky Shop'), findsOneWidget);
-    expect(find.text('02-000-0000'), findsOneWidget);
-    expect(find.text('GLO'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('Runtime Lucky Shop'), findsOneWidget);
+      expect(find.text('02-000-0000'), findsOneWidget);
+      expect(find.text('GLO'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _SplashHarness extends StatelessWidget {
@@ -238,6 +262,34 @@ class _SplashHarness extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
       ],
       home: AppSplashHost(
+        child: Scaffold(body: Center(child: Text('Ready content'))),
+      ),
+    );
+  }
+}
+
+class _SplashThemeHarness extends StatelessWidget {
+  const _SplashThemeHarness({required this.primary});
+
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primary,
+        ).copyWith(primary: primary),
+      ),
+      locale: const Locale('th', 'TH'),
+      supportedLocales: const [Locale('th', 'TH'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        CustomerLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      home: const AppSplashHost(
         child: Scaffold(body: Center(child: Text('Ready content'))),
       ),
     );

@@ -58,6 +58,11 @@ The customer flow covers:
   with progress/remove/retry;
 - stable idempotency key for create/send/close/rating retries;
 - queue position without ETA and assigned-agent state;
+- FAQ reading and first-ticket submission remain available even when no agent
+  is Available. The initial issue is stored with the queued ticket, while the
+  chat composer stays locked until an agent accepts the work. The Support API
+  enforces this boundary with `chat_available` and rejects queued customer
+  messages with `ticket_waiting_for_agent`;
 - an automatic localized welcome system message after ticket creation, including
   the live queue position and tenant override support through
   `content_json.messages.ticket_created`;

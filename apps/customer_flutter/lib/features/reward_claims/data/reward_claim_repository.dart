@@ -2,16 +2,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'reward_claim_models.dart';
 
 final rewardClaimRepositoryProvider = Provider<RewardClaimRepository>((ref) {
   return RewardClaimRepository(ref.watch(apiClientProvider));
 });
 
-final rewardClaimDetailProvider =
-    FutureProvider.autoDispose.family<RewardClaimItem, String>((ref, id) async {
-  return ref.watch(rewardClaimRepositoryProvider).detail(id);
-});
+final rewardClaimDetailProvider = FutureProvider.autoDispose
+    .family<RewardClaimItem, String>((ref, id) async {
+      ref.keepForCustomerNavigation();
+      return ref.watch(rewardClaimRepositoryProvider).detail(id);
+    });
 
 class RewardClaimRepository {
   const RewardClaimRepository(this._api);

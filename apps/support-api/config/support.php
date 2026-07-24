@@ -21,8 +21,8 @@ return [
     ],
     'message_defaults' => [
         'ticket_created' => [
-            'th-TH' => 'ยินดีต้อนรับสู่ศูนย์ช่วยเหลือ เราได้รับเรื่องของคุณแล้ว ขณะนี้คุณอยู่ในคิวลำดับที่ {queue_position} คุณสามารถส่งรายละเอียดเพิ่มเติมระหว่างรอเจ้าหน้าที่ได้',
-            'en-US' => 'Welcome to the Help Center. We have received your request. You are currently number {queue_position} in the queue, and you can send more details while waiting for an agent.',
+            'th-TH' => 'ยินดีต้อนรับสู่ศูนย์ช่วยเหลือ เราได้รับเรื่องของคุณแล้ว ขณะนี้คุณอยู่ในคิวลำดับที่ {queue_position} โปรดรอเจ้าหน้าที่รับงานก่อนเริ่มสนทนา',
+            'en-US' => 'Welcome to the Help Center. We have received your request. You are currently number {queue_position} in the queue. Chat will open after an agent accepts your ticket.',
         ],
     ],
     'platform_notifications' => [

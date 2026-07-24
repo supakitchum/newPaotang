@@ -2335,6 +2335,8 @@ class CustomerLocalizations {
   String get affiliateReferralEmpty => _text('affiliate.referral.empty');
   String get affiliateReferralCopyTooltip =>
       _text('affiliate.referral.copy_tooltip');
+  String get affiliateReferralShareAction =>
+      _text('affiliate.referral.share_action');
   String get affiliateReferralQrTitle => _text('affiliate.referral.qr_title');
   String get affiliateReferralQrDescription =>
       _text('affiliate.referral.qr_description');
@@ -2796,6 +2798,9 @@ const _localizedValues = <String, Map<String, String>>{
     'support.chat.queue': 'กำลังรอเจ้าหน้าที่',
     'support.chat.queue_ahead': 'มี {count} งานก่อนหน้า',
     'support.chat.assigned': 'เจ้าหน้าที่ {name} กำลังให้บริการ',
+    'support.chat.waiting_for_agent_title': 'รายการอยู่ในคิว',
+    'support.chat.waiting_for_agent_message':
+        'ส่งรายละเอียดเรียบร้อยแล้ว เมื่อเจ้าหน้าที่รับงาน คุณจึงจะสามารถส่งข้อความเพิ่มเติมได้',
     'support.chat.message_hint': 'พิมพ์ข้อความ',
     'support.chat.new_messages': 'ข้อความใหม่ {count} รายการ',
     'support.chat.realtime_reconnecting': 'กำลังเชื่อมต่อการสนทนาอีกครั้ง',
@@ -4351,6 +4356,7 @@ const _localizedValues = <String, Map<String, String>>{
         'แชร์ลิงก์นี้ให้เพื่อนสมัครหรือซื้อผ่านร้าน',
     'affiliate.referral.empty': 'ยังไม่มีลิงก์แนะนำ',
     'affiliate.referral.copy_tooltip': 'คัดลอกลิงก์',
+    'affiliate.referral.share_action': 'แชร์ไปยังโซเชียล',
     'affiliate.referral.qr_title': 'QR Code ลิงก์แนะนำ',
     'affiliate.referral.qr_description': 'ให้ลูกค้าสแกนเพื่อเปิดลิงก์แนะนำ',
     'affiliate.bank.title': 'บัญชีรับเงิน',
@@ -4629,6 +4635,9 @@ const _localizedValues = <String, Map<String, String>>{
     'support.chat.queue': 'Waiting for an agent',
     'support.chat.queue_ahead': '{count} ticket(s) ahead',
     'support.chat.assigned': '{name} is helping you',
+    'support.chat.waiting_for_agent_title': 'Your request is in the queue',
+    'support.chat.waiting_for_agent_message':
+        'Your details have been submitted. You can send more messages after an agent accepts the ticket.',
     'support.chat.message_hint': 'Type a message',
     'support.chat.new_messages': '{count} new messages',
     'support.chat.realtime_reconnecting': 'Reconnecting to the conversation',
@@ -6236,6 +6245,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Share this link for friends to sign up or buy through your store.',
     'affiliate.referral.empty': 'No referral link yet',
     'affiliate.referral.copy_tooltip': 'Copy link',
+    'affiliate.referral.share_action': 'Share to social apps',
     'affiliate.referral.qr_title': 'Referral QR Code',
     'affiliate.referral.qr_description':
         'Customers can scan to open your link.',

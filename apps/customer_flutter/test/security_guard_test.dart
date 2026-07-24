@@ -1213,22 +1213,21 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final pinTheme = Theme.of(tester.element(find.text('PIN route')));
     var systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
       find.byKey(const ValueKey('customer-system-ui-overlay')),
     );
-    expect(systemUiOverlay.value.statusBarColor, pinTheme.colorScheme.surface);
+    expect(systemUiOverlay.value.statusBarColor, Colors.transparent);
     expect(systemUiOverlay.value.statusBarIconBrightness, Brightness.dark);
     expect(systemUiOverlay.value.statusBarBrightness, Brightness.light);
 
     router.go('/');
     await tester.pumpAndSettle();
 
-    final rootTheme = Theme.of(tester.element(find.text('Root route')));
     systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
       find.byKey(const ValueKey('customer-system-ui-overlay')),
     );
-    expect(systemUiOverlay.value.statusBarColor, rootTheme.colorScheme.primary);
+    expect(systemUiOverlay.value.statusBarColor, Colors.transparent);
+    expect(systemUiOverlay.value.statusBarIconBrightness, Brightness.light);
   });
 
   testWidgets('SensitiveScreenGuard locks session on native capture events', (
@@ -2233,6 +2232,77 @@ void main() {
     expect(find.text('Forgot PIN?'), findsOneWidget);
   });
 
+  testWidgets(
+    'PinScreen waits for resumed lifecycle and rearms biometric unlock',
+    (tester) async {
+      addTearDown(() {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+      });
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final authController = _LifecycleBiometricAuthController();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((_) => authController),
+            customerPlatformKeyProvider.overrideWithValue('ios'),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'mobile': {
+                  'biometric': {
+                    'enabled': true,
+                    'platforms': {
+                      'ios': ['face_id'],
+                    },
+                  },
+                  'feature_flags': {'native_biometric_unlock': true},
+                },
+              }),
+            ),
+          ],
+          child: const MaterialApp(
+            locale: Locale('en', 'US'),
+            supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
+            localizationsDelegates: [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            home: PinScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(find.text('Use Face ID / Biometric'), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(authController.biometricUnlockAttempts, 0);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.pump();
+      expect(authController.biometricUnlockAttempts, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.pump();
+      expect(authController.biometricUnlockAttempts, 2);
+    },
+  );
+
   testWidgets('PinScreen switches to setup mode when customer has no PIN', (
     tester,
   ) async {
@@ -2413,6 +2483,52 @@ AuthController _testAuthController({bool pinSetupRequired = false}) {
     )
     ..pinRequired = true
     ..pinSetupRequired = pinSetupRequired;
+}
+
+class _LifecycleBiometricAuthController extends AuthController {
+  factory _LifecycleBiometricAuthController() {
+    final tokenStore = AuthTokenStore();
+    final api = ApiClient(
+      const AppConfig(
+        apiBaseUrl: 'https://partner.example.com/api/v1',
+        defaultLocale: 'en-US',
+      ),
+      tokenStore,
+      localeTag: 'en-US',
+    );
+    return _LifecycleBiometricAuthController._(tokenStore, api)
+      ..isAuthenticated = true
+      ..pinRequired = true
+      ..pinSetupRequired = false;
+  }
+
+  _LifecycleBiometricAuthController._(AuthTokenStore tokenStore, ApiClient api)
+    : super(
+        authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+        tokenStore: tokenStore,
+        biometricAuth: BiometricAuthService(api),
+      );
+
+  int biometricUnlockAttempts = 0;
+
+  @override
+  Future<PinStatus> syncPinStatus() async {
+    return const PinStatus(
+      hasPin: true,
+      pinVerified: false,
+      pinRequired: true,
+      pinSetupRequired: false,
+    );
+  }
+
+  @override
+  Future<bool> canUnlockWithBiometric() async => true;
+
+  @override
+  Future<bool> unlockWithBiometric({required String localizedReason}) async {
+    biometricUnlockAttempts += 1;
+    return false;
+  }
 }
 
 class _FakeScreenSecurityService extends ScreenSecurityService {

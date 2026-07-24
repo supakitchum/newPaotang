@@ -10,6 +10,7 @@ import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/theme/app_theme.dart';
@@ -24,7 +25,7 @@ const _pinBrand = Color(0xFF8487F8);
 const _pinErrorColor = Color(0xFFD3455B);
 const _pinDotEmpty = Color(0xFFDDDDDF);
 const _pinDotError = Color(0xFFF2B6BD);
-const _automaticBiometricPromptDelay = Duration(seconds: 2);
+const _automaticBiometricPromptDelay = Duration(seconds: 1);
 const _automaticBiometricRetryDelay = Duration(milliseconds: 650);
 const _automaticBiometricMaxEligibilityChecks = 3;
 
@@ -38,7 +39,8 @@ class PinScreen extends ConsumerStatefulWidget {
   ConsumerState<PinScreen> createState() => _PinScreenState();
 }
 
-class _PinScreenState extends ConsumerState<PinScreen> {
+class _PinScreenState extends ConsumerState<PinScreen>
+    with WidgetsBindingObserver {
   final _focusNode = FocusNode(debugLabel: 'customer-pin-keypad');
   String _pin = '';
   String _setupPin = '';
@@ -52,10 +54,17 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   bool _autoBiometricEligibilityCheckInFlight = false;
   int _autoBiometricEligibilityChecks = 0;
   Timer? _autoBiometricTimer;
+  late AppLifecycleState _appLifecycleState;
+  bool _rearmAutomaticBiometricOnResume = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _appLifecycleState =
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
+    _rearmAutomaticBiometricOnResume =
+        _appLifecycleState != AppLifecycleState.resumed;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
@@ -64,9 +73,34 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoBiometricTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
+    final biometricPromptActive = ref
+        .read(biometricPromptCoordinatorProvider)
+        .isActive;
+
+    if (state == AppLifecycleState.resumed) {
+      if (!_rearmAutomaticBiometricOnResume || biometricPromptActive) return;
+      _rearmAutomaticBiometricOnResume = false;
+      _resetAutomaticBiometricCycle();
+      _scheduleAutomaticBiometricUnlock(
+        enabled: _automaticBiometricUnlockEnabled(),
+      );
+      return;
+    }
+
+    if (!_isBackgroundLifecycleState(state) || biometricPromptActive) return;
+    _rearmAutomaticBiometricOnResume = true;
+    _autoBiometricTimer?.cancel();
+    _autoBiometricTimer = null;
+    _autoBiometricScheduled = false;
   }
 
   @override
@@ -211,6 +245,10 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   }
 
   void _scheduleAutomaticBiometricUnlock({required bool enabled}) {
+    if (_appLifecycleState != AppLifecycleState.resumed) {
+      if (enabled) _rearmAutomaticBiometricOnResume = true;
+      return;
+    }
     if (!enabled ||
         _autoBiometricScheduled ||
         _autoBiometricAttempted ||
@@ -230,6 +268,11 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   Future<void> _tryAutomaticBiometricUnlock() async {
     if (_autoBiometricAttempted || _autoBiometricEligibilityCheckInFlight) {
+      return;
+    }
+    if (_appLifecycleState != AppLifecycleState.resumed) {
+      _autoBiometricScheduled = false;
+      _rearmAutomaticBiometricOnResume = true;
       return;
     }
     final auth = ref.read(authControllerProvider);
@@ -267,12 +310,40 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   bool _automaticBiometricContextReady(AuthController auth) {
     return mounted &&
+        _appLifecycleState == AppLifecycleState.resumed &&
         auth.isAuthenticated &&
         auth.pinRequired &&
         !auth.pinSetupRequired &&
         !_resettingPin &&
         !_verifying &&
         _pin.isEmpty;
+  }
+
+  bool _automaticBiometricUnlockEnabled() {
+    final auth = ref.read(authControllerProvider);
+    final platformKey = ref.read(customerPlatformKeyProvider);
+    final bootstrap = ref.read(mobileBootstrapProvider).valueOrNull;
+    return _pinStatusChecked &&
+        auth.isAuthenticated &&
+        auth.pinRequired &&
+        !auth.pinSetupRequired &&
+        bootstrap != null &&
+        mobileBiometricAllowedForPlatform(bootstrap, platformKey);
+  }
+
+  void _resetAutomaticBiometricCycle() {
+    _autoBiometricTimer?.cancel();
+    _autoBiometricTimer = null;
+    _autoBiometricScheduled = false;
+    _autoBiometricAttempted = false;
+    _autoBiometricEligibilityChecks = 0;
+  }
+
+  bool _isBackgroundLifecycleState(AppLifecycleState state) {
+    return state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached;
   }
 
   void _requestManualBiometricUnlock() {

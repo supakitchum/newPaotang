@@ -45,15 +45,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('AppShell defaults to no bottom navigation like Nuxt MobileShell',
-      (tester) async {
-    await _pumpShell(tester, showBottomNavigation: null);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'AppShell defaults to no bottom navigation like Nuxt MobileShell',
+    (tester) async {
+      await _pumpShell(tester, showBottomNavigation: null);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Content'), findsOneWidget);
-    expect(_bottomNavFinder, findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('Content'), findsOneWidget);
+      expect(_bottomNavFinder, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('AppShell bottom navigation spans mobile viewport like Nuxt', (
     tester,
@@ -141,11 +143,7 @@ void main() {
   testWidgets('CustomerPageBody includes bottom safe area by default', (
     tester,
   ) async {
-    await _pumpPageBody(
-      tester,
-      bottom: 22,
-      bottomSafeArea: 34,
-    );
+    await _pumpPageBody(tester, bottom: 22, bottomSafeArea: 34);
 
     final padding = tester.widget<Padding>(
       find.descendant(
@@ -182,11 +180,7 @@ void main() {
   testWidgets('CustomerPageBody keeps page content aligned to the top', (
     tester,
   ) async {
-    await _pumpPageBody(
-      tester,
-      bottom: 0,
-      bottomSafeArea: 0,
-    );
+    await _pumpPageBody(tester, bottom: 0, bottomSafeArea: 0);
 
     expect(
       tester.getTopLeft(find.byKey(const Key('page-body-test-child'))).dy,
@@ -258,45 +252,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('AppShell auto back uses actual route instead of nav group path',
-      (
+  testWidgets('compact AppShell uses the My Tickets header title size', (
     tester,
   ) async {
-    final router = GoRouter(
-      initialLocation: '/purchase-history',
-      routes: [
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Profile route')),
-          ),
-        ),
-        GoRoute(
-          path: '/purchase-history',
-          builder: (context, state) => const AppShell(
-            title: 'History',
-            currentPath: '/profile',
-            child: Center(child: Text('History route')),
-          ),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-
-    await _pumpRouterShell(tester, router);
+    await _pumpShellWithHero(tester);
     await tester.pumpAndSettle();
 
-    expect(find.text('History route'), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
-    expect(find.byType(AppBar), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Profile route'), findsOneWidget);
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
-    expect(tester.takeException(), isNull);
+    final title = tester.widget<Text>(find.text('History'));
+    expect(title.style?.fontSize, customerHeaderTitleFontSize);
+    expect(title.style?.fontWeight, FontWeight.w700);
   });
+
+  testWidgets(
+    'AppShell auto back uses actual route instead of nav group path',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/purchase-history',
+        routes: [
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Profile route'))),
+          ),
+          GoRoute(
+            path: '/purchase-history',
+            builder: (context, state) => const AppShell(
+              title: 'History',
+              currentPath: '/profile',
+              child: Center(child: Text('History route')),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await _pumpRouterShell(tester, router);
+      await tester.pumpAndSettle();
+
+      expect(find.text('History route'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+      expect(find.byType(AppBar), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile route'), findsOneWidget);
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('AppShell back returns to the actual previous go route', (
     tester,
@@ -338,9 +342,8 @@ void main() {
         ),
         GoRoute(
           path: '/fallback',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Fallback route')),
-          ),
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Fallback route'))),
         ),
       ],
     );
@@ -374,9 +377,8 @@ void main() {
       routes: [
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const Scaffold(
-            body: Center(child: Text('Profile fallback')),
-          ),
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Profile fallback'))),
         ),
         GoRoute(
           path: '/news',
@@ -400,6 +402,88 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profile fallback'), findsOneWidget);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'AppShell back pops a pushed route without recreating its parent',
+    (tester) async {
+      var parentLoads = 0;
+      final router = GoRouter(
+        initialLocation: '/profile',
+        routes: [
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) =>
+                _LoadOnceRoute(onLoad: () => parentLoads++),
+          ),
+          GoRoute(
+            path: '/news',
+            builder: (context, state) => const AppShell(
+              title: 'News',
+              backPath: '/profile',
+              child: Center(child: Text('Pushed news route')),
+            ),
+          ),
+        ],
+      );
+      customerBackNavigationHistory.attach(router);
+      addTearDown(() {
+        customerBackNavigationHistory.detach(router);
+        router.dispose();
+      });
+
+      await _pumpRouterShell(tester, router);
+      await tester.pumpAndSettle();
+      expect(parentLoads, 1);
+
+      await tester.tap(find.byKey(const Key('push-news-route')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('push-news-route')), findsOneWidget);
+      expect(parentLoads, 1);
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('AppShell shows back on a root tab reached through push', (
+    tester,
+  ) async {
+    var parentLoads = 0;
+    final router = GoRouter(
+      initialLocation: '/profile',
+      routes: [
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) =>
+              _LoadOnceRoute(target: '/tickets', onLoad: () => parentLoads++),
+        ),
+        GoRoute(
+          path: '/tickets',
+          builder: (context, state) => const AppShell(
+            title: 'Tickets',
+            currentPath: '/tickets',
+            child: Center(child: Text('Pushed root route')),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await _pumpRouterShell(tester, router);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('push-news-route')));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(parentLoads, 1);
     expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
     expect(tester.takeException(), isNull);
   });
@@ -626,4 +710,35 @@ Future<void> _pumpShellWithHero(WidgetTester tester) {
       ),
     ),
   );
+}
+
+class _LoadOnceRoute extends StatefulWidget {
+  const _LoadOnceRoute({required this.onLoad, this.target = '/news'});
+
+  final VoidCallback onLoad;
+  final String target;
+
+  @override
+  State<_LoadOnceRoute> createState() => _LoadOnceRouteState();
+}
+
+class _LoadOnceRouteState extends State<_LoadOnceRoute> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onLoad();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: FilledButton(
+          key: const Key('push-news-route'),
+          onPressed: () => context.push(widget.target),
+          child: const Text('Push news'),
+        ),
+      ),
+    );
+  }
 }

@@ -115,10 +115,11 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
             backPath: '/profile',
             sensitive: true,
             showBottomNavigation: true,
-            heroMinHeight: 214,
-            heroSheetOverlap: MediaQuery.sizeOf(context).width >= 768 ? 28 : 38,
-            heroContentTopGap: 18,
-            heroContent: const _RewardBankHeroContent(),
+            compactHeader: true,
+            heroMinHeight: customerReferenceCompactHeroHeight,
+            heroSheetOverlap: 0,
+            heroContentTopGap: 0,
+            heroContent: const SizedBox.shrink(),
             child: _RewardBankContentSheet(
               child: ListView(
                 padding: EdgeInsets.zero,
@@ -329,62 +330,6 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
 
   String _errorCode(Object error) {
     return ApiErrorInfo.fromObject(error).code;
-  }
-}
-
-class _RewardBankHeroContent extends StatelessWidget {
-  const _RewardBankHeroContent();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: SizedBox.square(
-            dimension: 48,
-            child: Icon(
-              Icons.account_balance_outlined,
-              color: colorScheme.primary,
-              size: 24,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.profileRewardBankHeroTitle,
-                style: TextStyle(
-                  color: colorScheme.onPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                l10n.profileRewardBankHeroSubtitle,
-                style: TextStyle(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
 

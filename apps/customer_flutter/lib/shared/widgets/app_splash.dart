@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/customer_localizations.dart';
@@ -18,10 +19,7 @@ final appSplashFadeDurationProvider = Provider<Duration>(
 );
 
 class AppSplashHost extends ConsumerStatefulWidget {
-  const AppSplashHost({
-    required this.child,
-    super.key,
-  });
+  const AppSplashHost({required this.child, super.key});
 
   final Widget child;
 
@@ -32,6 +30,7 @@ class AppSplashHost extends ConsumerStatefulWidget {
 class _AppSplashHostState extends ConsumerState<AppSplashHost> {
   Timer? _minimumTimer;
   Timer? _removeTimer;
+  ColorScheme? _splashColorScheme;
   bool _canHide = false;
   bool _leaving = false;
   bool _visible = true;
@@ -55,6 +54,7 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
 
   @override
   Widget build(BuildContext context) {
+    _splashColorScheme ??= Theme.of(context).colorScheme;
     final bootstrap = ref.watch(mobileBootstrapProvider);
     final authStartup = ref.watch(authSessionStartupProvider);
     final bootstrapReady = bootstrap.hasValue || bootstrap.hasError;
@@ -67,7 +67,11 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
     return Stack(
       children: [
         widget.child,
-        if (_visible) _AppSplashOverlay(leaving: _leaving),
+        if (_visible)
+          _AppSplashOverlay(
+            leaving: _leaving,
+            colorScheme: _splashColorScheme!,
+          ),
       ],
     );
   }
@@ -90,94 +94,92 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
 }
 
 class _AppSplashOverlay extends StatelessWidget {
-  const _AppSplashOverlay({required this.leaving});
+  const _AppSplashOverlay({required this.leaving, required this.colorScheme});
 
   final bool leaving;
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Positioned.fill(
       child: IgnorePointer(
         ignoring: leaving,
-        child: AnimatedOpacity(
-          opacity: leaving ? 0 : 1,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOut,
-          child: Material(
-            color: colorScheme.primary,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          colorScheme.primary,
-                          AppTheme.splashGradientMid(
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                          ),
-                          AppTheme.splashGradientEnd(
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                          ),
-                        ],
-                        stops: [0, 0.48, 1],
-                      ),
-                    ),
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarBrightness: ThemeData.estimateBrightnessForColor(
+              colorScheme.primary,
+            ),
+            statusBarIconBrightness:
+                ThemeData.estimateBrightnessForColor(colorScheme.primary) ==
+                    Brightness.dark
+                ? Brightness.light
+                : Brightness.dark,
+            systemNavigationBarColor: colorScheme.primary,
+            systemNavigationBarIconBrightness:
+                ThemeData.estimateBrightnessForColor(colorScheme.primary) ==
+                    Brightness.dark
+                ? Brightness.light
+                : Brightness.dark,
+          ),
+          child: AnimatedOpacity(
+            opacity: leaving ? 0 : 1,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOut,
+            child: Material(
+              key: const ValueKey('app-splash-surface'),
+              color: colorScheme.primary,
+              child: Stack(
+                children: [
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: _SplashYellowCorner(color: colorScheme.tertiary),
                   ),
-                ),
-                const Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: _SplashYellowCorner(),
-                ),
-                SafeArea(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Semantics(
-                        label: context.l10n.appSplashPreparing,
-                        liveRegion: true,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const _SplashBrandLockup(),
-                              const SizedBox(height: 18),
-                              const _SplashMark(),
-                              const SizedBox(height: 18),
-                              _SplashLoader(
-                                semanticLabel: context.l10n.appSplashPreparing,
-                              ),
-                              const SizedBox(height: 18),
-                              Text(
-                                context.l10n.appSplashPreparing,
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      color: colorScheme.onPrimary.withValues(
-                                        alpha: 0.92,
+                  SafeArea(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Semantics(
+                          label: context.l10n.appSplashPreparing,
+                          liveRegion: true,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 320),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _SplashBrandLockup(colorScheme: colorScheme),
+                                const SizedBox(height: 18),
+                                _SplashMark(colorScheme: colorScheme),
+                                const SizedBox(height: 18),
+                                _SplashLoader(
+                                  semanticLabel:
+                                      context.l10n.appSplashPreparing,
+                                  color: colorScheme.onPrimary,
+                                ),
+                                const SizedBox(height: 18),
+                                Text(
+                                  context.l10n.appSplashPreparing,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: colorScheme.onPrimary.withValues(
+                                          alpha: 0.92,
+                                        ),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.25,
                                       ),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.25,
-                                    ),
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -187,77 +189,89 @@ class _AppSplashOverlay extends StatelessWidget {
 }
 
 class _SplashBrandLockup extends ConsumerWidget {
-  const _SplashBrandLockup();
+  const _SplashBrandLockup({required this.colorScheme});
+
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
     final rawLogoUrl = bootstrap?.brand.logoUrl.trim() ?? '';
-    final logoUrl =
-        rawLogoUrl.isEmpty ? '' : _resolveSplashLogoUrl(ref, rawLogoUrl);
+    final logoUrl = rawLogoUrl.isEmpty
+        ? ''
+        : _resolveSplashLogoUrl(ref, rawLogoUrl);
     final siteName = bootstrap?.siteName.trim() ?? '';
     final hasRuntimeIdentity = logoUrl.isNotEmpty || siteName.isNotEmpty;
     final textStyle = Theme.of(context).textTheme;
-    final onBlue = Theme.of(context).colorScheme.onPrimary;
+    final onBlue = colorScheme.onPrimary;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (logoUrl.isNotEmpty)
-          SizedBox(
-            height: 34,
-            width: 96,
-            child: FlexibleImage(source: logoUrl, fit: BoxFit.contain),
-          )
-        else if (siteName.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
-            child: Text(
-              siteName,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: textStyle.titleLarge?.copyWith(
-                color: onBlue,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                height: 1.12,
+    return SizedBox(
+      height: 56,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 120),
+        child: !hasRuntimeIdentity
+            ? const SizedBox(
+                key: ValueKey('app-splash-brand-placeholder'),
+                height: 56,
+              )
+            : Column(
+                key: const ValueKey('app-splash-runtime-brand'),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (logoUrl.isNotEmpty)
+                    SizedBox(
+                      height: 34,
+                      width: 96,
+                      child: FlexibleImage(
+                        source: logoUrl,
+                        fit: BoxFit.contain,
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: Text(
+                        siteName,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textStyle.titleLarge?.copyWith(
+                          color: onBlue,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.12,
+                        ),
+                      ),
+                    ),
+                  if (logoUrl.isNotEmpty && siteName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      siteName,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textStyle.labelSmall?.copyWith(
+                        color: onBlue.withValues(alpha: 0.90),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        height: 1.18,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ),
-          )
-        else
-          Icon(
-            Icons.confirmation_number_outlined,
-            color: onBlue,
-            size: 34,
-          ),
-        if (logoUrl.isNotEmpty && siteName.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            siteName,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: textStyle.labelSmall?.copyWith(
-              color: onBlue.withValues(alpha: 0.90),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              height: 1.18,
-            ),
-          ),
-        ],
-        if (!hasRuntimeIdentity) const SizedBox(height: 4),
-      ],
+      ),
     );
   }
 }
 
 class _SplashMark extends StatelessWidget {
-  const _SplashMark();
+  const _SplashMark({required this.colorScheme});
+
+  final ColorScheme colorScheme;
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.appSheet,
@@ -276,7 +290,7 @@ class _SplashMark extends StatelessWidget {
           child: Icon(
             Icons.confirmation_number_rounded,
             key: const ValueKey('app-splash-product-mark'),
-            color: primary,
+            color: colorScheme.primary,
             size: 40,
           ),
         ),
@@ -286,9 +300,10 @@ class _SplashMark extends StatelessWidget {
 }
 
 class _SplashLoader extends StatefulWidget {
-  const _SplashLoader({required this.semanticLabel});
+  const _SplashLoader({required this.semanticLabel, required this.color});
 
   final String semanticLabel;
+  final Color color;
 
   @override
   State<_SplashLoader> createState() => _SplashLoaderState();
@@ -315,7 +330,6 @@ class _SplashLoaderState extends State<_SplashLoader>
 
   @override
   Widget build(BuildContext context) {
-    final onBlue = Theme.of(context).colorScheme.onPrimary;
     return Semantics(
       label: widget.semanticLabel,
       liveRegion: true,
@@ -325,7 +339,7 @@ class _SplashLoaderState extends State<_SplashLoader>
         child: ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: ColoredBox(
-            color: onBlue.withValues(alpha: 0.32),
+            color: widget.color.withValues(alpha: 0.32),
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -342,7 +356,7 @@ class _SplashLoaderState extends State<_SplashLoader>
                     heightFactor: 1,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: onBlue,
+                        color: widget.color,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
@@ -358,16 +372,17 @@ class _SplashLoaderState extends State<_SplashLoader>
 }
 
 class _SplashYellowCorner extends StatelessWidget {
-  const _SplashYellowCorner();
+  const _SplashYellowCorner({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final shortestSide = MediaQuery.sizeOf(context).shortestSide;
     final size = (shortestSide * 0.44).clamp(112.0, 180.0);
-    final accent = Theme.of(context).colorScheme.tertiary;
     return CustomPaint(
       size: Size.square(size),
-      painter: _SplashYellowCornerPainter(accent),
+      painter: _SplashYellowCornerPainter(color),
     );
   }
 }

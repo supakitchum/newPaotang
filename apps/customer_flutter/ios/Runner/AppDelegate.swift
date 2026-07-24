@@ -196,6 +196,7 @@ private final class IOSSecureCaptureProtector {
   private let screenSecurityChannelName = "customer_flutter/screen_security"
   private let biometricKeysChannelName = "customer_flutter/biometric_keys"
   private let biometricDeviceIdKey = "customer_flutter_biometric_device_id"
+  private let biometricDeviceIdKeychainAccount = "biometric-device-id"
   private var screenSecurityChannel: FlutterMethodChannel?
   private var sensitiveRoute: String?
   private var privacyOverlay: UIView?
@@ -736,14 +737,31 @@ private final class IOSSecureCaptureProtector {
         switch call.method {
         case "existingDeviceId":
           result(self.existingBiometricDeviceId())
+        case "hasExistingKeyPair":
+          result(self.hasExistingBiometricKeyPair())
+        case "restoreDeviceId":
+          let args = call.arguments as? [String: Any]
+          let deviceId = self.stringArg(
+            args,
+            keys: ["deviceId", "device_id", "credentialId", "credential_id"],
+            fallback: nil
+          )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+          guard !deviceId.isEmpty,
+                self.hasExistingBiometricKeyPair()
+          else {
+            result(false)
+            return
+          }
+          try self.storeBiometricDeviceId(deviceId)
+          result(true)
         case "deviceId":
-          result(self.currentBiometricDeviceId())
+          result(try self.currentBiometricDeviceId())
         case "deleteKeyPair":
           try self.deleteBiometricKeyPair()
           result(true)
         case "createKeyPair":
           let publicKeyPem = try self.ensureBiometricKeyPair()
-          let deviceId = self.currentBiometricDeviceId()
+          let deviceId = try self.currentBiometricDeviceId()
           result([
             "deviceId": deviceId,
             "credentialId": deviceId,
@@ -808,18 +826,22 @@ private final class IOSSecureCaptureProtector {
     }
   }
 
-  private func currentBiometricDeviceId() -> String {
+  private func currentBiometricDeviceId() throws -> String {
     if let existing = existingBiometricDeviceId(), !existing.isEmpty {
       return existing
     }
 
     let created = "ios-\(UUID().uuidString)"
-    UserDefaults.standard.set(created, forKey: biometricDeviceIdKey)
+    try storeBiometricDeviceId(created)
     return created
   }
 
+  private func hasExistingBiometricKeyPair() -> Bool {
+    lookupBiometricPrivateKey().key != nil
+  }
+
   private func existingBiometricDeviceId() -> String? {
-    guard let stored = UserDefaults.standard.string(forKey: biometricDeviceIdKey)?
+    guard let stored = storedBiometricDeviceId()?
       .trimmingCharacters(in: .whitespacesAndNewlines),
       !stored.isEmpty
     else {
@@ -835,11 +857,79 @@ private final class IOSSecureCaptureProtector {
     // the protected app. Only clear the credential after a definitive
     // not-found response; signing will validate every other state.
     if lookup.status == errSecItemNotFound {
-      UserDefaults.standard.removeObject(forKey: biometricDeviceIdKey)
+      clearStoredBiometricDeviceId()
       return nil
     }
 
     return stored
+  }
+
+  private var biometricDeviceIdKeychainService: String {
+    "\(Bundle.main.bundleIdentifier ?? "customer_flutter").biometric"
+  }
+
+  private func storedBiometricDeviceId() -> String? {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: biometricDeviceIdKeychainService,
+      kSecAttrAccount as String: biometricDeviceIdKeychainAccount,
+      kSecReturnData as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status == errSecSuccess,
+       let data = item as? Data,
+       let value = String(data: data, encoding: .utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines),
+       !value.isEmpty {
+      UserDefaults.standard.set(value, forKey: biometricDeviceIdKey)
+      return value
+    }
+
+    guard let legacy = UserDefaults.standard.string(forKey: biometricDeviceIdKey)?
+      .trimmingCharacters(in: .whitespacesAndNewlines),
+      !legacy.isEmpty
+    else {
+      return nil
+    }
+    try? storeBiometricDeviceId(legacy)
+    return legacy
+  }
+
+  private func storeBiometricDeviceId(_ deviceId: String) throws {
+    let data = Data(deviceId.utf8)
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: biometricDeviceIdKeychainService,
+      kSecAttrAccount as String: biometricDeviceIdKeychainAccount,
+    ]
+    let updateStatus = SecItemUpdate(
+      query as CFDictionary,
+      [kSecValueData as String: data] as CFDictionary
+    )
+    if updateStatus == errSecItemNotFound {
+      var create = query
+      create[kSecValueData as String] = data
+      create[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+      let createStatus = SecItemAdd(create as CFDictionary, nil)
+      guard createStatus == errSecSuccess else {
+        throw BiometricKeyError.keyCreationFailed
+      }
+    } else if updateStatus != errSecSuccess {
+      throw BiometricKeyError.keyCreationFailed
+    }
+    UserDefaults.standard.set(deviceId, forKey: biometricDeviceIdKey)
+  }
+
+  private func clearStoredBiometricDeviceId() {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: biometricDeviceIdKeychainService,
+      kSecAttrAccount as String: biometricDeviceIdKeychainAccount,
+    ]
+    SecItemDelete(query as CFDictionary)
+    UserDefaults.standard.removeObject(forKey: biometricDeviceIdKey)
   }
 
   private func deleteBiometricKeyPair() throws {
@@ -852,7 +942,7 @@ private final class IOSSecureCaptureProtector {
     if status != errSecSuccess && status != errSecItemNotFound {
       throw BiometricKeyError.keyDeletionFailed
     }
-    UserDefaults.standard.removeObject(forKey: biometricDeviceIdKey)
+    clearStoredBiometricDeviceId()
   }
 
   private func ensureBiometricKeyPair() throws -> String {

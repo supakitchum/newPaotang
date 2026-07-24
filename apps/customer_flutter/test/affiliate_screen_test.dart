@@ -6,6 +6,7 @@ import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/features/affiliate/data/affiliate_models.dart';
 import 'package:customer_flutter/features/affiliate/data/affiliate_repository.dart';
+import 'package:customer_flutter/features/affiliate/presentation/affiliate_referral_share_service.dart';
 import 'package:customer_flutter/features/affiliate/presentation/affiliate_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -75,8 +76,12 @@ void main() {
   testWidgets(
     'affiliate navigation opens dedicated pages without customer nav',
     (tester) async {
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetViewPadding);
+      final shareService = _RecordingAffiliateReferralShareService();
       final router = await _pumpAffiliate(
         tester,
+        shareService: shareService,
         repository: _AffiliateRepository(
           overviewValue: AffiliateOverview.fromJson(const {
             'is_affiliate': true,
@@ -204,6 +209,8 @@ void main() {
       final navigationRect = tester.getRect(
         find.byKey(const ValueKey('affiliate-navigation-bar')),
       );
+      expect(navigationRect.height, 82);
+      expect(navigationRect.bottom, 1400);
       final navigationLabels = [
         'Overview',
         'Ranking',
@@ -273,6 +280,21 @@ void main() {
         find.byKey(const ValueKey('affiliate-referral-qr')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey('affiliate-referral-share-action')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('affiliate-referral-share-action')),
+      );
+      await tester.pump();
+      expect(shareService.calls, hasLength(1));
+      expect(shareService.calls.single.subject, 'Referral link');
+      expect(
+        shareService.calls.single.text,
+        contains('https://partner.example.test/?ref=AFF123'),
+      );
+      expect(shareService.calls.single.sharePositionOrigin, isNotNull);
       expect(find.byKey(const ValueKey('affiliate-member-card')), findsNothing);
       expect(tester.takeException(), isNull);
 
@@ -492,6 +514,7 @@ void main() {
 Future<GoRouter> _pumpAffiliate(
   WidgetTester tester, {
   required AffiliateRepository repository,
+  AffiliateReferralShareService? shareService,
   Size viewport = const Size(900, 1400),
 }) async {
   tester.view.physicalSize = viewport;
@@ -555,6 +578,8 @@ Future<GoRouter> _pumpAffiliate(
           (_) async => MobileBootstrap.fromJson(const {}),
         ),
         affiliateRepositoryProvider.overrideWithValue(repository),
+        if (shareService != null)
+          affiliateReferralShareServiceProvider.overrideWithValue(shareService),
       ],
       child: MaterialApp.router(
         locale: const Locale('en', 'US'),
@@ -571,6 +596,38 @@ Future<GoRouter> _pumpAffiliate(
   );
   await tester.pumpAndSettle();
   return router;
+}
+
+class _RecordingAffiliateReferralShareService
+    implements AffiliateReferralShareService {
+  final calls = <_AffiliateShareCall>[];
+
+  @override
+  Future<void> share({
+    required String text,
+    required String subject,
+    Rect? sharePositionOrigin,
+  }) async {
+    calls.add(
+      _AffiliateShareCall(
+        text: text,
+        subject: subject,
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+  }
+}
+
+class _AffiliateShareCall {
+  const _AffiliateShareCall({
+    required this.text,
+    required this.subject,
+    required this.sharePositionOrigin,
+  });
+
+  final String text;
+  final String subject;
+  final Rect? sharePositionOrigin;
 }
 
 class _AffiliateRepository extends AffiliateRepository {

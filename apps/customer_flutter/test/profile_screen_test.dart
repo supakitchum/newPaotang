@@ -174,6 +174,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('profile keeps Support visible when the tenant disables it', (
+    tester,
+  ) async {
+    final router = _profileRouter();
+    addTearDown(router.dispose);
+
+    await _pumpProfileRouter(
+      tester,
+      router: router,
+      bootstrapJson: const {
+        'featureFlags': {'customer_support': false},
+      },
+    );
+    await tester.pumpAndSettle();
+
+    final supportMenu = find.text('ศูนย์ช่วยเหลือ');
+    await tester.ensureVisible(supportMenu);
+    await tester.pumpAndSettle();
+    expect(supportMenu, findsOneWidget);
+
+    await tester.tap(supportMenu);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ศูนย์ช่วยเหลือยังไม่เปิดให้บริการ'), findsOneWidget);
+    expect(find.text('ตกลง'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('profile LINE gate follows backend maintenance redirect', (
     tester,
   ) async {
@@ -248,6 +276,7 @@ GoRouter _profileRouter() {
 Future<void> _pumpProfileRouter(
   WidgetTester tester, {
   required GoRouter router,
+  Map<String, dynamic> bootstrapJson = const {},
   LineNotificationSettings lineSettings = const LineNotificationSettings(
     lineAvailable: true,
     botBasicId: '@demo',
@@ -267,7 +296,7 @@ Future<void> _pumpProfileRouter(
     ProviderScope(
       overrides: [
         mobileBootstrapProvider.overrideWith(
-          (_) async => MobileBootstrap.fromJson(const {}),
+          (_) async => MobileBootstrap.fromJson(bootstrapJson),
         ),
         customerProfileSettingsProvider.overrideWith((_) async {
           if (profileError != null) throw profileError;

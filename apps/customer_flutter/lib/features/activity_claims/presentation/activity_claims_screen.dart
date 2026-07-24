@@ -84,7 +84,7 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
               )
             : _claims.isEmpty
             ? _ActivityClaimsEmpty(
-                onActivities: () => context.go('/activities'),
+                onActivities: () => context.push('/activities'),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -101,7 +101,7 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
                     _ActivityClaimTile(
                       claim: _claims[index],
                       onTap: () =>
-                          context.go('/activity-claims/${_claims[index].id}'),
+                          context.push('/activity-claims/${_claims[index].id}'),
                     ),
                   if (_loadMoreError.isNotEmpty)
                     _ActivityClaimsInlineError(

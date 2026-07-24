@@ -167,7 +167,7 @@ class _SupportHomeScreenState extends ConsumerState<SupportHomeScreen> {
                   const SizedBox(height: 10),
                   _SupportTicketCard(
                     ticket: bootstrap.activeTicket!,
-                    onTap: () => context.go(
+                    onTap: () => context.push(
                       '/support/tickets/${bootstrap.activeTicket!.id}',
                     ),
                     actionLabel: l10n.support('home.resume'),
@@ -278,7 +278,7 @@ class _SupportHomeScreenState extends ConsumerState<SupportHomeScreen> {
                       const Icon(Icons.chevron_right_rounded),
                     ],
                   ),
-                  onTap: () => context.go('/support/tickets'),
+                  onTap: () => context.push('/support/tickets'),
                 ),
               ],
             ),
@@ -288,7 +288,7 @@ class _SupportHomeScreenState extends ConsumerState<SupportHomeScreen> {
           _SupportBottomAction(
             label: l10n.support('home.new_ticket'),
             icon: Icons.add_comment_outlined,
-            onPressed: () => context.go('/support/new'),
+            onPressed: () => context.push('/support/new'),
           ),
       ],
     );
@@ -851,7 +851,7 @@ class _SupportTicketHistoryScreenState
                               tickets: _items,
                               loadingMore: _loadingMore,
                               onTap: (ticket) =>
-                                  context.go('/support/tickets/${ticket.id}'),
+                                  context.push('/support/tickets/${ticket.id}'),
                             ),
                           ),
                   ),
@@ -859,7 +859,7 @@ class _SupportTicketHistoryScreenState
           if (_tab == 0 && _items.isEmpty && !_loading)
             _SupportBottomAction(
               label: l10n.support('home.new_ticket'),
-              onPressed: () => context.go('/support/new'),
+              onPressed: () => context.push('/support/new'),
             ),
         ],
       ),
@@ -1108,7 +1108,11 @@ class _SupportTicketChatScreenState
 
   Future<void> _send() async {
     final body = _composer.text.trim();
-    if (_sending || (body.isEmpty && _attachments.isEmpty)) return;
+    if (_ticket?.chatAvailable != true ||
+        _sending ||
+        (body.isEmpty && _attachments.isEmpty)) {
+      return;
+    }
     _sendIdempotencyKey ??= newIdempotencyKey('support-message');
     setState(() {
       _sending = true;
@@ -1246,6 +1250,7 @@ class _SupportTicketChatScreenState
             categoryName: ticket.categoryName,
             subject: ticket.subject,
             status: ticket.status,
+            chatAvailable: ticket.chatAvailable,
             lastMessage: ticket.lastMessage,
             unreadCount: ticket.unreadCount,
             queuePosition: ticket.queuePosition,
@@ -1396,8 +1401,10 @@ class _SupportTicketChatScreenState
                     ticket: _ticket!,
                     onRate: _showRating,
                     onNew: () =>
-                        context.go('/support/new?reference=${_ticket!.id}'),
+                        context.push('/support/new?reference=${_ticket!.id}'),
                   )
+                else if (!_ticket!.chatAvailable)
+                  const _SupportWaitingForAgentPanel()
                 else
                   _SupportComposer(
                     controller: _composer,
@@ -2419,6 +2426,66 @@ class _SupportComposer extends StatelessWidget {
                         : const Icon(Icons.send_rounded),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportWaitingForAgentPanel extends StatelessWidget {
+  const _SupportWaitingForAgentPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: .1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.schedule_rounded, color: primary, size: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.support('chat.waiting_for_agent_title'),
+                      style: const TextStyle(
+                        color: Color(0xFF172033),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      context.l10n.support('chat.waiting_for_agent_message'),
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

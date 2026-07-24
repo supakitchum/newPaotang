@@ -81,7 +81,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
                       title: l10n.purchaseHistoryEmptyTitle,
                       message: l10n.purchaseHistoryEmptySubtitle,
                       actionLabel: l10n.purchaseHistoryBuyButton,
-                      onAction: () => context.go('/buy'),
+                      onAction: () => context.push('/buy'),
                     )
                   else ...[
                     for (
@@ -103,7 +103,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
                       const SizedBox(height: 22),
                       _PurchaseHistoryList(
                         orders: groups[groupIndex].orders,
-                        onTap: (order) => context.go(
+                        onTap: (order) => context.push(
                           '/purchase-history/${Uri.encodeComponent(order.id)}',
                         ),
                       ),

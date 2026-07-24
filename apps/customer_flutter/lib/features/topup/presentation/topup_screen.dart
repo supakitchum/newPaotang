@@ -24,12 +24,7 @@ import 'topup_realtime_monitor.dart';
 import 'topup_slip_picker.dart';
 
 const _topupBackPathFallback = '/my-wallet';
-const _topupBackPathAllowlist = {
-  '/',
-  '/checkout',
-  '/my-wallet',
-  '/profile',
-};
+const _topupBackPathAllowlist = {'/', '/checkout', '/my-wallet', '/profile'};
 const _topupDetailBackPathAllowlist = {
   ..._topupBackPathAllowlist,
   '/topup/history',
@@ -81,8 +76,7 @@ Color _topupStatusBackground(TopupStatus status, ColorScheme colorScheme) {
     TopupStatus.rejected => _topupErrorTint(colorScheme),
     TopupStatus.cancelled ||
     TopupStatus.expired ||
-    TopupStatus.unknown =>
-      colorScheme.surfaceContainerHighest,
+    TopupStatus.unknown => colorScheme.surfaceContainerHighest,
   };
 }
 
@@ -94,8 +88,7 @@ Color _topupStatusForeground(TopupStatus status, ColorScheme colorScheme) {
     TopupStatus.rejected => _topupErrorForeground(colorScheme),
     TopupStatus.cancelled ||
     TopupStatus.expired ||
-    TopupStatus.unknown =>
-      colorScheme.onSurfaceVariant,
+    TopupStatus.unknown => colorScheme.onSurfaceVariant,
   };
 }
 
@@ -122,11 +115,7 @@ String topupDetailLocation(String id, {String? backPath}) {
 
 TopupOverview _emptyTopupOverview() {
   return const TopupOverview(
-    bank: TopupBankAccount(
-      bankName: '',
-      accountName: '',
-      accountNumber: '',
-    ),
+    bank: TopupBankAccount(bankName: '', accountName: '', accountNumber: ''),
     paymentMethods: [],
     enabledPaymentMethods: {},
     waiting: null,
@@ -248,15 +237,18 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
             topup: topup,
             uploadingSlip: _uploadingSlip,
             waitingSlipTransferAt: _waitingSlipTransferAt,
-            onUploadSlip:
-                _uploadingSlip ? null : () => _pickAndUploadSlip(topup.id),
+            onUploadSlip: _uploadingSlip
+                ? null
+                : () => _pickAndUploadSlip(topup.id),
             onSelectSlipTransferAt: _uploadingSlip
                 ? null
                 : () => _selectWaitingSlipTransferAt(topup),
-            onOpenPayment:
-                topup.redirectUri == null ? null : () => _openPayment(topup),
-            onCancel:
-                _submitting ? null : () => _confirmCancelWaitingTopup(topup),
+            onOpenPayment: topup.redirectUri == null
+                ? null
+                : () => _openPayment(topup),
+            onCancel: _submitting
+                ? null
+                : () => _confirmCancelWaitingTopup(topup),
           ),
         ),
         loading: () => _TopupDetailPageShell(
@@ -309,7 +301,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
         noticeIsError: _pageNoticeIsError,
         interactionsEnabled: interactionsEnabled,
         onRetry: () => ref.invalidate(topupOverviewProvider),
-        onHistory: () => context.go('/topup/history'),
+        onHistory: () => context.push('/topup/history'),
         onChannelSelected: (channel) => _openTopupSheet(data, channel),
       ),
       waiting: hasWaiting
@@ -317,8 +309,9 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
               topup: waiting,
               uploadingSlip: _uploadingSlip,
               waitingSlipTransferAt: _waitingSlipTransferAt,
-              onUploadSlip:
-                  _uploadingSlip ? null : () => _pickAndUploadSlip(waiting.id),
+              onUploadSlip: _uploadingSlip
+                  ? null
+                  : () => _pickAndUploadSlip(waiting.id),
               onSelectSlipTransferAt: _uploadingSlip
                   ? null
                   : () => _selectWaitingSlipTransferAt(waiting),
@@ -463,8 +456,9 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
         created = await repo.create(
           channel: channel,
           amount: amount,
-          transferAt:
-              channel == TopupChannel.bankTransfer ? _bankTransferAt : null,
+          transferAt: channel == TopupChannel.bankTransfer
+              ? _bankTransferAt
+              : null,
           slip: channel == TopupChannel.bankTransfer ? _bankTransferSlip : null,
         );
       }
@@ -590,10 +584,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       context: context,
       builder: (context) => _TopupCancelConfirmDialog(
         topup: topup,
-        onConfirm: () => _cancelWaitingTopup(
-          topup.id,
-          showErrorNotice: false,
-        ),
+        onConfirm: () => _cancelWaitingTopup(topup.id, showErrorNotice: false),
       ),
     );
   }
@@ -621,11 +612,9 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       _pageNoticeMessage = '';
     });
     try {
-      await ref.read(topupRepositoryProvider).uploadSlip(
-            id: id,
-            slip: slip,
-            transferAt: _waitingSlipTransferAt,
-          );
+      await ref
+          .read(topupRepositoryProvider)
+          .uploadSlip(id: id, slip: slip, transferAt: _waitingSlipTransferAt);
       _invalidateTopupSurfaces(id);
       setState(() => _waitingSlipTransferAt = null);
       _setPageNotice(l10n.topupSlipUploaded, isError: false);
@@ -814,21 +803,21 @@ class _TopupCancelConfirmDialogState extends State<_TopupCancelConfirmDialog> {
                   l10n.topupCancelConfirmTitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: colorScheme.primary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        height: 1.28,
-                      ),
+                    color: colorScheme.primary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    height: 1.28,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   l10n.topupCancelConfirmMessage(widget.topup.id),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                        height: 1.45,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 DecoratedBox(
@@ -890,10 +879,10 @@ class _TopupCancelConfirmDialogState extends State<_TopupCancelConfirmDialog> {
                         _errorMessage,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onErrorContainer,
-                              fontWeight: FontWeight.w800,
-                              height: 1.38,
-                            ),
+                          color: colorScheme.onErrorContainer,
+                          fontWeight: FontWeight.w800,
+                          height: 1.38,
+                        ),
                       ),
                     ),
                   ),
@@ -908,14 +897,13 @@ class _TopupCancelConfirmDialogState extends State<_TopupCancelConfirmDialog> {
                           foregroundColor: colorScheme.primary,
                           backgroundColor: colorScheme.surface,
                           side: BorderSide(
-                            color: colorScheme.primaryContainer
-                                .withValues(alpha: 0.7),
+                            color: colorScheme.primaryContainer.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
                           shape: const StadiumBorder(),
-                          textStyle:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                          textStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                         onPressed: _canceling
                             ? null
@@ -931,10 +919,8 @@ class _TopupCancelConfirmDialogState extends State<_TopupCancelConfirmDialog> {
                           backgroundColor: colorScheme.error,
                           foregroundColor: colorScheme.onError,
                           shape: const StadiumBorder(),
-                          textStyle:
-                              Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                          textStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                         onPressed: _canceling ? null : _confirm,
                         child: Text(
@@ -992,8 +978,8 @@ class _TopupPageShell extends StatelessWidget {
         final heroMinHeight = hasWaiting
             ? (narrow ? _narrowWaitingHeroHeight : _waitingHeroHeight)
             : hasInstructionSheet
-                ? math.min(viewportHeight, launcherHeroHeight)
-                : viewportHeight;
+            ? math.min(viewportHeight, launcherHeroHeight)
+            : viewportHeight;
         final instructionTop = heroMinHeight - _instructionOverlap;
         final instructionMinHeight = math.max(
           0.0,
@@ -1011,8 +997,9 @@ class _TopupPageShell extends StatelessWidget {
             ],
           );
         }
-        final contentOverlap =
-            hasWaiting ? _waitingOverlap : _instructionOverlap;
+        final contentOverlap = hasWaiting
+            ? _waitingOverlap
+            : _instructionOverlap;
         return CustomerFixedHeaderLayout(
           headerKey: const ValueKey('topup-fixed-header'),
           contentRegionKey: const ValueKey('topup-content-region'),
@@ -1060,10 +1047,7 @@ class _TopupPageShell extends StatelessWidget {
 }
 
 class _TopupDetailPageShell extends StatelessWidget {
-  const _TopupDetailPageShell({
-    required this.hero,
-    required this.child,
-  });
+  const _TopupDetailPageShell({required this.hero, required this.child});
 
   static const _detailHeroHeight = 252.0;
   static const _narrowDetailHeroHeight = 286.0;
@@ -1251,10 +1235,7 @@ class _TopupHeroContent extends StatelessWidget {
           const SizedBox(height: 12),
         ],
         if (noticeMessage.isNotEmpty) ...[
-          _TopupNoticePanel(
-            message: noticeMessage,
-            isError: noticeIsError,
-          ),
+          _TopupNoticePanel(message: noticeMessage, isError: noticeIsError),
           const SizedBox(height: 12),
         ],
         _TopupChannelLauncherCard(
@@ -1332,20 +1313,18 @@ class _TopupHeroBackButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return IconButton(
       tooltip: context.l10n.commonBack,
-      onPressed: () => navigateCustomerBack(
-        context,
-        fallbackPath: backPath,
-      ),
+      onPressed: () => navigateCustomerBack(context, fallbackPath: backPath),
       icon: const Icon(Icons.arrow_back_ios_new, size: 31),
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.transparent,
-        foregroundColor: colorScheme.onPrimary,
-        fixedSize: const Size.square(42),
-        minimumSize: const Size.square(42),
-        padding: EdgeInsets.zero,
-      ).copyWith(
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      ),
+      style:
+          IconButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: colorScheme.onPrimary,
+            fixedSize: const Size.square(42),
+            minimumSize: const Size.square(42),
+            padding: EdgeInsets.zero,
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
     );
   }
 }
@@ -1389,9 +1368,7 @@ class _WaitingTopupCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        border: Border.all(
-          color: _topupPrimaryBorder(colorScheme),
-        ),
+        border: Border.all(color: _topupPrimaryBorder(colorScheme)),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1508,8 +1485,9 @@ class _WaitingTopupCard extends StatelessWidget {
                     OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
                       foregroundColor: colorScheme.error,
-                      backgroundColor:
-                          colorScheme.errorContainer.withValues(alpha: 0.46),
+                      backgroundColor: colorScheme.errorContainer.withValues(
+                        alpha: 0.46,
+                      ),
                       side: BorderSide(
                         color: colorScheme.error.withValues(alpha: 0.18),
                       ),
@@ -1570,14 +1548,15 @@ class _TopupOverviewStatePanel extends StatelessWidget {
     final body = loading
         ? l10n.topupLoadingMessage
         : message.trim().isEmpty
-            ? l10n.topupLoadFailedMessage
-            : message.trim();
+        ? l10n.topupLoadFailedMessage
+        : message.trim();
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
+          color:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
               colorScheme.primary.withValues(alpha: 0.24),
         ),
         borderRadius: BorderRadius.circular(14),
@@ -1625,21 +1604,21 @@ class _TopupOverviewStatePanel extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: loading
-                              ? colorScheme.onSurface
-                              : colorScheme.error,
-                          fontWeight: FontWeight.w900,
-                          height: 1.25,
-                        ),
+                      color: loading
+                          ? colorScheme.onSurface
+                          : colorScheme.error,
+                      fontWeight: FontWeight.w900,
+                      height: 1.25,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     body,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
                   ),
                   if (loading) ...[
                     const SizedBox(height: 12),
@@ -1647,8 +1626,9 @@ class _TopupOverviewStatePanel extends StatelessWidget {
                       width: 104,
                       height: 18,
                       color: colorScheme.primary,
-                      trackColor:
-                          colorScheme.outlineVariant.withValues(alpha: 0.56),
+                      trackColor: colorScheme.outlineVariant.withValues(
+                        alpha: 0.56,
+                      ),
                     ),
                   ],
                   if (!loading) ...[
@@ -1670,10 +1650,7 @@ class _TopupOverviewStatePanel extends StatelessWidget {
 }
 
 class _TopupNoticePanel extends StatelessWidget {
-  const _TopupNoticePanel({
-    required this.message,
-    required this.isError,
-  });
+  const _TopupNoticePanel({required this.message, required this.isError});
 
   final String message;
   final bool isError;
@@ -1681,8 +1658,9 @@ class _TopupNoticePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final background =
-        isError ? _topupErrorTint(colorScheme) : _topupSuccessTint(colorScheme);
+    final background = isError
+        ? _topupErrorTint(colorScheme)
+        : _topupSuccessTint(colorScheme);
     final border = isError
         ? _topupErrorBorder(colorScheme)
         : _topupPrimaryBorder(colorScheme);
@@ -1710,11 +1688,11 @@ class _TopupNoticePanel extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.42,
-                    ),
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.42,
+                ),
               ),
             ),
           ],
@@ -1725,10 +1703,7 @@ class _TopupNoticePanel extends StatelessWidget {
 }
 
 class _TopupStatusBadge extends StatelessWidget {
-  const _TopupStatusBadge({
-    required this.label,
-    required this.status,
-  });
+  const _TopupStatusBadge({required this.label, required this.status});
 
   final String label;
   final TopupStatus status;
@@ -1749,10 +1724,10 @@ class _TopupStatusBadge extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: foreground,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
+            color: foreground,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
@@ -1760,10 +1735,7 @@ class _TopupStatusBadge extends StatelessWidget {
 }
 
 class _WaitingAmountPanel extends StatelessWidget {
-  const _WaitingAmountPanel({
-    required this.amount,
-    required this.label,
-  });
+  const _WaitingAmountPanel({required this.amount, required this.label});
 
   final String amount;
   final String label;
@@ -1808,10 +1780,7 @@ class _WaitingAmountPanel extends StatelessWidget {
                   const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: amountText,
-                    ),
+                    child: FittedBox(fit: BoxFit.scaleDown, child: amountText),
                   ),
                 ],
               );
@@ -1855,9 +1824,9 @@ class _WaitingBonusPill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: _topupSuccessForeground(colorScheme),
-                fontWeight: FontWeight.w800,
-              ),
+            color: _topupSuccessForeground(colorScheme),
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );
@@ -1880,9 +1849,9 @@ class _WaitingDateRow extends StatelessWidget {
           child: Text(
             dateText,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],
@@ -1919,10 +1888,10 @@ class _WaitingPaymentPanel extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -1940,10 +1909,10 @@ class _WaitingPaymentPanel extends StatelessWidget {
               instruction,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -1953,10 +1922,7 @@ class _WaitingPaymentPanel extends StatelessWidget {
 }
 
 class _WaitingNotePanel extends StatelessWidget {
-  const _WaitingNotePanel({
-    required this.message,
-    required this.status,
-  });
+  const _WaitingNotePanel({required this.message, required this.status});
 
   final String message;
   final TopupStatus status;
@@ -1968,23 +1934,19 @@ class _WaitingNotePanel extends StatelessWidget {
       TopupStatus.approved => _topupSuccessTint(colorScheme),
       TopupStatus.rejected => _topupErrorTint(colorScheme),
       TopupStatus.cancelled ||
-      TopupStatus.expired =>
-        colorScheme.surfaceContainerHighest,
+      TopupStatus.expired => colorScheme.surfaceContainerHighest,
       TopupStatus.pendingPayment ||
       TopupStatus.pendingReview ||
-      TopupStatus.unknown =>
-        _topupSoftSurface(colorScheme),
+      TopupStatus.unknown => _topupSoftSurface(colorScheme),
     };
     final foreground = switch (status) {
       TopupStatus.approved => _topupSuccessForeground(colorScheme),
       TopupStatus.rejected => _topupErrorForeground(colorScheme),
       TopupStatus.cancelled ||
-      TopupStatus.expired =>
-        colorScheme.onSurfaceVariant,
+      TopupStatus.expired => colorScheme.onSurfaceVariant,
       TopupStatus.pendingPayment ||
       TopupStatus.pendingReview ||
-      TopupStatus.unknown =>
-        colorScheme.onSurfaceVariant,
+      TopupStatus.unknown => colorScheme.onSurfaceVariant,
     };
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1998,10 +1960,10 @@ class _WaitingNotePanel extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: foreground,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: foreground,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ),
@@ -2033,7 +1995,8 @@ class _WaitingSlipPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: _topupPrimaryTint(colorScheme),
         border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
+          color:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
               colorScheme.primary.withValues(alpha: 0.24),
         ),
         borderRadius: BorderRadius.circular(14),
@@ -2052,22 +2015,22 @@ class _WaitingSlipPanel extends StatelessWidget {
                       Text(
                         l10n.topupWaitingSlipTitle,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
+                          color: colorScheme.onSurface,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         hasSlip
                             ? l10n.topupWaitingSlipSentDescription
                             : l10n.topupWaitingSlipPendingDescription,
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                     ],
                   ),
@@ -2090,12 +2053,12 @@ class _WaitingSlipPanel extends StatelessWidget {
                           ? l10n.topupWaitingSlipSent
                           : l10n.topupWaitingSlipPending,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: hasSlip
-                                ? _topupSuccessForeground(colorScheme)
-                                : _topupWarningForeground(colorScheme),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: hasSlip
+                            ? _topupSuccessForeground(colorScheme)
+                            : _topupWarningForeground(colorScheme),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
@@ -2122,8 +2085,8 @@ class _WaitingSlipPanel extends StatelessWidget {
                 label: uploadingSlip
                     ? l10n.topupUploadingSlip
                     : hasSlip
-                        ? l10n.topupUploadNewSlip
-                        : l10n.topupUploadSlip,
+                    ? l10n.topupUploadNewSlip
+                    : l10n.topupUploadSlip,
               ),
             ),
           ],
@@ -2134,10 +2097,7 @@ class _WaitingSlipPanel extends StatelessWidget {
 }
 
 class _TopupDetailHeroContent extends StatelessWidget {
-  const _TopupDetailHeroContent({
-    required this.title,
-    required this.backPath,
-  });
+  const _TopupDetailHeroContent({required this.title, required this.backPath});
 
   final String title;
   final String backPath;
@@ -2384,9 +2344,7 @@ class _TopupSheetContent extends StatelessWidget {
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w900,
-                                        ),
+                                        ?.copyWith(fontWeight: FontWeight.w900),
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
@@ -2395,9 +2353,7 @@ class _TopupSheetContent extends StatelessWidget {
                                       selectedChannel,
                                       selectedMethod,
                                     ),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.w700,
@@ -2431,8 +2387,9 @@ class _TopupSheetContent extends StatelessWidget {
                                     color: colorScheme.onSurface,
                                   ),
                                   padding: EdgeInsets.zero,
-                                  tooltip: MaterialLocalizations.of(context)
-                                      .closeButtonTooltip,
+                                  tooltip: MaterialLocalizations.of(
+                                    context,
+                                  ).closeButtonTooltip,
                                   style: IconButton.styleFrom().copyWith(
                                     overlayColor: const WidgetStatePropertyAll(
                                       Colors.transparent,
@@ -2513,8 +2470,8 @@ class _TopupSheetActionDock extends StatelessWidget {
     final primaryLabel = !showPaymentDetails
         ? l10n.topupContinuePayment
         : submitting
-            ? _submittingLabel(l10n)
-            : l10n.topupConfirmPayment;
+        ? _submittingLabel(l10n)
+        : l10n.topupConfirmPayment;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -2559,10 +2516,10 @@ class _TopupSheetActionDock extends StatelessWidget {
               onPressed: submitting
                   ? null
                   : !showPaymentDetails
-                      ? onContinueToPaymentDetails
-                      : () {
-                          onSubmit();
-                        },
+                  ? onContinueToPaymentDetails
+                  : () {
+                      onSubmit();
+                    },
               height: 48,
               fontSize: 15,
               shadow: false,
@@ -2676,9 +2633,7 @@ class _TopupFormCard extends StatelessWidget {
 }
 
 class _TopupPaymentAmountSummary extends StatelessWidget {
-  const _TopupPaymentAmountSummary({
-    required this.amount,
-  });
+  const _TopupPaymentAmountSummary({required this.amount});
 
   final String amount;
 
@@ -2701,19 +2656,19 @@ class _TopupPaymentAmountSummary extends StatelessWidget {
             Text(
               l10n.topupPaymentAmountDue,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 3),
             Text(
               amount,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
+                color: colorScheme.primary,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+              ),
             ),
           ],
         ),
@@ -2769,28 +2724,28 @@ class _TopupPaymentDetailsPanel extends StatelessWidget {
                   Text(
                     l10n.topupPaymentDetailsTitle,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     _channelLabel(l10n, channel, method),
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: colorScheme.onSurface,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     _channelDescription(l10n, channel, method),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
@@ -2803,10 +2758,7 @@ class _TopupPaymentDetailsPanel extends StatelessWidget {
 }
 
 class _TopupAmountPanel extends StatelessWidget {
-  const _TopupAmountPanel({
-    required this.amount,
-    required this.minimumAmount,
-  });
+  const _TopupAmountPanel({required this.amount, required this.minimumAmount});
 
   final TextEditingController amount;
   final double minimumAmount;
@@ -2822,7 +2774,8 @@ class _TopupAmountPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.78) ??
+          color:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.78) ??
               colorScheme.primary.withValues(alpha: 0.22),
         ),
         borderRadius: BorderRadius.circular(12),
@@ -2835,9 +2788,9 @@ class _TopupAmountPanel extends StatelessWidget {
             Text(
               l10n.topupAmountLabel,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -2856,7 +2809,8 @@ class _TopupAmountPanel extends StatelessWidget {
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: Color.lerp(
+                    color:
+                        Color.lerp(
                           colorScheme.primary,
                           colorScheme.surface,
                           0.76,
@@ -2870,10 +2824,10 @@ class _TopupAmountPanel extends StatelessWidget {
                 ),
               ),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 12),
             ValueListenableBuilder<TextEditingValue>(
@@ -2909,9 +2863,7 @@ class _TopupAmountPanel extends StatelessWidget {
                                 ? colorScheme.primary
                                 : colorScheme.primary.withValues(alpha: 0.24),
                           ),
-                          textStyle: Theme.of(context)
-                              .textTheme
-                              .labelMedium
+                          textStyle: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -2927,9 +2879,7 @@ class _TopupAmountPanel extends StatelessWidget {
             ),
             if (minimumAmount > 0) ...[
               const SizedBox(height: 10),
-              _TopupMinimumHint(
-                amount: formatTopupBaht(l10n, minimumAmount),
-              ),
+              _TopupMinimumHint(amount: formatTopupBaht(l10n, minimumAmount)),
             ],
           ],
         ),
@@ -2968,11 +2918,7 @@ class _TopupMinimumHint extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.info_outline,
-              size: 16,
-              color: colorScheme.secondary,
-            ),
+            Icon(Icons.info_outline, size: 16, color: colorScheme.secondary),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -2980,9 +2926,9 @@ class _TopupMinimumHint extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _topupWarningForeground(colorScheme),
-                      fontWeight: FontWeight.w900,
-                    ),
+                  color: _topupWarningForeground(colorScheme),
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ],
@@ -3005,7 +2951,8 @@ class _DeferredSlipNote extends StatelessWidget {
       decoration: BoxDecoration(
         color: _topupPrimaryTint(colorScheme),
         border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
+          color:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
               colorScheme.primary.withValues(alpha: 0.24),
         ),
         borderRadius: BorderRadius.circular(14),
@@ -3021,11 +2968,11 @@ class _DeferredSlipNote extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.45,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.45,
+                ),
               ),
             ),
           ],
@@ -3061,7 +3008,8 @@ class _BankTransferSlipPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         color: _topupPrimaryTint(colorScheme),
         border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
+          color:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
               colorScheme.primary.withValues(alpha: 0.24),
         ),
       ),
@@ -3082,20 +3030,20 @@ class _BankTransferSlipPanel extends StatelessWidget {
                       Text(
                         l10n.topupBankSlipTitle,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
+                          color: colorScheme.onSurface,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         l10n.topupBankSlipDescription,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              height: 1.35,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.35,
+                        ),
                       ),
                     ],
                   ),
@@ -3141,10 +3089,8 @@ class _BankTransferSlipPanel extends StatelessWidget {
                           color: _topupPrimaryBorder(colorScheme),
                         ),
                         shape: const StadiumBorder(),
-                        textStyle:
-                            Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                ),
+                        textStyle: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                     ),
                   ),
@@ -3155,13 +3101,17 @@ class _BankTransferSlipPanel extends StatelessWidget {
                     onPressed: onClearSlip,
                     icon: const Icon(Icons.close),
                     tooltip: l10n.topupBankSlipRemove,
-                    style: IconButton.styleFrom(
-                      foregroundColor: colorScheme.error,
-                      side: BorderSide(color: _topupErrorBorder(colorScheme)),
-                    ).copyWith(
-                      overlayColor:
-                          const WidgetStatePropertyAll(Colors.transparent),
-                    ),
+                    style:
+                        IconButton.styleFrom(
+                          foregroundColor: colorScheme.error,
+                          side: BorderSide(
+                            color: _topupErrorBorder(colorScheme),
+                          ),
+                        ).copyWith(
+                          overlayColor: const WidgetStatePropertyAll(
+                            Colors.transparent,
+                          ),
+                        ),
                   ),
                 ],
               ],
@@ -3174,10 +3124,7 @@ class _BankTransferSlipPanel extends StatelessWidget {
 }
 
 class _TransferTimePickerRow extends StatelessWidget {
-  const _TransferTimePickerRow({
-    required this.value,
-    required this.onPressed,
-  });
+  const _TransferTimePickerRow({required this.value, required this.onPressed});
 
   final String value;
   final VoidCallback? onPressed;
@@ -3193,9 +3140,9 @@ class _TransferTimePickerRow extends StatelessWidget {
         Text(
           l10n.topupBankSlipTransferAt,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         const SizedBox(height: 6),
         OutlinedButton.icon(
@@ -3208,7 +3155,8 @@ class _TransferTimePickerRow extends StatelessWidget {
               foregroundColor: colorScheme.onSurface,
               backgroundColor: _topupPrimaryTint(colorScheme),
               side: BorderSide(
-                color: Color.lerp(
+                color:
+                    Color.lerp(
                       colorScheme.primary,
                       colorScheme.surface,
                       0.76,
@@ -3218,17 +3166,14 @@ class _TransferTimePickerRow extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              textStyle: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           label: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              value,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(value, overflow: TextOverflow.ellipsis),
           ),
         ),
       ],
@@ -3261,9 +3206,9 @@ class _SlipMetaRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -3308,13 +3253,15 @@ class _ChannelTile extends StatelessWidget {
     final borderColor = enabled
         ? colorScheme.onPrimary.withValues(alpha: 0.25)
         : colorScheme.outlineVariant;
-    final tileColor =
-        enabled ? colorScheme.surface : colorScheme.surfaceContainerHighest;
+    final tileColor = enabled
+        ? colorScheme.surface
+        : colorScheme.surfaceContainerHighest;
     final iconColor = enabled
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant.withValues(alpha: 0.72);
-    final textColor =
-        enabled ? colorScheme.onSurface : colorScheme.onSurfaceVariant;
+    final textColor = enabled
+        ? colorScheme.onSurface
+        : colorScheme.onSurfaceVariant;
     final descriptionColor = colorScheme.onSurfaceVariant;
 
     final tile = Opacity(
@@ -3322,9 +3269,7 @@ class _ChannelTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: borderColor,
-          ),
+          border: Border.all(color: borderColor),
           color: tileColor,
           boxShadow: enabled
               ? null
@@ -3360,11 +3305,11 @@ class _ChannelTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: textColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              height: 1.22,
-                            ),
+                          color: textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.22,
+                        ),
                       ),
                       if (!enabled) ...[
                         const SizedBox(height: 7),
@@ -3396,9 +3341,7 @@ class _ChannelTile extends StatelessWidget {
                               children: [
                                 Text(
                                   _channelLabel(l10n, channel, method),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelLarge
+                                  style: Theme.of(context).textTheme.labelLarge
                                       ?.copyWith(
                                         color: textColor,
                                         fontWeight: FontWeight.w800,
@@ -3413,9 +3356,7 @@ class _ChannelTile extends StatelessWidget {
                             const SizedBox(height: 3),
                             Text(
                               _channelDescription(l10n, channel, method),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: descriptionColor,
                                     fontWeight: FontWeight.w700,
@@ -3532,10 +3473,7 @@ class _TopupChannelMark extends StatelessWidget {
 }
 
 class _ChannelDisabledBadge extends StatelessWidget {
-  const _ChannelDisabledBadge({
-    required this.label,
-    this.compact = false,
-  });
+  const _ChannelDisabledBadge({required this.label, this.compact = false});
 
   final String label;
   final bool compact;
@@ -3560,11 +3498,11 @@ class _ChannelDisabledBadge extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w900,
-                fontSize: compact ? 10 : null,
-                height: compact ? 1.1 : null,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w900,
+            fontSize: compact ? 10 : null,
+            height: compact ? 1.1 : null,
+          ),
         ),
       ),
     );
@@ -3586,7 +3524,8 @@ class _BankInfoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         color: _topupPrimaryTint(colorScheme),
         border: Border.all(
-          color: Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
+          color:
+              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
               colorScheme.primary.withValues(alpha: 0.24),
         ),
       ),
@@ -3598,9 +3537,9 @@ class _BankInfoCard extends StatelessWidget {
             Text(
               l10n.topupBankAccountFallback,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 4),
             Row(
@@ -3618,9 +3557,9 @@ class _BankInfoCard extends StatelessWidget {
                         : bank.bankName,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ],
@@ -3630,18 +3569,18 @@ class _BankInfoCard extends StatelessWidget {
               bank.accountName,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             Text(
               bank.accountNumber,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.primary,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ],
         ),
@@ -3657,9 +3596,9 @@ ButtonStyle _topupOutlinePillStyle(BuildContext context) {
       padding: const EdgeInsets.symmetric(horizontal: 18),
       shape: const StadiumBorder(),
       side: BorderSide(color: Theme.of(context).colorScheme.primary),
-      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w900,
-          ),
+      textStyle: Theme.of(
+        context,
+      ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
     ),
   );
 }

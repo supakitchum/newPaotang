@@ -2,17 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'line_notification_models.dart';
 
-final lineNotificationRepositoryProvider =
-    Provider<LineNotificationRepository>((ref) {
-  return LineNotificationRepository(ref.watch(apiClientProvider));
-});
+final lineNotificationRepositoryProvider = Provider<LineNotificationRepository>(
+  (ref) {
+    return LineNotificationRepository(ref.watch(apiClientProvider));
+  },
+);
 
 final lineNotificationSettingsProvider =
     FutureProvider.autoDispose<LineNotificationSettings>((ref) async {
-  return ref.watch(lineNotificationRepositoryProvider).load();
-});
+      ref.keepForCustomerNavigation();
+      return ref.watch(lineNotificationRepositoryProvider).load();
+    });
 
 class LineNotificationRepository {
   const LineNotificationRepository(this._api);

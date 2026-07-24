@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import '../../results/data/result_repository.dart';
 import 'store_models.dart';
 
@@ -11,32 +12,35 @@ final storeRepositoryProvider = Provider<StoreRepository>((ref) {
 
 final storeListProvider = FutureProvider.autoDispose
     .family<StorePage, StoreListQuery>((ref, query) async {
-  return ref.watch(storeRepositoryProvider).list(
-        q: query.q,
-        cursor: query.cursor,
-      );
-});
+      ref.keepForCustomerNavigation();
+      return ref
+          .watch(storeRepositoryProvider)
+          .list(q: query.q, cursor: query.cursor);
+    });
 
 final storeLotteryProvider = FutureProvider.autoDispose
     .family<StoreLotteryPage, StoreLotteryQuery>((ref, query) async {
-  final game = await ref.watch(resultRepositoryProvider).currentGame();
-  final gameId = query.gameId.isNotEmpty ? query.gameId : game?.id ?? '';
-  if (gameId.isEmpty) {
-    return const StoreLotteryPage(
-      items: [],
-      nextCursor: '',
-      hasMore: false,
-      gameId: '',
-      sellerName: '',
-    );
-  }
-  return ref.watch(storeRepositoryProvider).lotteries(
-        storeId: query.storeId,
-        gameId: gameId,
-        digits: query.digits,
-        cursor: query.cursor,
-      );
-});
+      ref.keepForCustomerNavigation();
+      final game = await ref.watch(resultRepositoryProvider).currentGame();
+      final gameId = query.gameId.isNotEmpty ? query.gameId : game?.id ?? '';
+      if (gameId.isEmpty) {
+        return const StoreLotteryPage(
+          items: [],
+          nextCursor: '',
+          hasMore: false,
+          gameId: '',
+          sellerName: '',
+        );
+      }
+      return ref
+          .watch(storeRepositoryProvider)
+          .lotteries(
+            storeId: query.storeId,
+            gameId: gameId,
+            digits: query.digits,
+            cursor: query.cursor,
+          );
+    });
 
 class StoreListQuery {
   const StoreListQuery({this.q = '', this.cursor = ''});

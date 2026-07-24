@@ -47,9 +47,7 @@ const _activitiesFilterShadow = Color(0x12083068);
 const _activitiesPageBackground = Color(0xFFF4F7FB);
 
 Color _activitiesBrandColor(BuildContext context) {
-  return AppTheme.primaryOutlineBorder(
-    Theme.of(context).colorScheme.primary,
-  );
+  return AppTheme.primaryOutlineBorder(Theme.of(context).colorScheme.primary);
 }
 
 Color _activitiesActionFill(BuildContext context) {
@@ -90,8 +88,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final rightsAccess =
-        _activityRightsAccess(ref.watch(authControllerProvider));
+    final rightsAccess = _activityRightsAccess(
+      ref.watch(authControllerProvider),
+    );
     final visibleItems = _filteredActivities(_items, _filter);
     ref.listen<_ActivityRightsAccess>(
       authControllerProvider.select(_activityRightsAccess),
@@ -121,7 +120,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           else ...[
             if (_meta.hasHistory) ...[
               _ActivityHistoryLink(
-                onPressed: () => context.go('/activities/history'),
+                onPressed: () => context.push('/activities/history'),
               ),
               const SizedBox(height: 18),
             ],
@@ -166,11 +165,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     );
   }
 
-  Future<void> _refresh() => _load(
-        reset: true,
-        showLoading: false,
-        preserveDataOnError: true,
-      );
+  Future<void> _refresh() =>
+      _load(reset: true, showLoading: false, preserveDataOnError: true);
 
   Future<void> _loadMore() => _load(reset: false);
 
@@ -211,7 +207,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       final auth = ref.read(authControllerProvider);
       final authenticated =
           _activityRightsAccess(auth) == _ActivityRightsAccess.ready;
-      final page = await ref.read(activityRepositoryProvider).listPage(
+      final page = await ref
+          .read(activityRepositoryProvider)
+          .listPage(
             authenticated: authenticated,
             cursor: reset ? '' : (_meta.nextCursor ?? ''),
           );
@@ -219,10 +217,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       setState(() {
         final mergedItems = reset
             ? page.items
-            : <ActivityItem>[
-                ..._items,
-                ...page.items,
-              ];
+            : <ActivityItem>[..._items, ...page.items];
         final sortedItems = _sortActivitiesByRights(
           mergedItems,
           authenticated: authenticated,
@@ -334,10 +329,10 @@ class _ActivityBrowseToolbar extends StatelessWidget {
           child: Text(
             l10n.activitiesBrowseCount(count),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: _activitiesPanelTitle,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
+              color: _activitiesPanelTitle,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
         const SizedBox(height: 9),
@@ -443,12 +438,12 @@ class _ActivityBrowseSegment extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: foreground,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: foreground,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                     ),
                   ],
@@ -527,10 +522,10 @@ class _ActivityHistoryLink extends StatelessWidget {
                   Text(
                     l10n.activitiesHistoryTitle,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: _activitiesMutedText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: _activitiesMutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -538,10 +533,10 @@ class _ActivityHistoryLink extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: _activitiesPanelTitle,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: _activitiesPanelTitle,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ],
               );
@@ -601,10 +596,10 @@ class _ActivityHistoryActionPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: _activitiesActionForeground(context),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    color: _activitiesActionForeground(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
@@ -670,10 +665,7 @@ class _ActivityStateSurface extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }
@@ -705,8 +697,9 @@ class _ActivitiesHistoryScreenState
     final queryGameId =
         GoRouterState.of(context).uri.queryParameters['game_id'] ?? '';
     final l10n = context.l10n;
-    final rightsAccess =
-        _activityRightsAccess(ref.watch(authControllerProvider));
+    final rightsAccess = _activityRightsAccess(
+      ref.watch(authControllerProvider),
+    );
     ref.listen<_ActivityRightsAccess>(
       authControllerProvider.select(_activityRightsAccess),
       (previous, next) {
@@ -792,11 +785,8 @@ class _ActivitiesHistoryScreenState
     );
   }
 
-  Future<void> _refresh() => _load(
-        reset: true,
-        showLoading: false,
-        preserveDataOnError: true,
-      );
+  Future<void> _refresh() =>
+      _load(reset: true, showLoading: false, preserveDataOnError: true);
 
   Future<void> _loadMore() => _load(reset: false);
 
@@ -838,7 +828,9 @@ class _ActivitiesHistoryScreenState
       final auth = ref.read(authControllerProvider);
       final authenticated =
           _activityRightsAccess(auth) == _ActivityRightsAccess.ready;
-      final page = await ref.read(activityRepositoryProvider).listPage(
+      final page = await ref
+          .read(activityRepositoryProvider)
+          .listPage(
             authenticated: authenticated,
             history: true,
             gameId: gameId,
@@ -848,10 +840,7 @@ class _ActivitiesHistoryScreenState
       setState(() {
         final mergedItems = reset
             ? page.items
-            : <ActivityItem>[
-                ..._items,
-                ...page.items,
-              ];
+            : <ActivityItem>[..._items, ...page.items];
         final sortedItems = _sortActivitiesByRights(
           mergedItems,
           authenticated: authenticated,
@@ -930,7 +919,8 @@ class _ActivityCardsRail extends StatelessWidget {
           children: [
             for (final child in children)
               SizedBox(
-                width: child is _ActivityInlineError ||
+                width:
+                    child is _ActivityInlineError ||
                         child is _ActivityLoadMoreButton
                     ? constraints.maxWidth
                     : itemWidth,
@@ -979,26 +969,17 @@ _ActivityRightsAccess _activityRightsAccess(AuthController auth) {
   return _ActivityRightsAccess.ready;
 }
 
-bool _redirectToActivityPinIfNeeded(
-  BuildContext context,
-  AuthController auth,
-) {
+bool _redirectToActivityPinIfNeeded(BuildContext context, AuthController auth) {
   if (_activityRightsAccess(auth) != _ActivityRightsAccess.pin) return false;
 
   final redirect = GoRouterState.of(context).uri.toString();
   context.go(
-    Uri(
-      path: '/pin',
-      queryParameters: {'redirect': redirect},
-    ).toString(),
+    Uri(path: '/pin', queryParameters: {'redirect': redirect}).toString(),
   );
   return true;
 }
 
-bool _hasActivityRightForSort(
-  ActivityItem activity, {
-  required bool history,
-}) {
+bool _hasActivityRightForSort(ActivityItem activity, {required bool history}) {
   if (activity.isCashback) return activity.hasRight;
   if (!activity.isLuckyBoard) return activity.hasRight;
   return (history || !activityEntryClosed(activity)) &&
@@ -1089,10 +1070,10 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
                 Text(
                   l10n.activitiesHistorySelectLabel,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: _activitiesMutedText,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    color: _activitiesMutedText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -1100,10 +1081,10 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: _activitiesPanelTitle,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    color: _activitiesPanelTitle,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             );
@@ -1116,27 +1097,19 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide(
-                    color: _activitiesNumberBorder,
-                  ),
+                  borderSide: BorderSide(color: _activitiesNumberBorder),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide(
-                    color: _activitiesNumberBorder,
-                  ),
+                  borderSide: BorderSide(color: _activitiesNumberBorder),
                 ),
                 disabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide(
-                    color: _activitiesNumberBorder,
-                  ),
+                  borderSide: BorderSide(color: _activitiesNumberBorder),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: BorderSide(
-                    color: _activitiesBrandColor(context),
-                  ),
+                  borderSide: BorderSide(color: _activitiesBrandColor(context)),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -1146,10 +1119,10 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
               ),
               hint: Text(l10n.activitiesHistoryNoGames),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: _activitiesPanelTitle,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
+                color: _activitiesPanelTitle,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
               items: [
                 for (final game in games)
                   DropdownMenuItem(
@@ -1167,11 +1140,7 @@ class _ActivityHistoryGameFilter extends StatelessWidget {
             if (compact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  copy,
-                  const SizedBox(height: 12),
-                  dropdown,
-                ],
+                children: [copy, const SizedBox(height: 12), dropdown],
               );
             }
 
@@ -1221,9 +1190,9 @@ class _ActivityLoadingCard extends StatelessWidget {
           message,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
@@ -1231,10 +1200,7 @@ class _ActivityLoadingCard extends StatelessWidget {
 }
 
 class _ActivityErrorCard extends StatelessWidget {
-  const _ActivityErrorCard({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ActivityErrorCard({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -1250,18 +1216,18 @@ class _ActivityErrorCard extends StatelessWidget {
           message,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 14),
         TextButton(
           onPressed: onRetry,
           style: TextButton.styleFrom(
             foregroundColor: colorScheme.primary,
-            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            textStyle: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
           ),
           child: Text(context.l10n.commonRetry),
         ),
@@ -1271,10 +1237,7 @@ class _ActivityErrorCard extends StatelessWidget {
 }
 
 class _ActivityInlineError extends StatelessWidget {
-  const _ActivityInlineError({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ActivityInlineError({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -1298,18 +1261,18 @@ class _ActivityInlineError extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: activityErrorForeground(colorScheme),
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: activityErrorForeground(colorScheme),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             TextButton(
               onPressed: onRetry,
               style: TextButton.styleFrom(
                 foregroundColor: colorScheme.primary,
-                textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
               ),
               child: Text(context.l10n.commonRetry),
             ),
@@ -1338,30 +1301,34 @@ class _ActivityLoadMoreButton extends StatelessWidget {
           width: 160,
           child: OutlinedButton(
             onPressed: loading ? null : onPressed,
-            style: OutlinedButton.styleFrom(
-              backgroundColor: _activitiesSurface,
-              disabledBackgroundColor: _activitiesOutlineDisabledBackground,
-              disabledForegroundColor: _activitiesOutlineDisabledText,
-              foregroundColor: AppTheme.primaryOutlineText(
-                Theme.of(context).colorScheme.primary,
-              ),
-              minimumSize: const Size(160, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              shape: const StadiumBorder(),
-              textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+            style:
+                OutlinedButton.styleFrom(
+                  backgroundColor: _activitiesSurface,
+                  disabledBackgroundColor: _activitiesOutlineDisabledBackground,
+                  disabledForegroundColor: _activitiesOutlineDisabledText,
+                  foregroundColor: AppTheme.primaryOutlineText(
+                    Theme.of(context).colorScheme.primary,
                   ),
-            ).copyWith(
-              side: WidgetStateProperty.resolveWith(
-                (states) => BorderSide(
-                  color: states.contains(WidgetState.disabled)
-                      ? _activitiesOutlineDisabledBorder
-                      : AppTheme.primaryOutlineBorder(
-                          Theme.of(context).colorScheme.primary,
-                        ),
+                  minimumSize: const Size(160, 40),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
+                  shape: const StadiumBorder(),
+                  textStyle: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                ).copyWith(
+                  side: WidgetStateProperty.resolveWith(
+                    (states) => BorderSide(
+                      color: states.contains(WidgetState.disabled)
+                          ? _activitiesOutlineDisabledBorder
+                          : AppTheme.primaryOutlineBorder(
+                              Theme.of(context).colorScheme.primary,
+                            ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
             child: Text(
               loading
                   ? context.l10n.commonLoadingMore
@@ -1392,18 +1359,18 @@ class _EmptyActivitiesCard extends StatelessWidget {
           l10n.activitiesEmptyTitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _activitiesCardTitle,
-                fontSize: 21,
-                fontWeight: FontWeight.w900,
-              ),
+            color: _activitiesCardTitle,
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           l10n.activitiesEmptyMessage,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: _activitiesSecondaryText,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: _activitiesSecondaryText),
         ),
       ],
     );
@@ -1418,28 +1385,24 @@ class _EmptyHistoryActivitiesCard extends StatelessWidget {
     final l10n = context.l10n;
     return _ActivityStateSurface(
       children: [
-        Icon(
-          Icons.history,
-          size: 38,
-          color: _activitiesBrandColor(context),
-        ),
+        Icon(Icons.history, size: 38, color: _activitiesBrandColor(context)),
         const SizedBox(height: 12),
         Text(
           l10n.activitiesHistoryEmptyTitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _activitiesCardTitle,
-                fontSize: 21,
-                fontWeight: FontWeight.w900,
-              ),
+            color: _activitiesCardTitle,
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           l10n.activitiesHistoryEmptyMessage,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: _activitiesSecondaryText,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: _activitiesSecondaryText),
         ),
         const SizedBox(height: 14),
         SizedBox(
@@ -1488,11 +1451,11 @@ class _ActivityCurrentLinkPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                  ),
                 ),
               ),
             ),
@@ -1554,7 +1517,7 @@ class _ActivityListCard extends StatelessWidget {
             overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             onTap: activity.slug.isEmpty
                 ? null
-                : () => context.go(detailUri.toString()),
+                : () => context.push(detailUri.toString()),
             child: LayoutBuilder(
               builder: (context, _) {
                 final viewportWidth = MediaQuery.sizeOf(context).width;
@@ -1594,13 +1557,13 @@ class _ActivityListCard extends StatelessWidget {
                         activityDisplayName(l10n, activity),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: _activitiesCardTitle,
-                                  fontSize: compact ? 17 : 18,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.3,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: _activitiesCardTitle,
+                              fontSize: compact ? 17 : 18,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                            ),
                       ),
                       const SizedBox(height: bodyGap),
                       Text(
@@ -1608,11 +1571,11 @@ class _ActivityListCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: _activitiesBodyText,
-                              fontSize: compact ? 13 : 14,
-                              fontWeight: FontWeight.w700,
-                              height: 1.5,
-                            ),
+                          color: _activitiesBodyText,
+                          fontSize: compact ? 13 : 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _ActivityRightsBadge(
@@ -1667,10 +1630,7 @@ class _ActivityListCard extends StatelessWidget {
 }
 
 class _ActivityNumberBadge extends StatelessWidget {
-  const _ActivityNumberBadge({
-    required this.label,
-    required this.compact,
-  });
+  const _ActivityNumberBadge({required this.label, required this.compact});
 
   final String label;
   final bool compact;
@@ -1689,8 +1649,10 @@ class _ActivityNumberBadge extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 32),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1706,11 +1668,11 @@ class _ActivityNumberBadge extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: _activitiesNumberText,
-                              fontSize: compact ? 12 : 13,
-                              fontWeight: FontWeight.w900,
-                              height: 1,
-                            ),
+                          color: _activitiesNumberText,
+                          fontSize: compact ? 12 : 13,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
                       ),
                     ),
                   ],
@@ -1737,8 +1699,9 @@ class _ActivityDeadlinePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background =
-        closed ? _activitiesClosedBackground : _activitiesDeadlineBackground;
+    final background = closed
+        ? _activitiesClosedBackground
+        : _activitiesDeadlineBackground;
     final border = closed ? _activitiesClosedBorder : _activitiesDeadlineBorder;
     final foreground = closed ? _activitiesClosedText : _activitiesDeadlineText;
 
@@ -1754,8 +1717,10 @@ class _ActivityDeadlinePill extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 32),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1767,11 +1732,11 @@ class _ActivityDeadlinePill extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: foreground,
-                              fontSize: compact ? 12 : 13,
-                              fontWeight: FontWeight.w900,
-                              height: 1,
-                            ),
+                          color: foreground,
+                          fontSize: compact ? 12 : 13,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
                       ),
                     ),
                   ],
@@ -1786,10 +1751,7 @@ class _ActivityDeadlinePill extends StatelessWidget {
 }
 
 class _ActivityTypeBadge extends StatelessWidget {
-  const _ActivityTypeBadge({
-    required this.label,
-    required this.compact,
-  });
+  const _ActivityTypeBadge({required this.label, required this.compact});
 
   final String label;
   final bool compact;
@@ -1810,11 +1772,11 @@ class _ActivityTypeBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: _activitiesActionForeground(context),
-                  fontSize: compact ? 12 : 13,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
+              color: _activitiesActionForeground(context),
+              fontSize: compact ? 12 : 13,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
           ),
         ),
       ),
@@ -1837,30 +1799,30 @@ class _ActivityRightsBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = switch (state) {
       'available' => (
-          background: _activitiesSuccessBackground,
-          foreground: _activitiesSuccessText,
-          icon: Icons.check_circle,
-        ),
+        background: _activitiesSuccessBackground,
+        foreground: _activitiesSuccessText,
+        icon: Icons.check_circle,
+      ),
       'used' => (
-          background: _activitiesUsedBackground,
-          foreground: _activitiesUsedText,
-          icon: Icons.check_circle_outline,
-        ),
+        background: _activitiesUsedBackground,
+        foreground: _activitiesUsedText,
+        icon: Icons.check_circle_outline,
+      ),
       'closed' => (
-          background: _activitiesClosedBadgeBackground,
-          foreground: _activitiesClosedText,
-          icon: Icons.access_time_filled,
-        ),
+        background: _activitiesClosedBadgeBackground,
+        foreground: _activitiesClosedText,
+        icon: Icons.access_time_filled,
+      ),
       'guest' || 'pin' => (
-          background: _activitiesNeutralBackground,
-          foreground: _activitiesSecondaryText,
-          icon: Icons.lock,
-        ),
+        background: _activitiesNeutralBackground,
+        foreground: _activitiesSecondaryText,
+        icon: Icons.lock,
+      ),
       _ => (
-          background: _activitiesNeutralBackground,
-          foreground: _activitiesSecondaryText,
-          icon: Icons.info,
-        ),
+        background: _activitiesNeutralBackground,
+        foreground: _activitiesSecondaryText,
+        icon: Icons.info,
+      ),
     };
     return Row(
       children: [
@@ -1885,11 +1847,11 @@ class _ActivityRightsBadge extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colors.foreground,
-                              fontSize: compact ? 12 : 13,
-                              fontWeight: FontWeight.w900,
-                              height: 1.2,
-                            ),
+                          color: colors.foreground,
+                          fontSize: compact ? 12 : 13,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
                       ),
                     ),
                   ],

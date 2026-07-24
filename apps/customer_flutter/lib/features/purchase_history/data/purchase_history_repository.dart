@@ -2,17 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'purchase_history_models.dart';
 
-final purchaseHistoryRepositoryProvider =
-    Provider<PurchaseHistoryRepository>((ref) {
+final purchaseHistoryRepositoryProvider = Provider<PurchaseHistoryRepository>((
+  ref,
+) {
   return PurchaseHistoryRepository(ref.watch(apiClientProvider));
 });
 
-final purchaseHistoryDetailProvider =
-    FutureProvider.autoDispose.family<PurchaseHistoryOrder, String>(
-  (ref, id) async => ref.watch(purchaseHistoryRepositoryProvider).detail(id),
-);
+final purchaseHistoryDetailProvider = FutureProvider.autoDispose
+    .family<PurchaseHistoryOrder, String>((ref, id) async {
+      ref.keepForCustomerNavigation();
+      return ref.watch(purchaseHistoryRepositoryProvider).detail(id);
+    });
 
 class PurchaseHistoryRepository {
   const PurchaseHistoryRepository(this._api);

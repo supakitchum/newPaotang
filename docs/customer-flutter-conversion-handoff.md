@@ -10885,9 +10885,18 @@ iOS app-wide capture protection and forced relaunch (2026-07-24):
 
 PIN biometric prompt timing (2026-07-24):
 
-- Automatic Face ID/Biometric unlock now waits two seconds after the PIN screen
+- Automatic Face ID/Biometric unlock now waits one second after the PIN screen
   is rendered and the authoritative PIN status is ready, allowing the customer
   to see the PIN UI before the native prompt appears.
+- PIN biometric timing is now lifecycle-aware. A prompt scheduled while the
+  app becomes inactive, hidden, or paused is cancelled instead of being
+  attempted in the background, then re-armed after the app resumes. This
+  covers notification launches and returning after a long suspension.
+- Resume scheduling no longer nests post-frame callbacks. The old nested
+  callback could wait forever when Flutter had no additional frame to render,
+  which caused intermittent missing Face ID prompts. Lifecycle transitions
+  caused by an already-active native biometric prompt remain excluded so the
+  prompt does not loop.
 - Leaving the PIN screen cancels the pending prompt. Starting to enter a PIN
   during the delay keeps the keypad flow active and suppresses the automatic
   biometric request for that visit.
@@ -10899,3 +10908,142 @@ PIN biometric prompt timing (2026-07-24):
   a definitive `errSecItemNotFound`. Temporary protected-data or interaction
   statuses preserve the registered credential for the authenticated signing
   attempt instead of intermittently disabling automatic Face ID.
+- The lifecycle regression simulating pause, resume, one-second delay, and a
+  second pause/resume cycle passed. The complete screen-security suite passed
+  38 tests, focused analysis reported no issues, and `git diff --check`
+  passed. A production-configured iOS release was built, installed, and
+  launched on the connected Dank12 device. No database, commit, push, or
+  clear-worktree action was performed.
+
+Shared status bar and title-only headers (2026-07-24):
+
+- The native status bar is transparent and no longer has a separate solid-color
+  Flutter overlay. Clock/battery contrast still follows the effective PIN or
+  themed blue background, while the page's real header artwork continues
+  behind the safe area.
+- Shared AppShell header titles now use the same 22px, weight-700 treatment as
+  `สลากฯ ของฉัน`, including compact history, claims, Support, and profile
+  routes. Activity reward claim history therefore uses the standard runtime
+  blue header continuously through the top safe area.
+- Reward payout account now uses the standard compact title-only header. Its
+  former icon, duplicate hero title, and hero subtitle were removed.
+- Focused AppShell, CustomerApp status-bar smoke, PIN status-bar, activity
+  claims, and reward-bank operational tests passed. Full Flutter analysis and
+  `git diff --check` passed; the production-configured iOS release was built,
+  installed, and launched on the connected Dank12 device. No database,
+  commit, push, or clear-worktree action was performed.
+
+Affiliate navigation and referral sharing (2026-07-24):
+
+- The five-item Affiliate navbar no longer adds a second iOS bottom safe-area
+  below its fixed 82px surface, so the bar and its raised center referral action
+  sit against the bottom edge consistently with the customer navbar.
+- The referral page now has a full-width social-share action below the copyable
+  URL. It passes localized referral copy and the API-provided tenant URL to the
+  native iOS/Android share sheet or the supported Web share flow, allowing the
+  customer to choose installed social apps without hardcoded provider URLs.
+  Share failure retains a clipboard fallback.
+- All six Affiliate screen regressions passed, including an iPhone bottom-inset
+  layout assertion and an injected share-service contract check. Full Flutter
+  analysis and `git diff --check` passed, and the production-configured iOS
+  release was installed and launched on Dank12. No database, commit, push, or
+  clear-worktree action was performed.
+
+Biometric cold-start recovery and stable splash (2026-07-24):
+
+- The intermittent cold-start failure was traced on the connected iPhone to a
+  missing `customer_flutter_biometric_device_id` after a development reinstall.
+  The Secure Enclave key and its server registration are separate from that
+  identifier, so the old local-only `UserDefaults` lookup incorrectly disabled
+  automatic Face ID before attempting a challenge.
+- iOS now persists the biometric device ID in Keychain as well as the legacy
+  `UserDefaults` mirror. Android exposes the equivalent native key-presence and
+  ID-restore bridge for parity. Explicit biometric removal clears the key and
+  both iOS ID stores.
+- When a PIN gate finds a native biometric key but its device ID is missing,
+  Flutter reads the customer's existing biometric devices from the authenticated
+  API and restores the ID only when there is exactly one active device for the
+  current platform. The backend challenge and signature verification remain
+  mandatory, so recovery cannot bypass PIN or bind an unproven private key.
+- Recovery was observed on Dank12 after a release install: the missing iOS
+  device ID was restored to the app preferences from the active API record.
+  The final release was installed with `devicectl` as an in-place app update so
+  the test app container was not cleared again.
+- The Flutter splash now freezes its first-frame color scheme for its full
+  lifetime. Its surface, status/navigation bars, loader, product mark, and
+  yellow accent no longer repaint when runtime bootstrap changes the app theme.
+  The runtime identity occupies a fixed-height slot and enters without moving
+  the center content, while the solid base matches the native iOS launch color.
+- Focused biometric, splash, PIN lifecycle, and screen-security verification
+  passed 91 tests. Focused analysis reported no issues, `git diff --check`
+  passed, and the production-configured iOS release compiled, installed, and
+  launched on the connected Dank12 device. No database, commit, push, or
+  clear-worktree action was performed.
+
+State-preserving back navigation and read caching (2026-07-24):
+
+- Customer drill-in navigation now uses the GoRouter push/pop stack across
+  Home, Buy/Search/Cart/Checkout, Stores, Activities, News, Tickets, Wallet,
+  Topup, Claims, Profile links, Notifications, Support, and purchase history.
+  Pressing the shared back action therefore restores the mounted parent page,
+  including its scroll position and loaded state, instead of routing to a new
+  copy of that page.
+- Direct URL/deep-link entry still uses each route family's fallback back
+  destination. A root tab reached through a pushed flow now exposes a back
+  action, while the same root tab opened directly or from BottomNav remains a
+  root without one.
+- Auto-disposed read providers now retain successful navigation data for a
+  three-minute idle window without background timers. Reopening within that
+  window avoids the initial loading surface and duplicate GET; reopening after
+  the window refreshes the provider. Explicit refresh, mutation invalidation,
+  auth changes, and realtime invalidation continue to fetch immediately.
+- The cache applies only to read providers. POST/PATCH/delete, checkout,
+  reservation, claim, topup, and Support message actions are neither cached nor
+  replayed by navigation.
+- Backend review found named limits on selected write surfaces, including
+  Affiliate customer writes at 20 requests per minute. General customer GET
+  routes currently have no named application throttle, but redundant reads
+  still increase latency and infrastructure load, and an expired access token
+  can add a refresh plus retry. Reducing navigation-driven GETs therefore lowers
+  both current load and future proxy/rate-limit exposure.
+- The focused navigation, provider-cache, revenue, Tickets, Wallet, Topup,
+  Support, Activities, Claims, News, and Store suite passed 168 tests. Full
+  Flutter analysis reported no issues. A production-configured iOS release
+  using the existing native production API origin was rebuilt, installed
+  in-place, launched, and observed running on the connected Dank12 device. No
+  runtime database, commit, push, or clear-worktree action was performed.
+
+Profile Support entry visibility (2026-07-24):
+
+- The Help Center entry no longer disappears silently from Profile when the
+  tenant disables `customer_support`. The menu remains visible; enabled tenants
+  open `/support`, while disabled tenants receive the localized
+  `ศูนย์ช่วยเหลือยังไม่เปิดให้บริการ` alert without bypassing route policy.
+- The connected production bootstrap currently returns
+  `customer_support: false`, which was the reason the menu disappeared after
+  switching the native build to the production API. No production/runtime
+  feature flag or database value was changed.
+- All six Profile screen regressions and focused analysis passed. The
+  production-configured iOS release was rebuilt, installed in-place, launched,
+  and observed running on Dank12.
+
+Support queued-ticket chat gate (2026-07-24):
+
+- Customer FAQ search/accordion and Ticket creation remain available whenever
+  the tenant Support feature is enabled, even when no Support agent is
+  Available. The issue submitted with the Ticket is preserved as its first
+  message and the request remains in the FIFO queue.
+- Queued Tickets now expose `chat_available: false`. Flutter shows the existing
+  conversation and queue state but replaces the composer with a waiting panel.
+  Realtime or polling automatically opens the composer when an agent accepts
+  the Ticket.
+- Support API rejects queued or unassigned customer messages with
+  `ticket_waiting_for_agent` inside the locked write transaction. This prevents
+  stale clients from bypassing the UI gate. Closed Tickets remain read-only.
+- The localized default welcome message now tells the customer to wait for an
+  agent instead of incorrectly inviting more queued messages. Tenant runtime
+  copy can still override this message.
+- Focused Flutter Support tests passed 11 cases. Isolated Support API tests
+  passed 21 cases with 159 assertions against the verified
+  `newpaotang_support_test` database. No runtime database, commit, push, or
+  clear-worktree action was performed.

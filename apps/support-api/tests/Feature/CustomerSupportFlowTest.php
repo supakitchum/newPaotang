@@ -284,6 +284,7 @@ class CustomerSupportFlowTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('ticket.subject', $payload['subject'])
             ->assertJsonPath('ticket.queue_position', 1)
+            ->assertJsonPath('ticket.chat_available', false)
             ->assertJsonPath('existing', false);
 
         $ticketId = $first->json('ticket.id');
@@ -309,8 +310,55 @@ class CustomerSupportFlowTest extends TestCase
             'sequence' => 2,
             'sender_type' => 'system',
             'message_type' => 'system',
-            'body' => 'ยินดีต้อนรับสู่ศูนย์ช่วยเหลือ เราได้รับเรื่องของคุณแล้ว ขณะนี้คุณอยู่ในคิวลำดับที่ 1 คุณสามารถส่งรายละเอียดเพิ่มเติมระหว่างรอเจ้าหน้าที่ได้',
+            'body' => 'ยินดีต้อนรับสู่ศูนย์ช่วยเหลือ เราได้รับเรื่องของคุณแล้ว ขณะนี้คุณอยู่ในคิวลำดับที่ 1 โปรดรอเจ้าหน้าที่รับงานก่อนเริ่มสนทนา',
         ]);
+    }
+
+    public function test_customer_chat_is_locked_until_an_agent_accepts_the_ticket(): void
+    {
+        $customer = $this->supportToken('customer', 'customer-queued-chat');
+        $ticketId = $this->withHeaders($this->supportHeaders($customer, 'queued-chat-ticket'))
+            ->postJson('/v1/customer/tickets', [
+                'subject' => 'ต้องการรอเจ้าหน้าที่',
+                'message' => 'รายละเอียดที่ส่งพร้อม Ticket',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('ticket.status', 'queued')
+            ->assertJsonPath('ticket.chat_available', false)
+            ->json('ticket.id');
+
+        $this->withHeaders($this->supportHeaders($customer, 'queued-chat-message'))
+            ->postJson('/v1/customer/tickets/'.$ticketId.'/messages', [
+                'body' => 'ข้อความนี้ต้องรอให้เจ้าหน้าที่รับงานก่อน',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'ticket_waiting_for_agent');
+        $this->assertDatabaseCount('support_messages', 2);
+
+        $agent = $this->supportToken('admin', 'support-queued-chat', permissions: [
+            'support_ticket.view_assigned',
+            'support_ticket.reply_assigned',
+            'support_ticket.close_assigned',
+        ]);
+        $this->withHeaders($this->supportHeaders($agent, 'queued-chat-agent-available'))
+            ->putJson('/v1/admin/agent-state', [
+                'available' => true,
+                'capacity' => 1,
+            ])
+            ->assertOk();
+
+        $this->withHeaders($this->supportHeaders($customer))
+            ->getJson('/v1/customer/tickets/'.$ticketId)
+            ->assertOk()
+            ->assertJsonPath('ticket.status', 'assigned')
+            ->assertJsonPath('ticket.chat_available', true);
+
+        $this->withHeaders($this->supportHeaders($customer, 'assigned-chat-message'))
+            ->postJson('/v1/customer/tickets/'.$ticketId.'/messages', [
+                'body' => 'ส่งได้หลังเจ้าหน้าที่รับงาน',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('message.body', 'ส่งได้หลังเจ้าหน้าที่รับงาน');
     }
 
     public function test_ticket_welcome_message_uses_tenant_runtime_content(): void

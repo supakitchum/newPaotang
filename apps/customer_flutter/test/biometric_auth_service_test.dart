@@ -88,6 +88,102 @@ void main() {
   );
 
   test(
+    'biometric recovers a missing local device id from one active iOS device',
+    () async {
+      final calls = <MethodCall>[];
+      var restoredDeviceId = '';
+      const channel = MethodChannel(
+        'test/biometric_keys/recover_missing_device_id',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            switch (call.method) {
+              case 'existingDeviceId':
+                return restoredDeviceId.isEmpty ? null : restoredDeviceId;
+              case 'hasExistingKeyPair':
+                return true;
+              case 'restoreDeviceId':
+                restoredDeviceId =
+                    (call.arguments as Map)['deviceId']?.toString() ?? '';
+                return true;
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+      final api = _BiometricDeviceRecoveryApiClient([
+        {
+          'device_id': 'ios-device-restored',
+          'platform': 'ios',
+          'status': 'active',
+        },
+        {'device_id': 'old-ios-device', 'platform': 'ios', 'status': 'revoked'},
+        {
+          'device_id': 'android-device',
+          'platform': 'android',
+          'status': 'active',
+        },
+      ]);
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(
+          biometrics: const [BiometricType.face],
+        ),
+        keyChannel: channel,
+        targetPlatform: TargetPlatform.iOS,
+      );
+
+      expect(await service.canUnlockCurrentDevice(), isTrue);
+      expect(restoredDeviceId, 'ios-device-restored');
+      expect(api.paths, ['/customer/auth/biometric/devices']);
+      expect(calls.map((call) => call.method), [
+        'existingDeviceId',
+        'hasExistingKeyPair',
+        'restoreDeviceId',
+        'existingDeviceId',
+      ]);
+    },
+  );
+
+  test(
+    'biometric does not guess a missing device id when iOS devices are ambiguous',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel(
+        'test/biometric_keys/ambiguous_missing_device_id',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'hasExistingKeyPair') return true;
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+      final api = _BiometricDeviceRecoveryApiClient([
+        {'device_id': 'ios-device-one', 'platform': 'ios', 'status': 'active'},
+        {'device_id': 'ios-device-two', 'platform': 'ios', 'status': 'active'},
+      ]);
+      final service = BiometricAuthService(
+        api,
+        localAuth: _AvailableLocalAuthentication(
+          biometrics: const [BiometricType.face],
+        ),
+        keyChannel: channel,
+        targetPlatform: TargetPlatform.iOS,
+      );
+
+      expect(await service.canUnlockCurrentDevice(), isFalse);
+      expect(calls.where((call) => call.method == 'restoreDeviceId'), isEmpty);
+    },
+  );
+
+  test(
     'biometric currentDeviceId accepts credential id wrapper aliases',
     () async {
       final calls = <MethodCall>[];
@@ -1828,6 +1924,34 @@ class _BiometricAssertionApiClient extends ApiClient {
     return Response<T>(
       requestOptions: RequestOptions(path: path),
       data: response as T,
+    );
+  }
+}
+
+class _BiometricDeviceRecoveryApiClient extends ApiClient {
+  _BiometricDeviceRecoveryApiClient(this.devices)
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'en-US',
+        ),
+        AuthTokenStore(),
+        localeTag: 'en-US',
+      );
+
+  final List<Map<String, dynamic>> devices;
+  final paths = <String>[];
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    paths.add(path);
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: <String, dynamic>{'data': devices} as T,
     );
   }
 }

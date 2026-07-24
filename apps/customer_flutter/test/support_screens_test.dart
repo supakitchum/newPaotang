@@ -176,7 +176,7 @@ void main() {
   ) async {
     final repository = _SupportScreenRepository(
       bootstrapValue: _bootstrap(),
-      ticketValue: _ticket(),
+      ticketValue: _ticket(status: 'assigned'),
     );
 
     await _pumpSupportApp(
@@ -194,6 +194,39 @@ void main() {
     expect(repository.sendMessageCalls, 1);
     expect(repository.lastSentBody, 'Hello support');
     expect(tester.widget<TextField>(composer).controller!.text, isEmpty);
+  });
+
+  testWidgets('queued ticket stays readable but hides the chat composer', (
+    tester,
+  ) async {
+    final repository = _SupportScreenRepository(
+      bootstrapValue: _bootstrap(),
+      ticketValue: _ticket(),
+      messagesValue: [
+        SupportMessage(
+          id: 'msg_initial',
+          sequence: 1,
+          senderType: 'customer',
+          senderName: 'Customer',
+          body: 'Please review my payment.',
+          attachments: const [],
+          createdAt: DateTime(2026, 7, 23, 10),
+          readByCounterpart: false,
+        ),
+      ],
+    );
+
+    await _pumpSupportApp(
+      tester,
+      repository,
+      initialLocation: '/support/tickets/stk_1',
+    );
+
+    expect(find.text('Please review my payment.'), findsOneWidget);
+    expect(find.text('Your request is in the queue'), findsOneWidget);
+    expect(find.byKey(const ValueKey('support-chat-composer')), findsNothing);
+    expect(find.byIcon(Icons.send_rounded), findsNothing);
+    expect(repository.sendMessageCalls, 0);
   });
 }
 
@@ -281,6 +314,7 @@ SupportTicket _ticket({
     categoryName: 'Order issue',
     subject: subject,
     status: status,
+    chatAvailable: status != 'queued' && status != 'closed',
     lastMessage: 'Please review my payment.',
     unreadCount: 1,
     queuePosition: status == 'queued' ? 2 : null,

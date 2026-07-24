@@ -3,17 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/provider_cache.dart';
 import 'profile_settings_models.dart';
 
-final profileSettingsRepositoryProvider =
-    Provider<ProfileSettingsRepository>((ref) {
+final profileSettingsRepositoryProvider = Provider<ProfileSettingsRepository>((
+  ref,
+) {
   return ProfileSettingsRepository(ref.watch(apiClientProvider));
 });
 
 final customerProfileSettingsProvider =
     FutureProvider.autoDispose<CustomerProfileSettings>((ref) async {
-  return ref.watch(profileSettingsRepositoryProvider).load();
-});
+      ref.keepForCustomerNavigation();
+      return ref.watch(profileSettingsRepositoryProvider).load();
+    });
 
 class ProfileSettingsRepository {
   const ProfileSettingsRepository(this._api);

@@ -83,6 +83,9 @@ class SupportPresenter
                 : $this->category($category, (string) ($viewer->claims['locale'] ?? 'th-TH')),
             'subject' => (string) $ticket->subject,
             'status' => (string) $ticket->status,
+            'chat_available' => $ticket->status !== 'closed'
+                && $ticket->status !== 'queued'
+                && $ticket->assigned_admin_actor_id !== null,
             'priority' => (int) $ticket->priority,
             'last_message_preview' => (string) ($ticket->last_message_preview ?? ''),
             'latest_sequence' => (int) $ticket->latest_sequence,

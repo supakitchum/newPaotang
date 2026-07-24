@@ -122,7 +122,7 @@ class NewsSideCard extends ConsumerWidget {
   Future<void> _openNews(BuildContext context, WidgetRef ref) async {
     final internalPath = newsInternalPath(item);
     if (internalPath != null) {
-      context.go(internalPath);
+      context.push(internalPath);
       return;
     }
 

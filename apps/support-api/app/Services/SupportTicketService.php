@@ -90,6 +90,12 @@ class SupportTicketService
             if ($locked->status === 'closed') {
                 throw new RuntimeException('ticket_closed');
             }
+            if (
+                $context->isCustomer()
+                && ($locked->status === 'queued' || $locked->assigned_admin_actor_id === null)
+            ) {
+                throw new RuntimeException('ticket_waiting_for_agent');
+            }
             $message = $this->appendMessage($locked, $context, trim($body), $files);
             if ($context->isAdmin()) {
                 $locked->status = 'in_progress';

@@ -107,10 +107,7 @@ void main() {
     final router = GoRouter.of(tester.element(find.byType(TicketsScreen)));
     await tester.tap(searchAction);
     await tester.pumpAndSettle();
-    expect(
-      router.routerDelegate.currentConfiguration.uri.path,
-      '/tickets/search',
-    );
+    expect(router.canPop(), isTrue);
     expect(find.byType(TicketsSearchScreen), findsOneWidget);
     expect(
       find.byKey(const ValueKey('ticket-search-digit-inputs')),

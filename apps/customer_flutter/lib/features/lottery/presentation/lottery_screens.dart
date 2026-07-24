@@ -85,7 +85,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
             : _CartSelectionDock(
                 cart: _cart,
                 onReview: _cartSelectionReviewEnabled(_cart)
-                    ? () => context.go('/cart')
+                    ? () => context.push('/cart')
                     : null,
               ),
         children: [
@@ -131,7 +131,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
   }
 
   void _goSearch() {
-    context.go('/buy/search');
+    context.push('/buy/search');
   }
 
   Future<CurrentGame?> _loadCurrentGame() async {
@@ -173,15 +173,10 @@ List<String> _queryDigits(Map<String, String> query) {
       growable: false,
     );
   }
-  return List.generate(
-    6,
-    (index) {
-      final value =
-          (query['d${index + 1}'] ?? '').replaceAll(RegExp(r'\D'), '');
-      return value.isEmpty ? '' : value.substring(0, 1);
-    },
-    growable: false,
-  );
+  return List.generate(6, (index) {
+    final value = (query['d${index + 1}'] ?? '').replaceAll(RegExp(r'\D'), '');
+    return value.isEmpty ? '' : value.substring(0, 1);
+  }, growable: false);
 }
 
 bool _queryHasLotterySearchInput(Map<String, String> query) {
@@ -269,7 +264,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
             : _CartSelectionDock(
                 cart: _cart,
                 onReview: _cartSelectionReviewEnabled(_cart)
-                    ? () => context.go('/cart')
+                    ? () => context.push('/cart')
                     : null,
               ),
         children: [
@@ -441,7 +436,7 @@ class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
             : _CartSelectionDock(
                 cart: _cart,
                 onReview: _cartSelectionReviewEnabled(_cart)
-                    ? () => context.go('/cart')
+                    ? () => context.push('/cart')
                     : null,
               ),
         children: [
@@ -503,11 +498,11 @@ class _LotteryMoreSummaryHeader extends StatelessWidget {
               child: Text(
                 l10n.lotteryMoreSheetTitle,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
+                  color: colorScheme.onSurface,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -527,21 +522,21 @@ class _LotteryMoreSummaryHeader extends StatelessWidget {
             Text(
               l10n.lotteryMoreNumberPrefix,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w400,
-                    height: 1.25,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+                height: 1.25,
+              ),
             ),
             Text(
               displayNumber.isEmpty ? l10n.lotteryMoreFallback : displayNumber,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                    letterSpacing: 1,
-                  ),
+                color: colorScheme.primary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+                letterSpacing: 1,
+              ),
             ),
           ],
         ),
@@ -575,13 +570,7 @@ class _LotteryMoreCloseButton extends StatelessWidget {
             onTap: onClose,
             child: SizedBox.square(
               dimension: 44,
-              child: Center(
-                child: Icon(
-                  Icons.close,
-                  color: color,
-                  size: 34,
-                ),
-              ),
+              child: Center(child: Icon(Icons.close, color: color, size: 34)),
             ),
           ),
         ),
@@ -643,16 +632,14 @@ List<CartTicketGroup> groupCartReservationsByNumber(
       group.items.add(item);
       group.reservations.add(reservation);
       if (reservation.id.isNotEmpty &&
-          !group.reservationIds.contains(
-            reservation.id,
-          )) {
+          !group.reservationIds.contains(reservation.id)) {
         group.reservationIds.add(reservation.id);
       }
     }
   }
-  return groups.values.map((group) => group.toCartTicketGroup()).toList(
-        growable: false,
-      );
+  return groups.values
+      .map((group) => group.toCartTicketGroup())
+      .toList(growable: false);
 }
 
 class _MutableCartTicketGroup {
@@ -725,17 +712,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     });
 
     final l10n = context.l10n;
-    final productMarker = ref.watch(mobileBootstrapProvider).maybeWhen(
+    final productMarker = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(
           data: (bootstrap) => bootstrap.lotteryProductLabel.trim(),
           orElse: () => '',
         );
     final groupedTickets = groupCartReservationsByNumber(_cart.reservations);
     final paymentDeadline = earliestActiveReservation(_cart.reservations);
     final drawDateLabel = _lotteryDrawDateLabel(l10n, _currentGame);
-    final paymentExpired = paymentDeadline != null &&
-        reservationDeadlineExpired(
-          paymentDeadline,
-        );
+    final paymentExpired =
+        paymentDeadline != null && reservationDeadlineExpired(paymentDeadline);
     final canCheckout =
         _cart.reservationIds.isNotEmpty && !paymentExpired && !_busy;
     return AppShell(
@@ -754,19 +741,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       ),
       child: _CartReviewDockedPage(
         physics: const AlwaysScrollableScrollPhysics(),
-        dockLeading: (!_loading &&
+        dockLeading:
+            (!_loading &&
                 _error.isEmpty &&
                 !(_cart.isEmpty || groupedTickets.isEmpty))
             ? _CartAddMoreButton(onAddMore: () => context.go('/buy'))
             : null,
-        dock: (!_loading &&
+        dock:
+            (!_loading &&
                 _error.isEmpty &&
                 !(_cart.isEmpty || groupedTickets.isEmpty))
             ? _CartPaymentDock(
                 total: _cart.total,
                 deadline: paymentDeadline,
                 canCheckout: canCheckout,
-                onCheckout: () => context.go('/checkout'),
+                onCheckout: () => context.push('/checkout'),
               )
             : null,
         children: [
@@ -900,9 +889,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     try {
       var cart = _cart;
       for (final reservationId in group.reservationIds) {
-        cart = await ref.read(lotteryRepositoryProvider).releaseReservation(
-              reservationId,
-            );
+        cart = await ref
+            .read(lotteryRepositoryProvider)
+            .releaseReservation(reservationId);
       }
       if (!mounted) return;
       setState(() {
@@ -914,8 +903,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       }
     } catch (error) {
       if (!mounted) return;
-      final operationalRedirect =
-          ApiErrorInfo.fromObject(error).operationalRedirectPath;
+      final operationalRedirect = ApiErrorInfo.fromObject(
+        error,
+      ).operationalRedirectPath;
       if (operationalRedirect != null && dialogContext.mounted) {
         Navigator.of(dialogContext).pop();
       }
@@ -987,9 +977,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
     try {
       for (final reservationId in reservationIds) {
-        await ref.read(lotteryRepositoryProvider).releaseReservation(
-              reservationId,
-            );
+        await ref
+            .read(lotteryRepositoryProvider)
+            .releaseReservation(reservationId);
       }
     } catch (error) {
       if (mounted &&
@@ -1077,10 +1067,10 @@ class _CartHeaderSummary extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: titleColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: titleColor,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           if (drawDateLabel.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -1089,9 +1079,9 @@ class _CartHeaderSummary extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: subtitleColor,
-                    fontWeight: FontWeight.w400,
-                  ),
+                color: subtitleColor,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ] else if (empty) ...[
             const SizedBox(height: 4),
@@ -1100,9 +1090,9 @@ class _CartHeaderSummary extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: subtitleColor,
-                    fontWeight: FontWeight.w400,
-                  ),
+                color: subtitleColor,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ],
@@ -1112,19 +1102,13 @@ class _CartHeaderSummary extends StatelessWidget {
     if (!onHero) return summary;
     return Align(
       alignment: Alignment.topLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: summary,
-      ),
+      child: Padding(padding: const EdgeInsets.only(top: 4), child: summary),
     );
   }
 }
 
 class _CartEmptySheetState extends StatelessWidget {
-  const _CartEmptySheetState({
-    required this.title,
-    required this.message,
-  });
+  const _CartEmptySheetState({required this.title, required this.message});
 
   final String title;
   final String message;
@@ -1139,21 +1123,21 @@ class _CartEmptySheetState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppTheme.appMuted,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: AppTheme.appMuted,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.appMuted,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                ),
+              color: AppTheme.appMuted,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
           ),
         ],
       ),
@@ -1162,9 +1146,7 @@ class _CartEmptySheetState extends StatelessWidget {
 }
 
 class _CartPurchaseLimitNotice extends StatelessWidget {
-  const _CartPurchaseLimitNotice({
-    required this.onAddMore,
-  });
+  const _CartPurchaseLimitNotice({required this.onAddMore});
 
   final VoidCallback onAddMore;
 
@@ -1192,11 +1174,11 @@ class _CartPurchaseLimitMessage extends StatelessWidget {
         context.l10n.cartPurchaseLimitMessage,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.appMuted,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              height: 1.45,
-            ),
+          color: AppTheme.appMuted,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          height: 1.45,
+        ),
       ),
     );
   }
@@ -1215,29 +1197,30 @@ class _CartAddMoreButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [
-              AppTheme.appGreenPillStart,
-              AppTheme.appGreenPillEnd,
-            ],
+            colors: [AppTheme.appGreenPillStart, AppTheme.appGreenPillEnd],
           ),
           borderRadius: BorderRadius.circular(999),
         ),
         child: FilledButton.icon(
           onPressed: onAddMore,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            foregroundColor: AppTheme.appSheet,
-            shadowColor: Colors.transparent,
-            minimumSize: const Size(0, 47),
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-            shape: const StadiumBorder(),
-            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          style:
+              FilledButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: AppTheme.appSheet,
+                shadowColor: Colors.transparent,
+                minimumSize: const Size(0, 47),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
+                shape: const StadiumBorder(),
+                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                 ),
-          ).copyWith(
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          ),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
           icon: const Icon(Icons.add, size: 22),
           label: Text(l10n.cartAddMoreTickets),
         ),
@@ -1313,12 +1296,15 @@ class _CartRemoveConfirmationDialog extends StatelessWidget {
                       height: 54,
                       child: OutlinedButton(
                         onPressed: removing ? null : onCancel,
-                        style: _lotteryOutlinePillButtonStyle(
-                          context,
-                          enabled: !removing,
-                        ).copyWith(
-                          textStyle: WidgetStatePropertyAll(actionTextStyle),
-                        ),
+                        style:
+                            _lotteryOutlinePillButtonStyle(
+                              context,
+                              enabled: !removing,
+                            ).copyWith(
+                              textStyle: WidgetStatePropertyAll(
+                                actionTextStyle,
+                              ),
+                            ),
                         child: Text(l10n.commonCancel),
                       ),
                     ),
@@ -1401,11 +1387,11 @@ class _CartPaymentDock extends StatelessWidget {
                   child: Text(
                     l10n.checkoutSummaryTotal,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1421,13 +1407,12 @@ class _CartPaymentDock extends StatelessWidget {
                         amount,
                         key: const ValueKey('cart-payment-dock-amount'),
                         textAlign: TextAlign.end,
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1,
-                                ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: colorScheme.primary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
                       ),
                       if (bahtUnit.isNotEmpty) ...[
                         const SizedBox(width: 4),
@@ -1435,13 +1420,13 @@ class _CartPaymentDock extends StatelessWidget {
                           bahtUnit,
                           key: const ValueKey('cart-payment-dock-unit'),
                           textAlign: TextAlign.end,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.1,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                height: 1.1,
+                              ),
                         ),
                       ],
                     ],
@@ -1489,10 +1474,7 @@ String checkoutSuccessPath(String orderId) {
 }
 
 class CheckoutPendingPaymentScreen extends ConsumerStatefulWidget {
-  const CheckoutPendingPaymentScreen({
-    required this.orderId,
-    super.key,
-  });
+  const CheckoutPendingPaymentScreen({required this.orderId, super.key});
 
   final String orderId;
 
@@ -1566,20 +1548,22 @@ class _CheckoutPendingPaymentScreenState
                   order: item,
                   onOpenPayment: item.redirectUri == null
                       ? null
-                      : () =>
-                          _openPendingPayment(context, ref, item.redirectUri!),
+                      : () => _openPendingPayment(
+                          context,
+                          ref,
+                          item.redirectUri!,
+                        ),
                   onRefresh: () =>
                       ref.invalidate(purchaseHistoryDetailProvider(item.id)),
-                  onViewReceipt: () => context.go(checkoutSuccessPath(item.id)),
+                  onViewReceipt: () =>
+                      context.push(checkoutSuccessPath(item.id)),
                 ),
             ],
           );
         },
         loading: () => _LotteryDockedPage(
           children: [
-            _LoadingMessageCard(
-              message: context.l10n.checkoutPendingLoading,
-            ),
+            _LoadingMessageCard(message: context.l10n.checkoutPendingLoading),
           ],
         ),
         error: (error, _) => _LotteryDockedPage(
@@ -1664,9 +1648,9 @@ class _CheckoutPendingPaymentCard extends StatelessWidget {
             Text(
               paid ? l10n.checkoutPendingPaidTitle : l10n.checkoutPendingTitle,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1749,11 +1733,11 @@ class _CheckoutPendingAmountValue extends StatelessWidget {
           key: const ValueKey('checkout-pending-amount'),
           textAlign: TextAlign.end,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colorScheme.primary,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
+            color: colorScheme.primary,
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
         ),
         if (unit.isNotEmpty)
           Text(
@@ -1761,11 +1745,11 @@ class _CheckoutPendingAmountValue extends StatelessWidget {
             key: const ValueKey('checkout-pending-amount-unit'),
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  height: 1.1,
-                ),
+              color: colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.1,
+            ),
           ),
       ],
     );
@@ -1786,7 +1770,8 @@ class _CheckoutPendingInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final valueWidget = trailing ??
+    final valueWidget =
+        trailing ??
         Text(
           value!,
           textAlign: TextAlign.right,
@@ -1852,25 +1837,25 @@ class _CheckoutPendingStatusBadge extends StatelessWidget {
     final value = _checkoutPendingStatusValue(order);
     final colors = switch (value) {
       'paid' => (
-          colorScheme.primary.withValues(alpha: 0.12),
-          colorScheme.primary,
-        ),
+        colorScheme.primary.withValues(alpha: 0.12),
+        colorScheme.primary,
+      ),
       'failed' || 'cancelled' || 'rejected' => (
-          colorScheme.errorContainer.withValues(alpha: 0.56),
-          colorScheme.error,
-        ),
+        colorScheme.errorContainer.withValues(alpha: 0.56),
+        colorScheme.error,
+      ),
       'expired' => (
-          colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
-          colorScheme.onSurfaceVariant,
-        ),
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
+        colorScheme.onSurfaceVariant,
+      ),
       'pending_payment' || 'pending' || 'processing' => (
-          colorScheme.tertiaryContainer.withValues(alpha: 0.72),
-          colorScheme.onTertiaryContainer,
-        ),
+        colorScheme.tertiaryContainer.withValues(alpha: 0.72),
+        colorScheme.onTertiaryContainer,
+      ),
       _ => (
-          colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
-          colorScheme.onSurfaceVariant,
-        ),
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.78),
+        colorScheme.onSurfaceVariant,
+      ),
     };
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1917,8 +1902,7 @@ String _checkoutPendingStatusLabel(
     'paid' => l10n.checkoutPendingStatusPaid,
     'pending_payment' ||
     'pending' ||
-    'processing' =>
-      l10n.checkoutPendingStatusPending,
+    'processing' => l10n.checkoutPendingStatusPending,
     'failed' || 'cancelled' || 'rejected' => l10n.checkoutPendingStatusFailed,
     'expired' => l10n.checkoutPendingStatusExpired,
     _ => l10n.checkoutPendingStatusUnknown,
@@ -1990,9 +1974,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
     final paymentMethods = ref.watch(checkoutPaymentMethodsProvider);
-    final paymentMethodLabels = ref.watch(
-      checkoutPaymentMethodLabelsProvider,
-    );
+    final paymentMethodLabels = ref.watch(checkoutPaymentMethodLabelsProvider);
     final defaultPaymentMethod = ref.watch(checkoutPaymentMethodProvider);
     final selectedPaymentMethod = _effectiveCheckoutPaymentMethod(
       paymentMethods,
@@ -2000,10 +1982,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
     final usesWallet = selectedPaymentMethod == checkoutPaymentMethodWallet;
     final paymentDeadline = earliestActiveReservation(_cart.reservations);
-    final paymentExpired = paymentDeadline != null &&
-        reservationDeadlineExpired(
-          paymentDeadline,
-        );
+    final paymentExpired =
+        paymentDeadline != null && reservationDeadlineExpired(paymentDeadline);
     final hasActivePayment = _cart.reservationIds.isNotEmpty && !paymentExpired;
     final enoughBalance = _walletBalance >= _cart.total;
     final canUseSelectedPayment =
@@ -2014,12 +1994,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final confirmLabel = _submitting
         ? l10n.checkoutSubmitting
         : paymentExpired || !hasActivePayment
-            ? l10n.cartExpired
-            : usesWallet && _walletLoading
-                ? l10n.checkoutWalletLoading
-                : canUseSelectedPayment
-                    ? l10n.checkoutConfirm
-                    : l10n.checkoutInsufficientTitle;
+        ? l10n.cartExpired
+        : usesWallet && _walletLoading
+        ? l10n.checkoutWalletLoading
+        : canUseSelectedPayment
+        ? l10n.checkoutConfirm
+        : l10n.checkoutInsufficientTitle;
     return AppShell(
       title: l10n.checkoutTitle,
       currentPath: '/buy',
@@ -2038,7 +2018,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
       child: _CheckoutDockedPage(
         physics: const AlwaysScrollableScrollPhysics(),
-        dock: (!_loading &&
+        dock:
+            (!_loading &&
                 _error.isEmpty &&
                 !(_cart.isEmpty || !hasActivePayment))
             ? _CheckoutConfirmDock(
@@ -2096,7 +2077,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   _noticeMessage = '';
                 });
               },
-              onTopup: () => context.go('/topup?back=/checkout'),
+              onTopup: () => context.push('/topup?back=/checkout'),
             ),
           ],
         ],
@@ -2237,7 +2218,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ref.read(checkoutPaymentMethodsProvider),
         ref.read(checkoutPaymentMethodProvider),
       );
-      final order = await ref.read(lotteryRepositoryProvider).checkout(
+      final order = await ref
+          .read(lotteryRepositoryProvider)
+          .checkout(
             _cart.reservationIds,
             paymentMethod: paymentMethod,
             pin: _pin,
@@ -2268,8 +2251,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           _pin = '';
           _pinError = switch (code) {
             'pin_locked' => context.l10n.checkoutPinLocked,
-            'pin_required' || 'pin_setup_required' =>
-              context.l10n.checkoutPinSetupRequired,
+            'pin_required' ||
+            'pin_setup_required' => context.l10n.checkoutPinSetupRequired,
             _ => context.l10n.checkoutPinInvalid,
           };
         });
@@ -2377,9 +2360,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     try {
       for (final reservationId in reservationIds) {
-        await ref.read(lotteryRepositoryProvider).releaseReservation(
-              reservationId,
-            );
+        await ref
+            .read(lotteryRepositoryProvider)
+            .releaseReservation(reservationId);
       }
     } catch (error) {
       if (mounted &&
@@ -2474,8 +2457,9 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _attachScrollListener());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _attachScrollListener(),
+    );
   }
 
   @override
@@ -2537,8 +2521,8 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     final refreshLabel = _loading
         ? (_isBrowseMode ? l10n.lotteryLoadingNew : l10n.lotteryShowNew)
         : refreshCoolingDown
-            ? l10n.lotteryRefreshCooldown(_refreshCooldownSeconds)
-            : l10n.lotteryShowNew;
+        ? l10n.lotteryRefreshCooldown(_refreshCooldownSeconds)
+        : l10n.lotteryShowNew;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2600,14 +2584,12 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
             message: _stockNoticeMessage,
             success: _stockNoticeSuccess,
             actionLabel: _stockNoticeSuccess ? l10n.lotteryCartAction : null,
-            onAction: _stockNoticeSuccess ? () => context.go('/cart') : null,
+            onAction: _stockNoticeSuccess ? () => context.push('/cart') : null,
           ),
           const SizedBox(height: 12),
         ],
         if (!_canReserve) ...[
-          _LotteryStatusAlert(
-            title: l10n.lotterySaleClosedTitle,
-          ),
+          _LotteryStatusAlert(title: l10n.lotterySaleClosedTitle),
           const SizedBox(height: 12),
         ],
         for (var index = 0; index < _items.length; index++) ...[
@@ -2629,9 +2611,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
             onReserve: () => _toggleReservation(_items[index]),
           ),
         ],
-        if (_loadingMore) ...[
-          ...lotteryStockSkeletonCards(),
-        ],
+        if (_loadingMore) ...[...lotteryStockSkeletonCards()],
       ],
     );
   }
@@ -2667,7 +2647,9 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       }
       final auth = ref.read(authControllerProvider);
       final results = await Future.wait([
-        ref.read(lotteryRepositoryProvider).search(
+        ref
+            .read(lotteryRepositoryProvider)
+            .search(
               gameId: gameId,
               number: widget.number,
               digits: widget.digits,
@@ -2796,9 +2778,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     List<LotteryStockItem> items,
     LotteryStockPricePatch patch,
   ) {
-    return [
-      for (final item in items) _itemWithPricePatch(item, patch),
-    ];
+    return [for (final item in items) _itemWithPricePatch(item, patch)];
   }
 
   LotteryStockItem _itemWithPricePatch(
@@ -2904,16 +2884,14 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     });
     try {
       if (reservedId != null && reservedId.isNotEmpty) {
-        final cart =
-            await ref.read(lotteryRepositoryProvider).releaseReservation(
-                  reservedId,
-                );
+        final cart = await ref
+            .read(lotteryRepositoryProvider)
+            .releaseReservation(reservedId);
         _syncReservedCart(cart);
       } else {
-        final reservation = await ref.read(lotteryRepositoryProvider).reserve(
-              gameId: _gameId,
-              item: item,
-            );
+        final reservation = await ref
+            .read(lotteryRepositoryProvider)
+            .reserve(gameId: _gameId, item: item);
         if (!mounted) return;
         _syncReservedCart(_cartWithReservation(_cart, reservation));
       }
@@ -3071,9 +3049,7 @@ List<MapEntry<String, String>> _cartReservationEntries(LotteryCart cart) {
     final reservationId = item.reservationId.trim();
     if (reservationId.isEmpty) continue;
     entries.addAll(
-      _stockReservationKeys(item).map(
-        (key) => MapEntry(key, reservationId),
-      ),
+      _stockReservationKeys(item).map((key) => MapEntry(key, reservationId)),
     );
   }
   return entries;
@@ -3148,9 +3124,7 @@ List<LotteryStockItem> _normalizeBrowseStockItems(
   return _uniqueStockItemsByNumber(_arrangeNonAdjacentStockNumbers(items));
 }
 
-List<LotteryStockItem> _uniqueStockItemsByNumber(
-  List<LotteryStockItem> items,
-) {
+List<LotteryStockItem> _uniqueStockItemsByNumber(List<LotteryStockItem> items) {
   final seenNumbers = <String>{};
   return [
     for (final item in items)
@@ -3164,8 +3138,9 @@ List<LotteryStockItem> _arrangeNonAdjacentStockNumbers(
   final pending = List<LotteryStockItem>.of(items);
   final arranged = <LotteryStockItem>[];
   while (pending.isNotEmpty) {
-    final previousNumber =
-        arranged.isEmpty ? '' : _stockNumberKey(arranged.last);
+    final previousNumber = arranged.isEmpty
+        ? ''
+        : _stockNumberKey(arranged.last);
     final nextIndex = pending.indexWhere(
       (item) => _stockNumberKey(item) != previousNumber,
     );
@@ -3205,10 +3180,7 @@ double _reservationDisplayTotal(LotteryReservation reservation) {
 }
 
 class _CartSelectionDock extends StatelessWidget {
-  const _CartSelectionDock({
-    required this.cart,
-    required this.onReview,
-  });
+  const _CartSelectionDock({required this.cart, required this.onReview});
 
   final LotteryCart cart;
   final VoidCallback? onReview;
@@ -3251,11 +3223,11 @@ class _CartSelectionDock extends StatelessWidget {
                       Text(
                         l10n.cartSelectionCountLabel,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppTheme.appMuted,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                            ),
+                          color: AppTheme.appMuted,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
                       ),
                       const SizedBox(height: 5),
                       CustomerPaymentSelectionCountText(
@@ -3280,8 +3252,9 @@ class _CartSelectionDock extends StatelessWidget {
                       height: 58,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      label:
-                          enabled ? l10n.cartSelectionReview : l10n.cartExpired,
+                      label: enabled
+                          ? l10n.cartSelectionReview
+                          : l10n.cartExpired,
                     ),
                   ),
                 ),
@@ -3328,7 +3301,7 @@ class _LotterySearchInitialHint extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final mutedText =
         Color.lerp(colorScheme.onSurfaceVariant, colorScheme.surface, 0.22) ??
-            colorScheme.onSurfaceVariant;
+        colorScheme.onSurfaceVariant;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340),
@@ -3336,11 +3309,11 @@ class _LotterySearchInitialHint extends StatelessWidget {
           message,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: mutedText,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                height: 1.42,
-              ),
+            color: mutedText,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            height: 1.42,
+          ),
         ),
       ),
     );
@@ -3355,7 +3328,9 @@ class LotteryProductBrandRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fallbackMarker = productMarker.trim();
-    final marker = ref.watch(mobileBootstrapProvider).maybeWhen(
+    final marker = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(
           data: (bootstrap) {
             final configured = bootstrap.lotteryProductLabel.trim();
             return configured.isEmpty ? fallbackMarker : configured;
@@ -3377,11 +3352,11 @@ class LotteryProductBrandRow extends ConsumerWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  height: 1.25,
-                ),
+              color: colorScheme.onSurface,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.25,
+            ),
           ),
         ),
       ],
@@ -3404,12 +3379,12 @@ class _LotteryProductMark extends StatelessWidget {
         Text(
           marker,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: colorScheme.primary,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                height: 1,
-                letterSpacing: 0,
-              ),
+            color: colorScheme.primary,
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            height: 1,
+            letterSpacing: 0,
+          ),
         ),
         Transform.translate(
           offset: const Offset(-5, 1),
@@ -3490,15 +3465,15 @@ class _LotteryStockCard extends StatelessWidget {
               );
               final actionLabel = busy
                   ? reserved
-                      ? l10n.lotteryRemoving
-                      : l10n.lotterySelecting
+                        ? l10n.lotteryRemoving
+                        : l10n.lotterySelecting
                   : reserved
-                      ? l10n.lotteryRemove
-                      : reserveDisabled
-                          ? l10n.lotterySaleClosedAction
-                          : item.isAvailable
-                              ? l10n.lotterySelect
-                              : l10n.lotterySoldOut;
+                  ? l10n.lotteryRemove
+                  : reserveDisabled
+                  ? l10n.lotterySaleClosedAction
+                  : item.isAvailable
+                  ? l10n.lotterySelect
+                  : l10n.lotterySoldOut;
               final canToggle =
                   reserved || (item.isAvailable && !reserveDisabled);
               final Widget actionButton = reserved
@@ -3520,20 +3495,23 @@ class _LotteryStockCard extends StatelessWidget {
                       height: 40,
                       child: OutlinedButton(
                         onPressed: busy || !canToggle ? null : onReserve,
-                        style: _lotteryOutlinePillButtonStyle(
-                          context,
-                          enabled: canToggle,
-                        ).copyWith(
-                          minimumSize: const WidgetStatePropertyAll(
-                            Size(84, 40),
-                          ),
-                          textStyle: WidgetStatePropertyAll(
-                            Theme.of(context).textTheme.labelLarge?.copyWith(
+                        style:
+                            _lotteryOutlinePillButtonStyle(
+                              context,
+                              enabled: canToggle,
+                            ).copyWith(
+                              minimumSize: const WidgetStatePropertyAll(
+                                Size(84, 40),
+                              ),
+                              textStyle: WidgetStatePropertyAll(
+                                Theme.of(
+                                  context,
+                                ).textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   height: 1.1,
                                 ),
-                          ),
-                        ),
+                              ),
+                            ),
                         child: Text(actionLabel),
                       ),
                     );
@@ -3575,9 +3553,9 @@ class _LotteryStockCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.appMuted,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          color: AppTheme.appMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     )
                   else
@@ -3667,22 +3645,19 @@ class _LotteryStockImageFrame extends StatelessWidget {
     final source = item.thumbUrl.trim().isNotEmpty
         ? item.thumbUrl.trim()
         : item.imageUrl.trim();
-    final canLoadImage = source.isNotEmpty &&
-        !{
-          'pending_assets',
-          'failed',
-          'missing',
-        }.contains(normalizedStatus);
+    final canLoadImage =
+        source.isNotEmpty &&
+        !{'pending_assets', 'failed', 'missing'}.contains(normalizedStatus);
     final fallbackText = normalizedStatus == 'pending_assets'
         ? l10n.ticketImagePreparing
         : normalizedStatus == 'failed' && imageError.isNotEmpty
-            ? imageError
-            : l10n.ticketImageUnavailable;
+        ? imageError
+        : l10n.ticketImageUnavailable;
     final fallbackIcon = normalizedStatus == 'pending_assets'
         ? Icons.hourglass_top_outlined
         : normalizedStatus == 'failed'
-            ? Icons.image_outlined
-            : Icons.confirmation_number_outlined;
+        ? Icons.image_outlined
+        : Icons.confirmation_number_outlined;
 
     return DecoratedBox(
       key: const ValueKey('lottery-stock-ticket-image-frame'),
@@ -3723,12 +3698,12 @@ class _LotteryStockImageFrame extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.25,
-                                  ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                              ),
                         ),
                       ],
                     ),
@@ -3752,13 +3727,13 @@ class _LotteryStockPriceText extends StatelessWidget {
     final trendColor = priceTrend == lotteryStockPriceTrendDown
         ? colorScheme.error
         : priceTrend == lotteryStockPriceTrendUp
-            ? colorScheme.tertiary
-            : colorScheme.onSurface;
+        ? colorScheme.tertiary
+        : colorScheme.onSurface;
     final trendIcon = priceTrend == lotteryStockPriceTrendDown
         ? Icons.arrow_downward
         : priceTrend == lotteryStockPriceTrendUp
-            ? Icons.arrow_upward
-            : null;
+        ? Icons.arrow_upward
+        : null;
     return Row(
       key: const ValueKey('lottery-stock-price-row'),
       mainAxisSize: MainAxisSize.min,
@@ -3776,9 +3751,9 @@ class _LotteryStockPriceText extends StatelessWidget {
           formatBaht(item.price),
           key: const ValueKey('lottery-stock-price'),
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: trendColor,
-                fontWeight: FontWeight.w700,
-              ),
+            color: trendColor,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
@@ -3842,10 +3817,12 @@ class _LotteryFilterPill extends StatelessWidget {
   Widget build(BuildContext context) {
     const foreground = AppTheme.appFilterPillText;
     final primary = Theme.of(context).colorScheme.primary;
-    final selectedForeground =
-        selected ? AppTheme.primaryOutlineText(primary) : foreground;
-    final borderColor =
-        selected ? AppTheme.primaryFilterBorder(primary) : Colors.transparent;
+    final selectedForeground = selected
+        ? AppTheme.primaryOutlineText(primary)
+        : foreground;
+    final borderColor = selected
+        ? AppTheme.primaryFilterBorder(primary)
+        : Colors.transparent;
     return Semantics(
       button: true,
       selected: selected,
@@ -3862,19 +3839,15 @@ class _LotteryFilterPill extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: iconColor ?? selectedForeground,
-                ),
+                Icon(icon, size: 18, color: iconColor ?? selectedForeground),
                 const SizedBox(width: 7),
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: selectedForeground,
-                        fontWeight: FontWeight.w500,
-                        height: 1.05,
-                      ),
+                    color: selectedForeground,
+                    fontWeight: FontWeight.w500,
+                    height: 1.05,
+                  ),
                 ),
               ],
             ),
@@ -3886,10 +3859,7 @@ class _LotteryFilterPill extends StatelessWidget {
 }
 
 class _LotterySectionHeading extends StatelessWidget {
-  const _LotterySectionHeading({
-    required this.title,
-    this.action,
-  });
+  const _LotterySectionHeading({required this.title, this.action});
 
   final String title;
   final Widget? action;
@@ -3910,10 +3880,7 @@ class _LotterySectionHeading extends StatelessWidget {
         ),
         if (action != null) ...[
           const SizedBox(width: 12),
-          Flexible(
-            flex: 0,
-            child: action,
-          ),
+          Flexible(flex: 0, child: action),
         ],
       ],
     );
@@ -3921,10 +3888,7 @@ class _LotterySectionHeading extends StatelessWidget {
 }
 
 class _LotteryDockedPage extends StatelessWidget {
-  const _LotteryDockedPage({
-    required this.children,
-    this.dock,
-  });
+  const _LotteryDockedPage({required this.children, this.dock});
 
   final List<Widget> children;
   final Widget? dock;
@@ -4007,11 +3971,7 @@ class _CartReviewDockedPage extends StatelessWidget {
 }
 
 class _CheckoutDockedPage extends StatelessWidget {
-  const _CheckoutDockedPage({
-    required this.children,
-    this.dock,
-    this.physics,
-  });
+  const _CheckoutDockedPage({required this.children, this.dock, this.physics});
 
   final List<Widget> children;
   final Widget? dock;
@@ -4139,8 +4099,9 @@ class _CheckoutHeroSummaryCard extends StatelessWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final statusMessage = loading ? l10n.checkoutPreparing : error.trim();
-    final statusColor =
-        error.trim().isNotEmpty ? colorScheme.error : colorScheme.primary;
+    final statusColor = error.trim().isNotEmpty
+        ? colorScheme.error
+        : colorScheme.primary;
     return DecoratedBox(
       key: const ValueKey('checkout-summary-card'),
       decoration: _lotterySurfaceDecoration(
@@ -4169,9 +4130,9 @@ class _CheckoutHeroSummaryCard extends StatelessWidget {
               Text(
                 statusMessage,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: statusColor,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ],
@@ -4208,9 +4169,7 @@ class _CheckoutProductSummary extends StatelessWidget {
               ),
               child: const SizedBox.square(
                 dimension: 48,
-                child: Center(
-                  child: _CheckoutProductMark(),
-                ),
+                child: Center(child: _CheckoutProductMark()),
               ),
             ),
             const SizedBox(width: 16),
@@ -4220,10 +4179,10 @@ class _CheckoutProductSummary extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
               ),
             ),
           ],
@@ -4309,8 +4268,9 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final normalizedMethods =
-        methods.isEmpty ? const [checkoutPaymentMethodWallet] : methods;
+    final normalizedMethods = methods.isEmpty
+        ? const [checkoutPaymentMethodWallet]
+        : methods;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4320,11 +4280,11 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
           child: Text(
             l10n.checkoutPaymentMethodTitle,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
+              color: colorScheme.onSurface,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
           ),
         ),
         Padding(
@@ -4450,13 +4410,13 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
     final title = walletMethod
         ? walletName
         : runtimeLabel.trim().isNotEmpty
-            ? runtimeLabel.trim()
-            : l10n.checkoutExternalPaymentName;
+        ? runtimeLabel.trim()
+        : l10n.checkoutExternalPaymentName;
     final subtitle = walletMethod && walletLoading
         ? l10n.checkoutWalletLoading
         : walletMethod
-            ? formatBaht(balance)
-            : l10n.checkoutExternalPaymentSubtitle;
+        ? formatBaht(balance)
+        : l10n.checkoutExternalPaymentSubtitle;
     final note = walletMethod
         ? l10n.checkoutWalletPaymentNote
         : l10n.checkoutExternalPaymentNote;
@@ -4476,223 +4436,222 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: borderColor,
-            width: selected ? 1.5 : 1,
-          ),
+          border: Border.all(color: borderColor, width: selected ? 1.5 : 1),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: MouseRegion(
-            cursor:
-                selected ? SystemMouseCursors.basic : SystemMouseCursors.click,
+            cursor: selected
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: selected ? null : onSelected,
               child: Column(
                 children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 420;
-                      final selector = Icon(
-                        selected ? Icons.check_circle : Icons.circle_outlined,
-                        key: ValueKey(
-                          'checkout-payment-method-selector-$method',
-                        ),
-                        size: 30,
-                        color: selected
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                      );
-                      final topupAction = walletMethod
-                          ? OutlinedButton.icon(
-                              onPressed: onTopup,
-                              style: _lotteryOutlinePillButtonStyle(
-                                context,
-                              ).copyWith(
-                                minimumSize: const WidgetStatePropertyAll(
-                                  Size(0, 36),
-                                ),
-                                padding: const WidgetStatePropertyAll(
-                                  EdgeInsets.symmetric(horizontal: 14),
-                                ),
-                                textStyle: WidgetStatePropertyAll(
-                                  theme.textTheme.labelLarge?.copyWith(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1,
-                                  ),
-                                ),
-                              ),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: Text(l10n.homeActionTopup),
-                            )
-                          : null;
-                      final copy = Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 420;
+                        final selector = Icon(
+                          selected ? Icons.check_circle : Icons.circle_outlined,
+                          key: ValueKey(
+                            'checkout-payment-method-selector-$method',
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              color: walletMethod
-                                  ? colorScheme.onSurface
-                                  : colorScheme.onSurfaceVariant,
-                              fontWeight: walletMethod
-                                  ? FontWeight.w700
-                                  : FontWeight.w700,
-                              height: 1.2,
-                            ),
-                          ),
-                          if (walletMethod &&
-                              !walletLoading &&
-                              walletError.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              walletError,
-                              style: TextStyle(
-                                color: colorScheme.error,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ] else if (walletMethod &&
-                              !walletLoading &&
-                              !enoughBalance) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              l10n.checkoutInsufficientTitle,
-                              style: TextStyle(
-                                color: colorScheme.error,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                          if (topupAction != null) ...[
-                            const SizedBox(height: 8),
-                            topupAction,
-                          ],
-                        ],
-                      );
-                      final markText = walletMethod
-                          ? _checkoutWalletMethodMark(walletName)
-                          : '';
-                      final markSelected = selected || walletMethod;
-                      final methodMark = DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: markSelected
-                              ? AppTheme.checkoutWalletMark(
-                                  colorScheme.primary,
-                                  colorScheme.secondary,
-                                )
-                              : colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: SizedBox.square(
-                          dimension: 55,
-                          child: walletMethod && markText.isNotEmpty
-                              ? Center(
-                                  child: Text(
-                                    markText,
-                                    key: const ValueKey(
-                                      'checkout-wallet-method-mark',
+                          size: 30,
+                          color: selected
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                        );
+                        final topupAction = walletMethod
+                            ? OutlinedButton.icon(
+                                onPressed: onTopup,
+                                style: _lotteryOutlinePillButtonStyle(context)
+                                    .copyWith(
+                                      minimumSize: const WidgetStatePropertyAll(
+                                        Size(0, 36),
+                                      ),
+                                      padding: const WidgetStatePropertyAll(
+                                        EdgeInsets.symmetric(horizontal: 14),
+                                      ),
+                                      textStyle: WidgetStatePropertyAll(
+                                        theme.textTheme.labelLarge?.copyWith(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1,
+                                        ),
+                                      ),
                                     ),
-                                    style:
-                                        theme.textTheme.headlineSmall?.copyWith(
+                                icon: const Icon(Icons.add, size: 18),
+                                label: Text(l10n.homeActionTopup),
+                              )
+                            : null;
+                        final copy = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 18,
+                                color: walletMethod
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurfaceVariant,
+                                fontWeight: walletMethod
+                                    ? FontWeight.w700
+                                    : FontWeight.w700,
+                                height: 1.2,
+                              ),
+                            ),
+                            if (walletMethod &&
+                                !walletLoading &&
+                                walletError.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                walletError,
+                                style: TextStyle(
+                                  color: colorScheme.error,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ] else if (walletMethod &&
+                                !walletLoading &&
+                                !enoughBalance) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.checkoutInsufficientTitle,
+                                style: TextStyle(
+                                  color: colorScheme.error,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                            if (topupAction != null) ...[
+                              const SizedBox(height: 8),
+                              topupAction,
+                            ],
+                          ],
+                        );
+                        final markText = walletMethod
+                            ? _checkoutWalletMethodMark(walletName)
+                            : '';
+                        final markSelected = selected || walletMethod;
+                        final methodMark = DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: markSelected
+                                ? AppTheme.checkoutWalletMark(
+                                    colorScheme.primary,
+                                    colorScheme.secondary,
+                                  )
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: SizedBox.square(
+                            dimension: 55,
+                            child: walletMethod && markText.isNotEmpty
+                                ? Center(
+                                    child: Text(
+                                      markText,
+                                      key: const ValueKey(
+                                        'checkout-wallet-method-mark',
+                                      ),
+                                      style: theme.textTheme.headlineSmall
+                                          ?.copyWith(
+                                            color: markSelected
+                                                ? colorScheme.onPrimary
+                                                : colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Icon(
+                                      Icons.payment_outlined,
                                       color: markSelected
                                           ? colorScheme.onPrimary
                                           : colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w900,
+                                      size: 28,
                                     ),
                                   ),
-                                )
-                              : Center(
-                                  child: Icon(
-                                    Icons.payment_outlined,
-                                    color: markSelected
-                                        ? colorScheme.onPrimary
-                                        : colorScheme.onSurfaceVariant,
-                                    size: 28,
-                                  ),
-                                ),
-                        ),
-                      );
+                          ),
+                        );
 
-                      if (compact) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        if (compact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  selector,
+                                  const SizedBox(width: 14),
+                                  Expanded(child: copy),
+                                  const SizedBox(width: 12),
+                                  methodMark,
+                                ],
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                selector,
-                                const SizedBox(width: 14),
-                                Expanded(child: copy),
-                                const SizedBox(width: 12),
-                                methodMark,
-                              ],
-                            ),
+                            selector,
+                            const SizedBox(width: 14),
+                            Expanded(child: copy),
+                            const SizedBox(width: 12),
+                            methodMark,
                           ],
                         );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          selector,
-                          const SizedBox(width: 14),
-                          Expanded(child: copy),
-                          const SizedBox(width: 12),
-                          methodMark,
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                Container(
-                  key: ValueKey('checkout-payment-method-note-$method'),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: walletMethod
-                        ? AppTheme.checkoutWalletNoteFill(colorScheme.primary)
-                        : colorScheme.surfaceContainerHighest.withValues(
-                            alpha: selected ? 0.56 : 0.36,
-                          ),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Text(
-                    note,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: walletMethod
-                          ? AppTheme.checkoutWalletNoteText(colorScheme.primary)
-                          : colorScheme.onSurfaceVariant,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      height: 1.38,
+                      },
                     ),
                   ),
-                ),
-              ],
+                  Container(
+                    key: ValueKey('checkout-payment-method-note-$method'),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: walletMethod
+                          ? AppTheme.checkoutWalletNoteFill(colorScheme.primary)
+                          : colorScheme.surfaceContainerHighest.withValues(
+                              alpha: selected ? 0.56 : 0.36,
+                            ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Text(
+                      note,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: walletMethod
+                            ? AppTheme.checkoutWalletNoteText(
+                                colorScheme.primary,
+                              )
+                            : colorScheme.onSurfaceVariant,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        height: 1.38,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -4740,9 +4699,7 @@ class _CartTicketGroupCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _CartTicketBrandActionRow(
-              productMarker: productMarker,
-            ),
+            _CartTicketBrandActionRow(productMarker: productMarker),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -4778,12 +4735,11 @@ class _CartTicketGroupCard extends StatelessWidget {
                       ),
                       child: Text(
                         '${l10n.ticketLabelCount} ${l10n.ticketsCount(group.count)}',
-                        style:
-                            Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colorScheme.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -4794,11 +4750,11 @@ class _CartTicketGroupCard extends StatelessWidget {
                   formatBaht(group.total),
                   textAlign: TextAlign.end,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        height: 1.1,
-                      ),
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                  ),
                 ),
               ],
             ),
@@ -4810,9 +4766,7 @@ class _CartTicketGroupCard extends StatelessWidget {
 }
 
 class _CartTicketBrandActionRow extends ConsumerWidget {
-  const _CartTicketBrandActionRow({
-    required this.productMarker,
-  });
+  const _CartTicketBrandActionRow({required this.productMarker});
 
   final String productMarker;
 
@@ -4821,7 +4775,9 @@ class _CartTicketBrandActionRow extends ConsumerWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final fallbackMarker = productMarker.trim();
-    final marker = ref.watch(mobileBootstrapProvider).maybeWhen(
+    final marker = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(
           data: (bootstrap) {
             final configured = bootstrap.lotteryProductLabel.trim();
             return configured.isEmpty ? fallbackMarker : configured;
@@ -4846,11 +4802,11 @@ class _CartTicketBrandActionRow extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.22,
-                      ),
+                    color: colorScheme.onSurface,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.22,
+                  ),
                 ),
               ),
             ],
@@ -4875,8 +4831,9 @@ class _CartRemovePillButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     final primary = Theme.of(context).colorScheme.primary;
-    final foreground =
-        enabled ? AppTheme.appSheet : AppTheme.appOutlinePillDisabledText;
+    final foreground = enabled
+        ? AppTheme.appSheet
+        : AppTheme.appOutlinePillDisabledText;
     final decoration = BoxDecoration(
       gradient: enabled
           ? LinearGradient(
@@ -4896,21 +4853,25 @@ class _CartRemovePillButton extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 40),
         child: FilledButton(
           onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            disabledBackgroundColor: Colors.transparent,
-            foregroundColor: foreground,
-            disabledForegroundColor: foreground,
-            shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            shape: const StadiumBorder(),
-            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          style:
+              FilledButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                foregroundColor: foreground,
+                disabledForegroundColor: foreground,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
+                ),
+                shape: const StadiumBorder(),
+                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
-          ).copyWith(
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          ),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
           child: Text(label),
         ),
       ),
@@ -4919,10 +4880,7 @@ class _CartRemovePillButton extends StatelessWidget {
 }
 
 class _LotteryNumber extends StatelessWidget {
-  const _LotteryNumber({
-    required this.number,
-    this.highlightDigits = const [],
-  });
+  const _LotteryNumber({required this.number, this.highlightDigits = const []});
 
   final String number;
   final List<String> highlightDigits;
@@ -4953,7 +4911,8 @@ class _LotteryNumber extends StatelessWidget {
                     digits[index],
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: hasHighlights &&
+                      color:
+                          hasHighlights &&
                               normalizedHighlights[index] != digits[index]
                           ? colorScheme.onSurfaceVariant.withValues(alpha: 0.78)
                           : colorScheme.onSurface,
@@ -4987,10 +4946,7 @@ class _LotteryStockNumberMetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return _LotteryNumber(
       number: number,
-      highlightDigits: _effectiveLotteryHighlightDigits(
-        item,
-        highlightDigits,
-      ),
+      highlightDigits: _effectiveLotteryHighlightDigits(item, highlightDigits),
     );
   }
 }
@@ -5018,9 +4974,11 @@ List<String> _effectiveLotteryHighlightDigits(
     return fallback;
   }
 
-  final highlight = (raw?['highlight'] ?? raw?['matched_suffix'])
-          ?.toString()
-          .replaceAll(RegExp(r'\D'), '') ??
+  final highlight =
+      (raw?['highlight'] ?? raw?['matched_suffix'])?.toString().replaceAll(
+        RegExp(r'\D'),
+        '',
+      ) ??
       '';
   final number = item?.number ?? '';
   if (highlight.isEmpty || number.isEmpty || !number.endsWith(highlight)) {
@@ -5042,8 +5000,8 @@ List<String> _normalizedLotteryHighlightDigits(
   final values = value is Iterable
       ? value
       : value.toString().contains(',')
-          ? value.toString().split(',')
-          : value.toString().split('');
+      ? value.toString().split(',')
+      : value.toString().split('');
   final normalized = [
     for (final raw in values)
       raw == null ? '' : raw.toString().replaceAll(RegExp(r'\D'), '').trim(),
@@ -5066,17 +5024,17 @@ class _AmountRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          height: 1.2,
-        );
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+    );
     final valueStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurface,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          height: 1.2,
-        );
+      color: colorScheme.onSurface,
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -5090,10 +5048,8 @@ class _AmountRow extends StatelessWidget {
   }
 }
 
-typedef ReservationCountdownLabelBuilder = String Function(
-  CustomerLocalizations l10n,
-  String time,
-);
+typedef ReservationCountdownLabelBuilder =
+    String Function(CustomerLocalizations l10n, String time);
 
 Duration reservationServerTimeOffset(Object? serverTime, {DateTime? localNow}) {
   final serverNow = parseDateTime(serverTime);
@@ -5160,10 +5116,7 @@ LotteryReservation? earliestActiveReservation(
   return sorted.first;
 }
 
-int _compareReservationDeadline(
-  LotteryReservation a,
-  LotteryReservation b,
-) {
+int _compareReservationDeadline(LotteryReservation a, LotteryReservation b) {
   final aExpiresAt = parseDateTime(a.expiresAt);
   final bExpiresAt = parseDateTime(b.expiresAt);
   if (aExpiresAt != null && bExpiresAt != null) {
@@ -5254,11 +5207,11 @@ class _ReservationCountdownTextState extends State<_ReservationCountdownText> {
     return Text(
       text,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: remaining.inSeconds <= 0
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w800,
-          ),
+        color: remaining.inSeconds <= 0
+            ? Theme.of(context).colorScheme.error
+            : Theme.of(context).colorScheme.primary,
+        fontWeight: FontWeight.w800,
+      ),
     );
   }
 
@@ -5302,8 +5255,9 @@ class _PaymentDockCountdownText extends StatelessWidget {
       fontWeight: FontWeight.w600,
       height: 1.25,
     );
-    final highlightIndex =
-        highlightedText.isEmpty ? -1 : text.indexOf(highlightedText);
+    final highlightIndex = highlightedText.isEmpty
+        ? -1
+        : text.indexOf(highlightedText);
     if (highlightIndex < 0) {
       return Text(text, textAlign: TextAlign.center, style: baseStyle);
     }
@@ -5347,11 +5301,11 @@ class _LotteryEmptyState extends StatelessWidget {
         message,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          height: 1.35,
+        ),
       ),
     );
   }
@@ -5385,11 +5339,11 @@ class _LotteryStatusAlert extends StatelessWidget {
               child: Text(
                 title,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
+                  color: foreground,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
               ),
             ),
           ],
@@ -5442,20 +5396,20 @@ class _MessageCard extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.45,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                height: 1.45,
+              ),
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 18),
@@ -5518,11 +5472,11 @@ class _InlineNoticeCard extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
@@ -5545,9 +5499,7 @@ class _InlineNoticeCard extends StatelessWidget {
   }
 }
 
-Future<void> showLotteryReservationUnavailableNotice(
-  BuildContext context,
-) {
+Future<void> showLotteryReservationUnavailableNotice(BuildContext context) {
   final l10n = context.l10n;
   return showDialog<void>(
     context: context,
@@ -5657,10 +5609,7 @@ class _ReservationUnavailableDialog extends StatelessWidget {
 }
 
 class _CheckoutSummaryTotalRow extends StatelessWidget {
-  const _CheckoutSummaryTotalRow({
-    required this.label,
-    required this.total,
-  });
+  const _CheckoutSummaryTotalRow({required this.label, required this.total});
 
   final String label;
   final double total;
@@ -5676,11 +5625,11 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
       key: const ValueKey('checkout-summary-total-amount'),
       textAlign: TextAlign.end,
       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: colorScheme.primary,
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
-            height: 1,
-          ),
+        color: colorScheme.primary,
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+        height: 1,
+      ),
     );
     final unitText = unit.isEmpty
         ? null
@@ -5689,18 +5638,18 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
             key: const ValueKey('checkout-summary-total-unit'),
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                  height: 1.1,
-                ),
+              color: colorScheme.onSurface,
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              height: 1.1,
+            ),
           );
     final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          height: 1.2,
-        );
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+    );
     final value = Row(
       key: const ValueKey('checkout-summary-total-value'),
       mainAxisSize: MainAxisSize.min,
@@ -5708,10 +5657,7 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
       textBaseline: TextBaseline.alphabetic,
       children: [
         amountText,
-        if (unitText != null) ...[
-          const SizedBox(width: 4),
-          unitText,
-        ],
+        if (unitText != null) ...[const SizedBox(width: 4), unitText],
       ],
     );
     return Padding(
@@ -5758,10 +5704,10 @@ class _LoadingMessageCard extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                    height: 1.45,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+                height: 1.45,
+              ),
             ),
           ],
         ),
@@ -5829,13 +5775,8 @@ ButtonStyle _lotterySmallGradientPillButtonStyle(BuildContext context) {
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.compact,
     shape: const StadiumBorder(),
-    textStyle: const TextStyle(
-      fontWeight: FontWeight.w700,
-      height: 1.1,
-    ),
-  ).copyWith(
-    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-  );
+    textStyle: const TextStyle(fontWeight: FontWeight.w700, height: 1.1),
+  ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
 }
 
 TextStyle? _lotterySectionTitleTextStyle(BuildContext context) {
@@ -5881,12 +5822,8 @@ ButtonStyle _lotteryTextLinkButtonStyle(BuildContext context) {
     padding: EdgeInsets.zero,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.compact,
-    textStyle: const TextStyle(
-      fontWeight: FontWeight.w600,
-    ),
-  ).copyWith(
-    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-  );
+    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+  ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
 }
 
 ButtonStyle _lotteryOutlinePillButtonStyle(

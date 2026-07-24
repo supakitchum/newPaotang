@@ -165,7 +165,7 @@ class SupportAssignmentTest extends TestCase
         $this->assertDatabaseHas('support_messages', [
             'ticket_id' => $secondTicket,
             'sender_type' => 'system',
-            'body' => 'ยินดีต้อนรับสู่ศูนย์ช่วยเหลือ เราได้รับเรื่องของคุณแล้ว ขณะนี้คุณอยู่ในคิวลำดับที่ 2 คุณสามารถส่งรายละเอียดเพิ่มเติมระหว่างรอเจ้าหน้าที่ได้',
+            'body' => 'ยินดีต้อนรับสู่ศูนย์ช่วยเหลือ เราได้รับเรื่องของคุณแล้ว ขณะนี้คุณอยู่ในคิวลำดับที่ 2 โปรดรอเจ้าหน้าที่รับงานก่อนเริ่มสนทนา',
         ]);
 
         $agent = $this->supportToken('admin', 'support-one', permissions: [

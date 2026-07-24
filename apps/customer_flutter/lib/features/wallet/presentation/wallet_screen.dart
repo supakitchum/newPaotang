@@ -214,10 +214,10 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
 extension on _WalletLedgerFilter {
   WalletLedgerDirection get direction => switch (this) {
-        _WalletLedgerFilter.latest => WalletLedgerDirection.all,
-        _WalletLedgerFilter.incoming => WalletLedgerDirection.incoming,
-        _WalletLedgerFilter.outgoing => WalletLedgerDirection.outgoing,
-      };
+    _WalletLedgerFilter.latest => WalletLedgerDirection.all,
+    _WalletLedgerFilter.incoming => WalletLedgerDirection.incoming,
+    _WalletLedgerFilter.outgoing => WalletLedgerDirection.outgoing,
+  };
 }
 
 List<WalletLedgerEntry> _filterWalletLedger(
@@ -244,9 +244,7 @@ class _WalletPageSheet extends StatelessWidget {
       key: const ValueKey('wallet-content-sheet'),
       decoration: const BoxDecoration(
         color: AppTheme.appWalletSheet,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(18),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       child: CustomerPageBody(
         top: 16,
@@ -351,12 +349,11 @@ class _WalletLedgerFilterTab extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color:
-                        selected ? colorScheme.onPrimary : colorScheme.primary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
+                color: selected ? colorScheme.onPrimary : colorScheme.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+              ),
             ),
           ),
         ),
@@ -365,10 +362,7 @@ class _WalletLedgerFilterTab extends StatelessWidget {
   }
 }
 
-String _walletCustomerLabel(
-  CustomerLocalizations l10n,
-  String customerNo,
-) {
+String _walletCustomerLabel(CustomerLocalizations l10n, String customerNo) {
   final normalized = customerNo.trim();
   return l10n.profileMemberCode(normalized.isEmpty ? '-' : normalized);
 }
@@ -391,10 +385,12 @@ class _WalletHeroCard extends ConsumerWidget {
     return summary.when(
       data: (data) {
         final profileCustomerNo = data.customerNo.trim().isEmpty
-            ? ref.watch(customerProfileSettingsProvider).maybeWhen(
-                  data: (profile) => profile.customerNo,
-                  orElse: () => '',
-                )
+            ? ref
+                  .watch(customerProfileSettingsProvider)
+                  .maybeWhen(
+                    data: (profile) => profile.customerNo,
+                    orElse: () => '',
+                  )
             : '';
         return CustomerWalletBalanceCard(
           balance: data.balance,
@@ -472,7 +468,8 @@ class _WalletLedgerFeedState extends ConsumerState<_WalletLedgerFeed> {
   @override
   void didUpdateWidget(covariant _WalletLedgerFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final seedChanged = !identical(oldWidget.seedEntries, widget.seedEntries) ||
+    final seedChanged =
+        !identical(oldWidget.seedEntries, widget.seedEntries) ||
         oldWidget.seedNextCursor != widget.seedNextCursor ||
         oldWidget.seedHasMore != widget.seedHasMore;
     if (seedChanged) _resetFromSeed();
@@ -490,7 +487,8 @@ class _WalletLedgerFeedState extends ConsumerState<_WalletLedgerFeed> {
     _nextCursor = widget.filter == _WalletLedgerFilter.latest
         ? widget.seedNextCursor
         : '';
-    _hasMore = widget.filter == _WalletLedgerFilter.latest &&
+    _hasMore =
+        widget.filter == _WalletLedgerFilter.latest &&
         widget.seedHasMore &&
         widget.seedNextCursor.trim().isNotEmpty;
     _initialLoaded = seedIsComplete;
@@ -520,9 +518,9 @@ class _WalletLedgerFeedState extends ConsumerState<_WalletLedgerFeed> {
       _initialError = '';
     });
     try {
-      final page = await ref.read(walletRepositoryProvider).ledgerPage(
-            direction: widget.filter.direction,
-          );
+      final page = await ref
+          .read(walletRepositoryProvider)
+          .ledgerPage(direction: widget.filter.direction);
       if (!mounted) return;
       setState(() {
         _entries = page.entries;
@@ -558,10 +556,9 @@ class _WalletLedgerFeedState extends ConsumerState<_WalletLedgerFeed> {
       _loadMoreError = '';
     });
     try {
-      final page = await ref.read(walletRepositoryProvider).ledgerPage(
-            cursor: _nextCursor,
-            direction: widget.filter.direction,
-          );
+      final page = await ref
+          .read(walletRepositoryProvider)
+          .ledgerPage(cursor: _nextCursor, direction: widget.filter.direction);
       if (!mounted) return;
       final knownIds = _entries
           .map((entry) => entry.id.trim())
@@ -615,10 +612,7 @@ class _WalletLedgerFeedState extends ConsumerState<_WalletLedgerFeed> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _WalletLedgerList(
-          entries: _entries,
-          walletName: widget.walletName,
-        ),
+        _WalletLedgerList(entries: _entries, walletName: widget.walletName),
         if (_hasMore || _loadingMore || _loadMoreError.isNotEmpty) ...[
           const SizedBox(height: 14),
           _WalletLedgerLoadMore(
@@ -653,10 +647,10 @@ class _WalletLedgerLoadMore extends StatelessWidget {
             errorMessage,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.error,
-                  fontWeight: FontWeight.w700,
-                  height: 1.4,
-                ),
+              color: colorScheme.error,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -707,9 +701,9 @@ class _WalletLedgerLoading extends StatelessWidget {
           context.l10n.walletLedgerLoading,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -717,10 +711,7 @@ class _WalletLedgerLoading extends StatelessWidget {
 }
 
 class _WalletLedgerLoadFailed extends StatelessWidget {
-  const _WalletLedgerLoadFailed({
-    required this.message,
-    required this.onRetry,
-  });
+  const _WalletLedgerLoadFailed({required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;
@@ -769,20 +760,20 @@ class _WalletLedgerLoadFailed extends StatelessWidget {
                 l10n.walletLedgerLoadFailed,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.error,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  color: colorScheme.error,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 body,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
@@ -799,10 +790,7 @@ class _WalletLedgerLoadFailed extends StatelessWidget {
 }
 
 class _WalletLedgerHeader extends StatelessWidget {
-  const _WalletLedgerHeader({
-    required this.loading,
-    required this.onRefresh,
-  });
+  const _WalletLedgerHeader({required this.loading, required this.onRefresh});
 
   final bool loading;
   final Future<void> Function() onRefresh;
@@ -821,21 +809,21 @@ class _WalletLedgerHeader extends StatelessWidget {
               Text(
                 l10n.walletRecentLedger,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900,
-                      height: 1.2,
-                    ),
+                  color: colorScheme.onSurface,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 l10n.walletRecentLedgerSubtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
               ),
             ],
           ),
@@ -844,17 +832,18 @@ class _WalletLedgerHeader extends StatelessWidget {
         IconButton(
           tooltip: l10n.walletRefreshTooltip,
           onPressed: loading ? null : () => onRefresh(),
-          style: IconButton.styleFrom(
-            fixedSize: const Size.square(42),
-            backgroundColor: _walletPrimaryTint(colorScheme),
-            foregroundColor: colorScheme.primary,
-            disabledBackgroundColor: _walletPrimaryTint(colorScheme),
-            disabledForegroundColor:
-                colorScheme.onSurfaceVariant.withValues(alpha: 0.62),
-            shape: const CircleBorder(),
-          ).copyWith(
-            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          ),
+          style:
+              IconButton.styleFrom(
+                fixedSize: const Size.square(42),
+                backgroundColor: _walletPrimaryTint(colorScheme),
+                foregroundColor: colorScheme.primary,
+                disabledBackgroundColor: _walletPrimaryTint(colorScheme),
+                disabledForegroundColor: colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.62),
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
           icon: const Icon(Icons.refresh, size: 18),
         ),
       ],
@@ -863,9 +852,7 @@ class _WalletLedgerHeader extends StatelessWidget {
 }
 
 class _WalletEmptyLedger extends StatelessWidget {
-  const _WalletEmptyLedger({
-    this.filter = _WalletLedgerFilter.latest,
-  });
+  const _WalletEmptyLedger({this.filter = _WalletLedgerFilter.latest});
 
   final _WalletLedgerFilter filter;
 
@@ -916,19 +903,19 @@ class _WalletEmptyLedger extends StatelessWidget {
                 },
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  color: colorScheme.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 context.l10n.walletEmptyLedgerSubtitle,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.45,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
               ),
             ],
           ),
@@ -939,10 +926,7 @@ class _WalletEmptyLedger extends StatelessWidget {
 }
 
 class _WalletLedgerList extends StatelessWidget {
-  const _WalletLedgerList({
-    required this.entries,
-    required this.walletName,
-  });
+  const _WalletLedgerList({required this.entries, required this.walletName});
 
   final List<WalletLedgerEntry> entries;
   final String walletName;
@@ -966,10 +950,7 @@ class _WalletLedgerList extends StatelessWidget {
       child: Column(
         children: [
           for (var index = 0; index < entries.length; index++) ...[
-            _WalletLedgerTile(
-              entry: entries[index],
-              walletName: walletName,
-            ),
+            _WalletLedgerTile(entry: entries[index], walletName: walletName),
             if (index < entries.length - 1)
               Divider(height: 1, color: _walletPanelBorder(colorScheme)),
           ],
@@ -988,17 +969,17 @@ List<CustomerWalletCardAction> _walletCardActions(
     CustomerWalletCardAction(
       icon: Icons.add,
       label: l10n.homeActionTopup,
-      onTap: () => context.go('/topup?back=/my-wallet'),
+      onTap: () => context.push('/topup?back=/my-wallet'),
     ),
     CustomerWalletCardAction(
       icon: Icons.confirmation_number_outlined,
       label: l10n.homeActionTickets,
-      onTap: () => context.go('/tickets'),
+      onTap: () => context.push('/tickets'),
     ),
     CustomerWalletCardAction(
       icon: Icons.payments_outlined,
       label: l10n.homeActionClaim,
-      onTap: () => context.go('/reward-claims'),
+      onTap: () => context.push('/reward-claims'),
     ),
     CustomerWalletCardAction(
       icon: Icons.history,
@@ -1009,10 +990,7 @@ List<CustomerWalletCardAction> _walletCardActions(
 }
 
 class _WalletLedgerTile extends StatelessWidget {
-  const _WalletLedgerTile({
-    required this.entry,
-    required this.walletName,
-  });
+  const _WalletLedgerTile({required this.entry, required this.walletName});
 
   final WalletLedgerEntry entry;
   final String walletName;
@@ -1023,13 +1001,13 @@ class _WalletLedgerTile extends StatelessWidget {
     final amountColor = entry.isCredit
         ? _walletCreditColor(colorScheme)
         : entry.isDebit
-            ? _walletDebitColor(colorScheme)
-            : _walletNeutralColor(colorScheme);
+        ? _walletDebitColor(colorScheme)
+        : _walletNeutralColor(colorScheme);
     final iconBackground = entry.isCredit
         ? _walletCreditBackground(colorScheme)
         : entry.isDebit
-            ? _walletDebitBackground(colorScheme)
-            : _walletNeutralBackground(colorScheme);
+        ? _walletDebitBackground(colorScheme)
+        : _walletNeutralBackground(colorScheme);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1067,11 +1045,11 @@ class _WalletLedgerTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              height: 1.15,
-                            ),
+                          color: colorScheme.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          height: 1.15,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1079,11 +1057,11 @@ class _WalletLedgerTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1091,16 +1069,13 @@ class _WalletLedgerTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              height: 1.15,
-                            ),
+                          color: Theme.of(context).colorScheme.outline,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
                       ),
-                      if (compact) ...[
-                        const SizedBox(height: 6),
-                        amount,
-                      ],
+                      if (compact) ...[const SizedBox(height: 6), amount],
                     ],
                   ),
                 ),
@@ -1140,8 +1115,9 @@ class _WalletLedgerAmount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         FittedBox(
           fit: BoxFit.scaleDown,
@@ -1159,18 +1135,16 @@ class _WalletLedgerAmount extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          context.l10n.walletBalanceAfter(
-            formatBaht(entry.balanceAfter),
-          ),
+          context.l10n.walletBalanceAfter(formatBaht(entry.balanceAfter)),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: alignEnd ? TextAlign.right : TextAlign.left,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.15,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+          ),
         ),
       ],
     );
@@ -1185,8 +1159,8 @@ ButtonStyle _walletOutlinePillStyle(BuildContext context) {
     foregroundColor: colorScheme.primary,
     side: BorderSide(color: colorScheme.primary),
     shape: const StadiumBorder(),
-    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w900,
-        ),
+    textStyle: Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
   );
 }
