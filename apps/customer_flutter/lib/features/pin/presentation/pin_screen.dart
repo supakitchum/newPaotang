@@ -24,6 +24,9 @@ const _pinBrand = Color(0xFF8487F8);
 const _pinErrorColor = Color(0xFFD3455B);
 const _pinDotEmpty = Color(0xFFDDDDDF);
 const _pinDotError = Color(0xFFF2B6BD);
+const _automaticBiometricPromptDelay = Duration(seconds: 2);
+const _automaticBiometricRetryDelay = Duration(milliseconds: 650);
+const _automaticBiometricMaxEligibilityChecks = 3;
 
 Color _pinActionColor(BuildContext context) =>
     AppTheme.pinAction(Theme.of(context).colorScheme.primary);
@@ -46,6 +49,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   bool _pinStatusChecked = false;
   bool _autoBiometricScheduled = false;
   bool _autoBiometricAttempted = false;
+  bool _autoBiometricEligibilityCheckInFlight = false;
+  int _autoBiometricEligibilityChecks = 0;
+  Timer? _autoBiometricTimer;
 
   @override
   void initState() {
@@ -58,6 +64,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   @override
   void dispose() {
+    _autoBiometricTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
   }
@@ -213,30 +220,70 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     }
     _autoBiometricScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_tryAutomaticBiometricUnlock());
+      if (!mounted) return;
+      _autoBiometricTimer = Timer(_automaticBiometricPromptDelay, () {
+        _autoBiometricTimer = null;
+        if (mounted) unawaited(_tryAutomaticBiometricUnlock());
+      });
     });
   }
 
   Future<void> _tryAutomaticBiometricUnlock() async {
-    if (_autoBiometricAttempted) return;
-    _autoBiometricAttempted = true;
-    final auth = ref.read(authControllerProvider);
-    final canUnlock = await auth.canUnlockWithBiometric();
-    if (!mounted ||
-        !canUnlock ||
-        !auth.isAuthenticated ||
-        !auth.pinRequired ||
-        auth.pinSetupRequired ||
-        _resettingPin ||
-        _pin.isNotEmpty) {
+    if (_autoBiometricAttempted || _autoBiometricEligibilityCheckInFlight) {
       return;
     }
+    final auth = ref.read(authControllerProvider);
+    if (!_automaticBiometricContextReady(auth)) return;
+
+    _autoBiometricEligibilityCheckInFlight = true;
+    var canUnlock = false;
+    try {
+      canUnlock = await auth.canUnlockWithBiometric();
+    } catch (_) {
+      canUnlock = false;
+    } finally {
+      _autoBiometricEligibilityCheckInFlight = false;
+    }
+    if (!mounted || _autoBiometricAttempted) return;
+    _autoBiometricEligibilityChecks += 1;
+    if (!_automaticBiometricContextReady(auth)) return;
+
+    if (!canUnlock) {
+      if (_autoBiometricEligibilityChecks <
+          _automaticBiometricMaxEligibilityChecks) {
+        _autoBiometricTimer = Timer(_automaticBiometricRetryDelay, () {
+          _autoBiometricTimer = null;
+          if (mounted) unawaited(_tryAutomaticBiometricUnlock());
+        });
+      } else {
+        _autoBiometricAttempted = true;
+      }
+      return;
+    }
+
+    _autoBiometricAttempted = true;
     await _unlockWithBiometric(showFailure: false);
   }
 
+  bool _automaticBiometricContextReady(AuthController auth) {
+    return mounted &&
+        auth.isAuthenticated &&
+        auth.pinRequired &&
+        !auth.pinSetupRequired &&
+        !_resettingPin &&
+        !_verifying &&
+        _pin.isEmpty;
+  }
+
   void _requestManualBiometricUnlock() {
-    _autoBiometricAttempted = true;
+    _cancelAutomaticBiometricUnlock();
     unawaited(_unlockWithBiometric());
+  }
+
+  void _cancelAutomaticBiometricUnlock() {
+    _autoBiometricTimer?.cancel();
+    _autoBiometricTimer = null;
+    _autoBiometricAttempted = true;
   }
 
   String _title(CustomerLocalizations l10n, bool setupRequired) {
@@ -266,6 +313,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     if (_verifying || _pin.length >= 6 || !RegExp(r'^\d$').hasMatch(digit)) {
       return;
     }
+    if (_pin.isEmpty) _cancelAutomaticBiometricUnlock();
     setState(() {
       _pin += digit;
       _pinError = '';
@@ -289,6 +337,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   void _startPinReset() {
     if (_verifying) return;
+    _cancelAutomaticBiometricUnlock();
     setState(() {
       _pin = '';
       _pinError = '';

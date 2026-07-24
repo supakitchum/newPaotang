@@ -39,6 +39,12 @@ void main() {
     await initializeDateFormatting('en_US');
   });
 
+  test('mobile bootstrap defaults iOS screenshot handling to app exit', () {
+    final bootstrap = MobileBootstrap.fromJson(const {});
+
+    expect(bootstrap.screenSecurity.iosExitApp, isTrue);
+  });
+
   test('unwrapDataList reads Laravel resource list shape', () {
     final rows = unwrapDataList({
       'data': [

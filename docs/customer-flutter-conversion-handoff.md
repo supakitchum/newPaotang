@@ -10846,3 +10846,56 @@ Automatic Face ID/Biometric PIN unlock (2026-07-24):
   regression passed 3 tests, AuthController regression passed 11 tests, focused
   analysis reported no issues, and `git diff --check` passed. No runtime
   database, commit, push, or clear-worktree action was performed.
+
+iOS app-wide capture protection and forced relaunch (2026-07-24):
+
+- Native screen protection now covers every Flutter route on iOS while the
+  tenant `screen_security_native` flag and screenshot policy are enabled.
+  Android keeps its existing sensitive-route behavior.
+- The iOS runner uses a layer-only secure text canvas with a black replacement
+  instead of reparenting the Flutter view. Repeated bootstrap `enable` calls are
+  now strictly idempotent and never reparent the protected layer twice; layer
+  restoration also completes before UIKit removes the secure field.
+- Runtime `ios.exit_app` now defaults to `true` in both bootstrap parsing and
+  Platform defaults, remains explicitly configurable per tenant, and terminates
+  the process after a screenshot or active capture event so the customer must
+  launch the app again.
+- Verified on the connected physical iPhone 12 Pro Max running iOS 26.5.2:
+  a device screenshot contained a solid-black app area, and injecting the exact
+  `UIApplicationUserDidTakeScreenshotNotification` into the running process
+  exited it successfully with status 0.
+- A follow-up physical-device crash exposed a repeated-enable
+  `CALayerInvalid` cycle during startup. Crash reports identified
+  `refreshSecureCaptureProtection` as the source. The idempotent hotfix was
+  rebuilt and installed on the same iPhone; the app remains running and a new
+  device capture still contains a solid-black app area.
+- iOS 26 inserts a zero-sized `_UITouchPassthroughView` before the actual
+  `_UITextLayoutCanvasView`. Selecting the first text-field child therefore
+  made the live app black even though capture protection worked. The runner now
+  resolves the named secure canvas recursively, with a largest-visible-child
+  fallback for compatible iOS variants.
+- Because iOS 26 treats the protected Flutter view as part of the secure text
+  canvas hierarchy, disabling interaction on the secure field also blocked the
+  whole app. The field now forwards hit testing to the Flutter root view while
+  remaining non-focusable and non-accessible itself.
+- Forced iOS process termination is an owner-requested policy and can be an App
+  Store review risk; setting runtime `ios.exit_app` to `false` retains the
+  secure-canvas and lock behavior without terminating. Runtime databases were
+  not touched, and no commit, push, or clear-worktree action was performed.
+
+PIN biometric prompt timing (2026-07-24):
+
+- Automatic Face ID/Biometric unlock now waits two seconds after the PIN screen
+  is rendered and the authoritative PIN status is ready, allowing the customer
+  to see the PIN UI before the native prompt appears.
+- Leaving the PIN screen cancels the pending prompt. Starting to enter a PIN
+  during the delay keeps the keypad flow active and suppresses the automatic
+  biometric request for that visit.
+- Automatic eligibility now tolerates the transient false response sometimes
+  returned while iOS finishes activating LocalAuthentication. It retries up to
+  three bounded checks without presenting duplicate prompts, while manual
+  biometric use or PIN entry cancels the pending retry immediately.
+- The iOS Keychain bridge now removes the saved biometric device ID only after
+  a definitive `errSecItemNotFound`. Temporary protected-data or interaction
+  statuses preserve the registered credential for the authenticated signing
+  attempt instead of intermittently disabling automatic Face ID.

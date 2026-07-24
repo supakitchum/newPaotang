@@ -1,13 +1,21 @@
 import Flutter
 import LocalAuthentication
 import UIKit
+import Darwin
 
 private final class SecureCaptureTextField: UITextField {
   var onLayout: (() -> Void)?
+  weak var interactionView: UIView?
 
   override func layoutSubviews() {
     super.layoutSubviews()
     onLayout?()
+  }
+
+  override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+    guard let interactionView else { return nil }
+    let targetPoint = interactionView.convert(point, from: self)
+    return interactionView.hitTest(targetPoint, with: event)
   }
 }
 
@@ -28,9 +36,9 @@ private final class IOSSecureCaptureProtector {
     secureTextField.tintColor = .clear
     secureTextField.backgroundColor = .clear
     secureTextField.borderStyle = .none
-    secureTextField.isUserInteractionEnabled = false
+    secureTextField.isUserInteractionEnabled = true
     secureTextField.isAccessibilityElement = false
-    secureTextField.accessibilityElementsHidden = true
+    secureTextField.accessibilityElementsHidden = false
     secureTextField.clipsToBounds = true
     secureTextField.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 
@@ -47,19 +55,16 @@ private final class IOSSecureCaptureProtector {
 
   @discardableResult
   func enable(in window: UIWindow) -> Bool {
+    if enabled {
+      layoutProtectedLayer()
+      return true
+    }
+
     guard let rootView = window.rootViewController?.view,
           let rootHostView = rootView.superview,
           let rootSuperlayer = rootView.layer.superlayer
     else {
       return false
-    }
-
-    if enabled {
-      if protectedView === rootView && hostView === rootHostView {
-        layoutProtectedLayer()
-        return true
-      }
-      disable()
     }
 
     window.layoutIfNeeded()
@@ -78,13 +83,15 @@ private final class IOSSecureCaptureProtector {
     secureTextField.setNeedsLayout()
     secureTextField.layoutIfNeeded()
 
-    guard let canvasLayer = secureTextField.subviews.first?.layer
-      ?? secureTextField.layer.sublayers?.first
-    else {
+    guard let canvasView = secureCanvasView(in: secureTextField) else {
       secureTextField.removeFromSuperview()
       blackBackdropView.removeFromSuperview()
       return false
     }
+    canvasView.isUserInteractionEnabled = true
+    canvasView.accessibilityElementsHidden = false
+    secureTextField.interactionView = rootView
+    let canvasLayer = canvasView.layer
 
     protectedView = rootView
     hostView = rootHostView
@@ -102,6 +109,30 @@ private final class IOSSecureCaptureProtector {
     return true
   }
 
+  private func secureCanvasView(in rootView: UIView) -> UIView? {
+    let descendants = rootView.subviews.flatMap { subview -> [UIView] in
+      [subview] + allDescendants(of: subview)
+    }
+    if let namedCanvas = descendants.first(where: { view in
+      let className = NSStringFromClass(type(of: view))
+      return className.contains("TextLayoutCanvasView")
+        || className.contains("TextFieldCanvasView")
+    }) {
+      return namedCanvas
+    }
+
+    return descendants
+      .filter { $0.bounds.width > 0 && $0.bounds.height > 0 }
+      .max {
+        ($0.bounds.width * $0.bounds.height)
+          < ($1.bounds.width * $1.bounds.height)
+      }
+  }
+
+  private func allDescendants(of view: UIView) -> [UIView] {
+    view.subviews.flatMap { [$0] + allDescendants(of: $0) }
+  }
+
   func disable() {
     guard enabled else {
       secureTextField.removeFromSuperview()
@@ -117,8 +148,6 @@ private final class IOSSecureCaptureProtector {
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     rootLayer?.removeFromSuperlayer()
-    secureTextField.removeFromSuperview()
-    blackBackdropView.removeFromSuperview()
 
     if let rootLayer, let rootSuperlayer {
       let layerCount = rootSuperlayer.sublayers?.count ?? 0
@@ -128,9 +157,12 @@ private final class IOSSecureCaptureProtector {
       )
       rootLayer.frame = rootHostView?.bounds ?? rootLayer.frame
     }
+    secureTextField.removeFromSuperview()
+    blackBackdropView.removeFromSuperview()
     CATransaction.commit()
 
     enabled = false
+    secureTextField.interactionView = nil
     protectedView = nil
     hostView = nil
     originalSuperlayer = nil
@@ -173,7 +205,8 @@ private final class IOSSecureCaptureProtector {
   private var privacyOverlayDescription = "Sensitive information is hidden. Please unlock again to continue."
   private var iosScreenshotPolicy = "lock_and_blank"
   private var iosScreenCaptureOverlayEnabled = true
-  private var iosExitAppEnabled = false
+  private var iosExitAppEnabled = true
+  private var captureTerminationScheduled = false
   private let screenSecurityRouteKeys = [
     "route", "currentRoute", "current_route", "routeName", "route_name",
     "routePath", "route_path", "path", "currentPath", "current_path",
@@ -262,13 +295,21 @@ private final class IOSSecureCaptureProtector {
           } else {
             self.hidePrivacyOverlay()
           }
-          self.sendSecurityEvent(
-            event: "screen_capture_active",
-            reason: "screen_capture",
-            nativeEvent: UIScreen.capturedDidChangeNotification.rawValue,
-            isCaptured: UIScreen.main.isCaptured,
-            source: "ios_enable_existing_capture"
-          )
+          if self.iosExitAppEnabled {
+            self.requestSensitiveExit(
+              reason: "screen_capture",
+              nativeEvent: UIScreen.capturedDidChangeNotification.rawValue,
+              isCaptured: UIScreen.main.isCaptured
+            )
+          } else {
+            self.sendSecurityEvent(
+              event: "screen_capture_active",
+              reason: "screen_capture",
+              nativeEvent: UIScreen.capturedDidChangeNotification.rawValue,
+              isCaptured: UIScreen.main.isCaptured,
+              source: "ios_enable_existing_capture"
+            )
+          }
         }
         result(nil)
       case "disable":
@@ -493,13 +534,21 @@ private final class IOSSecureCaptureProtector {
       } else {
         hidePrivacyOverlay()
       }
-      sendSecurityEvent(
-        event: "screen_capture_active",
-        reason: "screen_capture",
-        nativeEvent: UIScreen.capturedDidChangeNotification.rawValue,
-        isCaptured: UIScreen.main.isCaptured,
-        source: "ios_active_return_capture"
-      )
+      if iosExitAppEnabled {
+        requestSensitiveExit(
+          reason: "screen_capture",
+          nativeEvent: UIScreen.capturedDidChangeNotification.rawValue,
+          isCaptured: UIScreen.main.isCaptured
+        )
+      } else {
+        sendSecurityEvent(
+          event: "screen_capture_active",
+          reason: "screen_capture",
+          nativeEvent: UIScreen.capturedDidChangeNotification.rawValue,
+          isCaptured: UIScreen.main.isCaptured,
+          source: "ios_active_return_capture"
+        )
+      }
       return
     }
 
@@ -569,6 +618,9 @@ private final class IOSSecureCaptureProtector {
     nativeEvent: String? = nil,
     isCaptured: Bool? = nil
   ) {
+    guard !captureTerminationScheduled else { return }
+    captureTerminationScheduled = true
+    showPrivacyOverlay(reason: "forced_exit")
     sendSecurityEvent(
       event: "screen_security_exit_requested",
       reason: reason,
@@ -576,6 +628,9 @@ private final class IOSSecureCaptureProtector {
       isCaptured: isCaptured,
       source: "ios_exit_app_policy"
     )
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+      exit(EXIT_SUCCESS)
+    }
   }
 
   private func sendSecurityEvent(
@@ -771,16 +826,20 @@ private final class IOSSecureCaptureProtector {
       return nil
     }
 
-    guard hasExistingBiometricKeyPair() else {
-      try? deleteBiometricKeyPair()
+    let lookup = lookupBiometricPrivateKey()
+    if lookup.key != nil {
+      return stored
+    }
+
+    // Keychain can be temporarily unavailable while iOS is still activating
+    // the protected app. Only clear the credential after a definitive
+    // not-found response; signing will validate every other state.
+    if lookup.status == errSecItemNotFound {
+      UserDefaults.standard.removeObject(forKey: biometricDeviceIdKey)
       return nil
     }
 
     return stored
-  }
-
-  private func hasExistingBiometricKeyPair() -> Bool {
-    findBiometricPrivateKey() != nil
   }
 
   private func deleteBiometricKeyPair() throws {
@@ -904,6 +963,12 @@ private final class IOSSecureCaptureProtector {
   }
 
   private func findBiometricPrivateKey(authenticationContext: LAContext? = nil) -> SecKey? {
+    return lookupBiometricPrivateKey(authenticationContext: authenticationContext).key
+  }
+
+  private func lookupBiometricPrivateKey(
+    authenticationContext: LAContext? = nil
+  ) -> (key: SecKey?, status: OSStatus) {
     var query: [String: Any] = [
       kSecClass as String: kSecClassKey,
       kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
@@ -917,10 +982,10 @@ private final class IOSSecureCaptureProtector {
     let status = SecItemCopyMatching(query as CFDictionary, &item)
 
     guard status == errSecSuccess else {
-      return nil
+      return (nil, status)
     }
 
-    return (item as! SecKey)
+    return ((item as! SecKey), status)
   }
 
   private func authenticatedBiometricPrivateKey(_ context: LAContext) throws -> SecKey {

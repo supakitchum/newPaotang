@@ -1736,6 +1736,7 @@ class MobileScreenSecurityConfig {
             json['iosExitApp'] ??
             json['exit_app'] ??
             json['exitApp'],
+        fallback: true,
       ),
       webSensitiveScreenMode: normalizeWebPrivacyMode(
         _stringFrom(

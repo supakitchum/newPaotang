@@ -1483,14 +1483,6 @@ class CustomerNotificationService
     /** @return array{title: string, body: string} */
     private function pushPreview(CustomerNotification $notification, string $locale): array
     {
-        if ((string) $notification->event_key === 'admin.direct_message') {
-            $isEnglish = $this->localeKey($locale) === 'en-US';
-
-            return $isEnglish
-                ? ['title' => 'New message', 'body' => 'Open the app to view the message.']
-                : ['title' => 'มีข้อความใหม่', 'body' => 'เปิดแอปเพื่อดูรายละเอียดข้อความ'];
-        }
-
         return [
             'title' => $this->localizedText($notification->title_json, $locale),
             'body' => $this->localizedText($notification->body_json, $locale),

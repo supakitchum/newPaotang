@@ -124,7 +124,7 @@ class PublicSiteConfigController extends Controller
                 'ios' => [
                     'screenshot_policy' => 'lock_and_blank',
                     'screen_capture_overlay' => true,
-                    'exit_app' => false,
+                    'exit_app' => true,
                 ],
                 'web' => [
                     'sensitive_screen_mode' => 'limited',

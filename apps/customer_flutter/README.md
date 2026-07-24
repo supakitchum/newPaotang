@@ -63,8 +63,10 @@ native/report-only screen-security events back to Flutter as `securityEvent`
 callbacks so matched sensitive routes are audited and locked through the same
 guard path as iOS.
 
-iOS cannot block a screenshot before capture with public APIs. The runner
-therefore:
+iOS applies the native secure-canvas guard across the entire customer app while
+the runtime `screen_security_native` feature and screenshot policy are enabled.
+The guard places Flutter's layer under a secure text canvas so captured output
+is black instead of exposing customer content. The runner also:
 
 - Listens for `UIApplication.userDidTakeScreenshotNotification`.
 - Listens for `UIScreen.capturedDidChangeNotification` for recording/mirroring.
@@ -77,12 +79,13 @@ therefore:
   overlay or forwards an event to Flutter.
 - Audits matched sensitive-route events to
   `POST /customer/auth/security-events` on a best-effort path.
-- Lets Flutter lock the customer back to `/security-lock` and require unlock
-  again when the runtime policy is `lock_and_blank` or `ios_exit_app`.
-  Overlay/report-only policies such as `overlay_only` still show/report the
-  native privacy event without forcing a PIN lock.
+- Terminates the iOS process after a still-screenshot or active-capture event
+  when runtime `ios.exit_app` is enabled, requiring a fresh app launch.
+- Keeps lock/overlay-only behavior available by setting runtime
+  `ios.exit_app` to `false`.
 
-Do not call `exit(0)` on iOS; it is not App Review safe.
+Forced process termination is an explicit product policy and may be rejected by
+Apple App Review. Disable `ios.exit_app` for a store-safe lock-only policy.
 
 ## Biometric Bridge
 

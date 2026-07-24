@@ -337,9 +337,11 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
           path,
           extraSensitiveRoutes: extraSensitiveRoutes,
         );
+        final protectEntireApp = platformKey.trim().toLowerCase() == 'ios';
 
         return SensitiveScreenGuard(
-          enabled: screenSecurityEnabled && routeSensitive,
+          enabled:
+              screenSecurityEnabled && (protectEntireApp || routeSensitive),
           route: path.isEmpty ? 'app' : path,
           androidFlagSecure: screenSecurity?.androidFlagSecure,
           androidProtectRecentAppPreview:

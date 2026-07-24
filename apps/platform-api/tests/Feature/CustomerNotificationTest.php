@@ -1039,7 +1039,7 @@ class CustomerNotificationTest extends TestCase
         Event::assertNotDispatched(CustomerNotificationChanged::class);
     }
 
-    public function test_admin_direct_push_masks_message_content_but_keeps_inbox_detail(): void
+    public function test_admin_direct_push_matches_localized_inbox_content(): void
     {
         $this->seedTenant('par_notify_private_push', 'ten_notify_private_push', 'notify-private-push.test');
         $this->seedCustomer('ten_notify_private_push', 'cus_notify_private_push', 'CUS-NOTIFY-PRIVATE-PUSH');
@@ -1092,13 +1092,9 @@ class CustomerNotificationTest extends TestCase
         );
 
         $this->assertIsArray($sentMessage);
-        $this->assertSame('มีข้อความใหม่', $sentMessage['notification']['title'] ?? null);
-        $this->assertSame('เปิดแอปเพื่อดูรายละเอียดข้อความ', $sentMessage['notification']['body'] ?? null);
+        $this->assertSame('OTP 123456 สำหรับบัญชี 0123456789', $sentMessage['notification']['title'] ?? null);
+        $this->assertSame('ยอดเงิน 9,999.00 บาท', $sentMessage['notification']['body'] ?? null);
         $this->assertSame('wallet', $sentMessage['data']['action_key'] ?? null);
-        $pushPreview = json_encode($sentMessage['notification'] ?? [], JSON_THROW_ON_ERROR);
-        $this->assertStringNotContainsString('123456', $pushPreview);
-        $this->assertStringNotContainsString('0123456789', $pushPreview);
-        $this->assertStringNotContainsString('9,999.00', $pushPreview);
     }
 
     public function test_admin_history_reports_partial_delivery_across_customer_devices(): void

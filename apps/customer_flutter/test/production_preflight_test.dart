@@ -1799,6 +1799,7 @@ class AppDelegate {
   let overlay = "showPrivacyOverlay"
   let exitPolicy = "ios_exit_app iosExitAppEnabled"
   let exitEvent = "screen_security_exit_requested"
+  let exitTermination = "captureTerminationScheduled exit(EXIT_SUCCESS)"
   let event = "securityEvent"
   let eventPayload = "nativeEvent isCaptured screenCaptureActive currentRoute reasonText"
   let secureCapture = "IOSSecureCaptureProtector isSecureTextEntry = true blackBackdropView.backgroundColor = .black refreshSecureCaptureProtection secureCaptureProtector.enable(in: window) secureCaptureProtector.disable()"
@@ -1899,6 +1900,10 @@ Future<void> pickSlip() async {
           'ios_photo_library_usage_missing',
           'ios_camera_usage_missing',
         }),
+      );
+      expect(
+        issues.map((issue) => issue.code),
+        isNot(contains('ios_exit_app_policy_missing')),
       );
     } finally {
       root.deleteSync(recursive: true);
@@ -3419,6 +3424,7 @@ class AppDelegate {
   let overlay = "showPrivacyOverlay"
   let exitPolicy = "ios_exit_app iosExitAppEnabled"
   let exitEvent = "screen_security_exit_requested"
+  let exitTermination = "captureTerminationScheduled exit(EXIT_SUCCESS)"
   let event = "securityEvent"
   let eventPayload = "nativeEvent isCaptured screenCaptureActive currentRoute reasonText"
   let aliasRoutes = "screenSecurityRouteKeys routeName targetUrl"

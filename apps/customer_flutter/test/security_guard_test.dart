@@ -1112,6 +1112,64 @@ void main() {
     },
   );
 
+  testWidgets('CustomerApp protects public routes across the entire iOS app', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Text('Public root route'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
+          ),
+          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+          publicVisitMonitorEnabledProvider.overrideWithValue(false),
+          customerPlatformKeyProvider.overrideWithValue('ios'),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+              'mobile': {
+                'screen_security': {
+                  'ios': {
+                    'screenshot_policy': 'lock_and_blank',
+                    'screen_capture_overlay': true,
+                    'exit_app': true,
+                  },
+                },
+                'feature_flags': {'screen_security_native': true},
+              },
+            }),
+          ),
+          appRouterProvider.overrideWithValue(router),
+        ],
+        child: const CustomerApp(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final guard = tester.widget<SensitiveScreenGuard>(
+      find.byType(SensitiveScreenGuard),
+    );
+    expect(guard.enabled, isTrue);
+    expect(guard.iosScreenshotPolicy, 'lock_and_blank');
+    expect(guard.iosScreenCaptureOverlay, isTrue);
+    expect(guard.iosExitApp, isTrue);
+    expect(find.text('Public root route'), findsOneWidget);
+  });
+
   testWidgets('CustomerApp uses a light status bar on the PIN route', (
     tester,
   ) async {
@@ -2063,6 +2121,7 @@ void main() {
           newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
           resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
+          customerPlatformKeyProvider.overrideWithValue('ios'),
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson({
               'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},

@@ -3344,11 +3344,13 @@ void _checkIosNativeSecurity(
       'ios_exit_app',
       'iosExitAppEnabled',
       'screen_security_exit_requested',
+      'captureTerminationScheduled',
+      'exit(EXIT_SUCCESS)',
     ],
     const ProductionPreflightIssue(
       code: 'ios_exit_app_policy_missing',
       message:
-          'iOS AppDelegate must honor the ios_exit_app screen-security policy by requesting a sensitive-session lock.',
+          'iOS AppDelegate must honor the ios_exit_app screen-security policy by terminating after a capture event.',
     ),
     issues,
   );

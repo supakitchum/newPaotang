@@ -465,7 +465,7 @@ void main() {
   });
 
   testWidgets(
-    'PIN automatically uses an enabled biometric credential and preserves redirect',
+    'PIN waits two seconds before automatically using an enabled biometric credential',
     (tester) async {
       final repo = _AuthRedirectRepository();
       final biometric = _AutoBiometricAuthService(
@@ -494,6 +494,17 @@ void main() {
           platformKey: 'ios',
         ),
       );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PinScreen), findsOneWidget);
+      expect(biometric.eligibilityChecks, 0);
+      expect(biometric.assertionRequests, 0);
+
+      await tester.pump(const Duration(milliseconds: 1999));
+      expect(biometric.eligibilityChecks, 0);
+      expect(biometric.assertionRequests, 0);
+
+      await tester.pump(const Duration(milliseconds: 1));
       await tester.pumpAndSettle();
 
       expect(biometric.eligibilityChecks, 1);
@@ -539,13 +550,79 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
       expect(biometric.eligibilityChecks, 1);
+
+      await tester.pump(const Duration(milliseconds: 650));
+      await tester.pump();
+      expect(biometric.eligibilityChecks, 2);
+
+      await tester.pump(const Duration(milliseconds: 650));
+      await tester.pumpAndSettle();
+
+      expect(biometric.eligibilityChecks, 3);
       expect(biometric.assertionRequests, 0);
       expect(repo.lastPinAssertionToken, isEmpty);
       expect(
         router.routerDelegate.currentConfiguration.uri.toString(),
         '/pin?redirect=%2Fcheckout',
+      );
+    },
+  );
+
+  testWidgets(
+    'PIN retries a transient biometric eligibility failure before prompting',
+    (tester) async {
+      final repo = _AuthRedirectRepository();
+      final biometric = _AutoBiometricAuthService(
+        assertionToken: 'assertion-after-retry',
+        unavailableChecksBeforeSuccess: 1,
+      );
+      final router = GoRouter(
+        initialLocation: '/pin?redirect=%2Fcheckout',
+        routes: [
+          GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) =>
+                const Text('checkout-flow', textDirection: TextDirection.ltr),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          router: router,
+          repo: repo,
+          authenticated: true,
+          pinRequired: true,
+          biometricAuth: biometric,
+          biometricEnabled: true,
+          platformKey: 'ios',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(biometric.eligibilityChecks, 1);
+      expect(biometric.assertionRequests, 0);
+      expect(find.byType(PinScreen), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 649));
+      expect(biometric.eligibilityChecks, 1);
+      expect(biometric.assertionRequests, 0);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(biometric.eligibilityChecks, 2);
+      expect(biometric.assertionRequests, 1);
+      expect(repo.lastPinAssertionToken, 'assertion-after-retry');
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/checkout',
       );
     },
   );
@@ -979,17 +1056,19 @@ class _AutoBiometricAuthService extends BiometricAuthService {
   _AutoBiometricAuthService({
     required this.assertionToken,
     this.canUnlock = true,
+    this.unavailableChecksBeforeSuccess = 0,
   }) : super(ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'));
 
   final String? assertionToken;
   final bool canUnlock;
+  final int unavailableChecksBeforeSuccess;
   int eligibilityChecks = 0;
   int assertionRequests = 0;
 
   @override
   Future<bool> canUnlockCurrentDevice() async {
     eligibilityChecks++;
-    return canUnlock;
+    return canUnlock && eligibilityChecks > unavailableChecksBeforeSuccess;
   }
 
   @override
