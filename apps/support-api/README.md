@@ -168,7 +168,7 @@ localized maps to Platform, which owns Customer Notification and FCM delivery.
 During failure testing, stop only Support DB/Valkey/worker/Reverb and verify
 Order/Cart/Checkout remain available and do not gain Support latency.
 
-The DOKS manifests are in `deploy/digitalocean/support-api.yaml`. The production
+The DOKS manifests are in `deploy/digitalocean-support/support-api.yaml`. The production
 workflow builds the image on every deploy branch push but applies Support only
 for a manually approved `deploy_support=true` run. Support schema migration is
 separately gated by `run_support_migration=true`; neither gate should be opened

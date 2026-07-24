@@ -1,3 +1,4 @@
+# Deployed only through the isolated Support overlay in this directory.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,6 +23,13 @@ spec:
         app.kubernetes.io/part-of: newpaotang
     spec:
       terminationGracePeriodSeconds: 45
+      nodeSelector:
+        doks.digitalocean.com/node-pool: lotto80-support
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: support
+          effect: NoSchedule
       containers:
         - name: support-api
           image: newpaotang/support-api:latest
@@ -114,6 +122,13 @@ spec:
         app.kubernetes.io/part-of: newpaotang
     spec:
       terminationGracePeriodSeconds: 60
+      nodeSelector:
+        doks.digitalocean.com/node-pool: lotto80-support
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: support
+          effect: NoSchedule
       containers:
         - name: worker
           image: newpaotang/support-api:latest
@@ -171,6 +186,13 @@ spec:
         app.kubernetes.io/part-of: newpaotang
     spec:
       terminationGracePeriodSeconds: 30
+      nodeSelector:
+        doks.digitalocean.com/node-pool: lotto80-support
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: support
+          effect: NoSchedule
       containers:
         - name: scheduler
           image: newpaotang/support-api:latest
@@ -227,6 +249,13 @@ spec:
         app.kubernetes.io/part-of: newpaotang
     spec:
       terminationGracePeriodSeconds: 45
+      nodeSelector:
+        doks.digitalocean.com/node-pool: lotto80-support
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: support
+          effect: NoSchedule
       containers:
         - name: reverb
           image: newpaotang/support-api:latest

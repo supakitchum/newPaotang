@@ -148,7 +148,7 @@ and circuit-breaker behavior without blocking the Support write.
 
 No runtime Support migration or feature enablement is implied by this document.
 
-Production manifests live in `deploy/digitalocean/support-api.yaml` with the
+Production manifests live in `deploy/digitalocean-support/support-api.yaml` with the
 isolated API, worker, scheduler, Reverb, services, ingress, PDB, and API HPA.
 The production workflow always builds the Support image, but it applies Support
 workloads only after a manual `deploy_support=true` rollout. The isolated

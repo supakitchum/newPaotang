@@ -15,6 +15,13 @@ spec:
         app.kubernetes.io/name: support-api-migrate
     spec:
       restartPolicy: Never
+      nodeSelector:
+        doks.digitalocean.com/node-pool: lotto80-support
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: support
+          effect: NoSchedule
       containers:
         - name: migrate
           image: ${SUPPORT_API_IMAGE}

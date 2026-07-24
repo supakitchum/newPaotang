@@ -7,6 +7,7 @@ on:
     paths:
       - "apps/**"
       - "deploy/digitalocean/**"
+      - "deploy/digitalocean-support/**"
       - ".github/workflows/production-deploy.yml"
   workflow_dispatch:
     inputs:
@@ -16,6 +17,11 @@ on:
         type: string
       deploy:
         description: "Apply manifests and roll production deployments after pushing images."
+        required: true
+        default: false
+        type: boolean
+      run_platform_migration:
+        description: "Authorize the production Platform migration job. Required for every production deploy."
         required: true
         default: false
         type: boolean
@@ -145,7 +151,7 @@ jobs:
           cache-to: type=gha,scope=lotto-scraper,mode=max
 
   deploy:
-    if: ${{ github.event_name == 'push' || inputs.deploy }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy && inputs.run_platform_migration }}
     runs-on: ubuntu-latest
     needs: build
     environment: production
@@ -204,16 +210,30 @@ jobs:
             exit 1
           fi
 
-          rm -rf /tmp/newpaotang-digitalocean
-          cp -R deploy/digitalocean /tmp/newpaotang-digitalocean
-          if [ "$DEPLOY_SUPPORT" != "true" ]; then
-            sed -i '/^[[:space:]]*- support-api\\.yaml$/d' /tmp/newpaotang-digitalocean/kustomization.yaml
+          rm -rf /tmp/newpaotang-deploy
+          mkdir -p /tmp/newpaotang-deploy
+          cp -R deploy/digitalocean /tmp/newpaotang-deploy/digitalocean
+          cp -R deploy/digitalocean-support /tmp/newpaotang-deploy/digitalocean-support
+          KUSTOMIZE_DIR=/tmp/newpaotang-deploy/digitalocean
+          if [ "$DEPLOY_SUPPORT" = "true" ]; then
+            KUSTOMIZE_DIR=/tmp/newpaotang-deploy/digitalocean-support
           fi
-          perl -0pi -e 's/REPLACE_WITH_REGISTRY/$ENV{DOCR_REGISTRY}/g; s/REPLACE_WITH_TAG/$ENV{IMAGE_TAG}/g' /tmp/newpaotang-digitalocean/kustomization.yaml
-          kubectl kustomize /tmp/newpaotang-digitalocean > /tmp/newpaotang-rendered.yaml
+          find /tmp/newpaotang-deploy -name kustomization.yaml -exec \
+            perl -0pi -e 's/REPLACE_WITH_REGISTRY/$ENV{DOCR_REGISTRY}/g; s/REPLACE_WITH_TAG/$ENV{IMAGE_TAG}/g' {} +
+          kubectl kustomize "$KUSTOMIZE_DIR" > /tmp/newpaotang-rendered.yaml
 
           if grep -q 'REPLACE_WITH_REGISTRY\|REPLACE_WITH_TAG' /tmp/newpaotang-rendered.yaml; then
             echo "::error::Rendered manifests still contain placeholder image values."
+            exit 1
+          fi
+
+          RENDERED_RESOURCES="$(kubectl apply --dry-run=client -f /tmp/newpaotang-rendered.yaml -o name)"
+          if [ "$DEPLOY_SUPPORT" != "true" ] && grep -Eq 'support-api|support-realtime' <<<"$RENDERED_RESOURCES"; then
+            echo "::error::Support resources leaked into the base production manifest."
+            exit 1
+          fi
+          if [ "$DEPLOY_SUPPORT" = "true" ] && ! grep -qx 'deployment.apps/support-api' <<<"$RENDERED_RESOURCES"; then
+            echo "::error::Support deployment is missing from the Support overlay."
             exit 1
           fi
 

@@ -5,7 +5,6 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - platform-api.yaml
-  - support-api.yaml
   - customer.yaml
   - back-office.yaml
   - lotto-scraper.yaml
@@ -19,9 +18,6 @@ images:
     newTag: REPLACE_WITH_TAG
   - name: newpaotang/customer
     newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-customer
-    newTag: REPLACE_WITH_TAG
-  - name: newpaotang/support-api
-    newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-support-api
     newTag: REPLACE_WITH_TAG
   - name: newpaotang/back-office
     newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-back-office
