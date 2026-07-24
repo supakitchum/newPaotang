@@ -92,18 +92,32 @@ class PartnerProvisioningTest extends TestCase
 
         $this->assertDatabaseHas('affiliate_programs', [
             'tenant_id' => $tenantId,
-            'code' => 'basic',
-            'name' => 'Basic Affiliate',
+            'code' => 'bronze',
+            'name' => 'Bronze',
             'status' => 'active',
+            'tier_rank' => 1,
             'minimum_payout_amount' => 30000,
+            'commission_per_ticket_amount' => 100,
         ]);
         $this->assertDatabaseHas('commission_rules', [
             'tenant_id' => $tenantId,
-            'code' => 'basic_com',
-            'name' => 'BasicCom',
+            'code' => 'bronze_per_ticket',
+            'name' => 'Bronze commission per ticket',
             'rule_type' => 'per_ticket',
-            'amount' => 1000,
+            'amount' => 100,
             'status' => 'active',
+        ]);
+        $this->assertSame(5, DB::table('affiliate_programs')
+            ->where('tenant_id', $tenantId)
+            ->whereNotNull('tier_rank')
+            ->where('status', 'active')
+            ->count());
+        $this->assertDatabaseHas('affiliate_programs', [
+            'tenant_id' => $tenantId,
+            'code' => 'diamond',
+            'tier_rank' => 5,
+            'minimum_payout_amount' => 10000,
+            'commission_per_ticket_amount' => 300,
         ]);
 
         $this->withToken($login['access_token'])

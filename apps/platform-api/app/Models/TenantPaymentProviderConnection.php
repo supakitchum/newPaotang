@@ -16,6 +16,7 @@ class TenantPaymentProviderConnection extends BaseModel
         'provider',
         'status',
         'api_key_encrypted',
+        'webhook_secret_encrypted',
         'verified_at',
         'last_tested_at',
         'last_test_status',
@@ -27,6 +28,7 @@ class TenantPaymentProviderConnection extends BaseModel
 
     protected $hidden = [
         'api_key_encrypted',
+        'webhook_secret_encrypted',
     ];
 
     protected $casts = [

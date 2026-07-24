@@ -2,6 +2,8 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
+import 'package:customer_flutter/features/affiliate/data/affiliate_models.dart';
+import 'package:customer_flutter/features/affiliate/data/affiliate_repository.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_models.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_repository.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
@@ -48,6 +50,18 @@ void main() {
               ),
             ),
           ),
+          affiliateOverviewProvider.overrideWith(
+            (_) async => AffiliateOverview.fromJson(const {
+              'is_affiliate': true,
+              'tier': {
+                'code': 'gold',
+                'name': 'Gold',
+                'rank': 3,
+                'commission_per_ticket': {'amount': 200, 'currency': 'THB'},
+                'minimum_payout': {'amount': 20000, 'currency': 'THB'},
+              },
+            }),
+          ),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -81,6 +95,11 @@ void main() {
 
     expect(tester.getRect(headerFinder), initialHeaderRect);
     expect(find.text('คุณกิจ ชุ่มจันทร์จิรา'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-affiliate-tier-gold')),
+      findsOneWidget,
+    );
+    expect(find.text('Gold'), findsOneWidget);
     expect(tester.getTopLeft(sheetFinder).dy, lessThan(initialSheetTop));
 
     final aboutTitle = find.text('เกี่ยวกับแอปฯ');
@@ -119,10 +138,7 @@ void main() {
     await tester.tap(lineMenu);
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('ร้านค้านี้ยังไม่ได้เปิดใช้งาน LINE OA'),
-      findsOneWidget,
-    );
+    expect(find.text('ร้านค้านี้ยังไม่ได้เปิดใช้งาน LINE OA'), findsOneWidget);
     expect(find.text('LINE settings route'), findsNothing);
     expect(find.text('ตกลง'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -154,10 +170,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('LINE settings route'), findsOneWidget);
-    expect(
-      find.text('ร้านค้านี้ยังไม่ได้เปิดใช้งาน LINE OA'),
-      findsNothing,
-    );
+    expect(find.text('ร้านค้านี้ยังไม่ได้เปิดใช้งาน LINE OA'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -220,15 +233,13 @@ GoRouter _profileRouter() {
       ),
       GoRoute(
         path: '/profile/line-notifications',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('LINE settings route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('LINE settings route'))),
       ),
       GoRoute(
         path: '/maintenance',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Maintenance route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Maintenance route'))),
       ),
     ],
   );
@@ -258,18 +269,17 @@ Future<void> _pumpProfileRouter(
         mobileBootstrapProvider.overrideWith(
           (_) async => MobileBootstrap.fromJson(const {}),
         ),
-        customerProfileSettingsProvider.overrideWith(
-          (_) async {
-            if (profileError != null) throw profileError;
-            return _profileSettings;
-          },
+        customerProfileSettingsProvider.overrideWith((_) async {
+          if (profileError != null) throw profileError;
+          return _profileSettings;
+        }),
+        affiliateOverviewProvider.overrideWith(
+          (_) async => AffiliateOverview.empty(),
         ),
-        lineNotificationSettingsProvider.overrideWith(
-          (_) async {
-            if (lineError != null) throw lineError;
-            return lineSettings;
-          },
-        ),
+        lineNotificationSettingsProvider.overrideWith((_) async {
+          if (lineError != null) throw lineError;
+          return lineSettings;
+        }),
       ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
@@ -282,9 +292,8 @@ Future<void> _pumpProfileRouter(
         ],
         theme: AppTheme.light(),
         routerConfig: router,
-        builder: (context, child) => AppAlertHost(
-          child: child ?? const SizedBox.shrink(),
-        ),
+        builder: (context, child) =>
+            AppAlertHost(child: child ?? const SizedBox.shrink()),
       ),
     ),
   );
@@ -302,10 +311,7 @@ DioException _apiException(
     response: Response<Map<String, dynamic>>(
       requestOptions: request,
       statusCode: statusCode,
-      data: {
-        if (code.isNotEmpty) 'code': code,
-        'message': message,
-      },
+      data: {if (code.isNotEmpty) 'code': code, 'message': message},
     ),
   );
 }
@@ -320,9 +326,5 @@ const _profileSettings = CustomerProfileSettings(
     accountName: '',
     accountNumber: '',
   ),
-  autoReward: AutoRewardSetting(
-    enabled: false,
-    payoutMethod: '',
-    type: '',
-  ),
+  autoReward: AutoRewardSetting(enabled: false, payoutMethod: '', type: ''),
 );

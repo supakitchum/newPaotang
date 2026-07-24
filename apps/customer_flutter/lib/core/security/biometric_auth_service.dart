@@ -71,6 +71,12 @@ class BiometricAuthService {
     }
   }
 
+  Future<bool> canUnlockCurrentDevice() async {
+    if (!await canUseBiometric()) return false;
+    final deviceId = await _safeExistingDeviceId();
+    return deviceId != null && deviceId.isNotEmpty;
+  }
+
   Future<void> registerDevice({
     required String pin,
     required String platform,

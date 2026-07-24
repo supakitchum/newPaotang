@@ -336,9 +336,83 @@ Run focused feature tests only against `newpaotang_test` and verify:
   transition. Native registration also retries on app resume when APNs/FCM is
   temporarily unavailable, permission changes in OS settings, or token-refresh
   registration fails without escaping into the app lifecycle.
+- Flutter native registration now sends the installed app version/build plus
+  non-identifying device model, OS version, and physical/simulator diagnostics
+  to the existing encrypted device registration contract. Registration does
+  not collect hardware IDs or user-assigned device identifiers, and the loader
+  is contained so optional diagnostics can never block FCM token registration.
+  The client applies the same field allowlist and Unicode-safe length limits as
+  the API before submission, preventing unusually long package or OS values
+  from rejecting an otherwise valid FCM token.
+  The inbox read-all control also follows the authoritative server unread count
+  even when unread rows are beyond the currently loaded cursor page.
+- Device registration now enforces that privacy boundary server-side: only the
+  documented app-build, OS, manufacturer/model/machine, SDK, and
+  physical/simulator fields are accepted with bounded values. Unknown fields
+  such as hardware identifiers are rejected instead of persisted. Optional
+  local foreground-notification initialization/display failures are isolated
+  from Firebase initialization, so remote registration and background push do
+  not become unavailable because the banner plugin or Android channel failed.
+- Tenant delivery history now aggregates all registered customer devices. It
+  exposes total/sent/pending/failed counts, reports `partial` when delivery
+  outcomes differ, and preserves the latest safe failure code instead of
+  showing a blanket sent state after only one device succeeds.
+- Tenant-admin direct sends now create the immutable notification, recipient,
+  initial delivery rows, and audit record in one database transaction. An
+  audit-storage failure rolls the entire send back, while realtime broadcast
+  and push jobs remain after-commit work. The audit stores actor/tenant/target,
+  request ID, a SHA-256 content fingerprint, allowlisted destination, and
+  `accepted` outcome without retaining title/body plaintext or provider tokens.
+  A Back Office production guard also preserves the customer-detail action and
+  its tenant-scoped `customer_id` preselection into the composer.
+- Native token refresh now runs on the same serialized lifecycle queue as
+  initial/resume registration. Explicit logout marks the lifecycle as closing,
+  waits for any in-flight registration, then revokes the installation and
+  deletes the local FCM token. This prevents a late token-refresh response from
+  reactivating push after logout; a focused race regression and production
+  preflight source gate preserve the ordering.
+- Direct tenant-admin messages retain their complete localized content in the
+  authoritative inbox, but native FCM lock-screen previews use a generic
+  localized new-message title/body. This prevents an operator-entered OTP,
+  account number, or sensitive amount from leaving the inbox in the push
+  preview while preserving the allowlisted destination data.
+- Native app resume now reconciles the server-authoritative unread count and
+  inbox even when the customer did not tap a push. This closes the gap where a
+  realtime event could be missed while the process/socket was suspended. The
+  inbox query now has tenant/customer/cursor and unread-cursor composite
+  indexes matching its production access pattern; focused API coverage proves
+  two-page cursor ordering, category/unread filtering, stable repeated reads,
+  idempotent read-all, and installation revoke ownership after account moves.
+- Scheduled recovery now also soft-revokes active push registrations whose
+  `last_seen_at` exceeds the runtime-configured inactivity window. The default
+  is the conservative FCM Android expiry window of 270 days, `0` disables the
+  cleanup, each batch is bounded, and a concurrent or later registration wins
+  and reactivates the installation. Native lifecycle sync refreshes an
+  unchanged registration every 30 days on app resume so a long-lived process
+  keeps `last_seen_at` current. A dedicated composite index supports the scan
+  without deleting device or inbox history.
+- Latest no-device verification passed full Flutter analysis, 20 focused
+  Flutter notification lifecycle/model/inbox tests plus 69 production
+  preflight tests, the complete backend notification suite with 21 tests and
+  238 assertions on explicitly verified `newpaotang_test`, and Back Office
+  lint, static tests, and production build. Migration syntax and Kubernetes
+  kustomize rendering remain green for the accumulated batch; OpenAPI YAML
+  parsing, all 269 internal reference resolutions, and `git diff --check`
+  also pass. Current Android Debug APK, iOS Debug Simulator, and Flutter Web
+  Debug builds (including the Web Wasm dry run) are green after the latest
+  resume-reconciliation and device-context changes. The iOS Simulator
+  app installed and launched with a live process while native Firebase config
+  was absent, proving the contained startup path. Android emulator runtime
+  launch remains unobserved because the existing Pixel AVD requires an unknown
+  lock credential and the Nexus AVD has no usable initial system image; neither
+  AVD was wiped. The prior 98 Home/router/production-preflight regressions
+  remain green. Runtime DB `newpaotang` was not touched and no screenshot
+  automation was used.
 - External acceptance remains open: real FCM must pass on physical iOS and
   Android for foreground, background, terminated, permission denial, token
   refresh, notification tap through Login/PIN, and explicit logout revocation.
-  The currently visible iPhone cannot be deployed from this host because no
-  valid code-signing identity is installed, and no physical Android device is
-  connected. Do not mark this plan complete until both matrices are observed.
+  Physical-device execution is explicitly deferred for this pass. The visible
+  iPhone still cannot be deployed from this host because no valid code-signing
+  identity is installed, and real Firebase/APNs configuration remains an
+  external prerequisite. Do not mark this plan complete until both matrices
+  are observed.

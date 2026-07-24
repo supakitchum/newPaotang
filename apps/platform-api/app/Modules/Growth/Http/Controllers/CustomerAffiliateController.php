@@ -2,6 +2,7 @@
 
 namespace App\Modules\Growth\Http\Controllers;
 
+use App\Modules\Growth\Http\Requests\GrowthRequestValidator;
 use App\Modules\Growth\Services\GrowthService;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
 use App\Shared\Auth\ApiErrorResponse;
@@ -17,6 +18,7 @@ class CustomerAffiliateController extends Controller
         private readonly PartnerStoreService $partnerStore,
         private readonly GrowthService $growth,
         private readonly RequestHeaderValidator $headers,
+        private readonly GrowthRequestValidator $validator,
     ) {
     }
 
@@ -59,12 +61,57 @@ class CustomerAffiliateController extends Controller
         return $this->writeResult($request, $this->growth->registerCustomerAffiliate($tenant['tenant_id'], $customer, $request->all(), $request), 201);
     }
 
+    public function requestStoreName(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_write');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        return $this->writeResult($request, $this->growth->requestCustomerAffiliateStoreName($tenant['tenant_id'], $customer, $request->all(), $request), 201);
+    }
+
+    public function campaigns(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->growth->customerAffiliateTierCampaigns($tenant['tenant_id'], $customer));
+    }
+
+    public function campaign(Request $request, string $campaign_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $resource = $this->growth->customerAffiliateTierCampaign($tenant['tenant_id'], $customer, $campaign_id);
+
+        return $resource === null ? ApiErrorResponse::notFound($request) : response()->json($resource);
+    }
+
     public function applyReferral(Request $request): JsonResponse
     {
         [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_write');
 
         if ($error instanceof JsonResponse) {
             return $error;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
         }
 
         return $this->writeResult($request, $this->growth->applyCustomerReferral($tenant['tenant_id'], $customer, $request->all(), $request));
@@ -104,6 +151,11 @@ class CustomerAffiliateController extends Controller
 
         if ($headerErrors !== []) {
             return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $payloadErrors = $this->validator->customerPayoutCreateErrors($request->all());
+        if ($payloadErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $payloadErrors);
         }
 
         return $this->writeResult($request, $this->growth->createCustomerAffiliatePayout($tenant['tenant_id'], $customer, $request->all(), $request), 201);

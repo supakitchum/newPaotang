@@ -13,6 +13,7 @@ use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
+use App\Support\EncryptedJsonPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -331,9 +332,8 @@ class CustomerAuthService
 
         if (array_key_exists('reward_payout_bank_account', $payload) || array_key_exists('bank_account', $payload)) {
             $bankAccount = $this->normalizeBankAccount($payload['reward_payout_bank_account'] ?? $payload['bank_account'] ?? null);
-            $normalized['reward_payout_bank_account_json'] = $bankAccount === []
-                ? null
-                : json_encode($bankAccount, JSON_THROW_ON_ERROR);
+            $normalized['reward_payout_bank_account_json'] = null;
+            $normalized['reward_payout_bank_account_encrypted'] = EncryptedJsonPayload::encrypt($bankAccount);
         }
 
         if (array_key_exists('auto_reward_claim', $payload) || array_key_exists('auto_reward_claim_enabled', $payload) || array_key_exists('auto_reward_claim_payout_method', $payload)) {
@@ -722,7 +722,7 @@ class CustomerAuthService
 
         $walletId = 'wal_'.substr(sha1($tenantId.':'.$customerId.':primary'), 0, 20);
 
-        Wallet::query()->insert([
+        Wallet::query()->insertOrIgnore([
             'id' => $walletId,
             'tenant_id' => $tenantId,
             'customer_id' => $customerId,
@@ -735,7 +735,11 @@ class CustomerAuthService
             'updated_at' => now(),
         ]);
 
-        return $walletId;
+        return (string) Wallet::query()
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customerId)
+            ->where('type', 'primary')
+            ->value('id');
     }
 
     private function newToken(string $prefix): string
@@ -982,7 +986,10 @@ class CustomerAuthService
             'status' => $customer->status ?? null,
             'preferred_locale' => $customer->preferred_locale ?? null,
             'avatar_url' => $customer->avatar_url ?? null,
-            'reward_payout_bank_account' => $this->decodedBankAccount($customer->reward_payout_bank_account_json ?? null),
+            'reward_payout_bank_account' => EncryptedJsonPayload::decrypt(
+                $customer->reward_payout_bank_account_encrypted ?? null,
+                $customer->reward_payout_bank_account_json ?? null,
+            ),
             'auto_reward_claim' => [
                 'enabled' => (bool) ($customer->auto_reward_claim_enabled ?? false),
                 'payout_method' => $this->normalizeAutoRewardClaimPayoutMethod($customer->auto_reward_claim_payout_method ?? null),

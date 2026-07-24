@@ -20,6 +20,41 @@ class CustomerCheckoutTest extends TestCase
     use M5CommerceFixtures;
     use RefreshDatabase;
 
+    public function test_CustomerCheckout_requires_a_fresh_valid_pin_before_payment(): void
+    {
+        $world = $this->prepareReservedCart('par_checkout_pin', 'ten_checkout_pin', 'checkout-pin.m5.test', 'gam_checkout_pin', '0802003099', 719901);
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
+                'reservation_id' => $world['reservation']['id'],
+                'payment_method' => 'wallet',
+            ], [
+                'Idempotency-Key' => 'checkout-pin-missing',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
+                'reservation_id' => $world['reservation']['id'],
+                'payment_method' => 'wallet',
+                'pin' => '000000',
+            ], [
+                'Idempotency-Key' => 'checkout-pin-invalid',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'pin_invalid');
+
+        $this->assertDatabaseMissing('orders', [
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['auth']['user']['id'],
+        ]);
+        $this->assertDatabaseHas('stock_reservations', [
+            'id' => $world['reservation']['id'],
+            'status' => 'active',
+        ]);
+    }
+
     public function test_CustomerCheckout_wallet_checkout_is_idempotent_and_emits_paid_sold_wallet_events(): void
     {
         $world = $this->prepareReservedCart('par_checkout', 'ten_checkout', 'checkout.m5.test', 'gam_checkout', '0802003000', 710001);
@@ -123,6 +158,7 @@ class CustomerCheckoutTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
                 'reservation_id' => $world['reservation']['id'],
                 'payment_method' => 'wallet',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'checkout-wallet-main',
             ])
@@ -349,9 +385,23 @@ class CustomerCheckoutTest extends TestCase
             'order_id' => $order['id'],
             'affiliate_account_id' => 'aff_checkout_affiliate',
             'affiliate_attribution_id' => 'aat_checkout_affiliate',
-            'commission_rule_id' => 'cmr_checkout_affiliate',
-            'amount' => 2000,
+            'amount' => 100,
+            'ticket_count' => 1,
+            'tier_code' => 'bronze',
+            'commission_per_ticket_amount' => 100,
             'status' => 'approved',
+        ]);
+        $commissionRuleId = (string) DB::table('commission_transactions')
+            ->where('tenant_id', $world['tenant_id'])
+            ->where('order_id', $order['id'])
+            ->value('commission_rule_id');
+        $this->assertDatabaseHas('commission_rules', [
+            'id' => $commissionRuleId,
+            'tenant_id' => $world['tenant_id'],
+            'code' => 'bronze_per_ticket',
+            'rule_type' => 'per_ticket',
+            'amount' => 100,
+            'status' => 'active',
         ]);
         $this->assertDatabaseHas('affiliate_attributions', [
             'id' => 'aat_checkout_affiliate',
@@ -393,6 +443,7 @@ class CustomerCheckoutTest extends TestCase
                 'reservation_id' => $reservationIds[0],
                 'reservation_ids' => $reservationIds,
                 'payment_method' => 'wallet',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'checkout-wallet-multi',
                 'X-Request-Id' => 'req-checkout-wallet-multi',
@@ -498,6 +549,7 @@ class CustomerCheckoutTest extends TestCase
                 'reservation_id' => $reservationIds[0],
                 'reservation_ids' => $reservationIds,
                 'payment_method' => 'wallet',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'checkout-wallet-set-price',
                 'X-Request-Id' => 'req-checkout-wallet-set-price',

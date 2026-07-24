@@ -36,10 +36,7 @@ void main() {
     expect(find.text('เริ่มซื้อสลากดิจิทัล'), findsOneWidget);
     expect(find.text('เข้าสู่ระบบ'), findsOneWidget);
     expect(find.text('สมัครใช้งาน'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('home-fixed-navbar')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('home-fixed-navbar')), findsOneWidget);
     expect(find.text('ยอดเงินในกระเป๋า'), findsNothing);
     expect(find.text('0.00'), findsOneWidget);
     expect(find.text('80'), findsNothing);
@@ -198,6 +195,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'home shows the latest resolved result while current draw sells',
+    (tester) async {
+      final currentGame = const CurrentGame(
+        id: 'game_current',
+        name: 'งวดวันที่ 1 ส.ค. 2569',
+        status: 'open',
+        drawAt: '2026-08-01T16:00:00+07:00',
+        saleStartAt: '2026-07-17T06:00:00+07:00',
+        saleCloseAt: '2026-08-01T14:00:00+07:00',
+        serverTime: '2026-07-22T10:00:00+07:00',
+      );
+      final latestResolved = RewardResultGame.fromPublicSummary({
+        'game_id': 'game_previous',
+        'game_name': 'งวดวันที่ 16 ก.ค. 2569',
+        'status': 'published',
+        'official_status': 'published',
+        'draw_at': '2026-07-16T16:00:00+07:00',
+        'prizes': [
+          {'prize_type': 'first_prize', 'prize_number': '654321'},
+          {'prize_type': 'back2', 'prize_number': '45'},
+          {'prize_type': 'front3', 'prize_number': '123'},
+          {'prize_type': 'back3', 'prize_number': '789'},
+        ],
+      });
+
+      await _pumpHome(
+        tester,
+        resultBundle: RewardResultBundle(
+          currentGame: currentGame,
+          selectedResult: currentGame.toPendingRewardGame(),
+          history: [latestResolved],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('654321', skipOffstage: false), findsOneWidget);
+      expect(find.text('45', skipOffstage: false), findsOneWidget);
+      expect(
+        find.textContaining('16 ก.ค. 2569', findRichText: true),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('home activities use an image-only carousel on wide viewports', (
     tester,
   ) async {
@@ -209,8 +251,9 @@ void main() {
     await _pumpHome(tester, activities: _activityFixtures);
     await tester.pumpAndSettle();
 
-    final activityCarousel =
-        find.byKey(const ValueKey('home-activities-carousel'));
+    final activityCarousel = find.byKey(
+      const ValueKey('home-activities-carousel'),
+    );
 
     expect(activityCarousel, findsOneWidget);
     expect(find.text('กิจกรรมที่ 1'), findsNothing);
@@ -464,6 +507,7 @@ Future<void> _pumpHome(
   List<ActivityItem> activities = const <ActivityItem>[],
   List<NewsItem> news = _homeNewsFixtures,
   CurrentGame? currentGame,
+  RewardResultBundle? resultBundle,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -478,6 +522,7 @@ Future<void> _pumpHome(
         activityListProvider.overrideWith((_) async => activities),
         newsListProvider.overrideWith((_) async => news),
         currentResultProvider.overrideWith((_) async {
+          if (resultBundle != null) return resultBundle;
           return RewardResultBundle(
             currentGame: currentGame,
             selectedResult: RewardResultGame.fromPublicSummary({

@@ -16,6 +16,28 @@ void main() {
     expect(extractAffiliateRefCode('/'), isNull);
   });
 
+  test('repository applies referral with an idempotency key', () async {
+    final api = _CapturingReferralApiClient();
+    final repository = AffiliateReferralRepository(api);
+
+    await repository.apply(
+      refCode: 'ABC123',
+      visitorId: 'visitor-1',
+      registered: true,
+    );
+
+    expect(api.path, '/customer/affiliate/referrals/apply');
+    expect(api.payload, {
+      'ref': 'ABC123',
+      'visitor_id': 'visitor-1',
+      'registered': true,
+    });
+    expect(
+      api.headers['Idempotency-Key'],
+      startsWith('affiliate_referral_apply_'),
+    );
+  });
+
   test('service captures, tracks, and applies stored referral', () async {
     final repository = _FakeAffiliateReferralRepository();
     final store = _MemoryAffiliateReferralStore();
@@ -69,43 +91,78 @@ void main() {
     expect(await store.read('alpha.example.com'), isNull);
   });
 
-  test('native referral storage is scoped to tenant instead of central API',
-      () async {
-    final repository = _FakeAffiliateReferralRepository();
-    final store = _MemoryAffiliateReferralStore();
-    final service = AffiliateReferralService(
-      config: const AppConfig(
-        apiBaseUrl: 'https://api.example.com/api/v1',
-        defaultLocale: 'th-TH',
-        tenantHost: 'partner.example.com',
-      ),
-      repository: repository,
-      store: store,
-      visitIdStore: _FixedPublicVisitIdStore('visitor-1'),
-      runtimeTenantHost: 'runtime.example.com',
-      webHost: () => '',
-      webHref: () => '',
+  test(
+    'native referral storage is scoped to tenant instead of central API',
+    () async {
+      final repository = _FakeAffiliateReferralRepository();
+      final store = _MemoryAffiliateReferralStore();
+      final service = AffiliateReferralService(
+        config: const AppConfig(
+          apiBaseUrl: 'https://api.example.com/api/v1',
+          defaultLocale: 'th-TH',
+          tenantHost: 'partner.example.com',
+        ),
+        repository: repository,
+        store: store,
+        visitIdStore: _FixedPublicVisitIdStore('visitor-1'),
+        runtimeTenantHost: 'runtime.example.com',
+        webHost: () => '',
+        webHref: () => '',
+      );
+
+      await service.captureFromLocation('/register?ref=ABC123');
+
+      expect(await store.read('partner.example.com'), 'ABC123');
+      expect(await store.read('api.example.com'), isNull);
+    },
+  );
+}
+
+class _CapturingReferralApiClient extends ApiClient {
+  _CapturingReferralApiClient()
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://alpha.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        AuthTokenStore(),
+        localeTag: 'th-TH',
+      );
+
+  String path = '';
+  Map<String, dynamic> payload = {};
+  Map<String, String> headers = {};
+
+  @override
+  Future<Response<T>> postWithHeaders<T>(
+    String path, {
+    Object? data,
+    bool auth = true,
+    Map<String, String> headers = const {},
+  }) async {
+    this.path = path;
+    payload = Map<String, dynamic>.from(data! as Map);
+    this.headers = Map<String, String>.from(headers);
+
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: <String, dynamic>{} as T,
     );
-
-    await service.captureFromLocation('/register?ref=ABC123');
-
-    expect(await store.read('partner.example.com'), 'ABC123');
-    expect(await store.read('api.example.com'), isNull);
-  });
+  }
 }
 
 class _FakeAffiliateReferralRepository extends AffiliateReferralRepository {
   _FakeAffiliateReferralRepository()
-      : super(
-          ApiClient(
-            const AppConfig(
-              apiBaseUrl: 'https://alpha.example.com/api/v1',
-              defaultLocale: 'th-TH',
-            ),
-            AuthTokenStore(),
-            localeTag: 'th-TH',
+    : super(
+        ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://alpha.example.com/api/v1',
+            defaultLocale: 'th-TH',
           ),
-        );
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        ),
+      );
 
   String clickedRefCode = '';
   String clickedVisitorId = '';

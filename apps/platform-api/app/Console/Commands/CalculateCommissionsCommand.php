@@ -13,14 +13,28 @@ class CalculateCommissionsCommand extends Command
 
     public function handle(GrowthService $growth): int
     {
-        $processed = $growth->calculateCommissions(
+        $result = $growth->calculateCommissionsBatch(
             $this->argument('order_id') === null ? null : (string) $this->argument('order_id'),
             $this->option('tenant_id') === null ? null : (string) $this->option('tenant_id'),
             (int) $this->option('limit'),
         );
 
-        $this->info('Calculated commission transactions: '.$processed);
+        $this->info('Calculated commission transactions: '.$result['created']);
+        $this->line(sprintf(
+            'Selected orders: %d | Succeeded: %d | Failed: %d',
+            $result['selected'],
+            $result['succeeded'],
+            $result['failed'],
+        ));
+        foreach ($result['failures'] as $failure) {
+            $this->error(sprintf(
+                'Commission failed for tenant %s order %s (%s).',
+                $failure['tenant_id'],
+                $failure['order_id'],
+                $failure['exception'],
+            ));
+        }
 
-        return self::SUCCESS;
+        return $result['failed'] === 0 ? self::SUCCESS : self::FAILURE;
     }
 }

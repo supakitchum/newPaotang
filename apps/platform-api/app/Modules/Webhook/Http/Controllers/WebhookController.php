@@ -29,6 +29,15 @@ class WebhookController extends Controller
      */
     private function accepted(Request $request, array $result): JsonResponse
     {
+        if (($result['error'] ?? null) === 'webhook_authentication_failed') {
+            return ApiErrorResponse::make(
+                $request,
+                401,
+                'webhook_authentication_failed',
+                'The webhook signature is missing, invalid, or expired.',
+            );
+        }
+
         if (($result['error'] ?? null) === 'resource_conflict') {
             return ApiErrorResponse::resourceConflict($request);
         }

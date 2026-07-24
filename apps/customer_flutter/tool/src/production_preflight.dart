@@ -155,6 +155,8 @@ void _checkFlutterNativePushBinding(
       'firebase_core:',
       'firebase_messaging:',
       'flutter_local_notifications:',
+      'device_info_plus:',
+      'package_info_plus:',
     ],
     'lib/main.dart': const [
       'CustomerPushPlatform.initialize()',
@@ -169,13 +171,24 @@ void _checkFlutterNativePushBinding(
       'messaging.getInitialMessage()',
       'AndroidNotificationChannel(',
       "channelId = 'customer_updates'",
+      '_localNotificationsReady',
+      'useSystemForegroundPresentation',
     ],
     'lib/core/notifications/customer_push_lifecycle_monitor.dart': const [
       'platform.tokenRefresh.listen',
+      '_syncQueue = _syncQueue.then',
+      'await _syncQueue;',
       'registerBeforeLogoutHook',
+      'customerPushDeviceContextLoaderProvider',
       '.registerDevice(',
       '.revokeDevice(installationId)',
       "widget.router.go('/notifications')",
+    ],
+    'lib/core/notifications/customer_push_device_context.dart': const [
+      'CustomerPushDeviceContext.normalized(',
+      '_normalizedPushMetadata(',
+      '_boundedPushText(',
+      "'is_physical_device'",
     ],
   };
 
@@ -3289,6 +3302,23 @@ void _checkIosNativeSecurity(
       code: 'ios_screen_capture_detection_missing',
       message:
           'iOS AppDelegate must detect screenshots, recording/mirroring, show the privacy overlay, and notify Flutter.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'IOSSecureCaptureProtector',
+      'isSecureTextEntry = true',
+      'blackBackdropView.backgroundColor = .black',
+      'refreshSecureCaptureProtection',
+      'secureCaptureProtector.enable(in: window)',
+      'secureCaptureProtector.disable()',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_secure_capture_protection_missing',
+      message:
+          'iOS AppDelegate must protect sensitive content before capture and render a black replacement in screenshots.',
     ),
     issues,
   );

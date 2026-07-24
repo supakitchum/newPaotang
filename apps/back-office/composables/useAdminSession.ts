@@ -217,13 +217,31 @@ export const useAdminSession = () => {
     && currentPermissions.value.includes('stock.view')
     && !currentPermissions.value.includes('dashboard.view')
   )
+  const usesCustomerSupportLanding = (scope: 'central' | 'tenant' = session.value.activeScope) => {
+    if (scope !== 'tenant' || !currentPermissions.value.includes('support_ticket.view_assigned')) {
+      return false
+    }
+
+    const standardSupportPermissions = (
+      currentPermissions.value.includes('support_ticket.reply_assigned')
+      && !currentPermissions.value.includes('support_ticket.view_all')
+      && !currentPermissions.value.includes('support_ticket.assign')
+      && !currentPermissions.value.includes('support_agent.manage')
+      && !currentPermissions.value.includes('support_faq.manage')
+      && !currentPermissions.value.includes('support_report.view')
+    )
+
+    return standardSupportPermissions || !currentPermissions.value.includes('dashboard.view')
+  }
   const landingPath = (scope: 'central' | 'tenant' = session.value.activeScope) => {
     if (mustChangePassword.value) {
       return forcedPasswordChangePath
     }
 
     if (scope === 'tenant') {
-      return '/admin/tenant/dashboard'
+      return usesCustomerSupportLanding(scope)
+        ? '/admin/tenant/support'
+        : '/admin/tenant/dashboard'
     }
 
     if (usesTranslationCenterLanding(scope)) {
@@ -293,6 +311,7 @@ export const useAdminSession = () => {
     usesTranslationCenterLanding,
     usesRewardEntryLanding,
     usesLotteryImagesLanding,
+    usesCustomerSupportLanding,
     landingPath,
     clear,
     rememberAuthNotice,

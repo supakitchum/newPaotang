@@ -38,6 +38,7 @@ class Customer extends BaseModel
         'pin_last_verified_at',
         'avatar_url',
         'reward_payout_bank_account_json',
+        'reward_payout_bank_account_encrypted',
         'auto_reward_claim_enabled',
         'auto_reward_claim_payout_method',
         'last_login_at',
@@ -46,6 +47,8 @@ class Customer extends BaseModel
     protected $hidden = [
         'password_hash',
         'pin_hash',
+        'reward_payout_bank_account_json',
+        'reward_payout_bank_account_encrypted',
     ];
 
     protected $casts = [

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Console\Commands\AutoCloseExpiredGamesCommand;
 use App\Console\Commands\CalculateCommissionsCommand;
 use App\Console\Commands\ExpireStockReservationsCommand;
+use App\Console\Commands\FinalizeAffiliateTierCampaignsCommand;
 use App\Console\Commands\PlatformAlertsCheckCommand;
 use App\Console\Commands\PlatformAboutCommand;
 use App\Console\Commands\PlatformCloudflareReadinessCommand;
@@ -19,6 +20,7 @@ use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Modules\CentralStock\Services\CentralStockService;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Modules\Growth\Services\GrowthService;
+use App\Modules\Growth\Services\AffiliateTierService;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
 use App\Modules\Reward\Services\RewardService;
 use Illuminate\Support\Facades\Artisan;
@@ -45,6 +47,7 @@ class ConsoleCommandStructureTest extends TestCase
             'stock:sold:sync' => ProcessSoldSyncCommand::class,
             'reward:check' => ProcessRewardCheckCommand::class,
             'commission:calculate' => CalculateCommissionsCommand::class,
+            'affiliate-tier-campaigns:finalize' => FinalizeAffiliateTierCampaignsCommand::class,
             'topups:slips:prune' => PruneTopupSlipsCommand::class,
             'load-tests:k6:prepare' => PrepareK6BaselineCommand::class,
         ];
@@ -76,6 +79,7 @@ class ConsoleCommandStructureTest extends TestCase
         $this->assertFalse($commissionDefinition->getArgument('order_id')->isRequired());
         $this->assertNull($commissionDefinition->getOption('tenant_id')->getDefault());
         $this->assertSame('100', (string) $commissionDefinition->getOption('limit')->getDefault());
+        $this->assertSame('25', (string) $commands['affiliate-tier-campaigns:finalize']->getDefinition()->getOption('limit')->getDefault());
         $this->assertSame('100', (string) $commands['topups:slips:prune']->getDefinition()->getOption('limit')->getDefault());
 
         $k6Definition = $commands['load-tests:k6:prepare']->getDefinition();
@@ -135,12 +139,78 @@ class ConsoleCommandStructureTest extends TestCase
             ->assertExitCode(SymfonyCommand::SUCCESS);
 
         $this->mock(GrowthService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('calculateCommissions')->once()->with('ord_1', 'ten_1', 6)->andReturn(2);
+            $mock->shouldReceive('calculateCommissionsBatch')->once()->with('ord_1', 'ten_1', 6)->andReturn([
+                'selected' => 1,
+                'succeeded' => 1,
+                'failed' => 0,
+                'created' => 2,
+                'failures' => [],
+            ]);
         });
 
         $this->artisan('commission:calculate', ['order_id' => 'ord_1', '--tenant_id' => 'ten_1', '--limit' => 6])
             ->expectsOutput('Calculated commission transactions: 2')
+            ->expectsOutput('Selected orders: 1 | Succeeded: 1 | Failed: 0')
             ->assertExitCode(SymfonyCommand::SUCCESS);
+
+        $this->mock(AffiliateTierService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('finalizeDueCampaignsBatch')->once()->with(4)->andReturn([
+                'selected' => 2,
+                'succeeded' => 2,
+                'failed' => 0,
+                'finalized' => 2,
+                'failures' => [],
+            ]);
+        });
+
+        $this->artisan('affiliate-tier-campaigns:finalize', ['--limit' => 4])
+            ->expectsOutput('Finalized affiliate tier campaigns: 2')
+            ->expectsOutput('Selected campaigns: 2 | Succeeded: 2 | Failed: 0')
+            ->assertExitCode(SymfonyCommand::SUCCESS);
+    }
+
+    public function test_Commission_and_campaign_batch_commands_report_partial_failures_to_monitoring(): void
+    {
+        $this->mock(GrowthService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('calculateCommissionsBatch')->once()->with(null, null, 10)->andReturn([
+                'selected' => 2,
+                'succeeded' => 1,
+                'failed' => 1,
+                'created' => 1,
+                'failures' => [[
+                    'tenant_id' => 'ten_failed',
+                    'order_id' => 'ord_failed',
+                    'exception' => 'RuntimeException',
+                ]],
+            ]);
+        });
+
+        $this->artisan('commission:calculate', ['--limit' => 10])
+            ->expectsOutput('Calculated commission transactions: 1')
+            ->expectsOutput('Selected orders: 2 | Succeeded: 1 | Failed: 1')
+            ->expectsOutput('Commission failed for tenant ten_failed order ord_failed (RuntimeException).')
+            ->assertExitCode(SymfonyCommand::FAILURE);
+
+        $this->mock(AffiliateTierService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('finalizeDueCampaignsBatch')->once()->with(5)->andReturn([
+                'selected' => 2,
+                'succeeded' => 1,
+                'failed' => 1,
+                'finalized' => 1,
+                'failures' => [[
+                    'tenant_id' => 'ten_failed',
+                    'campaign_id' => 'atc_failed',
+                    'phase' => 'finalize',
+                    'exception' => 'RuntimeException',
+                ]],
+            ]);
+        });
+
+        $this->artisan('affiliate-tier-campaigns:finalize', ['--limit' => 5])
+            ->expectsOutput('Finalized affiliate tier campaigns: 1')
+            ->expectsOutput('Selected campaigns: 2 | Succeeded: 1 | Failed: 1')
+            ->expectsOutput('Campaign atc_failed failed during finalize for tenant ten_failed (RuntimeException).')
+            ->assertExitCode(SymfonyCommand::FAILURE);
     }
 
     public function test_Console_bootstrap_and_controller_convention_are_documented(): void

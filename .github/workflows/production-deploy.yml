@@ -24,6 +24,16 @@ on:
         required: true
         default: false
         type: boolean
+      run_support_migration:
+        description: "Migrate the isolated Support database. Run only after Support Postgres/Valkey and secrets are provisioned."
+        required: true
+        default: false
+        type: boolean
+      deploy_support:
+        description: "Apply and roll the isolated Support services. Requires Support infrastructure and secrets."
+        required: true
+        default: false
+        type: boolean
 
 env:
   REGISTRY: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}
@@ -55,6 +65,7 @@ jobs:
 
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "platform_api_image=${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "support_api_image=${REGISTRY}/newpaotang-support-api:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           echo "customer_image=${REGISTRY}/newpaotang-customer:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           echo "back_office_image=${REGISTRY}/newpaotang-back-office:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           echo "lotto_scraper_image=${REGISTRY}/newpaotang-lotto-scraper:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
@@ -100,6 +111,17 @@ jobs:
             APP_LOCALE=th-TH
           cache-from: type=gha,scope=customer-flutter-web
           cache-to: type=gha,scope=customer-flutter-web,mode=max
+
+      - name: Build and push Support API
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/support-api
+          file: apps/support-api/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.support_api_image }}
+          cache-from: type=gha,scope=support-api
+          cache-to: type=gha,scope=support-api,mode=max
 
       - name: Build and push back office
         uses: docker/build-push-action@v6
@@ -150,11 +172,12 @@ jobs:
           fi
 
           PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+          SUPPORT_API_IMAGE="${REGISTRY}/newpaotang-support-api:${IMAGE_TAG}"
           CUSTOMER_IMAGE="${REGISTRY}/newpaotang-customer:${IMAGE_TAG}"
           BACK_OFFICE_IMAGE="${REGISTRY}/newpaotang-back-office:${IMAGE_TAG}"
           LOTTO_SCRAPER_IMAGE="${REGISTRY}/newpaotang-lotto-scraper:${IMAGE_TAG}"
 
-          for image in "$PLATFORM_API_IMAGE" "$CUSTOMER_IMAGE" "$BACK_OFFICE_IMAGE" "$LOTTO_SCRAPER_IMAGE"; do
+          for image in "$PLATFORM_API_IMAGE" "$SUPPORT_API_IMAGE" "$CUSTOMER_IMAGE" "$BACK_OFFICE_IMAGE" "$LOTTO_SCRAPER_IMAGE"; do
             if [ -z "$image" ]; then
               echo "::error::Build job produced an empty image output."
               exit 1
@@ -173,6 +196,7 @@ jobs:
         env:
           DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY }}
           IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          DEPLOY_SUPPORT: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}
         run: |
           set -euo pipefail
           if [ -z "$DOCR_REGISTRY" ] || [ -z "$IMAGE_TAG" ]; then
@@ -182,6 +206,9 @@ jobs:
 
           rm -rf /tmp/newpaotang-digitalocean
           cp -R deploy/digitalocean /tmp/newpaotang-digitalocean
+          if [ "$DEPLOY_SUPPORT" != "true" ]; then
+            sed -i '/^[[:space:]]*- support-api\\.yaml$/d' /tmp/newpaotang-digitalocean/kustomization.yaml
+          fi
           perl -0pi -e 's/REPLACE_WITH_REGISTRY/$ENV{DOCR_REGISTRY}/g; s/REPLACE_WITH_TAG/$ENV{IMAGE_TAG}/g' /tmp/newpaotang-digitalocean/kustomization.yaml
           kubectl kustomize /tmp/newpaotang-digitalocean > /tmp/newpaotang-rendered.yaml
 
@@ -214,6 +241,18 @@ jobs:
           kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-sanook lotto-scraper="$LOTTO_SCRAPER_IMAGE"
           kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-thairath lotto-scraper="$LOTTO_SCRAPER_IMAGE"
 
+      - name: Set isolated Support images
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          SUPPORT_API_IMAGE="${REGISTRY}/newpaotang-support-api:${IMAGE_TAG}"
+          kubectl -n "$NAMESPACE" set image deployment/support-api support-api="$SUPPORT_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/support-api-worker worker="$SUPPORT_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/support-api-scheduler scheduler="$SUPPORT_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/support-api-reverb reverb="$SUPPORT_API_IMAGE"
+
       - name: Run database migrations
         env:
           MIGRATION_JOB_NAME: newpaotang-migrate-${{ github.run_id }}-${{ github.run_attempt }}
@@ -235,6 +274,18 @@ jobs:
           export PLATFORM_API_IMAGE
           envsubst < deploy/digitalocean/jobs/translation-sync.yaml | kubectl apply -f -
           kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${TRANSLATION_SYNC_JOB_NAME}" --timeout=600s
+
+      - name: Run isolated Support database migrations
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support && inputs.run_support_migration }}
+        env:
+          SUPPORT_MIGRATION_JOB_NAME: newpaotang-support-migrate-${{ github.run_id }}-${{ github.run_attempt }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          SUPPORT_API_IMAGE="${REGISTRY}/newpaotang-support-api:${IMAGE_TAG}"
+          export SUPPORT_API_IMAGE
+          envsubst < deploy/digitalocean/jobs/support-migrate.yaml | kubectl apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${SUPPORT_MIGRATION_JOB_NAME}" --timeout=600s
 
       - name: Run RBAC/menu seed
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_rbac_seed }}
@@ -260,12 +311,26 @@ jobs:
           kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-sanook --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-thairath --timeout=600s
 
+      - name: Wait for isolated Support rollout
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}
+        run: |
+          kubectl -n "$NAMESPACE" rollout status deployment/support-api --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/support-api-worker --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/support-api-scheduler --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/support-api-reverb --timeout=600s
+
       - name: Smoke production endpoints
         run: |
           curl -fsS https://api.lottery80.online/api/v1/health/ready
           curl -fsS https://api.lottery80.online/api/v1/health/live
           curl -fsSI https://lottery80.online/
           curl -fsSI https://admin.lottery80.online/
+
+      - name: Smoke isolated Support endpoints
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}
+        run: |
+          curl -fsS https://api.lottery80.online/support-api/health/ready
+          curl -fsS https://api.lottery80.online/support-api/health/live
 
       - name: Show rollout diagnostics
         if: failure()

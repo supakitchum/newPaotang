@@ -42,6 +42,11 @@ String? customerNotificationRoute(CustomerNotificationAction action) {
           ? '/activity-claims'
           : '/activity-claims/${Uri.encodeComponent(entityId)}',
     'affiliate' => '/affiliate',
+    'support' => '/support',
+    'support_ticket' =>
+      entityId.isEmpty
+          ? '/support'
+          : '/support/tickets/${Uri.encodeComponent(entityId)}',
     'news' =>
       entityId.isEmpty ? '/news' : '/news/${Uri.encodeComponent(entityId)}',
     _ => null,

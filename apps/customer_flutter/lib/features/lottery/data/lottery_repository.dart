@@ -99,6 +99,7 @@ class LotteryRepository {
   Future<LotteryCheckoutOrder> checkout(
     List<String> reservationIds, {
     String paymentMethod = checkoutPaymentMethodWallet,
+    String pin = '',
   }) async {
     final ids = reservationIds
         .map((id) => id.trim())
@@ -113,6 +114,7 @@ class LotteryRepository {
         'reservation_id': ids.isEmpty ? '' : ids.first,
         'reservation_ids': ids,
         'payment_method': normalizedPaymentMethod,
+        'pin': pin.trim(),
       },
       headers: {'Idempotency-Key': newIdempotencyKey('customer-checkout')},
     );

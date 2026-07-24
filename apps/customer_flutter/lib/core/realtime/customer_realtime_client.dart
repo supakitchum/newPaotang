@@ -8,9 +8,10 @@ import '../tenant/mobile_bootstrap_controller.dart';
 import '../utils/api_payload.dart';
 import 'customer_realtime_protocol.dart';
 
-typedef CustomerRealtimeSocketFactory = CustomerRealtimeSocket Function(
-  Uri uri,
-);
+typedef CustomerRealtimeSocketFactory =
+    CustomerRealtimeSocket Function(Uri uri);
+typedef CustomerRealtimeAuthorizer =
+    Future<Map<String, dynamic>> Function(String socketId, String channel);
 
 enum CustomerRealtimeStatus {
   idle,
@@ -77,7 +78,7 @@ abstract class CustomerRealtimeSocket {
 
 class WebSocketCustomerRealtimeSocket implements CustomerRealtimeSocket {
   WebSocketCustomerRealtimeSocket(Uri uri)
-      : _channel = WebSocketChannel.connect(uri);
+    : _channel = WebSocketChannel.connect(uri);
 
   final WebSocketChannel _channel;
 
@@ -99,16 +100,19 @@ class CustomerRealtimeClient {
   CustomerRealtimeClient({
     required MobileRealtimeConfig config,
     required ApiClient api,
+    CustomerRealtimeAuthorizer? authorizer,
     CustomerRealtimeSocketFactory? socketFactory,
     Duration reconnectDelay = const Duration(seconds: 10),
-  })  : _config = config,
-        _api = api,
-        _reconnectDelay = reconnectDelay,
-        _socketFactory =
-            socketFactory ?? ((uri) => WebSocketCustomerRealtimeSocket(uri));
+  }) : _config = config,
+       _api = api,
+       _authorizer = authorizer,
+       _reconnectDelay = reconnectDelay,
+       _socketFactory =
+           socketFactory ?? ((uri) => WebSocketCustomerRealtimeSocket(uri));
 
   final MobileRealtimeConfig _config;
   final ApiClient _api;
+  final CustomerRealtimeAuthorizer? _authorizer;
   final CustomerRealtimeSocketFactory _socketFactory;
   final Duration _reconnectDelay;
   final StreamController<CustomerRealtimeEvent> _events =
@@ -152,8 +156,9 @@ class CustomerRealtimeClient {
     error = '';
 
     try {
-      final socket =
-          _socketFactory(CustomerRealtimeProtocol.socketUri(_config));
+      final socket = _socketFactory(
+        CustomerRealtimeProtocol.socketUri(_config),
+      );
       _socket = socket;
       _subscription = socket.stream.listen(
         (raw) => unawaited(_handleRaw(socket, raw)),
@@ -240,10 +245,7 @@ class CustomerRealtimeClient {
     await _events.close();
   }
 
-  Future<void> _handleRaw(
-    CustomerRealtimeSocket socket,
-    Object? raw,
-  ) async {
+  Future<void> _handleRaw(CustomerRealtimeSocket socket, Object? raw) async {
     if (_disposed || _socket != socket) return;
     final message = parseRealtimeMessage(raw);
 
@@ -352,12 +354,13 @@ class CustomerRealtimeClient {
   }
 
   Future<Map<String, dynamic>> _authorize(String channel) async {
+    final authorizer = _authorizer;
+    if (authorizer != null) {
+      return authorizer(_socketId, channel);
+    }
     final response = await _api.post<Map<String, dynamic>>(
       _config.authEndpoint,
-      data: {
-        'socket_id': _socketId,
-        'channel_name': channel,
-      },
+      data: {'socket_id': _socketId, 'channel_name': channel},
     );
     return unwrapPayload(response.data);
   }

@@ -63,6 +63,7 @@ class CustomerLocalizations {
   String notificationsDaysAgo(int count) => _text(
     'notifications.time.days_ago',
   ).replaceAll('{count}', count.toString());
+  String support(String key) => _text('support.$key');
 
   String get loginTitle => _text('auth.login.title');
   String get loginHeroBadge => _text('auth.login.hero_badge');
@@ -849,6 +850,11 @@ class CustomerLocalizations {
   String get checkoutSubmitting => _text('checkout.submitting');
   String get checkoutConfirm => _text('checkout.confirm');
   String get checkoutFailed => _text('checkout.failed');
+  String get checkoutPinTitle => _text('checkout.pin.title');
+  String get checkoutPinSubtitle => _text('checkout.pin.subtitle');
+  String get checkoutPinInvalid => _text('checkout.pin.invalid');
+  String get checkoutPinLocked => _text('checkout.pin.locked');
+  String get checkoutPinSetupRequired => _text('checkout.pin.setup_required');
 
   String get profileTitle => _text('profile.title');
   String get profileRefreshTooltip => _text('profile.refresh_tooltip');
@@ -2175,6 +2181,130 @@ class CustomerLocalizations {
       _text('affiliate.store_summary.label');
   String get affiliateStoreSummaryDescription =>
       _text('affiliate.store_summary.description');
+  String get affiliateMemberLabel => _text('affiliate.member.label');
+  String affiliateMemberTier(String tier) =>
+      _text('affiliate.member.tier').replaceAll('{tier}', tier);
+  String get affiliateMemberCommissionLabel =>
+      _text('affiliate.member.commission_label');
+  String get affiliateMemberMinimumPayoutLabel =>
+      _text('affiliate.member.minimum_payout_label');
+  String get affiliateTierTitle => _text('affiliate.tier.title');
+  String affiliateCommissionPerTicket(String amount) => _text(
+    'affiliate.tier.commission_per_ticket',
+  ).replaceAll('{amount}', amount);
+  String affiliateTierMinimumPayout(String amount) =>
+      _text('affiliate.tier.minimum_payout').replaceAll('{amount}', amount);
+  String get affiliateCampaignsTitle => _text('affiliate.campaigns.title');
+  String get affiliateCampaignsEmpty => _text('affiliate.campaigns.empty');
+  String get affiliateCampaignOpenPage =>
+      _text('affiliate.campaigns.open_page');
+  String affiliateCampaignCurrentTier(String tier) =>
+      _text('affiliate.campaigns.current_tier').replaceAll('{tier}', tier);
+  String get affiliateCampaignPageDescription =>
+      _text('affiliate.campaigns.page_description');
+  String affiliateCampaignActiveCount(int count) =>
+      _text('affiliate.campaigns.active_count').replaceAll('{count}', '$count');
+  String affiliateCampaignCompetitionCount(int count) => _text(
+    'affiliate.campaigns.competition_count',
+  ).replaceAll('{count}', '$count');
+  String get affiliateCampaignTableRank =>
+      _text('affiliate.campaigns.table.rank');
+  String get affiliateCampaignTableMember =>
+      _text('affiliate.campaigns.table.member');
+  String get affiliateCampaignTableTickets =>
+      _text('affiliate.campaigns.table.tickets');
+  String get affiliatePerformanceTitle => _text('affiliate.performance.title');
+  String get affiliateCampaignTypeFixed =>
+      _text('affiliate.campaigns.type.fixed');
+  String get affiliateCampaignTypeRanking =>
+      _text('affiliate.campaigns.type.ranking');
+  String get affiliateCampaignTicketsLabel =>
+      _text('affiliate.campaigns.tickets_label');
+  String get affiliateCampaignTicketsUnit =>
+      _text('affiliate.campaigns.tickets_unit');
+  String get affiliateCampaignCurrentRankLabel =>
+      _text('affiliate.campaigns.current_rank_label');
+  String get affiliateCampaignProjectedLabel =>
+      _text('affiliate.campaigns.projected_label');
+  String get affiliateCampaignTopTierReached =>
+      _text('affiliate.campaigns.top_tier_reached');
+  String affiliateCampaignNextTarget(int count, String tier) => _text(
+    'affiliate.campaigns.next_target',
+  ).replaceAll('{count}', '$count').replaceAll('{tier}', tier);
+  String affiliateCampaignPeriod(String start, String end) => _text(
+    'affiliate.campaigns.period',
+  ).replaceAll('{start}', start).replaceAll('{end}', end);
+  String get affiliateCampaignRulesTitle =>
+      _text('affiliate.campaigns.rules_title');
+  String affiliateCampaignThresholdRule(String tier, int count) => _text(
+    'affiliate.campaigns.threshold_rule',
+  ).replaceAll('{tier}', tier).replaceAll('{count}', '$count');
+  String affiliateCampaignRankRule(String tier, int from, int to) =>
+      _text('affiliate.campaigns.rank_rule')
+          .replaceAll('{tier}', tier)
+          .replaceAll('{from}', '$from')
+          .replaceAll('{to}', '$to');
+  String get affiliateCampaignLeaderboardTitle =>
+      _text('affiliate.campaigns.leaderboard_title');
+  String get affiliateCampaignOverviewLeaderboardTitle =>
+      _text('affiliate.campaigns.overview_leaderboard_title');
+  String get affiliateCampaignLeaderboardViewAll =>
+      _text('affiliate.campaigns.leaderboard_view_all');
+  String get affiliateCampaignYouLabel =>
+      _text('affiliate.campaigns.you_label');
+  String affiliateCampaignCurrentMember(String name) =>
+      _text('affiliate.campaigns.current_member').replaceAll('{name}', name);
+  String get affiliateCampaignTablePoints =>
+      _text('affiliate.campaigns.table.points');
+  String get affiliateRankingsTitle => _text('affiliate.rankings.title');
+  String get affiliateRankingsActiveCampaign =>
+      _text('affiliate.rankings.active_campaign');
+  String get affiliateRankingsLatestResult =>
+      _text('affiliate.rankings.latest_result');
+  String get affiliateRankingsPodiumTitle =>
+      _text('affiliate.rankings.podium_title');
+  String get affiliateRankingsEmpty => _text('affiliate.rankings.empty');
+  String get affiliateRankingsNoScores => _text('affiliate.rankings.no_scores');
+  String affiliateRankingsTierGroup(String tier) =>
+      _text('affiliate.rankings.tier_group').replaceAll('{tier}', tier);
+  String get affiliateRankingsUnqualified =>
+      _text('affiliate.rankings.unqualified');
+  String affiliateRankingsPoints(int count) =>
+      _text('affiliate.rankings.points').replaceAll('{count}', '$count');
+  String get affiliateCampaignViewDetails =>
+      _text('affiliate.campaigns.view_details');
+  String get affiliateCampaignHideDetails =>
+      _text('affiliate.campaigns.hide_details');
+  String affiliateCampaignStatus(String status) => switch (status) {
+    'draft' => _text('affiliate.campaigns.status.draft'),
+    'scheduled' => _text('affiliate.campaigns.status.scheduled'),
+    'active' => _text('affiliate.campaigns.status.active'),
+    'processing' => _text('affiliate.campaigns.status.processing'),
+    'completed' => _text('affiliate.campaigns.status.completed'),
+    'cancelled' => _text('affiliate.campaigns.status.cancelled'),
+    _ => status,
+  };
+  String affiliateCampaignTicketCount(int count) =>
+      _text('affiliate.campaigns.ticket_count').replaceAll('{count}', '$count');
+  String affiliateCampaignRank(int rank) =>
+      _text('affiliate.campaigns.rank').replaceAll('{rank}', '$rank');
+  String affiliateCampaignProjectedTier(String tier) =>
+      _text('affiliate.campaigns.projected_tier').replaceAll('{tier}', tier);
+  String get affiliateCampaignCanReduce =>
+      _text('affiliate.campaigns.can_reduce');
+  String get affiliateStoreNamePending => _text('affiliate.store_name.pending');
+  String get affiliateStoreNameApproved =>
+      _text('affiliate.store_name.approved');
+  String get affiliateStoreNameRejected =>
+      _text('affiliate.store_name.rejected');
+  String get affiliateStoreNameChangeAction =>
+      _text('affiliate.store_name.change_action');
+  String get affiliateStoreNameChangeTitle =>
+      _text('affiliate.store_name.change_title');
+  String get affiliateStoreNameChangeSubmit =>
+      _text('affiliate.store_name.change_submit');
+  String get affiliateStoreNameChangeSuccess =>
+      _text('affiliate.store_name.change_success');
   String get affiliateRegisterTitle => _text('affiliate.register.title');
   String get affiliateRegisterDescription =>
       _text('affiliate.register.description');
@@ -2611,6 +2741,83 @@ const _localizedValues = <String, Map<String, String>>{
     'notifications.time.minutes_ago': '{count} นาทีที่แล้ว',
     'notifications.time.hours_ago': '{count} ชั่วโมงที่แล้ว',
     'notifications.time.days_ago': '{count} วันที่แล้ว',
+    'support.home.title': 'ศูนย์ช่วยเหลือ',
+    'support.home.tooltip': 'ติดต่อศูนย์ช่วยเหลือ',
+    'support.home.active_ticket': 'รายการที่กำลังดำเนินการ',
+    'support.home.resume': 'กลับไปสนทนา',
+    'support.home.new_ticket': 'แจ้งปัญหา',
+    'support.home.history': 'ประวัติการติดต่อ',
+    'support.home.search_hint': 'ค้นหาคำถามที่พบบ่อย',
+    'support.home.all_categories': 'ทั้งหมด',
+    'support.home.faq_title': 'คำถามที่พบบ่อย',
+    'support.home.faq_helpful': 'คำตอบนี้ช่วยแก้ปัญหาได้หรือไม่',
+    'support.home.helpful_yes': 'ช่วยได้',
+    'support.home.helpful_no': 'ยังไม่ได้',
+    'support.home.no_faq': 'ยังไม่มีคำถามที่พบบ่อย',
+    'support.home.no_search_result': 'ไม่พบคำตอบที่ค้นหา',
+    'support.home.unavailable': 'ศูนย์ช่วยเหลือยังไม่เปิดให้บริการ',
+    'support.common.retry': 'ลองใหม่',
+    'support.common.loading': 'กำลังโหลด...',
+    'support.common.cancel': 'ยกเลิก',
+    'support.common.close': 'ปิด',
+    'support.common.send': 'ส่ง',
+    'support.common.error': 'ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่',
+    'support.new.title': 'แจ้งปัญหา',
+    'support.new.step_category': 'เลือกประเภทปัญหา',
+    'support.new.step_faq': 'ลองดูคำตอบ',
+    'support.new.step_detail': 'รายละเอียด',
+    'support.new.other': 'อื่นๆ',
+    'support.new.solved': 'แก้ปัญหาได้แล้ว',
+    'support.new.contact': 'ยังต้องการติดต่อเจ้าหน้าที่',
+    'support.new.subject': 'หัวข้อ',
+    'support.new.subject_hint': 'สรุปปัญหาที่พบ',
+    'support.new.detail': 'รายละเอียด',
+    'support.new.detail_hint': 'อธิบายสิ่งที่เกิดขึ้นและสิ่งที่ต้องการให้ช่วย',
+    'support.new.attach': 'แนบรูป',
+    'support.new.attachment_too_large': 'รูปต้องมีขนาดไม่เกิน {size} MB',
+    'support.new.remove': 'นำออก',
+    'support.new.next': 'ถัดไป',
+    'support.new.submit': 'เปิด Ticket',
+    'support.new.validation': 'กรุณากรอกข้อมูลให้ครบ',
+    'support.new.subject_required': 'กรุณากรอกหัวข้อปัญหา',
+    'support.new.detail_required': 'กรุณากรอกรายละเอียดปัญหา',
+    'support.history.title': 'ประวัติการติดต่อ',
+    'support.history.active': 'กำลังดำเนินการ',
+    'support.history.closed': 'ปิดแล้ว',
+    'support.history.empty_active': 'ยังไม่มีรายการที่กำลังดำเนินการ',
+    'support.history.empty_closed': 'ยังไม่มีประวัติการติดต่อ',
+    'support.history.awaiting_rating': 'รอให้คะแนน',
+    'support.status.queued': 'รอคิว',
+    'support.status.assigned': 'รับเรื่องแล้ว',
+    'support.status.in_progress': 'กำลังให้บริการ',
+    'support.status.waiting_customer': 'รอคำตอบจากคุณ',
+    'support.status.closed': 'ปิดแล้ว',
+    'support.chat.title': 'แจ้งปัญหา #{number}',
+    'support.chat.queue': 'กำลังรอเจ้าหน้าที่',
+    'support.chat.queue_ahead': 'มี {count} งานก่อนหน้า',
+    'support.chat.assigned': 'เจ้าหน้าที่ {name} กำลังให้บริการ',
+    'support.chat.message_hint': 'พิมพ์ข้อความ',
+    'support.chat.new_messages': 'ข้อความใหม่ {count} รายการ',
+    'support.chat.realtime_reconnecting': 'กำลังเชื่อมต่อการสนทนาอีกครั้ง',
+    'support.chat.realtime_fallback':
+        'กำลังใช้การอัปเดตสำรอง ระบบจะเชื่อมต่อให้อัตโนมัติ',
+    'support.chat.closed_notice':
+        'เจ้าหน้าที่ปิดรายการนี้แล้ว ข้อความที่พิมพ์ไว้จะยังอยู่แต่ไม่สามารถส่งเพิ่มได้',
+    'support.chat.closed': 'รายการนี้ปิดแล้ว ไม่สามารถส่งข้อความเพิ่มได้',
+    'support.chat.closed_by': 'ปิดโดย {name}',
+    'support.chat.closed_at': 'เมื่อ {date}',
+    'support.chat.close_ticket': 'ปิดงาน',
+    'support.chat.close_confirm': 'ยืนยันปิดรายการนี้หรือไม่',
+    'support.chat.open_new': 'เปิด Ticket ใหม่โดยอ้างอิงรายการนี้',
+    'support.rating.title': 'ให้คะแนนบริการ',
+    'support.rating.subtitle': 'ประสบการณ์รับบริการครั้งนี้เป็นอย่างไร',
+    'support.rating.comment': 'ความคิดเห็นเพิ่มเติม (ไม่บังคับ)',
+    'support.rating.submit': 'ส่งคะแนน',
+    'support.rating.required': 'กรุณาเลือกคะแนน 1–5 ดาว',
+    'routes.support.title': 'ศูนย์ช่วยเหลือ',
+    'routes.support_new.title': 'แจ้งปัญหา',
+    'routes.support_tickets.title': 'ประวัติการติดต่อ',
+    'routes.support_ticket.title': 'สนทนากับเจ้าหน้าที่',
     'routes.home.title': 'หน้าหลัก',
     'routes.home.description':
         'ค้นหาเลขเด็ด กระเป๋าเงิน กิจกรรม ข่าวสาร และผลรางวัลล่าสุด',
@@ -2653,6 +2860,9 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.activities_history.title': 'กิจกรรมงวดย้อนหลัง',
     'routes.activity_detail.title': 'รายละเอียดกิจกรรม',
     'routes.affiliate.title': 'ตัวแทนจำหน่าย',
+    'routes.affiliate_referral.title': 'ลิงก์แนะนำ',
+    'routes.affiliate_rankings.title': 'อันดับตัวแทน',
+    'routes.affiliate_campaigns.title': 'กิจกรรมระดับตัวแทน',
     'routes.affiliate_withdraw.title': 'ขอถอนเงิน',
     'routes.affiliate_commissions.title': 'คอมมิชชันล่าสุด',
     'routes.affiliate_payouts.title': 'ประวัติถอนเงิน',
@@ -3268,6 +3478,11 @@ const _localizedValues = <String, Map<String, String>>{
     'checkout.submitting': 'กำลังชำระเงิน',
     'checkout.confirm': 'ยืนยันชำระเงิน',
     'checkout.failed': 'ชำระเงินไม่สำเร็จ',
+    'checkout.pin.title': 'ใส่รหัส PIN 6 หลัก',
+    'checkout.pin.subtitle': 'เพื่อยืนยันการชำระเงิน',
+    'checkout.pin.invalid': 'PIN ไม่ถูกต้อง กรุณาลองใหม่',
+    'checkout.pin.locked': 'กรอก PIN ผิดเกินกำหนด กรุณารอสักครู่แล้วลองใหม่',
+    'checkout.pin.setup_required': 'กรุณาตั้งค่า PIN ก่อนชำระเงิน',
     'profile.title': 'อื่นๆ',
     'profile.refresh_tooltip': 'รีเฟรชข้อมูล',
     'profile.customer_account': 'บัญชีลูกค้า',
@@ -4034,6 +4249,73 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.store_summary.label': 'ชื่อร้านของคุณ',
     'affiliate.store_summary.description':
         'ชื่อนี้จะแสดงให้ลูกค้าที่เข้าผ่านลิงก์แนะนำเห็น',
+    'affiliate.member.label': 'Affiliate Member',
+    'affiliate.member.tier': 'สมาชิกระดับ {tier}',
+    'affiliate.member.commission_label': 'ค่าคอมต่อใบ',
+    'affiliate.member.minimum_payout_label': 'ถอนขั้นต่ำ',
+    'affiliate.tier.title': 'ระดับตัวแทน',
+    'affiliate.tier.commission_per_ticket': 'ค่าคอม {amount} / ใบ',
+    'affiliate.tier.minimum_payout': 'ถอนขั้นต่ำ {amount}',
+    'affiliate.performance.title': 'ผลงานตัวแทน',
+    'affiliate.campaigns.title': 'กิจกรรมประเมินระดับ',
+    'affiliate.campaigns.empty': 'ยังไม่มีกิจกรรมประเมินระดับในขณะนี้',
+    'affiliate.campaigns.open_page': 'ดูความคืบหน้า เกณฑ์ และอันดับแข่งขัน',
+    'affiliate.campaigns.current_tier': 'ระดับปัจจุบัน {tier}',
+    'affiliate.campaigns.page_description':
+        'สะสมยอดขายหรือแข่งขันเพื่อรับสิทธิ์ระดับใหม่เมื่อกิจกรรมจบ',
+    'affiliate.campaigns.active_count': 'กำลังแข่ง {count} กิจกรรม',
+    'affiliate.campaigns.competition_count': 'จัดอันดับ {count} กิจกรรม',
+    'affiliate.campaigns.table.rank': 'อันดับ',
+    'affiliate.campaigns.table.member': 'ตัวแทน',
+    'affiliate.campaigns.table.tickets': 'จำนวนใบ',
+    'affiliate.campaigns.type.fixed': 'สะสมยอดตามเกณฑ์',
+    'affiliate.campaigns.type.ranking': 'แข่งขันจัดอันดับ',
+    'affiliate.campaigns.tickets_label': 'ยอดขายในกิจกรรม',
+    'affiliate.campaigns.tickets_unit': 'ใบ',
+    'affiliate.campaigns.current_rank_label': 'อันดับปัจจุบัน',
+    'affiliate.campaigns.projected_label': 'ระดับคาดการณ์',
+    'affiliate.campaigns.top_tier_reached': 'ถึงเกณฑ์สูงสุดของกิจกรรมแล้ว',
+    'affiliate.campaigns.next_target': 'อีก {count} ใบ ถึง {tier}',
+    'affiliate.campaigns.period': '{start} - {end}',
+    'affiliate.campaigns.rules_title': 'เกณฑ์ระดับ',
+    'affiliate.campaigns.threshold_rule': '{tier} · {count} ใบ',
+    'affiliate.campaigns.rank_rule': '{tier} · อันดับ {from}-{to}',
+    'affiliate.campaigns.leaderboard_title': 'อันดับกิจกรรม',
+    'affiliate.campaigns.overview_leaderboard_title': 'อันดับผู้นำ',
+    'affiliate.campaigns.leaderboard_view_all': 'ดูทั้งหมด',
+    'affiliate.campaigns.you_label': 'คุณ',
+    'affiliate.campaigns.current_member': '{name} (คุณ)',
+    'affiliate.campaigns.table.points': 'คะแนน',
+    'affiliate.rankings.title': 'อันดับตัวแทน',
+    'affiliate.rankings.active_campaign': 'กิจกรรมที่กำลังเปิดอยู่',
+    'affiliate.rankings.latest_result': 'ผลกิจกรรมล่าสุด',
+    'affiliate.rankings.podium_title': 'ผู้นำอันดับ 1-3',
+    'affiliate.rankings.empty':
+        'ยังไม่มีกิจกรรมเลื่อนระดับหรือผลกิจกรรมที่ผ่านมา',
+    'affiliate.rankings.no_scores': 'กิจกรรมนี้ยังไม่มีคะแนนจากตัวแทน',
+    'affiliate.rankings.tier_group': 'อันดับระดับ {tier}',
+    'affiliate.rankings.unqualified': 'อันดับที่ยังไม่ถึงเกณฑ์ระดับ',
+    'affiliate.rankings.points': '{count} คะแนน',
+    'affiliate.campaigns.view_details': 'ดูเกณฑ์และอันดับ',
+    'affiliate.campaigns.hide_details': 'ซ่อนรายละเอียด',
+    'affiliate.campaigns.status.draft': 'ฉบับร่าง',
+    'affiliate.campaigns.status.scheduled': 'รอเริ่มกิจกรรม',
+    'affiliate.campaigns.status.active': 'กำลังดำเนินการ',
+    'affiliate.campaigns.status.processing': 'กำลังสรุปผล',
+    'affiliate.campaigns.status.completed': 'สรุปผลแล้ว',
+    'affiliate.campaigns.status.cancelled': 'ยกเลิกแล้ว',
+    'affiliate.campaigns.ticket_count': 'ขายได้ {count} ใบ',
+    'affiliate.campaigns.rank': 'อันดับ {rank}',
+    'affiliate.campaigns.projected_tier': 'ระดับคาดการณ์ {tier}',
+    'affiliate.campaigns.can_reduce':
+        'กิจกรรมนี้ประเมินระดับใหม่ตามจำนวนใบ และสามารถลดระดับได้เมื่อจบกิจกรรม',
+    'affiliate.store_name.pending': 'รอตรวจสอบชื่อร้าน',
+    'affiliate.store_name.approved': 'ชื่อร้านผ่านการอนุมัติแล้ว',
+    'affiliate.store_name.rejected': 'ชื่อร้านไม่ผ่านการอนุมัติ',
+    'affiliate.store_name.change_action': 'ขอเปลี่ยนชื่อร้าน',
+    'affiliate.store_name.change_title': 'ส่งชื่อร้านเพื่อตรวจสอบ',
+    'affiliate.store_name.change_submit': 'ส่งให้ตรวจสอบ',
+    'affiliate.store_name.change_success': 'ส่งชื่อร้านให้ตรวจสอบแล้ว',
     'affiliate.register.title': 'เริ่มเป็นตัวแทนจำหน่าย',
     'affiliate.register.description':
         'กรอกชื่อร้านที่จะแสดงให้ลูกค้าเห็น แล้วระบบจะสร้างรหัสแนะนำให้ทันที',
@@ -4059,6 +4341,8 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.stats.registered.title': 'สมัครผ่านลิงก์',
     'affiliate.stats.registered.subtitle': 'บัญชี',
     'affiliate.tab.overview': 'ภาพรวม',
+    'affiliate.tab.rankings': 'อันดับ',
+    'affiliate.tab.referral': 'ลิงก์แนะนำ',
     'affiliate.tab.withdraw': 'ถอน',
     'affiliate.tab.commissions': 'คอม',
     'affiliate.tab.payouts': 'ประวัติ',
@@ -4289,6 +4573,85 @@ const _localizedValues = <String, Map<String, String>>{
     'notifications.time.minutes_ago': '{count} min ago',
     'notifications.time.hours_ago': '{count} hr ago',
     'notifications.time.days_ago': '{count} days ago',
+    'support.home.title': 'Help Center',
+    'support.home.tooltip': 'Contact Help Center',
+    'support.home.active_ticket': 'Active ticket',
+    'support.home.resume': 'Return to conversation',
+    'support.home.new_ticket': 'Report a problem',
+    'support.home.history': 'Contact history',
+    'support.home.search_hint': 'Search frequently asked questions',
+    'support.home.all_categories': 'All',
+    'support.home.faq_title': 'Frequently asked questions',
+    'support.home.faq_helpful': 'Did this answer solve your problem?',
+    'support.home.helpful_yes': 'Yes',
+    'support.home.helpful_no': 'Not yet',
+    'support.home.no_faq': 'No frequently asked questions yet',
+    'support.home.no_search_result': 'No matching answer found',
+    'support.home.unavailable': 'The Help Center is not available',
+    'support.common.retry': 'Retry',
+    'support.common.loading': 'Loading...',
+    'support.common.cancel': 'Cancel',
+    'support.common.close': 'Close',
+    'support.common.send': 'Send',
+    'support.common.error': 'Unable to load data. Please try again.',
+    'support.new.title': 'Report a problem',
+    'support.new.step_category': 'Choose a problem type',
+    'support.new.step_faq': 'Try an answer',
+    'support.new.step_detail': 'Details',
+    'support.new.other': 'Other',
+    'support.new.solved': 'Problem solved',
+    'support.new.contact': 'I still need an agent',
+    'support.new.subject': 'Subject',
+    'support.new.subject_hint': 'Summarize the problem',
+    'support.new.detail': 'Details',
+    'support.new.detail_hint': 'Describe what happened and how we can help',
+    'support.new.attach': 'Attach image',
+    'support.new.attachment_too_large':
+        'Each image must be no larger than {size} MB',
+    'support.new.remove': 'Remove',
+    'support.new.next': 'Next',
+    'support.new.submit': 'Open ticket',
+    'support.new.validation': 'Please complete the required information',
+    'support.new.subject_required': 'Please enter a problem subject',
+    'support.new.detail_required': 'Please enter problem details',
+    'support.history.title': 'Contact history',
+    'support.history.active': 'In progress',
+    'support.history.closed': 'Closed',
+    'support.history.empty_active': 'No active ticket',
+    'support.history.empty_closed': 'No contact history',
+    'support.history.awaiting_rating': 'Awaiting rating',
+    'support.status.queued': 'Queued',
+    'support.status.assigned': 'Assigned',
+    'support.status.in_progress': 'In progress',
+    'support.status.waiting_customer': 'Waiting for you',
+    'support.status.closed': 'Closed',
+    'support.chat.title': 'Support #{number}',
+    'support.chat.queue': 'Waiting for an agent',
+    'support.chat.queue_ahead': '{count} ticket(s) ahead',
+    'support.chat.assigned': '{name} is helping you',
+    'support.chat.message_hint': 'Type a message',
+    'support.chat.new_messages': '{count} new messages',
+    'support.chat.realtime_reconnecting': 'Reconnecting to the conversation',
+    'support.chat.realtime_fallback':
+        'Using backup updates. Reconnection is automatic.',
+    'support.chat.closed_notice':
+        'This ticket was closed. Your draft is preserved but can no longer be sent.',
+    'support.chat.closed':
+        'This ticket is closed and cannot accept new messages.',
+    'support.chat.closed_by': 'Closed by {name}',
+    'support.chat.closed_at': 'Closed {date}',
+    'support.chat.close_ticket': 'Close ticket',
+    'support.chat.close_confirm': 'Close this ticket?',
+    'support.chat.open_new': 'Open a new ticket referencing this one',
+    'support.rating.title': 'Rate the service',
+    'support.rating.subtitle': 'How was your support experience?',
+    'support.rating.comment': 'Additional feedback (optional)',
+    'support.rating.submit': 'Submit rating',
+    'support.rating.required': 'Please select 1–5 stars',
+    'routes.support.title': 'Help Center',
+    'routes.support_new.title': 'Report a problem',
+    'routes.support_tickets.title': 'Contact history',
+    'routes.support_ticket.title': 'Support conversation',
     'routes.home.title': 'Home',
     'routes.home.description':
         'Number search, wallet, activities, news, and latest results',
@@ -4335,6 +4698,9 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.activities_history.title': 'Past Activities',
     'routes.activity_detail.title': 'Activity Detail',
     'routes.affiliate.title': 'Affiliate',
+    'routes.affiliate_referral.title': 'Referral link',
+    'routes.affiliate_rankings.title': 'Affiliate rankings',
+    'routes.affiliate_campaigns.title': 'Affiliate tier campaigns',
     'routes.affiliate_withdraw.title': 'Request withdrawal',
     'routes.affiliate_commissions.title': 'Latest commissions',
     'routes.affiliate_payouts.title': 'Withdrawal history',
@@ -4967,6 +5333,12 @@ const _localizedValues = <String, Map<String, String>>{
     'checkout.submitting': 'Paying...',
     'checkout.confirm': 'Confirm payment',
     'checkout.failed': 'Payment failed',
+    'checkout.pin.title': 'Enter your 6-digit PIN',
+    'checkout.pin.subtitle': 'To confirm this payment',
+    'checkout.pin.invalid': 'Incorrect PIN. Please try again.',
+    'checkout.pin.locked':
+        'Too many incorrect PIN attempts. Please try again later.',
+    'checkout.pin.setup_required': 'Set up your PIN before making a payment.',
     'profile.title': 'More',
     'profile.refresh_tooltip': 'Refresh',
     'profile.customer_account': 'Customer account',
@@ -5759,6 +6131,75 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.store_summary.label': 'Your store name',
     'affiliate.store_summary.description':
         'Customers who enter through your referral link will see this name.',
+    'affiliate.member.label': 'Affiliate Member',
+    'affiliate.member.tier': '{tier} member',
+    'affiliate.member.commission_label': 'Commission per ticket',
+    'affiliate.member.minimum_payout_label': 'Minimum withdrawal',
+    'affiliate.tier.title': 'Affiliate tier',
+    'affiliate.tier.commission_per_ticket': '{amount} commission / ticket',
+    'affiliate.tier.minimum_payout': 'Minimum withdrawal {amount}',
+    'affiliate.performance.title': 'Affiliate performance',
+    'affiliate.campaigns.title': 'Tier campaigns',
+    'affiliate.campaigns.empty': 'No tier campaign is available right now.',
+    'affiliate.campaigns.open_page':
+        'View progress, tier criteria, and competition ranking',
+    'affiliate.campaigns.current_tier': 'Current tier: {tier}',
+    'affiliate.campaigns.page_description':
+        'Reach a sales target or compete for a new tier when a campaign ends.',
+    'affiliate.campaigns.active_count': '{count} active campaigns',
+    'affiliate.campaigns.competition_count': '{count} competitions',
+    'affiliate.campaigns.table.rank': 'Rank',
+    'affiliate.campaigns.table.member': 'Affiliate',
+    'affiliate.campaigns.table.tickets': 'Tickets',
+    'affiliate.campaigns.type.fixed': 'Fixed sales target',
+    'affiliate.campaigns.type.ranking': 'Leaderboard competition',
+    'affiliate.campaigns.tickets_label': 'Campaign sales',
+    'affiliate.campaigns.tickets_unit': 'tickets',
+    'affiliate.campaigns.current_rank_label': 'Current rank',
+    'affiliate.campaigns.projected_label': 'Projected tier',
+    'affiliate.campaigns.top_tier_reached':
+        'You reached the highest campaign threshold.',
+    'affiliate.campaigns.next_target': '{count} tickets to {tier}',
+    'affiliate.campaigns.period': '{start} - {end}',
+    'affiliate.campaigns.rules_title': 'Tier criteria',
+    'affiliate.campaigns.threshold_rule': '{tier} · {count} tickets',
+    'affiliate.campaigns.rank_rule': '{tier} · Rank {from}-{to}',
+    'affiliate.campaigns.leaderboard_title': 'Campaign leaderboard',
+    'affiliate.campaigns.overview_leaderboard_title': 'Leaderboard',
+    'affiliate.campaigns.leaderboard_view_all': 'View all',
+    'affiliate.campaigns.you_label': 'You',
+    'affiliate.campaigns.current_member': '{name} (You)',
+    'affiliate.campaigns.table.points': 'Points',
+    'affiliate.rankings.title': 'Affiliate rankings',
+    'affiliate.rankings.active_campaign': 'Active tier campaign',
+    'affiliate.rankings.latest_result': 'Latest campaign result',
+    'affiliate.rankings.podium_title': 'Top 3 affiliates',
+    'affiliate.rankings.empty':
+        'No active tier campaign or previous campaign result is available.',
+    'affiliate.rankings.no_scores': 'No affiliate has scored in this campaign.',
+    'affiliate.rankings.tier_group': '{tier} rankings',
+    'affiliate.rankings.unqualified': 'Not yet qualified for a tier',
+    'affiliate.rankings.points': '{count} points',
+    'affiliate.campaigns.view_details': 'View criteria and ranking',
+    'affiliate.campaigns.hide_details': 'Hide details',
+    'affiliate.campaigns.status.draft': 'Draft',
+    'affiliate.campaigns.status.scheduled': 'Scheduled',
+    'affiliate.campaigns.status.active': 'Active',
+    'affiliate.campaigns.status.processing': 'Processing results',
+    'affiliate.campaigns.status.completed': 'Completed',
+    'affiliate.campaigns.status.cancelled': 'Cancelled',
+    'affiliate.campaigns.ticket_count': '{count} tickets sold',
+    'affiliate.campaigns.rank': 'Rank {rank}',
+    'affiliate.campaigns.projected_tier': 'Projected tier: {tier}',
+    'affiliate.campaigns.can_reduce':
+        'This campaign recalculates your tier from ticket sales and may reduce it when the campaign ends.',
+    'affiliate.store_name.pending': 'Store name is under review',
+    'affiliate.store_name.approved': 'Store name approved',
+    'affiliate.store_name.rejected': 'Store name was not approved',
+    'affiliate.store_name.change_action': 'Request store name change',
+    'affiliate.store_name.change_title': 'Submit a store name for review',
+    'affiliate.store_name.change_submit': 'Submit for review',
+    'affiliate.store_name.change_success': 'Store name submitted for review',
     'affiliate.register.title': 'Start as an affiliate',
     'affiliate.register.description':
         'Enter the store name customers will see. The system will create your referral code immediately.',
@@ -5785,6 +6226,8 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.stats.registered.title': 'Registered',
     'affiliate.stats.registered.subtitle': 'Accounts',
     'affiliate.tab.overview': 'Overview',
+    'affiliate.tab.rankings': 'Ranking',
+    'affiliate.tab.referral': 'Referral',
     'affiliate.tab.withdraw': 'Withdraw',
     'affiliate.tab.commissions': 'Commissions',
     'affiliate.tab.payouts': 'History',

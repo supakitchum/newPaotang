@@ -34,6 +34,9 @@ storage/framework/cache/
 storage/framework/sessions/
 storage/framework/views/
 apps/platform-api/storage/framework/views/*.php
+.phpunit.result.cache
+apps/support-api/storage/framework/testing/
+docker/support/keys/*.pem
 
 # Local QA evidence can contain runtime credentials.
 ai-agents/reports/artifacts/**/after-api-evidence.php

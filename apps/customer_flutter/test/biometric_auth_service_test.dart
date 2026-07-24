@@ -36,6 +36,58 @@ void main() {
   });
 
   test(
+    'biometric canUnlockCurrentDevice requires supported biometrics and a local key',
+    () async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel(
+        'test/biometric_keys/current_device_unlock',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'existingDeviceId') return 'device_existing';
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      final service = BiometricAuthService(
+        _testApiClient(),
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
+
+      expect(await service.canUnlockCurrentDevice(), isTrue);
+      expect(calls.map((call) => call.method), ['existingDeviceId']);
+    },
+  );
+
+  test(
+    'biometric canUnlockCurrentDevice stays false without a local key',
+    () async {
+      const channel = MethodChannel(
+        'test/biometric_keys/missing_device_unlock',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (_) async => null);
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      final service = BiometricAuthService(
+        _testApiClient(),
+        localAuth: _AvailableLocalAuthentication(),
+        keyChannel: channel,
+      );
+
+      expect(await service.canUnlockCurrentDevice(), isFalse);
+    },
+  );
+
+  test(
     'biometric currentDeviceId accepts credential id wrapper aliases',
     () async {
       final calls = <MethodCall>[];

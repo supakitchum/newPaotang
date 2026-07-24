@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Modules\Growth\Services\GrowthService;
+use App\Modules\Growth\Services\AffiliateTierService;
+use App\Support\EncryptedJsonPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\PartnerStoreFixtures;
@@ -36,6 +38,21 @@ class CustomerAffiliateTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank');
+        $storedCustomerBank = DB::table('customers')->where('id', $customerId)->first([
+            'reward_payout_bank_account_json',
+            'reward_payout_bank_account_encrypted',
+        ]);
+        $this->assertNull($storedCustomerBank->reward_payout_bank_account_json);
+        $this->assertStringNotContainsString(
+            '1234567890',
+            (string) $storedCustomerBank->reward_payout_bank_account_encrypted,
+        );
+        $this->assertSame(
+            '1234567890',
+            EncryptedJsonPayload::decrypt(
+                $storedCustomerBank->reward_payout_bank_account_encrypted,
+            )['account_number'],
+        );
 
         $this->withToken($token)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate', [], [
@@ -66,6 +83,30 @@ class CustomerAffiliateTest extends TestCase
         $this->assertSame('https://'.$host.'/?ref='.$registered['links'][0]['code'], $registered['links'][0]['url']);
         $this->assertSame($registered['links'][0]['url'], $registered['affiliate']['canonical_url']);
         $this->assertSame($registered['links'][0]['id'], $registered['affiliate']['primary_link']['id']);
+
+        $this->withToken($token)
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate', [
+                'code' => 'lucky customer',
+                'name' => 'Lucky Customer Shop',
+            ], [
+                'Idempotency-Key' => 'customer-affiliate-register',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('affiliate.id', $affiliateId);
+
+        $this->withToken($token)
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate', [
+                'name' => 'Changed Payload With Reused Key',
+            ], [
+                'Idempotency-Key' => 'customer-affiliate-register',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'idempotency_conflict');
+
+        $this->assertSame(1, DB::table('affiliate_accounts')
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customerId)
+            ->count());
 
         $gameId = 'gam_customer_affiliate';
         $reservationId = 'res_customer_affiliate';
@@ -164,6 +205,18 @@ class CustomerAffiliateTest extends TestCase
 
         $this->withToken($token)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate/payouts', [
+                'amount' => ['amount' => 30000.25, 'currency' => 'THB'],
+                'payout_method' => 'bank_transfer',
+            ], [
+                'Idempotency-Key' => 'customer-affiliate-payout-fractional',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonFragment([
+                'amount.amount' => ['The amount.amount field must be a whole minor-unit amount.'],
+            ]);
+
+        $this->withToken($token)
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate/payouts', [
                 'amount' => ['amount' => 500, 'currency' => 'THB'],
                 'payout_method' => 'bank_transfer',
             ], [
@@ -184,12 +237,31 @@ class CustomerAffiliateTest extends TestCase
             ->assertJsonPath('status', 'pending')
             ->assertJsonPath('amount.amount', 30000)
             ->assertJsonPath('bank_account.bank_name', 'Example Bank')
-            ->assertJsonPath('bank_account.account_number', '1234567890');
+            ->assertJsonPath('bank_account.account_number', '******7890')
+            ->assertJsonPath('bank_account.account_number_last_four', '7890');
+        $storedPayoutBank = DB::table('affiliate_payouts')
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->latest('created_at')
+            ->first([
+                'bank_account_json',
+                'bank_account_encrypted',
+            ]);
+        $this->assertNull($storedPayoutBank->bank_account_json);
+        $this->assertStringNotContainsString(
+            '1234567890',
+            (string) $storedPayoutBank->bank_account_encrypted,
+        );
+        $this->assertSame(
+            '1234567890',
+            EncryptedJsonPayload::decrypt($storedPayoutBank->bank_account_encrypted)['account_number'],
+        );
 
         $this->withToken($token)
             ->getJson('http://'.$host.'/api/v1/customer/affiliate/payouts')
             ->assertOk()
-            ->assertJsonPath('data.0.amount.amount', 30000);
+            ->assertJsonPath('data.0.amount.amount', 30000)
+            ->assertJsonPath('data.0.bank_account.account_number', '******7890');
     }
 
     public function test_Customer_referral_apply_is_tenant_scoped_last_click_and_commission_source(): void
@@ -236,7 +308,7 @@ class CustomerAffiliateTest extends TestCase
                 'ref' => $link['code'],
                 'visitor_id' => 'visitor-referral-apply',
                 'registered' => true,
-            ])
+            ], ['Idempotency-Key' => 'referral-apply-first'])
             ->assertCreated()
             ->assertJsonPath('applied', true)
             ->assertJsonPath('attribution.affiliate_account_id', $registered['affiliate']['id'])
@@ -275,7 +347,7 @@ class CustomerAffiliateTest extends TestCase
         $this->withToken($buyerToken)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate/referrals/apply', [
                 'ref' => $registered['affiliate']['code'],
-            ])
+            ], ['Idempotency-Key' => 'referral-apply-account-code'])
             ->assertOk()
             ->assertJsonPath('attribution.id', $attributionId)
             ->assertJsonPath('attribution.affiliate_account_id', $registered['affiliate']['id'])
@@ -307,7 +379,7 @@ class CustomerAffiliateTest extends TestCase
         $this->withToken($buyerToken)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate/referrals/apply', [
                 'ref' => $secondCode,
-            ])
+            ], ['Idempotency-Key' => 'referral-apply-last-click'])
             ->assertOk()
             ->assertJsonPath('attribution.id', $attributionId)
             ->assertJsonPath('attribution.affiliate_account_id', $secondAffiliateId)
@@ -335,7 +407,11 @@ class CustomerAffiliateTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->withToken($buyerToken)
-            ->postJson('http://'.$host.'/api/v1/customer/affiliate/referrals/apply', ['ref' => $inactiveCode])
+            ->postJson(
+                'http://'.$host.'/api/v1/customer/affiliate/referrals/apply',
+                ['ref' => $inactiveCode],
+                ['Idempotency-Key' => 'referral-apply-inactive'],
+            )
             ->assertNotFound();
 
         $otherTenantId = 'ten_referral_other';
@@ -367,27 +443,51 @@ class CustomerAffiliateTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->withToken($buyerToken)
-            ->postJson('http://'.$host.'/api/v1/customer/affiliate/referrals/apply', ['ref' => 'Qq1Ww2'])
+            ->postJson(
+                'http://'.$host.'/api/v1/customer/affiliate/referrals/apply',
+                ['ref' => 'Qq1Ww2'],
+                ['Idempotency-Key' => 'referral-apply-other-tenant'],
+            )
             ->assertNotFound();
 
         $gameId = 'gam_referral_apply';
         $orderId = 'ord_referral_apply';
         $this->insertGame($gameId, 'open');
-        $this->insertPaidOrderForCustomer($tenantId, $buyerId, $gameId, 'res_referral_apply', $orderId);
-        DB::table('commission_rules')->insert([
-            'id' => 'cmr_referral_apply',
+        $this->insertPaidOrderForCustomer(
+            $tenantId,
+            $buyerId,
+            $gameId,
+            'res_referral_apply',
+            $orderId,
+            $partnerId,
+            3,
+        );
+        $paidAt = now()->subMinutes(2);
+        DB::table('orders')->where('id', $orderId)->update([
+            'paid_at' => $paidAt,
+            'updated_at' => now(),
+        ]);
+        DB::table('affiliate_attributions')->where('id', $attributionId)->update([
+            'attributed_at' => $paidAt->copy()->subMinute(),
+            'updated_at' => now(),
+        ]);
+        $tiers = app(AffiliateTierService::class)->ensureTenantTiers($tenantId);
+        DB::table('affiliate_accounts')->where('id', $secondAffiliateId)->update([
+            'affiliate_program_id' => $tiers['diamond']->id,
+            'updated_at' => now(),
+        ]);
+        DB::table('affiliate_tier_history')->insert([
+            'id' => 'ath_referral_apply_delayed',
             'tenant_id' => $tenantId,
-            'affiliate_program_id' => null,
             'affiliate_account_id' => $secondAffiliateId,
-            'code' => 'referral_apply_rule',
-            'name' => 'Referral Apply Rule',
-            'rule_type' => 'fixed_per_order',
-            'amount' => 1200,
-            'rate_bps' => 0,
-            'currency' => 'THB',
-            'status' => 'active',
-            'metadata_json' => null,
-            'created_by_admin_id' => null,
+            'campaign_id' => null,
+            'previous_program_id' => $tiers['bronze']->id,
+            'new_program_id' => $tiers['diamond']->id,
+            'source' => 'campaign',
+            'ticket_count' => 500,
+            'rank' => null,
+            'metadata_json' => json_encode(['test' => 'delayed_commission'], JSON_THROW_ON_ERROR),
+            'effective_at' => $paidAt->copy()->addMinute(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -398,12 +498,16 @@ class CustomerAffiliateTest extends TestCase
             'order_id' => $orderId,
             'affiliate_account_id' => $secondAffiliateId,
             'affiliate_attribution_id' => $attributionId,
-            'amount' => 1200,
+            'amount' => 300,
+            'ticket_count' => 3,
+            'tier_code' => 'bronze',
+            'commission_per_ticket_amount' => 100,
         ]);
         $this->assertDatabaseHas('affiliate_attributions', [
             'id' => $attributionId,
             'status' => 'converted',
             'order_id' => $orderId,
+            'affiliate_program_id' => $tiers['bronze']->id,
         ]);
 
         $expiredBuyerId = 'cus_referral_expired_buyer';
@@ -438,7 +542,15 @@ class CustomerAffiliateTest extends TestCase
         ]);
     }
 
-    private function insertPaidOrderForCustomer(string $tenantId, string $customerId, string $gameId, string $reservationId, string $orderId): void
+    private function insertPaidOrderForCustomer(
+        string $tenantId,
+        string $customerId,
+        string $gameId,
+        string $reservationId,
+        string $orderId,
+        ?string $partnerId = null,
+        int $ticketCount = 0,
+    ): void
     {
         DB::table('stock_reservations')->insert([
             'id' => $reservationId,
@@ -483,5 +595,69 @@ class CustomerAffiliateTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        if ($partnerId === null || $ticketCount <= 0) {
+            return;
+        }
+
+        for ($index = 0; $index < $ticketCount; $index++) {
+            $key = substr(sha1($orderId.':'.$index), 0, 20);
+            $stockId = 'stk_'.$key;
+            $localStockId = 'lsi_'.$key;
+            $ticketId = 'tic_'.$key;
+            $number = str_pad((string) ($index + 1), 6, '0', STR_PAD_LEFT);
+            DB::table('stock_items')->insert([
+                'id' => $stockId,
+                'game_id' => $gameId,
+                'batch_id' => null,
+                'full_number' => $number,
+                'front3' => substr($number, 0, 3),
+                'back3' => substr($number, -3),
+                'back2' => substr($number, -2),
+                'status' => 'sold',
+                'partner_id' => $partnerId,
+                'tenant_id' => $tenantId,
+                'allocation_id' => null,
+                'recall_reason' => null,
+                'recalled_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('local_stock_items')->insert([
+                'id' => $localStockId,
+                'tenant_id' => $tenantId,
+                'partner_id' => $partnerId,
+                'store_id' => null,
+                'game_id' => $gameId,
+                'stock_item_id' => $stockId,
+                'allocation_id' => null,
+                'full_number' => $number,
+                'front3' => substr($number, 0, 3),
+                'back3' => substr($number, -3),
+                'back2' => substr($number, -2),
+                'image_url' => null,
+                'image_thumb_url' => null,
+                'status' => 'sold',
+                'synced_at' => now(),
+                'reserved_at' => now(),
+                'sold_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('tickets')->insert([
+                'id' => $ticketId,
+                'tenant_id' => $tenantId,
+                'customer_id' => $customerId,
+                'order_id' => $orderId,
+                'local_stock_item_id' => $localStockId,
+                'game_id' => $gameId,
+                'full_number' => $number,
+                'status' => 'active',
+                'image_url' => null,
+                'image_thumb_url' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 }

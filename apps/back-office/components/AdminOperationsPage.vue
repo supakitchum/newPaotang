@@ -2995,6 +2995,15 @@ const resetDetailDraft = () => {
   detailDraft.value = JSON.stringify(detail.value || {}, null, 2)
 }
 
+const confirmActionMessage = (action: OperationAction, target: unknown) => {
+  const targetLabel = String(target || (String(reportLocale.value).toLowerCase().startsWith('th') ? 'รายการที่เลือก' : 'selected record'))
+  if (String(reportLocale.value).toLowerCase().startsWith('th')) {
+    return `ยืนยันการ${phrase(action.label)}สำหรับ ${targetLabel}`
+  }
+
+  return `Confirm ${action.label.toLowerCase()} for ${targetLabel}.`
+}
+
 const openRowAction = (action: OperationAction, row: any) => {
   if (action.route) return
   if (isActionDisabled(action, row)) return
@@ -3003,8 +3012,8 @@ const openRowAction = (action: OperationAction, row: any) => {
   confirm.action = action
   confirm.row = row
   confirm.related = null
-  confirm.title = action.label
-  confirm.message = `Confirm ${action.label.toLowerCase()} for ${row.__id || 'selected record'}.`
+  confirm.title = phrase(action.label)
+  confirm.message = confirmActionMessage(action, row.__id)
   actionError.value = null
 }
 
@@ -3047,10 +3056,8 @@ const openCollectionAction = (action: OperationAction) => {
   confirm.action = action
   confirm.row = buildCollectionContext()
   confirm.related = null
-  confirm.title = action.label
-  confirm.message = mode.value === 'report-detail' && String(reportLocale.value).toLowerCase().startsWith('th')
-    ? `ยืนยัน${action.label}สำหรับ${pageTitle.value}`
-    : `Confirm ${action.label.toLowerCase()} for ${resource.value?.title || 'this page'}.`
+  confirm.title = phrase(action.label)
+  confirm.message = confirmActionMessage(action, phrase(resource.value?.title || 'this page'))
   actionError.value = null
 }
 
@@ -3059,8 +3066,8 @@ const openRelatedCollectionAction = (related: OperationRelatedList, action: Oper
   confirm.action = action
   confirm.row = null
   confirm.related = related
-  confirm.title = action.label
-  confirm.message = `Confirm ${action.label.toLowerCase()} for ${related.title}.`
+  confirm.title = phrase(action.label)
+  confirm.message = confirmActionMessage(action, phrase(related.title))
   actionError.value = null
 }
 
@@ -3069,8 +3076,8 @@ const openRelatedRowAction = (related: OperationRelatedList, action: OperationAc
   confirm.action = action
   confirm.row = row
   confirm.related = related
-  confirm.title = action.label
-  confirm.message = `Confirm ${action.label.toLowerCase()} for ${row.__id || 'selected related record'}.`
+  confirm.title = phrase(action.label)
+  confirm.message = confirmActionMessage(action, row.__id || (String(reportLocale.value).toLowerCase().startsWith('th') ? 'รายการที่เกี่ยวข้อง' : 'selected related record'))
   actionError.value = null
 }
 

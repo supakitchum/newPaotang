@@ -23,7 +23,7 @@ class SettlementTest extends TestCase
             'id' => 'pyo_settlement_main',
             'tenant_id' => $world['tenant_id'],
             'affiliate_account_id' => $graph['affiliate_id'],
-            'status' => 'approved',
+            'status' => 'paid',
             'payout_method' => 'manual_cash',
             'amount' => 300,
             'currency' => 'THB',
@@ -34,9 +34,26 @@ class SettlementTest extends TestCase
             'requested_by_admin_id' => null,
             'approved_by_admin_id' => null,
             'approved_at' => now(),
+            'paid_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        foreach ([
+            ['id' => 'pyo_settlement_pending', 'status' => 'pending', 'amount' => 700],
+            ['id' => 'pyo_settlement_rejected', 'status' => 'rejected', 'amount' => 900],
+        ] as $payout) {
+            DB::table('affiliate_payouts')->insert([
+                'id' => $payout['id'],
+                'tenant_id' => $world['tenant_id'],
+                'affiliate_account_id' => $graph['affiliate_id'],
+                'status' => $payout['status'],
+                'payout_method' => 'manual_cash',
+                'amount' => $payout['amount'],
+                'currency' => 'THB',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         $viewer = $this->m8CentralAdmin(['settlement.view'], 'settlement-viewer');
         $approver = $this->m8CentralAdmin(['settlement.view', 'settlement.approve'], 'settlement-approver');

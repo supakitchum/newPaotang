@@ -60,7 +60,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (hostMode.isPartnerBoHost.value && to.path.startsWith('/admin/central')) {
     session.rememberAuthNotice('Partner Back Office only supports tenant admin pages for this domain.')
-    return navigateTo('/admin/tenant/dashboard')
+    return navigateTo(session.landingPath('tenant'))
   }
 
   if (session.mustChangePassword.value && to.path !== session.forcedPasswordChangePath) {
@@ -73,5 +73,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!session.alignScopeForPath(to.path)) {
     return navigateTo('/admin/403')
+  }
+
+  if (
+    session.usesCustomerSupportLanding()
+    && to.path !== '/admin/tenant/support'
+  ) {
+    return navigateTo('/admin/tenant/support')
   }
 })

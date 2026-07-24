@@ -16,6 +16,7 @@ use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventSe
 use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\CustomerNotifications\Services\FirebaseCloudMessagingClient;
 use App\Modules\Reward\Events\RewardClaimUpdated;
+use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -42,6 +43,57 @@ class CustomerNotificationTest extends TestCase
         $this->app->forgetInstance('encrypter');
         Event::fake([CustomerNotificationChanged::class]);
         Queue::fake();
+    }
+
+    public function test_support_outbox_ingress_requires_hmac_and_deduplicates_customer_notification(): void
+    {
+        $this->seedTenant('par_notify_support', 'ten_notify_support', 'notify-support.test');
+        $this->seedCustomer('ten_notify_support', 'cus_notify_support', 'CUS-NOTIFY-SUPPORT');
+        config(['support.ingress_secret' => 'support-ingress-test-secret']);
+        $payload = [
+            'tenant_id' => 'ten_notify_support',
+            'customer_id' => 'cus_notify_support',
+            'ticket_id' => 'stk_support_01',
+            'ticket_no' => 'SUP-260723-ABC123',
+            'event_key' => 'support.message.created',
+            'title' => [
+                'th-TH' => 'ข้อความใหม่จากศูนย์ช่วยเหลือ',
+                'en-US' => 'New Help Center message',
+            ],
+            'body' => [
+                'th-TH' => 'เจ้าหน้าที่ตอบกลับแล้ว',
+                'en-US' => 'An agent replied.',
+            ],
+            'message_id' => 'smsg_support_01',
+        ];
+        $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $signature = hash_hmac('sha256', $body, 'support-ingress-test-secret');
+        $server = [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_SUPPORT_SIGNATURE' => $signature,
+            'HTTP_X_SUPPORT_EVENT_ID' => 'sob_support_01',
+        ];
+
+        $this->call('POST', '/api/v1/internal/customer-support/notifications', [], [], [], $server, $body)
+            ->assertCreated()
+            ->assertJsonPath('notification.action.key', 'support_ticket')
+            ->assertJsonPath('notification.action.entity_id', 'stk_support_01');
+        $this->call('POST', '/api/v1/internal/customer-support/notifications', [], [], [], $server, $body)
+            ->assertCreated();
+
+        $this->assertDatabaseCount('customer_notifications', 1);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_notify_support',
+            'event_key' => 'support.message.created',
+            'category' => 'support',
+            'action_key' => 'support_ticket',
+            'subject_id' => 'stk_support_01',
+        ]);
+
+        $this->call('POST', '/api/v1/internal/customer-support/notifications', [], [], [], [
+            ...$server,
+            'HTTP_X_SUPPORT_SIGNATURE' => 'invalid',
+        ], $body)->assertUnauthorized();
     }
 
     public function test_customer_inbox_is_tenant_scoped_idempotent_and_server_authoritative(): void
@@ -128,6 +180,100 @@ class CustomerNotificationTest extends TestCase
             ->assertJsonPath('unread_count', 0);
     }
 
+    public function test_customer_inbox_cursor_filters_and_read_writes_remain_authoritative(): void
+    {
+        $this->seedTenant('par_notify_cursor', 'ten_notify_cursor', 'notify-cursor.test');
+        $this->seedCustomer('ten_notify_cursor', 'cus_notify_cursor', 'CUS-NOTIFY-CURSOR');
+
+        foreach ([1, 2, 3] as $sequence) {
+            $suffix = str_pad((string) $sequence, 2, '0', STR_PAD_LEFT);
+            $notificationId = 'cnt_notify_cursor_'.$suffix;
+            $createdAt = now()->addSeconds($sequence);
+            DB::table('customer_notifications')->insert([
+                'id' => $notificationId,
+                'tenant_id' => 'ten_notify_cursor',
+                'event_key' => 'cursor.event.'.$suffix,
+                'category' => $sequence === 2 ? 'topup' : 'order',
+                'title_json' => json_encode(['th-TH' => 'แจ้งเตือน '.$suffix], JSON_THROW_ON_ERROR),
+                'body_json' => json_encode(['th-TH' => 'รายละเอียด '.$suffix], JSON_THROW_ON_ERROR),
+                'icon_key' => 'notification',
+                'action_key' => 'none',
+                'creator_type' => 'system',
+                'dedupe_key' => hash('sha256', 'cursor-notification-'.$suffix),
+                'published_at' => $createdAt,
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+            DB::table('customer_notification_recipients')->insert([
+                'id' => 'cnr_notify_cursor_'.$suffix,
+                'tenant_id' => 'ten_notify_cursor',
+                'notification_id' => $notificationId,
+                'customer_id' => 'cus_notify_cursor',
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+        }
+
+        $token = $this->customerToken('ten_notify_cursor', 'cus_notify_cursor');
+        $firstPage = $this->withToken($token)
+            ->getJson('http://notify-cursor.test/api/v1/customer/notifications?limit=2')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'cnt_notify_cursor_03')
+            ->assertJsonPath('data.1.id', 'cnt_notify_cursor_02')
+            ->assertJsonPath('meta.next_cursor', 'cnr_notify_cursor_02')
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('meta.unread_count', 3);
+
+        $cursor = (string) $firstPage->json('meta.next_cursor');
+        $this->withToken($token)
+            ->getJson('http://notify-cursor.test/api/v1/customer/notifications?limit=2&cursor='.$cursor)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'cnt_notify_cursor_01')
+            ->assertJsonPath('meta.next_cursor', null)
+            ->assertJsonPath('meta.has_more', false);
+
+        $this->withToken($token)
+            ->patchJson('http://notify-cursor.test/api/v1/customer/notifications/cnt_notify_cursor_03/read')
+            ->assertOk()
+            ->assertJsonPath('is_read', true);
+        $readAt = DB::table('customer_notification_recipients')
+            ->where('notification_id', 'cnt_notify_cursor_03')
+            ->value('read_at');
+
+        $this->travel(5)->seconds();
+        $this->withToken($token)
+            ->patchJson('http://notify-cursor.test/api/v1/customer/notifications/cnt_notify_cursor_03/read')
+            ->assertOk()
+            ->assertJsonPath('is_read', true);
+        $this->assertSame(
+            (string) $readAt,
+            (string) DB::table('customer_notification_recipients')
+                ->where('notification_id', 'cnt_notify_cursor_03')
+                ->value('read_at'),
+        );
+
+        $this->withToken($token)
+            ->getJson('http://notify-cursor.test/api/v1/customer/notifications?status=unread&category=order')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'cnt_notify_cursor_01')
+            ->assertJsonPath('meta.unread_count', 2);
+
+        $this->withToken($token)
+            ->postJson('http://notify-cursor.test/api/v1/customer/notifications/read-all')
+            ->assertOk()
+            ->assertJsonPath('updated_count', 2)
+            ->assertJsonPath('unread_count', 0);
+        $this->withToken($token)
+            ->postJson('http://notify-cursor.test/api/v1/customer/notifications/read-all')
+            ->assertOk()
+            ->assertJsonPath('updated_count', 0)
+            ->assertJsonPath('unread_count', 0);
+
+        Event::assertDispatchedTimes(CustomerNotificationChanged::class, 2);
+    }
+
     public function test_device_registration_encrypts_tokens_and_invalid_token_delivery_revokes_device(): void
     {
         $this->seedTenant('par_notify_device', 'ten_notify_device', 'notify-device.test');
@@ -142,6 +288,16 @@ class CustomerNotificationTest extends TestCase
                 'fcm_token' => $fcmToken,
                 'locale' => 'th-TH',
                 'app_version' => '1.2.3',
+                'device_name' => 'Google Pixel 9',
+                'metadata' => [
+                    'app_build_number' => '87',
+                    'os_name' => 'Android',
+                    'os_version' => '16',
+                    'os_sdk' => 36,
+                    'manufacturer' => 'Google',
+                    'device_model' => 'Pixel 9',
+                    'is_physical_device' => true,
+                ],
             ])
             ->assertCreated()
             ->assertJsonPath('installation_id', 'install_notify_device_001')
@@ -149,7 +305,19 @@ class CustomerNotificationTest extends TestCase
 
         $rawToken = (string) DB::table('customer_push_devices')->value('fcm_token_encrypted');
         $this->assertNotSame($fcmToken, $rawToken);
-        $this->assertSame($fcmToken, CustomerPushDevice::query()->firstOrFail()->fcm_token_encrypted);
+        $device = CustomerPushDevice::query()->firstOrFail();
+        $this->assertSame($fcmToken, $device->fcm_token_encrypted);
+        $this->assertSame('1.2.3', $device->app_version);
+        $this->assertSame('Google Pixel 9', $device->device_name);
+        $this->assertEquals([
+            'app_build_number' => '87',
+            'os_name' => 'Android',
+            'os_version' => '16',
+            'manufacturer' => 'Google',
+            'device_model' => 'Pixel 9',
+            'os_sdk' => 36,
+            'is_physical_device' => true,
+        ], $device->metadata_json);
 
         app(CustomerNotificationService::class)->createForCustomer(
             'ten_notify_device',
@@ -191,6 +359,38 @@ class CustomerNotificationTest extends TestCase
         $this->withToken($token)
             ->deleteJson('http://notify-device.test/api/v1/customer/notification-devices/install_notify_device_001')
             ->assertNoContent();
+    }
+
+    public function test_device_registration_rejects_identifying_or_unbounded_metadata(): void
+    {
+        $this->seedTenant('par_notify_metadata', 'ten_notify_metadata', 'notify-metadata.test');
+        $this->seedCustomer('ten_notify_metadata', 'cus_notify_metadata', 'CUS-NOTIFY-METADATA');
+        $token = $this->customerToken('ten_notify_metadata', 'cus_notify_metadata');
+        $basePayload = [
+            'installation_id' => 'install_notify_metadata_001',
+            'platform' => 'android',
+            'fcm_token' => str_repeat('metadata-fcm-token-', 10),
+            'locale' => 'th-TH',
+        ];
+
+        $this->withToken($token)
+            ->postJson('http://notify-metadata.test/api/v1/customer/notification-devices', [
+                ...$basePayload,
+                'metadata' => ['hardware_id' => 'must-not-be-collected'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['metadata']]]]);
+
+        $this->withToken($token)
+            ->postJson('http://notify-metadata.test/api/v1/customer/notification-devices', [
+                ...$basePayload,
+                'metadata' => ['device_model' => str_repeat('x', 161)],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->assertDatabaseCount('customer_push_devices', 0);
     }
 
     public function test_device_installation_and_token_move_to_the_latest_customer_without_payload_error_revocation(): void
@@ -270,6 +470,53 @@ class CustomerNotificationTest extends TestCase
             'last_error_code' => 'invalid_payload',
         ]);
         $this->assertNull($activeDevice->refresh()->revoked_at);
+    }
+
+    public function test_device_revoke_cannot_cross_customer_ownership_after_installation_moves(): void
+    {
+        $this->seedTenant('par_notify_revoke', 'ten_notify_revoke', 'notify-revoke.test');
+        $this->seedCustomer('ten_notify_revoke', 'cus_notify_revoke_a', 'CUS-NOTIFY-REVOKE-A');
+        $this->seedCustomer('ten_notify_revoke', 'cus_notify_revoke_b', 'CUS-NOTIFY-REVOKE-B');
+        $this->seedCustomer('ten_notify_revoke', 'cus_notify_revoke_c', 'CUS-NOTIFY-REVOKE-C');
+        $installationId = 'install_notify_revoke_shared';
+
+        $this->withToken($this->customerToken('ten_notify_revoke', 'cus_notify_revoke_a'))
+            ->postJson('http://notify-revoke.test/api/v1/customer/notification-devices', [
+                'installation_id' => $installationId,
+                'platform' => 'android',
+                'fcm_token' => str_repeat('notify-revoke-token-a-', 8),
+                'locale' => 'th-TH',
+            ])
+            ->assertCreated();
+        $this->withToken($this->customerToken('ten_notify_revoke', 'cus_notify_revoke_b'))
+            ->postJson('http://notify-revoke.test/api/v1/customer/notification-devices', [
+                'installation_id' => $installationId,
+                'platform' => 'android',
+                'fcm_token' => str_repeat('notify-revoke-token-b-', 8),
+                'locale' => 'th-TH',
+            ])
+            ->assertCreated();
+
+        $activeDevice = CustomerPushDevice::query()
+            ->where('customer_id', 'cus_notify_revoke_b')
+            ->where('installation_id', $installationId)
+            ->firstOrFail();
+        $this->assertNull($activeDevice->revoked_at);
+
+        $this->withToken($this->customerToken('ten_notify_revoke', 'cus_notify_revoke_c'))
+            ->deleteJson('http://notify-revoke.test/api/v1/customer/notification-devices/'.$installationId)
+            ->assertNotFound();
+        $this->assertNull($activeDevice->refresh()->revoked_at);
+
+        $this->withToken($this->customerToken('ten_notify_revoke', 'cus_notify_revoke_a'))
+            ->deleteJson('http://notify-revoke.test/api/v1/customer/notification-devices/'.$installationId)
+            ->assertNoContent();
+        $this->assertNull($activeDevice->refresh()->revoked_at);
+
+        $this->withToken($this->customerToken('ten_notify_revoke', 'cus_notify_revoke_b'))
+            ->deleteJson('http://notify-revoke.test/api/v1/customer/notification-devices/'.$installationId)
+            ->assertNoContent();
+        $this->assertNotNull($activeDevice->refresh()->revoked_at);
     }
 
     public function test_delivery_claim_prevents_duplicate_send_and_recovers_a_stale_worker(): void
@@ -424,6 +671,79 @@ class CustomerNotificationTest extends TestCase
             'last_error_code' => 'worker_stale_requeued',
         ]);
         $this->assertNull($deliveries[2]->refresh()->next_retry_at);
+    }
+
+    public function test_recovery_command_revokes_only_stale_active_push_devices(): void
+    {
+        $this->seedTenant('par_notify_stale', 'ten_notify_stale', 'notify-stale.test');
+        $this->seedCustomer('ten_notify_stale', 'cus_notify_stale', 'CUS-NOTIFY-STALE');
+        $service = app(CustomerNotificationService::class);
+
+        foreach (['stale', 'fresh', 'revoked', 'disabled'] as $suffix) {
+            $service->registerDevice('ten_notify_stale', 'cus_notify_stale', [
+                'installation_id' => 'install_notify_'.$suffix,
+                'platform' => 'android',
+                'fcm_token' => str_repeat($suffix.'-fcm-token-', 10),
+                'locale' => 'th-TH',
+            ]);
+        }
+
+        CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_stale')
+            ->update(['last_seen_at' => now()->subDays(271)]);
+        CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_fresh')
+            ->update(['last_seen_at' => now()->subDays(269)]);
+        CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_revoked')
+            ->update([
+                'last_seen_at' => now()->subDays(271),
+                'revoked_at' => now()->subDay(),
+            ]);
+        CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_disabled')
+            ->update(['last_seen_at' => now()->subDays(365)]);
+
+        $this->artisan('customer-notifications:recover-deliveries --limit=100 --device-limit=2 --device-stale-days=270')
+            ->expectsOutput('Recovered customer push deliveries: 0')
+            ->expectsOutput('Recovered customer notification fan-outs: 0')
+            ->expectsOutput('Revoked stale customer push devices: 2')
+            ->assertSuccessful();
+
+        $this->assertNotNull(CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_stale')
+            ->firstOrFail()
+            ->revoked_at);
+        $this->assertNull(CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_fresh')
+            ->firstOrFail()
+            ->revoked_at);
+        $this->assertNotNull(CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_revoked')
+            ->firstOrFail()
+            ->revoked_at);
+        $this->assertNotNull(CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_disabled')
+            ->firstOrFail()
+            ->revoked_at);
+
+        $service->registerDevice('ten_notify_stale', 'cus_notify_stale', [
+            'installation_id' => 'install_notify_disabled',
+            'platform' => 'android',
+            'fcm_token' => str_repeat('disabled-fcm-token-', 10),
+            'locale' => 'th-TH',
+        ]);
+        CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_disabled')
+            ->update(['last_seen_at' => now()->subDays(365)]);
+
+        $this->artisan('customer-notifications:recover-deliveries --device-stale-days=0')
+            ->expectsOutput('Revoked stale customer push devices: 0')
+            ->assertSuccessful();
+        $this->assertNull(CustomerPushDevice::query()
+            ->where('installation_id', 'install_notify_disabled')
+            ->firstOrFail()
+            ->revoked_at);
     }
 
     public function test_fcm_failure_classification_only_revokes_token_specific_invalid_arguments(): void
@@ -588,6 +908,7 @@ class CustomerNotificationTest extends TestCase
             [],
         );
         $request = Request::create('/api/v1/admin/tenant/customer-notifications', 'POST');
+        $request->headers->set('X-Request-Id', 'req-notify-composer-valid');
         $missingEntity = $service->sendFromAdmin(
             'ten_notify_composer_a',
             $actor,
@@ -651,6 +972,189 @@ class CustomerNotificationTest extends TestCase
         $this->assertSame('Notification Operator', $history['data'][0]['creator']['name']);
         $this->assertSame('cus_notify_composer_a', $history['data'][0]['recipients'][0]['customer']['id']);
         $this->assertSame('not_registered', $history['data'][0]['recipients'][0]['push']['status']);
+
+        $audit = DB::table('audit_logs')
+            ->where('action', 'customer_notification.sent')
+            ->where('tenant_id', 'ten_notify_composer_a')
+            ->first();
+        $this->assertNotNull($audit);
+        $this->assertSame('adm_notify_composer', $audit->actor_id);
+        $this->assertSame('customer', $audit->target_type);
+        $this->assertSame('cus_notify_composer_a', $audit->target_id);
+        $this->assertSame('req-notify-composer-valid', $audit->request_id);
+        $auditPayload = json_decode((string) $audit->payload_redacted_json, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('accepted', $auditPayload['outcome']);
+        $this->assertSame('news', $auditPayload['destination']['action_key']);
+        $this->assertSame('announcement-2026', $auditPayload['destination']['action_entity_id']);
+        $this->assertSame(
+            hash('sha256', json_encode([
+                ['th-TH' => 'ข่าวสำคัญ', 'en-US' => 'Important news'],
+                ['th-TH' => 'อ่านรายละเอียดข่าว', 'en-US' => 'Read the news detail'],
+            ], JSON_THROW_ON_ERROR)),
+            $auditPayload['content_fingerprint'],
+        );
+        $this->assertStringNotContainsString('ข่าวสำคัญ', (string) $audit->payload_redacted_json);
+        $this->assertStringNotContainsString('Read the news detail', (string) $audit->payload_redacted_json);
+    }
+
+    public function test_admin_send_rolls_back_durable_records_when_audit_write_fails(): void
+    {
+        $this->seedTenant('par_notify_audit_fail', 'ten_notify_audit_fail', 'notify-audit-fail.test');
+        $this->seedCustomer('ten_notify_audit_fail', 'cus_notify_audit_fail', 'CUS-NOTIFY-AUDIT-FAIL');
+
+        $this->mock(AuditLogger::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('logAdminWrite')
+                ->once()
+                ->andThrow(new \RuntimeException('simulated audit storage failure'));
+        });
+
+        $actor = new AdminSessionContext(
+            ['scope_type' => 'tenant', 'scope_id' => 'scp_notify_audit_fail', 'tenant_id' => 'ten_notify_audit_fail'],
+            ['id' => 'adm_notify_audit_fail'],
+            [],
+        );
+        $request = Request::create('/api/v1/admin/tenant/customer-notifications', 'POST');
+
+        try {
+            app(CustomerNotificationService::class)->sendFromAdmin(
+                'ten_notify_audit_fail',
+                $actor,
+                [
+                    'customer_id' => 'cus_notify_audit_fail',
+                    'title' => ['th-TH' => 'ข้อความทดสอบ'],
+                    'body' => ['th-TH' => 'ต้องไม่ถูกบันทึกถ้า audit ล้ม'],
+                    'action_key' => 'home',
+                ],
+                $request,
+                'notify-audit-failure',
+            );
+            $this->fail('The simulated audit failure was not raised.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('simulated audit storage failure', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('customer_notifications', 0);
+        $this->assertDatabaseCount('customer_notification_recipients', 0);
+        $this->assertDatabaseCount('customer_notification_deliveries', 0);
+        Event::assertNotDispatched(CustomerNotificationChanged::class);
+    }
+
+    public function test_admin_direct_push_masks_message_content_but_keeps_inbox_detail(): void
+    {
+        $this->seedTenant('par_notify_private_push', 'ten_notify_private_push', 'notify-private-push.test');
+        $this->seedCustomer('ten_notify_private_push', 'cus_notify_private_push', 'CUS-NOTIFY-PRIVATE-PUSH');
+        $service = app(CustomerNotificationService::class);
+        $service->registerDevice('ten_notify_private_push', 'cus_notify_private_push', [
+            'installation_id' => 'install_notify_private_push',
+            'platform' => 'android',
+            'fcm_token' => str_repeat('private-push-token-', 10),
+            'locale' => 'th-TH',
+        ]);
+        $actor = new AdminSessionContext(
+            ['scope_type' => 'tenant', 'scope_id' => 'scp_notify_private_push', 'tenant_id' => 'ten_notify_private_push'],
+            ['id' => 'adm_notify_private_push'],
+            [],
+        );
+        $request = Request::create('/api/v1/admin/tenant/customer-notifications', 'POST');
+        $result = $service->sendFromAdmin(
+            'ten_notify_private_push',
+            $actor,
+            [
+                'customer_id' => 'cus_notify_private_push',
+                'title' => ['th-TH' => 'OTP 123456 สำหรับบัญชี 0123456789'],
+                'body' => ['th-TH' => 'ยอดเงิน 9,999.00 บาท'],
+                'action_key' => 'wallet',
+            ],
+            $request,
+            'notify-private-push',
+        );
+
+        $this->assertSame('OTP 123456 สำหรับบัญชี 0123456789', $result['resource']['title'] ?? null);
+        $this->assertSame('ยอดเงิน 9,999.00 บาท', $result['resource']['body'] ?? null);
+
+        $sentMessage = null;
+        $this->mock(FirebaseCloudMessagingClient::class, function (MockInterface $mock) use (&$sentMessage): void {
+            $mock->shouldReceive('send')
+                ->once()
+                ->with(\Mockery::on(function (array $message) use (&$sentMessage): bool {
+                    $sentMessage = $message;
+
+                    return true;
+                }))
+                ->andReturn([
+                    'ok' => true,
+                    'message_id' => 'projects/test/messages/private-preview',
+                ]);
+        });
+        $this->app->forgetInstance(CustomerNotificationService::class);
+        app(CustomerNotificationService::class)->processDelivery(
+            (string) CustomerNotificationDelivery::query()->value('id'),
+        );
+
+        $this->assertIsArray($sentMessage);
+        $this->assertSame('มีข้อความใหม่', $sentMessage['notification']['title'] ?? null);
+        $this->assertSame('เปิดแอปเพื่อดูรายละเอียดข้อความ', $sentMessage['notification']['body'] ?? null);
+        $this->assertSame('wallet', $sentMessage['data']['action_key'] ?? null);
+        $pushPreview = json_encode($sentMessage['notification'] ?? [], JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('123456', $pushPreview);
+        $this->assertStringNotContainsString('0123456789', $pushPreview);
+        $this->assertStringNotContainsString('9,999.00', $pushPreview);
+    }
+
+    public function test_admin_history_reports_partial_delivery_across_customer_devices(): void
+    {
+        $this->seedTenant('par_notify_history', 'ten_notify_history', 'notify-history.test');
+        $this->seedCustomer('ten_notify_history', 'cus_notify_history', 'CUS-NOTIFY-HISTORY');
+        $service = app(CustomerNotificationService::class);
+
+        foreach (['phone', 'tablet'] as $suffix) {
+            $service->registerDevice('ten_notify_history', 'cus_notify_history', [
+                'installation_id' => 'install_notify_history_'.$suffix,
+                'platform' => 'android',
+                'fcm_token' => str_repeat($suffix.'-history-token-', 10),
+                'locale' => 'th-TH',
+            ]);
+        }
+        $service->createForCustomer(
+            'ten_notify_history',
+            'cus_notify_history',
+            'admin.direct_message',
+            [
+                'category' => 'admin',
+                'title' => ['th-TH' => 'ข้อความทดสอบ'],
+                'body' => ['th-TH' => 'ตรวจสอบสถานะการส่ง'],
+                'action_key' => 'none',
+                'subject_type' => 'admin_message',
+                'subject_id' => 'history-partial',
+            ],
+            [
+                'creator_type' => 'tenant_admin',
+                'dedupe_key' => 'history-partial',
+            ],
+        );
+
+        $deliveries = CustomerNotificationDelivery::query()->orderBy('id')->get();
+        $this->assertCount(2, $deliveries);
+        $deliveries[0]->forceFill([
+            'status' => 'sent',
+            'sent_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ])->save();
+        $deliveries[1]->forceFill([
+            'status' => 'failed',
+            'last_error_code' => 'provider_auth_failed',
+            'failed_at' => now(),
+            'updated_at' => now(),
+        ])->save();
+
+        $history = $service->adminList('ten_notify_history', ['creator_type' => 'tenant_admin']);
+        $push = $history['data'][0]['recipients'][0]['push'];
+        $this->assertSame('partial', $push['status']);
+        $this->assertSame(2, $push['total_count']);
+        $this->assertSame(1, $push['sent_count']);
+        $this->assertSame(0, $push['pending_count']);
+        $this->assertSame(1, $push['failed_count']);
+        $this->assertSame('provider_auth_failed', $push['last_error_code']);
     }
 
     public function test_domain_events_create_deduplicated_notifications_and_suppress_derived_wallet_entries(): void

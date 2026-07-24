@@ -515,6 +515,7 @@ void main() {
     expect(find.text('ร้านค้าสลากฯ เดโม'), findsOneWidget);
     expect(find.text('ช่องทางชำระเงิน'), findsOneWidget);
     expect(find.textContaining('G Wallet'), findsOneWidget);
+    expect(find.textContaining('1244'), findsNothing);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
     expect(find.text('80.00'), findsOneWidget);
     expect(find.text('บาท'), findsOneWidget);
@@ -586,10 +587,26 @@ void main() {
     final receiptRect = tester.getRect(receipt);
     final saveRect = tester.getRect(saveAction);
     final primaryRect = tester.getRect(primaryAction);
+    final totalLabelRect = tester.getRect(find.text('ยอดชำระทั้งหมด'));
+    final totalAmountRect = tester.getRect(find.text('80.00'));
+    final receiptContentRight = receiptRect.right - 16;
 
     expect(receiptRect.top, closeTo(54, 1));
     expect(saveRect.top - receiptRect.bottom, closeTo(24, 1));
     expect(primaryRect.top - saveRect.bottom, closeTo(238, 1));
+    expect(
+      tester.getRect(find.text('1 ใบ')).right,
+      closeTo(receiptContentRight, 1),
+    );
+    expect(
+      tester.getRect(find.text('บาท')).right,
+      closeTo(receiptContentRight, 1),
+    );
+    expect(
+      totalLabelRect.top < totalAmountRect.bottom &&
+          totalAmountRect.top < totalLabelRect.bottom,
+      isTrue,
+    );
     expect(find.byType(AppBar), findsNothing);
     expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
   });

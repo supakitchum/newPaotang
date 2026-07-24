@@ -54,7 +54,11 @@ class TenantCommerceController extends Controller
             return $context;
         }
 
-        return $this->writeWithIdempotency($request, fn (): array => $this->commerce->updateAdminOrder((string) $context->activeTenantId(), $context, $order_id, $request->all(), $request));
+        return $this->writeWithIdempotency(
+            $request,
+            fn (): array => $this->commerce->updateAdminOrder((string) $context->activeTenantId(), $context, $order_id, $request->all(), $request),
+            $this->validator->updateOrderErrors($request->all()),
+        );
     }
 
     public function cancelOrder(Request $request, string $order_id): JsonResponse
@@ -68,7 +72,7 @@ class TenantCommerceController extends Controller
         return $this->writeWithIdempotency(
             $request,
             fn (): array => $this->commerce->cancelAdminOrder((string) $context->activeTenantId(), $context, $order_id, $request->all(), $request),
-            $this->validator->optionalReasonErrors($request->all()),
+            $this->validator->cancelOrderErrors($request->all()),
         );
     }
 
@@ -83,7 +87,7 @@ class TenantCommerceController extends Controller
         return $this->writeWithIdempotency(
             $request,
             fn (): array => $this->commerce->refundAdminOrder((string) $context->activeTenantId(), $context, $order_id, $request->all(), $request),
-            $this->validator->optionalReasonErrors($request->all()),
+            $this->validator->refundOrderErrors($request->all()),
         );
     }
 
@@ -278,7 +282,10 @@ class TenantCommerceController extends Controller
             'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
             'not_found' => ApiErrorResponse::notFound($request),
-            'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
+            'validation_failed' => ApiErrorResponse::validationFailed(
+                $request,
+                $result['errors'] ?? ['payload' => ['The request payload is invalid.']],
+            ),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? 200),
         };
     }

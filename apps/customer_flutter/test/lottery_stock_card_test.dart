@@ -285,7 +285,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 1);
-    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
     expect(find.text('เลือก'), findsNothing);
     expect(find.text('เอาออก'), findsOneWidget);
 
@@ -331,7 +331,7 @@ void main() {
 
     expect(lottery.reserveCount, 1);
     expect(lottery.lastReservedItemId, 'vstock:tenant_1:game_1:273707:1');
-    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
     expect(find.text('เลือก'), findsNothing);
     expect(find.text('เอาออก'), findsOneWidget);
   });
@@ -367,7 +367,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 1);
-    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
     expect(find.text('เอาออก'), findsOneWidget);
   });
 
@@ -435,7 +435,7 @@ void main() {
 
     expect(lottery.reserveCount, 1);
     expect(find.text('Login route /buy/search?number=273707'), findsNothing);
-    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsOneWidget);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
   });
 
   testWidgets('stock list shows selected-cart dock after reservation', (

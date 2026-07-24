@@ -38,6 +38,7 @@ import '../features/results/presentation/result_detail_screen.dart';
 import '../features/results/presentation/result_screen.dart';
 import '../features/results/presentation/waiting_result_screen.dart';
 import '../features/stores/presentation/store_screens.dart';
+import '../features/support/presentation/support_screens.dart';
 import '../features/system/presentation/system_pages.dart';
 import '../features/tickets/presentation/tickets_screen.dart';
 import '../features/topup/presentation/topup_history_screen.dart';
@@ -320,6 +321,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CustomerNotificationsScreen(),
       ),
       GoRoute(
+        path: '/support',
+        builder: (context, state) => const SupportHomeScreen(),
+      ),
+      GoRoute(
+        path: '/support/new',
+        builder: (context, state) => SupportNewTicketScreen(
+          referencedTicketId: state.uri.queryParameters['reference'],
+        ),
+      ),
+      GoRoute(
+        path: '/support/tickets',
+        builder: (context, state) => const SupportTicketHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/support/tickets/:ticketId',
+        builder: (context, state) => SupportTicketChatScreen(
+          ticketId: state.pathParameters['ticketId'] ?? '',
+        ),
+      ),
+      GoRoute(
         path: '/reward-claims',
         builder: (context, state) => const RewardClaimsScreen(),
       ),
@@ -403,9 +424,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const AffiliateScreen(tab: AffiliateTab.overview),
       ),
       GoRoute(
-        path: '/affiliate/withdraw',
+        path: '/affiliate/referral',
         builder: (context, state) =>
-            const AffiliateScreen(tab: AffiliateTab.withdraw),
+            const AffiliateScreen(tab: AffiliateTab.referral),
+      ),
+      GoRoute(
+        path: '/affiliate/rankings',
+        builder: (context, state) =>
+            const AffiliateScreen(tab: AffiliateTab.campaigns),
+      ),
+      GoRoute(
+        path: '/affiliate/campaigns',
+        builder: (context, state) =>
+            const AffiliateScreen(tab: AffiliateTab.campaigns),
+      ),
+      GoRoute(
+        path: '/affiliate/withdraw',
+        builder: (context, state) => AffiliateScreen(
+          tab: AffiliateTab.withdraw,
+          showPayoutHistory: state.uri.queryParameters['history'] == '1',
+          showPayoutSuccess: state.uri.queryParameters['created'] == '1',
+        ),
       ),
       GoRoute(
         path: '/affiliate/commissions',
@@ -415,7 +454,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/affiliate/payouts',
         builder: (context, state) => AffiliateScreen(
-          tab: AffiliateTab.payouts,
+          tab: AffiliateTab.withdraw,
+          showPayoutHistory: true,
           showPayoutSuccess: state.uri.queryParameters['created'] == '1',
         ),
       ),

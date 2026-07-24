@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\AutoCloseExpiredGamesCommand;
+use App\Console\Commands\AffiliateProductionPreflightCommand;
 use App\Console\Commands\CalculateCommissionsCommand;
 use App\Console\Commands\CheckPendingLotteryBackgroundsCommand;
 use App\Console\Commands\ExpireStockReservationsCommand;
@@ -51,6 +52,7 @@ return Application::configure(basePath: dirname(__DIR__))
         PlatformCloudflareReadinessCommand::class,
         PlatformMigrationRehearsalCommand::class,
         PlatformRuntimeReadinessCommand::class,
+        AffiliateProductionPreflightCommand::class,
         AutoCloseExpiredGamesCommand::class,
         ExpireStockReservationsCommand::class,
         SeedBaseLotteryNumbersCommand::class,

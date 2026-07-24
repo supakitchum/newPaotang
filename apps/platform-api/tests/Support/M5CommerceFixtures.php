@@ -107,6 +107,7 @@ trait M5CommerceFixtures
             ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
                 'reservation_id' => $world['reservation']['id'],
                 'payment_method' => 'wallet',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => $idempotencyKey,
                 'X-Request-Id' => 'req-'.$idempotencyKey,

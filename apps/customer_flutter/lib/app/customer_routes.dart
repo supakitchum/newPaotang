@@ -2,6 +2,30 @@ import '../shared/models/customer_feature_route.dart';
 
 const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
+    path: '/support',
+    key: 'support',
+    group: CustomerFeatureGroup.system,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/support/new',
+    key: 'support_new',
+    group: CustomerFeatureGroup.system,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/support/tickets',
+    key: 'support_tickets',
+    group: CustomerFeatureGroup.system,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/support/tickets/:ticketId',
+    key: 'support_ticket',
+    group: CustomerFeatureGroup.system,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/',
     key: 'home',
     group: CustomerFeatureGroup.storefront,
@@ -189,6 +213,24 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
     path: '/affiliate',
     key: 'affiliate',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/affiliate/referral',
+    key: 'affiliate_referral',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/affiliate/rankings',
+    key: 'affiliate_rankings',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/affiliate/campaigns',
+    key: 'affiliate_campaigns',
     group: CustomerFeatureGroup.account,
     sensitive: true,
   ),

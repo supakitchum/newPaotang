@@ -69,6 +69,7 @@ class M10K6LoadTestExecutionTest extends TestCase
             ->postJson('http://'.$env['TENANT_HOST'].'/api/v1/customer/checkout', [
                 'reservation_id' => $env['RESERVATION_ID'],
                 'payment_method' => 'wallet',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'k6-test-checkout',
             ])

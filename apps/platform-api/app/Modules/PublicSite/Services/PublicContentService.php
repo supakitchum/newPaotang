@@ -121,9 +121,10 @@ class PublicContentService
         $query = AffiliateAccount::query()
             ->forTenant($tenantId)
             ->where('status', 'active')
+            ->where('store_name_status', 'approved')
             ->whereNotNull('name')
             ->where('name', '!=', '')
-            ->select(['id', 'name', 'code'])
+            ->select(['id', 'name', 'code', 'store_name_status'])
             ->orderBy('id')
             ->limit($limit + 1);
 

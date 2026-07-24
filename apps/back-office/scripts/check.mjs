@@ -15,6 +15,8 @@ const requiredFiles = [
   'pages/admin/tenant/customer-notifications.vue',
   'pages/admin/tenant/support-access/index.vue',
   'pages/admin/tenant/support-access/[id].vue',
+  'pages/admin/tenant/support.vue',
+  'composables/useSupportApi.ts',
   'pages/admin/tenant/winners/index.vue',
   'pages/admin/tenant/[...slug].vue',
   'pages/admin/central/winners/index.vue',
@@ -177,6 +179,9 @@ const templateNotice = existsSync(join(root, 'public/admin-template/NOTICE.md'))
 const adminNavigation = existsSync(join(root, 'composables/useAdminNavigation.ts'))
   ? readFileSync(join(root, 'composables/useAdminNavigation.ts'), 'utf8')
   : ''
+const tenantSupportPage = existsSync(join(root, 'pages/admin/tenant/support.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/support.vue'), 'utf8')
+  : ''
 const adminApiState = existsSync(join(root, 'components/AdminApiState.vue'))
   ? readFileSync(join(root, 'components/AdminApiState.vue'), 'utf8')
   : ''
@@ -191,6 +196,9 @@ const tenantActivitiesPage = existsSync(join(root, 'pages/admin/tenant/activitie
   : ''
 const tenantCustomerNotificationsPage = existsSync(join(root, 'pages/admin/tenant/customer-notifications.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/customer-notifications.vue'), 'utf8')
+  : ''
+const adminOperationsCatalog = existsSync(join(root, 'composables/useAdminOperationsCatalog.ts'))
+  ? readFileSync(join(root, 'composables/useAdminOperationsCatalog.ts'), 'utf8')
   : ''
 const tenantLineNotificationsPage = existsSync(join(root, 'pages/admin/tenant/line-notifications.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/line-notifications.vue'), 'utf8')
@@ -276,6 +284,8 @@ for (const evidence of [
   ['SSR exact-marker shell bridge', serverAdminGuard.includes('useCookie<string | null>') && serverAdminGuard.includes('decode: (value) => value') && serverAdminGuard.includes('non-sensitive SSR restore shell') && !serverAdminGuard.includes('session.isAuthenticated')],
   ['login redirect preservation', adminMiddleware.includes('loginRedirect(to.fullPath)')],
   ['client auth restore', adminMiddleware.includes('session.restore()') && adminMiddleware.includes('session.alignScopeForPath(to.path)')],
+  ['support-only accounts are routed to customer support', adminSession.includes('usesCustomerSupportLanding') && adminSession.includes('standardSupportPermissions') && adminSession.includes("'/admin/tenant/support'") && loginPage.includes('session.usesCustomerSupportLanding(scope)') && adminMiddleware.includes('session.usesCustomerSupportLanding()') && adminMiddleware.includes("to.path !== '/admin/tenant/support'")],
+  ['support-only sidebar hides unrelated tenant menus', adminNavigation.includes('customerSupportOnlyMenus') && adminNavigation.includes("item.key === 'customer_support'") && adminNavigation.includes('session.usesCustomerSupportLanding()')],
   ['login safe redirect target', loginPage.includes('safeRedirectTarget') && loginPage.includes('route.query.redirect') && loginPage.includes('isAdminPath') && loginPage.includes('isScopePath')],
   ['partner BO host detection', adminHostMode.includes("const partnerBoPrefix = 'bo.'") && adminHostMode.includes('host.value.startsWith(partnerBoPrefix)') && adminHostMode.includes('storefrontHost')],
   ['partner BO same-origin API base', adminHostMode.includes("? '/api/v1'") && apiClient.includes('hostMode.adminApiBase.value')],
@@ -307,6 +317,8 @@ for (const evidence of [
   ['mobile compact header fit', adminFoundationCss.includes('.app-header .header-logo') && adminFoundationCss.includes('max-width: 9.5rem') && adminFoundationCss.includes('text-overflow: ellipsis')],
   ['template notice blocker', templateNotice.includes('Legal Agreement & Copyright Notice.txt') && templateNotice.includes('not a replacement') && templateNotice.includes('client delivery')],
   ['backend menu icon support', adminNavigation.includes('category?: string') && adminNavigation.includes('safeIcon') && adminNavigation.includes('item.icon')],
+  ['support chat visually separates customer messages', tenantSupportPage.includes('data-sender') && tenantSupportPage.includes('np-support-customer-avatar') && tenantSupportPage.includes('.np-support-message-row.is-customer .np-support-bubble') && tenantSupportPage.includes('border: 2px solid rgba(var(--primary-rgb), .5)') && tenantSupportPage.includes('border-inline-start: 4px solid var(--primary-color)') && tenantSupportPage.includes('.np-support-customer-label')],
+  ['support role sees only own work and personal report', tenantSupportPage.includes("key: 'mine'") && tenantSupportPage.includes("key: 'reports'") && tenantSupportPage.includes("hasPermission('support_ticket.view_all')") && tenantSupportPage.includes("hasPermission('support_agent.manage')") && tenantSupportPage.includes('canViewTeamReports')],
   ['maintenance bypass list support', tenantMaintenancePage.includes("api.apiFetch('/admin/tenant/maintenance/bypasses'") && tenantMaintenancePage.includes("status: 'active'") && tenantMaintenancePage.includes('bypassMeta') && tenantMaintenancePage.includes('support_session')],
   ['LINE notification edit modal is visible without Bootstrap JS', tenantLineNotificationsPage.includes('templateModalOpen') && tenantLineNotificationsPage.includes('modal fade show d-block np-line-modal')],
   ['LINE notification edit modal stays above its backdrop', tenantLineNotificationsPage.includes('.np-line-modal {\n  z-index: 12010;') && tenantLineNotificationsPage.includes('.np-line-modal-backdrop {\n  z-index: 12000;')],
@@ -317,6 +329,8 @@ for (const evidence of [
   ['LINE notification callback URL uses backend storefront value instead of BO origin', tenantLineNotificationsPage.includes('Customer callback URL') && tenantLineNotificationsPage.includes('connection.value.callback_url') && !tenantLineNotificationsPage.includes('window.location.origin')],
   ['customer notification composer is tenant scoped and idempotent', tenantCustomerNotificationsPage.includes("'/admin/tenant/customer-notifications/customers'") && tenantCustomerNotificationsPage.includes("'/admin/tenant/customer-notifications'") && tenantCustomerNotificationsPage.includes('scope: \'tenant\'') && tenantCustomerNotificationsPage.includes('idempotencyKey: api.idempotencyKey()')],
   ['customer notification composer confirms direct sends and shows read/push history', tenantCustomerNotificationsPage.includes('confirmationOpen') && tenantCustomerNotificationsPage.includes('Confirm notification') && tenantCustomerNotificationsPage.includes('recipient?.is_read') && tenantCustomerNotificationsPage.includes('recipient?.push?.status')],
+  ['customer notification history exposes partial multi-device delivery', tenantCustomerNotificationsPage.includes("partial: 'Partially delivered'") && tenantCustomerNotificationsPage.includes('pushCountSummary') && tenantCustomerNotificationsPage.includes('sent_count') && tenantCustomerNotificationsPage.includes('pending_count') && tenantCustomerNotificationsPage.includes('failed_count')],
+  ['customer detail links to the composer with a tenant-scoped preselected customer', adminOperationsCatalog.includes("key: 'send-notification'") && adminOperationsCatalog.includes("customer-notifications?customer_id={id}") && tenantCustomerNotificationsPage.includes('route.query.customer_id') && tenantCustomerNotificationsPage.includes('{ customer_id: requestedCustomerId }')],
   ['news customer notification opt-in stays explicit and off by default', tenantAnnouncementsPage.includes('v-model="form.notify_customers"') && tenantAnnouncementsPage.includes('notify_customers: false') && tenantAnnouncementsPage.includes('notify_customers: canNotifyCustomers.value && Boolean(form.notify_customers)')],
   ['activity customer notification opt-in stays explicit and off by default', tenantActivitiesPage.includes('v-model="form.notify_customers"') && tenantActivitiesPage.includes('notify_customers: false') && tenantActivitiesPage.includes('notify_customers: canNotifyCustomers.value && Boolean(form.notify_customers)')],
 ]) {
@@ -530,7 +544,7 @@ for (const evidence of [
   ['affiliate account form uses customer selector', affiliateAccountForm.includes('customerSelectField()') && operationsCatalog.includes("optionSource: 'tenant-customers'")],
   ['affiliate account form omits generated code/json inputs', !affiliateAccountForm.includes("key: 'code'") && !affiliateAccountForm.includes("type: 'json'") && !affiliateAccountForm.includes('Payout profile JSON') && !affiliateAccountForm.includes('Metadata JSON')],
   ['affiliate account form uses payout method and bank fields', affiliateAccountForm.includes('affiliatePayoutProfileFields') && operationsCatalog.includes('payout_profile.bank_account.bank_name') && operationsCatalog.includes('payout_profile.bank_account.account_number')],
-  ['affiliate link form uses selectors and omits generated code/url/json inputs', affiliateLinkForm.includes('affiliateSelectField()') && affiliateLinkForm.includes('affiliateProgramSelectField') && !affiliateLinkForm.includes("key: 'code'") && !affiliateLinkForm.includes("key: 'url'") && !affiliateLinkForm.includes("type: 'json'")],
+  ['affiliate link form follows the account tier and omits program/code/url/json inputs', affiliateLinkForm.includes('affiliateSelectField()') && !affiliateLinkForm.includes('affiliateProgramSelectField') && !affiliateLinkForm.includes("key: 'code'") && !affiliateLinkForm.includes("key: 'url'") && !affiliateLinkForm.includes("type: 'json'")],
   ['commission rule form uses selectors enums and baht amount', commissionRuleForm.includes('affiliateProgramSelectField') && commissionRuleForm.includes('affiliateSelectField') && commissionRuleForm.includes("key: 'rule_type'") && commissionRuleForm.includes('commissionRuleTypeOptions') && commissionRuleForm.includes("bahtMoneyFields('amount'") && !commissionRuleForm.includes("type: 'json'") && !commissionRuleForm.includes('Amount (minor units)')],
   ['affiliate detail views use curated fields', operationsCatalog.includes('detailFields: affiliateProgramDetailFields') && operationsCatalog.includes('detailFields: affiliateAccountDetailFields') && operationsCatalog.includes('detailFields: affiliateLinkDetailFields') && operationsCatalog.includes('detailFields: affiliateAttributionDetailFields') && operationsCatalog.includes('detailFields: commissionRuleDetailFields') && operationsCatalog.includes('detailFields: commissionTransactionDetailFields') && operationsCatalog.includes('detailFields: payoutDetailFields') && operationsPage.includes('detailSectionRecord')],
   ['affiliate generated referral URL rendered readonly', operationsCatalog.includes("canonical_url', label: 'Referral URL'") && operationsCatalog.includes("fallbackKeys: ['referral_url', 'url']") && operationsCatalog.includes("fallbackKeys: ['url']") && !operationsCatalog.includes('/a/{CODE}')],

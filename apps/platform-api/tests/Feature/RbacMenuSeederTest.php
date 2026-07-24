@@ -16,7 +16,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(55, DB::table('permissions')->where('scope_type', 'central')->count());
-        $this->assertSame(79, DB::table('permissions')->where('scope_type', 'tenant')->count());
+        $this->assertSame(98, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
             'scope_type' => 'central',
@@ -87,7 +87,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(36, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(41, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(47, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $dashboardParentId = (string) DB::table('admin_menus')
             ->where('scope_type', 'central')
@@ -781,6 +781,178 @@ class RbacMenuSeederTest extends TestCase
                 'menu_id' => $lineMenuId,
             ]);
         }
+    }
+
+    public function test_reseeding_creates_isolated_customer_support_roles(): void
+    {
+        DB::table('partners')->insert([
+            'id' => 'par_rbac_support',
+            'code' => 'par_rbac_support',
+            'name' => 'RBAC Support Partner',
+            'type' => 'partner_store',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('partner_tenants')->insert([
+            'id' => 'ten_rbac_support',
+            'partner_id' => 'par_rbac_support',
+            'code' => 'ten_rbac_support',
+            'name' => 'RBAC Support Tenant',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $supportRoleId = (string) DB::table('roles')
+            ->where('tenant_id', 'ten_rbac_support')
+            ->where('code', 'support')
+            ->value('id');
+        $masterRoleId = (string) DB::table('roles')
+            ->where('tenant_id', 'ten_rbac_support')
+            ->where('code', 'master_support')
+            ->value('id');
+        $this->assertNotSame('', $supportRoleId);
+        $this->assertNotSame('', $masterRoleId);
+
+        $dashboardPermissionId = (string) DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'dashboard.view')
+            ->value('id');
+        $dashboardMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'dashboard')
+            ->value('id');
+        DB::table('role_permissions')->insertOrIgnore([
+            'role_id' => $supportRoleId,
+            'permission_id' => $dashboardPermissionId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('role_menus')->insertOrIgnore([
+            'role_id' => $supportRoleId,
+            'menu_id' => $dashboardMenuId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $supportPermissions = DB::table('role_permissions')
+            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->where('role_permissions.role_id', $supportRoleId)
+            ->orderBy('permissions.code')
+            ->pluck('permissions.code')
+            ->all();
+        $this->assertSame([
+            'support_ticket.close_assigned',
+            'support_ticket.reply_assigned',
+            'support_ticket.view_assigned',
+        ], $supportPermissions);
+
+        $masterPermissions = DB::table('role_permissions')
+            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->where('role_permissions.role_id', $masterRoleId)
+            ->orderBy('permissions.code')
+            ->pluck('permissions.code')
+            ->all();
+        $this->assertSame([
+            'support_agent.manage',
+            'support_faq.manage',
+            'support_faq.view',
+            'support_report.view',
+            'support_ticket.assign',
+            'support_ticket.close_assigned',
+            'support_ticket.reply_assigned',
+            'support_ticket.view_all',
+            'support_ticket.view_assigned',
+        ], $masterPermissions);
+
+        $supportMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'customer_support')
+            ->value('id');
+        $this->assertDatabaseHas('role_menus', [
+            'role_id' => $supportRoleId,
+            'menu_id' => $supportMenuId,
+        ]);
+        $this->assertDatabaseMissing('role_menus', [
+            'role_id' => $supportRoleId,
+            'menu_id' => $dashboardMenuId,
+        ]);
+        $this->assertDatabaseHas('role_menus', [
+            'role_id' => $masterRoleId,
+            'menu_id' => $supportMenuId,
+        ]);
+    }
+
+    public function test_support_role_scope_migration_removes_legacy_permissions_and_menus(): void
+    {
+        DB::table('partners')->insert([
+            'id' => 'par_rbac_support_migration',
+            'code' => 'par_rbac_support_migration',
+            'name' => 'RBAC Support Migration Partner',
+            'type' => 'partner_store',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('partner_tenants')->insert([
+            'id' => 'ten_rbac_support_migration',
+            'partner_id' => 'par_rbac_support_migration',
+            'code' => 'ten_rbac_support_migration',
+            'name' => 'RBAC Support Migration Tenant',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $supportRoleId = (string) DB::table('roles')
+            ->where('tenant_id', 'ten_rbac_support_migration')
+            ->where('code', 'support')
+            ->value('id');
+        $dashboardPermissionId = (string) DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'dashboard.view')
+            ->value('id');
+        $dashboardMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'dashboard')
+            ->value('id');
+        DB::table('role_permissions')->insertOrIgnore([
+            'role_id' => $supportRoleId,
+            'permission_id' => $dashboardPermissionId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('role_menus')->insertOrIgnore([
+            'role_id' => $supportRoleId,
+            'menu_id' => $dashboardMenuId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_07_24_000002_enforce_customer_support_role_scope.php');
+        $migration->up();
+
+        $this->assertDatabaseMissing('role_permissions', [
+            'role_id' => $supportRoleId,
+            'permission_id' => $dashboardPermissionId,
+        ]);
+        $this->assertDatabaseMissing('role_menus', [
+            'role_id' => $supportRoleId,
+            'menu_id' => $dashboardMenuId,
+        ]);
+        $this->assertDatabaseHas('role_permissions', [
+            'role_id' => $supportRoleId,
+            'permission_id' => DB::table('permissions')
+                ->where('scope_type', 'tenant')
+                ->where('code', 'support_ticket.view_assigned')
+                ->value('id'),
+        ]);
     }
 
     public function test_reseeding_removes_retired_tenant_stock_sync_menu_and_permission(): void

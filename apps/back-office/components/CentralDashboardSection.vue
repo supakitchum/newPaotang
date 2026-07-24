@@ -2045,8 +2045,8 @@ function partnerMetricLabel(metric: any) {
     partner_sales_amount: { en: 'Partner sales amount', th: 'ยอดขายของพาร์ทเนอร์ทั้งหมด' },
     partner_sales_tickets: { en: 'Partner tickets sold', th: 'จำนวนสลากที่พาร์ทเนอร์ขายได้' },
     new_partners: { en: 'New partners', th: 'พาร์ทเนอร์ใหม่' },
-    affiliate_accounts: { en: 'Affiliate accounts', th: 'บัญชี Affiliate' },
-    new_affiliate_accounts: { en: 'New affiliate accounts', th: 'บัญชี Affiliate ใหม่' },
+    affiliate_accounts: { en: 'Affiliate accounts', th: 'บัญชีผู้แนะนำ' },
+    new_affiliate_accounts: { en: 'New affiliate accounts', th: 'บัญชีผู้แนะนำใหม่' },
   }[metric?.key] || metric?.label || '-'
 
   if (typeof label === 'object') {

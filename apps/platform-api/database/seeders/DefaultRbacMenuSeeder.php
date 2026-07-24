@@ -82,6 +82,8 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantTenantSocialLoginToPartnerOwners($now);
         $this->grantTenantSmsOtpToPartnerOwners($now);
         $this->grantTenantPasswordResetToPartnerOwners($now);
+        $this->grantTenantCustomerSupportToPartnerOwners($now);
+        $this->ensureTenantCustomerSupportRoles($now);
     }
 
     /**
@@ -163,6 +165,15 @@ class DefaultRbacMenuSeeder extends Seeder
                 'customer.suspend' => 'Suspend or disable customers',
                 'customer_notification.view' => 'View customer notification history',
                 'customer_notification.send' => 'Send notifications to tenant customers',
+                'support_ticket.view_assigned' => 'View assigned customer support tickets',
+                'support_ticket.reply_assigned' => 'Reply to assigned customer support tickets',
+                'support_ticket.close_assigned' => 'Close assigned customer support tickets',
+                'support_ticket.view_all' => 'View all customer support tickets',
+                'support_ticket.assign' => 'Assign customer support tickets',
+                'support_agent.manage' => 'Manage customer support agents and settings',
+                'support_faq.view' => 'View customer support FAQs',
+                'support_faq.manage' => 'Manage customer support categories and FAQs',
+                'support_report.view' => 'View customer support reports',
                 'customer_password_reset.view' => 'View customer password reset requests',
                 'customer_password_reset.manage' => 'Issue customer password reset links',
                 'wallet.view' => 'View wallets',
@@ -187,6 +198,12 @@ class DefaultRbacMenuSeeder extends Seeder
                 'affiliate.view' => 'View affiliate data',
                 'affiliate.create' => 'Create affiliate records',
                 'affiliate.update' => 'Update affiliate records',
+                'affiliate_name_review.view' => 'View affiliate store name review requests',
+                'affiliate_name_review.manage' => 'Approve or reject affiliate store names',
+                'affiliate_tier.view' => 'View affiliate tiers',
+                'affiliate_tier.manage' => 'Manage affiliate tier benefits',
+                'affiliate_tier_campaign.view' => 'View affiliate tier campaigns',
+                'affiliate_tier_campaign.manage' => 'Manage and finalize affiliate tier campaigns',
                 'affiliate_program.view' => 'View affiliate programs',
                 'affiliate_program.manage' => 'Manage affiliate programs',
                 'affiliate_link.view' => 'View affiliate links',
@@ -298,11 +315,15 @@ class DefaultRbacMenuSeeder extends Seeder
                 'affiliate' => 'affiliate.view',
                 'affiliate_programs' => 'affiliate_program.view',
                 'affiliate_accounts' => 'affiliate.view',
+                'affiliate_store_name_requests' => 'affiliate_name_review.view',
+                'affiliate_tiers' => 'affiliate_tier.view',
+                'affiliate_tier_campaigns' => 'affiliate_tier_campaign.view',
                 'affiliate_links' => 'affiliate_link.view',
                 'affiliate_attributions' => 'affiliate_attribution.view',
                 'commission_rules' => 'commission_rule.view',
                 'announcements' => 'announcement.view',
                 'customer_notifications' => 'customer_notification.view',
+                'customer_support' => 'support_ticket.view_assigned',
                 'line_notifications' => 'line_notification.view',
                 'social_login' => 'social_login.view',
                 'sms_otp' => 'sms_otp.view',
@@ -436,6 +457,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
             'tenant:announcements' => '/admin/tenant/announcements',
             'tenant:customer_notifications' => '/admin/tenant/customer-notifications',
+            'tenant:customer_support' => '/admin/tenant/support',
             'tenant:line_notifications' => '/admin/tenant/line-notifications',
             'tenant:social_login' => '/admin/tenant/social-login',
             'tenant:sms_otp' => '/admin/tenant/sms-otp',
@@ -445,6 +467,9 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:affiliate' => '/admin/tenant/growth/affiliates',
             'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
             'tenant:affiliate_accounts' => '/admin/tenant/growth/affiliates',
+            'tenant:affiliate_store_name_requests' => '/admin/tenant/growth/affiliate-store-name-requests',
+            'tenant:affiliate_tiers' => '/admin/tenant/growth/affiliate-tiers',
+            'tenant:affiliate_tier_campaigns' => '/admin/tenant/growth/affiliate-tier-campaigns',
             'tenant:affiliate_links' => '/admin/tenant/growth/affiliate-links',
             'tenant:affiliate_attributions' => '/admin/tenant/growth/attributions',
             'tenant:commission_rules' => '/admin/tenant/growth/commission-rules',
@@ -503,6 +528,10 @@ class DefaultRbacMenuSeeder extends Seeder
 
         if ($code === 'customer_notifications') {
             return 'Customer Notifications';
+        }
+
+        if ($code === 'customer_support') {
+            return 'Customer Support';
         }
 
         if ($code === 'social_login') {
@@ -588,6 +617,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
             'tenant:customer_notifications' => 'Store Operations',
+            'tenant:customer_support' => 'Store Operations',
             'tenant:line_notifications',
             'tenant:social_login',
             'tenant:sms_otp' => 'Plugins',
@@ -640,6 +670,7 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
             str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
             str_contains($code, 'customer_notification') => 'ri-notification-3-line',
+            str_contains($code, 'customer_support') => 'ri-customer-service-2-line',
             str_contains($code, 'announcement') => 'ri-megaphone-line',
             str_contains($code, 'telegram') => 'ri-telegram-line',
             str_contains($code, 'storage') => 'ri-database-2-line',
@@ -673,6 +704,9 @@ class DefaultRbacMenuSeeder extends Seeder
         return [
             'affiliate_programs',
             'affiliate_accounts',
+            'affiliate_store_name_requests',
+            'affiliate_tiers',
+            'affiliate_tier_campaigns',
             'affiliate_links',
             'affiliate_attributions',
             'commission_rules',
@@ -1717,6 +1751,154 @@ class DefaultRbacMenuSeeder extends Seeder
         }
 
         $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantCustomerSupportToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', [
+                'support_ticket.view_assigned',
+                'support_ticket.reply_assigned',
+                'support_ticket.close_assigned',
+                'support_ticket.view_all',
+                'support_ticket.assign',
+                'support_agent.manage',
+                'support_faq.view',
+                'support_faq.manage',
+                'support_report.view',
+            ])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'customer_support')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+        foreach ($roleIds as $roleId) {
+            foreach ($permissionIds as $permissionId) {
+                DB::table('role_permissions')->insertOrIgnore([
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+            foreach ($menuIds as $menuId) {
+                DB::table('role_menus')->insertOrIgnore([
+                    'role_id' => $roleId,
+                    'menu_id' => $menuId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function ensureTenantCustomerSupportRoles(mixed $now): void
+    {
+        $permissionIdsByCode = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->where('status', 'active')
+            ->whereIn('code', [
+                'support_ticket.view_assigned',
+                'support_ticket.reply_assigned',
+                'support_ticket.close_assigned',
+                'support_ticket.view_all',
+                'support_ticket.assign',
+                'support_agent.manage',
+                'support_faq.view',
+                'support_faq.manage',
+                'support_report.view',
+            ])
+            ->pluck('id', 'code');
+        $menuId = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'customer_support')
+            ->value('id');
+        $roleIds = [];
+
+        foreach (DB::table('partner_tenants')->pluck('id') as $tenantId) {
+            $definitions = [
+                'support' => [
+                    'name' => 'Support',
+                    'permissions' => [
+                        'support_ticket.view_assigned',
+                        'support_ticket.reply_assigned',
+                        'support_ticket.close_assigned',
+                    ],
+                ],
+                'master_support' => [
+                    'name' => 'Master Support',
+                    'permissions' => array_keys($permissionIdsByCode->all()),
+                ],
+            ];
+            foreach ($definitions as $code => $definition) {
+                $roleId = $this->stableId('rol', 'tenant:'.$tenantId, $code);
+                $roleIds[] = $roleId;
+                DB::table('roles')->updateOrInsert(
+                    ['id' => $roleId],
+                    [
+                        'scope_type' => 'tenant',
+                        'tenant_id' => $tenantId,
+                        'code' => $code,
+                        'name' => $definition['name'],
+                        'status' => 'active',
+                        'version' => 1,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ],
+                );
+                $allowedPermissionIds = collect($definition['permissions'])
+                    ->map(fn (string $permissionCode): ?string => $permissionIdsByCode[$permissionCode] ?? null)
+                    ->filter()
+                    ->values()
+                    ->all();
+                $stalePermissionQuery = DB::table('role_permissions')->where('role_id', $roleId);
+                $allowedPermissionIds === []
+                    ? $stalePermissionQuery->delete()
+                    : $stalePermissionQuery->whereNotIn('permission_id', $allowedPermissionIds)->delete();
+                foreach ($definition['permissions'] as $permissionCode) {
+                    $permissionId = $permissionIdsByCode[$permissionCode] ?? null;
+                    if ($permissionId === null) {
+                        continue;
+                    }
+                    DB::table('role_permissions')->insertOrIgnore([
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+                $staleMenuQuery = DB::table('role_menus')->where('role_id', $roleId);
+                if ($menuId !== null) {
+                    $staleMenuQuery->where('menu_id', '!=', $menuId)->delete();
+                    DB::table('role_menus')->insertOrIgnore([
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                } else {
+                    $staleMenuQuery->delete();
+                }
+            }
+        }
+
+        $this->bumpPermissionCacheVersions(array_values(array_unique($roleIds)), $now);
     }
 
     private function grantTenantSmsOtpToPartnerOwners(mixed $now): void

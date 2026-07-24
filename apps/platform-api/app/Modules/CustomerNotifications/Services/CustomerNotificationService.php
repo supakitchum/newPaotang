@@ -39,6 +39,7 @@ class CustomerNotificationService
         'news',
         'account',
         'admin',
+        'support',
     ];
 
     public const ACTION_KEYS = [
@@ -59,6 +60,8 @@ class CustomerNotificationService
         'activity_claim',
         'affiliate',
         'news',
+        'support',
+        'support_ticket',
     ];
 
     private const ACTION_ENTITY_KEYS = [
@@ -70,6 +73,7 @@ class CustomerNotificationService
         'activity',
         'activity_claim',
         'news',
+        'support_ticket',
     ];
 
     private const ADMIN_ACTION_KEYS = [
@@ -88,6 +92,8 @@ class CustomerNotificationService
         'activity_claim',
         'affiliate',
         'news',
+        'support',
+        'support_ticket',
     ];
 
     private const ADMIN_ACTION_ENTITY_KEYS = [
@@ -97,6 +103,27 @@ class CustomerNotificationService
         'activity',
         'activity_claim',
         'news',
+        'support_ticket',
+    ];
+
+    private const DEVICE_METADATA_KEYS = [
+        'app_build_number',
+        'os_name',
+        'os_version',
+        'os_sdk',
+        'manufacturer',
+        'device_model',
+        'device_machine',
+        'is_physical_device',
+    ];
+
+    private const DEVICE_METADATA_TEXT_LIMITS = [
+        'app_build_number' => 40,
+        'os_name' => 40,
+        'os_version' => 80,
+        'manufacturer' => 120,
+        'device_model' => 160,
+        'device_machine' => 160,
     ];
 
     public function __construct(
@@ -218,7 +245,8 @@ class CustomerNotificationService
         $installationId = trim((string) $payload['installation_id']);
         $token = trim((string) $payload['fcm_token']);
         $tokenHash = hash_hmac('sha256', $token, (string) config('app.key'));
-        $device = DB::transaction(function () use ($tenantId, $customerId, $installationId, $token, $tokenHash, $payload): CustomerPushDevice {
+        $metadata = $this->normalizedDeviceMetadata($payload['metadata'] ?? null);
+        $device = DB::transaction(function () use ($tenantId, $customerId, $installationId, $token, $tokenHash, $payload, $metadata): CustomerPushDevice {
             $this->lockPushRegistrationIdentity($installationId, $tokenHash);
             $now = now();
             $device = CustomerPushDevice::query()
@@ -256,7 +284,7 @@ class CustomerNotificationService
                 'locale' => $this->localeKey($payload['locale'] ?? null),
                 'app_version' => $this->nullableText($payload['app_version'] ?? null, 40),
                 'device_name' => $this->nullableText($payload['device_name'] ?? null, 255),
-                'metadata_json' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : null,
+                'metadata_json' => $metadata,
                 'last_seen_at' => $now,
                 'revoked_at' => null,
                 'updated_at' => $now,
@@ -301,6 +329,40 @@ class CustomerNotificationService
         }
 
         return true;
+    }
+
+    public function revokeStaleDevices(int $limit = 100, ?int $staleDays = null): int
+    {
+        $staleDays ??= (int) config('services.firebase_cloud_messaging.device_stale_days', 270);
+        if ($staleDays <= 0) {
+            return 0;
+        }
+
+        $limit = max(1, min(500, $limit));
+        $cutoff = now()->subDays($staleDays);
+        $candidateIds = CustomerPushDevice::query()
+            ->whereNull('revoked_at')
+            ->where('last_seen_at', '<=', $cutoff)
+            ->orderBy('last_seen_at')
+            ->orderBy('id')
+            ->limit($limit)
+            ->pluck('id');
+
+        if ($candidateIds->isEmpty()) {
+            return 0;
+        }
+
+        $now = now();
+
+        // Recheck freshness in the update so a concurrent app registration wins.
+        return CustomerPushDevice::query()
+            ->whereKey($candidateIds->all())
+            ->whereNull('revoked_at')
+            ->where('last_seen_at', '<=', $cutoff)
+            ->update([
+                'revoked_at' => $now,
+                'updated_at' => $now,
+            ]);
     }
 
     /**
@@ -370,7 +432,10 @@ class CustomerNotificationService
             );
         });
 
-        $this->dispatchCreated($recipient);
+        $this->dispatchCreated(
+            $recipient,
+            ($context['broadcast_after_commit'] ?? false) === true,
+        );
         $notification = CustomerNotification::query()->find($recipient->notification_id);
 
         return $notification === null
@@ -521,41 +586,56 @@ class CustomerNotificationService
             'subject_type' => 'admin_message',
             'subject_id' => $idempotencyKey,
         ];
-        $resource = $this->createForCustomer(
+
+        return DB::transaction(function () use (
             $tenantId,
             $customerId,
-            'admin.direct_message',
+            $actor,
             $content,
-            [
-                'creator_type' => 'tenant_admin',
-                'creator_id' => (string) $actor->adminUser['id'],
-                'dedupe_key' => 'admin:'.$actor->adminUser['id'].':'.$idempotencyKey,
-                'metadata' => ['request_id' => $request->header('X-Request-Id')],
-            ],
-        );
+            $payload,
+            $request,
+            $idempotencyKey,
+        ): array {
+            $resource = $this->createForCustomer(
+                $tenantId,
+                $customerId,
+                'admin.direct_message',
+                $content,
+                [
+                    'creator_type' => 'tenant_admin',
+                    'creator_id' => (string) $actor->adminUser['id'],
+                    'dedupe_key' => 'admin:'.$actor->adminUser['id'].':'.$idempotencyKey,
+                    'metadata' => ['request_id' => $request->header('X-Request-Id')],
+                    'broadcast_after_commit' => true,
+                ],
+            );
 
-        if ($resource === null) {
-            return ['error' => 'not_found'];
-        }
+            if ($resource === null) {
+                return ['error' => 'not_found'];
+            }
 
-        $this->auditLogger->logAdminWrite(
-            actorId: (string) $actor->adminUser['id'],
-            scopeType: 'tenant',
-            action: 'customer_notification.sent',
-            targetType: 'customer',
-            targetId: $customerId,
-            payload: [
-                'content_hash' => hash('sha256', json_encode([$payload['title'], $payload['body']], JSON_THROW_ON_ERROR)),
-                'action_key' => $content['action_key'],
-                'action_entity_id' => $content['action_entity_id'],
-            ],
-            tenantId: $tenantId,
-            requestId: $request->header('X-Request-Id'),
-            ipAddress: $request->ip(),
-            userAgent: $request->userAgent(),
-        );
+            $this->auditLogger->logAdminWrite(
+                actorId: (string) $actor->adminUser['id'],
+                scopeType: 'tenant',
+                action: 'customer_notification.sent',
+                targetType: 'customer',
+                targetId: $customerId,
+                payload: [
+                    'content_fingerprint' => hash('sha256', json_encode([$payload['title'], $payload['body']], JSON_THROW_ON_ERROR)),
+                    'destination' => [
+                        'action_key' => $content['action_key'],
+                        'action_entity_id' => $content['action_entity_id'],
+                    ],
+                    'outcome' => 'accepted',
+                ],
+                tenantId: $tenantId,
+                requestId: $request->header('X-Request-Id'),
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            );
 
-        return ['resource' => $resource];
+            return ['resource' => $resource];
+        });
     }
 
     /**
@@ -759,12 +839,10 @@ class CustomerNotificationService
 
         $attempts = (int) $delivery->attempts;
         $locale = $device->locale ?: 'th-TH';
+        $pushPreview = $this->pushPreview($notification, $locale);
         $result = $this->fcm->send([
             'token' => (string) $device->fcm_token_encrypted,
-            'notification' => [
-                'title' => $this->localizedText($notification->title_json, $locale),
-                'body' => $this->localizedText($notification->body_json, $locale),
-            ],
+            'notification' => $pushPreview,
             'data' => [
                 'notification_id' => (string) $notification->id,
                 'action_key' => (string) $notification->action_key,
@@ -969,10 +1047,24 @@ class CustomerNotificationService
         return $dispatched;
     }
 
-    private function dispatchCreated(CustomerNotificationRecipient $recipient): void
+    private function dispatchCreated(
+        CustomerNotificationRecipient $recipient,
+        bool $broadcastAfterCommit = false,
+    ): void
     {
         $this->queueRecipientDeliveries((string) $recipient->tenant_id, (string) $recipient->id);
 
+        if ($broadcastAfterCommit) {
+            DB::afterCommit(fn () => $this->broadcastCreated($recipient));
+
+            return;
+        }
+
+        $this->broadcastCreated($recipient);
+    }
+
+    private function broadcastCreated(CustomerNotificationRecipient $recipient): void
+    {
         try {
             CustomerNotificationChanged::dispatch('customer.notification.created', [
                 'tenant_id' => (string) $recipient->tenant_id,
@@ -1094,14 +1186,41 @@ class CustomerNotificationService
                     ],
                     'is_read' => $recipient->read_at !== null,
                     'read_at' => $recipient->read_at?->toISOString(),
-                    'push' => [
-                        'status' => $deliveries->isEmpty() ? 'not_registered' : ($deliveries->contains('status', 'sent') ? 'sent' : (string) $deliveries->sortByDesc('updated_at')->first()?->status),
-                        'sent_count' => $deliveries->where('status', 'sent')->count(),
-                        'failed_count' => $deliveries->whereIn('status', ['failed', 'skipped'])->count(),
-                        'last_error_code' => $deliveries->sortByDesc('updated_at')->first()?->last_error_code,
-                    ],
+                    'push' => $this->deliverySummary($deliveries),
                 ];
             })->values()->all(),
+        ];
+    }
+
+    /** @return array{status: string, total_count: int, sent_count: int, pending_count: int, failed_count: int, last_error_code: ?string} */
+    private function deliverySummary(mixed $deliveries): array
+    {
+        $totalCount = $deliveries->count();
+        $sentCount = $deliveries->where('status', 'sent')->count();
+        $pendingCount = $deliveries->whereIn('status', ['queued', 'sending'])->count();
+        $failedCount = $deliveries->whereIn('status', ['failed', 'skipped'])->count();
+        $status = match (true) {
+            $totalCount === 0 => 'not_registered',
+            $sentCount === $totalCount => 'sent',
+            $sentCount > 0, $pendingCount > 0 && $failedCount > 0 => 'partial',
+            $deliveries->contains('status', 'sending') => 'sending',
+            $deliveries->contains('status', 'queued') => 'queued',
+            $deliveries->contains('status', 'failed') => 'failed',
+            $deliveries->contains('status', 'skipped') => 'skipped',
+            default => (string) ($deliveries->sortByDesc('updated_at')->first()?->status ?? 'failed'),
+        };
+        $lastFailure = $deliveries
+            ->filter(fn (CustomerNotificationDelivery $delivery): bool => trim((string) $delivery->last_error_code) !== '')
+            ->sortByDesc('updated_at')
+            ->first();
+
+        return [
+            'status' => $status,
+            'total_count' => $totalCount,
+            'sent_count' => $sentCount,
+            'pending_count' => $pendingCount,
+            'failed_count' => $failedCount,
+            'last_error_code' => $lastFailure?->last_error_code,
         ];
     }
 
@@ -1148,9 +1267,15 @@ class CustomerNotificationService
     private function deviceErrors(array $payload): array
     {
         $errors = [];
-        $installationId = trim((string) ($payload['installation_id'] ?? ''));
-        $token = trim((string) ($payload['fcm_token'] ?? ''));
-        $platform = strtolower(trim((string) ($payload['platform'] ?? '')));
+        $installationId = is_scalar($payload['installation_id'] ?? null)
+            ? trim((string) $payload['installation_id'])
+            : '';
+        $token = is_scalar($payload['fcm_token'] ?? null)
+            ? trim((string) $payload['fcm_token'])
+            : '';
+        $platform = is_scalar($payload['platform'] ?? null)
+            ? strtolower(trim((string) $payload['platform']))
+            : '';
 
         if (strlen($installationId) < 8 || strlen($installationId) > 128 || preg_match('/^[A-Za-z0-9._:-]+$/', $installationId) !== 1) {
             $errors['installation_id'][] = 'The installation ID format is invalid.';
@@ -1162,7 +1287,69 @@ class CustomerNotificationService
             $errors['platform'][] = 'The platform must be ios or android.';
         }
 
+        foreach (['app_version' => 40, 'device_name' => 255] as $field => $maxLength) {
+            $value = $payload[$field] ?? null;
+            if ($value !== null && (! is_string($value) || mb_strlen(trim($value)) > $maxLength)) {
+                $errors[$field][] = 'The '.$field.' field is invalid.';
+            }
+        }
+
+        $metadata = $payload['metadata'] ?? null;
+        if ($metadata !== null && ! is_array($metadata)) {
+            $errors['metadata'][] = 'The device metadata must be an object.';
+        } elseif (is_array($metadata)) {
+            $unsupportedKeys = array_diff(array_map('strval', array_keys($metadata)), self::DEVICE_METADATA_KEYS);
+            if ($unsupportedKeys !== []) {
+                $errors['metadata'][] = 'The device metadata contains unsupported fields.';
+            }
+
+            foreach (self::DEVICE_METADATA_TEXT_LIMITS as $key => $maxLength) {
+                $value = $metadata[$key] ?? null;
+                if ($value !== null && (! is_string($value) || mb_strlen(trim($value)) > $maxLength)) {
+                    $errors['metadata'][] = 'The device metadata contains an invalid value.';
+                    break;
+                }
+            }
+
+            if (array_key_exists('os_sdk', $metadata)) {
+                $osSdk = filter_var($metadata['os_sdk'], FILTER_VALIDATE_INT);
+                if ($osSdk === false || $osSdk < 0 || $osSdk > 1000) {
+                    $errors['metadata'][] = 'The device metadata contains an invalid OS SDK.';
+                }
+            }
+            if (array_key_exists('is_physical_device', $metadata) && ! is_bool($metadata['is_physical_device'])) {
+                $errors['metadata'][] = 'The physical-device metadata must be boolean.';
+            }
+        }
+
         return $errors;
+    }
+
+    /** @return array<string, int|string|bool>|null */
+    private function normalizedDeviceMetadata(mixed $value): ?array
+    {
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $metadata = [];
+        foreach (self::DEVICE_METADATA_TEXT_LIMITS as $key => $_) {
+            if (! array_key_exists($key, $value) || $value[$key] === null) {
+                continue;
+            }
+            $text = trim((string) $value[$key]);
+            if ($text !== '') {
+                $metadata[$key] = $text;
+            }
+        }
+        if (array_key_exists('os_sdk', $value)) {
+            $metadata['os_sdk'] = (int) $value['os_sdk'];
+        }
+        if (array_key_exists('is_physical_device', $value)) {
+            $metadata['is_physical_device'] = (bool) $value['is_physical_device'];
+        }
+
+        return $metadata === [] ? null : $metadata;
     }
 
     /** @return array<string, array<int, string>> */
@@ -1291,6 +1478,23 @@ class CustomerNotificationService
         $map = is_array($value) ? $value : [];
         $key = $this->localeKey($locale) ?? 'th-TH';
         return trim((string) ($map[$key] ?? $map['th-TH'] ?? $map['en-US'] ?? Arr::first($map) ?? ''));
+    }
+
+    /** @return array{title: string, body: string} */
+    private function pushPreview(CustomerNotification $notification, string $locale): array
+    {
+        if ((string) $notification->event_key === 'admin.direct_message') {
+            $isEnglish = $this->localeKey($locale) === 'en-US';
+
+            return $isEnglish
+                ? ['title' => 'New message', 'body' => 'Open the app to view the message.']
+                : ['title' => 'มีข้อความใหม่', 'body' => 'เปิดแอปเพื่อดูรายละเอียดข้อความ'];
+        }
+
+        return [
+            'title' => $this->localizedText($notification->title_json, $locale),
+            'body' => $this->localizedText($notification->body_json, $locale),
+        ];
     }
 
     private function localeKey(mixed $locale): ?string

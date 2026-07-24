@@ -9,10 +9,11 @@ final affiliateRepositoryProvider = Provider<AffiliateRepository>((ref) {
   return AffiliateRepository(ref.watch(apiClientProvider));
 });
 
-final affiliateOverviewProvider =
-    FutureProvider.autoDispose<AffiliateOverview>((ref) async {
-  return ref.watch(affiliateRepositoryProvider).overview();
-});
+final affiliateOverviewProvider = FutureProvider.autoDispose<AffiliateOverview>(
+  (ref) async {
+    return ref.watch(affiliateRepositoryProvider).overview();
+  },
+);
 
 class AffiliateRepository {
   const AffiliateRepository(this._api);
@@ -35,6 +36,23 @@ class AffiliateRepository {
     return AffiliateOverview.fromJson(asMap(response.data));
   }
 
+  Future<void> requestStoreName({required String name}) async {
+    await _api.postWithHeaders<Map<String, dynamic>>(
+      '/customer/affiliate/store-name-requests',
+      headers: {'Idempotency-Key': newIdempotencyKey('affiliate_store_name')},
+      data: {'name': name},
+    );
+  }
+
+  Future<List<AffiliateTierCampaign>> campaigns() async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/customer/affiliate/tier-campaigns',
+    );
+    return asMapList(
+      asMap(response.data)['data'],
+    ).map(AffiliateTierCampaign.fromJson).toList(growable: false);
+  }
+
   Future<AffiliatePayout> createPayout({
     required double amount,
     required String payoutMethod,
@@ -46,10 +64,7 @@ class AffiliateRepository {
       '/customer/affiliate/payouts',
       headers: {'Idempotency-Key': newIdempotencyKey('affiliate_payout')},
       data: {
-        'amount': {
-          'amount': (amount * 100).round(),
-          'currency': 'THB',
-        },
+        'amount': {'amount': (amount * 100).round(), 'currency': 'THB'},
         'payout_method': payoutMethod,
         if (pinAssertionToken.isNotEmpty)
           'pin_assertion_token': pinAssertionToken

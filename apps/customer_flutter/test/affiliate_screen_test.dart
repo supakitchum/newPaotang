@@ -84,6 +84,78 @@ void main() {
               'referral_code': 'AFF123',
               'referral_url': 'https://partner.example.test/?ref=AFF123',
             },
+            'tier': {
+              'code': 'bronze',
+              'name': 'Bronze',
+              'rank': 1,
+              'commission_per_ticket': {'amount': 100, 'currency': 'THB'},
+              'minimum_payout': {'amount': 30000, 'currency': 'THB'},
+            },
+            'store_name': {
+              'status': 'approved',
+              'approved_name': 'Approved Store',
+              'can_request_change': false,
+            },
+            'campaigns': [
+              {
+                'id': 'atc_1',
+                'name': 'July tier campaign',
+                'campaign_type': 'fixed_threshold',
+                'status': 'active',
+                'starts_at': '2026-07-01T00:00:00+07:00',
+                'ends_at': '2026-07-31T23:59:59+07:00',
+                'can_reduce_tier': true,
+                'rules': [
+                  {
+                    'minimum_ticket_count': 0,
+                    'target_tier': {'code': 'bronze', 'name': 'Bronze'},
+                  },
+                  {
+                    'minimum_ticket_count': 200,
+                    'target_tier': {'code': 'silver', 'name': 'Silver'},
+                  },
+                  {
+                    'minimum_ticket_count': 300,
+                    'target_tier': {'code': 'gold', 'name': 'Gold'},
+                  },
+                ],
+                'my_progress': {
+                  'ticket_count': 205,
+                  'rank': 4,
+                  'projected_tier': {'code': 'silver', 'name': 'Silver'},
+                },
+                'leaderboard': [
+                  {
+                    'affiliate_code': 'AFF999',
+                    'affiliate_name': 'Lucky Agent',
+                    'ticket_count': 330,
+                    'rank': 1,
+                    'is_current_affiliate': false,
+                  },
+                  {
+                    'affiliate_code': 'AFF222',
+                    'affiliate_name': 'Silver Star',
+                    'ticket_count': 270,
+                    'rank': 2,
+                    'is_current_affiliate': false,
+                  },
+                  {
+                    'affiliate_code': 'AFF333',
+                    'affiliate_name': 'Happy Seller',
+                    'ticket_count': 220,
+                    'rank': 3,
+                    'is_current_affiliate': false,
+                  },
+                  {
+                    'affiliate_code': 'AFF123',
+                    'affiliate_name': 'Approved Store',
+                    'ticket_count': 205,
+                    'rank': 4,
+                    'is_current_affiliate': true,
+                  },
+                ],
+              },
+            ],
           }),
         ),
       );
@@ -93,15 +165,127 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Overview'), findsOneWidget);
-      expect(find.text('Your store name'), findsOneWidget);
+      expect(find.text('Ranking'), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('affiliate-referral-qr')),
+        find.byKey(const ValueKey('affiliate-member-card')),
         findsOneWidget,
       );
+      final memberCard = tester.widget<Container>(
+        find.byKey(const ValueKey('affiliate-member-card')),
+      );
+      final memberCardGradient =
+          (memberCard.decoration! as BoxDecoration).gradient! as LinearGradient;
+      expect(memberCardGradient.colors, const [
+        Color(0xFFA85D33),
+        Color(0xFF60301F),
+      ]);
+      expect(
+        find.byKey(const ValueKey('affiliate-tier-badge-bronze')),
+        findsOneWidget,
+      );
+      expect(find.text('AFFILIATE MEMBER'), findsOneWidget);
+      expect(find.text('Approved Store'), findsOneWidget);
+      expect(find.text('Bronze member'), findsOneWidget);
+      expect(find.text('Commission per ticket'), findsOneWidget);
+      expect(find.text('1.00 THB'), findsOneWidget);
+      expect(find.text('July tier campaign'), findsNothing);
+      expect(find.text('95 tickets to Gold'), findsNothing);
+      expect(find.text('205 tickets sold'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('affiliate-campaign-progress-atc_1')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('affiliate-referral-qr')), findsNothing);
+      expect(find.text('Referral link'), findsNothing);
       expect(find.text('Payout account'), findsNothing);
       expect(find.text('Home'), findsNothing);
       expect(find.text('My Tickets'), findsNothing);
       expect(find.text('More'), findsNothing);
+      final navigationRect = tester.getRect(
+        find.byKey(const ValueKey('affiliate-navigation-bar')),
+      );
+      final navigationLabels = [
+        'Overview',
+        'Ranking',
+        'Referral',
+        'Commissions',
+        'Withdraw',
+      ];
+      for (var index = 1; index < navigationLabels.length; index++) {
+        expect(
+          tester.getCenter(find.text(navigationLabels[index - 1])).dx,
+          lessThan(tester.getCenter(find.text(navigationLabels[index])).dx),
+        );
+      }
+      final referralCircleRect = tester.getRect(
+        find.byKey(const ValueKey('affiliate-referral-navigation-circle')),
+      );
+      expect(
+        referralCircleRect.center.dx,
+        closeTo(navigationRect.center.dx, 1),
+      );
+      expect(referralCircleRect.top, lessThan(navigationRect.top));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Ranking'));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/affiliate/rankings',
+      );
+      expect(find.text('Fixed sales target'), findsOneWidget);
+      expect(find.text('Active tier campaign'), findsOneWidget);
+      expect(find.text('Top 3 affiliates'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('affiliate-ranking-podium-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('affiliate-ranking-podium-2')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('affiliate-ranking-podium-3')),
+        findsOneWidget,
+      );
+      expect(find.text('Lucky Agent'), findsWidgets);
+      expect(find.text('Silver Star'), findsWidgets);
+      expect(find.text('Happy Seller'), findsWidgets);
+      expect(find.text('Gold rankings'), findsOneWidget);
+      expect(find.text('Silver rankings'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('affiliate-campaign-leaderboard-table')),
+        findsWidgets,
+      );
+      expect(find.text('Approved Store (You)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Referral'));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/affiliate/referral',
+      );
+      expect(find.text('Referral link'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('affiliate-referral-qr')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('affiliate-member-card')), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Commissions'));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/affiliate/commissions',
+      );
+      expect(find.text('Latest commissions'), findsWidgets);
+      expect(find.byKey(const ValueKey('affiliate-member-card')), findsNothing);
+      expect(find.text('Referral link'), findsNothing);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.text('Withdraw'));
@@ -113,7 +297,11 @@ void main() {
       );
       expect(find.text('Request withdrawal'), findsWidgets);
       expect(find.text('Payout account'), findsOneWidget);
-      expect(find.text('Your store name'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('affiliate-withdraw-segmented-control')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('affiliate-member-card')), findsNothing);
       expect(find.text('Referral link'), findsNothing);
       expect(find.byKey(const ValueKey('affiliate-referral-qr')), findsNothing);
       final withdrawException = tester.takeException();
@@ -125,38 +313,188 @@ void main() {
             : withdrawException?.toString(),
       );
 
-      await tester.tap(find.text('Commissions'));
-      await tester.pumpAndSettle();
-
-      expect(
-        router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/commissions',
-      );
-      expect(find.text('Latest commissions'), findsWidgets);
-      expect(find.text('Your store name'), findsNothing);
-      expect(find.text('Referral link'), findsNothing);
-      expect(tester.takeException(), isNull);
-
       await tester.tap(find.text('History'));
       await tester.pumpAndSettle();
 
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/payouts',
+        '/affiliate/withdraw',
       );
       expect(find.text('Withdrawal history'), findsWidgets);
-      expect(find.text('Your store name'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('affiliate-withdraw-history-content')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('affiliate-member-card')), findsNothing);
       expect(find.text('Referral link'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('ranking campaign stays readable on a narrow viewport', (
+    tester,
+  ) async {
+    await _pumpAffiliate(
+      tester,
+      viewport: const Size(320, 1000),
+      repository: _AffiliateRepository(
+        overviewValue: AffiliateOverview.fromJson(const {
+          'is_affiliate': true,
+          'affiliate': {'referral_code': 'AFF321'},
+          'tier': {
+            'code': 'gold',
+            'name': 'Gold',
+            'rank': 3,
+            'commission_per_ticket': {'amount': 200, 'currency': 'THB'},
+            'minimum_payout': {'amount': 20000, 'currency': 'THB'},
+          },
+          'store_name': {'status': 'approved', 'approved_name': 'Narrow Store'},
+          'campaigns': [
+            {
+              'id': 'atc_rank',
+              'name': 'Diamond challenge',
+              'campaign_type': 'ranking',
+              'status': 'active',
+              'rules': [
+                {
+                  'rank_from': 1,
+                  'rank_to': 10,
+                  'target_tier': {'code': 'diamond', 'name': 'Diamond'},
+                },
+              ],
+              'my_progress': {
+                'ticket_count': 88,
+                'rank': 7,
+                'projected_tier': {'code': 'diamond', 'name': 'Diamond'},
+              },
+              'leaderboard': [
+                {
+                  'affiliate_code': 'AFF001',
+                  'affiliate_name': 'First Store',
+                  'ticket_count': 150,
+                  'rank': 1,
+                  'is_current_affiliate': false,
+                },
+                {
+                  'affiliate_code': 'AFF002',
+                  'affiliate_name': 'Second Store',
+                  'ticket_count': 120,
+                  'rank': 2,
+                  'is_current_affiliate': false,
+                },
+                {
+                  'affiliate_code': 'AFF003',
+                  'affiliate_name': 'Third Store',
+                  'ticket_count': 100,
+                  'rank': 3,
+                  'is_current_affiliate': false,
+                },
+                {
+                  'affiliate_code': 'AFF321',
+                  'affiliate_name': 'Narrow Store',
+                  'ticket_count': 88,
+                  'rank': 7,
+                  'is_current_affiliate': true,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(find.text('Leaderboard'), findsNothing);
+    expect(find.text('Narrow Store (You)'), findsNothing);
+
+    await tester.tap(find.text('Ranking'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active tier campaign'), findsOneWidget);
+    expect(find.text('#7'), findsOneWidget);
+    expect(find.text('Top 3 affiliates'), findsOneWidget);
+    expect(find.text('Diamond rankings'), findsOneWidget);
+    expect(find.text('Narrow Store (You)'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('affiliate-campaign-leaderboard-table')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('affiliate-campaign-progress-atc_rank')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ranking falls back to the latest completed campaign', (
+    tester,
+  ) async {
+    await _pumpAffiliate(
+      tester,
+      repository: _AffiliateRepository(
+        overviewValue: AffiliateOverview.fromJson(const {
+          'is_affiliate': true,
+          'affiliate': {'referral_code': 'AFF777'},
+          'tier': {'code': 'silver', 'name': 'Silver', 'rank': 2},
+          'campaigns': [
+            {
+              'id': 'atc_old',
+              'name': 'Older campaign result',
+              'campaign_type': 'ranking',
+              'status': 'completed',
+              'starts_at': '2026-05-01T00:00:00+07:00',
+              'ends_at': '2026-05-31T23:59:59+07:00',
+              'leaderboard': [],
+            },
+            {
+              'id': 'atc_latest',
+              'name': 'June winner campaign',
+              'campaign_type': 'ranking',
+              'status': 'completed',
+              'starts_at': '2026-06-01T00:00:00+07:00',
+              'ends_at': '2026-06-30T23:59:59+07:00',
+              'rules': [
+                {
+                  'rank_from': 1,
+                  'rank_to': 1,
+                  'target_tier': {
+                    'code': 'diamond',
+                    'name': 'Diamond',
+                    'rank': 5,
+                  },
+                },
+              ],
+              'leaderboard': [
+                {
+                  'affiliate_code': 'AFF001',
+                  'affiliate_name': 'Latest Winner',
+                  'ticket_count': 510,
+                  'rank': 1,
+                  'is_current_affiliate': false,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    await tester.tap(find.text('Ranking'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Latest campaign result'), findsOneWidget);
+    expect(find.text('June winner campaign'), findsOneWidget);
+    expect(find.text('Older campaign result'), findsNothing);
+    expect(find.text('Latest Winner'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<GoRouter> _pumpAffiliate(
   WidgetTester tester, {
   required AffiliateRepository repository,
+  Size viewport = const Size(900, 1400),
 }) async {
-  tester.view.physicalSize = const Size(900, 1400);
+  tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -169,8 +507,24 @@ Future<GoRouter> _pumpAffiliate(
         builder: (_, __) => const AffiliateScreen(tab: AffiliateTab.overview),
       ),
       GoRoute(
+        path: '/affiliate/referral',
+        builder: (_, __) => const AffiliateScreen(tab: AffiliateTab.referral),
+      ),
+      GoRoute(
+        path: '/affiliate/rankings',
+        builder: (_, __) => const AffiliateScreen(tab: AffiliateTab.campaigns),
+      ),
+      GoRoute(
+        path: '/affiliate/campaigns',
+        builder: (_, __) => const AffiliateScreen(tab: AffiliateTab.campaigns),
+      ),
+      GoRoute(
         path: '/affiliate/withdraw',
-        builder: (_, __) => const AffiliateScreen(tab: AffiliateTab.withdraw),
+        builder: (_, state) => AffiliateScreen(
+          tab: AffiliateTab.withdraw,
+          showPayoutHistory: state.uri.queryParameters['history'] == '1',
+          showPayoutSuccess: state.uri.queryParameters['created'] == '1',
+        ),
       ),
       GoRoute(
         path: '/affiliate/commissions',
@@ -180,7 +534,8 @@ Future<GoRouter> _pumpAffiliate(
       GoRoute(
         path: '/affiliate/payouts',
         builder: (_, state) => AffiliateScreen(
-          tab: AffiliateTab.payouts,
+          tab: AffiliateTab.withdraw,
+          showPayoutHistory: true,
           showPayoutSuccess: state.uri.queryParameters['created'] == '1',
         ),
       ),

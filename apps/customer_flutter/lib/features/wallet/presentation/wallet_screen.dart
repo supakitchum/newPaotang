@@ -39,7 +39,7 @@ Color _walletPanelBorder(ColorScheme colorScheme) =>
     colorScheme.outlineVariant;
 
 Color _walletPanelShadow(ColorScheme colorScheme) =>
-    colorScheme.primary.withValues(alpha: 0.08);
+    colorScheme.shadow.withValues(alpha: 0.06);
 
 enum _WalletLedgerFilter { latest, incoming, outgoing }
 
@@ -696,8 +696,8 @@ class _WalletLedgerLoading extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: _walletPanelShadow(colorScheme),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -739,8 +739,8 @@ class _WalletLedgerLoadFailed extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: _walletPanelShadow(colorScheme),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -879,8 +879,8 @@ class _WalletEmptyLedger extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: _walletPanelShadow(colorScheme),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -957,9 +957,9 @@ class _WalletLedgerList extends StatelessWidget {
         border: Border.all(color: _walletPanelBorder(colorScheme)),
         boxShadow: [
           BoxShadow(
-            color: _walletPanelShadow(colorScheme).withValues(alpha: 0.72),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: _walletPanelShadow(colorScheme),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),

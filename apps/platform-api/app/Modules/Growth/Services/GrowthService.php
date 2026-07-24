@@ -7,6 +7,8 @@ use App\Models\AffiliateAttribution;
 use App\Models\AffiliateLink;
 use App\Models\AffiliatePayout;
 use App\Models\AffiliateProgram;
+use App\Models\AffiliateTierHistory;
+use App\Models\AffiliateTierRateHistory;
 use App\Models\Agent;
 use App\Models\AgentQuota;
 use App\Models\AuditLog;
@@ -25,6 +27,8 @@ use App\Models\StockItem;
 use App\Models\SyncOutbox;
 use App\Models\Ticket;
 use App\Models\WalletLedger;
+use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\Commerce\Services\WalletPostingService;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Shared\Audit\AuditLogger;
@@ -34,11 +38,13 @@ use App\Shared\Idempotency\IdempotencyService;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Support\CustomerNo;
+use App\Support\EncryptedJsonPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class GrowthService
 {
@@ -52,16 +58,17 @@ class GrowthService
     private const AFFILIATE_CODE_LENGTH = 6;
     private const AFFILIATE_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     private const AFFILIATE_ATTRIBUTION_TTL_DAYS = 30;
-    private const STARTER_AFFILIATE_PROGRAM_CODE = 'basic';
-    private const STARTER_AFFILIATE_RULE_CODE = 'basic_com';
+    private const STARTER_AFFILIATE_PROGRAM_CODE = 'bronze';
     private const DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT = 30000;
-    private const DEFAULT_AFFILIATE_RULE_AMOUNT = 1000;
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly IdempotencyService $idempotency,
         private readonly CentralTelegramNotificationService $telegramNotifications,
         private readonly CustomerNotificationDomainEventService $customerNotificationEvents,
+        private readonly AffiliateTierService $affiliateTiers,
+        private readonly CustomerAuthService $customerAuth,
+        private readonly WalletPostingService $walletPosting,
     ) {
     }
 
@@ -345,7 +352,7 @@ class GrowthService
     {
         $normalized = $this->normalizeAffiliatePayload($payload, true);
         unset($normalized['code']);
-        $errors = $this->affiliateStoreNameErrors($normalized);
+        $errors = $this->affiliateTiers->storeNameErrors($tenantId, (string) ($normalized['name'] ?? ''));
 
         if (($normalized['customer_id'] ?? null) === null) {
             $errors['customer_id'][] = 'The customer_id field is required for affiliate accounts.';
@@ -363,11 +370,16 @@ class GrowthService
             'affiliate.create',
             $normalized,
             function () use ($tenantId, $actor, $request, $normalized): array {
-                if ($normalized['customer_id'] !== null && ! Customer::where('tenant_id', $tenantId)->where('id', $normalized['customer_id'])->exists()) {
+                $customer = Customer::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $normalized['customer_id'])
+                    ->lockForUpdate()
+                    ->first();
+                if ($customer === null) {
                     return ['error' => 'not_found'];
                 }
 
-                if ($normalized['customer_id'] !== null && $this->customerAffiliateAccount($tenantId, $normalized['customer_id']) !== null) {
+                if ($this->customerAffiliateAccount($tenantId, $normalized['customer_id']) !== null) {
                     return ['error' => 'resource_conflict'];
                 }
 
@@ -382,19 +394,31 @@ class GrowthService
                     'id' => $affiliateId,
                     'tenant_id' => $tenantId,
                     'customer_id' => $normalized['customer_id'],
+                    'affiliate_program_id' => null,
                     'code' => $normalizedForWrite['code'],
                     'name' => $normalized['name'],
+                    'store_name_status' => 'pending',
+                    'store_name_normalized' => null,
+                    'store_name_approved_at' => null,
+                    'store_name_change_available_at' => null,
                     'phone' => $normalized['phone'],
                     'email' => $normalized['email'],
                     'status' => $normalized['status'],
                     'wallet_balance_amount' => 0,
                     'currency' => $normalized['currency'],
-                    'payout_profile_json' => $this->jsonOrNull($normalized['payout_profile']),
+                    'payout_profile_json' => null,
+                    'payout_profile_encrypted' => EncryptedJsonPayload::encrypt($normalized['payout_profile']),
                     'metadata_json' => $this->jsonOrNull($normalized['metadata']),
                     'created_by_admin_id' => $actor->adminUser['id'],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
+
+                $affiliate = AffiliateAccount::query()->where('tenant_id', $tenantId)->whereKey($affiliateId)->first();
+                if ($affiliate === null || ! $this->affiliateTiers->attachNewAffiliate($affiliate, $normalized['name'])) {
+                    return ['error' => 'validation_failed', 'errors' => ['name' => ['The store name has already been taken.']]];
+                }
+                $this->ensureCustomerAffiliateLink($tenantId, $affiliate->fresh());
 
                 $this->auditAdmin($actor, $request, 'affiliate.created', 'affiliate_account', $affiliateId, $normalizedForWrite, $tenantId);
 
@@ -415,6 +439,11 @@ class GrowthService
 
         if (array_key_exists('customer_id', $normalized) && $normalized['customer_id'] === null) {
             $errors['customer_id'][] = 'The customer_id field is required for affiliate accounts.';
+        }
+
+        $current = AffiliateAccount::query()->where('tenant_id', $tenantId)->whereKey($affiliateId)->first();
+        if ($current !== null && array_key_exists('name', $normalized) && trim((string) $normalized['name']) !== trim((string) $current->name)) {
+            $errors['name'][] = 'Store names must be changed through the affiliate store name review workflow.';
         }
 
         if ($errors !== []) {
@@ -443,12 +472,14 @@ class GrowthService
                     return ['error' => 'resource_conflict'];
                 }
 
-                $updates = $this->onlyPresent($normalized, ['customer_id', 'name', 'phone', 'email', 'status', 'currency']);
+                $updates = $this->onlyPresent($normalized, ['customer_id', 'phone', 'email', 'status', 'currency']);
 
-                foreach (['payout_profile' => 'payout_profile_json', 'metadata' => 'metadata_json'] as $source => $target) {
-                    if (array_key_exists($source, $normalized)) {
-                        $updates[$target] = $this->jsonOrNull($normalized[$source]);
-                    }
+                if (array_key_exists('payout_profile', $normalized)) {
+                    $updates['payout_profile_json'] = null;
+                    $updates['payout_profile_encrypted'] = EncryptedJsonPayload::encrypt($normalized['payout_profile']);
+                }
+                if (array_key_exists('metadata', $normalized)) {
+                    $updates['metadata_json'] = $this->jsonOrNull($normalized['metadata']);
                 }
 
                 $updates['updated_at'] = now();
@@ -553,6 +584,9 @@ class GrowthService
                 if ($row === null) {
                     return ['error' => 'not_found'];
                 }
+                if ($row->tier_rank !== null || (bool) (($row->metadata_json ?? [])['system_tier'] ?? false)) {
+                    return ['error' => 'resource_conflict'];
+                }
 
                 if (isset($normalized['code']) && $normalized['code'] !== $row->code && $this->tenantCodeExists('affiliate_programs', $tenantId, $normalized['code'], $programId)) {
                     return ['error' => 'resource_conflict'];
@@ -578,7 +612,43 @@ class GrowthService
      */
     public function archiveAffiliateProgram(string $tenantId, AdminSessionContext $actor, string $programId, array $payload, Request $request): array
     {
-        return $this->archiveTenantRow($tenantId, $actor, $programId, $payload, $request, 'affiliate_programs', 'affiliate_program', 'affiliate_program.manage', 'admin.tenant.affiliate-programs.archive', 'affiliate_program.archived');
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate-programs.archive:'.$programId,
+            'affiliate_program.manage',
+            $payload,
+            function () use ($tenantId, $actor, $programId, $payload, $request): array {
+                $row = AffiliateProgram::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $programId)
+                    ->lockForUpdate()
+                    ->first();
+                if ($row === null) {
+                    return ['error' => 'not_found'];
+                }
+                if ($row->tier_rank !== null || (bool) (($row->metadata_json ?? [])['system_tier'] ?? false)) {
+                    return ['error' => 'resource_conflict'];
+                }
+                if ($row->status === 'archived') {
+                    return ['resource' => null, 'status' => 204];
+                }
+
+                $row->forceFill(['status' => 'archived', 'updated_at' => now()])->save();
+                $this->auditAdmin(
+                    $actor,
+                    $request,
+                    'affiliate_program.archived',
+                    'affiliate_program',
+                    $programId,
+                    $payload,
+                    $tenantId,
+                );
+
+                return ['resource' => null, 'status' => 204];
+            },
+        );
     }
 
     /**
@@ -638,8 +708,10 @@ class GrowthService
                 $code = $this->randomAffiliateCode($tenantId);
                 $linkId = 'afl_'.Str::ulid()->toBase32();
                 $now = now();
+                $programId = $this->currentAffiliateProgramId($tenantId, $normalized['affiliate_account_id']);
                 $normalizedForWrite = [
                     ...$normalized,
+                    'affiliate_program_id' => $programId,
                     'code' => $code,
                     'url' => $this->affiliateUrl($tenantId, $code),
                 ];
@@ -648,7 +720,7 @@ class GrowthService
                     'id' => $linkId,
                     'tenant_id' => $tenantId,
                     'affiliate_account_id' => $normalized['affiliate_account_id'],
-                    'affiliate_program_id' => $normalized['affiliate_program_id'],
+                    'affiliate_program_id' => $programId,
                     'code' => $code,
                     'url' => $normalizedForWrite['url'],
                     'status' => $normalized['status'],
@@ -699,7 +771,10 @@ class GrowthService
                     return ['error' => $relations];
                 }
 
-                $updates = $this->onlyPresent($normalized, ['affiliate_account_id', 'affiliate_program_id', 'status']);
+                $updates = $this->onlyPresent($normalized, ['affiliate_account_id', 'status']);
+                if (($merged['status'] ?? $row->status) === 'active') {
+                    $updates['affiliate_program_id'] = $this->currentAffiliateProgramId($tenantId, $merged['affiliate_account_id']);
+                }
 
                 if (array_key_exists('metadata', $normalized)) {
                     $updates['metadata_json'] = $this->jsonOrNull($normalized['metadata']);
@@ -795,7 +870,7 @@ class GrowthService
             'stats' => $this->customerAffiliateStats($affiliate),
             'commissions' => $this->customerAffiliateCommissionRows((string) $affiliate->tenant_id, (string) $affiliate->id, 5),
             'payouts' => $this->customerAffiliatePayoutRows((string) $affiliate->tenant_id, (string) $affiliate->id, 5),
-        ];
+        ] + $this->affiliateTiers->overviewResource($affiliate);
     }
 
     /**
@@ -811,13 +886,6 @@ class GrowthService
         }
 
         $existing = $this->customerAffiliateAccount($tenantId, $customer->customerId());
-
-        if ($existing !== null) {
-            $this->ensureCustomerAffiliateLink($tenantId, $existing);
-
-            return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 200];
-        }
-
         $normalized = [
             'customer_id' => $customer->customerId(),
             'name' => trim((string) ($payload['name'] ?? $payload['store_name'] ?? '')),
@@ -828,7 +896,9 @@ class GrowthService
             'payout_profile' => is_array($payload['payout_profile'] ?? null) ? $payload['payout_profile'] : [],
             'metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
         ];
-        $errors = $this->affiliateStoreNameErrors($normalized);
+        $errors = $existing === null
+            ? $this->affiliateTiers->storeNameErrors($tenantId, $normalized['name'])
+            : [];
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
@@ -841,7 +911,20 @@ class GrowthService
             'customer.affiliate.register',
             $normalized,
             function () use ($tenantId, $customer, $normalized): array {
-                if ($this->customerAffiliateAccount($tenantId, $customer->customerId()) !== null) {
+                $customerRow = Customer::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $customer->customerId())
+                    ->where('status', 'active')
+                    ->lockForUpdate()
+                    ->first();
+                if ($customerRow === null) {
+                    return ['error' => 'not_found'];
+                }
+
+                $existing = $this->customerAffiliateAccount($tenantId, $customer->customerId());
+                if ($existing !== null) {
+                    $this->ensureCustomerAffiliateLink($tenantId, $existing);
+
                     return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 200];
                 }
 
@@ -853,14 +936,20 @@ class GrowthService
                     'id' => $affiliateId,
                     'tenant_id' => $tenantId,
                     'customer_id' => $normalized['customer_id'],
+                    'affiliate_program_id' => null,
                     'code' => $code,
                     'name' => $normalized['name'],
+                    'store_name_status' => 'pending',
+                    'store_name_normalized' => null,
+                    'store_name_approved_at' => null,
+                    'store_name_change_available_at' => null,
                     'phone' => $normalized['phone'],
                     'email' => $normalized['email'],
                     'status' => $normalized['status'],
                     'wallet_balance_amount' => 0,
                     'currency' => $normalized['currency'],
-                    'payout_profile_json' => $this->jsonOrNull($normalized['payout_profile']),
+                    'payout_profile_json' => null,
+                    'payout_profile_encrypted' => EncryptedJsonPayload::encrypt($normalized['payout_profile']),
                     'metadata_json' => $this->jsonOrNull($normalized['metadata']),
                     'created_by_admin_id' => null,
                     'created_at' => $now,
@@ -870,6 +959,10 @@ class GrowthService
                 $affiliate = AffiliateAccount::query()->where('tenant_id', $tenantId)->where('id', $affiliateId)->first();
 
                 if ($affiliate !== null) {
+                    if (! $this->affiliateTiers->attachNewAffiliate($affiliate, $normalized['name'])) {
+                        return ['error' => 'validation_failed', 'errors' => ['name' => ['The store name has already been taken.']]];
+                    }
+                    $affiliate = AffiliateAccount::query()->where('tenant_id', $tenantId)->where('id', $affiliateId)->first();
                     $this->ensureCustomerAffiliateLink($tenantId, $affiliate);
                 }
                 DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateRegistered(
@@ -880,6 +973,170 @@ class GrowthService
 
                 return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 201];
             },
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function requestCustomerAffiliateStoreName(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request): array
+    {
+        $normalized = ['name' => trim((string) ($payload['name'] ?? $payload['store_name'] ?? ''))];
+
+        return $this->customerIdempotentWrite(
+            $tenantId,
+            $customer->customerId(),
+            $request,
+            'customer.affiliate.store_name.request',
+            $normalized,
+            fn (): array => $this->affiliateTiers->requestStoreNameChange($tenantId, $customer->customerId(), $normalized),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function customerAffiliateTierCampaigns(string $tenantId, CustomerSessionContext $customer): array
+    {
+        return $this->affiliateTiers->customerCampaignList($tenantId, $customer->customerId());
+    }
+
+    public function customerAffiliateTierCampaign(string $tenantId, CustomerSessionContext $customer, string $campaignId): ?array
+    {
+        return $this->affiliateTiers->customerCampaign($tenantId, $customer->customerId(), $campaignId);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function listAffiliateStoreNameRequests(string $tenantId, array $queryParams): array
+    {
+        return $this->affiliateTiers->listStoreNameRequests($tenantId, $queryParams);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function reviewAffiliateStoreNameRequest(string $tenantId, AdminSessionContext $actor, string $requestId, bool $approve, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate_store_name_requests.'.($approve ? 'approve' : 'reject'),
+            'affiliate_name_review.manage',
+            $payload + ['request_id' => $requestId],
+            fn (): array => $this->affiliateTiers->reviewStoreNameRequest($tenantId, $actor, $requestId, $approve, $payload, $request),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function listAffiliateTiers(string $tenantId): array
+    {
+        return $this->affiliateTiers->listTiers($tenantId);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function updateAffiliateTier(string $tenantId, AdminSessionContext $actor, string $code, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate_tiers.update',
+            'affiliate_tier.manage',
+            $payload + ['code' => $code],
+            fn (): array => $this->affiliateTiers->updateTier($tenantId, $actor, $code, $payload, $request),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function listAffiliateTierCampaigns(string $tenantId, array $queryParams): array
+    {
+        return $this->affiliateTiers->listCampaigns($tenantId, $queryParams);
+    }
+
+    public function affiliateTierCampaign(string $tenantId, string $campaignId): ?array
+    {
+        return $this->affiliateTiers->campaign($tenantId, $campaignId);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function createAffiliateTierCampaign(string $tenantId, AdminSessionContext $actor, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate_tier_campaigns.store',
+            'affiliate_tier_campaign.manage',
+            $payload,
+            fn (): array => $this->affiliateTiers->createCampaign($tenantId, $actor, $payload, $request),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function updateAffiliateTierCampaign(string $tenantId, AdminSessionContext $actor, string $campaignId, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate_tier_campaigns.update',
+            'affiliate_tier_campaign.manage',
+            $payload + ['campaign_id' => $campaignId],
+            fn (): array => $this->affiliateTiers->updateCampaign($tenantId, $actor, $campaignId, $payload, $request),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function finalizeAffiliateTierCampaign(string $tenantId, AdminSessionContext $actor, string $campaignId, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate_tier_campaigns.finalize',
+            'affiliate_tier_campaign.manage',
+            $payload + ['campaign_id' => $campaignId],
+            fn (): array => $this->affiliateTiers->finalizeCampaign($tenantId, $campaignId, $actor, $request),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function cancelAffiliateTierCampaign(string $tenantId, AdminSessionContext $actor, string $campaignId, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.affiliate_tier_campaigns.cancel',
+            'affiliate_tier_campaign.manage',
+            $payload + ['campaign_id' => $campaignId],
+            fn (): array => $this->affiliateTiers->cancelCampaign($tenantId, $campaignId, $actor, $request),
         );
     }
 
@@ -946,7 +1203,20 @@ class GrowthService
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        return DB::transaction(function () use ($tenantId, $customer, $code, $payload, $request): array {
+        $normalized = [
+            'ref' => $code,
+            'visitor_id' => trim((string) ($payload['visitor_id'] ?? '')),
+            'registered' => filter_var($payload['registered'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'landing_url' => $this->nullableString($payload['landing_url'] ?? null),
+        ];
+
+        return $this->customerIdempotentWrite(
+            $tenantId,
+            $customer->customerId(),
+            $request,
+            'customer.affiliate.referrals.apply',
+            $normalized,
+            function () use ($tenantId, $customer, $code, $normalized, $request): array {
             if (! Customer::query()->where('tenant_id', $tenantId)->where('id', $customer->customerId())->where('status', 'active')->exists()) {
                 return ['error' => 'not_found'];
             }
@@ -955,6 +1225,15 @@ class GrowthService
 
             if ($resolved === null) {
                 return ['error' => 'not_found'];
+            }
+            $affiliateOwnerId = AffiliateAccount::query()
+                ->where('tenant_id', $tenantId)
+                ->where('id', $resolved['affiliate_account_id'])
+                ->value('customer_id');
+            if ($affiliateOwnerId !== null && (string) $affiliateOwnerId === $customer->customerId()) {
+                return ['error' => 'validation_failed', 'errors' => [
+                    'ref' => ['An Affiliate referral cannot be applied to its owner.'],
+                ]];
             }
 
             $now = now();
@@ -971,6 +1250,7 @@ class GrowthService
                 ->where('tenant_id', $tenantId)
                 ->where('customer_id', $customer->customerId())
                 ->where('status', 'pending')
+                ->whereNull('order_id')
                 ->orderByDesc('attributed_at')
                 ->orderByDesc('created_at')
                 ->lockForUpdate()
@@ -1015,8 +1295,8 @@ class GrowthService
                     ]);
             }
 
-            $registeredViaRef = filter_var($payload['registered'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $visitorId = trim((string) ($payload['visitor_id'] ?? ''));
+            $registeredViaRef = (bool) $normalized['registered'];
+            $visitorId = (string) $normalized['visitor_id'];
 
             if ($visitorId !== '' || $registeredViaRef) {
                 $this->upsertAffiliateReferralVisit(
@@ -1025,7 +1305,7 @@ class GrowthService
                     code: $code,
                     visitorKey: $visitorId === '' ? 'customer:'.$customer->customerId() : $this->referralVisitorKey($visitorId, $request),
                     request: $request,
-                    landingUrl: $this->nullableString($payload['landing_url'] ?? null),
+                    landingUrl: $normalized['landing_url'],
                     customerId: $customer->customerId(),
                     registered: $registeredViaRef,
                     incrementClick: false,
@@ -1041,7 +1321,8 @@ class GrowthService
                 ],
                 'status' => $status,
             ];
-        });
+            },
+        );
     }
 
     /**
@@ -1107,12 +1388,13 @@ class GrowthService
         $normalized = [
             'affiliate_account_id' => (string) $affiliate->id,
             'amount' => $this->moneyAmount($payload['amount'] ?? 0),
-            'currency' => $this->moneyCurrency($payload['amount'] ?? null),
+            'currency' => strtoupper((string) $affiliate->currency),
             'payout_method' => (string) ($payload['payout_method'] ?? 'bank_transfer'),
             'bank_account' => $this->normalizeBankAccount($payload['bank_account'] ?? null),
             'admin_note' => $this->nullableString($payload['note'] ?? null),
         ];
         $errors = [];
+        $requestedCurrency = $this->moneyCurrency($payload['amount'] ?? null);
 
         if ($normalized['amount'] <= 0) {
             $errors['amount'][] = 'The amount field must be greater than zero.';
@@ -1120,6 +1402,12 @@ class GrowthService
 
         if (! in_array($normalized['payout_method'], ['bank_transfer', 'wallet_credit'], true)) {
             $errors['payout_method'][] = 'The payout_method field is invalid.';
+        }
+        if ($requestedCurrency !== $normalized['currency']) {
+            $errors['amount'][] = 'The payout currency must match the Affiliate account currency.';
+        }
+        if ($normalized['payout_method'] === 'wallet_credit' && $normalized['currency'] !== 'THB') {
+            $errors['payout_method'][] = 'Wallet credit payouts require THB currency.';
         }
 
         if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($normalized['bank_account'])) {
@@ -1153,6 +1441,31 @@ class GrowthService
             'customer.affiliate.payouts.store',
             $normalized,
             function () use ($tenantId, $customer, $affiliate, $normalized): array {
+                $lockedAffiliate = AffiliateAccount::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $affiliate->id)
+                    ->where('status', '!=', 'archived')
+                    ->lockForUpdate()
+                    ->first();
+                if ($lockedAffiliate === null) {
+                    return ['error' => 'not_found'];
+                }
+                $minimumPayout = $this->customerAffiliateMinimumPayoutAmount($tenantId, $lockedAffiliate);
+                if ($normalized['amount'] < $minimumPayout) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'amount' => ['The amount field must be at least the affiliate program minimum payout amount.'],
+                    ]];
+                }
+                $available = $this->affiliateAvailableBalance(
+                    $tenantId,
+                    (string) $lockedAffiliate->id,
+                );
+                if ($normalized['amount'] > $available) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'amount' => ['The amount field exceeds available affiliate balance.'],
+                    ]];
+                }
+
                 $payoutId = 'pyo_'.Str::ulid()->toBase32();
                 $now = now();
 
@@ -1168,7 +1481,8 @@ class GrowthService
                     'payout_method' => $normalized['payout_method'],
                     'amount' => $normalized['amount'],
                     'currency' => $normalized['currency'],
-                    'bank_account_json' => $this->jsonOrNull($normalized['bank_account']),
+                    'bank_account_json' => null,
+                    'bank_account_encrypted' => EncryptedJsonPayload::encrypt($normalized['bank_account']),
                     'admin_note' => $normalized['admin_note'],
                     'idempotency_key' => null,
                     'payload_hash' => null,
@@ -1213,6 +1527,9 @@ class GrowthService
     {
         $normalized = $this->normalizeCommissionRulePayload($payload, true);
         $errors = $this->commissionRuleErrors($normalized);
+        if (($normalized['rule_type'] ?? null) === 'per_ticket') {
+            $errors['rule_type'][] = 'Per-ticket commission is managed through Affiliate Tiers.';
+        }
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
@@ -1285,6 +1602,9 @@ class GrowthService
                 if ($row === null) {
                     return ['error' => 'not_found'];
                 }
+                if ((bool) (($row->metadata_json ?? [])['system_tier'] ?? false)) {
+                    return ['error' => 'resource_conflict'];
+                }
 
                 $merged = array_merge([
                     'name' => (string) $row->name,
@@ -1296,6 +1616,9 @@ class GrowthService
                     'affiliate_account_id' => $row->affiliate_account_id === null ? null : (string) $row->affiliate_account_id,
                 ], $normalized);
                 $errors = $this->commissionRuleErrors($merged);
+                if (($merged['rule_type'] ?? null) === 'per_ticket') {
+                    $errors['rule_type'][] = 'Per-ticket commission is managed through Affiliate Tiers.';
+                }
 
                 if ($errors !== []) {
                     return ['error' => 'validation_failed', 'errors' => $errors];
@@ -1331,7 +1654,27 @@ class GrowthService
      */
     public function archiveCommissionRule(string $tenantId, AdminSessionContext $actor, string $ruleId, array $payload, Request $request): array
     {
-        return $this->archiveTenantRow($tenantId, $actor, $ruleId, $payload, $request, 'commission_rules', 'commission_rule', 'commission_rule.manage', 'admin.tenant.commission-rules.archive', 'commission_rule.archived');
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.commission-rules.archive:'.$ruleId,
+            'commission_rule.manage',
+            $payload,
+            function () use ($tenantId, $actor, $ruleId, $payload, $request): array {
+                $row = CommissionRule::query()->where('tenant_id', $tenantId)->whereKey($ruleId)->lockForUpdate()->first();
+                if ($row === null) {
+                    return ['error' => 'not_found'];
+                }
+                if ((bool) (($row->metadata_json ?? [])['system_tier'] ?? false)) {
+                    return ['error' => 'resource_conflict'];
+                }
+                $row->forceFill(['status' => 'archived', 'updated_at' => now()])->save();
+                $this->auditAdmin($actor, $request, 'commission_rule.archived', 'commission_rule', $ruleId, $payload, $tenantId);
+
+                return ['resource' => null, 'status' => 204];
+            },
+        );
     }
 
     /**
@@ -1526,7 +1869,7 @@ class GrowthService
             $query->where('affiliate_account_id', trim((string) $queryParams['affiliate_id']));
         }
 
-        return $this->paginated($query, $queryParams, fn (object $row): array => $this->payoutResource($row));
+        return $this->paginated($query, $queryParams, fn (object $row): array => $this->payoutResource($row, true));
     }
 
     /**
@@ -1541,7 +1884,11 @@ class GrowthService
             'amount' => $this->moneyAmount($payload['amount'] ?? 0),
             'currency' => $this->moneyCurrency($payload['amount'] ?? null),
             'payout_method' => $payoutMethod,
-            'bank_account' => is_array($payload['bank_account'] ?? null) ? $payload['bank_account'] : (is_array($payload['bank_account_json'] ?? null) ? $payload['bank_account_json'] : []),
+            'bank_account' => $this->normalizeBankAccount(
+                is_array($payload['bank_account'] ?? null)
+                    ? $payload['bank_account']
+                    : $payload['bank_account_json'] ?? null,
+            ),
             'admin_note' => $this->nullableString($payload['admin_note'] ?? $payload['note'] ?? null),
         ];
         $errors = [];
@@ -1570,8 +1917,50 @@ class GrowthService
             'payout.manage',
             $normalized,
             function () use ($tenantId, $actor, $request, $normalized): array {
-                if (! AffiliateAccount::where('tenant_id', $tenantId)->where('id', $normalized['affiliate_account_id'])->where('status', '!=', 'archived')->exists()) {
+                $affiliate = AffiliateAccount::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $normalized['affiliate_account_id'])
+                    ->where('status', '!=', 'archived')
+                    ->lockForUpdate()
+                    ->first();
+                if ($affiliate === null) {
                     return ['error' => 'not_found'];
+                }
+                if (strtoupper((string) $affiliate->currency) !== $normalized['currency']) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'amount' => ['The payout currency must match the Affiliate account currency.'],
+                    ]];
+                }
+                if ($normalized['payout_method'] === 'wallet_credit' && $normalized['currency'] !== 'THB') {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'payout_method' => ['Wallet credit payouts require THB currency.'],
+                    ]];
+                }
+                $bankAccount = $normalized['bank_account'];
+                if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($bankAccount)) {
+                    $payoutProfile = $this->affiliatePayoutProfile($affiliate);
+                    $bankAccount = $this->normalizeBankAccount(
+                        $payoutProfile['bank_account'] ?? $payoutProfile,
+                    );
+                }
+                if (
+                    $normalized['payout_method'] === 'bank_transfer'
+                    && ! $this->hasUsableBankAccount($bankAccount)
+                    && trim((string) $affiliate->customer_id) !== ''
+                ) {
+                    $bankAccount = $this->normalizeBankAccount(
+                        $this->customerRewardPayoutBankAccount($tenantId, (string) $affiliate->customer_id),
+                    );
+                }
+                if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($bankAccount)) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'bank_account' => ['A bank name and account number are required for a bank transfer payout.'],
+                    ]];
+                }
+                if ($normalized['amount'] > $this->affiliateAvailableBalance($tenantId, (string) $affiliate->id)) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'amount' => ['The amount field exceeds available affiliate balance.'],
+                    ]];
                 }
 
                 $payoutId = 'pyo_'.Str::ulid()->toBase32();
@@ -1586,7 +1975,8 @@ class GrowthService
                     'payout_method' => $normalized['payout_method'],
                     'amount' => $normalized['amount'],
                     'currency' => $normalized['currency'],
-                    'bank_account_json' => $this->jsonOrNull($normalized['bank_account']),
+                    'bank_account_json' => null,
+                    'bank_account_encrypted' => EncryptedJsonPayload::encrypt($bankAccount),
                     'admin_note' => $normalized['admin_note'],
                     'idempotency_key' => $idempotencyKey,
                     'payload_hash' => $this->idempotency->payloadHash($normalized),
@@ -1597,9 +1987,17 @@ class GrowthService
                     'updated_at' => $now,
                 ]);
 
-                $this->auditAdmin($actor, $request, 'payout.created', 'affiliate_payout', $payoutId, $normalized, $tenantId);
+                $this->auditAdmin(
+                    $actor,
+                    $request,
+                    'payout.created',
+                    'affiliate_payout',
+                    $payoutId,
+                    [...$normalized, 'bank_account' => $bankAccount],
+                    $tenantId,
+                );
 
-                $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
+                $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first(), true);
                 $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
                 $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
                 DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
@@ -1629,25 +2027,239 @@ class GrowthService
                     return ['error' => 'not_found'];
                 }
 
-                if ($row->status === 'approved') {
-                    return ['resource' => $this->payoutResource($row), 'status' => 200];
+                if (in_array((string) $row->status, ['approved', 'paid'], true)) {
+                    return ['resource' => $this->payoutResource($row, true), 'status' => 200];
                 }
 
                 if ($row->status !== 'pending') {
                     return ['error' => 'resource_conflict'];
                 }
+                $affiliate = AffiliateAccount::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $row->affiliate_account_id)
+                    ->where('status', '!=', 'archived')
+                    ->lockForUpdate()
+                    ->first();
+                if ($affiliate === null) {
+                    return ['error' => 'not_found'];
+                }
+                if ((int) $row->amount > $this->affiliateAvailableBalance(
+                    $tenantId,
+                    (string) $affiliate->id,
+                    (string) $row->id,
+                )) {
+                    return ['error' => 'resource_conflict'];
+                }
+
+                $approvedAt = now();
+                $status = 'approved';
+                $walletId = null;
+                $ledger = null;
+                $paymentReference = null;
+                if ((string) $row->payout_method === 'wallet_credit') {
+                    $customerId = trim((string) $affiliate->customer_id);
+                    if ($customerId === '' || strtoupper((string) $row->currency) !== 'THB') {
+                        return ['error' => 'resource_conflict'];
+                    }
+                    $walletId = $this->customerAuth->ensurePrimaryWallet($tenantId, $customerId);
+                    $ledger = $this->walletPosting->post(
+                        $tenantId,
+                        $walletId,
+                        $customerId,
+                        'credit',
+                        (int) $row->amount,
+                        'affiliate_payout',
+                        (string) $row->id,
+                        'affiliate-payout:'.(string) $row->id,
+                        (string) $actor->adminUser['id'],
+                        [
+                            'affiliate_account_id' => (string) $affiliate->id,
+                            'payout_method' => 'wallet_credit',
+                        ],
+                    );
+                    $this->insertAffiliateWalletOutbox(
+                        $tenantId,
+                        $customerId,
+                        $walletId,
+                        (string) $row->id,
+                        (int) $row->amount,
+                        $ledger,
+                        $request,
+                    );
+                    $status = 'paid';
+                    $paymentReference = (string) $ledger['id'];
+                }
 
                 AffiliatePayout::query()->where('tenant_id', $tenantId)->where('id', $payoutId)->update([
-                    'status' => 'approved',
+                    'status' => $status,
+                    'wallet_id' => $walletId,
+                    'payout_ledger_id' => $ledger['id'] ?? null,
+                    'payment_reference' => $paymentReference,
                     'approved_by_admin_id' => $actor->adminUser['id'],
-                    'approved_at' => now(),
+                    'approved_at' => $approvedAt,
+                    'paid_by_admin_id' => $status === 'paid' ? $actor->adminUser['id'] : null,
+                    'paid_at' => $status === 'paid' ? $approvedAt : null,
                     'admin_note' => $payload['note'] ?? $payload['reason'] ?? $row->admin_note,
-                    'updated_at' => now(),
+                    'updated_at' => $approvedAt,
                 ]);
 
-                $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
+                $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first(), true);
                 $this->auditAdmin($actor, $request, 'payout.approved', 'affiliate_payout', $payoutId, $payload, $tenantId);
-                $this->telegramNotifications->enqueue($tenantId, 'commission.status_updated', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource, 'อนุมัติแล้ว', $actor->adminUser));
+                $statusLabel = $status === 'paid' ? 'จ่ายเข้ากระเป๋าแล้ว' : 'อนุมัติแล้ว';
+                $this->telegramNotifications->enqueue($tenantId, 'commission.status_updated', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource, $statusLabel, $actor->adminUser));
+                $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
+
+                return ['resource' => $resource, 'status' => 200];
+            },
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function payPayout(string $tenantId, AdminSessionContext $actor, string $payoutId, array $payload, Request $request): array
+    {
+        $paymentReference = trim((string) (
+            $payload['payment_reference']
+            ?? $payload['transfer_reference']
+            ?? $payload['reference']
+            ?? ''
+        ));
+        $normalized = [
+            'payment_reference' => $paymentReference,
+            'reason' => $this->nullableString($payload['reason'] ?? $payload['note'] ?? null),
+        ];
+
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.payouts.pay:'.$payoutId,
+            'payout.manage',
+            $normalized,
+            function () use ($tenantId, $actor, $payoutId, $normalized, $request): array {
+                $row = AffiliatePayout::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $payoutId)
+                    ->lockForUpdate()
+                    ->first();
+                if ($row === null) {
+                    return ['error' => 'not_found'];
+                }
+                if ((string) $row->status === 'paid') {
+                    if ((string) ($row->payment_reference ?? '') !== $normalized['payment_reference']) {
+                        return ['error' => 'resource_conflict'];
+                    }
+
+                    return ['resource' => $this->payoutResource($row, true), 'status' => 200];
+                }
+                if ((string) $row->status !== 'approved' || (string) $row->payout_method === 'wallet_credit') {
+                    return ['error' => 'resource_conflict'];
+                }
+                if (
+                    (string) $row->payout_method === 'bank_transfer'
+                    && ! $this->hasUsableBankAccount($this->affiliatePayoutBankAccount($row))
+                ) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'bank_account' => ['The payout does not have a valid bank account snapshot.'],
+                    ]];
+                }
+                $this->lockAffiliatePaymentReference(
+                    $tenantId,
+                    (string) $row->payout_method,
+                    $normalized['payment_reference'],
+                );
+                if (AffiliatePayout::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('payout_method', $row->payout_method)
+                    ->where('payment_reference', $normalized['payment_reference'])
+                    ->where('id', '!=', $payoutId)
+                    ->exists()) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'payment_reference' => ['The payment_reference has already been used for another payout.'],
+                    ]];
+                }
+
+                $paidAt = now();
+                $row->forceFill([
+                    'status' => 'paid',
+                    'payment_reference' => $normalized['payment_reference'],
+                    'paid_by_admin_id' => $actor->adminUser['id'],
+                    'paid_at' => $paidAt,
+                    'admin_note' => $normalized['reason'] ?? $row->admin_note,
+                    'updated_at' => $paidAt,
+                ])->save();
+
+                $resource = $this->payoutResource($row->fresh(), true);
+                $this->auditAdmin($actor, $request, 'payout.paid', 'affiliate_payout', $payoutId, $normalized, $tenantId);
+                $this->telegramNotifications->enqueue(
+                    $tenantId,
+                    'commission.status_updated',
+                    'affiliate_payout',
+                    $payoutId,
+                    $this->telegramPayoutVariables($tenantId, $resource, 'จ่ายแล้ว', $actor->adminUser),
+                );
+                $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
+
+                return ['resource' => $resource, 'status' => 200];
+            },
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function rejectPayout(string $tenantId, AdminSessionContext $actor, string $payoutId, array $payload, Request $request): array
+    {
+        return $this->tenantIdempotentWrite(
+            $tenantId,
+            $actor,
+            $request,
+            'admin.tenant.payouts.reject:'.$payoutId,
+            'payout.manage',
+            $payload,
+            function () use ($tenantId, $actor, $payoutId, $payload, $request): array {
+                $row = AffiliatePayout::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $payoutId)
+                    ->lockForUpdate()
+                    ->first();
+                if ($row === null) {
+                    return ['error' => 'not_found'];
+                }
+                if ($row->status === 'rejected') {
+                    return ['resource' => $this->payoutResource($row, true), 'status' => 200];
+                }
+                if ($row->status !== 'pending') {
+                    return ['error' => 'resource_conflict'];
+                }
+
+                $reason = $this->nullableString($payload['reason'] ?? $payload['note'] ?? null);
+                if ($reason === null) {
+                    return ['error' => 'validation_failed', 'errors' => [
+                        'reason' => ['The reason field is required when rejecting a payout.'],
+                    ]];
+                }
+
+                $row->forceFill([
+                    'status' => 'rejected',
+                    'admin_note' => $reason,
+                    'updated_at' => now(),
+                ])->save();
+
+                $resource = $this->payoutResource($row->fresh(), true);
+                $this->auditAdmin($actor, $request, 'payout.rejected', 'affiliate_payout', $payoutId, $payload, $tenantId);
+                $this->telegramNotifications->enqueue(
+                    $tenantId,
+                    'commission.status_updated',
+                    'affiliate_payout',
+                    $payoutId,
+                    $this->telegramPayoutVariables($tenantId, $resource, 'ปฏิเสธ', $actor->adminUser),
+                );
                 $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
                 DB::afterCommit(fn () => $this->customerNotificationEvents->affiliatePayoutUpdated($tenantId, $payoutId));
 
@@ -1874,9 +2486,49 @@ class GrowthService
 
     public function calculateCommissions(?string $orderId = null, ?string $tenantId = null, int $limit = 100): int
     {
+        return $this->calculateCommissionsBatch($orderId, $tenantId, $limit)['created'];
+    }
+
+    /**
+     * @return array{
+     *     selected: int,
+     *     succeeded: int,
+     *     failed: int,
+     *     created: int,
+     *     failures: array<int, array{order_id: string, tenant_id: string, exception: string}>
+     * }
+     */
+    public function calculateCommissionsBatch(?string $orderId = null, ?string $tenantId = null, int $limit = 100): array
+    {
         $query = Order::query()
             ->where(function ($builder): void {
                 $builder->where('status', 'paid')->orWhere('payment_status', 'paid');
+            })
+            ->where(function ($builder): void {
+                $builder
+                    ->whereExists(function ($attributions): void {
+                        $attributions
+                            ->selectRaw('1')
+                            ->from('affiliate_attributions')
+                            ->whereColumn('affiliate_attributions.tenant_id', 'orders.tenant_id')
+                            ->whereColumn('affiliate_attributions.order_id', 'orders.id')
+                            ->where('affiliate_attributions.status', 'pending')
+                            ->whereRaw(
+                                'COALESCE(affiliate_attributions.attributed_at, affiliate_attributions.created_at) <= COALESCE(orders.paid_at, orders.created_at)',
+                            );
+                    })
+                    ->orWhereExists(function ($attributions): void {
+                        $attributions
+                            ->selectRaw('1')
+                            ->from('affiliate_attributions')
+                            ->whereColumn('affiliate_attributions.tenant_id', 'orders.tenant_id')
+                            ->whereColumn('affiliate_attributions.customer_id', 'orders.customer_id')
+                            ->whereNull('affiliate_attributions.order_id')
+                            ->where('affiliate_attributions.status', 'pending')
+                            ->whereRaw(
+                                'COALESCE(affiliate_attributions.attributed_at, affiliate_attributions.created_at) <= COALESCE(orders.paid_at, orders.created_at)',
+                            );
+                    });
             })
             ->orderBy('created_at')
             ->limit(max(1, min(500, $limit)));
@@ -1891,12 +2543,134 @@ class GrowthService
 
         $orders = $query->get()->all();
         $created = 0;
+        $succeeded = 0;
+        $failures = [];
 
         foreach ($orders as $order) {
-            $created += $this->calculateCommissionsForOrder($order);
+            try {
+                $this->bindAffiliateAttributionToPaidOrder(
+                    (string) $order->id,
+                    (string) $order->tenant_id,
+                );
+                $created += $this->calculateCommissionsForOrder($order);
+                $succeeded++;
+            } catch (Throwable $exception) {
+                report($exception);
+                $failures[] = [
+                    'order_id' => (string) $order->id,
+                    'tenant_id' => (string) $order->tenant_id,
+                    'exception' => $exception::class,
+                ];
+            }
         }
 
-        return $created;
+        return [
+            'selected' => count($orders),
+            'succeeded' => $succeeded,
+            'failed' => count($failures),
+            'created' => $created,
+            'failures' => $failures,
+        ];
+    }
+
+    public function bindAffiliateAttributionToPaidOrder(string $orderId, string $tenantId): ?string
+    {
+        return DB::transaction(function () use ($orderId, $tenantId): ?string {
+            $order = Order::query()
+                ->where('tenant_id', $tenantId)
+                ->where('id', $orderId)
+                ->lockForUpdate()
+                ->first();
+            if ($order === null || ($order->payment_status !== 'paid' && $order->status !== 'paid')) {
+                return null;
+            }
+
+            $attribution = $this->pendingAttributionForPaidOrder($order);
+            if ($attribution === null) {
+                return null;
+            }
+            if ($this->isSelfReferralAttribution($attribution, $order)) {
+                $this->rejectSelfReferralAttribution($attribution, $order);
+
+                return null;
+            }
+
+            $metadata = $this->decodeJson($attribution->metadata_json);
+            if (($metadata['commission_eligible_at_paid'] ?? null) === true) {
+                return (string) $attribution->id;
+            }
+
+            $affiliate = AffiliateAccount::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($attribution->affiliate_account_id)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+            if ($affiliate === null) {
+                $this->rejectAffiliateAttributionForOrder($attribution, $order, 'affiliate_inactive_at_payment');
+
+                return null;
+            }
+
+            if (
+                $attribution->affiliate_link_id !== null
+                && AffiliateLink::query()
+                    ->where('tenant_id', $tenantId)
+                    ->whereKey($attribution->affiliate_link_id)
+                    ->where('status', 'active')
+                    ->lockForUpdate()
+                    ->first() === null
+            ) {
+                $this->rejectAffiliateAttributionForOrder($attribution, $order, 'affiliate_link_inactive_at_payment');
+
+                return null;
+            }
+
+            $programAtPayment = $this->affiliateProgramAtPayment($affiliate, $order);
+            $program = AffiliateProgram::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($programAtPayment->id)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+            if ($program === null) {
+                $this->rejectAffiliateAttributionForOrder($attribution, $order, 'affiliate_tier_inactive_at_payment');
+
+                return null;
+            }
+
+            $ruleIds = CommissionRule::query()
+                ->where('tenant_id', $tenantId)
+                ->where('affiliate_program_id', $program->id)
+                ->whereNull('affiliate_account_id')
+                ->where('rule_type', 'per_ticket')
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->pluck('id')
+                ->map(static fn (mixed $id): string => (string) $id)
+                ->all();
+            if ($ruleIds === []) {
+                return null;
+            }
+
+            $metadata['commission_eligible_at_paid'] = true;
+            $metadata['commission_bound_at'] = now()->toIso8601String();
+            $metadata['commission_program_id_at_paid'] = (string) $program->id;
+            $metadata['commission_rule_ids_at_paid'] = $ruleIds;
+            AffiliateAttribution::query()
+                ->where('tenant_id', $tenantId)
+                ->where('id', $attribution->id)
+                ->where('status', 'pending')
+                ->update([
+                    'order_id' => $orderId,
+                    'affiliate_program_id' => $program->id,
+                    'metadata_json' => $this->jsonOrNull($metadata),
+                    'updated_at' => now(),
+                ]);
+
+            return (string) $attribution->id;
+        });
     }
 
     public function reverseCommissionsForOrder(string $orderId): int
@@ -1970,44 +2744,79 @@ class GrowthService
             if ($attribution === null) {
                 return 0;
             }
+            if ($this->isSelfReferralAttribution($attribution, $lockedOrder)) {
+                $this->rejectSelfReferralAttribution($attribution, $lockedOrder);
 
+                return 0;
+            }
+            if ($attribution->order_id === null) {
+                AffiliateAttribution::query()
+                    ->where('tenant_id', $lockedOrder->tenant_id)
+                    ->where('id', $attribution->id)
+                    ->whereNull('order_id')
+                    ->update([
+                        'order_id' => $lockedOrder->id,
+                        'updated_at' => now(),
+                    ]);
+                $attribution->order_id = $lockedOrder->id;
+            }
+
+            $attributionMetadata = $this->decodeJson($attribution->metadata_json);
+            $eligibleAtPayment = ($attributionMetadata['commission_eligible_at_paid'] ?? null) === true;
             $affiliate = AffiliateAccount::query()
                 ->where('tenant_id', $lockedOrder->tenant_id)
                 ->where('id', $attribution->affiliate_account_id)
-                ->where('status', 'active')
+                ->when(! $eligibleAtPayment, fn ($query) => $query->where('status', 'active'))
                 ->first();
 
             if ($affiliate === null) {
                 return 0;
             }
 
-            $programId = $attribution->affiliate_program_id === null ? null : (string) $attribution->affiliate_program_id;
+            $snapshotProgramId = trim((string) ($attributionMetadata['commission_program_id_at_paid'] ?? ''));
+            $program = $snapshotProgramId === ''
+                ? $this->affiliateProgramAtPayment($affiliate, $lockedOrder)
+                : AffiliateProgram::query()
+                    ->where('tenant_id', $lockedOrder->tenant_id)
+                    ->whereKey($snapshotProgramId)
+                    ->first();
+            if ($program === null) {
+                return 0;
+            }
+            $programId = (string) $program->id;
             $linkId = $attribution->affiliate_link_id === null ? null : (string) $attribution->affiliate_link_id;
 
-            if ($linkId !== null && ! AffiliateLink::where('tenant_id', $lockedOrder->tenant_id)->where('id', $linkId)->where('status', 'active')->exists()) {
+            if (! $eligibleAtPayment && $linkId !== null && ! AffiliateLink::where('tenant_id', $lockedOrder->tenant_id)->where('id', $linkId)->where('status', 'active')->exists()) {
                 return 0;
             }
 
-            if ($programId !== null && ! AffiliateProgram::where('tenant_id', $lockedOrder->tenant_id)->where('id', $programId)->where('status', 'active')->exists()) {
+            if (! $eligibleAtPayment && ! AffiliateProgram::where('tenant_id', $lockedOrder->tenant_id)->where('id', $programId)->where('status', 'active')->exists()) {
                 return 0;
             }
 
+            $snapshotRuleIds = array_values(array_filter(
+                is_array($attributionMetadata['commission_rule_ids_at_paid'] ?? null)
+                    ? $attributionMetadata['commission_rule_ids_at_paid']
+                    : [],
+                static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+            ));
             $rules = CommissionRule::query()
                 ->where('tenant_id', $lockedOrder->tenant_id)
-                ->where('status', 'active')
-                ->where(function ($query) use ($affiliate): void {
-                    $query->whereNull('affiliate_account_id')->orWhere('affiliate_account_id', $affiliate->id);
-                })
-                ->where(function ($query) use ($programId): void {
-                    if ($programId === null) {
-                        $query->whereNull('affiliate_program_id');
-                    } else {
-                        $query->whereNull('affiliate_program_id')->orWhere('affiliate_program_id', $programId);
-                    }
-                })
+                ->where('rule_type', 'per_ticket')
+                ->whereNull('affiliate_account_id')
+                ->where('affiliate_program_id', $programId)
+                ->when(
+                    $eligibleAtPayment && $snapshotRuleIds !== [],
+                    fn ($query) => $query->whereIn('id', $snapshotRuleIds),
+                    fn ($query) => $query->where('status', 'active'),
+                )
                 ->orderBy('id')
                 ->get()
                 ->all();
+            $ticketCount = Ticket::query()
+                ->where('tenant_id', $lockedOrder->tenant_id)
+                ->where('order_id', $lockedOrder->id)
+                ->count();
             $created = 0;
 
             foreach ($rules as $rule) {
@@ -2023,7 +2832,12 @@ class GrowthService
                     continue;
                 }
 
-                $amount = $this->commissionAmount($rule, $lockedOrder);
+                $commissionPerTicket = $this->affiliateCommissionRateAtPayment(
+                    $program,
+                    $lockedOrder,
+                    (int) $rule->amount,
+                );
+                $amount = $ticketCount * $commissionPerTicket;
 
                 if ($amount <= 0) {
                     continue;
@@ -2038,6 +2852,9 @@ class GrowthService
                     'commission_rule_id' => (string) $rule->id,
                     'commission_transaction_id' => $transactionId,
                     'amount' => $amount,
+                    'ticket_count' => $ticketCount,
+                    'tier_code' => $program?->code,
+                    'commission_per_ticket_amount' => $commissionPerTicket,
                     'currency' => (string) $rule->currency,
                 ];
 
@@ -2052,13 +2869,23 @@ class GrowthService
                     'transaction_type' => 'commission',
                     'status' => 'approved',
                     'amount' => $amount,
+                    'ticket_count' => $ticketCount,
+                    'tier_code' => $program?->code,
+                    'commission_per_ticket_amount' => $commissionPerTicket,
                     'currency' => $rule->currency,
                     'idempotency_key' => 'commission:'.$lockedOrder->id.':'.$rule->id.':'.$affiliate->id,
                     'payload_hash' => $this->idempotency->payloadHash($payload),
                     'calculated_at' => $now,
                     'approved_by_admin_id' => null,
                     'approved_at' => $now,
-                    'metadata_json' => $this->jsonOrNull(['source' => 'paid_order', 'approval' => 'auto_paid_order']),
+                    'metadata_json' => $this->jsonOrNull([
+                        'source' => 'paid_order',
+                        'approval' => 'auto_paid_order',
+                        'tier_program_id' => $programId,
+                        'tier_code' => $program?->code,
+                        'ticket_count' => $ticketCount,
+                        'commission_per_ticket_amount' => $commissionPerTicket,
+                    ]),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
@@ -2076,6 +2903,7 @@ class GrowthService
                 AffiliateAttribution::query()->where('tenant_id', $lockedOrder->tenant_id)->where('id', $attribution->id)->update([
                     'status' => 'converted',
                     'order_id' => $lockedOrder->id,
+                    'affiliate_program_id' => $programId,
                     'converted_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -2117,18 +2945,70 @@ class GrowthService
         ]);
     }
 
+    /**
+     * @param array{id: string, wallet_id: string, balance_after: int} $ledger
+     */
+    private function insertAffiliateWalletOutbox(
+        string $tenantId,
+        string $customerId,
+        string $walletId,
+        string $payoutId,
+        int $amount,
+        array $ledger,
+        Request $request,
+    ): void {
+        $eventId = 'evt_'.Str::ulid()->toBase32();
+        $now = now();
+
+        SyncOutbox::query()->insert([
+            'id' => $eventId,
+            'event_id' => $eventId,
+            'event_type' => 'wallet.updated.v1',
+            'event_version' => 1,
+            'producer' => 'affiliate_payout',
+            'tenant_id' => $tenantId,
+            'partner_id' => null,
+            'game_id' => null,
+            'aggregate_type' => 'wallet',
+            'aggregate_id' => $walletId,
+            'idempotency_key' => 'affiliate-payout:'.$payoutId,
+            'correlation_id' => $request->header('X-Request-Id'),
+            'payload_json' => json_encode([
+                'tenant_id' => $tenantId,
+                'customer_id' => $customerId,
+                'wallet_id' => $walletId,
+                'ledger_id' => $ledger['id'],
+                'entry_type' => 'credit',
+                'amount' => $amount,
+                'currency' => 'THB',
+                'posted_balance' => $ledger['balance_after'],
+                'reference_type' => 'affiliate_payout',
+                'reference_id' => $payoutId,
+            ], JSON_THROW_ON_ERROR),
+            'status' => 'pending',
+            'attempt_count' => 0,
+            'available_at' => $now,
+            'processed_at' => null,
+            'last_error' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
     private function pendingAttributionForPaidOrder(object $order): ?object
     {
+        $paidAt = Carbon::parse($order->paid_at ?? $order->created_at ?? now());
         $orderAttributions = AffiliateAttribution::query()
             ->where('tenant_id', $order->tenant_id)
             ->where('order_id', $order->id)
             ->where('status', 'pending')
+            ->whereRaw('COALESCE(attributed_at, created_at) <= ?', [$paidAt])
             ->orderByDesc('attributed_at')
             ->orderByDesc('created_at')
             ->lockForUpdate()
             ->get()
             ->all();
-        $attribution = $this->firstUnexpiredAttribution($orderAttributions);
+        $attribution = $this->firstUnexpiredAttribution($orderAttributions, $paidAt);
 
         if ($attribution !== null) {
             return $attribution;
@@ -2142,22 +3022,62 @@ class GrowthService
             ->where('tenant_id', $order->tenant_id)
             ->where('customer_id', $order->customer_id)
             ->where('status', 'pending')
+            ->whereNull('order_id')
+            ->whereRaw('COALESCE(attributed_at, created_at) <= ?', [$paidAt])
             ->orderByDesc('attributed_at')
             ->orderByDesc('created_at')
             ->lockForUpdate()
             ->get()
             ->all();
 
-        return $this->firstUnexpiredAttribution($customerAttributions);
+        return $this->firstUnexpiredAttribution($customerAttributions, $paidAt);
+    }
+
+    private function isSelfReferralAttribution(object $attribution, object $order): bool
+    {
+        if ($order->customer_id === null || $order->customer_id === '') {
+            return false;
+        }
+
+        $ownerCustomerId = AffiliateAccount::query()
+            ->where('tenant_id', $order->tenant_id)
+            ->where('id', $attribution->affiliate_account_id)
+            ->value('customer_id');
+
+        return $ownerCustomerId !== null
+            && (string) $ownerCustomerId === (string) $order->customer_id;
+    }
+
+    private function rejectSelfReferralAttribution(object $attribution, object $order): void
+    {
+        $this->rejectAffiliateAttributionForOrder($attribution, $order, 'self_referral');
+    }
+
+    private function rejectAffiliateAttributionForOrder(object $attribution, object $order, string $reason): void
+    {
+        $metadata = $this->decodeJson($attribution->metadata_json);
+        $metadata['rejection_reason'] = $reason;
+        $metadata['rejected_order_id'] = (string) $order->id;
+
+        AffiliateAttribution::query()
+            ->where('tenant_id', $order->tenant_id)
+            ->where('id', $attribution->id)
+            ->where('status', 'pending')
+            ->update([
+                'order_id' => $order->id,
+                'status' => 'rejected',
+                'metadata_json' => $this->jsonOrNull($metadata),
+                'updated_at' => now(),
+            ]);
     }
 
     /**
      * @param array<int, object> $attributions
      */
-    private function firstUnexpiredAttribution(array $attributions): ?object
+    private function firstUnexpiredAttribution(array $attributions, Carbon $paidAt): ?object
     {
         foreach ($attributions as $attribution) {
-            if (! $this->attributionExpired($attribution)) {
+            if (! $this->attributionExpiredAt($attribution, $paidAt)) {
                 return $attribution;
             }
 
@@ -2174,7 +3094,7 @@ class GrowthService
         return null;
     }
 
-    private function attributionExpired(object $attribution): bool
+    private function attributionExpiredAt(object $attribution, Carbon $paidAt): bool
     {
         $expiresAt = $this->decodeJson($attribution->metadata_json)['expires_at'] ?? null;
 
@@ -2183,19 +3103,10 @@ class GrowthService
         }
 
         try {
-            return Carbon::parse((string) $expiresAt)->lte(now());
+            return Carbon::parse((string) $expiresAt)->lte($paidAt);
         } catch (\Throwable) {
             return false;
         }
-    }
-
-    private function commissionAmount(object $rule, object $order): int
-    {
-        return match ((string) $rule->rule_type) {
-            'percent_sales' => (int) round(((int) $order->total_amount * (int) $rule->rate_bps) / 10000),
-            'per_ticket' => (int) Ticket::where('tenant_id', $order->tenant_id)->where('order_id', $order->id)->count() * (int) $rule->amount,
-            default => (int) $rule->amount,
-        };
     }
 
     /**
@@ -2218,11 +3129,11 @@ class GrowthService
         foreach ($tenants as $tenant) {
             $sales = $this->scopedOrders($tenant->tenant_id, $dateRange)->where('payment_status', 'paid')->sum('total_amount');
             $commission = $this->scopedTable('commission_transactions', $tenant->tenant_id, $dateRange)->sum('amount');
-            $payout = $this->scopedTable('affiliate_payouts', $tenant->tenant_id, $dateRange)->where('status', 'approved')->sum('amount');
+            $payout = $this->scopedPaidAffiliatePayouts($tenant->tenant_id, $dateRange)->sum('amount');
             $summary = [
                 'orders_count' => $this->scopedOrders($tenant->tenant_id, $dateRange)->where('payment_status', 'paid')->count(),
                 'commission_count' => $this->scopedTable('commission_transactions', $tenant->tenant_id, $dateRange)->count(),
-                'payout_count' => $this->scopedTable('affiliate_payouts', $tenant->tenant_id, $dateRange)->where('status', 'approved')->count(),
+                'payout_count' => $this->scopedPaidAffiliatePayouts($tenant->tenant_id, $dateRange)->count(),
             ];
             $existing = PartnerSettlement::query()
                 ->where('partner_id', $tenant->partner_id)
@@ -2513,21 +3424,6 @@ class GrowthService
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
-    private function affiliateStoreNameErrors(array $payload): array
-    {
-        $errors = $this->basicNameErrors($payload, 'name');
-
-        if (($errors['name'] ?? []) !== []) {
-            $errors['name'] = ['The store name field is required for affiliate accounts.'];
-        }
-
-        return $errors;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     * @return array<string, array<int, string>>
-     */
     private function programErrors(array $payload): array
     {
         $errors = [];
@@ -2550,6 +3446,74 @@ class GrowthService
         }
 
         return null;
+    }
+
+    private function currentAffiliateProgramId(string $tenantId, string $affiliateId): string
+    {
+        $affiliate = AffiliateAccount::query()
+            ->where('tenant_id', $tenantId)
+            ->whereKey($affiliateId)
+            ->firstOrFail();
+        if ($affiliate->affiliate_program_id !== null) {
+            return (string) $affiliate->affiliate_program_id;
+        }
+
+        $bronze = $this->affiliateTiers->bronzeProgram($tenantId);
+        $affiliate->forceFill(['affiliate_program_id' => $bronze->id])->save();
+
+        return (string) $bronze->id;
+    }
+
+    private function affiliateProgramAtPayment(AffiliateAccount $affiliate, Order $order): AffiliateProgram
+    {
+        $paidAt = $order->paid_at ?? $order->created_at ?? now();
+        $nextTierChange = AffiliateTierHistory::query()
+            ->where('tenant_id', $affiliate->tenant_id)
+            ->where('affiliate_account_id', $affiliate->id)
+            ->where('effective_at', '>', $paidAt)
+            ->orderBy('effective_at')
+            ->orderBy('id')
+            ->first(['previous_program_id']);
+        $programId = $nextTierChange === null
+            ? $affiliate->affiliate_program_id
+            : $nextTierChange->previous_program_id;
+        $program = $programId === null ? null : AffiliateProgram::query()
+            ->where('tenant_id', $affiliate->tenant_id)
+            ->whereKey($programId)
+            ->whereNotNull('tier_rank')
+            ->first();
+
+        if ($program !== null) {
+            return $program;
+        }
+
+        $bronze = $this->affiliateTiers->bronzeProgram((string) $affiliate->tenant_id);
+        if ($affiliate->affiliate_program_id === null) {
+            $affiliate->forceFill(['affiliate_program_id' => $bronze->id])->save();
+        }
+
+        return $bronze;
+    }
+
+    private function affiliateCommissionRateAtPayment(
+        AffiliateProgram $program,
+        Order $order,
+        int $fallback,
+    ): int {
+        if (! Schema::hasTable('affiliate_tier_rate_history')) {
+            return $fallback;
+        }
+
+        $paidAt = $order->paid_at ?? $order->created_at ?? now();
+        $rate = AffiliateTierRateHistory::query()
+            ->where('tenant_id', $program->tenant_id)
+            ->where('affiliate_program_id', $program->id)
+            ->where('effective_at', '<=', $paidAt)
+            ->orderByDesc('effective_at')
+            ->orderByDesc('id')
+            ->value('commission_per_ticket_amount');
+
+        return $rate === null ? $fallback : max(0, (int) $rate);
     }
 
     private function validCommissionRuleRelations(string $tenantId, array $payload): ?string
@@ -2586,7 +3550,10 @@ class GrowthService
                 return null;
             }
 
-            $programId = $link->affiliate_program_id === null ? null : (string) $link->affiliate_program_id;
+            $programId = $this->currentAffiliateProgramId($tenantId, (string) $affiliate->id);
+            if ((string) ($link->affiliate_program_id ?? '') !== $programId) {
+                $link->forceFill(['affiliate_program_id' => $programId])->save();
+            }
 
             if ($programId !== null && ! AffiliateProgram::query()->where('tenant_id', $tenantId)->where('id', $programId)->where('status', 'active')->exists()) {
                 return null;
@@ -2977,17 +3944,42 @@ class GrowthService
             && trim((string) ($bankAccount['account_number'] ?? '')) !== '';
     }
 
+    private function lockAffiliatePaymentReference(string $tenantId, string $method, string $reference): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::select(
+                'SELECT pg_advisory_xact_lock(hashtextextended(CAST(? AS text), 0))',
+                ['affiliate-payout-reference:'.$tenantId.':'.$method.':'.$reference],
+            );
+
+            return;
+        }
+
+        DB::table('partner_tenants')
+            ->where('id', $tenantId)
+            ->lockForUpdate()
+            ->first();
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function customerRewardPayoutBankAccount(string $tenantId, string $customerId): array
     {
-        $json = Customer::query()
+        $customer = Customer::query()
             ->where('tenant_id', $tenantId)
             ->where('id', $customerId)
-            ->value('reward_payout_bank_account_json');
+            ->first([
+                'reward_payout_bank_account_json',
+                'reward_payout_bank_account_encrypted',
+            ]);
 
-        return $this->decodeJson($json);
+        return $customer === null
+            ? []
+            : EncryptedJsonPayload::decrypt(
+                $customer->reward_payout_bank_account_encrypted ?? null,
+                $customer->reward_payout_bank_account_json ?? null,
+            );
     }
 
     /**
@@ -2999,7 +3991,8 @@ class GrowthService
             ->where('tenant_id', $tenantId)
             ->where('id', $customerId)
             ->update([
-                'reward_payout_bank_account_json' => $this->jsonOrNull($bankAccount),
+                'reward_payout_bank_account_json' => null,
+                'reward_payout_bank_account_encrypted' => EncryptedJsonPayload::encrypt($bankAccount),
                 'updated_at' => now(),
             ]);
     }
@@ -3087,6 +4080,29 @@ class GrowthService
 
         if ($dateRange['to'] !== null) {
             $query->where('created_at', '<=', $dateRange['to']);
+        }
+
+        return $query;
+    }
+
+    private function scopedPaidAffiliatePayouts(?string $tenantId, array $dateRange): mixed
+    {
+        $query = AffiliatePayout::query()->where('status', 'paid');
+
+        if ($tenantId !== null) {
+            $query->where('tenant_id', $tenantId);
+        }
+        if ($dateRange['from'] !== null) {
+            $query->whereRaw(
+                'COALESCE(paid_at, approved_at, created_at) >= ?',
+                [$dateRange['from']],
+            );
+        }
+        if ($dateRange['to'] !== null) {
+            $query->whereRaw(
+                'COALESCE(paid_at, approved_at, created_at) <= ?',
+                [$dateRange['to']],
+            );
         }
 
         return $query;
@@ -3261,7 +4277,7 @@ class GrowthService
             'wallet_outflow_total' => $this->money($walletOutflow),
             'wallet_net_flow_total' => $this->money($walletInflow - $walletOutflow),
             'commission_total' => $this->money($this->centralCommissionTotal($tenantId, $dateRange, $gameId)),
-            'payout_total' => $this->money((int) $this->scopedTable('affiliate_payouts', $tenantId, $dateRange)->sum('amount')),
+            'payout_total' => $this->money((int) $this->scopedPaidAffiliatePayouts($tenantId, $dateRange)->sum('amount')),
             'reward_claims_count' => $this->centralDateScopedCount('reward_claims', $tenantId, $dateRange, 'created_at', $gameId),
             'reward_base_total' => $this->money($this->tenantRewardClaimSum($tenantId, $dateRange, 'COALESCE(base_prize_amount, prize_amount)', $gameId)),
             'reward_adjustment_total' => $this->money($this->tenantRewardClaimSum($tenantId, $dateRange, 'COALESCE(adjustment_amount, 0)', $gameId)),
@@ -4885,7 +5901,8 @@ class GrowthService
     {
         $query = DB::table('affiliate_payouts');
         $this->applyCentralTenantFilter($query, $tenantId, 'affiliate_payouts.tenant_id');
-        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(affiliate_payouts.approved_at, affiliate_payouts.created_at)');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(affiliate_payouts.paid_at, affiliate_payouts.approved_at, affiliate_payouts.created_at)');
+        $query->where('status', 'paid');
 
         return (int) $query->sum('amount');
     }
@@ -6281,7 +7298,7 @@ class GrowthService
                 : LocalStockItem::where('tenant_id', $tenantId)->count(),
             'wallet_ledger_total' => $this->money((int) $this->scopedTable('wallet_ledger', $tenantId, $dateRange)->sum('amount')),
             'commission_total' => $this->money((int) $this->scopedTable('commission_transactions', $tenantId, $dateRange)->sum('amount')),
-            'payout_total' => $this->money((int) $this->scopedTable('affiliate_payouts', $tenantId, $dateRange)->sum('amount')),
+            'payout_total' => $this->money((int) $this->scopedPaidAffiliatePayouts($tenantId, $dateRange)->sum('amount')),
             'reward_claims_count' => $this->scopedTable('reward_claims', $tenantId, $dateRange)->count(),
             'reward_base_total' => $this->money($this->rewardClaimSum($tenantId, $dateRange, 'COALESCE(base_prize_amount, prize_amount)')),
             'reward_adjustment_total' => $this->money($this->rewardClaimSum($tenantId, $dateRange, 'COALESCE(adjustment_amount, 0)')),
@@ -6458,6 +7475,15 @@ class GrowthService
         $existing = $this->primaryAffiliateLink($tenantId, (string) $affiliate->id);
 
         if ($existing !== null) {
+            $programId = $affiliate->affiliate_program_id ?? $this->defaultActiveAffiliateProgramId($tenantId);
+            if ($programId !== null && (string) ($existing->affiliate_program_id ?? '') !== (string) $programId) {
+                AffiliateLink::query()->whereKey($existing->id)->update([
+                    'affiliate_program_id' => $programId,
+                    'updated_at' => now(),
+                ]);
+                $existing = AffiliateLink::query()->whereKey($existing->id)->first();
+            }
+
             return $this->affiliateLinkResource($existing);
         }
 
@@ -6469,7 +7495,7 @@ class GrowthService
             'id' => $linkId,
             'tenant_id' => $tenantId,
             'affiliate_account_id' => $affiliate->id,
-            'affiliate_program_id' => $this->defaultActiveAffiliateProgramId($tenantId),
+            'affiliate_program_id' => $affiliate->affiliate_program_id ?? $this->defaultActiveAffiliateProgramId($tenantId),
             'code' => $code,
             'url' => $this->affiliateUrl($tenantId, $code),
             'status' => 'active',
@@ -6522,58 +7548,7 @@ class GrowthService
             return null;
         }
 
-        $now = now();
-        $programId = $this->stableAffiliateDefaultId('afp', $tenantId.':'.self::STARTER_AFFILIATE_PROGRAM_CODE);
-
-        DB::table('affiliate_programs')->insertOrIgnore([
-            'id' => $programId,
-            'tenant_id' => $tenantId,
-            'code' => self::STARTER_AFFILIATE_PROGRAM_CODE,
-            'name' => 'Basic Affiliate',
-            'status' => 'active',
-            'minimum_payout_amount' => self::DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT,
-            'starts_at' => null,
-            'ends_at' => null,
-            'metadata_json' => $this->jsonOrNull(['source' => 'starter_default']),
-            'created_by_admin_id' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        $program = AffiliateProgram::query()
-            ->where('tenant_id', $tenantId)
-            ->where('code', self::STARTER_AFFILIATE_PROGRAM_CODE)
-            ->where('status', 'active')
-            ->first();
-
-        if ($program === null) {
-            return null;
-        }
-
-        DB::table('commission_rules')->insertOrIgnore([
-            'id' => $this->stableAffiliateDefaultId('cmr', $tenantId.':'.self::STARTER_AFFILIATE_RULE_CODE),
-            'tenant_id' => $tenantId,
-            'affiliate_program_id' => (string) $program->id,
-            'affiliate_account_id' => null,
-            'code' => self::STARTER_AFFILIATE_RULE_CODE,
-            'name' => 'BasicCom',
-            'rule_type' => 'per_ticket',
-            'amount' => self::DEFAULT_AFFILIATE_RULE_AMOUNT,
-            'rate_bps' => 0,
-            'currency' => 'THB',
-            'status' => 'active',
-            'metadata_json' => $this->jsonOrNull(['source' => 'starter_default']),
-            'created_by_admin_id' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return $program;
-    }
-
-    private function stableAffiliateDefaultId(string $prefix, string $seed): string
-    {
-        return $prefix.'_'.substr(sha1($seed), 0, 20);
+        return $this->affiliateTiers->bronzeProgram($tenantId);
     }
 
     /**
@@ -6584,14 +7559,17 @@ class GrowthService
         $program = null;
 
         if ($affiliate !== null) {
-            $programId = AffiliateLink::query()
-                ->where('tenant_id', $tenantId)
-                ->where('affiliate_account_id', $affiliate->id)
-                ->where('status', 'active')
-                ->whereNotNull('affiliate_program_id')
-                ->orderByRaw('case when affiliate_program_id is null then 1 else 0 end')
-                ->orderBy('id')
-                ->value('affiliate_program_id');
+            $programId = $affiliate->affiliate_program_id;
+
+            if ($programId === null) {
+                $programId = AffiliateLink::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('affiliate_account_id', $affiliate->id)
+                    ->where('status', 'active')
+                    ->whereNotNull('affiliate_program_id')
+                    ->orderBy('id')
+                    ->value('affiliate_program_id');
+            }
 
             if ($programId !== null) {
                 $program = AffiliateProgram::query()
@@ -6679,11 +7657,39 @@ class GrowthService
             'approved_commission' => $this->money($approved, $currency),
             'pending_commission' => $this->money($pending, $currency),
             'requested_payout' => $this->money($requested, $currency),
-            'available_balance' => $this->money(max(0, $approved - $requested), $currency),
+            'available_balance' => $this->money(
+                $this->affiliateAvailableBalance($tenantId, $affiliateId),
+                $currency,
+            ),
             'converted_count' => $converted,
             'visitor_count' => $referralMetrics['visitor_count'],
             'registered_count' => $referralMetrics['registered_count'],
         ];
+    }
+
+    private function affiliateAvailableBalance(
+        string $tenantId,
+        string $affiliateId,
+        ?string $excludePayoutId = null,
+    ): int {
+        $approved = (int) CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->where(function ($query): void {
+                $query->where('status', 'approved')->orWhere('transaction_type', 'reversal');
+            })
+            ->sum('amount');
+        $payouts = AffiliatePayout::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->whereIn('status', ['pending', 'approved', 'paid'])
+            ->when(
+                $excludePayoutId !== null,
+                fn ($query) => $query->where('id', '!=', $excludePayoutId),
+            )
+            ->sum('amount');
+
+        return max(0, $approved - (int) $payouts);
     }
 
     /**
@@ -6774,13 +7780,17 @@ class GrowthService
             'referral_url' => $referralUrl,
             'canonical_url' => $referralUrl,
             'name' => (string) $row->name,
+            'store_name_status' => (string) ($row->store_name_status ?? 'approved'),
+            'store_name_approved_at' => $this->iso($row->store_name_approved_at ?? null),
+            'store_name_change_available_at' => $this->iso($row->store_name_change_available_at ?? null),
+            'affiliate_program_id' => $row->affiliate_program_id ?? null,
             'phone' => $row->phone,
             'email' => $row->email,
             'status' => (string) $row->status,
             'wallet_balance' => $this->money((int) $row->wallet_balance_amount, (string) $row->currency),
             'visitor_count' => $referralMetrics['visitor_count'],
             'registered_count' => $referralMetrics['registered_count'],
-            'payout_profile' => $this->decodeJson($row->payout_profile_json),
+            'payout_profile' => $this->affiliatePayoutProfile($row),
             'metadata' => $this->decodeJson($row->metadata_json),
             'created_at' => $this->iso($row->created_at),
             'updated_at' => $this->iso($row->updated_at),
@@ -6804,6 +7814,8 @@ class GrowthService
             'code' => (string) $row->code,
             'name' => (string) $row->name,
             'status' => (string) $row->status,
+            'tier_rank' => $row->tier_rank === null ? null : (int) $row->tier_rank,
+            'commission_per_ticket' => $this->money((int) ($row->commission_per_ticket_amount ?? 0)),
             'minimum_payout' => $this->money($minimumPayout),
             'minimum_payout_amount' => $this->money($minimumPayout),
             'starts_at' => $this->iso($row->starts_at),
@@ -6929,6 +7941,11 @@ class GrowthService
             'transaction_type' => (string) $row->transaction_type,
             'status' => (string) $row->status,
             'amount' => $this->money((int) $row->amount, (string) $row->currency),
+            'ticket_count' => $row->ticket_count === null ? null : (int) $row->ticket_count,
+            'tier_code' => $row->tier_code ?? null,
+            'commission_per_ticket' => $row->commission_per_ticket_amount === null
+                ? null
+                : $this->money((int) $row->commission_per_ticket_amount, (string) $row->currency),
             'calculated_at' => $this->iso($row->calculated_at),
             'approved_by_admin_id' => $row->approved_by_admin_id,
             'approved_at' => $this->iso($row->approved_at),
@@ -6938,10 +7955,15 @@ class GrowthService
         ];
     }
 
-    private function payoutResource(?object $row): array
+    private function payoutResource(?object $row, bool $revealBankAccount = false): array
     {
         if ($row === null) {
             return [];
+        }
+
+        $bankAccount = $this->affiliatePayoutBankAccount($row);
+        if (! $revealBankAccount) {
+            $bankAccount = EncryptedJsonPayload::maskedBankAccount($bankAccount);
         }
 
         return [
@@ -6952,14 +7974,41 @@ class GrowthService
             'status' => (string) $row->status,
             'payout_method' => (string) $row->payout_method,
             'amount' => $this->money((int) $row->amount, (string) $row->currency),
-            'bank_account' => $this->decodeJson($row->bank_account_json),
+            'bank_account' => $bankAccount,
             'admin_note' => $row->admin_note,
             'requested_by_admin_id' => $row->requested_by_admin_id,
             'approved_by_admin_id' => $row->approved_by_admin_id,
             'approved_at' => $this->iso($row->approved_at),
+            'wallet_id' => $row->wallet_id ?? null,
+            'payout_ledger_id' => $row->payout_ledger_id ?? null,
+            'payment_reference' => $row->payment_reference ?? null,
+            'paid_by_admin_id' => $row->paid_by_admin_id ?? null,
+            'paid_at' => $this->iso($row->paid_at ?? null),
             'created_at' => $this->iso($row->created_at),
             'updated_at' => $this->iso($row->updated_at),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function affiliatePayoutBankAccount(object $row): array
+    {
+        return EncryptedJsonPayload::decrypt(
+            $row->bank_account_encrypted ?? null,
+            $row->bank_account_json ?? null,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function affiliatePayoutProfile(object $row): array
+    {
+        return EncryptedJsonPayload::decrypt(
+            $row->payout_profile_encrypted ?? null,
+            $row->payout_profile_json ?? null,
+        );
     }
 
     /**

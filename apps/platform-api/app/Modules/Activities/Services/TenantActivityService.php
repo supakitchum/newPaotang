@@ -30,6 +30,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
+use App\Support\EncryptedJsonPayload;
 use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -1281,6 +1282,7 @@ class TenantActivityService
                     'tenant_id',
                     'auto_reward_claim_payout_method',
                     'reward_payout_bank_account_json',
+                    'reward_payout_bank_account_encrypted',
                 ]);
 
             if ($customer === null) {
@@ -1292,7 +1294,10 @@ class TenantActivityService
             $walletId = null;
 
             if ($payoutMethod === 'bank_transfer') {
-                $bankAccount = $this->decodeJsonObject($customer->reward_payout_bank_account_json ?? null);
+                $bankAccount = EncryptedJsonPayload::decrypt(
+                    $customer->reward_payout_bank_account_encrypted ?? null,
+                    $customer->reward_payout_bank_account_json ?? null,
+                );
 
                 if (! $this->hasUsableBankAccount($bankAccount)) {
                     return null;
@@ -3214,12 +3219,20 @@ class TenantActivityService
      */
     private function customerRewardPayoutBankAccount(string $tenantId, string $customerId): array
     {
-        $json = Customer::query()
+        $customer = Customer::query()
             ->where('tenant_id', $tenantId)
             ->where('id', $customerId)
-            ->value('reward_payout_bank_account_json');
+            ->first([
+                'reward_payout_bank_account_json',
+                'reward_payout_bank_account_encrypted',
+            ]);
 
-        return $this->decodeJsonObject($json);
+        return $customer === null
+            ? []
+            : EncryptedJsonPayload::decrypt(
+                $customer->reward_payout_bank_account_encrypted ?? null,
+                $customer->reward_payout_bank_account_json ?? null,
+            );
     }
 
     /**
@@ -3231,7 +3244,8 @@ class TenantActivityService
             ->where('tenant_id', $tenantId)
             ->where('id', $customerId)
             ->update([
-                'reward_payout_bank_account_json' => $bankAccount === [] ? null : json_encode($bankAccount, JSON_THROW_ON_ERROR),
+                'reward_payout_bank_account_json' => null,
+                'reward_payout_bank_account_encrypted' => EncryptedJsonPayload::encrypt($bankAccount),
                 'updated_at' => now(),
             ]);
     }

@@ -9,6 +9,7 @@ services:
       - customer
       - back-office
       - platform-api
+      - support-api
 
   platform-api:
     build:
@@ -48,12 +49,19 @@ services:
       LOTTO_SCRAPER_TRIGGER_SANOOK_URL: http://lotto-scraper:3200/internal/poll
       LOTTO_SCRAPER_TRIGGER_THAIRATH_URL: http://lotto-scraper-thairath:3200/internal/poll
       LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
+      CUSTOMER_SUPPORT_ENABLED_BY_DEFAULT: "false"
+      SUPPORT_API_URL: /support-api/v1
+      SUPPORT_REALTIME_URL: ws://localhost:8081
+      SUPPORT_REALTIME_KEY: newpaotang-support
+      SUPPORT_JWT_PRIVATE_KEY_PATH: /run/support-keys/private.pem
+      PLATFORM_SUPPORT_INGRESS_SECRET: newpaotang-local-support-ingress
     ports:
       - "8000:8000"
     volumes:
       - ./:/workspace:ro
       - ./apps/platform-api:/var/www/html
       - platform-api-vendor:/var/www/html/vendor
+      - ./docker/support/keys/dev-private.pem:/run/support-keys/private.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -332,6 +340,9 @@ services:
       VITE_ADMIN_API_BASE: /api/v1
       VITE_ADMIN_REALTIME_URL: http://localhost:8080
       VITE_ADMIN_REALTIME_KEY: newpaotang-admin
+      VITE_SUPPORT_API_BASE: /support-api/v1
+      VITE_SUPPORT_REALTIME_URL: ws://localhost:8081
+      VITE_SUPPORT_REALTIME_KEY: newpaotang-support
       NUXT_BUILD_DIR: /tmp/newpaotang-back-office-nuxt
       NITRO_NO_UNIX_SOCKET: "1"
       NODE_OPTIONS: --no-deprecation
@@ -341,6 +352,147 @@ services:
       - ./apps/back-office:/app
       - back-office-node-modules:/app/node_modules
       - back-office-nuxt:/app/.nuxt
+
+  support-api:
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; php artisan serve --host=0.0.0.0 --port=8100 --no-reload"
+    environment: &support-api-environment
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1zdXBwb3J0LWxvY2FsLWRldi1rZXktMTIzNDU2
+      APP_DEBUG: "true"
+      APP_URL: http://localhost/support-api
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: support-postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang_support
+      DB_USERNAME: newpaotang_support
+      DB_PASSWORD: newpaotang_support
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: support-valkey
+      REDIS_PORT: "6379"
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: newpaotang-support-local
+      REVERB_APP_KEY: newpaotang-support
+      REVERB_APP_SECRET: newpaotang-support-secret
+      REVERB_HOST: support-reverb
+      REVERB_PORT: "8081"
+      REVERB_SCHEME: http
+      SUPPORT_JWT_PUBLIC_KEY_PATH: /run/support-keys/public.pem
+      PLATFORM_NOTIFICATION_INGRESS_URL: http://platform-api:8000/api/v1/internal/customer-support/notifications
+      PLATFORM_SUPPORT_INGRESS_SECRET: newpaotang-local-support-ingress
+      SUPPORT_CORS_ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:3100
+      SUPPORT_CORS_ALLOWED_ORIGIN_PATTERNS: ^https?://([a-z0-9-]+\.)*(localhost|newpaotang\.test)(:[0-9]+)?$
+      SUPPORT_REVERB_ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:3100,*.localhost,newpaotang.test,*.newpaotang.test
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - support-attachments:/var/www/html/storage/app/private
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-valkey:
+        condition: service_healthy
+
+  support-worker:
+    profiles: ["worker"]
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; php artisan queue:work --sleep=1 --tries=3 --timeout=90"
+    environment: *support-api-environment
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - support-attachments:/var/www/html/storage/app/private
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-valkey:
+        condition: service_healthy
+
+  support-scheduler:
+    profiles: ["scheduler"]
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    environment: *support-api-environment
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-valkey:
+        condition: service_healthy
+
+  support-reverb:
+    profiles: ["realtime"]
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; php artisan reverb:start --host=0.0.0.0 --port=8081"
+    environment:
+      <<: *support-api-environment
+      REVERB_HOST: localhost
+      REVERB_SERVER_HOST: 0.0.0.0
+      REVERB_SERVER_PORT: "8081"
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-valkey:
+        condition: service_healthy
+
+  support-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: newpaotang_support
+      POSTGRES_USER: newpaotang_support
+      POSTGRES_PASSWORD: newpaotang_support
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./docker/support/postgres-init:/docker-entrypoint-initdb.d:ro
+      - support-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newpaotang_support -d newpaotang_support"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  support-valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - support-valkey-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   postgres:
     image: postgres:17-alpine
@@ -373,6 +525,10 @@ services:
 
 volumes:
   platform-api-vendor:
+  support-api-vendor:
+  support-attachments:
+  support-postgres-data:
+  support-valkey-data:
   customer-node-modules:
   customer-nuxt:
   back-office-node-modules:

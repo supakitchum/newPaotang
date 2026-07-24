@@ -23,6 +23,9 @@ class CommissionTransaction extends BaseModel
         'transaction_type',
         'status',
         'amount',
+        'ticket_count',
+        'tier_code',
+        'commission_per_ticket_amount',
         'currency',
         'idempotency_key',
         'payload_hash',
@@ -36,6 +39,8 @@ class CommissionTransaction extends BaseModel
 
     protected $casts = [
         'amount' => 'integer',
+        'ticket_count' => 'integer',
+        'commission_per_ticket_amount' => 'integer',
         'calculated_at' => 'datetime',
         'approved_at' => 'datetime',
         'metadata_json' => 'array',

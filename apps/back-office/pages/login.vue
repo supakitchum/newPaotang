@@ -179,7 +179,12 @@ const afterLoginPath = (scope: 'central' | 'tenant') => {
     return target || landing
   }
 
-  if (session.usesTranslationCenterLanding(scope) || session.usesRewardEntryLanding(scope) || session.usesLotteryImagesLanding(scope)) {
+  if (
+    session.usesTranslationCenterLanding(scope)
+    || session.usesRewardEntryLanding(scope)
+    || session.usesLotteryImagesLanding(scope)
+    || session.usesCustomerSupportLanding(scope)
+  ) {
     return target === landing ? target : landing
   }
 

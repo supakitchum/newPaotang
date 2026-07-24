@@ -18,7 +18,9 @@ class AffiliateProgram extends BaseModel
         'code',
         'name',
         'status',
+        'tier_rank',
         'minimum_payout_amount',
+        'commission_per_ticket_amount',
         'starts_at',
         'ends_at',
         'metadata_json',
@@ -28,6 +30,9 @@ class AffiliateProgram extends BaseModel
     ];
 
     protected $casts = [
+        'tier_rank' => 'integer',
+        'minimum_payout_amount' => 'integer',
+        'commission_per_ticket_amount' => 'integer',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
         'metadata_json' => 'array',
@@ -51,5 +56,10 @@ class AffiliateProgram extends BaseModel
     public function commissionRules(): HasMany
     {
         return $this->hasMany(CommissionRule::class, 'affiliate_program_id');
+    }
+
+    public function rateHistory(): HasMany
+    {
+        return $this->hasMany(AffiliateTierRateHistory::class, 'affiliate_program_id');
     }
 }

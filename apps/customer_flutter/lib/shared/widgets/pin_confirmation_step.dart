@@ -214,8 +214,10 @@ class _PinConfirmationMainContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final height = MediaQuery.sizeOf(context).height;
-    final dotGap = (height * 0.05).clamp(21.0, 34.0).toDouble();
-    final messageTop = (height * 0.03).clamp(12.0, 17.0).toDouble();
+    final dotGap =
+        compact ? 17.0 : (height * 0.05).clamp(21.0, 34.0).toDouble();
+    final messageTop =
+        compact ? 8.0 : (height * 0.03).clamp(12.0, 17.0).toDouble();
     final messageMinHeight =
         compact ? 18.0 : (height * 0.04).clamp(18.0, 33.0).toDouble();
     return Column(

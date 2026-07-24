@@ -572,6 +572,7 @@ final menu = [
           'ios_xcconfig_missing',
           'ios_release_config_guard_missing',
           'ios_screen_capture_detection_missing',
+          'ios_secure_capture_protection_missing',
           'ios_sensitive_snapshot_overlay_missing',
           'ios_exit_app_policy_missing',
           'ios_screen_security_aliases_missing',
@@ -1447,6 +1448,56 @@ class MainActivity {
     }
   });
 
+  test(
+    'production preflight requires logout-safe push registration ordering',
+    () {
+      final root = Directory.systemTemp.createTempSync(
+        'customer_flutter_preflight_push_logout_order_',
+      );
+      try {
+        for (final path in [
+          'pubspec.yaml',
+          'lib/main.dart',
+          'lib/app/customer_app.dart',
+          'lib/core/notifications/customer_push_platform.dart',
+          'lib/core/notifications/customer_push_device_context.dart',
+        ]) {
+          _writeFile(root, path, File(path).readAsStringSync());
+        }
+        final lifecycle = File(
+          'lib/core/notifications/customer_push_lifecycle_monitor.dart',
+        ).readAsStringSync().replaceFirst('await _syncQueue;', '');
+        _writeFile(
+          root,
+          'lib/core/notifications/customer_push_lifecycle_monitor.dart',
+          lifecycle,
+        );
+
+        final issues = runCustomerFlutterProductionPreflight(
+          ProductionPreflightInput(
+            target: CustomerFlutterTarget.android,
+            production: true,
+            checkFiles: true,
+            androidRequireSigning: false,
+            projectRoot: root.path,
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            appDisplayName: 'Partner Lottery',
+            androidPackage: 'com.partner.customer',
+            androidCallbackScheme: 'partnerlottery',
+            androidCallbackHost: 'partner.example.com',
+          ),
+        );
+
+        expect(
+          issues.map((issue) => issue.code),
+          contains('flutter_native_push_binding_missing'),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
+
   test('production preflight rejects Android backup-enabled manifests', () {
     final root = Directory.systemTemp.createTempSync(
       'customer_flutter_preflight_android_backup_',
@@ -1750,6 +1801,7 @@ class AppDelegate {
   let exitEvent = "screen_security_exit_requested"
   let event = "securityEvent"
   let eventPayload = "nativeEvent isCaptured screenCaptureActive currentRoute reasonText"
+  let secureCapture = "IOSSecureCaptureProtector isSecureTextEntry = true blackBackdropView.backgroundColor = .black refreshSecureCaptureProtection secureCaptureProtector.enable(in: window) secureCaptureProtector.disable()"
   let aliasRoutes = "screenSecurityRouteKeys routeName targetUrl"
   let aliasEvents = "screenSecurityEventKeys eventName nativeEvent"
   let aliasReasons = "screenSecurityReasonKeys reasonText"
@@ -3392,6 +3444,7 @@ class AppDelegate {
   let signedPayloadAlias = "signedPayload"
   let sign = "SecKeyCreateSignature"
   let runtimeNamespace = "Bundle.main.bundleIdentifier"
+  let secureCapture = "IOSSecureCaptureProtector isSecureTextEntry = true blackBackdropView.backgroundColor = .black refreshSecureCaptureProtection secureCaptureProtector.enable(in: window) secureCaptureProtector.disable()"
 }
 ''');
   _writeFile(root, 'ios/Runner.xcodeproj/project.pbxproj', r'''

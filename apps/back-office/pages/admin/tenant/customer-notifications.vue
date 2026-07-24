@@ -191,6 +191,9 @@
               </template>
               <template #cell-push="{ row }">
                 <AdminStatusBadge :status="row.recipient?.push?.status || 'not_registered'" :label="phrase(pushLabel(row.recipient?.push?.status))" />
+                <div v-if="Number(row.recipient?.push?.total_count || 0) > 0" class="text-muted fs-11 mt-1 text-wrap">
+                  {{ pushCountSummary(row.recipient?.push) }}
+                </div>
                 <div v-if="row.recipient?.push?.last_error_code" class="text-danger fs-11 mt-1 text-wrap">{{ safeFailureLabel(row.recipient.push.last_error_code) }}</div>
               </template>
               <template #cell-creator="{ row }">
@@ -217,39 +220,28 @@
       </div>
     </div>
 
-    <div v-if="confirmationOpen" class="modal fade show d-block np-customer-notification-modal" tabindex="-1" role="dialog" aria-modal="true">
-      <div class="modal-dialog modal-md modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">{{ phrase('Confirm notification') }}</h5>
-            <button class="btn-close" type="button" :disabled="sending" :aria-label="phrase('Close')" @click="confirmationOpen = false" />
-          </div>
-          <div class="modal-body">
-            <div class="np-customer-notification-confirm-row">
-              <span>{{ phrase('Customer') }}</span>
-              <strong>{{ selectedCustomer?.name || selectedCustomer?.phone }}</strong>
-            </div>
-            <div class="np-customer-notification-confirm-row">
-              <span>{{ phrase('Destination') }}</span>
-              <strong>{{ phrase(selectedAction?.label || 'No destination') }}</strong>
-            </div>
-            <div class="np-customer-notification-confirm-message mt-3">
-              <div class="fw-semibold">{{ localizedDraft(form.title) }}</div>
-              <div class="text-muted mt-1">{{ localizedDraft(form.body) }}</div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-light btn-wave" type="button" :disabled="sending" @click="confirmationOpen = false">{{ phrase('Cancel') }}</button>
-            <button class="btn btn-primary btn-wave" type="button" :disabled="sending" @click="sendNotification">
-              <span v-if="sending" class="spinner-border spinner-border-sm me-2" />
-              <i v-else class="ri-send-plane-2-line me-1" />
-              {{ phrase('Send') }}
-            </button>
-          </div>
-        </div>
+    <AdminModal v-model="confirmationOpen" :title="phrase('Confirm notification')" size="md">
+      <div class="np-customer-notification-confirm-row">
+        <span>{{ phrase('Customer') }}</span>
+        <strong>{{ selectedCustomer?.name || selectedCustomer?.phone }}</strong>
       </div>
-    </div>
-    <div v-if="confirmationOpen" class="modal-backdrop fade show" />
+      <div class="np-customer-notification-confirm-row">
+        <span>{{ phrase('Destination') }}</span>
+        <strong>{{ phrase(selectedAction?.label || 'No destination') }}</strong>
+      </div>
+      <div class="np-customer-notification-confirm-message mt-3">
+        <div class="fw-semibold">{{ localizedDraft(form.title) }}</div>
+        <div class="text-muted mt-1">{{ localizedDraft(form.body) }}</div>
+      </div>
+      <template #footer>
+        <button class="btn btn-light btn-wave" type="button" :disabled="sending" @click="confirmationOpen = false">{{ phrase('Cancel') }}</button>
+        <button class="btn btn-primary btn-wave" type="button" :disabled="sending" @click="sendNotification">
+          <span v-if="sending" class="spinner-border spinner-border-sm me-2" />
+          <i v-else class="ri-send-plane-2-line me-1" />
+          {{ phrase('Send') }}
+        </button>
+      </template>
+    </AdminModal>
   </div>
 </template>
 
@@ -576,6 +568,7 @@ function creatorLabel(creator: AnyRecord) {
 function pushLabel(status: unknown) {
   const labels: Record<string, string> = {
     sent: 'Sent',
+    partial: 'Partially delivered',
     queued: 'Queued',
     sending: 'Sending',
     failed: 'Failed',
@@ -583,6 +576,14 @@ function pushLabel(status: unknown) {
     not_registered: 'No registered device',
   }
   return labels[String(status || 'not_registered')] || String(status || 'not_registered')
+}
+
+function pushCountSummary(push: AnyRecord) {
+  return [
+    Number(push?.sent_count || 0) > 0 ? `${Number(push.sent_count)} ${phrase('Sent')}` : '',
+    Number(push?.pending_count || 0) > 0 ? `${Number(push.pending_count)} ${phrase('Pending')}` : '',
+    Number(push?.failed_count || 0) > 0 ? `${Number(push.failed_count)} ${phrase('Failed')}` : '',
+  ].filter(Boolean).join(' · ')
 }
 
 function safeFailureLabel(code: unknown) {
@@ -688,10 +689,6 @@ function alertType(err: AnyRecord) {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.np-customer-notification-modal {
-  z-index: 1060;
 }
 
 .np-customer-notification-confirm-row {

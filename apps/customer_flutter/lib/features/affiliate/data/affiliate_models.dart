@@ -10,6 +10,9 @@ class AffiliateOverview {
     required this.profile,
     required this.stats,
     required this.payoutPolicy,
+    required this.tier,
+    required this.storeNameState,
+    required this.campaigns,
     required this.commissions,
     required this.payouts,
   });
@@ -22,6 +25,9 @@ class AffiliateOverview {
       profile: null,
       stats: AffiliateStats.empty(),
       payoutPolicy: AffiliatePayoutPolicy.empty(),
+      tier: AffiliateTier.empty(),
+      storeNameState: AffiliateStoreNameState.empty(),
+      campaigns: [],
       commissions: [],
       payouts: [],
     );
@@ -47,8 +53,9 @@ class AffiliateOverview {
             payload['affiliate_enabled'] ??
             payload['affiliateEnabled'],
       ),
-      affiliate:
-          affiliate.isEmpty ? null : AffiliateAccount.fromJson(affiliate),
+      affiliate: affiliate.isEmpty
+          ? null
+          : AffiliateAccount.fromJson(affiliate),
       links: _firstAffiliateMapList([
         payload['links'],
         payload['referral_links'],
@@ -74,6 +81,21 @@ class AffiliateOverview {
           payload['policy'],
         ]),
       ),
+      tier: AffiliateTier.fromJson(
+        _firstAffiliateMap([payload['tier'], payload['affiliate_tier']]),
+      ),
+      storeNameState: AffiliateStoreNameState.fromJson(
+        _firstAffiliateMap([
+          payload['store_name'],
+          payload['storeName'],
+          payload['store_name_state'],
+        ]),
+      ),
+      campaigns: _firstAffiliateMapList([
+        payload['campaigns'],
+        payload['tier_campaigns'],
+        payload['tierCampaigns'],
+      ]).map(AffiliateTierCampaign.fromJson).toList(growable: false),
       commissions: _firstAffiliateMapList([
         payload['commissions'],
         payload['commission_items'],
@@ -94,6 +116,9 @@ class AffiliateOverview {
   final AffiliateProfile? profile;
   final AffiliateStats stats;
   final AffiliatePayoutPolicy payoutPolicy;
+  final AffiliateTier tier;
+  final AffiliateStoreNameState storeNameState;
+  final List<AffiliateTierCampaign> campaigns;
   final List<AffiliateCommission> commissions;
   final List<AffiliatePayout> payouts;
 
@@ -121,6 +146,10 @@ class AffiliateOverview {
   }
 
   String get storeName {
+    final approved = storeNameState.approvedName.trim();
+    if (approved.isNotEmpty) return approved;
+    final pending = storeNameState.pendingName.trim();
+    if (pending.isNotEmpty) return pending;
     final value = affiliate?.displayName ?? '';
     return value.trim();
   }
@@ -138,6 +167,273 @@ class AffiliateOverview {
   }
 }
 
+class AffiliateTier {
+  const AffiliateTier({
+    required this.code,
+    required this.name,
+    required this.rank,
+    required this.commissionPerTicket,
+    required this.minimumPayout,
+  });
+
+  const AffiliateTier.empty()
+    : code = 'bronze',
+      name = 'Bronze',
+      rank = 1,
+      commissionPerTicket = 1,
+      minimumPayout = 300;
+
+  factory AffiliateTier.fromJson(Map<String, dynamic> json) {
+    final payload = _affiliateEntityPayload(json, const [
+      'tier',
+      'affiliate_tier',
+      'affiliateTier',
+      'target_tier',
+    ]);
+    return AffiliateTier(
+      code: _firstAffiliateText([payload['code'], payload['tier_code']]),
+      name: _firstAffiliateText([payload['name'], payload['tier_name']]),
+      rank: _affiliateInt(payload['rank'] ?? payload['tier_rank']),
+      commissionPerTicket: moneyToDisplayNumber(
+        payload['commission_per_ticket'] ??
+            payload['commissionPerTicket'] ??
+            payload['commission_per_ticket_amount'],
+      ),
+      minimumPayout: moneyToDisplayNumber(
+        payload['minimum_payout'] ?? payload['minimumPayout'],
+      ),
+    );
+  }
+
+  final String code;
+  final String name;
+  final int rank;
+  final double commissionPerTicket;
+  final double minimumPayout;
+}
+
+class AffiliateStoreNameState {
+  const AffiliateStoreNameState({
+    required this.status,
+    required this.approvedName,
+    required this.pendingName,
+    required this.pendingRequestId,
+    required this.adminNote,
+    required this.changeAvailableAt,
+    required this.canRequestChange,
+  });
+
+  const AffiliateStoreNameState.empty()
+    : status = '',
+      approvedName = '',
+      pendingName = '',
+      pendingRequestId = '',
+      adminNote = '',
+      changeAvailableAt = null,
+      canRequestChange = false;
+
+  factory AffiliateStoreNameState.fromJson(Map<String, dynamic> json) {
+    final payload = _affiliateEntityPayload(json, const [
+      'store_name',
+      'storeName',
+      'store_name_state',
+    ]);
+    return AffiliateStoreNameState(
+      status: _firstAffiliateText([payload['status']]),
+      approvedName: _firstAffiliateText([
+        payload['approved_name'],
+        payload['approvedName'],
+      ]),
+      pendingName: _firstAffiliateText([
+        payload['pending_name'],
+        payload['pendingName'],
+      ]),
+      pendingRequestId: _firstAffiliateText([
+        payload['pending_request_id'],
+        payload['pendingRequestId'],
+      ]),
+      adminNote: _firstAffiliateText([
+        payload['admin_note'],
+        payload['adminNote'],
+      ]),
+      changeAvailableAt:
+          payload['change_available_at'] ?? payload['changeAvailableAt'],
+      canRequestChange: _affiliateBool(
+        payload['can_request_change'] ?? payload['canRequestChange'],
+      ),
+    );
+  }
+
+  final String status;
+  final String approvedName;
+  final String pendingName;
+  final String pendingRequestId;
+  final String adminNote;
+  final Object? changeAvailableAt;
+  final bool canRequestChange;
+
+  bool get isPending => status == 'pending' || pendingRequestId.isNotEmpty;
+}
+
+class AffiliateTierCampaign {
+  const AffiliateTierCampaign({
+    required this.id,
+    required this.name,
+    required this.campaignType,
+    required this.status,
+    required this.startsAt,
+    required this.endsAt,
+    required this.canReduceTier,
+    required this.rules,
+    required this.progress,
+    required this.leaderboard,
+  });
+
+  factory AffiliateTierCampaign.fromJson(Map<String, dynamic> json) {
+    final payload = _affiliateEntityPayload(json, const [
+      'campaign',
+      'tier_campaign',
+      'tierCampaign',
+    ]);
+    final progress = _firstAffiliateMap([
+      payload['my_progress'],
+      payload['myProgress'],
+      payload['progress'],
+    ]);
+    return AffiliateTierCampaign(
+      id: _firstAffiliateText([payload['id'], payload['campaign_id']]),
+      name: _firstAffiliateText([payload['name'], payload['title']]),
+      campaignType: _firstAffiliateText([
+        payload['campaign_type'],
+        payload['campaignType'],
+        payload['type'],
+      ]),
+      status: _firstAffiliateText([payload['status']]),
+      startsAt: payload['starts_at'] ?? payload['startsAt'],
+      endsAt: payload['ends_at'] ?? payload['endsAt'],
+      canReduceTier: _affiliateBool(
+        payload['can_reduce_tier'] ?? payload['canReduceTier'],
+      ),
+      rules: _firstAffiliateMapList([
+        payload['rules'],
+      ]).map(AffiliateTierCampaignRule.fromJson).toList(growable: false),
+      progress: progress.isEmpty
+          ? null
+          : AffiliateTierCampaignProgress.fromJson(progress),
+      leaderboard: _firstAffiliateMapList([
+        payload['leaderboard'],
+        payload['results'],
+      ]).map(AffiliateTierLeaderboardEntry.fromJson).toList(growable: false),
+    );
+  }
+
+  final String id;
+  final String name;
+  final String campaignType;
+  final String status;
+  final Object? startsAt;
+  final Object? endsAt;
+  final bool canReduceTier;
+  final List<AffiliateTierCampaignRule> rules;
+  final AffiliateTierCampaignProgress? progress;
+  final List<AffiliateTierLeaderboardEntry> leaderboard;
+
+  bool get isFixedThreshold => campaignType == 'fixed_threshold';
+}
+
+class AffiliateTierCampaignRule {
+  const AffiliateTierCampaignRule({
+    required this.minimumTicketCount,
+    required this.rankFrom,
+    required this.rankTo,
+    required this.targetTier,
+  });
+
+  factory AffiliateTierCampaignRule.fromJson(Map<String, dynamic> json) {
+    return AffiliateTierCampaignRule(
+      minimumTicketCount: _affiliateInt(json['minimum_ticket_count']),
+      rankFrom: _affiliateInt(json['rank_from']),
+      rankTo: _affiliateInt(json['rank_to']),
+      targetTier: AffiliateTier.fromJson(
+        _firstAffiliateMap([json['target_tier'], json['targetTier']]),
+      ),
+    );
+  }
+
+  final int minimumTicketCount;
+  final int rankFrom;
+  final int rankTo;
+  final AffiliateTier targetTier;
+}
+
+class AffiliateTierCampaignProgress {
+  const AffiliateTierCampaignProgress({
+    required this.ticketCount,
+    required this.rank,
+    required this.projectedTier,
+    required this.resultStatus,
+  });
+
+  factory AffiliateTierCampaignProgress.fromJson(Map<String, dynamic> json) {
+    final projected = _firstAffiliateMap([
+      json['projected_tier'],
+      json['projectedTier'],
+    ]);
+    return AffiliateTierCampaignProgress(
+      ticketCount: _affiliateInt(json['ticket_count'] ?? json['ticketCount']),
+      rank: _affiliateInt(json['rank']),
+      projectedTier: projected.isEmpty
+          ? null
+          : AffiliateTier.fromJson(projected),
+      resultStatus: _firstAffiliateText([
+        json['result_status'],
+        json['resultStatus'],
+      ]),
+    );
+  }
+
+  final int ticketCount;
+  final int rank;
+  final AffiliateTier? projectedTier;
+  final String resultStatus;
+}
+
+class AffiliateTierLeaderboardEntry {
+  const AffiliateTierLeaderboardEntry({
+    required this.affiliateCode,
+    required this.affiliateName,
+    required this.ticketCount,
+    required this.rank,
+    required this.isCurrentAffiliate,
+  });
+
+  factory AffiliateTierLeaderboardEntry.fromJson(Map<String, dynamic> json) {
+    return AffiliateTierLeaderboardEntry(
+      affiliateCode: _firstAffiliateText([
+        json['affiliate_code'],
+        json['affiliateCode'],
+      ]),
+      affiliateName: _firstAffiliateText([
+        json['affiliate_name'],
+        json['affiliateName'],
+        json['display_name'],
+        json['displayName'],
+      ]),
+      ticketCount: _affiliateInt(json['ticket_count'] ?? json['ticketCount']),
+      rank: _affiliateInt(json['rank']),
+      isCurrentAffiliate: _affiliateBool(
+        json['is_current_affiliate'] ?? json['isCurrentAffiliate'],
+      ),
+    );
+  }
+
+  final String affiliateCode;
+  final String affiliateName;
+  final int ticketCount;
+  final int rank;
+  final bool isCurrentAffiliate;
+}
+
 class AffiliateAccount {
   const AffiliateAccount({
     required this.id,
@@ -151,10 +447,12 @@ class AffiliateAccount {
   });
 
   factory AffiliateAccount.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const ['affiliate', 'affiliate_account', 'affiliateAccount', 'account'],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'affiliate',
+      'affiliate_account',
+      'affiliateAccount',
+      'account',
+    ]);
     final payoutProfile = _firstAffiliateMap([
       payload['payout_profile'],
       payload['payoutProfile'],
@@ -233,14 +531,18 @@ class AffiliateLink {
   });
 
   factory AffiliateLink.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const ['link', 'referral_link', 'referralLink', 'affiliateLink'],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'link',
+      'referral_link',
+      'referralLink',
+      'affiliateLink',
+    ]);
     return AffiliateLink(
-      id: _firstAffiliateText(
-        [payload['id'], payload['link_id'], payload['linkId']],
-      ),
+      id: _firstAffiliateText([
+        payload['id'],
+        payload['link_id'],
+        payload['linkId'],
+      ]),
       code: _firstAffiliateText([
         payload['code'],
         payload['referral_code'],
@@ -265,16 +567,14 @@ class AffiliateLink {
 }
 
 class AffiliateProfile {
-  const AffiliateProfile({
-    required this.name,
-    required this.bankAccount,
-  });
+  const AffiliateProfile({required this.name, required this.bankAccount});
 
   factory AffiliateProfile.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const ['profile', 'customer_profile', 'customerProfile'],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'profile',
+      'customer_profile',
+      'customerProfile',
+    ]);
     return AffiliateProfile(
       name: _firstAffiliateText([
         payload['name'],
@@ -309,20 +609,22 @@ class AffiliateStats {
   });
 
   const AffiliateStats.empty()
-      : totalCommission = 0,
-        approvedCommission = 0,
-        pendingCommission = 0,
-        requestedPayout = 0,
-        availableBalance = 0,
-        convertedCount = 0,
-        visitorCount = 0,
-        registeredCount = 0;
+    : totalCommission = 0,
+      approvedCommission = 0,
+      pendingCommission = 0,
+      requestedPayout = 0,
+      availableBalance = 0,
+      convertedCount = 0,
+      visitorCount = 0,
+      registeredCount = 0;
 
   factory AffiliateStats.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const ['stats', 'statistics', 'affiliate_stats', 'affiliateStats'],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'stats',
+      'statistics',
+      'affiliate_stats',
+      'affiliateStats',
+    ]);
     return AffiliateStats(
       totalCommission: moneyToDisplayNumber(
         payload['total_commission'] ?? payload['totalCommission'],
@@ -367,21 +669,16 @@ class AffiliatePayoutPolicy {
     required this.programName,
   });
 
-  const AffiliatePayoutPolicy.empty()
-      : minimumPayout = 300,
-        programName = '';
+  const AffiliatePayoutPolicy.empty() : minimumPayout = 300, programName = '';
 
   factory AffiliatePayoutPolicy.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const [
-        'payout_policy',
-        'payoutPolicy',
-        'withdrawal_policy',
-        'withdrawalPolicy',
-        'policy',
-      ],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'payout_policy',
+      'payoutPolicy',
+      'withdrawal_policy',
+      'withdrawalPolicy',
+      'policy',
+    ]);
     return AffiliatePayoutPolicy(
       minimumPayout: moneyToDisplayNumber(
         payload['minimum_payout_amount'] ??
@@ -412,10 +709,11 @@ class AffiliateCommission {
   });
 
   factory AffiliateCommission.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const ['commission', 'affiliate_commission', 'affiliateCommission'],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'commission',
+      'affiliate_commission',
+      'affiliateCommission',
+    ]);
     return AffiliateCommission(
       id: _firstAffiliateText([
         payload['id'],
@@ -461,10 +759,12 @@ class AffiliatePayout {
   });
 
   factory AffiliatePayout.fromJson(Map<String, dynamic> json) {
-    final payload = _affiliateEntityPayload(
-      json,
-      const ['payout', 'withdrawal', 'affiliate_payout', 'affiliatePayout'],
-    );
+    final payload = _affiliateEntityPayload(json, const [
+      'payout',
+      'withdrawal',
+      'affiliate_payout',
+      'affiliatePayout',
+    ]);
     return AffiliatePayout(
       id: _firstAffiliateText([
         payload['id'],
@@ -529,10 +829,12 @@ class AffiliatePage<T> {
       payload['nextCursor'],
     ]);
     return AffiliatePage<T>(
-      items:
-          _affiliatePageRows(payload).map(itemFactory).toList(growable: false),
+      items: _affiliatePageRows(
+        payload,
+      ).map(itemFactory).toList(growable: false),
       nextCursor: nextCursor,
-      hasMore: _affiliateBool(meta['has_more'] ?? meta['hasMore']) &&
+      hasMore:
+          _affiliateBool(meta['has_more'] ?? meta['hasMore']) &&
           nextCursor.isNotEmpty,
     );
   }

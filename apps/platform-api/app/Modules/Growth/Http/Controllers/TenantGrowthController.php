@@ -147,6 +147,73 @@ class TenantGrowthController extends Controller
         return $this->tenantWrite($request, 'affiliate.update', fn (AdminSessionContext $context): array => $this->growth->updateAffiliateAccount((string) $context->activeTenantId(), $context, $affiliate_id, $request->all(), $request));
     }
 
+    public function affiliateStoreNameRequests(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'affiliate_name_review.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->growth->listAffiliateStoreNameRequests((string) $context->activeTenantId(), $request->query()))
+            : $context;
+    }
+
+    public function approveAffiliateStoreNameRequest(Request $request, string $request_id): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_name_review.manage', fn (AdminSessionContext $context): array => $this->growth->reviewAffiliateStoreNameRequest((string) $context->activeTenantId(), $context, $request_id, true, $request->all(), $request));
+    }
+
+    public function rejectAffiliateStoreNameRequest(Request $request, string $request_id): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_name_review.manage', fn (AdminSessionContext $context): array => $this->growth->reviewAffiliateStoreNameRequest((string) $context->activeTenantId(), $context, $request_id, false, $request->all(), $request));
+    }
+
+    public function affiliateTiers(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'affiliate_tier.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->growth->listAffiliateTiers((string) $context->activeTenantId()))
+            : $context;
+    }
+
+    public function updateAffiliateTier(Request $request, string $tier_code): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_tier.manage', fn (AdminSessionContext $context): array => $this->growth->updateAffiliateTier((string) $context->activeTenantId(), $context, $tier_code, $request->all(), $request));
+    }
+
+    public function affiliateTierCampaigns(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'affiliate_tier_campaign.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->growth->listAffiliateTierCampaigns((string) $context->activeTenantId(), $request->query()))
+            : $context;
+    }
+
+    public function createAffiliateTierCampaign(Request $request): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_tier_campaign.manage', fn (AdminSessionContext $context): array => $this->growth->createAffiliateTierCampaign((string) $context->activeTenantId(), $context, $request->all(), $request), 201);
+    }
+
+    public function affiliateTierCampaign(Request $request, string $campaign_id): JsonResponse
+    {
+        return $this->tenantShow($request, 'affiliate_tier_campaign.view', fn (AdminSessionContext $context): ?array => $this->growth->affiliateTierCampaign((string) $context->activeTenantId(), $campaign_id));
+    }
+
+    public function updateAffiliateTierCampaign(Request $request, string $campaign_id): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_tier_campaign.manage', fn (AdminSessionContext $context): array => $this->growth->updateAffiliateTierCampaign((string) $context->activeTenantId(), $context, $campaign_id, $request->all(), $request));
+    }
+
+    public function finalizeAffiliateTierCampaign(Request $request, string $campaign_id): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_tier_campaign.manage', fn (AdminSessionContext $context): array => $this->growth->finalizeAffiliateTierCampaign((string) $context->activeTenantId(), $context, $campaign_id, $request->all(), $request));
+    }
+
+    public function cancelAffiliateTierCampaign(Request $request, string $campaign_id): JsonResponse
+    {
+        return $this->tenantWrite($request, 'affiliate_tier_campaign.manage', fn (AdminSessionContext $context): array => $this->growth->cancelAffiliateTierCampaign((string) $context->activeTenantId(), $context, $campaign_id, $request->all(), $request));
+    }
+
     public function commissionRules(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request, 'commission_rule.view');
@@ -229,6 +296,38 @@ class TenantGrowthController extends Controller
             fn (AdminSessionContext $context): array => $this->growth->approvePayout((string) $context->activeTenantId(), $context, $payout_id, $request->all(), $request),
             200,
             $this->validator->optionalApprovalReasonErrors($request->all()),
+        );
+    }
+
+    public function payPayout(Request $request, string $payout_id): JsonResponse
+    {
+        return $this->tenantWrite(
+            $request,
+            'payout.manage',
+            fn (AdminSessionContext $context): array => $this->growth->payPayout(
+                (string) $context->activeTenantId(),
+                $context,
+                $payout_id,
+                $request->all(),
+                $request,
+            ),
+            200,
+            $this->validator->payoutPaymentErrors($request->all()),
+        );
+    }
+
+    public function rejectPayout(Request $request, string $payout_id): JsonResponse
+    {
+        return $this->tenantWrite(
+            $request,
+            'payout.manage',
+            fn (AdminSessionContext $context): array => $this->growth->rejectPayout(
+                (string) $context->activeTenantId(),
+                $context,
+                $payout_id,
+                $request->all(),
+                $request,
+            ),
         );
     }
 

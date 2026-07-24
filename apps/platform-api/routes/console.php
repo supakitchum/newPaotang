@@ -29,7 +29,14 @@ Schedule::command('reward:check --chunk=100')
 Schedule::command('commission:calculate --limit=100')
     ->everyTenMinutes()
     ->withoutOverlapping()
+    ->onOneServer()
     ->description('Calculate pending affiliate commissions in bounded chunks.');
+
+Schedule::command('affiliate-tier-campaigns:finalize --limit=25')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Activate and finalize affiliate tier campaigns at their configured times.');
 
 Schedule::command('topups:slips:prune --limit=100')
     ->daily()

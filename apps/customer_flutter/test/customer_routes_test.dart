@@ -55,6 +55,10 @@ void main() {
         '/cart',
         '/checkout',
         '/checkout/pending',
+        '/support',
+        '/support/new',
+        '/support/tickets',
+        '/support/tickets/:ticketId',
         '/tickets',
         '/tickets/search',
         '/tickets/history',
@@ -67,6 +71,7 @@ void main() {
         '/activities',
         '/activities/:slug',
         '/affiliate',
+        '/affiliate/rankings',
         '/affiliate/withdraw',
         '/affiliate/commissions',
         '/affiliate/payouts',
@@ -227,6 +232,7 @@ void main() {
       "path: '/privacy'",
       "path: '/profile/account-deletion'",
       "path: '/lottery-knowledge'",
+      "path: '/support'",
     };
 
     for (final link in expectedProfileLinks) {
@@ -312,6 +318,10 @@ void main() {
         '/purchase-history/:orderId',
         '/pin',
         '/success',
+        '/support',
+        '/support/new',
+        '/support/tickets',
+        '/support/tickets/:ticketId',
       }),
     );
   });
@@ -320,6 +330,7 @@ void main() {
     expect(isSensitiveCustomerPath('/'), isFalse);
     expect(isSensitiveCustomerPath('/news/announcement'), isFalse);
     expect(isSensitiveCustomerPath('/my-wallet'), isTrue);
+    expect(isSensitiveCustomerPath('/support/tickets/stic_123'), isTrue);
     expect(isSensitiveCustomerPath('/my-wallet?tab=summary'), isTrue);
     expect(isSensitiveCustomerPath('/tickets/claim/ticket_123'), isTrue);
     expect(isSensitiveCustomerPath('/reward-claims/claim_123'), isTrue);

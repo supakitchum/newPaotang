@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Modules\Growth\Services\AffiliateTierService;
 use Illuminate\Support\Facades\DB;
 
 trait M8GrowthFixtures
@@ -192,17 +193,52 @@ trait M8GrowthFixtures
     {
         $key = substr(sha1($suffix.$world['tenant_id']), 0, 10);
         $affiliateId = 'aff_m8_'.$key;
-        $programId = 'afp_m8_'.$key;
         $linkId = 'afl_m8_'.$key;
         $attributionId = 'aat_m8_'.$key;
-        $ruleId = 'cmr_m8_'.$key;
+        $ownerCustomerId = 'cus_aff_m8_'.$key;
+        $ownerCustomerNo = strtoupper((string) preg_replace('/[^A-Za-z0-9]+/', '', $world['tenant_id'])).strtoupper(substr($key, 0, 8));
         $affiliateCode = 'A'.substr($key, 0, 5);
         $linkCode = 'L'.substr($key, 0, 5);
+        $tiers = app(AffiliateTierService::class)->ensureTenantTiers($world['tenant_id']);
+        $programId = (string) $tiers['bronze']->id;
+        $ruleId = (string) DB::table('commission_rules')
+            ->where('tenant_id', $world['tenant_id'])
+            ->where('affiliate_program_id', $programId)
+            ->where('rule_type', 'per_ticket')
+            ->value('id');
+        DB::table('commission_rules')->where('id', $ruleId)->update([
+            'amount' => $amount,
+            'updated_at' => now(),
+        ]);
+        DB::table('affiliate_tier_rate_history')
+            ->where('tenant_id', $world['tenant_id'])
+            ->where('affiliate_program_id', $programId)
+            ->update([
+                'commission_per_ticket_amount' => $amount,
+                'effective_at' => now()->subDay(),
+                'updated_at' => now(),
+            ]);
+
+        DB::table('customers')->insert([
+            'id' => $ownerCustomerId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_no' => $ownerCustomerNo,
+            'phone' => '089'.substr($key, 0, 7),
+            'name' => 'Affiliate Owner '.$suffix,
+            'email' => 'affiliate-'.$key.'@m8.example.test',
+            'password_hash' => null,
+            'avatar_url' => null,
+            'last_login_at' => null,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         DB::table('affiliate_accounts')->insert([
             'id' => $affiliateId,
             'tenant_id' => $world['tenant_id'],
-            'customer_id' => $world['customer_id'],
+            'customer_id' => $ownerCustomerId,
+            'affiliate_program_id' => $programId,
             'code' => $affiliateCode,
             'name' => 'Affiliate '.$suffix,
             'phone' => null,
@@ -211,20 +247,6 @@ trait M8GrowthFixtures
             'wallet_balance_amount' => 0,
             'currency' => 'THB',
             'payout_profile_json' => null,
-            'metadata_json' => null,
-            'created_by_admin_id' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('affiliate_programs')->insert([
-            'id' => $programId,
-            'tenant_id' => $world['tenant_id'],
-            'code' => 'program_'.$key,
-            'name' => 'Program '.$suffix,
-            'status' => 'active',
-            'starts_at' => null,
-            'ends_at' => null,
             'metadata_json' => null,
             'created_by_admin_id' => null,
             'created_at' => now(),
@@ -261,30 +283,14 @@ trait M8GrowthFixtures
             'updated_at' => now(),
         ]);
 
-        DB::table('commission_rules')->insert([
-            'id' => $ruleId,
-            'tenant_id' => $world['tenant_id'],
-            'affiliate_program_id' => $programId,
-            'affiliate_account_id' => null,
-            'code' => 'rule_'.$key,
-            'name' => 'Rule '.$suffix,
-            'rule_type' => 'fixed_per_order',
-            'amount' => $amount,
-            'rate_bps' => 0,
-            'currency' => 'THB',
-            'status' => 'active',
-            'metadata_json' => null,
-            'created_by_admin_id' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
         return [
             'affiliate_id' => $affiliateId,
             'program_id' => $programId,
             'link_id' => $linkId,
             'attribution_id' => $attributionId,
             'rule_id' => $ruleId,
+            'owner_customer_id' => $ownerCustomerId,
+            'owner_customer_no' => $ownerCustomerNo,
         ];
     }
 }

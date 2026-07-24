@@ -19,6 +19,11 @@ The production Kubernetes secret must provide:
 - `FIREBASE_PROJECT_ID`: the Firebase project ID used by both native apps.
 - `firebase-service-account.json`: the complete service-account JSON document.
 
+Runtime configuration also exposes `CUSTOMER_PUSH_DEVICE_STALE_DAYS`. It
+defaults to `270`, matching FCM's Android inactivity expiry window. Set a
+tenant-independent operational threshold appropriate for the deployed apps,
+or set `0` to disable proactive stale-device revocation.
+
 `deploy/digitalocean/platform-api.yaml` mounts the JSON key read-only at
 `/var/run/secrets/newpaotang/firebase-service-account.json` for the API and the
 critical worker. `GOOGLE_APPLICATION_CREDENTIALS` points to that path, and the
@@ -44,14 +49,23 @@ The application scheduler must run every minute. It invokes
 `customer-notifications:recover-deliveries --limit=100`, which redispatches a
 never-dispatched or retry-due delivery, recovers a worker left in `sending`
 after its ten-minute lease, and resumes incomplete tenant news/activity
-fan-outs. Delivery rows are claimed under a database lock and fan-out jobs are
-unique by notification/cursor, so a delayed original job and a recovery job do
-not send the same push concurrently. Confirm scheduler registration after a
-deploy without printing secrets:
+fan-outs. It also revokes up to 100 active push-device rows whose
+`last_seen_at` is outside the configured inactivity window. Stale-device
+cleanup never deletes the registration or inbox data, and a later client
+registration reactivates that installation. The final update rechecks
+`last_seen_at`, so a concurrent app registration wins over cleanup. Delivery
+rows are claimed under a database lock and fan-out jobs are unique by
+notification/cursor, so a delayed original job and a recovery job do not send
+the same push concurrently. Confirm scheduler registration after a deploy
+without printing secrets:
 
 ```bash
 php artisan schedule:list | grep customer-notifications:recover-deliveries
 ```
+
+For a controlled maintenance run, `--device-limit` bounds each stale-device
+batch and `--device-stale-days` temporarily overrides configuration. Passing
+`--device-stale-days=0` leaves device registrations unchanged.
 
 ## Android Build
 

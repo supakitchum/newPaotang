@@ -18,6 +18,8 @@ class PaymentWebhookTest extends TestCase
     use M5CommerceFixtures;
     use RefreshDatabase;
 
+    private const WEBHOOK_SECRET = 'test-payment-webhook-secret-at-least-32-characters';
+
     public function test_PaymentWebhook_finalizes_external_payment_and_dedupes_provider_callback(): void
     {
         $world = $this->prepareReservedCart('par_payment_webhook', 'ten_payment_webhook', 'payment-webhook.m5.test', 'gam_payment_webhook', '0808009000', 770001);
@@ -32,6 +34,7 @@ class PaymentWebhookTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
                 'reservation_id' => $world['reservation']['id'],
                 'payment_method' => 'external_payment',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'external-checkout-main',
             ])
@@ -69,12 +72,32 @@ class PaymentWebhookTest extends TestCase
             'status' => 'reserved',
         ]);
 
-        $this->postJson('/api/v1/webhooks/payments/provider_test', [
+        $callback = [
             'id' => 'evt-payment-success',
             'event' => 'payment.succeeded',
             'reference' => $order['reference'],
             'status' => 'succeeded',
-        ], [
+        ];
+
+        $this->postJson('/api/v1/webhooks/payments/provider_test', $callback)
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'webhook_authentication_failed');
+        $this->assertDatabaseHas('orders', [
+            'id' => $order['id'],
+            'status' => 'pending_payment',
+            'payment_status' => 'pending',
+        ]);
+        $this->assertSame(0, DB::table('webhook_callbacks')->count());
+
+        $this->postSignedWebhook('/api/v1/webhooks/payments/provider_test', $callback, now()->subMinutes(10)->timestamp)
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'webhook_authentication_failed');
+
+        $this->postSignedWebhook('/api/v1/webhooks/payments/provider_spoof', $callback)
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'webhook_authentication_failed');
+
+        $this->postSignedWebhook('/api/v1/webhooks/payments/provider_test', $callback, headers: [
             'X-Request-Id' => 'req-payment-webhook',
         ])
             ->assertAccepted()
@@ -109,12 +132,7 @@ class PaymentWebhookTest extends TestCase
             ($event->payload['order_id'] ?? null) === $order['id']
             && count($event->payload['ticket_ids'] ?? []) === 1);
 
-        $this->postJson('/api/v1/webhooks/payments/provider_test', [
-            'id' => 'evt-payment-success',
-            'event' => 'payment.succeeded',
-            'reference' => $order['reference'],
-            'status' => 'succeeded',
-        ])
+        $this->postSignedWebhook('/api/v1/webhooks/payments/provider_test', $callback)
             ->assertAccepted()
             ->assertJsonPath('duplicate', true);
 
@@ -132,6 +150,7 @@ class PaymentWebhookTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
                 'reservation_id' => $world['reservation']['id'],
                 'payment_method' => 'external_payment',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'external-checkout-missing-config',
             ])
@@ -160,19 +179,24 @@ class PaymentWebhookTest extends TestCase
 
         $partnerTxnUid = (string) DB::table('payments')->where('topup_request_id', $topup['id'])->value('provider_reference');
 
-        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+        $callback = [
             'partnerTxnUid' => $partnerTxnUid,
             'reference1' => $topup['id'],
             'reference2' => 'wallet',
-        ])
+        ];
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback)
+            ->assertUnauthorized();
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $topup['id'],
+            'status' => 'processing',
+        ]);
+
+        $this->postSignedWebhook('/api/v1/webhooks/topups/deepay_kbank', $callback)
             ->assertAccepted()
             ->assertJsonPath('duplicate', false);
 
-        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
-            'partnerTxnUid' => $partnerTxnUid,
-            'reference1' => $topup['id'],
-            'reference2' => 'wallet',
-        ])
+        $this->postSignedWebhook('/api/v1/webhooks/topups/deepay_kbank', $callback)
             ->assertAccepted()
             ->assertJsonPath('duplicate', true);
 
@@ -204,11 +228,14 @@ class PaymentWebhookTest extends TestCase
                 'id' => 'tpc_'.substr(hash('sha256', $tenantId), 0, 20),
                 'status' => 'active',
                 'api_key_encrypted' => Crypt::encryptString('test-deepay-key'),
+                'webhook_secret_encrypted' => Crypt::encryptString(self::WEBHOOK_SECRET),
                 'verified_at' => now(),
                 'last_tested_at' => now(),
                 'last_test_status' => 'ok',
                 'last_error' => null,
-                'metadata_json' => json_encode([], JSON_THROW_ON_ERROR),
+                'metadata_json' => json_encode([
+                    'webhook_auth_mode' => 'hmac_sha256',
+                ], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -232,6 +259,25 @@ class PaymentWebhookTest extends TestCase
 
     private function configureExternalCheckout(string $tenantId): void
     {
+        DB::table('tenant_payment_provider_connections')->updateOrInsert(
+            ['tenant_id' => $tenantId, 'provider' => 'provider_test'],
+            [
+                'id' => 'tpc_'.substr(hash('sha256', $tenantId.':provider-test'), 0, 20),
+                'status' => 'active',
+                'api_key_encrypted' => Crypt::encryptString('test-provider-key'),
+                'webhook_secret_encrypted' => Crypt::encryptString(self::WEBHOOK_SECRET),
+                'verified_at' => now(),
+                'last_tested_at' => now(),
+                'last_test_status' => 'ok',
+                'last_error' => null,
+                'metadata_json' => json_encode([
+                    'webhook_auth_mode' => 'hmac_sha256',
+                ], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
         DB::table('tenant_payment_settings')->updateOrInsert(
             ['tenant_id' => $tenantId],
             [
@@ -255,5 +301,34 @@ class PaymentWebhookTest extends TestCase
                 'updated_at' => now(),
             ],
         );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     */
+    private function postSignedWebhook(
+        string $uri,
+        array $payload,
+        ?int $timestamp = null,
+        array $headers = [],
+    ): \Illuminate\Testing\TestResponse {
+        $content = json_encode($payload, JSON_THROW_ON_ERROR);
+        $timestamp = $timestamp ?? now()->timestamp;
+        $server = [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_WEBHOOK_TIMESTAMP' => (string) $timestamp,
+            'HTTP_X_SIGNATURE' => 'sha256='.hash_hmac(
+                'sha256',
+                $timestamp.'.'.$content,
+                self::WEBHOOK_SECRET,
+            ),
+        ];
+        foreach ($headers as $key => $value) {
+            $server['HTTP_'.strtoupper(str_replace('-', '_', $key))] = $value;
+        }
+
+        return $this->call('POST', $uri, [], [], [], $server, $content);
     }
 }

@@ -4,8 +4,10 @@ type RealtimeValue<T> = T | { value: T }
 
 type AdminRealtimeSubscriptionOptions = {
   channelName: RealtimeValue<string>
-  eventName: string
+  eventName: string | string[]
   enabled?: RealtimeValue<boolean>
+  connection?: RealtimeValue<{ url?: string, key?: string, client?: string } | null>
+  authorize?: (socketId: string, channelName: string) => Promise<any>
   onEvent: (payload: any) => void
   onReconnect?: () => void
   reconnectDelayMs?: number
@@ -19,8 +21,10 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
   const error = ref('')
   const lastConnectedAt = ref('')
   const lastEventAt = ref('')
-  const realtimeUrl = computed(() => String(config.public.adminRealtimeUrl || '').trim())
-  const realtimeKey = computed(() => String(config.public.adminRealtimeKey || 'newpaotang-admin').trim() || 'newpaotang-admin')
+  const connection = computed(() => options.connection === undefined ? null : readRealtimeValue(options.connection))
+  const realtimeUrl = computed(() => String(connection.value?.url || config.public.adminRealtimeUrl || '').trim())
+  const realtimeKey = computed(() => String(connection.value?.key || config.public.adminRealtimeKey || 'newpaotang-admin').trim() || 'newpaotang-admin')
+  const realtimeClient = computed(() => String(connection.value?.client || 'newpaotang-bo').trim() || 'newpaotang-bo')
   const isConfigured = computed(() => Boolean(realtimeUrl.value))
   const channelName = computed(() => readRealtimeValue(options.channelName).trim())
   const enabled = computed(() => options.enabled === undefined ? true : Boolean(readRealtimeValue(options.enabled)))
@@ -70,7 +74,7 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
     status.value = reconnecting ? 'reconnecting' : 'connecting'
 
     try {
-      socket = new WebSocket(buildRealtimeSocketUrl(realtimeUrl.value, realtimeKey.value))
+      socket = new WebSocket(buildRealtimeSocketUrl(realtimeUrl.value, realtimeKey.value, realtimeClient.value))
     } catch (err: any) {
       error.value = readableRealtimeError(err)
       status.value = 'error'
@@ -147,7 +151,8 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
       return
     }
 
-    if (normalizeEventName(message.event) === normalizeEventName(options.eventName)) {
+    const expectedEvents = Array.isArray(options.eventName) ? options.eventName : [options.eventName]
+    if (expectedEvents.some(eventName => normalizeEventName(message.event) === normalizeEventName(eventName))) {
       lastEventAt.value = new Date().toISOString()
       options.onEvent(parseRealtimeData(message.data))
     }
@@ -160,17 +165,9 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
 
     status.value = 'authenticating'
     try {
-      const tenantChannel = channelName.value.startsWith('private-admin.tenant.') || channelName.value.startsWith('presence-admin.tenant.')
-      const authorization = await api.apiFetch(tenantChannel ? '/admin/tenant/realtime/auth' : '/admin/central/realtime/auth', {
-        method: 'POST',
-        scope: tenantChannel ? 'tenant' : 'central',
-        tenantId: tenantChannel ? session.currentTenantId.value : undefined,
-        body: {
-          socket_id: socketId,
-          channel_name: channelName.value,
-        },
-        successMessage: false,
-      })
+      const authorization = options.authorize
+        ? await options.authorize(socketId, channelName.value)
+        : await authorizeAdminChannel()
       if (activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN) {
         return
       }
@@ -192,6 +189,20 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
       }
       scheduleReconnect()
     }
+  }
+
+  async function authorizeAdminChannel() {
+    const tenantChannel = channelName.value.startsWith('private-admin.tenant.') || channelName.value.startsWith('presence-admin.tenant.')
+    return api.apiFetch(tenantChannel ? '/admin/tenant/realtime/auth' : '/admin/central/realtime/auth', {
+      method: 'POST',
+      scope: tenantChannel ? 'tenant' : 'central',
+      tenantId: tenantChannel ? session.currentTenantId.value : undefined,
+      body: {
+        socket_id: socketId,
+        channel_name: channelName.value,
+      },
+      successMessage: false,
+    })
   }
 
   function markConnected() {
@@ -298,7 +309,7 @@ const parseRealtimeData = (raw: any) => {
   }
 }
 
-const buildRealtimeSocketUrl = (baseUrl: string, key: string) => {
+const buildRealtimeSocketUrl = (baseUrl: string, key: string, client = 'newpaotang-bo') => {
   let url = baseUrl.trim().replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
   if (!url.includes('/app/')) {
     url = `${url.replace(/\/$/, '')}/app/${encodeURIComponent(key)}`
@@ -309,7 +320,7 @@ const buildRealtimeSocketUrl = (baseUrl: string, key: string) => {
     return url
   }
 
-  return `${url}${separator}protocol=7&client=newpaotang-bo&version=1.0&flash=false`
+  return `${url}${separator}protocol=7&client=${encodeURIComponent(client)}&version=1.0&flash=false`
 }
 
 const readableRealtimeError = (err: any) => (

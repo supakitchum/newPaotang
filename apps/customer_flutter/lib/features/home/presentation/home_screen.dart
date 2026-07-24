@@ -9,6 +9,7 @@ import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
@@ -34,6 +35,7 @@ import '../../../features/results/data/result_repository.dart';
 import '../../../features/results/presentation/result_widgets.dart';
 import '../../../features/wallet/data/wallet_repository.dart';
 import '../../notifications/data/customer_notification_repository.dart';
+import '../../support/data/support_repository.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -634,6 +636,8 @@ class _HomeNavbarContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final supportEnabled = mobileCustomerRouteAllowed(bootstrap, '/support');
     final wallet = ref.watch(walletSummaryProvider);
     final amount = wallet.maybeWhen(
       data: (summary) => formatBahtForLocale(
@@ -653,14 +657,89 @@ class _HomeNavbarContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 14),
+        if (supportEnabled) ...[
+          const _HomeSupportButton(),
+          const SizedBox(width: 2),
+        ],
+        const _HomeNotificationButton(),
+        const SizedBox(width: 2),
         _HomeWalletBalanceButton(
           label: l10n.commonWalletBalance,
           amount: amount,
           onTap: () => context.go('/my-wallet'),
         ),
-        const SizedBox(width: 2),
-        const _HomeNotificationButton(),
       ],
+    );
+  }
+}
+
+class _HomeSupportButton extends ConsumerWidget {
+  const _HomeSupportButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final count = ref
+        .watch(supportUnreadCountProvider)
+        .maybeWhen(data: (value) => value, orElse: () => 0);
+    final label = count > 99 ? '99+' : '$count';
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    return Semantics(
+      button: true,
+      label: l10n.support('home.tooltip'),
+      child: SizedBox.square(
+        dimension: 44,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IconButton(
+                key: const ValueKey('home-header-support'),
+                tooltip: l10n.support('home.tooltip'),
+                onPressed: () => context.go('/support'),
+                icon: Icon(
+                  Icons.headset_mic_outlined,
+                  color: onPrimary,
+                  size: 23,
+                ),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(44),
+                  minimumSize: const Size.square(44),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+            if (count > 0)
+              Positioned(
+                top: 2,
+                right: 0,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFED2C25),
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: onPrimary, width: 1.5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1885,7 +1964,7 @@ class _HomeResultSection extends StatelessWidget {
           path: '/result',
         ),
         data: (bundle) {
-          final selected = bundle.selectedResult;
+          final selected = _homeResultForDisplay(bundle);
           if (selected == null) {
             return _FeatureLinkCard(
               icon: Icons.emoji_events_outlined,
@@ -1900,6 +1979,29 @@ class _HomeResultSection extends StatelessWidget {
       ),
     );
   }
+}
+
+RewardResultGame? _homeResultForDisplay(RewardResultBundle bundle) {
+  final selected = bundle.selectedResult;
+  if (!_homeCurrentGameIsSelling(bundle.currentGame)) return selected;
+
+  for (final result in [if (selected != null) selected, ...bundle.history]) {
+    if (result.hasResolvedResult) return result;
+  }
+  return selected;
+}
+
+bool _homeCurrentGameIsSelling(CurrentGame? game) {
+  if (game == null) return false;
+  const sellingStatuses = {'open', 'active', 'selling', 'sale', '1'};
+  if (!sellingStatuses.contains(game.status.trim().toLowerCase())) return false;
+
+  final now = parseDateTime(game.serverTime) ?? DateTime.now();
+  final saleStartAt = parseDateTime(game.saleStartAt);
+  final saleCloseAt = parseDateTime(game.saleCloseAt);
+  if (saleStartAt != null && now.isBefore(saleStartAt)) return false;
+  if (saleCloseAt != null && !now.isBefore(saleCloseAt)) return false;
+  return true;
 }
 
 class _NewsRail extends StatefulWidget {

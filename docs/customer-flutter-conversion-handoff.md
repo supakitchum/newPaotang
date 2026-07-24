@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-07-17
+Last updated: 2026-07-24
 
 ## Objective
 
@@ -114,13 +114,27 @@ Important Flutter primitives:
 | Theme/localization foundation | 85% | 15% |
 | Social login generic Flutter routes | 97% | 3% |
 | Biometric client/server foundation | 70% | 30% |
-| Native screen security foundation/preflight | 75% | 25% |
+| Native screen security foundation/preflight | 82% | 18% |
 | Store readiness privacy/account deletion | 76% | 24% |
 | API surface audit against Nuxt | 97% | 3% |
 | Production preflight tool | 97% | 3% |
 
 Recent verified work:
 
+- iOS sensitive-route capture protection now activates before a screenshot is
+  requested instead of relying only on
+  `UIApplication.userDidTakeScreenshotNotification`, which iOS emits after the
+  image is saved. The Flutter root layer is hosted in a secure text-rendering
+  container while native screen security is enabled, with an independent black
+  backdrop so omitted secure content renders black in captured output. Active
+  recording/mirroring and app-switcher privacy fallback now use a full black
+  overlay with no application copy or UI. Disabling the sensitive route restores
+  the original root layer, and runtime `none`/`off`/`disabled` policy still
+  disables native protection. Production preflight now release-gates the secure
+  container and black fallback. The iOS Simulator debug build completed
+  successfully; saved-image behavior on a physical iPhone remains a manual QA
+  item because screenshot automation was intentionally not added. No database,
+  clear-worktree, commit, or push process was used.
 - Privacy and Terms now use the compact title-only shared header and an
   unframed white reading surface. The former repeated runtime title/site
   sub-header, section pill, rounded card, and card shadow were removed. Runtime
@@ -10397,3 +10411,438 @@ Customer notification inbox concurrency and queue recovery follow-up
   logout revocation must pass on physical iOS and Android. The iPhone signing
   identity, physical Android device, and real Firebase/APNs credentials remain
   external prerequisites before this goal can be marked complete.
+
+Customer notification native device-context follow-up (2026-07-21):
+
+- Flutter native FCM registration now sends the installed app version/build,
+  device model, OS version, and physical/simulator diagnostic flag through the
+  existing `app_version`, `device_name`, and `metadata` API fields. The client
+  does not send hardware identifiers or a user-assigned device identifier, and
+  failure to read optional package/device diagnostics cannot prevent token
+  registration.
+- The lifecycle registration signature includes device context, so an app
+  upgrade refreshes server diagnostics even when the installation ID and FCM
+  token remain unchanged. Focused Flutter coverage confirms the exact payload,
+  token refresh, resume retry, notification tap, read-before-navigation, and
+  logout cleanup behavior.
+- Verification passed full `flutter analyze --no-pub`, 14 focused notification
+  tests plus 98 Home/router/production-preflight regressions, Android Debug
+  APK, iOS Debug Simulator, Flutter Web Debug, Back Office lint/test, and the
+  full backend `CustomerNotificationTest` suite with 14 tests and 146
+  assertions. Every database test command first resolved the effective
+  database as `newpaotang_test`; runtime DB `newpaotang` was not touched. No
+  screenshot automation was used.
+- Physical acceptance was rechecked. The iPhone `Dank12` remains visible but
+  the host still has zero valid code-signing identities, ADB has no physical
+  Android device, native Firebase configuration files are absent, and
+  `FIREBASE_PROJECT_ID`/ADC are not configured in the current environment.
+  Real foreground/background/terminated FCM, permission denial, token refresh,
+  Login/PIN tap, and logout revocation therefore remain external blockers and
+  this goal stays active.
+- The worktree intentionally remains dirty with this follow-up. No commit,
+  push, clear-worktree, runtime database mutation, or screenshot automation was
+  performed.
+
+Customer notification stale-device maintenance follow-up (2026-07-21):
+
+- Scheduled `customer-notifications:recover-deliveries` maintenance now also
+  soft-revokes bounded batches of active push registrations whose
+  `last_seen_at` exceeds `CUSTOMER_PUSH_DEVICE_STALE_DAYS`. The runtime default
+  is 270 days, matching FCM's Android inactivity expiry window, and `0`
+  disables cleanup. The update rechecks freshness so a concurrent app
+  registration wins; no device row, delivery history, or inbox record is
+  deleted, and later registration reactivates the installation. Flutter also
+  refreshes an unchanged registration every 30 days on app resume, preventing
+  a long-lived process from being mistaken for an inactive installation.
+- Added a separate composite stale-device index migration instead of changing
+  the original notification schema migration. Platform env/configmap examples
+  and the deployment runbook now document the threshold, per-run limit,
+  temporary command override, disable behavior, and reactivation semantics.
+- Flutter regression coverage now verifies deterministic device-context
+  signatures, one-time optional diagnostic loading, and preservation of app/
+  device metadata on an FCM token refresh. These checks run without a
+  simulator or physical device.
+- Verification passed full Flutter analysis, 16 focused Flutter notification
+  tests, the complete backend `CustomerNotificationTest` suite with 15 tests
+  and 157 assertions, migration syntax, Kubernetes kustomize rendering, and
+  `git diff --check`. The backend command first resolved the effective database
+  as `newpaotang_test`; runtime DB `newpaotang` was not touched.
+- Per owner direction, physical-device execution is skipped for this pass.
+  Real iOS/Android FCM acceptance remains open and the notification goal must
+  not be marked complete. No commit, push, clear-worktree, runtime database
+  mutation, or screenshot automation was performed.
+
+Customer notification privacy and delivery-history follow-up (2026-07-21):
+
+- Native device registration now enforces its privacy contract on the server,
+  not only in the Flutter loader. The API accepts a bounded allowlist of app
+  build, OS, SDK, manufacturer/model/machine, and physical/simulator fields;
+  unknown keys such as hardware identifiers, invalid types, and oversized
+  values return validation errors and are never stored. OpenAPI and the API map
+  describe the same closed metadata contract.
+- Flutter Firebase startup now treats foreground local-notification setup,
+  channel creation, presentation options, launch-detail reads, and banner
+  display as optional contained steps. A failure in those paths no longer
+  disables remote FCM registration or background delivery, while foreground
+  inbox/count refresh remains authoritative.
+- Tenant Back Office history now reports all-device totals and sent/pending/
+  failed counts, uses `partial` when devices have different outcomes, and
+  surfaces the newest safe failure code even if another device sent
+  successfully. A Back Office production guard enforces that presentation.
+- Verification passed full Flutter analysis, 16 notification tests plus 68
+  production-preflight tests, backend `CustomerNotificationTest` with 17 tests
+  and 173 assertions on verified `newpaotang_test`, and Back Office lint,
+  static test, and production build. OpenAPI YAML parsing, all 269 internal
+  reference resolutions, migration syntax, and `git diff --check` also passed.
+  Physical execution remains intentionally deferred, runtime DB `newpaotang`
+  was not touched, and no commit, push, clear-worktree, or screenshot
+  automation action was used.
+
+Customer notification simulator and mock-FCM hardening follow-up (2026-07-21):
+
+- Flutter now normalizes optional package/device diagnostics to the exact
+  server allowlist and Unicode-safe field limits before device registration.
+  Unknown identifiers are dropped and invalid SDK/physical-device values are
+  omitted, so unusually long OS or package metadata cannot reject an otherwise
+  valid FCM token. Production preflight now guards the diagnostic dependencies,
+  loader binding, normalization, and privacy fields.
+- The native push test seam now accepts raw mocked `RemoteMessage` foreground
+  and tap streams. Coverage proves FCM payload parsing, foreground inbox event
+  emission, tap emission, local-banner failure containment, and background
+  handler safety when native Firebase configuration is unavailable.
+- Verification passed full `flutter analyze --no-pub`, 19 notification tests
+  plus 68 production-preflight tests, current Android Debug APK, iOS Debug
+  Simulator, and Flutter Web Debug builds, and `git diff --check`. The built
+  iOS app was installed and launched on an iPhone 17 Pro iOS 26.5 Simulator;
+  its process remained alive after startup without Firebase configuration.
+- Android emulator runtime launch was attempted without touching the connected
+  physical Android device. The Pixel API 33 AVD booted and accepted the APK but
+  remained `RUNNING_LOCKED` behind an existing unknown credential; the Nexus
+  API 23 AVD has no usable initial system image. Neither AVD was wiped or
+  modified to bypass its lock. Physical-device execution remains deferred.
+- Backend 17/173 on verified `newpaotang_test`, Back Office lint/test/build,
+  OpenAPI parsing/reference resolution, and migration syntax remain green from
+  the unchanged backend/Back Office portion of this worktree. Runtime DB
+  `newpaotang` was not touched. No commit, push, clear-worktree, or screenshot
+  automation action was performed, and real-device FCM acceptance remains open.
+
+Customer notification atomic admin-send follow-up (2026-07-21):
+
+- Tenant-admin direct notification creation and its audit write now share one
+  database transaction. If audit storage fails, notification, recipient, and
+  initial delivery rows roll back together; realtime creation events are
+  deferred until commit and push jobs keep their existing after-commit
+  behavior.
+- The direct-send audit now records the actor/tenant/customer target, request
+  ID, SHA-256 content fingerprint, allowlisted action destination, and
+  `accepted` outcome. It does not retain localized title/body plaintext or any
+  FCM/provider token. Regression coverage proves both the safe successful
+  audit payload and complete rollback under a simulated audit failure.
+- The Back Office static production gate now also protects the customer-detail
+  `Send notification` action, its `customer_id` route handoff, and tenant-scoped
+  composer preselection, in addition to the existing composer/history checks.
+- Verification passed the complete backend `CustomerNotificationTest` suite
+  with 18 tests and 190 assertions after the command verified
+  `DB_DATABASE=newpaotang_test`; Back Office lint and static test also passed.
+  An initial concurrent migration attempt deadlocked only inside the test
+  database and the clean single follow-up run passed. Runtime DB `newpaotang`
+  was not touched. Physical-device execution remains deferred, and no commit,
+  push, clear-worktree, or screenshot automation action was performed.
+
+Customer notification logout-race and lock-screen privacy follow-up
+(2026-07-21):
+
+- Flutter now serializes FCM token-refresh registration with initial/resume
+  lifecycle sync. Explicit logout clears pending navigation/registration state,
+  waits for any in-flight registration, then revokes the server installation
+  before deleting the local FCM token. This closes the race where a delayed
+  token-refresh POST could finish after revoke and reactivate push for a logged
+  out installation.
+- Added a deterministic widget regression that pauses token-refresh
+  registration, starts logout, proves revoke/delete remain pending, then
+  verifies the final operation order is refreshed registration, server revoke,
+  and local token deletion. Production preflight now requires both queueing and
+  wait-before-revoke source bindings, with a dedicated negative fixture.
+- Direct tenant-admin messages still expose their full localized title/body in
+  the authenticated inbox, but FCM lock-screen notification text is now a
+  generic localized new-message preview. A backend regression submits an OTP,
+  account number, and amount as message content and proves none enters the FCM
+  notification block while the safe action destination remains intact.
+- Verification passed full `flutter analyze --no-pub`, 20 focused notification
+  lifecycle/model/inbox tests, 69 production-preflight tests, and the complete
+  backend `CustomerNotificationTest` suite with 19 tests and 200 assertions on
+  explicitly verified `newpaotang_test`. PHP syntax and `git diff --check`
+  passed. Runtime DB `newpaotang` was not touched; physical-device execution
+  remains deferred, and no commit, push, clear-worktree, or screenshot
+  automation action was performed.
+
+Customer notification resume-reconciliation and cursor-index follow-up
+(2026-07-21):
+
+- Flutter now invalidates the authoritative unread-count provider and advances
+  the inbox refresh signal whenever the app resumes. This recovers notifications
+  missed while the realtime socket/process was suspended even when the customer
+  returns through the app icon instead of tapping the push.
+- Added tenant/customer/recipient cursor and unread-cursor composite indexes to
+  match the inbox's actual newest-first access pattern. API regression coverage
+  now proves two-page cursor ordering without overlap, category/unread filters,
+  stable repeated read timestamps, idempotent read-all, and server-owned unread
+  counts.
+- Push-device ownership coverage now moves one installation between customers
+  and proves a customer with no matching row receives 404, the previous owner's
+  revoke cannot affect the current owner, and only the current owner can revoke
+  the active registration.
+- Verification passed 20 focused Flutter notification lifecycle/model/inbox
+  tests plus 69 production-preflight tests (89 combined), and the complete
+  backend `CustomerNotificationTest` suite with 21 tests and 238 assertions
+  after the command verified `DB_DATABASE=newpaotang_test`. Runtime DB
+  `newpaotang` was not touched. Physical-device execution remains deferred per
+  owner instruction, and no commit, push, clear-worktree, or screenshot
+  automation action was performed.
+
+Customer notification current-artifact no-device verification follow-up
+(2026-07-21):
+
+- Re-audited the current FCM HTTP v1 payload and native wiring against the
+  notification goal. Delivery carries both an OS-visible localized
+  `notification` block and allowlisted notification/action IDs in `data`;
+  Android declares permission/channel/icon, iOS declares APNs entitlement and
+  remote-notification background mode, and Release Firebase files remain
+  secret-injected and build-gated rather than checked in or runtime-DB backed.
+- Fresh builds from the current worktree passed for Flutter Web Debug (including
+  Wasm dry run), Android Debug APK, and iOS Debug Simulator with no signing or
+  physical-device use. Xcode emitted only Flutter's advisory that the remaining
+  CocoaPods integration can be migrated to Swift Package Manager; the build
+  completed successfully.
+- Back Office lint, static tests, and production Nuxt build passed again. Nuxt
+  emitted existing non-blocking warnings for the fallback Nitro compatibility
+  date and large client chunks; the customer notification page produced its
+  own production CSS chunk and the server bundle completed.
+- Physical iOS/Android FCM delivery remains the only mandatory external
+  acceptance matrix and is intentionally deferred per owner instruction. Goal
+  status therefore remains active. Runtime DB `newpaotang` was not touched,
+  and no commit, push, clear-worktree, or screenshot automation action was
+  performed.
+
+Checkout mandatory PIN confirmation hotfix (2026-07-21):
+
+- Flutter Checkout now opens the shared `PinConfirmationStep` whenever the
+  customer presses confirm and does not call affiliate or checkout APIs until
+  all six PIN digits are entered. Biometric confirmation is intentionally
+  disabled for this payment gate so every checkout requires PIN entry.
+- `POST /customer/checkout` now requires `pin` (or a supported single-use PIN
+  assertion) and validates it server-side before entering the order/payment
+  transaction. Missing or invalid PIN cannot create an order, convert a
+  reservation, or debit the wallet; PIN errors remain on the inline PIN screen
+  so the customer can retry without rebuilding the cart.
+- Focused Flutter analysis and wallet/external/error checkout tests passed.
+  Backend missing/invalid-PIN and successful idempotent wallet-checkout tests
+  passed after explicitly verifying `DB_DATABASE=newpaotang_test`. Runtime DB
+  `newpaotang` was not touched, and no commit, push, or clear-worktree action
+  was performed.
+
+Home latest-published result during active sale (2026-07-22):
+
+- The Home result card now detects an actively selling current game from its
+  runtime status and sale window. When that game's selected result is still
+  unresolved, Home displays the first resolved result from the latest
+  published history returned in the same result bundle.
+- This is Home-only presentation behavior. The current game remains available
+  to the hero and `/result` flow, and an available current live result still
+  takes priority. All 10 Home widget tests pass, including active-sale fallback
+  and existing live-result coverage. No runtime DB action was performed.
+
+Affiliate referral navigation split (2026-07-22):
+
+- Removed the referral link and QR surface from the Affiliate overview so that
+  the overview only presents the store summary and performance statistics.
+- Added a dedicated `/affiliate/referral` page and a runtime-localized Referral
+  item to the Affiliate bottom navigation. The page reuses the existing
+  API-provided referral URL/code, QR rendering, and copy action.
+- Affiliate navigation and customer-route registry tests pass across all five
+  Affiliate destinations. No runtime DB, commit, push, or clear-worktree action
+  was performed.
+
+Affiliate store approval, per-ticket tiers, and campaign evaluation
+(2026-07-22):
+
+- Added the non-destructive schema and domain model for Bronze, Silver, Gold,
+  Platinum, and Diamond tiers; store-name requests/claims; fixed-threshold and
+  ranking campaigns; reconciled ticket stats; frozen results; and tier history.
+  Existing accounts migrate to Bronze, legacy/VIP commission rules are archived,
+  unique old names remain approved, and duplicate old names enter the review
+  queue. On explicit owner instruction, both non-destructive migrations were
+  subsequently executed against the verified runtime database `newpaotang` in
+  batch 5; the tenant has all five tiers and no Affiliate account lacks a tier.
+- Affiliate registration now grants a Bronze referral link and commission
+  eligibility immediately while the store name stays pending. Public stores
+  require an active account and approved name. Pending names reserve their
+  normalized Unicode/case-folded value, changes use a three-month approval
+  cooldown, and BO approve/reject actions produce customer notifications.
+- Commission is now `paid ticket count x tier rate per ticket`; transaction
+  rows snapshot tier, ticket count, and rate. Delayed commission work resolves
+  the tier effective at order payment time, and active links follow the account
+  tier automatically. Generic BO commission rules cannot create, edit, or
+  archive the system per-ticket tier rules.
+- Fixed campaigns apply the highest configured threshold to every active
+  Affiliate and may increase or reduce a tier. Ranking campaigns rank sellers
+  only, break ties by time reaching the final count and then Affiliate code,
+  and never reduce a tier. Cancelled/refunded orders are excluded before
+  finalize; completed results are frozen and idempotent.
+- BO now includes store-name review, Tier configuration, and campaign list/
+  detail-preview/create/update/finalize/cancel operations with owner-role menu
+  backfill. Flutter Affiliate overview shows review state, current Tier,
+  commission per ticket, minimum withdrawal, campaign ticket count, rank,
+  projected Tier, and the fixed-campaign downgrade warning.
+- Redesigned the Flutter Affiliate overview around one store/Tier identity
+  panel, a compact performance summary, and responsive campaign cards. Active
+  cards calculate progress from runtime rules, show the next threshold or
+  competition rank, and expose the configured criteria plus a leaderboard
+  preview without hardcoded ticket thresholds. Both fixed-threshold downgrade
+  messaging and ranking promotion behavior remain visible at 320px width.
+- Reworked that identity panel into a responsive Affiliate Member card using
+  five generated, transparent 384px cartoon-style rosette badges for Bronze
+  through Diamond. The friendlier 2.5D artwork avoids rank shields and game UI;
+  tier name, store state, commission per ticket, and minimum payout remain
+  API-rendered text. The card gradient and shadow now follow the current Tier:
+  copper Bronze, silver gray, gold, blue-gray Platinum, or blue Diamond.
+- Moved campaign content off the overview into `/affiliate/campaigns` while
+  leaving a compact live summary and entry action on overview. The dedicated
+  page displays threshold progress, configured tier rules with badge artwork,
+  downgrade messaging, and a responsive competition table with top-three
+  medal treatment plus a highlighted current-Affiliate row.
+- Tier-campaign progress and leaderboard content no longer appear on the
+  Affiliate overview. The overview is limited to member/store identity and
+  performance totals; all campaign standings live under the Ranking menu.
+- The Profile identity header now reuses the live Affiliate overview to show a
+  compact current-Tier badge beside the customer name. Non-Affiliate customers
+  and contained Affiliate load failures leave the existing Profile header
+  unchanged.
+- Affiliate bottom navigation is now ordered Overview, Ranking, Referral,
+  Commissions, and Withdraw. The old History destination remains a compatible
+  route alias but is no longer a menu item; Withdraw contains segmented
+  Withdraw/History views and opens History after a successful payout request.
+- The Ranking destination selects the latest active Tier campaign, or the most
+  recent completed result when none is active. It shows a stable top-three
+  podium with approved store names and ticket points, then groups the complete
+  leaderboard into Tier sections derived from the campaign's runtime threshold
+  or rank rules. Legacy `/affiliate/campaigns` deep links remain compatible with
+  the new `/affiliate/rankings` page.
+- Focused verification passed backend Affiliate campaign/customer commission
+  and partner provisioning coverage (15 tests, 439 assertions) on
+  `newpaotang_test`, Flutter Affiliate analyze plus 5 widget tests, BO
+  lint/static test, PHP syntax, and `git diff --check`. No commit, push,
+  clear-worktree, or screenshot automation action was performed.
+
+Isolated Customer Support service and Flutter/BO workflow (2026-07-23):
+
+- Added `apps/support-api` as an independent Laravel service with its own
+  Postgres (`newpaotang_support` runtime and `newpaotang_support_test` tests),
+  Valkey, worker, scheduler, private attachment storage, and Reverb app. It has
+  no Platform/Order DB connection or cross-database foreign key, and Commerce
+  has no dependency on Support.
+- Platform now brokers ten-minute RS256 Support sessions at
+  `POST /customer/support-session` and
+  `POST /admin/tenant/support-session`. Support verifies the public key and
+  persists only tenant/actor snapshots. Admin tokens contain only the Support
+  permissions resolved from the selected tenant scope.
+- Support implements tenant categories/FAQs/feedback, one-open-ticket
+  enforcement, immutable messages and attachments, cursor/sequence pagination,
+  read receipts, customer/admin close, one-time rating, FIFO assignment,
+  availability heartbeat/capacity, assignment history, audit records, tenant
+  settings/reports, idempotency records, and an asynchronous notification
+  outbox. Every tenant receives a non-destructive runtime-editable “อื่นๆ” /
+  `Other` fallback category.
+- Notification defaults are localized runtime content, keyed by dotted event
+  names without Laravel dot-notation loss. Support signs outbox requests with
+  HMAC and Platform deduplicates them before creating the normal Customer
+  Notification/FCM delivery. Events cover agent message, assignment,
+  waiting-customer, close, and rating prompt.
+- Flutter now has `/support`, `/support/new`, `/support/tickets`, and
+  `/support/tickets/:ticketId`, a Home headset/unread badge before the bell,
+  and Profile Help Center navigation. Support pages omit BottomNav, use dynamic
+  back fallback, runtime theme/localization, active-ticket and FAQ states,
+  three-step draft-preserving ticket creation, active/closed history,
+  queue/agent state, immutable chat with multi-image progress/retry, read state,
+  new-message affordance, close confirmation, and deferred one-time rating.
+- Customer and BO clients connect to the isolated Support Reverb channels and
+  refetch authoritative records on ID/status events. Bounded polling remains
+  active only as fallback. All mutation retries preserve their original
+  idempotency key across a broker-token refresh.
+- Back Office `/admin/tenant/support` now provides My Tickets, Queue, All,
+  Closed, Agents, FAQ/category management, tenant limits/settings, Reports,
+  availability/heartbeat, assignment, chat, waiting-customer, and close flows.
+  RBAC introduces `support` and `master_support`; a normal Support agent sees
+  only assigned work while master permissions can see/reassign the tenant
+  queue and manage configuration.
+- Contracts and deployment boundaries are documented in
+  `apps/support-api/README.md`, `apps/support-api/openapi.yaml`,
+  `docs/customer-support-service.md`, `docs/customer-api-integration-map.md`,
+  and the Platform `docs/openapi.yaml`.
+- Follow-up hardening made read receipts monotonic across devices, excludes an
+  actor's own messages from unread totals, enforces strict FIFO queue position,
+  makes concurrent idempotency claims atomic, opens an outbox circuit after
+  repeated server failures, and records assignment/settings/rating changes in
+  Support audit logs without chat content. Per-agent capacity is runtime
+  editable, while availability still requires the agent's own fresh heartbeat.
+- Platform RBAC regression coverage now locks `support` to assigned-ticket
+  view/reply/close permissions. `master_support` owns queue-wide view,
+  assignment, Agent, FAQ/settings, and report permissions. The Platform broker
+  HTTP tests also verify feature-flag gating, tenant-scoped RS256 claims,
+  ten-minute expiry, runtime REST/Reverb endpoints, and permission-filtered
+  channels.
+- Final implementation verification passed all 22 Support tests with 154
+  assertions on isolated `newpaotang_support_test`; 11 Platform broker, RBAC,
+  token, and HMAC ingress tests with 153 assertions on explicitly verified
+  `newpaotang_test`; and 61 focused Flutter Support/route/notification/Home/
+  Profile tests plus full-project analysis. BO lint/static test/production
+  build, Flutter Web release, Android debug APK, iOS Simulator debug, Support
+  Docker image, Compose config, production Kustomize render, deployment YAML,
+  and Support OpenAPI validation all passed. Android release intentionally
+  remains blocked until the deployment pipeline injects its private Firebase
+  `google-services.json`.
+- With every Support compose service stopped, the full Customer Checkout suite
+  passed 7 tests and 140 assertions on `newpaotang_test`, confirming the Order
+  path has no Support runtime dependency. The Affiliate commission assertion
+  was aligned with the current Bronze snapshot of one ticket at 1 baht rather
+  than the retired percentage-style expectation.
+- Runtime migrations for `newpaotang_support` were not run and neither runtime
+  database was touched. Physical-device push delivery and production load
+  comparison remain rollout acceptance work; no screenshot automation,
+  commit, push, or clear-worktree action was performed.
+- Support browser CORS and Reverb origins are runtime allowlists rather than
+  wildcards. Production manifests now include the isolated API, worker,
+  scheduler, Reverb, ingress, PDB, and API HPA. The production workflow always
+  builds the Support image but leaves Support workloads untouched on normal
+  branch pushes; rollout requires manual `deploy_support=true`, and the
+  isolated schema additionally requires manual
+  `run_support_migration=true`.
+- On explicit owner instruction on 2026-07-23, Customer Support was activated
+  on the local runtime. The isolated Support schema ran against the verified
+  `newpaotang_support` database in batch 1; only the two Support broker/RBAC
+  migrations ran against verified `newpaotang` in batch 6. The
+  `customer_support` flag is enabled for tenant `pchoke1`, and the Support
+  tenant, fallback category/settings, existing customer, and existing owner
+  admin were provisioned through authenticated Support bootstrap.
+- Local Support API, worker, scheduler, Reverb, Postgres, and Valkey are
+  running. Customer Flutter Web was rebuilt and Platform/BO/proxy were
+  recreated with Support config. Readiness, CORS, customer/admin bootstrap,
+  queue/scheduler execution, and WebSocket connection establishment passed.
+  The final isolated suite passes 25 tests and 160 assertions on
+  `newpaotang_support_test`. No fresh/wipe/reset operation was used.
+
+Automatic Face ID/Biometric PIN unlock (2026-07-24):
+
+- The global `/pin` screen now waits for the authoritative PIN-status refresh,
+  then automatically starts native Face ID/Biometric verification when the
+  tenant runtime policy enables it and the current native device has an
+  existing biometric key. Customers no longer need to tap the biometric action
+  before scanning.
+- Automatic verification runs at most once per PIN-screen visit. Missing,
+  revoked, unsupported, cancelled, or failed biometric credentials leave the
+  normal keypad available as a silent fallback and do not create a repeated
+  prompt loop. PIN setup mode and Flutter Web never auto-prompt.
+- Focused biometric/PIN verification passed 64 tests, the existing PIN policy
+  regression passed 3 tests, AuthController regression passed 11 tests, focused
+  analysis reported no issues, and `git diff --check` passed. No runtime
+  database, commit, push, or clear-worktree action was performed.

@@ -1,0 +1,631 @@
+openapi: 3.1.0
+info:
+  title: NewPaotang Isolated Customer Support API
+  version: 0.1.0
+  description: |
+    Tenant-isolated Support REST contract. Authentication uses the short-lived
+    RS256 token returned by the Platform Support session broker.
+servers:
+  - url: /support-api/v1
+security:
+  - supportBearer: []
+tags:
+  - name: Customer Support
+  - name: Support Admin
+  - name: Support Realtime
+paths:
+  /customer/bootstrap:
+    get:
+      tags: [Customer Support]
+      summary: Load tenant settings, categories, active ticket, history count, unread count, and limits
+      responses:
+        "200":
+          description: Customer Support bootstrap
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerBootstrap"
+        "503":
+          $ref: "#/components/responses/SupportUnavailable"
+  /customer/faqs:
+    get:
+      tags: [Customer Support]
+      summary: Search published tenant FAQs
+      parameters:
+        - name: q
+          in: query
+          schema: {type: string}
+        - name: category_id
+          in: query
+          schema: {type: string}
+      responses:
+        "200":
+          description: FAQ rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: "#/components/schemas/Faq"}
+  /customer/faqs/{faq_id}/feedback:
+    post:
+      tags: [Customer Support]
+      summary: Record whether an FAQ solved the customer's problem
+      parameters:
+        - $ref: "#/components/parameters/FaqId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [helpful]
+              properties:
+                helpful: {type: boolean}
+      responses:
+        "200": {description: Feedback saved}
+  /customer/unread-count:
+    get:
+      tags: [Customer Support]
+      summary: Load unread Support message count
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unread_count]
+                properties:
+                  unread_count: {type: integer, minimum: 0}
+  /customer/tickets:
+    get:
+      tags: [Customer Support]
+      summary: List customer tickets with cursor pagination
+      parameters:
+        - name: status
+          in: query
+          schema: {type: string, enum: [active, closed]}
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          $ref: "#/components/responses/TicketPage"
+    post:
+      tags: [Customer Support]
+      summary: Create one open ticket and its first immutable message
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateTicket"
+      responses:
+        "201":
+          description: Created ticket or existing active ticket
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticket]
+                properties:
+                  ticket: {$ref: "#/components/schemas/Ticket"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /customer/tickets/{ticket_id}:
+    get:
+      tags: [Customer Support]
+      summary: Load a tenant/customer-owned ticket
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+      responses:
+        "200":
+          description: Ticket detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticket]
+                properties:
+                  ticket: {$ref: "#/components/schemas/Ticket"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /customer/tickets/{ticket_id}/messages:
+    get:
+      tags: [Customer Support]
+      summary: Load older messages without changing scroll position
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - name: before_sequence
+          in: query
+          schema: {type: integer, minimum: 1}
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          $ref: "#/components/responses/MessagePage"
+    post:
+      tags: [Customer Support]
+      summary: Send an immutable customer message
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateMessage"
+      responses:
+        "201":
+          description: Message created
+        "409": {$ref: "#/components/responses/Conflict"}
+  /customer/tickets/{ticket_id}/read:
+    post:
+      tags: [Customer Support]
+      summary: Advance the customer read receipt
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sequence]
+              properties:
+                sequence: {type: integer, minimum: 0}
+      responses:
+        "200": {description: Read receipt advanced}
+  /customer/tickets/{ticket_id}/close:
+    post:
+      tags: [Customer Support]
+      summary: Close the ticket without reopening support
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, maxLength: 500}
+      responses:
+        "200": {description: Ticket closed}
+  /customer/tickets/{ticket_id}/rating:
+    post:
+      tags: [Customer Support]
+      summary: Submit the single rating allowed for a closed ticket
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stars]
+              properties:
+                stars: {type: integer, minimum: 1, maximum: 5}
+                comment: {type: string, maxLength: 500}
+      responses:
+        "201": {description: Rating created or original rating replayed}
+  /customer/realtime/auth:
+    post:
+      tags: [Support Realtime]
+      summary: Authorize the customer or customer-owned ticket channel
+      requestBody:
+        $ref: "#/components/requestBodies/RealtimeAuth"
+      responses:
+        "200": {$ref: "#/components/responses/RealtimeAuth"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /admin/bootstrap:
+    get:
+      tags: [Support Admin]
+      summary: Load permissions, agent state, and ticket counters
+      responses:
+        "200": {description: Admin Support bootstrap}
+  /admin/tickets:
+    get:
+      tags: [Support Admin]
+      summary: List My Tickets, Queue, All, or Closed according to permission
+      parameters:
+        - name: view
+          in: query
+          schema: {type: string, enum: [mine, queue, all, closed]}
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": {$ref: "#/components/responses/TicketPage"}
+  /admin/tickets/{ticket_id}:
+    get:
+      tags: [Support Admin]
+      summary: Load a permission-visible ticket
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+      responses:
+        "200": {description: Ticket detail}
+  /admin/tickets/{ticket_id}/messages:
+    get:
+      tags: [Support Admin]
+      summary: Load ticket message history
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - name: before_sequence
+          in: query
+          schema: {type: integer, minimum: 1}
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": {$ref: "#/components/responses/MessagePage"}
+    post:
+      tags: [Support Admin]
+      summary: Send an immutable agent message
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {$ref: "#/components/schemas/CreateMessage"}
+      responses:
+        "201": {description: Message created}
+  /admin/tickets/{ticket_id}/read:
+    post:
+      tags: [Support Admin]
+      summary: Advance the agent read receipt
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Read receipt advanced}
+  /admin/tickets/{ticket_id}/waiting-customer:
+    post:
+      tags: [Support Admin]
+      summary: Mark the assigned ticket as waiting for the customer
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Ticket updated}
+  /admin/tickets/{ticket_id}/close:
+    post:
+      tags: [Support Admin]
+      summary: Close the assigned ticket
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Ticket closed}
+  /admin/tickets/{ticket_id}/assign:
+    post:
+      tags: [Support Admin]
+      summary: Assign or reassign a ticket
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Ticket assigned}
+  /admin/agent-state:
+    put:
+      tags: [Support Admin]
+      summary: Set availability and optional capacity
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Agent state updated}
+  /admin/agent-state/heartbeat:
+    post:
+      tags: [Support Admin]
+      summary: Refresh the available-agent heartbeat
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Heartbeat recorded}
+  /admin/agents:
+    get:
+      tags: [Support Admin]
+      summary: List tenant Support agents and workloads
+      responses:
+        "200": {description: Agent list}
+  /admin/agents/{agent_id}/state:
+    put:
+      tags: [Support Admin]
+      summary: Update an individual agent capacity
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema: {type: string}
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Agent capacity updated}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /admin/categories:
+    get:
+      tags: [Support Admin]
+      summary: List tenant issue categories
+      responses:
+        "200": {description: Category list}
+    post:
+      tags: [Support Admin]
+      summary: Create an issue category
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201": {description: Category created}
+  /admin/categories/{category_id}:
+    put:
+      tags: [Support Admin]
+      summary: Update an issue category
+      parameters:
+        - name: category_id
+          in: path
+          required: true
+          schema: {type: string}
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Category updated}
+  /admin/faqs:
+    get:
+      tags: [Support Admin]
+      summary: List tenant FAQs
+      responses:
+        "200": {description: FAQ list}
+    post:
+      tags: [Support Admin]
+      summary: Create a tenant FAQ
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201": {description: FAQ created}
+  /admin/faqs/{faq_id}:
+    put:
+      tags: [Support Admin]
+      summary: Update a tenant FAQ
+      parameters:
+        - $ref: "#/components/parameters/FaqId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: FAQ updated}
+  /admin/settings:
+    get:
+      tags: [Support Admin]
+      summary: Load tenant Support limits and runtime content
+      responses:
+        "200": {description: Support settings}
+    put:
+      tags: [Support Admin]
+      summary: Update tenant Support limits and runtime content
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200": {description: Support settings updated}
+  /admin/reports:
+    get:
+      tags: [Support Admin]
+      summary: Load tenant queue, response, close, and rating aggregates
+      responses:
+        "200": {description: Support report}
+  /admin/realtime/auth:
+    post:
+      tags: [Support Realtime]
+      summary: Authorize assigned ticket, admin, or master queue channel
+      requestBody:
+        $ref: "#/components/requestBodies/RealtimeAuth"
+      responses:
+        "200": {$ref: "#/components/responses/RealtimeAuth"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /attachments/{attachment_id}:
+    get:
+      tags: [Customer Support]
+      security: []
+      summary: Download a private attachment through a valid signed URL
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema: {type: string}
+        - name: expires
+          in: query
+          required: true
+          schema: {type: integer}
+        - name: signature
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: WebP attachment bytes
+          content:
+            image/webp:
+              schema: {type: string, format: binary}
+        "403": {description: Signed URL expired or invalid}
+components:
+  securitySchemes:
+    supportBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 128}
+    TicketId:
+      name: ticket_id
+      in: path
+      required: true
+      schema: {type: string}
+    FaqId:
+      name: faq_id
+      in: path
+      required: true
+      schema: {type: string}
+    Cursor:
+      name: cursor
+      in: query
+      schema: {type: string}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100}
+  requestBodies:
+    RealtimeAuth:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [socket_id, channel_name]
+            properties:
+              socket_id: {type: string}
+              channel_name: {type: string}
+  responses:
+    TicketPage:
+      description: Cursor-paginated tickets
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items: {$ref: "#/components/schemas/Ticket"}
+              next_cursor: {type: string, nullable: true}
+    MessagePage:
+      description: Sequence-paginated messages in ascending presentation order
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items: {$ref: "#/components/schemas/Message"}
+              next_before_sequence: {type: integer, nullable: true}
+    RealtimeAuth:
+      description: Reverb/Pusher-compatible channel authorization
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [auth]
+            properties:
+              auth: {type: string}
+              channel_data: {type: string, nullable: true}
+    NotFound:
+      description: Resource is outside the actor tenant/ownership boundary or does not exist
+    Forbidden:
+      description: Support role or channel permission denied
+    Conflict:
+      description: Closed-ticket, one-open-ticket, or idempotency conflict
+    SupportUnavailable:
+      description: Tenant Support is disabled
+  schemas:
+    LocalizedName:
+      type: object
+      additionalProperties: {type: string}
+    Category:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: {type: string}
+        code: {type: string}
+        name: {type: string}
+        icon_key: {type: string, nullable: true}
+        is_fallback: {type: boolean}
+    Faq:
+      type: object
+      required: [id, question, answer]
+      properties:
+        id: {type: string}
+        category_id: {type: string, nullable: true}
+        question: {type: string}
+        answer: {type: string}
+    Ticket:
+      type: object
+      required: [id, public_no, subject, status]
+      properties:
+        id: {type: string}
+        public_no: {type: string}
+        category: {type: string, nullable: true}
+        subject: {type: string, maxLength: 120}
+        status:
+          type: string
+          enum: [queued, assigned, in_progress, waiting_customer, closed]
+        queue_ahead: {type: integer, minimum: 0}
+        latest_sequence: {type: integer, minimum: 0}
+        unread_count: {type: integer, minimum: 0}
+        last_message_preview: {type: string, nullable: true}
+        opened_at: {type: string, format: date-time}
+        closed_at: {type: string, format: date-time, nullable: true}
+        rating: {type: object, nullable: true, additionalProperties: true}
+    Message:
+      type: object
+      required: [id, sequence, sender_type, created_at]
+      properties:
+        id: {type: string}
+        sequence: {type: integer, minimum: 1}
+        sender_type: {type: string, enum: [customer, admin, system]}
+        body: {type: string, nullable: true}
+        read_by_counterpart: {type: boolean}
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              url: {type: string}
+              mime_type: {type: string}
+              byte_size: {type: integer}
+        created_at: {type: string, format: date-time}
+    CreateTicket:
+      type: object
+      required: [subject, message]
+      properties:
+        category_id: {type: string}
+        subject: {type: string, maxLength: 120}
+        message: {type: string, maxLength: 4000}
+        referenced_ticket_id: {type: string}
+        attachments:
+          type: array
+          maxItems: 4
+          items: {type: string, format: binary}
+    CreateMessage:
+      type: object
+      properties:
+        body: {type: string, maxLength: 4000}
+        attachments:
+          type: array
+          maxItems: 4
+          items: {type: string, format: binary}
+      anyOf:
+        - required: [body]
+        - required: [attachments]
+    CustomerBootstrap:
+      type: object
+      required: [enabled, categories, history_count, unread_count, limits]
+      properties:
+        enabled: {type: boolean}
+        categories:
+          type: array
+          items: {$ref: "#/components/schemas/Category"}
+        active_ticket:
+          oneOf:
+            - {$ref: "#/components/schemas/Ticket"}
+            - {type: "null"}
+        history_count: {type: integer, minimum: 0}
+        unread_count: {type: integer, minimum: 0}
+        limits:
+          type: object
+          additionalProperties: true

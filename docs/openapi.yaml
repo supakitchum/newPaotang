@@ -16,6 +16,8 @@ tags:
   - name: Central Admin
   - name: Tenant Admin
   - name: Realtime
+  - name: Customer Support
+  - name: Internal Support
   - name: Partner Sync
   - name: Webhooks
 paths:
@@ -49,6 +51,37 @@ paths:
           description: Database and Redis/Valkey are ready
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /internal/customer-support/notifications:
+    post:
+      tags: [Internal Support]
+      security: []
+      summary: Accept a signed Support outbox event for Customer Notification and FCM delivery
+      parameters:
+        - name: X-Support-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Lowercase SHA-256 HMAC of the raw request body.
+        - name: X-Support-Event-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Stable delivery identifier used for notification deduplication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InternalSupportNotificationRequest"
+      responses:
+        "201":
+          description: Customer notification accepted.
+        "401":
+          description: HMAC signature is invalid.
+        "404":
+          description: The target tenant/customer snapshot no longer exists in Platform.
 
   /public/site-config:
     get:
@@ -1116,6 +1149,84 @@ paths:
           $ref: "#/components/responses/AuthenticationRequired"
         "409":
           $ref: "#/components/responses/ResourceConflict"
+  /customer/affiliate/store-name-requests:
+    post:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: Submit an affiliate store name for tenant review
+      description: Pending names are reserved per tenant. An approved name remains public while a change request is pending.
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+      responses:
+        "201":
+          description: Store name review request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/affiliate/tier-campaigns:
+    get:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: List tier campaigns and current affiliate progress
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Affiliate tier campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResourceListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/affiliate/tier-campaigns/{campaign_id}:
+    get:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: View tier campaign progress and leaderboard
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Affiliate tier campaign detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /customer/affiliate/referrals/apply:
     post:
       tags: [Customer Affiliate]
@@ -1657,6 +1768,26 @@ paths:
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
           $ref: "#/components/responses/PermissionDenied"
+  /customer/support-session:
+    post:
+      tags: [Customer Support]
+      security:
+        - bearerAuth: []
+      summary: Exchange the current customer session for a short-lived Support service session
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Ten-minute asymmetric Support JWT plus runtime API and Reverb endpoints.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportSession"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /customer/cart:
     get:
       tags: [Customer]
@@ -1757,6 +1888,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
         "409":
           $ref: "#/components/responses/ResourceConflict"
         "401":
@@ -6862,6 +6995,27 @@ paths:
           $ref: "#/components/responses/PermissionDenied"
         "404":
           $ref: "#/components/responses/NotFound"
+  /admin/tenant/support-session:
+    post:
+      tags: [Customer Support]
+      summary: Exchange the selected tenant-admin scope for a permission-limited Support session
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Ten-minute Support JWT and allowed tenant/admin Reverb channels.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportSession"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /admin/tenant/members:
     get:
       tags: [Tenant Admin]
@@ -7127,7 +7281,7 @@ paths:
           $ref: "#/components/responses/NotFound"
     patch:
       tags: [Tenant Admin]
-      summary: Update order operational status in the selected tenant
+      summary: Update an internal order note in the selected tenant
       parameters:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -7162,7 +7316,8 @@ paths:
   /admin/tenant/orders/{order_id}/cancel:
     post:
       tags: [Tenant Admin]
-      summary: Cancel an order in the selected tenant
+      summary: Cancel an unpaid order in the selected tenant
+      description: Paid or refunded orders cannot be cancelled and must use the dedicated refund lifecycle.
       parameters:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -8742,6 +8897,285 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminResource"
+  /admin/tenant/affiliate-store-name-requests:
+    get:
+      tags: [Tenant Admin]
+      summary: List affiliate store name review requests
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Affiliate store name review requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResourceListResponse"
+  /admin/tenant/affiliate-store-name-requests/{request_id}/approve:
+    post:
+      tags: [Tenant Admin]
+      summary: Approve a reserved affiliate store name
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchRequest"
+      responses:
+        "200":
+          description: Store name approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+  /admin/tenant/affiliate-store-name-requests/{request_id}/reject:
+    post:
+      tags: [Tenant Admin]
+      summary: Reject an affiliate store name request
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchRequest"
+      responses:
+        "200":
+          description: Store name rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /admin/tenant/affiliate-tiers:
+    get:
+      tags: [Tenant Admin]
+      summary: List runtime affiliate tier benefits
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Affiliate tiers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResourceListResponse"
+  /admin/tenant/affiliate-tiers/{tier_code}:
+    patch:
+      tags: [Tenant Admin]
+      summary: Update commission per ticket and minimum payout for a tier
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: tier_code
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [bronze, silver, gold, platinum, diamond]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchRequest"
+      responses:
+        "200":
+          description: Affiliate tier updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/tenant/affiliate-tier-campaigns:
+    get:
+      tags: [Tenant Admin]
+      summary: List affiliate tier campaigns
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Affiliate tier campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResourceListResponse"
+    post:
+      tags: [Tenant Admin]
+      summary: Create a fixed-threshold or ranking tier campaign
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateRequest"
+      responses:
+        "201":
+          description: Affiliate tier campaign created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/tenant/affiliate-tier-campaigns/{campaign_id}:
+    get:
+      tags: [Tenant Admin]
+      summary: Preview affiliate tier campaign results
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Affiliate tier campaign detail and preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Tenant Admin]
+      summary: Update a draft or scheduled affiliate tier campaign
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchRequest"
+      responses:
+        "200":
+          description: Affiliate tier campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/tenant/affiliate-tier-campaigns/{campaign_id}/finalize:
+    post:
+      tags: [Tenant Admin]
+      summary: Reconcile ticket sales, freeze results, and apply tier changes after campaign end
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Affiliate tier campaign finalized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+  /admin/tenant/affiliate-tier-campaigns/{campaign_id}/cancel:
+    post:
+      tags: [Tenant Admin]
+      summary: Cancel a non-finalized affiliate tier campaign
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Affiliate tier campaign cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
   /admin/tenant/commission-rules:
     get:
       tags: [Tenant Admin]
@@ -8980,6 +9414,68 @@ paths:
       responses:
         "200":
           description: Tenant payout approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+  /admin/tenant/payouts/{payout_id}/pay:
+    post:
+      tags: [Tenant Admin]
+      summary: Record an approved tenant payout as paid
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: payout_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_reference]
+              properties:
+                payment_reference:
+                  type: string
+                  maxLength: 191
+                reason:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Tenant payout marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+  /admin/tenant/payouts/{payout_id}/reject:
+    post:
+      tags: [Tenant Admin]
+      summary: Reject tenant payout
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: payout_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminActionRequest"
+      responses:
+        "200":
+          description: Tenant payout rejected
           content:
             application/json:
               schema:
@@ -9676,7 +10172,20 @@ paths:
           required: false
           schema:
             type: string
-          description: Provider-specific callback signature.
+            pattern: '^sha256=[a-fA-F0-9]{64}$'
+          description: HMAC SHA-256 signature over `{X-Webhook-Timestamp}.{raw request body}` when the tenant connection uses hmac_sha256.
+        - name: X-Webhook-Timestamp
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: Unix timestamp required by hmac_sha256 authentication and rejected outside the configured replay window.
+        - name: X-Webhook-Token
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Static secret required when the tenant connection uses token authentication.
       requestBody:
         required: true
         content:
@@ -9714,7 +10223,20 @@ paths:
           required: false
           schema:
             type: string
-          description: Provider-specific callback signature.
+            pattern: '^sha256=[a-fA-F0-9]{64}$'
+          description: HMAC SHA-256 signature over `{X-Webhook-Timestamp}.{raw request body}` when the tenant connection uses hmac_sha256.
+        - name: X-Webhook-Timestamp
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: Unix timestamp required by hmac_sha256 authentication and rejected outside the configured replay window.
+        - name: X-Webhook-Token
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Static secret required when the tenant connection uses token authentication.
       requestBody:
         required: true
         content:
@@ -9934,10 +10456,77 @@ components:
           example: THB
     CustomerNotificationCategory:
       type: string
-      enum: [order, lottery, topup, wallet, reward, activity, affiliate, news, account, admin]
+      enum: [order, lottery, topup, wallet, reward, activity, affiliate, news, account, admin, support]
     CustomerNotificationActionKey:
       type: string
-      enum: [none, home, order, checkout_pending, wallet, tickets, ticket, topups, topup, reward_claims, reward_claim, activities, activity, activity_claims, activity_claim, affiliate, news]
+      enum: [none, home, order, checkout_pending, wallet, tickets, ticket, topups, topup, reward_claims, reward_claim, activities, activity, activity_claims, activity_claim, affiliate, news, support, support_ticket]
+    SupportSession:
+      type: object
+      required: [token, token_type, expires_in, expires_at, api_url, realtime]
+      properties:
+        token:
+          type: string
+          description: RS256 JWT accepted only by the isolated Support service.
+        token_type:
+          type: string
+          const: Bearer
+        expires_in:
+          type: integer
+          example: 600
+        expires_at:
+          type: string
+          format: date-time
+        api_url:
+          type: string
+          description: Runtime Support REST base URL.
+        realtime:
+          type: object
+          required: [url, key, auth_path, channel_prefix, channels]
+          properties:
+            url:
+              type: string
+            key:
+              type: string
+            auth_path:
+              type: string
+            channel_prefix:
+              type: string
+            channels:
+              type: array
+              items:
+                type: string
+    LocalizedSupportContent:
+      oneOf:
+        - type: string
+        - type: object
+          additionalProperties:
+            type: string
+    InternalSupportNotificationRequest:
+      type: object
+      required: [tenant_id, customer_id, ticket_id, ticket_no, event_key, title, body]
+      properties:
+        tenant_id:
+          type: string
+        customer_id:
+          type: string
+        ticket_id:
+          type: string
+        ticket_no:
+          type: string
+        event_key:
+          type: string
+          enum:
+            - support.message.created
+            - support.ticket.assigned
+            - support.ticket.waiting_customer
+            - support.ticket.closed
+        title:
+          $ref: "#/components/schemas/LocalizedSupportContent"
+        body:
+          $ref: "#/components/schemas/LocalizedSupportContent"
+        message_id:
+          type: string
+          nullable: true
     CustomerNotificationAction:
       type: object
       required: [key]
@@ -10047,7 +10636,32 @@ components:
           maxLength: 255
         metadata:
           type: object
-          additionalProperties: true
+          additionalProperties: false
+          properties:
+            app_build_number:
+              type: string
+              maxLength: 40
+            os_name:
+              type: string
+              maxLength: 40
+            os_version:
+              type: string
+              maxLength: 80
+            os_sdk:
+              type: integer
+              minimum: 0
+              maximum: 1000
+            manufacturer:
+              type: string
+              maxLength: 120
+            device_model:
+              type: string
+              maxLength: 160
+            device_machine:
+              type: string
+              maxLength: 160
+            is_physical_device:
+              type: boolean
     CustomerPushDevice:
       type: object
       required: [installation_id, platform, registered, last_seen_at]
@@ -10157,12 +10771,18 @@ components:
           nullable: true
         push:
           type: object
-          required: [status, sent_count, failed_count]
+          required: [status, total_count, sent_count, pending_count, failed_count]
           properties:
             status:
               type: string
-              enum: [not_registered, queued, sending, sent, failed, skipped]
+              enum: [not_registered, queued, sending, sent, partial, failed, skipped]
+            total_count:
+              type: integer
+              minimum: 0
             sent_count:
+              type: integer
+              minimum: 0
+            pending_count:
               type: integer
               minimum: 0
             failed_count:
@@ -12260,6 +12880,7 @@ components:
           nullable: true
         payout_profile:
           type: object
+          description: Sensitive payout profile. Persisted encrypted at rest; returned only to authorized account/admin flows.
           additionalProperties: true
         metadata:
           type: object
@@ -12307,6 +12928,14 @@ components:
             $ref: "#/components/schemas/AffiliateLink"
         stats:
           $ref: "#/components/schemas/CustomerAffiliateStats"
+        tier:
+          $ref: "#/components/schemas/AffiliateTier"
+        store_name:
+          $ref: "#/components/schemas/AffiliateStoreNameState"
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliateTierCampaign"
         commissions:
           type: array
           items:
@@ -12326,6 +12955,9 @@ components:
         customer_id:
           type: string
           nullable: true
+        affiliate_program_id:
+          type: string
+          nullable: true
         code:
           type: string
           minLength: 6
@@ -12340,6 +12972,9 @@ components:
           format: uri
         name:
           type: string
+        store_name_status:
+          type: string
+          enum: [pending, approved, rejected]
         phone:
           type: string
           nullable: true
@@ -12353,6 +12988,7 @@ components:
           $ref: "#/components/schemas/Money"
         payout_profile:
           type: object
+          description: Sensitive payout profile decrypted only for the authorized account or payout administrator.
           additionalProperties: true
         links_count:
           type: integer
@@ -12372,6 +13008,96 @@ components:
           format: date-time
           nullable: true
       additionalProperties: true
+    AffiliateTier:
+      type: object
+      required: [id, code, name, rank, commission_per_ticket, minimum_payout]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+          enum: [bronze, silver, gold, platinum, diamond]
+        name:
+          type: string
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 5
+        status:
+          type: string
+        commission_per_ticket:
+          $ref: "#/components/schemas/Money"
+        minimum_payout:
+          $ref: "#/components/schemas/Money"
+    AffiliateStoreNameState:
+      type: object
+      required: [status, can_request_change]
+      properties:
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        approved_name:
+          type: string
+          nullable: true
+        pending_name:
+          type: string
+          nullable: true
+        pending_request_id:
+          type: string
+          nullable: true
+        admin_note:
+          type: string
+          nullable: true
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        change_available_at:
+          type: string
+          format: date-time
+          nullable: true
+        can_request_change:
+          type: boolean
+    AffiliateTierCampaign:
+      type: object
+      required: [id, name, campaign_type, status, starts_at, ends_at, rules]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        campaign_type:
+          type: string
+          enum: [fixed_threshold, ranking]
+        status:
+          type: string
+          enum: [draft, scheduled, active, processing, completed, cancelled]
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        finalized_at:
+          type: string
+          format: date-time
+          nullable: true
+        can_reduce_tier:
+          type: boolean
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        my_progress:
+          type: object
+          nullable: true
+          additionalProperties: true
+        leaderboard:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
     AffiliateLink:
       type: object
       required: [id, tenant_id, affiliate_account_id, code, url, status]
@@ -12506,6 +13232,17 @@ components:
           enum: [calculated, approved, reversed]
         amount:
           $ref: "#/components/schemas/Money"
+        ticket_count:
+          type: integer
+          nullable: true
+        tier_code:
+          type: string
+          nullable: true
+          enum: [bronze, silver, gold, platinum, diamond]
+        commission_per_ticket:
+          oneOf:
+            - $ref: "#/components/schemas/Money"
+            - type: "null"
         calculated_at:
           type: string
           format: date-time
@@ -12541,14 +13278,56 @@ components:
           enum: [pending, approved, rejected, paid, cancelled]
         payout_method:
           type: string
-          enum: [bank_transfer, wallet_credit]
+          enum: [bank_transfer, wallet_credit, manual_cash]
         amount:
           $ref: "#/components/schemas/Money"
         bank_account:
           type: object
+          description: >
+            Immutable payout bank snapshot. Customer Affiliate endpoints return
+            a masked account_number plus account_number_masked and
+            account_number_last_four. Tenant payout-management endpoints return
+            the full account number to authorized administrators.
+          properties:
+            bank_name:
+              type: string
+            account_name:
+              type: string
+            account_number:
+              type: string
+            account_number_masked:
+              type: string
+              nullable: true
+            account_number_last_four:
+              type: string
+              nullable: true
+              maxLength: 4
+            branch:
+              type: string
+              nullable: true
           additionalProperties: true
         admin_note:
           type: string
+          nullable: true
+        wallet_id:
+          type: string
+          nullable: true
+        payout_ledger_id:
+          type: string
+          nullable: true
+        payment_reference:
+          type: string
+          nullable: true
+        paid_by_admin_id:
+          type: string
+          nullable: true
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
           nullable: true
         created_at:
           type: string
@@ -13491,9 +14270,13 @@ components:
     CheckoutRequest:
       type: object
       required: [payment_method]
-      anyOf:
-        - required: [reservation_id]
-        - required: [reservation_ids]
+      allOf:
+        - oneOf:
+            - required: [reservation_id]
+            - required: [reservation_ids]
+        - oneOf:
+            - required: [pin]
+            - required: [pin_assertion_token]
       properties:
         reservation_id:
           type: string
@@ -13507,6 +14290,15 @@ components:
         payment_method:
           type: string
           enum: [wallet, external_payment]
+        pin:
+          type: string
+          pattern: "^[0-9]{6}$"
+          writeOnly: true
+          description: Fresh customer PIN confirmation required for every checkout attempt.
+        pin_assertion_token:
+          type: string
+          writeOnly: true
+          description: Single-use biometric PIN assertion accepted in place of pin.
     OrderListResponse:
       type: object
       required: [data, meta]
@@ -14842,6 +15634,10 @@ components:
             payment:
               type: object
               additionalProperties: true
+            refund:
+              type: object
+              nullable: true
+              additionalProperties: true
             admin_note:
               type: string
               nullable: true
@@ -14852,35 +15648,33 @@ components:
                 additionalProperties: true
     UpdateAdminOrderRequest:
       type: object
-      required: [reason]
+      required: [admin_note, reason]
+      additionalProperties: false
       properties:
-        status:
-          type: string
-          enum: [pending_payment, paid, cancelled, expired, refunded, failed]
-        payment_status:
-          type: string
-          enum: [unpaid, pending, paid, refunded, failed]
         admin_note:
           type: string
+          nullable: true
+          maxLength: 4000
         reason:
           type: string
+          maxLength: 2000
           description: Required for audit log.
     CancelAdminOrderRequest:
       type: object
       required: [reason]
+      additionalProperties: false
       properties:
         reason:
           type: string
-        refund_policy:
-          type: string
-          enum: [none, wallet_refund, manual_refund]
-          default: none
+          maxLength: 2000
+          description: Required for audit log. Paid orders cannot be cancelled.
         notify_customer:
           type: boolean
           default: true
     RefundAdminOrderRequest:
       type: object
       required: [amount, reason]
+      additionalProperties: false
       properties:
         amount:
           $ref: "#/components/schemas/Money"
@@ -14888,8 +15682,14 @@ components:
           type: string
           enum: [wallet_refund, manual_refund, original_payment]
           default: wallet_refund
+          description: wallet_refund is valid only for wallet orders; external orders require manual_refund or original_payment.
+        refund_reference:
+          type: string
+          maxLength: 191
+          description: Required immutable provider or finance reference for manual_refund and original_payment; prohibited for wallet_refund.
         reason:
           type: string
+          maxLength: 2000
           description: Required for audit log.
         notify_customer:
           type: boolean

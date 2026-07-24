@@ -44,8 +44,6 @@ class PartnerProvisioningService
     private const DOMAIN_STATUSES = ['pending_verification', 'active', 'failed', 'disabled', 'suspended'];
     private const API_CLIENT_STATUSES = ['active', 'suspended', 'revoked'];
     private const PROFILE_SECTIONS = ['partner', 'tenant', 'domain', 'settings', 'theme', 'owner'];
-    private const DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT = 30000;
-    private const DEFAULT_AFFILIATE_RULE_AMOUNT = 1000;
     private const CUSTOMER_PRIMARY_COLOR = '#087FF0';
     private const CUSTOMER_SECONDARY_COLOR = '#19B8EF';
     private const CUSTOMER_ACCENT_COLOR = '#FFD10B';
@@ -1184,6 +1182,7 @@ class PartnerProvisioningService
         );
 
         $this->ensureTenantOwnerRole($ownerRoleId, $tenantId, $now);
+        $this->ensureTenantCustomerSupportRoles($tenantId, $now);
 
         $adminUser = AdminUser::query()->where('email', $ownerEmail)->lockForUpdate()->first();
         $adminUserId = $adminUser?->id !== null ? (string) $adminUser->id : $this->stableId('adm', $ownerEmail);
@@ -1278,6 +1277,80 @@ class PartnerProvisioningService
                 'created_at' => $now,
                 'updated_at' => $now,
             ], $menuIds));
+        }
+    }
+
+    private function ensureTenantCustomerSupportRoles(string $tenantId, mixed $now): void
+    {
+        $permissionIds = Permission::query()
+            ->where('scope_type', 'tenant')
+            ->where('status', 'active')
+            ->whereIn('code', [
+                'support_ticket.view_assigned',
+                'support_ticket.reply_assigned',
+                'support_ticket.close_assigned',
+                'support_ticket.view_all',
+                'support_ticket.assign',
+                'support_agent.manage',
+                'support_faq.view',
+                'support_faq.manage',
+                'support_report.view',
+            ])
+            ->pluck('id', 'code');
+        $menuId = AdminMenu::query()
+            ->where('scope_type', 'tenant')
+            ->where('code', 'customer_support')
+            ->where('status', 'active')
+            ->value('id');
+        $roles = [
+            'support' => [
+                'name' => 'Support',
+                'permissions' => [
+                    'support_ticket.view_assigned',
+                    'support_ticket.reply_assigned',
+                    'support_ticket.close_assigned',
+                ],
+            ],
+            'master_support' => [
+                'name' => 'Master Support',
+                'permissions' => array_keys($permissionIds->all()),
+            ],
+        ];
+
+        foreach ($roles as $code => $definition) {
+            $roleId = $this->stableId('rol', 'tenant:'.$tenantId.':'.$code);
+            $this->updateOrInsert(
+                'roles',
+                ['id' => $roleId],
+                [
+                    'scope_type' => 'tenant',
+                    'tenant_id' => $tenantId,
+                    'code' => $code,
+                    'name' => $definition['name'],
+                    'status' => 'active',
+                    'version' => 1,
+                ],
+                $now,
+            );
+            foreach ($definition['permissions'] as $permissionCode) {
+                $permissionId = $permissionIds[$permissionCode] ?? null;
+                if ($permissionId !== null) {
+                    RolePermission::query()->insertOrIgnore([[
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]]);
+                }
+            }
+            if ($menuId !== null) {
+                RoleMenu::query()->insertOrIgnore([[
+                    'role_id' => $roleId,
+                    'menu_id' => $menuId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]]);
+            }
         }
     }
 
@@ -1443,49 +1516,49 @@ class PartnerProvisioningService
 
     private function ensureStarterAffiliateDefaults(string $tenantId, mixed $now): void
     {
-        $programId = $this->stableId('afp', $tenantId.':basic');
-
-        DB::table('affiliate_programs')->insertOrIgnore([
-            'id' => $programId,
-            'tenant_id' => $tenantId,
-            'code' => 'basic',
-            'name' => 'Basic Affiliate',
-            'status' => 'active',
-            'minimum_payout_amount' => self::DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT,
-            'starts_at' => null,
-            'ends_at' => null,
-            'metadata_json' => json_encode(['source' => 'starter_default'], JSON_THROW_ON_ERROR),
-            'created_by_admin_id' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        $resolvedProgramId = DB::table('affiliate_programs')
-            ->where('tenant_id', $tenantId)
-            ->where('code', 'basic')
-            ->value('id');
-
-        if ($resolvedProgramId === null) {
-            return;
+        $tiers = [
+            ['bronze', 'Bronze', 1, 100, 30000],
+            ['silver', 'Silver', 2, 150, 25000],
+            ['gold', 'Gold', 3, 200, 20000],
+            ['platinum', 'Platinum', 4, 250, 15000],
+            ['diamond', 'Diamond', 5, 300, 10000],
+        ];
+        foreach ($tiers as [$code, $name, $rank, $commission, $minimumPayout]) {
+            $programId = $this->stableId('afp', $tenantId.':'.$code);
+            DB::table('affiliate_programs')->insertOrIgnore([
+                'id' => $programId,
+                'tenant_id' => $tenantId,
+                'code' => $code,
+                'name' => $name,
+                'status' => 'active',
+                'tier_rank' => $rank,
+                'minimum_payout_amount' => $minimumPayout,
+                'commission_per_ticket_amount' => $commission,
+                'starts_at' => null,
+                'ends_at' => null,
+                'metadata_json' => json_encode(['system_tier' => true], JSON_THROW_ON_ERROR),
+                'created_by_admin_id' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('commission_rules')->insertOrIgnore([
+                'id' => $this->stableId('cmr', $tenantId.':'.$code.'_per_ticket'),
+                'tenant_id' => $tenantId,
+                'affiliate_program_id' => $programId,
+                'affiliate_account_id' => null,
+                'code' => $code.'_per_ticket',
+                'name' => $name.' commission per ticket',
+                'rule_type' => 'per_ticket',
+                'amount' => $commission,
+                'rate_bps' => 0,
+                'currency' => 'THB',
+                'status' => 'active',
+                'metadata_json' => json_encode(['system_tier' => true], JSON_THROW_ON_ERROR),
+                'created_by_admin_id' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
-
-        DB::table('commission_rules')->insertOrIgnore([
-            'id' => $this->stableId('cmr', $tenantId.':basic_com'),
-            'tenant_id' => $tenantId,
-            'affiliate_program_id' => (string) $resolvedProgramId,
-            'affiliate_account_id' => null,
-            'code' => 'basic_com',
-            'name' => 'BasicCom',
-            'rule_type' => 'per_ticket',
-            'amount' => self::DEFAULT_AFFILIATE_RULE_AMOUNT,
-            'rate_bps' => 0,
-            'currency' => 'THB',
-            'status' => 'active',
-            'metadata_json' => json_encode(['source' => 'starter_default'], JSON_THROW_ON_ERROR),
-            'created_by_admin_id' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
     }
 
     /**
@@ -2313,6 +2386,7 @@ class PartnerProvisioningService
             'reward_check' => true,
             'custom_theme' => true,
             'custom_domain' => false,
+            'customer_support' => false,
         ];
     }
 

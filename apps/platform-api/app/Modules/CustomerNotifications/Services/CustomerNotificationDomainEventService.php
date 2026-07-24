@@ -364,6 +364,89 @@ class CustomerNotificationDomainEventService
         );
     }
 
+    public function affiliateStoreNameReviewed(string $tenantId, string $affiliateId, bool $approved, string $requestId): void
+    {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $this->notify(
+            $tenantId,
+            $customerId,
+            $approved ? 'affiliate.store_name.approved' : 'affiliate.store_name.rejected',
+            [
+                'category' => 'affiliate',
+                'title' => $approved
+                    ? ['th-TH' => 'อนุมัติชื่อร้านแล้ว', 'en-US' => 'Store name approved']
+                    : ['th-TH' => 'ชื่อร้านไม่ผ่านการอนุมัติ', 'en-US' => 'Store name was not approved'],
+                'body' => $approved
+                    ? ['th-TH' => 'ชื่อร้านของคุณพร้อมแสดงในหน้าร้านค้าแล้ว', 'en-US' => 'Your store name is now visible in the store directory.']
+                    : ['th-TH' => 'กรุณาตรวจสอบหมายเหตุและส่งชื่อร้านใหม่', 'en-US' => 'Review the note and submit a new store name.'],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate',
+                'subject_type' => 'affiliate_store_name_request',
+                'subject_id' => $requestId,
+            ],
+            'affiliate-store-name:'.$requestId.':'.($approved ? 'approved' : 'rejected'),
+        );
+    }
+
+    public function affiliateTierChanged(
+        string $tenantId,
+        string $affiliateId,
+        string $previousTier,
+        string $newTier,
+        string $campaignId,
+    ): void {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $this->notify(
+            $tenantId,
+            $customerId,
+            'affiliate.tier.changed',
+            [
+                'category' => 'affiliate',
+                'title' => ['th-TH' => 'ระดับตัวแทนจำหน่ายเปลี่ยนแล้ว', 'en-US' => 'Affiliate tier updated'],
+                'body' => [
+                    'th-TH' => 'ระดับของคุณเปลี่ยนจาก '.$previousTier.' เป็น '.$newTier.' และมีผลกับรายการใหม่ทันที',
+                    'en-US' => 'Your tier changed from '.$previousTier.' to '.$newTier.' and now applies to new orders.',
+                ],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate',
+                'subject_type' => 'affiliate_tier_campaign',
+                'subject_id' => $campaignId,
+            ],
+            'affiliate-tier:'.$campaignId.':'.$affiliateId.':'.$newTier,
+        );
+    }
+
+    public function affiliateTierCampaignMilestone(
+        string $tenantId,
+        string $affiliateId,
+        string $campaignId,
+        string $campaignName,
+        string $milestone,
+    ): void {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $endingSoon = $milestone === 'ending_soon';
+        $this->notify(
+            $tenantId,
+            $customerId,
+            $endingSoon ? 'affiliate.tier_campaign.ending_soon' : 'affiliate.tier_campaign.started',
+            [
+                'category' => 'affiliate',
+                'title' => $endingSoon
+                    ? ['th-TH' => 'กิจกรรมเลื่อนระดับใกล้สิ้นสุด', 'en-US' => 'Tier campaign ending soon']
+                    : ['th-TH' => 'กิจกรรมประเมินระดับเริ่มแล้ว', 'en-US' => 'Tier campaign started'],
+                'body' => $endingSoon
+                    ? ['th-TH' => $campaignName.' จะสิ้นสุดภายใน 24 ชั่วโมง ตรวจสอบยอดขายล่าสุดได้แล้ว', 'en-US' => $campaignName.' ends within 24 hours. Review your latest progress.']
+                    : ['th-TH' => $campaignName.' เริ่มแล้ว ยอดสลากที่ขายได้ในช่วงกิจกรรมจะถูกนำมาประเมินระดับ', 'en-US' => $campaignName.' has started. Tickets sold during the campaign count toward your tier result.'],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate',
+                'subject_type' => 'affiliate_tier_campaign',
+                'subject_id' => $campaignId,
+            ],
+            'affiliate-tier-campaign:'.$campaignId.':'.$affiliateId.':'.$milestone,
+            ['campaign_name' => $campaignName, 'milestone' => $milestone],
+        );
+    }
+
     public function affiliateCommissionAvailable(string $tenantId, string $affiliateId, string $commissionId): void
     {
         $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);

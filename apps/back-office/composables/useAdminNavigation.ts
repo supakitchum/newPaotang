@@ -60,6 +60,8 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:price_rules': '/admin/tenant/price-rules',
   'tenant:customers': '/admin/tenant/customers',
   'tenant:announcements': '/admin/tenant/announcements',
+  'tenant:customer_notifications': '/admin/tenant/customer-notifications',
+  'tenant:customer_support': '/admin/tenant/support',
   'tenant:line_notifications': '/admin/tenant/line-notifications',
   'tenant:social_login': '/admin/tenant/social-login',
   'tenant:sms_otp': '/admin/tenant/sms-otp',
@@ -70,6 +72,9 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:exchange_reward': '/admin/tenant/exchange-reward',
   'tenant:agent_quotas': '/admin/tenant/growth/agent-quotas',
   'tenant:affiliate': '/admin/tenant/growth/affiliates',
+  'tenant:affiliate_store_name_requests': '/admin/tenant/growth/affiliate-store-name-requests',
+  'tenant:affiliate_tiers': '/admin/tenant/growth/affiliate-tiers',
+  'tenant:affiliate_tier_campaigns': '/admin/tenant/growth/affiliate-tier-campaigns',
   'tenant:monitoring': '/admin/tenant/monitoring',
   'tenant:usage': '/admin/tenant/usage',
   'tenant:reports': '/admin/tenant/reports',
@@ -87,7 +92,13 @@ export const useAdminNavigation = () => {
   const menus = useState<AdminMenuItem[]>('admin-menus', () => [])
   const loading = useState('admin-menus-loading', () => false)
   const error = useState<any>('admin-menus-error', () => null)
-  const navigationMenus = computed(() => translateMenuTree(buildMenuTree(menus.value), session.currentScope.value, t))
+  const navigationMenus = computed(() => {
+    const translated = translateMenuTree(buildMenuTree(menus.value), session.currentScope.value, t)
+
+    return session.usesCustomerSupportLanding()
+      ? customerSupportOnlyMenus(translated)
+      : translated
+  })
 
   const loadMenus = async (options: LoadMenusOptions = {}) => {
     session.restore()
@@ -146,6 +157,7 @@ export const useAdminNavigation = () => {
 
     const key = item.key || ''
     if (key.includes('announcement')) return 'ri-megaphone-line'
+    if (key.includes('customer_notification')) return 'ri-notification-3-line'
     if (key.includes('line_notification')) return 'ri-line-line'
     if (key.includes('social_login')) return 'ri-login-circle-line'
     if (key.includes('sms_otp')) return 'ri-message-2-line'
@@ -278,6 +290,20 @@ const hideRetiredMenus = (scope: string, items: AdminMenuItem[]): AdminMenuItem[
       children: Array.isArray(item.children) ? hideRetiredMenus(scope, item.children) : [],
     }))
 }
+
+const customerSupportOnlyMenus = (items: AdminMenuItem[]): AdminMenuItem[] => (
+  items.flatMap((item) => {
+    if (item.key === 'customer_support') {
+      return [{ ...item, children: [] }]
+    }
+
+    const children = Array.isArray(item.children)
+      ? customerSupportOnlyMenus(item.children)
+      : []
+
+    return children.length > 0 ? [{ ...item, children }] : []
+  })
+)
 
 const categoryIcon = (category: string) => {
   const value = category.toLowerCase()

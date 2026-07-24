@@ -16,8 +16,63 @@ class ReportTest extends TestCase
     public function test_Report_and_export_jobs_are_scoped_for_tenant_and_central_admins(): void
     {
         $world = $this->prepareM8World('report-main');
-        $this->insertM8AffiliateGraph($world, 'report-main', 1200);
+        $graph = $this->insertM8AffiliateGraph($world, 'report-main', 1200);
         app(GrowthService::class)->calculateCommissions($world['order_id'], $world['tenant_id']);
+        $now = now();
+        DB::table('affiliate_payouts')->insert([
+            [
+                'id' => 'pyo_report_pending',
+                'tenant_id' => $world['tenant_id'],
+                'affiliate_account_id' => $graph['affiliate_id'],
+                'status' => 'pending',
+                'payout_method' => 'manual_cash',
+                'amount' => 100,
+                'currency' => 'THB',
+                'approved_at' => null,
+                'paid_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => 'pyo_report_rejected',
+                'tenant_id' => $world['tenant_id'],
+                'affiliate_account_id' => $graph['affiliate_id'],
+                'status' => 'rejected',
+                'payout_method' => 'manual_cash',
+                'amount' => 200,
+                'currency' => 'THB',
+                'approved_at' => null,
+                'paid_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => 'pyo_report_approved',
+                'tenant_id' => $world['tenant_id'],
+                'affiliate_account_id' => $graph['affiliate_id'],
+                'status' => 'approved',
+                'payout_method' => 'manual_cash',
+                'amount' => 300,
+                'currency' => 'THB',
+                'approved_at' => $now,
+                'paid_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => 'pyo_report_paid',
+                'tenant_id' => $world['tenant_id'],
+                'affiliate_account_id' => $graph['affiliate_id'],
+                'status' => 'paid',
+                'payout_method' => 'manual_cash',
+                'amount' => 400,
+                'currency' => 'THB',
+                'approved_at' => $now,
+                'paid_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
 
         $tenantAdmin = $this->m8TenantAdmin($world, ['report.view'], 'report-tenant');
         $centralAdmin = $this->m8CentralAdmin(['report.view'], 'report-central');
@@ -32,7 +87,8 @@ class ReportTest extends TestCase
             ->assertOk()
             ->assertJsonPath('scope', 'tenant')
             ->assertJsonPath('tenant_id', $world['tenant_id'])
-            ->assertJsonPath('summary.commission_total.amount', 1200);
+            ->assertJsonPath('summary.commission_total.amount', 1200)
+            ->assertJsonPath('summary.payout_total.amount', 400);
 
         $tenantExport = $this->withToken($tenantAdmin['access_token'])
             ->postJson('/api/v1/admin/tenant/reports/commission/exports', [
@@ -75,7 +131,8 @@ class ReportTest extends TestCase
             ->getJson('/api/v1/admin/central/reports/overview?tenant_id='.$world['tenant_id'], $centralHeaders)
             ->assertOk()
             ->assertJsonPath('scope', 'central')
-            ->assertJsonPath('tenant_id', $world['tenant_id']);
+            ->assertJsonPath('tenant_id', $world['tenant_id'])
+            ->assertJsonPath('summary.affiliate_payout_total.amount', 400);
 
         $this->withToken($centralAdmin['access_token'])
             ->get('/api/v1/admin/central/export-jobs/'.$centralExport['id'].'/download', $centralHeaders)
@@ -461,7 +518,7 @@ class ReportTest extends TestCase
         $this->assertSame(0, $overviewRows['Cashback activities']['value']['amount']);
         $this->assertSame(0, $overviewRows['Winning prize total']['value']['amount']);
         $this->assertSame(8750, $overviewRows['Net profit']['value']['amount']);
-        $this->assertSame(1, $overviewRows['Total customers']['value']);
+        $this->assertSame(2, $overviewRows['Total customers']['value']);
         $this->assertSame('wallet', $overviewSections['Payment summary']['rows'][0]['payment_method']);
         $this->assertSame(1, $overviewSections['Payment summary']['rows'][0]['order_count']);
         $this->assertSame(10000, $overviewSections['Payment summary']['rows'][0]['sales_amount']['amount']);

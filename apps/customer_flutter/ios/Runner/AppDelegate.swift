@@ -2,6 +2,163 @@ import Flutter
 import LocalAuthentication
 import UIKit
 
+private final class SecureCaptureTextField: UITextField {
+  var onLayout: (() -> Void)?
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    onLayout?()
+  }
+}
+
+private final class IOSSecureCaptureProtector {
+  private let secureTextField = SecureCaptureTextField(frame: .zero)
+  private let blackBackdropView = UIView(frame: .zero)
+  private weak var protectedView: UIView?
+  private weak var originalSuperlayer: CALayer?
+  private weak var hostView: UIView?
+  private var secureCanvasLayer: CALayer?
+  private var originalLayerIndex: UInt32 = 0
+  private var enabled = false
+
+  init() {
+    secureTextField.isSecureTextEntry = true
+    secureTextField.text = " "
+    secureTextField.textColor = .clear
+    secureTextField.tintColor = .clear
+    secureTextField.backgroundColor = .clear
+    secureTextField.borderStyle = .none
+    secureTextField.isUserInteractionEnabled = false
+    secureTextField.isAccessibilityElement = false
+    secureTextField.accessibilityElementsHidden = true
+    secureTextField.clipsToBounds = true
+    secureTextField.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
+    blackBackdropView.backgroundColor = .black
+    blackBackdropView.isUserInteractionEnabled = false
+    blackBackdropView.isAccessibilityElement = false
+    blackBackdropView.accessibilityElementsHidden = true
+    blackBackdropView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
+    secureTextField.onLayout = { [weak self] in
+      self?.layoutProtectedLayer()
+    }
+  }
+
+  @discardableResult
+  func enable(in window: UIWindow) -> Bool {
+    guard let rootView = window.rootViewController?.view,
+          let rootHostView = rootView.superview,
+          let rootSuperlayer = rootView.layer.superlayer
+    else {
+      return false
+    }
+
+    if enabled {
+      if protectedView === rootView && hostView === rootHostView {
+        layoutProtectedLayer()
+        return true
+      }
+      disable()
+    }
+
+    window.layoutIfNeeded()
+    rootHostView.layoutIfNeeded()
+    rootView.layoutIfNeeded()
+
+    let rootFrame = rootView.frame
+    let layerIndex = rootSuperlayer.sublayers?
+      .firstIndex(where: { $0 === rootView.layer }) ?? 0
+
+    blackBackdropView.frame = rootFrame
+    rootHostView.insertSubview(blackBackdropView, belowSubview: rootView)
+
+    secureTextField.frame = rootFrame
+    rootHostView.insertSubview(secureTextField, belowSubview: rootView)
+    secureTextField.setNeedsLayout()
+    secureTextField.layoutIfNeeded()
+
+    guard let canvasLayer = secureTextField.subviews.first?.layer
+      ?? secureTextField.layer.sublayers?.first
+    else {
+      secureTextField.removeFromSuperview()
+      blackBackdropView.removeFromSuperview()
+      return false
+    }
+
+    protectedView = rootView
+    hostView = rootHostView
+    originalSuperlayer = rootSuperlayer
+    originalLayerIndex = UInt32(layerIndex)
+    secureCanvasLayer = canvasLayer
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    canvasLayer.addSublayer(rootView.layer)
+    rootView.layer.frame = canvasLayer.bounds
+    CATransaction.commit()
+
+    enabled = true
+    return true
+  }
+
+  func disable() {
+    guard enabled else {
+      secureTextField.removeFromSuperview()
+      blackBackdropView.removeFromSuperview()
+      return
+    }
+
+    let rootView = protectedView
+    let rootLayer = rootView?.layer
+    let rootHostView = hostView
+    let rootSuperlayer = originalSuperlayer
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    rootLayer?.removeFromSuperlayer()
+    secureTextField.removeFromSuperview()
+    blackBackdropView.removeFromSuperview()
+
+    if let rootLayer, let rootSuperlayer {
+      let layerCount = rootSuperlayer.sublayers?.count ?? 0
+      rootSuperlayer.insertSublayer(
+        rootLayer,
+        at: min(originalLayerIndex, UInt32(layerCount))
+      )
+      rootLayer.frame = rootHostView?.bounds ?? rootLayer.frame
+    }
+    CATransaction.commit()
+
+    enabled = false
+    protectedView = nil
+    hostView = nil
+    originalSuperlayer = nil
+    secureCanvasLayer = nil
+    rootHostView?.setNeedsLayout()
+    rootHostView?.layoutIfNeeded()
+  }
+
+  private func layoutProtectedLayer() {
+    guard enabled,
+          let rootView = protectedView,
+          let rootHostView = hostView,
+          let canvasLayer = secureCanvasLayer
+    else {
+      return
+    }
+
+    let frame = rootHostView.bounds
+    blackBackdropView.frame = frame
+    secureTextField.frame = frame
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    rootView.layer.frame = canvasLayer.bounds
+    CATransaction.commit()
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let screenSecurityChannelName = "customer_flutter/screen_security"
@@ -10,6 +167,7 @@ import UIKit
   private var screenSecurityChannel: FlutterMethodChannel?
   private var sensitiveRoute: String?
   private var privacyOverlay: UIView?
+  private let secureCaptureProtector = IOSSecureCaptureProtector()
   private var screenshotOverlayDismissWorkItem: DispatchWorkItem?
   private var privacyOverlayTitle = "Screen capture is not allowed"
   private var privacyOverlayDescription = "Sensitive information is hidden. Please unlock again to continue."
@@ -97,6 +255,7 @@ import UIKit
         )
         self.updateScreenSecurityPolicy(args)
         self.updatePrivacyOverlayCopy(args)
+        self.refreshSecureCaptureProtection()
         if UIScreen.main.isCaptured {
           if self.shouldShowPrivacyOverlay() {
             self.showPrivacyOverlay(reason: "screen_capture_active")
@@ -114,6 +273,7 @@ import UIKit
         result(nil)
       case "disable":
         self.sensitiveRoute = nil
+        self.refreshSecureCaptureProtection()
         self.hidePrivacyOverlay()
         result(nil)
       case "reportSecurityEvent":
@@ -132,6 +292,7 @@ import UIKit
         self.updateScreenSecurityPolicy(args)
         self.updatePrivacyOverlayCopy(args)
         self.sensitiveRoute = route.isEmpty ? self.sensitiveRoute : route
+        self.refreshSecureCaptureProtection()
         if self.shouldShowPrivacyOverlay() {
           self.showPrivacyOverlay(reason: reason ?? event)
         }
@@ -172,11 +333,36 @@ import UIKit
   }
 
   private func shouldShowPrivacyOverlay() -> Bool {
+    return screenSecurityPolicyEnabled() && iosScreenCaptureOverlayEnabled
+  }
+
+  private func screenSecurityPolicyEnabled() -> Bool {
     let policy = iosScreenshotPolicy.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     if ["none", "off", "disabled"].contains(policy) {
       return false
     }
-    return iosScreenCaptureOverlayEnabled
+    return true
+  }
+
+  private func refreshSecureCaptureProtection(retryIfWindowUnavailable: Bool = true) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+
+      guard self.sensitiveRoute != nil && self.screenSecurityPolicyEnabled() else {
+        self.secureCaptureProtector.disable()
+        return
+      }
+
+      guard let window = self.activeWindow(),
+            self.secureCaptureProtector.enable(in: window)
+      else {
+        guard retryIfWindowUnavailable else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+          self?.refreshSecureCaptureProtection(retryIfWindowUnavailable: false)
+        }
+        return
+      }
+    }
   }
 
   private func boolArg(_ value: Any?) -> Bool? {
@@ -300,6 +486,7 @@ import UIKit
 
   @objc private func applicationDidReturnFromSensitiveSnapshot() {
     guard sensitiveRoute != nil else { return }
+    refreshSecureCaptureProtection()
     if UIScreen.main.isCaptured {
       if shouldShowPrivacyOverlay() {
         showPrivacyOverlay(reason: "screen_capture_active")
@@ -424,9 +611,11 @@ import UIKit
 
       if let overlay = self.privacyOverlay {
         overlay.frame = window.bounds
+        overlay.backgroundColor = .black
         if overlay.superview == nil {
           window.addSubview(overlay)
         }
+        window.bringSubviewToFront(overlay)
         if reason == "screenshot" {
           self.scheduleScreenshotOverlayDismissal()
         }
@@ -435,44 +624,9 @@ import UIKit
 
       let overlay = UIView(frame: window.bounds)
       overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-      overlay.backgroundColor = UIColor.systemBackground
-
-      let stack = UIStackView()
-      stack.axis = .vertical
-      stack.alignment = .center
-      stack.spacing = 12
-      stack.translatesAutoresizingMaskIntoConstraints = false
-
-      let icon = UIImageView(image: UIImage(systemName: "eye.slash.fill"))
-      icon.tintColor = UIColor.systemBlue
-      icon.contentMode = .scaleAspectFit
-
-      let title = UILabel()
-      title.text = self.privacyOverlayTitle
-      title.font = UIFont.preferredFont(forTextStyle: .title2)
-      title.textColor = UIColor.label
-      title.textAlignment = .center
-
-      let subtitle = UILabel()
-      subtitle.text = self.privacyOverlayDescription
-      subtitle.font = UIFont.preferredFont(forTextStyle: .body)
-      subtitle.textColor = UIColor.secondaryLabel
-      subtitle.textAlignment = .center
-      subtitle.numberOfLines = 0
-
-      stack.addArrangedSubview(icon)
-      stack.addArrangedSubview(title)
-      stack.addArrangedSubview(subtitle)
-      overlay.addSubview(stack)
-
-      NSLayoutConstraint.activate([
-        icon.widthAnchor.constraint(equalToConstant: 56),
-        icon.heightAnchor.constraint(equalToConstant: 56),
-        stack.leadingAnchor.constraint(greaterThanOrEqualTo: overlay.leadingAnchor, constant: 28),
-        stack.trailingAnchor.constraint(lessThanOrEqualTo: overlay.trailingAnchor, constant: -28),
-        stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-        stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
-      ])
+      overlay.backgroundColor = .black
+      overlay.isAccessibilityElement = false
+      overlay.accessibilityElementsHidden = true
 
       self.privacyOverlay = overlay
       window.addSubview(overlay)

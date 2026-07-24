@@ -24,7 +24,6 @@ use App\Models\WebhookCallback;
 use App\Modules\Commerce\Events\CustomerOrderUpdated;
 use App\Modules\Commerce\Events\CustomerTicketsUpdated;
 use App\Modules\Commerce\Events\CustomerTopupUpdated;
-use App\Modules\Commerce\Events\CustomerWalletUpdated;
 use App\Modules\Commerce\Events\TopupUpdated;
 use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
@@ -50,6 +49,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CommerceService
@@ -84,6 +84,8 @@ class CommerceService
         private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
         private readonly DeepayKbankPaymentProvider $deepayKbankProvider,
+        private readonly WalletPostingService $walletPosting,
+        private readonly PaymentWebhookAuthenticator $webhookAuthenticator,
     ) {
     }
 
@@ -1031,23 +1033,22 @@ class CommerceService
      */
     public function updateAdminOrder(string $tenantId, AdminSessionContext $actor, string $orderId, array $payload, Request $request): array
     {
+        if (array_key_exists('status', $payload) || array_key_exists('payment_status', $payload)) {
+            return ['error' => 'validation_failed'];
+        }
+
         $normalized = array_filter([
-            'status' => $payload['status'] ?? null,
-            'payment_status' => $payload['payment_status'] ?? null,
             'admin_note' => $payload['admin_note'] ?? null,
             'reason' => $payload['reason'] ?? null,
-        ], fn (mixed $value): bool => $value !== null);
+        ], fn (mixed $value, string $key): bool => $value !== null || $key === 'admin_note', ARRAY_FILTER_USE_BOTH);
 
-        return $this->adminOrderWrite($tenantId, $actor, $orderId, $normalized, $request, 'admin.tenant.orders.patch', 'order.update', function (object $order) use ($normalized): void {
-            $updates = ['updated_at' => now()];
+        return $this->adminOrderWrite($tenantId, $actor, $orderId, $normalized, $request, 'admin.tenant.orders.patch', 'order.update', function (object $order) use ($normalized): ?string {
+            Order::query()->where('id', $order->id)->update([
+                'admin_note' => $normalized['admin_note'],
+                'updated_at' => now(),
+            ]);
 
-            foreach (['status', 'payment_status', 'admin_note'] as $field) {
-                if (array_key_exists($field, $normalized)) {
-                    $updates[$field] = $normalized[$field];
-                }
-            }
-
-            Order::query()->where('id', $order->id)->update($updates);
+            return null;
         }, 'order.updated');
     }
 
@@ -1057,17 +1058,25 @@ class CommerceService
      */
     public function cancelAdminOrder(string $tenantId, AdminSessionContext $actor, string $orderId, array $payload, Request $request): array
     {
-        return $this->adminOrderWrite($tenantId, $actor, $orderId, $payload, $request, 'admin.tenant.orders.cancel', 'order.cancel', function (object $order) use ($payload, $request, $actor): void {
+        return $this->adminOrderWrite($tenantId, $actor, $orderId, $payload, $request, 'admin.tenant.orders.cancel', 'order.cancel', function (object $order): ?string {
+            if (
+                in_array((string) $order->status, ['paid', 'refunded'], true)
+                || in_array((string) $order->payment_status, ['paid', 'refunded'], true)
+            ) {
+                return 'resource_conflict';
+            }
+
+            if ((string) $order->status === 'cancelled') {
+                return null;
+            }
+
             Order::query()->where('id', $order->id)->update([
                 'status' => 'cancelled',
-                'payment_status' => $order->payment_status === 'paid' ? 'refunded' : $order->payment_status,
                 'cancelled_at' => now(),
                 'updated_at' => now(),
             ]);
 
-            if (($payload['refund_policy'] ?? 'none') === 'wallet_refund' && $order->wallet_id !== null && $order->payment_status === 'paid') {
-                $this->postLedger((string) $order->tenant_id, (string) $order->wallet_id, (string) $order->customer_id, 'reversal', (int) $order->total_amount, 'order_cancel', (string) $order->id, (string) $request->header('Idempotency-Key'), $actor->adminUser['id']);
-            }
+            return null;
         }, 'order.cancelled');
     }
 
@@ -1077,11 +1086,108 @@ class CommerceService
      */
     public function refundAdminOrder(string $tenantId, AdminSessionContext $actor, string $orderId, array $payload, Request $request): array
     {
-        return $this->adminOrderWrite($tenantId, $actor, $orderId, $payload, $request, 'admin.tenant.orders.refund', 'order.refund', function (object $order) use ($payload, $request, $actor): void {
-            $amount = $this->moneyAmount($payload['amount'] ?? null, (int) $order->total_amount);
+        return $this->adminOrderWrite($tenantId, $actor, $orderId, $payload, $request, 'admin.tenant.orders.refund', 'order.refund', function (object $order) use ($payload, $request, $actor): ?string {
+            if ((string) $order->payment_status === 'refunded') {
+                return null;
+            }
+            if ((string) $order->payment_status !== 'paid') {
+                return 'resource_conflict';
+            }
 
-            if ($order->wallet_id !== null) {
-                $this->postLedger((string) $order->tenant_id, (string) $order->wallet_id, (string) $order->customer_id, 'reversal', $amount, 'order_refund', (string) $order->id, (string) $request->header('Idempotency-Key'), $actor->adminUser['id']);
+            $amount = $this->moneyAmount($payload['amount'] ?? null, (int) $order->total_amount);
+            $currency = is_array($payload['amount'] ?? null)
+                ? strtoupper(trim((string) ($payload['amount']['currency'] ?? '')))
+                : '';
+            if ($amount !== (int) $order->total_amount || $currency !== strtoupper((string) $order->currency)) {
+                return 'validation_failed';
+            }
+
+            if (! Schema::hasTable('order_refunds')) {
+                return 'resource_conflict';
+            }
+
+            $method = trim((string) ($payload['method'] ?? 'wallet_refund'));
+            $externalReference = trim((string) ($payload['refund_reference'] ?? ''));
+            $isWalletOrder = (string) $order->payment_method === 'wallet';
+            $payment = null;
+            if ($isWalletOrder) {
+                if ($method !== 'wallet_refund' || $order->wallet_id === null) {
+                    return 'validation_failed';
+                }
+            } else {
+                if (
+                    ! in_array($method, ['manual_refund', 'original_payment'], true)
+                    || $externalReference === ''
+                ) {
+                    return 'validation_failed';
+                }
+
+                $payment = Payment::query()
+                    ->where('tenant_id', $order->tenant_id)
+                    ->where('order_id', $order->id)
+                    ->lockForUpdate()
+                    ->first();
+                if (
+                    $payment === null
+                    || (string) $payment->status !== 'succeeded'
+                    || (int) $payment->amount !== $amount
+                    || strtoupper((string) $payment->currency) !== $currency
+                ) {
+                    return 'resource_conflict';
+                }
+            }
+
+            $refundId = 'orf_'.Str::ulid()->toBase32();
+            $inserted = DB::table('order_refunds')->insertOrIgnore([
+                'id' => $refundId,
+                'tenant_id' => $order->tenant_id,
+                'order_id' => $order->id,
+                'payment_id' => $payment?->id,
+                'method' => $method,
+                'amount' => $amount,
+                'currency' => $currency,
+                'external_reference' => $externalReference === '' ? null : $externalReference,
+                'wallet_ledger_id' => null,
+                'reason' => trim((string) $payload['reason']),
+                'processed_by_admin_id' => $actor->adminUser['id'],
+                'idempotency_key' => (string) $request->header('Idempotency-Key'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            if (! $inserted) {
+                return 'resource_conflict';
+            }
+
+            if ($isWalletOrder) {
+                $ledger = $this->postLedger(
+                    (string) $order->tenant_id,
+                    (string) $order->wallet_id,
+                    (string) $order->customer_id,
+                    'reversal',
+                    $amount,
+                    'order_refund',
+                    (string) $order->id,
+                    (string) $request->header('Idempotency-Key'),
+                    $actor->adminUser['id'],
+                    ['order_refund_id' => $refundId, 'refund_method' => $method],
+                );
+                DB::table('order_refunds')->where('id', $refundId)->update([
+                    'wallet_ledger_id' => $ledger['id'],
+                    'updated_at' => now(),
+                ]);
+            } else {
+                $providerPayload = $this->decodeJsonObject($payment->provider_payload_json);
+                $providerPayload['refund'] = [
+                    'method' => $method,
+                    'reference' => $externalReference,
+                    'recorded_at' => now()->toIso8601String(),
+                    'recorded_by_admin_id' => $actor->adminUser['id'],
+                ];
+                Payment::query()->where('id', $payment->id)->update([
+                    'status' => 'refunded',
+                    'provider_payload_json' => json_encode($providerPayload, JSON_THROW_ON_ERROR),
+                    'updated_at' => now(),
+                ]);
             }
 
             Order::query()->where('id', $order->id)->update([
@@ -1090,11 +1196,15 @@ class CommerceService
                 'refunded_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            $this->growth->reverseCommissionsForOrder((string) $order->id);
+
+            return null;
         }, 'order.refunded');
     }
 
     /**
-     * @param callable(object): void $mutator
+     * @param callable(object): ?string $mutator
      * @return array{resource?: array<string, mixed>, status?: int, error?: string}
      */
     private function adminOrderWrite(string $tenantId, AdminSessionContext $actor, string $orderId, array $payload, Request $request, string $routeKey, string $permissionCode, callable $mutator, string $auditAction): array
@@ -1118,7 +1228,10 @@ class CommerceService
                 return ['error' => 'not_found'];
             }
 
-            $mutator($order);
+            $mutationError = $mutator($order);
+            if ($mutationError !== null) {
+                return ['error' => $mutationError];
+            }
             $resource = $this->adminOrderDetailResource(Order::where('id', $orderId)->first());
             $this->idempotency->storeResponse($tenantId, 'tenant_admin', $actor->adminUser['id'], $routeKey.':'.$orderId, $idempotencyKey, $payload, 200, $resource, $permissionCode);
             $this->auditAdmin($actor, $request, $auditAction, 'order', $orderId, $payload, $tenantId);
@@ -1961,6 +2074,12 @@ class CommerceService
         $payloadHash = $this->idempotency->payloadHash($payload);
 
         return DB::transaction(function () use ($domain, $provider, $payload, $request, $callbackKey, $payloadHash): array {
+            $payment = $this->paymentForWebhook($domain, $provider, $payload);
+            $topup = $this->topupForWebhook($domain, $payment);
+            if (! $this->webhookAuthenticator->verify($provider, $payment, $topup, $request)) {
+                return ['error' => 'webhook_authentication_failed'];
+            }
+
             $existing = WebhookCallback::query()
                 ->where('domain', $domain)
                 ->where('provider', $provider)
@@ -1981,8 +2100,6 @@ class CommerceService
                 ], 'status' => 202];
             }
 
-            $payment = $this->paymentForWebhook($domain, $provider, $payload);
-            $topup = $this->topupForWebhook($domain, $provider, $payload, $payment);
             $callbackId = 'whc_'.Str::ulid()->toBase32();
             $response = [
                 'accepted' => true,
@@ -2288,10 +2405,21 @@ class CommerceService
             ->where('status', 'active')
             ->first();
 
-        return ExternalCheckoutPayment::resolve(
+        $configuration = ExternalCheckoutPayment::resolve(
             (bool) ($settings?->allow_external_payment ?? false),
             is_array($settings?->config_json) ? $settings->config_json : null,
         );
+        if (
+            $configuration === null
+            || $this->tenantPaymentProviderConnection(
+                $tenantId,
+                (string) ($configuration['provider'] ?? ''),
+            ) === null
+        ) {
+            return null;
+        }
+
+        return $configuration;
     }
 
     /**
@@ -2607,70 +2735,18 @@ class CommerceService
      */
     public function postLedger(string $tenantId, string $walletId, string $customerId, string $entryType, int $amount, string $referenceType, string $referenceId, string $idempotencyKey, ?string $adminId = null, array $metadata = []): array
     {
-        $existing = WalletLedger::query()
-            ->where('tenant_id', $tenantId)
-            ->where('wallet_id', $walletId)
-            ->where('idempotency_key', $idempotencyKey)
-            ->first();
-
-        if ($existing !== null) {
-            return [
-                'id' => (string) $existing->id,
-                'wallet_id' => (string) $existing->wallet_id,
-                'balance_after' => (int) $existing->balance_after,
-            ];
-        }
-
-        $wallet = Wallet::query()->where('tenant_id', $tenantId)->where('id', $walletId)->lockForUpdate()->first();
-        $signedAmount = in_array($entryType, ['debit', 'hold'], true) ? -abs($amount) : $amount;
-        $balanceAfter = (int) $wallet->balance_amount + $signedAmount;
-        $ledgerId = 'wle_'.Str::ulid()->toBase32();
-
-        WalletLedger::query()->insert([
-            'id' => $ledgerId,
-            'tenant_id' => $tenantId,
-            'wallet_id' => $walletId,
-            'customer_id' => $customerId,
-            'entry_type' => $entryType,
-            'status' => 'posted',
-            'amount' => $signedAmount,
-            'currency' => 'THB',
-            'balance_after' => $balanceAfter,
-            'reference_type' => $referenceType,
-            'reference_id' => $referenceId,
-            'idempotency_key' => $idempotencyKey,
-            'created_by_admin_id' => $adminId,
-            'metadata_json' => $metadata === [] ? null : json_encode($metadata, JSON_THROW_ON_ERROR),
-            'posted_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        Wallet::query()->where('id', $walletId)->update([
-            'balance_amount' => $balanceAfter,
-            'updated_at' => now(),
-        ]);
-
-        $this->queueCustomerWalletUpdatedBroadcast([
-            'event_type' => 'wallet.updated',
-            'tenant_id' => $tenantId,
-            'customer_id' => $customerId,
-            'wallet_id' => $walletId,
-            'ledger_id' => $ledgerId,
-            'entry_type' => $entryType,
-            'amount' => $signedAmount,
-            'currency' => 'THB',
-            'posted_balance' => $balanceAfter,
-            'reference_type' => $referenceType,
-            'reference_id' => $referenceId,
-            'updated_at' => now()->toISOString(),
-        ]);
-
-        return [
-            'id' => $ledgerId,
-            'wallet_id' => $walletId,
-            'balance_after' => $balanceAfter,
-        ];
+        return $this->walletPosting->post(
+            $tenantId,
+            $walletId,
+            $customerId,
+            $entryType,
+            $amount,
+            $referenceType,
+            $referenceId,
+            $idempotencyKey,
+            $adminId,
+            $metadata,
+        );
     }
 
     private function finalizeExternalPayment(object $payment, Request $request): void
@@ -2741,6 +2817,7 @@ class CommerceService
     private function calculateAffiliateCommissionForOrder(string $orderId, string $tenantId): void
     {
         try {
+            $this->growth->bindAffiliateAttributionToPaidOrder($orderId, $tenantId);
             $this->growth->calculateCommissions($orderId, $tenantId, 1);
         } catch (\Throwable $exception) {
             report($exception);
@@ -2789,8 +2866,9 @@ class CommerceService
 
         $providerReference = trim((string) ($payload['partnerTxnUid'] ?? data_get($payload, 'payload.partnerTxnUid', '')));
         if ($providerReference !== '') {
-            $payment = Payment::where('provider', $provider)->where('provider_reference', $providerReference)->first()
-                ?? Payment::where('provider_reference', $providerReference)->first();
+            $payment = Payment::where('provider', $provider)
+                ->where('provider_reference', $providerReference)
+                ->first();
 
             if ($payment !== null) {
                 return $payment;
@@ -2803,38 +2881,19 @@ class CommerceService
             return null;
         }
 
-        return Payment::where('provider', $provider)->where('reference', $reference)->first()
-            ?? Payment::where('reference', $reference)->first();
+        return Payment::where('provider', $provider)->where('reference', $reference)->first();
     }
 
-    private function topupForWebhook(string $domain, string $provider, array $payload, ?object $payment): ?object
+    private function topupForWebhook(string $domain, ?object $payment): ?object
     {
-        if ($domain !== 'topups') {
+        if ($domain !== 'topups' || $payment === null || $payment->topup_request_id === null) {
             return null;
         }
 
-        if ($payment !== null && $payment->topup_request_id !== null) {
-            return TopupRequest::where('id', $payment->topup_request_id)->first();
-        }
-
-        $providerReference = trim((string) ($payload['partnerTxnUid'] ?? data_get($payload, 'payload.partnerTxnUid', '')));
-        if ($providerReference !== '') {
-            $providerPayment = Payment::where('provider', $provider)->where('provider_reference', $providerReference)->first()
-                ?? Payment::where('provider_reference', $providerReference)->first();
-
-            if ($providerPayment !== null && $providerPayment->topup_request_id !== null) {
-                return TopupRequest::where('id', $providerPayment->topup_request_id)->first();
-            }
-        }
-
-        $reference = (string) ($payload['reference'] ?? $payload['reference1'] ?? data_get($payload, 'payload.reference', ''));
-
-        if ($reference === '') {
-            return null;
-        }
-
-        return TopupRequest::where('reference', $reference)->first()
-            ?? TopupRequest::where('id', $reference)->first();
+        return TopupRequest::query()
+            ->where('tenant_id', $payment->tenant_id)
+            ->where('id', $payment->topup_request_id)
+            ->first();
     }
 
     private function webhookCallbackKey(array $payload): string
@@ -3021,10 +3080,24 @@ class CommerceService
 
     private function adminOrderDetailResource(object $order): array
     {
+        $refund = Schema::hasTable('order_refunds')
+            ? DB::table('order_refunds')->where('tenant_id', $order->tenant_id)->where('order_id', $order->id)->first()
+            : null;
+
         return $this->adminOrderSummaryResource($order) + [
             'tickets' => array_map(fn (object $ticket): array => $this->ticketResource($ticket), Ticket::query()->where('order_id', $order->id)->orderBy('id')->get()->all()),
             'wallet' => $order->wallet_id === null ? null : $this->walletResource(Wallet::where('id', $order->wallet_id)->first()),
             'payment' => (array) (Payment::where('order_id', $order->id)->first() ?? []),
+            'refund' => $refund === null ? null : [
+                'id' => (string) $refund->id,
+                'method' => (string) $refund->method,
+                'amount' => $this->money((int) $refund->amount, (string) $refund->currency),
+                'external_reference' => $refund->external_reference,
+                'wallet_ledger_id' => $refund->wallet_ledger_id,
+                'reason' => (string) $refund->reason,
+                'processed_by_admin_id' => $refund->processed_by_admin_id,
+                'created_at' => $refund->created_at,
+            ],
             'admin_note' => $order->admin_note,
             'audit' => [],
         ];
@@ -3454,6 +3527,7 @@ class CommerceService
             ->where('provider', $provider)
             ->where('status', 'active')
             ->whereNotNull('api_key_encrypted')
+            ->whereNotNull('webhook_secret_encrypted')
             ->first();
     }
 
@@ -3944,14 +4018,6 @@ class CommerceService
     private function queueCustomerTicketsUpdatedBroadcast(array $payload): void
     {
         DB::afterCommit(static fn () => CustomerTicketsUpdated::dispatch($payload));
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function queueCustomerWalletUpdatedBroadcast(array $payload): void
-    {
-        DB::afterCommit(static fn () => CustomerWalletUpdated::dispatch($payload));
     }
 
     private function topupPresentationStatus(object $topup): string

@@ -11,7 +11,11 @@ It is intentionally configuration-only: production secrets and real domains must
 - `platform-api-worker-image`: stock/ticket image generation queues.
 - `platform-api-scheduler`: Laravel scheduler singleton.
 - `platform-api-reverb`: realtime websocket service.
-- `customer`: Nuxt customer SSR app.
+- `support-api`: isolated Customer Support HTTP API.
+- `support-api-worker`: Support queue assignment and notification outbox.
+- `support-api-scheduler`: Support queue/outbox recovery scheduler.
+- `support-api-reverb`: isolated Support realtime websocket service.
+- `customer`: Flutter customer web app.
 - `back-office`: Nuxt admin SSR app.
 - `lotto-scraper-sanook` and `lotto-scraper-thairath`: one replica per source to avoid duplicate scraping.
 
@@ -19,10 +23,14 @@ It is intentionally configuration-only: production secrets and real domains must
 
 1. DOKS cluster with autoscaling node pools.
 2. DigitalOcean Container Registry (DOCR).
-3. Managed PostgreSQL with a connection pool enabled.
-4. Managed Valkey/Redis.
-5. Spaces bucket + CDN for uploads and ticket images.
-6. Ingress NGINX and cert-manager installed in the cluster.
+3. Managed PostgreSQL with a connection pool enabled for Platform.
+4. A second, isolated Managed PostgreSQL database for Support.
+5. Managed Valkey/Redis for Platform.
+6. A second, isolated Managed Valkey/Redis for Support.
+7. A private Spaces bucket for Support attachments, separate credentials
+   preferred.
+8. Spaces bucket + CDN for Platform uploads and ticket images.
+9. Ingress NGINX and cert-manager installed in the cluster.
 
 ## First-time setup
 
@@ -50,6 +58,11 @@ kubectl apply -f /tmp/newpaotang-secret.yaml
 rm /tmp/newpaotang-secret.yaml
 ```
 
+Before applying the Support manifests, the secret file must include
+`newpaotang-support-secret`, the Support RSA public key, and the matching
+private key in `newpaotang-platform-secret`. Support DB/Valkey credentials must
+point to the isolated managed resources, never the Platform database or cache.
+
 Edit these placeholders before first deploy:
 
 - `deploy/digitalocean/configmap.yaml`
@@ -58,6 +71,7 @@ Edit these placeholders before first deploy:
   - `PLATFORM_BACK_OFFICE_URL`
   - `CDN_BASE_URL`
   - realtime URLs
+  - Support API/realtime URLs and allowed browser origins
 - `deploy/digitalocean/ingress.yaml`
   - API, admin, realtime, root, and wildcard customer hosts
 - `deploy/digitalocean/kustomization.yaml`
@@ -94,6 +108,20 @@ envsubst < deploy/digitalocean/jobs/rbac-seed.yaml | kubectl apply -f -
 kubectl -n newpaotang-prod wait --for=condition=complete job/$RBAC_SEED_JOB_NAME --timeout=600s
 ```
 
+Migrate the isolated Support database only after its managed Postgres, Valkey,
+RSA/HMAC secrets, and private attachment bucket are provisioned:
+
+```bash
+export SUPPORT_API_IMAGE=registry.digitalocean.com/<registry>/newpaotang-support-api:<tag>
+export SUPPORT_MIGRATION_JOB_NAME=newpaotang-support-migrate-$(date +%s)
+envsubst < deploy/digitalocean/jobs/support-migrate.yaml | kubectl apply -f -
+kubectl -n newpaotang-prod wait --for=condition=complete job/$SUPPORT_MIGRATION_JOB_NAME --timeout=600s
+```
+
+The production workflow never runs this migration on a branch push. It runs
+only from `workflow_dispatch` when `deploy=true` and
+`run_support_migration=true` are explicitly selected.
+
 ## GitHub Actions setup
 
 Create these GitHub repository secrets:
@@ -109,6 +137,14 @@ The production workflow is:
 - Manual `workflow_dispatch` with `deploy=false`: build and push images only.
 - Manual `workflow_dispatch` with `deploy=true`: build, push, apply manifests, migrate, and roll deployments.
 - Manual `workflow_dispatch` with `run_rbac_seed=true`: also run `DefaultRbacMenuSeeder`.
+- Manual `workflow_dispatch` with `deploy=true` and `deploy_support=true`:
+  apply and roll the isolated Support workloads after their infrastructure and
+  secrets exist.
+- Manual `workflow_dispatch` with `run_support_migration=true`: migrate only
+  the isolated Support database; `deploy_support=true` is also required.
+
+Normal branch pushes build the Support image but intentionally leave Support
+workloads and Support migrations untouched.
 
 If the GitHub `production` environment has required reviewers configured, GitHub will pause the deploy job for approval even on automatic pushes.
 
@@ -121,8 +157,12 @@ Use this flow for normal releases:
 
    ```bash
    docker compose exec -T platform-api php artisan test --env=testing
-   npm --prefix apps/customer run lint
-   npm --prefix apps/customer run build
+   (cd apps/customer_flutter && flutter analyze && flutter test)
+   docker compose run --rm --no-deps \
+     -e APP_ENV=testing \
+     -e DB_DATABASE=newpaotang_support_test \
+     -e DB_TEST_DATABASE=newpaotang_support_test \
+     support-api php artisan test --env=testing
    npm --prefix apps/back-office run lint
    npm --prefix apps/back-office run build
    npm --prefix apps/lotto-scraper run test
@@ -136,7 +176,9 @@ Use this flow for normal releases:
    ```bash
    kubectl -n newpaotang-prod get pods
    kubectl -n newpaotang-prod rollout status deployment/platform-api
+   kubectl -n newpaotang-prod rollout status deployment/support-api
    curl -fsS https://api.lottery80.online/api/v1/health/ready
+   curl -fsS https://api.lottery80.online/support-api/health/ready
    curl -fsS https://api.lottery80.online/api/v1/health/live
    ```
 
@@ -149,6 +191,8 @@ kubectl -n newpaotang-prod rollout undo deployment/platform-api
 kubectl -n newpaotang-prod rollout undo deployment/customer
 kubectl -n newpaotang-prod rollout undo deployment/back-office
 kubectl -n newpaotang-prod rollout undo deployment/platform-api-reverb
+kubectl -n newpaotang-prod rollout undo deployment/support-api
+kubectl -n newpaotang-prod rollout undo deployment/support-api-reverb
 ```
 
 Rollback worker deployments if needed:
@@ -157,6 +201,8 @@ Rollback worker deployments if needed:
 kubectl -n newpaotang-prod rollout undo deployment/platform-api-worker-critical
 kubectl -n newpaotang-prod rollout undo deployment/platform-api-worker-default
 kubectl -n newpaotang-prod rollout undo deployment/platform-api-worker-image
+kubectl -n newpaotang-prod rollout undo deployment/support-api-worker
+kubectl -n newpaotang-prod rollout undo deployment/support-api-scheduler
 ```
 
 Database migrations need a separate rollback plan per release. Do not run destructive rollback commands against production.
@@ -171,5 +217,7 @@ Database migrations need a separate rollback plan per release. Do not run destru
 
 ## Known follow-up
 
-The current `apps/platform-api/Dockerfile` production stage starts Laravel with `php artisan serve`.
-That is acceptable for a first controlled deployment, but production traffic should move to PHP-FPM + NGINX, FrankenPHP, or Octane/RoadRunner before high load.
+The current `apps/support-api/Dockerfile` production stage starts Laravel with
+`php artisan serve`. That is acceptable for a first controlled rollout, but
+Support traffic should move to PHP-FPM + NGINX, FrankenPHP, or Octane/RoadRunner
+before high load.

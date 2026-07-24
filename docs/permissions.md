@@ -474,6 +474,7 @@ auditor
 | `GET /admin/tenant/payouts` | tenant | payout.manage |
 | `POST /admin/tenant/payouts` | tenant | payout.manage |
 | `POST /admin/tenant/payouts/{payout_id}/approve` | tenant | payout.manage |
+| `POST /admin/tenant/payouts/{payout_id}/reject` | tenant | payout.manage |
 | `GET /admin/tenant/monitoring` | tenant | monitoring.view |
 | `GET /admin/tenant/usage` | tenant | usage.view |
 | `GET /admin/tenant/audit-logs` | tenant | audit.view |

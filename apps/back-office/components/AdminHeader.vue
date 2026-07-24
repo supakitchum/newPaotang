@@ -202,7 +202,7 @@ const toggleSidebar = () => {
 
 const switchScope = async (scope: any) => {
   adminSession.setScope(scope.scope, scope.tenant_id)
-  await navigateTo(scope.scope === 'tenant' ? '/admin/tenant/dashboard' : '/admin/central/dashboard')
+  await navigateTo(adminSession.landingPath(scope.scope))
 }
 
 const handleLogout = async () => {

@@ -30,6 +30,7 @@ use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
+use App\Support\EncryptedJsonPayload;
 use App\Support\PublicUrl;
 use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
@@ -3794,6 +3795,7 @@ class RewardService
                 'tickets.customer_id as ticket_customer_id',
                 'customers.auto_reward_claim_payout_method',
                 'customers.reward_payout_bank_account_json',
+                'customers.reward_payout_bank_account_encrypted',
             )
             ->orderBy('winning_tickets.tenant_id')
             ->orderBy('winning_tickets.ticket_id')
@@ -3833,7 +3835,10 @@ class RewardService
             $walletId = null;
 
             if ($payoutMethod === 'bank_transfer') {
-                $bankAccount = $this->decodeJsonObject($winning->reward_payout_bank_account_json ?? null);
+                $bankAccount = EncryptedJsonPayload::decrypt(
+                    $winning->reward_payout_bank_account_encrypted ?? null,
+                    $winning->reward_payout_bank_account_json ?? null,
+                );
 
                 if (! $this->hasUsableBankAccount($bankAccount)) {
                     continue;
@@ -4153,12 +4158,20 @@ class RewardService
      */
     private function customerRewardPayoutBankAccount(string $tenantId, string $customerId): array
     {
-        $json = Customer::query()
+        $customer = Customer::query()
             ->where('tenant_id', $tenantId)
             ->where('id', $customerId)
-            ->value('reward_payout_bank_account_json');
+            ->first([
+                'reward_payout_bank_account_json',
+                'reward_payout_bank_account_encrypted',
+            ]);
 
-        return $this->decodeJsonObject($json);
+        return $customer === null
+            ? []
+            : EncryptedJsonPayload::decrypt(
+                $customer->reward_payout_bank_account_encrypted ?? null,
+                $customer->reward_payout_bank_account_json ?? null,
+            );
     }
 
     /**
@@ -4170,7 +4183,8 @@ class RewardService
             ->where('tenant_id', $tenantId)
             ->where('id', $customerId)
             ->update([
-                'reward_payout_bank_account_json' => $bankAccount === [] ? null : json_encode($bankAccount, JSON_THROW_ON_ERROR),
+                'reward_payout_bank_account_json' => null,
+                'reward_payout_bank_account_encrypted' => EncryptedJsonPayload::encrypt($bankAccount),
                 'updated_at' => now(),
             ]);
     }

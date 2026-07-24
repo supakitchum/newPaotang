@@ -20,12 +20,18 @@ class AffiliatePayout extends BaseModel
         'amount',
         'currency',
         'bank_account_json',
+        'bank_account_encrypted',
+        'wallet_id',
+        'payout_ledger_id',
+        'payment_reference',
         'admin_note',
         'idempotency_key',
         'payload_hash',
         'requested_by_admin_id',
         'approved_by_admin_id',
         'approved_at',
+        'paid_by_admin_id',
+        'paid_at',
         'created_at',
         'updated_at',
     ];
@@ -34,6 +40,12 @@ class AffiliatePayout extends BaseModel
         'amount' => 'integer',
         'bank_account_json' => 'array',
         'approved_at' => 'datetime',
+        'paid_at' => 'datetime',
+    ];
+
+    protected $hidden = [
+        'bank_account_json',
+        'bank_account_encrypted',
     ];
 
     public function affiliateAccount(): BelongsTo
@@ -49,5 +61,10 @@ class AffiliatePayout extends BaseModel
     public function approvedByAdmin(): BelongsTo
     {
         return $this->belongsTo(AdminUser::class, 'approved_by_admin_id');
+    }
+
+    public function paidByAdmin(): BelongsTo
+    {
+        return $this->belongsTo(AdminUser::class, 'paid_by_admin_id');
     }
 }

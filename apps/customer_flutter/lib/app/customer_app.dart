@@ -136,7 +136,6 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       },
       orElse: () => '',
     );
-    final systemUiOverlayStyle = _systemUiOverlayStyleFor(appTheme);
     web_runtime.syncWebSystemChromeColor(
       appTheme.colorScheme.primary.toARGB32(),
     );
@@ -156,40 +155,57 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       routerConfig: router,
       builder: (context, child) {
         final appChild = child ?? const SizedBox.shrink();
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          key: const ValueKey('customer-system-ui-overlay'),
-          value: systemUiOverlayStyle,
-          child: _CustomerStatusBarBackground(
-            color: appTheme.colorScheme.primary,
-            child: CustomerDeepLinkListener(
-              child: AppSplashHost(
-                child: CustomerRealtimeMonitor(
-                  child: CustomerPushLifecycleMonitor(
-                    router: router,
-                    child: CustomerNotificationRealtimeMonitor(
-                      child: ResultRealtimeMonitor(
-                        child: LotteryStockRealtimeMonitor(
-                          child: CustomerRevenueRealtimeMonitor(
-                            child: CustomerTopupRealtimeMonitor(
-                              child: CustomerClaimRealtimeMonitor(
-                                child: PublicVisitMonitor(
-                                  router: router,
-                                  child: AffiliateReferralMonitor(
-                                    router: router,
-                                    child: AppAlertHost(
-                                      child: AnnouncementModalHost(
+        return ListenableBuilder(
+          listenable: router.routeInformationProvider,
+          builder: (context, _) {
+            final path = normalizeCustomerRoutePath(
+              router.routeInformationProvider.value.uri.path,
+            );
+            final statusBarColor = path == '/pin'
+                ? appTheme.colorScheme.surface
+                : appTheme.colorScheme.primary;
+            final systemUiOverlayStyle = _systemUiOverlayStyleFor(
+              appTheme,
+              statusBarColor: statusBarColor,
+            );
+
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              key: const ValueKey('customer-system-ui-overlay'),
+              value: systemUiOverlayStyle,
+              child: _CustomerStatusBarBackground(
+                color: statusBarColor,
+                child: CustomerDeepLinkListener(
+                  child: AppSplashHost(
+                    child: CustomerRealtimeMonitor(
+                      child: CustomerPushLifecycleMonitor(
+                        router: router,
+                        child: CustomerNotificationRealtimeMonitor(
+                          child: ResultRealtimeMonitor(
+                            child: LotteryStockRealtimeMonitor(
+                              child: CustomerRevenueRealtimeMonitor(
+                                child: CustomerTopupRealtimeMonitor(
+                                  child: CustomerClaimRealtimeMonitor(
+                                    child: PublicVisitMonitor(
+                                      router: router,
+                                      child: AffiliateReferralMonitor(
                                         router: router,
-                                        child: SaleClosureGuard(
-                                          router: router,
-                                          child: _CustomerRuntimeSecurityLayer(
+                                        child: AppAlertHost(
+                                          child: AnnouncementModalHost(
                                             router: router,
-                                            bootstrap: bootstrap,
-                                            platformKey: platformKey,
-                                            screenSecurityEnabled:
-                                                screenSecurityEnabled,
-                                            webPrivacyEnabled:
-                                                webPrivacyEnabled,
-                                            child: appChild,
+                                            child: SaleClosureGuard(
+                                              router: router,
+                                              child:
+                                                  _CustomerRuntimeSecurityLayer(
+                                                    router: router,
+                                                    bootstrap: bootstrap,
+                                                    platformKey: platformKey,
+                                                    screenSecurityEnabled:
+                                                        screenSecurityEnabled,
+                                                    webPrivacyEnabled:
+                                                        webPrivacyEnabled,
+                                                    child: appChild,
+                                                  ),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -205,8 +221,8 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
       supportedLocales: appSupportedLocales,
@@ -253,17 +269,20 @@ class _CustomerStatusBarBackground extends StatelessWidget {
   }
 }
 
-SystemUiOverlayStyle _systemUiOverlayStyleFor(ThemeData theme) {
-  final statusBarColor = theme.colorScheme.primary;
+SystemUiOverlayStyle _systemUiOverlayStyleFor(
+  ThemeData theme, {
+  Color? statusBarColor,
+}) {
+  final resolvedStatusBarColor = statusBarColor ?? theme.colorScheme.primary;
   final navigationBarColor = theme.scaffoldBackgroundColor;
   final statusBarBackgroundBrightness = ThemeData.estimateBrightnessForColor(
-    statusBarColor,
+    resolvedStatusBarColor,
   );
   final navigationBarBackgroundBrightness =
       ThemeData.estimateBrightnessForColor(navigationBarColor);
 
   return SystemUiOverlayStyle(
-    statusBarColor: statusBarColor,
+    statusBarColor: resolvedStatusBarColor,
     statusBarIconBrightness: _contrastingBrightness(
       statusBarBackgroundBrightness,
     ),

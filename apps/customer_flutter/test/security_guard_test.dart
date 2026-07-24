@@ -1112,6 +1112,67 @@ void main() {
     },
   );
 
+  testWidgets('CustomerApp uses a light status bar on the PIN route', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/pin',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Text('Root route'),
+        ),
+        GoRoute(
+          path: '/pin',
+          builder: (context, state) => const Text('PIN route'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
+          ),
+          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+          publicVisitMonitorEnabledProvider.overrideWithValue(false),
+          customerPlatformKeyProvider.overrideWithValue('ios'),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+            }),
+          ),
+          appRouterProvider.overrideWithValue(router),
+        ],
+        child: const CustomerApp(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final pinTheme = Theme.of(tester.element(find.text('PIN route')));
+    var systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byKey(const ValueKey('customer-system-ui-overlay')),
+    );
+    expect(systemUiOverlay.value.statusBarColor, pinTheme.colorScheme.surface);
+    expect(systemUiOverlay.value.statusBarIconBrightness, Brightness.dark);
+    expect(systemUiOverlay.value.statusBarBrightness, Brightness.light);
+
+    router.go('/');
+    await tester.pumpAndSettle();
+
+    final rootTheme = Theme.of(tester.element(find.text('Root route')));
+    systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byKey(const ValueKey('customer-system-ui-overlay')),
+    );
+    expect(systemUiOverlay.value.statusBarColor, rootTheme.colorScheme.primary);
+  });
+
   testWidgets('SensitiveScreenGuard locks session on native capture events', (
     tester,
   ) async {

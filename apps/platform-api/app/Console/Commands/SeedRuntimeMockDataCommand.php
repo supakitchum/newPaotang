@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\EncryptedJsonPayload;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -395,7 +396,8 @@ class SeedRuntimeMockDataCommand extends Command
                 'pin_last_verified_at' => $this->date($paidAt->subMinutes(1)),
                 'avatar_url' => null,
                 'last_login_at' => $this->date($paidAt->subMinutes(2)),
-                'reward_payout_bank_account_json' => $this->json($bankAccount),
+                'reward_payout_bank_account_json' => null,
+                'reward_payout_bank_account_encrypted' => EncryptedJsonPayload::encrypt($bankAccount),
                 'auto_reward_claim_enabled' => true,
                 'auto_reward_claim_payout_method' => $autoPayoutMethod,
                 'created_at' => $this->date($createdAt),
@@ -755,7 +757,10 @@ class SeedRuntimeMockDataCommand extends Command
             'status' => $index % 11 === 0 ? 'paused' : 'active',
             'wallet_balance_amount' => 50000 + (($index % 30) * 500),
             'currency' => self::CURRENCY,
-            'payout_profile_json' => $this->json($this->bankAccount($index, $affiliateName)),
+            'payout_profile_json' => null,
+            'payout_profile_encrypted' => EncryptedJsonPayload::encrypt(
+                $this->bankAccount($index, $affiliateName),
+            ),
             'metadata_json' => $this->json(['source' => self::SAMPLE_SOURCE]),
             'created_by_admin_id' => null,
             'created_at' => $this->date($createdAt),
@@ -785,7 +790,10 @@ class SeedRuntimeMockDataCommand extends Command
                 'payout_method' => $index % 2 === 0 ? 'wallet_credit' : 'bank_transfer',
                 'amount' => 25000 + (($index % 10) * 1000),
                 'currency' => self::CURRENCY,
-                'bank_account_json' => $this->json($this->bankAccount($index, $affiliateName)),
+                'bank_account_json' => null,
+                'bank_account_encrypted' => EncryptedJsonPayload::encrypt(
+                    $this->bankAccount($index, $affiliateName),
+                ),
                 'admin_note' => 'รอบจ่ายค่าคอมมิชชันประจำงวด',
                 'idempotency_key' => 'affiliate-payout-'.$index,
                 'payload_hash' => hash('sha256', 'affiliate-payout-'.$index),

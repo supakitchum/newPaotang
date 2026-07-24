@@ -59,6 +59,9 @@ use App\Modules\LineNotifications\Http\Controllers\CustomerLineNotificationContr
 use App\Modules\LineNotifications\Http\Controllers\TenantLineNotificationController;
 use App\Modules\CustomerNotifications\Http\Controllers\CustomerNotificationController;
 use App\Modules\CustomerNotifications\Http\Controllers\TenantCustomerNotificationController;
+use App\Modules\CustomerSupport\Http\Controllers\CustomerSupportSessionController;
+use App\Modules\CustomerSupport\Http\Controllers\InternalSupportNotificationController;
+use App\Modules\CustomerSupport\Http\Controllers\TenantSupportSessionController;
 use App\Modules\SmsOtp\Http\Controllers\CustomerSmsOtpController;
 use App\Modules\SmsOtp\Http\Controllers\TenantSmsOtpController;
 use App\Modules\TelegramNotifications\Http\Controllers\CentralTelegramNotificationController;
@@ -78,6 +81,7 @@ Route::get('/health/live', [HealthController::class, 'live']);
 Route::get('/health/ready', [HealthController::class, 'ready']);
 Route::post('/internal/reward-ingest/sanook', [InternalRewardIngestController::class, 'sanook']);
 Route::post('/internal/reward-ingest/thairath', [InternalRewardIngestController::class, 'thairath']);
+Route::post('/internal/customer-support/notifications', [InternalSupportNotificationController::class, 'store']);
 
 Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'admin']);
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
@@ -95,7 +99,8 @@ Route::get('/public/games/current', [PublicGameController::class, 'current']);
 Route::get('/public/stock/search', [PublicStockSearchController::class, 'index']);
 Route::get('/public/stock/images/{token}.webp', [PublicStockImageController::class, 'show']);
 Route::get('/public/assets/{path}', [PublicAssetController::class, 'show'])->where('path', '.*');
-Route::post('/public/affiliate/referrals/click', [CustomerAffiliateController::class, 'trackReferralVisit']);
+Route::post('/public/affiliate/referrals/click', [CustomerAffiliateController::class, 'trackReferralVisit'])
+    ->middleware('throttle:affiliate-public-referral');
 Route::get('/public/results/latest', [PublicRewardController::class, 'latest']);
 Route::get('/public/results/live/latest', [PublicRewardController::class, 'liveLatest']);
 Route::get('/public/results/live/{game_id}', [PublicRewardController::class, 'liveShow']);
@@ -144,6 +149,7 @@ Route::post('/customer/notifications/read-all', [CustomerNotificationController:
 Route::post('/customer/notification-devices', [CustomerNotificationController::class, 'registerDevice'])->middleware('customer.auth');
 Route::delete('/customer/notification-devices/{installation_id}', [CustomerNotificationController::class, 'revokeDevice'])->middleware('customer.auth');
 Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');
+Route::post('/customer/support-session', [CustomerSupportSessionController::class, 'store'])->middleware('customer.auth');
 Route::get('/customer/cart', [CustomerCommerceController::class, 'cart'])->middleware('customer.auth');
 Route::post('/customer/checkout', [CustomerCommerceController::class, 'checkout'])->middleware('customer.auth');
 Route::get('/customer/wallet', [CustomerCommerceController::class, 'wallet'])->middleware('customer.auth');
@@ -172,11 +178,18 @@ Route::post('/customer/topups/{topup_id}/slip', [CustomerCommerceController::cla
 Route::get('/customer/topups/{topup_id}', [CustomerCommerceController::class, 'topup'])->middleware('customer.auth');
 Route::delete('/customer/topups/{topup_id}', [CustomerCommerceController::class, 'cancelTopup'])->middleware('customer.auth');
 Route::get('/customer/affiliate', [CustomerAffiliateController::class, 'overview'])->middleware('customer.auth');
-Route::post('/customer/affiliate', [CustomerAffiliateController::class, 'register'])->middleware('customer.auth');
-Route::post('/customer/affiliate/referrals/apply', [CustomerAffiliateController::class, 'applyReferral'])->middleware('customer.auth');
+Route::post('/customer/affiliate', [CustomerAffiliateController::class, 'register'])
+    ->middleware(['customer.auth', 'throttle:affiliate-customer-write']);
+Route::post('/customer/affiliate/store-name-requests', [CustomerAffiliateController::class, 'requestStoreName'])
+    ->middleware(['customer.auth', 'throttle:affiliate-customer-write']);
+Route::get('/customer/affiliate/tier-campaigns', [CustomerAffiliateController::class, 'campaigns'])->middleware('customer.auth');
+Route::get('/customer/affiliate/tier-campaigns/{campaign_id}', [CustomerAffiliateController::class, 'campaign'])->middleware('customer.auth');
+Route::post('/customer/affiliate/referrals/apply', [CustomerAffiliateController::class, 'applyReferral'])
+    ->middleware(['customer.auth', 'throttle:affiliate-customer-write']);
 Route::get('/customer/affiliate/commissions', [CustomerAffiliateController::class, 'commissions'])->middleware('customer.auth');
 Route::get('/customer/affiliate/payouts', [CustomerAffiliateController::class, 'payouts'])->middleware('customer.auth');
-Route::post('/customer/affiliate/payouts', [CustomerAffiliateController::class, 'createPayout'])->middleware('customer.auth');
+Route::post('/customer/affiliate/payouts', [CustomerAffiliateController::class, 'createPayout'])
+    ->middleware(['customer.auth', 'throttle:affiliate-customer-write']);
 Route::post('/customer/reservations', [CustomerReservationController::class, 'store'])
     ->middleware('customer.auth');
 Route::post('/customer/reservations/{reservation_id}/release', [CustomerReservationController::class, 'release'])
@@ -825,6 +838,8 @@ Route::post('/admin/tenant/domains/{domain_id}/verify', [BoMenuCompletionControl
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/members', [BoMenuCompletionController::class, 'membersIndex'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/support-session', [TenantSupportSessionController::class, 'store'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/members', [BoMenuCompletionController::class, 'membersStore'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/members/{member_id}', [BoMenuCompletionController::class, 'membersShow'])
@@ -945,6 +960,28 @@ Route::get('/admin/tenant/affiliates/{affiliate_id}', [TenantGrowthController::c
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::patch('/admin/tenant/affiliates/{affiliate_id}', [TenantGrowthController::class, 'updateAffiliate'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/affiliate-store-name-requests', [TenantGrowthController::class, 'affiliateStoreNameRequests'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/affiliate-store-name-requests/{request_id}/approve', [TenantGrowthController::class, 'approveAffiliateStoreNameRequest'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/affiliate-store-name-requests/{request_id}/reject', [TenantGrowthController::class, 'rejectAffiliateStoreNameRequest'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/affiliate-tiers', [TenantGrowthController::class, 'affiliateTiers'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/affiliate-tiers/{tier_code}', [TenantGrowthController::class, 'updateAffiliateTier'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/affiliate-tier-campaigns', [TenantGrowthController::class, 'affiliateTierCampaigns'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/affiliate-tier-campaigns', [TenantGrowthController::class, 'createAffiliateTierCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/affiliate-tier-campaigns/{campaign_id}', [TenantGrowthController::class, 'affiliateTierCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/affiliate-tier-campaigns/{campaign_id}', [TenantGrowthController::class, 'updateAffiliateTierCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/affiliate-tier-campaigns/{campaign_id}/finalize', [TenantGrowthController::class, 'finalizeAffiliateTierCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/affiliate-tier-campaigns/{campaign_id}/cancel', [TenantGrowthController::class, 'cancelAffiliateTierCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/commission-rules', [TenantGrowthController::class, 'commissionRules'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/commission-rules', [TenantGrowthController::class, 'createCommissionRule'])
@@ -967,6 +1004,10 @@ Route::post('/admin/tenant/payouts', [TenantGrowthController::class, 'createPayo
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/payouts/{payout_id}/approve', [TenantGrowthController::class, 'approvePayout'])
     ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:payout_approve']);
+Route::post('/admin/tenant/payouts/{payout_id}/pay', [TenantGrowthController::class, 'payPayout'])
+    ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:payout_approve']);
+Route::post('/admin/tenant/payouts/{payout_id}/reject', [TenantGrowthController::class, 'rejectPayout'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/reports/{report_key}', [ReportController::class, 'tenantReport'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/reports/{report_key}/exports', [ReportController::class, 'createTenantExport'])
@@ -979,5 +1020,7 @@ Route::get('/admin/tenant/export-jobs/{export_job_id}/download', [ReportControll
 Route::get('/partner-sync/allocations', [PartnerSyncController::class, 'allocations']);
 Route::post('/partner-sync/events', [PartnerSyncController::class, 'events']);
 
-Route::post('/webhooks/payments/{provider}', [WebhookController::class, 'payment']);
-Route::post('/webhooks/topups/{provider}', [WebhookController::class, 'topup']);
+Route::post('/webhooks/payments/{provider}', [WebhookController::class, 'payment'])
+    ->middleware('throttle:payment-webhook');
+Route::post('/webhooks/topups/{provider}', [WebhookController::class, 'topup'])
+    ->middleware('throttle:payment-webhook');

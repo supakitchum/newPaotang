@@ -574,7 +574,7 @@ const partnerTypeOptions = ['partner_store', 'agent_network', 'white_label', 'ap
 const tenantStatusOptions = ['provisioning', 'active', 'maintenance', 'suspended', 'closed']
 const agentStatusOptions = ['active', 'inactive', 'suspended']
 const affiliateStatusOptions = ['active', 'inactive', 'archived']
-const commissionRuleTypeOptions = ['fixed_per_order', 'percent_sales', 'per_ticket']
+const commissionRuleTypeOptions = ['fixed_per_order', 'percent_sales']
 const seoStatusOptions = ['draft', 'active', 'inactive', 'archived']
 const redirectStatusCodeOptions = ['301', '302', '307', '308']
 const domainTypeOptions = ['subdomain', 'custom_domain']
@@ -1178,7 +1178,7 @@ const affiliateProgramDetailFields: OperationColumn[] = [
   { key: 'code', label: 'Code' },
   { key: 'name', label: 'Name' },
   { key: 'status', label: 'Status', type: 'status' },
-  { key: 'minimum_payout.amount', label: 'Minimum withdrawal', type: 'money' },
+  { key: 'minimum_payout', label: 'Minimum withdrawal', type: 'money' },
   { key: 'starts_at', label: 'Starts', type: 'datetime' },
   { key: 'ends_at', label: 'Ends', type: 'datetime' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
@@ -1243,6 +1243,9 @@ const commissionTransactionDetailFields: OperationColumn[] = [
   { key: 'commission_rule_id', label: 'Rule' },
   { key: 'transaction_type', label: 'Type' },
   { key: 'amount.amount', label: 'Amount', type: 'money' },
+  { key: 'ticket_count', label: 'Ticket count', type: 'number' },
+  { key: 'tier_code', label: 'Tier at payment' },
+  { key: 'commission_per_ticket.amount', label: 'Commission per ticket', type: 'money' },
   { key: 'status', label: 'Status', type: 'status' },
   { key: 'calculated_at', label: 'Calculated', type: 'datetime' },
   { key: 'approved_at', label: 'Approved', type: 'datetime' },
@@ -1255,6 +1258,11 @@ const payoutDetailFields: OperationColumn[] = [
   { key: 'payout_method', label: 'Payout method' },
   { key: 'bank_account.bank_name', label: 'Bank' },
   { key: 'bank_account.account_number', label: 'Account number' },
+  { key: 'wallet_id', label: 'Wallet' },
+  { key: 'payout_ledger_id', label: 'Wallet ledger' },
+  { key: 'payment_reference', label: 'Payment reference' },
+  { key: 'approved_at', label: 'Approved', type: 'datetime' },
+  { key: 'paid_at', label: 'Paid', type: 'datetime' },
   { key: 'created_at', label: 'Created', type: 'datetime' },
 ]
 const affiliateProgramCreateFields: OperationFormField[] = [
@@ -1276,10 +1284,32 @@ const affiliateAccountCreateFields: OperationFormField[] = [
   { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
   ...affiliatePayoutProfileFields,
 ]
-const affiliateAccountUpdateFields = updateFields(affiliateAccountCreateFields)
+const affiliateAccountUpdateFields = updateFields(affiliateAccountCreateFields.filter(field => field.key !== 'name'))
+const affiliateTierUpdateFields: OperationFormField[] = [
+  { key: 'name', label: 'Tier name', required: true },
+  { key: 'commission_per_ticket.amount', label: 'Commission per ticket (THB)', type: 'money', required: true, min: 0, step: 0.01 },
+  { key: 'minimum_payout.amount', label: 'Minimum withdrawal (THB)', type: 'money', required: true, min: 0.01, step: 0.01 },
+]
+const defaultFixedTierRules = JSON.stringify([
+  { minimum_ticket_count: 0, target_tier_code: 'bronze' },
+  { minimum_ticket_count: 200, target_tier_code: 'silver' },
+  { minimum_ticket_count: 300, target_tier_code: 'gold' },
+  { minimum_ticket_count: 400, target_tier_code: 'platinum' },
+  { minimum_ticket_count: 500, target_tier_code: 'diamond' },
+], null, 2)
+const affiliateTierCampaignFields: OperationFormField[] = [
+  { key: 'name', label: 'Campaign name', required: true },
+  { key: 'campaign_type', label: 'Evaluation type', type: 'select', options: [
+    { value: 'fixed_threshold', label: 'Fixed ticket thresholds' },
+    { value: 'ranking', label: 'Competition ranking' },
+  ], defaultValue: 'fixed_threshold', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: ['draft', 'scheduled'], defaultValue: 'scheduled', required: true },
+  { key: 'starts_at', label: 'Starts at', type: 'datetime-local', required: true },
+  { key: 'ends_at', label: 'Ends at', type: 'datetime-local', required: true },
+  { key: 'rules', label: 'Tier rules JSON', type: 'json', defaultValue: defaultFixedTierRules, required: true, help: 'Fixed: minimum_ticket_count + target_tier_code. Ranking: rank_from + rank_to + target_tier_code.' },
+]
 const affiliateLinkCreateFields: OperationFormField[] = [
   affiliateSelectField(),
-  affiliateProgramSelectField({ required: false }),
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
 ]
 const affiliateLinkUpdateFields = updateFields(affiliateLinkCreateFields)
@@ -1760,15 +1790,13 @@ const tenant: OperationResource[] = [
     actions: [
       {
         key: 'update',
-        label: 'Update',
+        label: 'Update note',
         method: 'PATCH',
         endpoint: '/admin/tenant/orders/{order_id}',
         variant: 'primary',
         reason: true,
         contextFields: orderActionContext,
         formFields: [
-          { key: 'status', label: 'Order status', type: 'select', options: ['pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed'] },
-          { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] },
           { key: 'admin_note', label: 'Admin note', type: 'textarea', placeholder: 'Optional internal note' },
         ],
       },
@@ -1780,7 +1808,6 @@ const tenant: OperationResource[] = [
         reason: true,
         contextFields: orderActionContext,
         formFields: [
-          { key: 'refund_policy', label: 'Refund policy', type: 'select', options: ['none', 'wallet_refund', 'manual_refund'], defaultValue: 'none' },
           notifyCustomerField,
         ],
       },
@@ -1794,6 +1821,7 @@ const tenant: OperationResource[] = [
         formFields: [
           ...bahtMoneyFields('amount', 'Refund amount'),
           { key: 'method', label: 'Refund method', type: 'select', options: ['wallet_refund', 'manual_refund', 'original_payment'], defaultValue: 'wallet_refund' },
+          { key: 'refund_reference', label: 'External refund reference', placeholder: 'Required for manual or original payment refunds' },
           notifyCustomerField,
         ],
       },
@@ -2191,7 +2219,7 @@ const tenant: OperationResource[] = [
       { key: 'code', label: 'Code' },
       { key: 'name', label: 'Name' },
       { key: 'status', label: 'Status', type: 'status' },
-      { key: 'minimum_payout.amount', label: 'Minimum withdrawal', type: 'money' },
+      { key: 'minimum_payout', label: 'Minimum withdrawal', type: 'money' },
       { key: 'starts_at', label: 'Starts', type: 'datetime' },
       { key: 'ends_at', label: 'Ends', type: 'datetime' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
@@ -2338,6 +2366,162 @@ const tenant: OperationResource[] = [
   },
   {
     scope: 'tenant',
+    slug: 'growth/affiliate-store-name-requests',
+    title: 'Affiliate Store Name Reviews',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/affiliate-store-name-requests',
+    idParam: 'request_id',
+    idKey: 'id',
+    detailFromList: true,
+    detailFields: [
+      { key: 'id', label: 'Request' },
+      { key: 'affiliate_code', label: 'Affiliate code' },
+      { key: 'customer_no', label: 'Customer no' },
+      { key: 'request_type', label: 'Request type' },
+      { key: 'previous_name', label: 'Current approved name' },
+      { key: 'requested_name', label: 'Requested name' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'admin_note', label: 'Admin note' },
+      { key: 'submitted_at', label: 'Submitted', type: 'datetime' },
+      { key: 'reviewed_at', label: 'Reviewed', type: 'datetime' },
+    ],
+    columns: [
+      { key: 'requested_name', label: 'Requested store name' },
+      { key: 'previous_name', label: 'Current name' },
+      { key: 'affiliate_code', label: 'Affiliate' },
+      { key: 'customer_no', label: 'Customer no' },
+      { key: 'request_type', label: 'Type' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'submitted_at', label: 'Submitted', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(['pending', 'approved', 'rejected'])]),
+    confirmContextFields: ['id', 'affiliate_code', 'customer_no', 'previous_name', 'requested_name', 'status'],
+    actions: [
+      {
+        key: 'approve',
+        label: 'Approve name',
+        endpoint: '/admin/tenant/affiliate-store-name-requests/{request_id}/approve',
+        variant: 'success',
+        enabledStatuses: ['pending'],
+        optionalReason: true,
+        contextFields: ['id', 'affiliate_code', 'previous_name', 'requested_name', 'status'],
+      },
+      {
+        key: 'reject',
+        label: 'Reject name',
+        endpoint: '/admin/tenant/affiliate-store-name-requests/{request_id}/reject',
+        variant: 'danger',
+        enabledStatuses: ['pending'],
+        reason: true,
+        contextFields: ['id', 'affiliate_code', 'previous_name', 'requested_name', 'status'],
+      },
+    ],
+  },
+  {
+    scope: 'tenant',
+    slug: 'growth/affiliate-tiers',
+    title: 'Affiliate Tiers',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/affiliate-tiers',
+    idParam: 'tier_code',
+    idKey: 'code',
+    detailFromList: true,
+    detailFields: [
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'rank', label: 'Rank', type: 'number' },
+      { key: 'commission_per_ticket', label: 'Commission per ticket', type: 'money' },
+      { key: 'minimum_payout', label: 'Minimum withdrawal', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    columns: [
+      { key: 'rank', label: 'Order', type: 'number' },
+      { key: 'name', label: 'Tier' },
+      { key: 'commission_per_ticket', label: 'Commission / ticket', type: 'money' },
+      { key: 'minimum_payout', label: 'Minimum withdrawal', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    confirmContextFields: ['code', 'name', 'rank', 'commission_per_ticket.amount', 'minimum_payout.amount'],
+    actions: [{
+      key: 'update',
+      label: 'Update tier',
+      method: 'PATCH',
+      endpoint: '/admin/tenant/affiliate-tiers/{tier_code}',
+      variant: 'primary',
+      contextFields: ['code', 'name', 'rank', 'commission_per_ticket.amount', 'minimum_payout.amount'],
+      formFields: affiliateTierUpdateFields,
+    }],
+  },
+  {
+    scope: 'tenant',
+    slug: 'growth/affiliate-tier-campaigns',
+    title: 'Affiliate Tier Campaigns',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/affiliate-tier-campaigns',
+    detailEndpoint: '/admin/tenant/affiliate-tier-campaigns/{campaign_id}',
+    idParam: 'campaign_id',
+    idKey: 'id',
+    detailFields: [
+      { key: 'id', label: 'Campaign' },
+      { key: 'name', label: 'Name' },
+      { key: 'campaign_type', label: 'Evaluation type' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'starts_at', label: 'Starts', type: 'datetime' },
+      { key: 'ends_at', label: 'Ends', type: 'datetime' },
+      { key: 'can_reduce_tier', label: 'Can reduce tier', type: 'boolean' },
+      { key: 'rules', label: 'Rules', type: 'json' },
+      { key: 'leaderboard', label: 'Results / leaderboard', type: 'json' },
+      { key: 'finalized_at', label: 'Finalized', type: 'datetime' },
+    ],
+    columns: [
+      { key: 'name', label: 'Campaign' },
+      { key: 'campaign_type', label: 'Type' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'starts_at', label: 'Starts', type: 'datetime' },
+      { key: 'ends_at', label: 'Ends', type: 'datetime' },
+      { key: 'finalized_at', label: 'Finalized', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(['draft', 'scheduled', 'active', 'processing', 'completed', 'cancelled'])]),
+    confirmContextFields: ['id', 'name', 'campaign_type', 'status', 'starts_at', 'ends_at'],
+    actions: [
+      {
+        key: 'update',
+        label: 'Update campaign',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/affiliate-tier-campaigns/{campaign_id}',
+        variant: 'primary',
+        enabledStatuses: ['draft', 'scheduled'],
+        contextFields: ['id', 'name', 'campaign_type', 'status', 'starts_at', 'ends_at', 'rules'],
+        formFields: affiliateTierCampaignFields,
+      },
+      {
+        key: 'finalize',
+        label: 'Finalize results',
+        endpoint: '/admin/tenant/affiliate-tier-campaigns/{campaign_id}/finalize',
+        variant: 'success',
+        enabledStatuses: ['active', 'scheduled'],
+        reason: true,
+        contextFields: ['id', 'name', 'campaign_type', 'status', 'starts_at', 'ends_at'],
+      },
+      {
+        key: 'cancel',
+        label: 'Cancel campaign',
+        endpoint: '/admin/tenant/affiliate-tier-campaigns/{campaign_id}/cancel',
+        variant: 'danger',
+        enabledStatuses: ['draft', 'scheduled', 'active'],
+        reason: true,
+        contextFields: ['id', 'name', 'campaign_type', 'status', 'starts_at', 'ends_at'],
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create tier campaign',
+      endpoint: '/admin/tenant/affiliate-tier-campaigns',
+      formFields: affiliateTierCampaignFields,
+    }],
+  },
+  {
+    scope: 'tenant',
     slug: 'growth/commission-rules',
     title: 'Commission Rules',
     group: 'Tenant Growth',
@@ -2442,7 +2626,22 @@ const tenant: OperationResource[] = [
     ],
     filters: cursorFilters([statusFilter(['pending', 'approved', 'rejected', 'paid'])]),
     confirmContextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method'],
-    actions: [{ key: 'approve', label: 'Approve', endpoint: '/admin/tenant/payouts/{payout_id}/approve', variant: 'success', reason: true, contextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method'] }],
+    actions: [
+      { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/payouts/{payout_id}/approve', variant: 'success', reason: true, contextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method'], enabledStatuses: ['pending'] },
+      {
+        key: 'pay',
+        label: 'Mark paid',
+        endpoint: '/admin/tenant/payouts/{payout_id}/pay',
+        variant: 'success',
+        optionalReason: true,
+        contextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method', 'bank_account.bank_name', 'bank_account.account_number'],
+        enabledStatuses: ['approved'],
+        formFields: [
+          { key: 'payment_reference', label: 'Payment reference', required: true, placeholder: 'Bank transfer or cash receipt reference' },
+        ],
+      },
+      { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/payouts/{payout_id}/reject', variant: 'danger', reason: true, contextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method'], enabledStatuses: ['pending'] },
+    ],
     collectionActions: [{
       key: 'create',
       label: 'Create payout',

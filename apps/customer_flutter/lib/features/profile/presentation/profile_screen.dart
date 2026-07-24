@@ -14,6 +14,8 @@ import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../../affiliate/data/affiliate_models.dart';
+import '../../affiliate/data/affiliate_repository.dart';
 import '../data/line_notification_repository.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
@@ -81,7 +83,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String message,
     required AppAlertVariant variant,
   }) {
-    ref.read(appAlertControllerProvider.notifier).show(
+    ref
+        .read(appAlertControllerProvider.notifier)
+        .show(
           title: title,
           message: message,
           button: context.l10n.profileLineAlertAcknowledge,
@@ -92,6 +96,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(customerProfileSettingsProvider);
+    final affiliateOverview = ref.watch(affiliateOverviewProvider).valueOrNull;
+    final affiliateTier =
+        affiliateOverview != null &&
+            affiliateOverview.isAffiliate &&
+            affiliateOverview.tier.code.isNotEmpty
+        ? affiliateOverview.tier
+        : null;
     ref.listen<AsyncValue<CustomerProfileSettings>>(
       customerProfileSettingsProvider,
       (previous, next) {
@@ -174,22 +185,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         path: '/profile/language',
       ),
       if (routeEnabled('/news'))
-        _ProfileMenuItem(
-          title: l10n.profileNewsAll,
-          path: '/news',
-        ),
-      _ProfileMenuItem(
-        title: l10n.profileTerms,
-        path: '/terms',
-      ),
+        _ProfileMenuItem(title: l10n.profileNewsAll, path: '/news'),
+      _ProfileMenuItem(title: l10n.profileTerms, path: '/terms'),
       _ProfileMenuItem(
         title: l10n.customerRouteTitle('lottery_knowledge'),
         path: '/lottery-knowledge',
       ),
-      _ProfileMenuItem(
-        title: l10n.profileHowToContact,
-        path: '',
-      ),
+      if (routeEnabled('/support'))
+        _ProfileMenuItem(title: l10n.support('home.title'), path: '/support'),
     ];
     final serviceItems = [
       if (routeEnabled('/profile/biometrics'))
@@ -198,10 +201,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           path: '/profile/biometrics',
         ),
       if (routeEnabled('/privacy'))
-        _ProfileMenuItem(
-          title: l10n.profilePrivacyPolicy,
-          path: '/privacy',
-        ),
+        _ProfileMenuItem(title: l10n.profilePrivacyPolicy, path: '/privacy'),
       if (routeEnabled('/profile/account-deletion'))
         _ProfileMenuItem(
           title: l10n.profileAccountDeletion,
@@ -222,6 +222,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         contentBackdropColor: Theme.of(context).colorScheme.primary,
         header: _ProfileHero(
           profile: profile,
+          affiliateTier: affiliateTier,
           onRetry: () => ref.invalidate(customerProfileSettingsProvider),
         ),
         content: ListView(
@@ -253,9 +254,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _ProfileMenuGroup(children: aboutItems),
                     if (serviceItems.isNotEmpty) ...[
                       const SizedBox(height: 24),
-                      _ProfileSectionTitle(
-                        label: l10n.profileSectionServices,
-                      ),
+                      _ProfileSectionTitle(label: l10n.profileSectionServices),
                       _ProfileMenuGroup(children: serviceItems),
                     ],
                     const SizedBox(height: 24),
@@ -279,10 +278,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 class _ProfileHero extends StatelessWidget {
   const _ProfileHero({
     required this.profile,
+    required this.affiliateTier,
     required this.onRetry,
   });
 
   final AsyncValue<CustomerProfileSettings> profile;
+  final AffiliateTier? affiliateTier;
   final VoidCallback onRetry;
 
   @override
@@ -302,12 +303,7 @@ class _ProfileHero extends StatelessWidget {
         primary: colorScheme.primary,
         secondary: colorScheme.secondary,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontal,
-            topPadding,
-            horizontal,
-            0,
-          ),
+          padding: EdgeInsets.fromLTRB(horizontal, topPadding, horizontal, 0),
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -321,7 +317,10 @@ class _ProfileHero extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     profile.when(
-                      data: (data) => _ProfileIdentityHeader(profile: data),
+                      data: (data) => _ProfileIdentityHeader(
+                        profile: data,
+                        affiliateTier: affiliateTier,
+                      ),
                       loading: () => const _ProfileHeroLoading(),
                       error: (_, __) => _ProfileHeroError(onRetry: onRetry),
                     ),
@@ -370,20 +369,24 @@ class _ProfileSectionTitle extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              height: 1.25,
-            ),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          height: 1.25,
+        ),
       ),
     );
   }
 }
 
 class _ProfileIdentityHeader extends StatefulWidget {
-  const _ProfileIdentityHeader({required this.profile});
+  const _ProfileIdentityHeader({
+    required this.profile,
+    required this.affiliateTier,
+  });
 
   final CustomerProfileSettings profile;
+  final AffiliateTier? affiliateTier;
 
   @override
   State<_ProfileIdentityHeader> createState() => _ProfileIdentityHeaderState();
@@ -418,18 +421,30 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                profile.name.trim().isEmpty
-                    ? l10n.profileCustomerAccount
-                    : profile.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      height: 1.25,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      profile.name.trim().isEmpty
+                          ? l10n.profileCustomerAccount
+                          : profile.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: colorScheme.onPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            height: 1.25,
+                          ),
                     ),
+                  ),
+                  if (widget.affiliateTier case final tier?) ...[
+                    const SizedBox(width: 8),
+                    _ProfileAffiliateTierBadge(tier: tier),
+                  ],
+                ],
               ),
               const SizedBox(height: 4),
               Row(
@@ -442,12 +457,11 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color:
-                                colorScheme.onPrimary.withValues(alpha: 0.92),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            height: 1.25,
-                          ),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
                     ),
                   ),
                   if (profile.customerNo.isNotEmpty) ...[
@@ -455,20 +469,23 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                     SizedBox.square(
                       dimension: 30,
                       child: IconButton(
-                        style: IconButton.styleFrom(
-                          backgroundColor:
-                              colorScheme.onPrimary.withValues(alpha: 0.18),
-                          foregroundColor: colorScheme.onPrimary,
-                          side: BorderSide(
-                            color:
-                                colorScheme.onPrimary.withValues(alpha: 0.28),
-                          ),
-                          padding: EdgeInsets.zero,
-                        ).copyWith(
-                          overlayColor: const WidgetStatePropertyAll(
-                            Colors.transparent,
-                          ),
-                        ),
+                        style:
+                            IconButton.styleFrom(
+                              backgroundColor: colorScheme.onPrimary.withValues(
+                                alpha: 0.18,
+                              ),
+                              foregroundColor: colorScheme.onPrimary,
+                              side: BorderSide(
+                                color: colorScheme.onPrimary.withValues(
+                                  alpha: 0.28,
+                                ),
+                              ),
+                              padding: EdgeInsets.zero,
+                            ).copyWith(
+                              overlayColor: const WidgetStatePropertyAll(
+                                Colors.transparent,
+                              ),
+                            ),
                         onPressed: _copyMemberCode,
                         tooltip: l10n.profileCopyMemberCode,
                         iconSize: 15,
@@ -495,6 +512,71 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
   }
 }
 
+class _ProfileAffiliateTierBadge extends StatelessWidget {
+  const _ProfileAffiliateTierBadge({required this.tier});
+
+  final AffiliateTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedCode = tier.code.trim().toLowerCase();
+    final color = _profileAffiliateTierColor(context, normalizedCode);
+    final label = tier.name.trim().isNotEmpty
+        ? tier.name.trim()
+        : _profileAffiliateTierFallbackLabel(normalizedCode);
+    return Container(
+      key: ValueKey('profile-affiliate-tier-$normalizedCode'),
+      constraints: const BoxConstraints(maxWidth: 104),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _profileAffiliateTierColor(BuildContext context, String code) {
+  return switch (code) {
+    'bronze' => const Color(0xFFA85D33),
+    'silver' => const Color(0xFF637383),
+    'gold' => const Color(0xFF8A6200),
+    'platinum' => const Color(0xFF526E82),
+    'diamond' => const Color(0xFF087FF0),
+    _ => Theme.of(context).colorScheme.primary,
+  };
+}
+
+String _profileAffiliateTierFallbackLabel(String code) {
+  if (code.isEmpty) return '-';
+  return '${code[0].toUpperCase()}${code.substring(1)}';
+}
+
 class _ProfileHeroLoading extends StatelessWidget {
   const _ProfileHeroLoading();
 
@@ -515,9 +597,9 @@ class _ProfileHeroLoading extends StatelessWidget {
           child: Text(
             context.l10n.profileLoading,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: colorScheme.onPrimary,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],
@@ -552,9 +634,9 @@ class _ProfileHeroError extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: colorScheme.onPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -654,11 +736,11 @@ class _ProfileMenuItem extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 1.25,
-                          ),
+                        color: colorScheme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
                     ),
                   ),
                   if (badgeText.isNotEmpty) ...[
@@ -720,8 +802,9 @@ class _ProfileLogoutButton extends StatelessWidget {
           minimumSize: const Size.fromHeight(52),
           foregroundColor: colorScheme.error,
           side: BorderSide(color: colorScheme.error.withValues(alpha: 0.32)),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
@@ -761,11 +844,11 @@ class _ProfileMenuBadge extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.primary,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
+            color: colorScheme.primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
         ),
       ),
     );

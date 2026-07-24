@@ -153,6 +153,7 @@ export default {
         commission_transactions: 'Commission Transactions',
         payouts: 'Payouts',
         announcements: 'Announcements',
+        customer_notifications: 'Customer Notifications',
         line_notifications: 'LINE Notifications',
         social_login: 'Social Login',
         sms_otp: 'SMS OTP',

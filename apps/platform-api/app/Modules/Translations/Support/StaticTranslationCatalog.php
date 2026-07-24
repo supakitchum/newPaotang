@@ -124,6 +124,7 @@ class StaticTranslationCatalog
                 'menus.items.tenant.tickets' => 'Tickets',
                 'menus.items.tenant.exchange_reward' => 'Exchange Reward',
                 'menus.items.tenant.announcements' => 'Announcements',
+                'menus.items.tenant.customer_notifications' => 'Customer Notifications',
                 'menus.items.tenant.line_notifications' => 'LINE Notifications',
                 'menus.items.tenant.activities' => 'Activities',
                 'menus.items.tenant.activity_claims' => 'Activity Claims',

@@ -137,6 +137,8 @@ spec:
             items:
               - key: firebase-service-account.json
                 path: firebase-service-account.json
+              - key: support-jwt-private.pem
+                path: support-jwt-private.pem
 ---
 apiVersion: v1
 kind: Service

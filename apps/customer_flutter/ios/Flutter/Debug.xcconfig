@@ -1,5 +1,6 @@
-APP_DISPLAY_NAME=NewPaotang
-CUSTOMER_FLUTTER_URL_SCHEME=newpaotang
-CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:localhost
+APP_DISPLAY_NAME=SiamBlend
+CUSTOMER_FLUTTER_IOS_TEAM_ID=VQUAKW84GK
+CUSTOMER_FLUTTER_URL_SCHEME=siamblend
+CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:xn--80-bsia4ej0dc7e8e3d.online
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"

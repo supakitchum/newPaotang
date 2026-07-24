@@ -231,6 +231,10 @@ class AuthController extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> canUnlockWithBiometric() {
+    return _biometricAuth.canUnlockCurrentDevice();
+  }
+
   void lockForScreenSecurity() {
     isSecurityLocked = true;
     pinRequired = true;

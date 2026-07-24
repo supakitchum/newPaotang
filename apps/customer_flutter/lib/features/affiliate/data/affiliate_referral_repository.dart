@@ -7,6 +7,7 @@ import '../../../core/navigation/web_runtime.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/tenant/customer_tenant_host.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/utils/idempotency_key.dart';
 import '../../monitoring/data/public_visit_id_store.dart';
 
 final affiliateReferralRepositoryProvider =
@@ -59,9 +60,12 @@ class AffiliateReferralRepository {
     required String visitorId,
     bool registered = false,
   }) async {
-    await _api.post<Map<String, dynamic>>(
+    await _api.postWithHeaders<Map<String, dynamic>>(
       '/customer/affiliate/referrals/apply',
       data: {'ref': refCode, 'visitor_id': visitorId, 'registered': registered},
+      headers: {
+        'Idempotency-Key': newIdempotencyKey('affiliate_referral_apply'),
+      },
     );
   }
 }

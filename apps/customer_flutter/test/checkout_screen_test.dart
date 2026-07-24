@@ -416,7 +416,7 @@ void main() {
     );
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     final dockBottom = tester.getBottomLeft(paymentDock).dy;
-    expect(dockBottom, greaterThan(640));
+    expect(dockBottom, moreOrLessEquals(640));
     expect(
       find.descendant(
         of: paymentDock,
@@ -692,11 +692,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
 
-    await _submitCheckoutPayment(tester);
+    await _openCheckoutPin(tester);
+
+    expect(lottery.checkoutReservationIds, isEmpty);
+    expect(find.text('เพื่อยืนยันการชำระเงิน'), findsOneWidget);
+
+    await _enterCheckoutPin(tester);
 
     expect(affiliate.applied, isTrue);
     expect(lottery.checkoutReservationIds, ['res_1']);
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodWallet);
+    expect(lottery.checkoutPin, '246810');
     expect(find.text('success:ord_nested'), findsOneWidget);
   });
 
@@ -755,6 +761,31 @@ void main() {
     expect(lottery.checkoutReservationIds, ['res_1']);
     expect(find.text('รายการชำระเงินหมดอายุแล้ว'), findsOneWidget);
     expect(find.text('ชำระเงินไม่สำเร็จ'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+  });
+
+  testWidgets('checkout keeps an invalid PIN on the shared PIN screen', (
+    tester,
+  ) async {
+    final lottery = _CheckoutLotteryRepository(
+      checkoutError: _apiException(
+        'PIN ไม่ถูกต้อง',
+        code: 'pin_invalid',
+      ),
+    );
+    final router = await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: lottery,
+    );
+
+    await _submitCheckoutPayment(tester);
+
+    expect(lottery.checkoutPin, '246810');
+    expect(find.text('เพื่อยืนยันการชำระเงิน'), findsOneWidget);
+    expect(find.text('PIN ไม่ถูกต้อง กรุณาลองใหม่'), findsOneWidget);
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
       '/checkout',
@@ -3156,6 +3187,11 @@ double? _fixedPaymentDockTop(WidgetTester tester) {
 }
 
 Future<void> _submitCheckoutPayment(WidgetTester tester) async {
+  await _openCheckoutPin(tester);
+  await _enterCheckoutPin(tester);
+}
+
+Future<void> _openCheckoutPin(WidgetTester tester) async {
   final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
   await Scrollable.ensureVisible(
     tester.element(confirmButton),
@@ -3167,9 +3203,18 @@ Future<void> _submitCheckoutPayment(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _enterCheckoutPin(WidgetTester tester) async {
+  for (final digit in '246810'.split('')) {
+    await tester.tap(find.text(digit).last);
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+}
+
 DioException _apiException(
   String message, {
   String path = '/customer/checkout',
+  String code = '',
 }) {
   final requestOptions = RequestOptions(path: path);
   return DioException(
@@ -3177,7 +3222,10 @@ DioException _apiException(
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
       statusCode: 422,
-      data: {'message': message},
+      data: {
+        'message': message,
+        if (code.isNotEmpty) 'error': {'code': code, 'message': message},
+      },
     ),
   );
 }
@@ -3223,6 +3271,7 @@ class _CheckoutLotteryRepository extends LotteryRepository {
 
   List<String> checkoutReservationIds = const [];
   String checkoutPaymentMethod = '';
+  String checkoutPin = '';
   List<String> releasedReservationIds = const [];
   int cartCount = 0;
   bool _released = false;
@@ -3281,9 +3330,11 @@ class _CheckoutLotteryRepository extends LotteryRepository {
   Future<LotteryCheckoutOrder> checkout(
     List<String> reservationIds, {
     String paymentMethod = checkoutPaymentMethodWallet,
+    String pin = '',
   }) async {
     checkoutReservationIds = List<String>.from(reservationIds);
     checkoutPaymentMethod = paymentMethod;
+    checkoutPin = pin;
     final error = checkoutError;
     if (error != null) throw error;
     return LotteryCheckoutOrder.fromJson({

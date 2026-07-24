@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${SUPPORT_MIGRATION_JOB_NAME}
+  namespace: newpaotang-prod
+  labels:
+    app.kubernetes.io/name: support-api-migrate
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: support-api-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ${SUPPORT_API_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command:
+            - php
+            - artisan
+            - migrate
+            - --force
+            - --no-interaction
+          envFrom:
+            - configMapRef:
+                name: newpaotang-support-config
+            - secretRef:
+                name: newpaotang-support-secret
+          volumeMounts:
+            - name: support-jwt-public-key
+              mountPath: /var/run/secrets/newpaotang-support
+              readOnly: true
+      volumes:
+        - name: support-jwt-public-key
+          secret:
+            secretName: newpaotang-support-secret
+            items:
+              - key: support-jwt-public.pem
+                path: support-jwt-public.pem

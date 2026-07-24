@@ -987,42 +987,47 @@ class _TicketHistoryFilterHeader extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Flexible(
-          child: TextButton(
-            onPressed: onToggle,
-            style: _ticketFlatButtonStyle(
-              TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: colorScheme.primary,
-                textStyle: theme.textTheme.titleSmall?.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  showOnlyWinning ? Icons.list_alt : Icons.playlist_add_check,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    actionLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      decoration: TextDecoration.underline,
-                      decorationColor: colorScheme.primary,
-                      decorationThickness: 1.5,
-                    ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onToggle,
+              style: _ticketFlatButtonStyle(
+                TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: colorScheme.primary,
+                  textStyle: theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    showOnlyWinning
+                        ? Icons.list_alt
+                        : Icons.playlist_add_check,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      actionLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        decorationColor: colorScheme.primary,
+                        decorationThickness: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -32,6 +32,7 @@ import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/flexible_image.dart';
+import '../../../shared/widgets/pin_confirmation_step.dart';
 import '../data/lottery_models.dart';
 import '../data/lottery_repository.dart';
 import 'checkout_payment_method_provider.dart';
@@ -743,7 +744,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       backPath: '/buy',
       sensitive: true,
       showBottomNavigation: false,
-      heroMinHeight: 294,
+      heroMinHeight: 205,
       heroSheetOverlap: 0,
       heroContent: _CartHeaderSummary(
         count: _cart.itemCount,
@@ -753,6 +754,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       ),
       child: _CartReviewDockedPage(
         physics: const AlwaysScrollableScrollPhysics(),
+        dockLeading: (!_loading &&
+                _error.isEmpty &&
+                !(_cart.isEmpty || groupedTickets.isEmpty))
+            ? _CartAddMoreButton(onAddMore: () => context.go('/buy'))
+            : null,
         dock: (!_loading &&
                 _error.isEmpty &&
                 !(_cart.isEmpty || groupedTickets.isEmpty))
@@ -797,9 +803,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 onRelease: () => _releaseGroup(group),
               ),
             const SizedBox(height: 24),
-            _CartPurchaseLimitNotice(
-              onAddMore: () => context.go('/buy'),
-            ),
+            const _CartPurchaseLimitMessage(),
           ],
         ],
       ),
@@ -1166,62 +1170,77 @@ class _CartPurchaseLimitNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _CartPurchaseLimitMessage(),
+        const SizedBox(height: 12),
+        _CartAddMoreButton(onAddMore: onAddMore),
+      ],
+    );
+  }
+}
+
+class _CartPurchaseLimitMessage extends StatelessWidget {
+  const _CartPurchaseLimitMessage();
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            l10n.cartPurchaseLimitMessage,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.appMuted,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.center,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    AppTheme.appGreenPillStart,
-                    AppTheme.appGreenPillEnd,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: FilledButton.icon(
-                onPressed: onAddMore,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: AppTheme.appSheet,
-                  shadowColor: Colors.transparent,
-                  minimumSize: const Size(0, 47),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 22,
-                    vertical: 12,
-                  ),
-                  shape: const StadiumBorder(),
-                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ).copyWith(
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
-                  ),
-                ),
-                icon: const Icon(Icons.add, size: 22),
-                label: Text(l10n.cartAddMoreTickets),
-              ),
+      child: Text(
+        context.l10n.cartPurchaseLimitMessage,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.appMuted,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
             ),
+      ),
+    );
+  }
+}
+
+class _CartAddMoreButton extends StatelessWidget {
+  const _CartAddMoreButton({required this.onAddMore});
+
+  final VoidCallback onAddMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Align(
+      alignment: Alignment.center,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              AppTheme.appGreenPillStart,
+              AppTheme.appGreenPillEnd,
+            ],
           ),
-        ],
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: FilledButton.icon(
+          onPressed: onAddMore,
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: AppTheme.appSheet,
+            shadowColor: Colors.transparent,
+            minimumSize: const Size(0, 47),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+            shape: const StadiumBorder(),
+            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
+          icon: const Icon(Icons.add, size: 22),
+          label: Text(l10n.cartAddMoreTickets),
+        ),
       ),
     );
   }
@@ -1376,7 +1395,7 @@ class _CartPaymentDock extends StatelessWidget {
               const SizedBox(height: 16),
             ],
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text(
@@ -1390,24 +1409,28 @@ class _CartPaymentDock extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Flexible(
-                  child: Wrap(
-                    alignment: WrapAlignment.end,
-                    crossAxisAlignment: WrapCrossAlignment.end,
-                    spacing: 4,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
                         amount,
                         key: const ValueKey('cart-payment-dock-amount'),
                         textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: colorScheme.primary,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              height: 1,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1,
+                                ),
                       ),
-                      if (bahtUnit.isNotEmpty)
+                      if (bahtUnit.isNotEmpty) ...[
+                        const SizedBox(width: 4),
                         Text(
                           bahtUnit,
                           key: const ValueKey('cart-payment-dock-unit'),
@@ -1420,6 +1443,7 @@ class _CartPaymentDock extends StatelessWidget {
                                     height: 1.1,
                                   ),
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -1428,8 +1452,8 @@ class _CartPaymentDock extends StatelessWidget {
             const SizedBox(height: 16),
             CustomerGradientButton.text(
               onPressed: canCheckout ? onCheckout : null,
-              height: 58,
-              fontSize: 20,
+              height: 56,
+              fontSize: 18,
               label: canCheckout ? l10n.cartCheckout : l10n.cartExpired,
             ),
           ],
@@ -1912,6 +1936,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _walletLoading = false;
   bool _submitting = false;
   bool _releasingExpiredCart = false;
+  bool _pinStep = false;
+  String _pin = '';
+  String _pinError = '';
   String _error = '';
   String _noticeMessage = '';
 
@@ -1947,6 +1974,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     });
 
     final l10n = context.l10n;
+    if (_pinStep) {
+      return PinConfirmationStep(
+        title: l10n.checkoutPinTitle,
+        subtitle: l10n.checkoutPinSubtitle,
+        pin: _pin,
+        error: _pinError,
+        saving: _submitting,
+        biometricEnabled: false,
+        biometricLabel: l10n.pinUseBiometric,
+        onBack: _cancelCheckoutPin,
+        onDigit: _appendCheckoutPinDigit,
+        onBackspace: _removeCheckoutPinDigit,
+        onBiometric: () {},
+      );
+    }
     final paymentMethods = ref.watch(checkoutPaymentMethodsProvider);
     final paymentMethodLabels = ref.watch(
       checkoutPaymentMethodLabelsProvider,
@@ -1984,8 +2026,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       backPath: '/cart',
       sensitive: true,
       showBottomNavigation: false,
-      heroMinHeight: 454,
+      heroMinHeight: 300,
       heroSheetOverlap: 0,
+      heroContentTopGap: 16,
+      heroHeaderVariant: CustomerHeroHeaderVariant.rewardFlow,
       heroContent: _CheckoutHeroSummaryCard(
         ticketCount: _cart.itemCount,
         total: _cart.total,
@@ -2002,7 +2046,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 submitting: _submitting,
                 enabled: canUseSelectedPayment && hasActivePayment,
                 label: confirmLabel,
-                onConfirm: _submitCheckout,
+                onConfirm: _startCheckoutPin,
               )
             : null,
         children: [
@@ -2135,6 +2179,44 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _syncExpiredCartWatcher();
   }
 
+  void _startCheckoutPin() {
+    if (_submitting) return;
+    setState(() {
+      _pinStep = true;
+      _pin = '';
+      _pinError = '';
+      _noticeMessage = '';
+    });
+  }
+
+  void _cancelCheckoutPin() {
+    if (_submitting) return;
+    setState(() {
+      _pinStep = false;
+      _pin = '';
+      _pinError = '';
+    });
+  }
+
+  void _appendCheckoutPinDigit(String digit) {
+    if (_submitting || _pin.length >= 6 || !RegExp(r'^\d$').hasMatch(digit)) {
+      return;
+    }
+    setState(() {
+      _pin += digit;
+      _pinError = '';
+    });
+    if (_pin.length == 6) _submitCheckout();
+  }
+
+  void _removeCheckoutPinDigit() {
+    if (_submitting || _pin.isEmpty) return;
+    setState(() {
+      _pin = _pin.substring(0, _pin.length - 1);
+      _pinError = '';
+    });
+  }
+
   Future<void> _submitCheckout() async {
     final deadline = earliestActiveReservation(_cart.reservations);
     if (_cart.reservationIds.isEmpty ||
@@ -2158,6 +2240,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final order = await ref.read(lotteryRepositoryProvider).checkout(
             _cart.reservationIds,
             paymentMethod: paymentMethod,
+            pin: _pin,
           );
       if (!mounted) return;
       ref.read(successReceiptFallbackOrderProvider.notifier).state =
@@ -2176,19 +2259,39 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     } catch (error) {
       if (!mounted) return;
+      final code = ApiErrorInfo.fromObject(error).code;
+      if (code == 'pin_invalid' ||
+          code == 'pin_locked' ||
+          code == 'pin_required' ||
+          code == 'pin_setup_required') {
+        setState(() {
+          _pin = '';
+          _pinError = switch (code) {
+            'pin_locked' => context.l10n.checkoutPinLocked,
+            'pin_required' || 'pin_setup_required' =>
+              context.l10n.checkoutPinSetupRequired,
+            _ => context.l10n.checkoutPinInvalid,
+          };
+        });
+        return;
+      }
       if (await handleCustomerOperationalError(
         ref: ref,
         context: context,
         error: error,
+        handlePinRedirect: false,
       )) {
         return;
       }
-      setState(
-        () => _noticeMessage = _checkoutErrorMessage(
+      setState(() {
+        _pinStep = false;
+        _pin = '';
+        _pinError = '';
+        _noticeMessage = _checkoutErrorMessage(
           error,
           context.l10n.checkoutFailed,
-        ),
-      );
+        );
+      });
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -2816,9 +2919,10 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       }
       if (!mounted) return;
       setState(() {
-        _stockNoticeSuccess = true;
-        _stockNoticeMessage = _reservedIdForStock(item) != null
-            ? context.l10n.lotteryAddedToCart
+        final remainsReserved = _reservedIdForStock(item) != null;
+        _stockNoticeSuccess = !remainsReserved;
+        _stockNoticeMessage = remainsReserved
+            ? ''
             : context.l10n.lotteryRemovedFromCart;
       });
     } catch (error) {
@@ -3856,11 +3960,13 @@ class _CartReviewDockedPage extends StatelessWidget {
   const _CartReviewDockedPage({
     required this.children,
     this.dock,
+    this.dockLeading,
     this.physics,
   });
 
   final List<Widget> children;
   final Widget? dock;
+  final Widget? dockLeading;
   final ScrollPhysics? physics;
 
   @override
@@ -3884,7 +3990,16 @@ class _CartReviewDockedPage extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            child: _FixedPaymentDockContainer(child: dock!),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (dockLeading != null) ...[
+                  dockLeading!,
+                  const SizedBox(height: 12),
+                ],
+                _FixedPaymentDockContainer(child: dock!),
+              ],
+            ),
           ),
       ],
     );
@@ -3904,23 +4019,30 @@ class _CheckoutDockedPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.zero,
-      physics: physics,
+    return Stack(
       children: [
-        _LotteryContentSheet(
-          bottom: dock == null ? 128 : 0,
-          top: 0,
-          mobileHorizontal: 0,
-          wideHorizontal: 0,
-          children: [
-            ...children,
-            if (dock != null) ...[
-              const _CheckoutDockSpacer(),
-              dock!,
+        Positioned.fill(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            physics: physics,
+            children: [
+              _LotteryContentSheet(
+                bottom: dock == null ? 128 : 190,
+                top: 0,
+                mobileHorizontal: 0,
+                wideHorizontal: 0,
+                children: children,
+              ),
             ],
-          ],
+          ),
         ),
+        if (dock != null)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _FixedPaymentDockContainer(child: dock!),
+          ),
       ],
     );
   }
@@ -3964,18 +4086,6 @@ class _LotteryContentSheet extends StatelessWidget {
   }
 }
 
-class _CheckoutDockSpacer extends StatelessWidget {
-  const _CheckoutDockSpacer();
-
-  @override
-  Widget build(BuildContext context) {
-    final height = (MediaQuery.sizeOf(context).height * 0.28)
-        .clamp(104.0, 265.0)
-        .toDouble();
-    return SizedBox(height: height);
-  }
-}
-
 class _FixedPaymentDockContainer extends StatelessWidget {
   const _FixedPaymentDockContainer({required this.child});
 
@@ -3983,13 +4093,16 @@ class _FixedPaymentDockContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: customerContentMaxWidthFor(context),
-        ),
-        child: child,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth
+            .clamp(0.0, customerContentMaxWidthFor(context))
+            .toDouble();
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(width: width, child: child),
+        );
+      },
     );
   }
 }
@@ -4292,8 +4405,8 @@ class _CheckoutConfirmDock extends StatelessWidget {
             ],
             CustomerGradientButton.text(
               onPressed: submitting || !enabled ? null : onConfirm,
-              height: 58,
-              fontSize: 20,
+              height: 56,
+              fontSize: 18,
               label: label,
             ),
           ],
@@ -4354,23 +4467,35 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
       key: ValueKey('checkout-payment-method-option-$method'),
       decoration: _lotterySurfaceDecoration(
         context,
-        borderColor: borderColor,
-        borderWidth: selected ? 1.5 : 1,
+        borderColor: Colors.transparent,
+        borderWidth: 0,
         shadowAlpha: selected ? 0.09 : 0,
         blurRadius: selected ? 22 : 0,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: MouseRegion(
-          cursor:
-              selected ? SystemMouseCursors.basic : SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: selected ? null : onSelected,
-            child: Column(
-              children: [
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: borderColor,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: MouseRegion(
+            cursor:
+                selected ? SystemMouseCursors.basic : SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: selected ? null : onSelected,
+              child: Column(
+                children: [
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final compact = constraints.maxWidth < 420;
@@ -4379,7 +4504,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                         key: ValueKey(
                           'checkout-payment-method-selector-$method',
                         ),
-                        size: 32,
+                        size: 30,
                         color: selected
                             ? colorScheme.primary
                             : colorScheme.onSurfaceVariant,
@@ -4391,14 +4516,14 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                                 context,
                               ).copyWith(
                                 minimumSize: const WidgetStatePropertyAll(
-                                  Size(0, 40),
+                                  Size(0, 36),
                                 ),
                                 padding: const WidgetStatePropertyAll(
                                   EdgeInsets.symmetric(horizontal: 14),
                                 ),
                                 textStyle: WidgetStatePropertyAll(
                                   theme.textTheme.labelLarge?.copyWith(
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                     height: 1,
                                   ),
@@ -4416,16 +4541,16 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 20,
+                              fontSize: 18,
                               fontWeight: FontWeight.w700,
                               height: 1.2,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             subtitle,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 20,
+                              fontSize: 18,
                               color: walletMethod
                                   ? colorScheme.onSurface
                                   : colorScheme.onSurfaceVariant,
@@ -4461,7 +4586,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                             ),
                           ],
                           if (topupAction != null) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             topupAction,
                           ],
                         ],
@@ -4518,9 +4643,9 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 selector,
-                                const SizedBox(width: 20),
+                                const SizedBox(width: 14),
                                 Expanded(child: copy),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12),
                                 methodMark,
                               ],
                             ),
@@ -4532,9 +4657,9 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           selector,
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 14),
                           Expanded(child: copy),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           methodMark,
                         ],
                       );
@@ -4568,6 +4693,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),
@@ -4599,9 +4725,6 @@ class _CartTicketGroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    final storeName = group.primaryItem?.storeName.trim().isNotEmpty == true
-        ? group.primaryItem!.storeName.trim()
-        : l10n.storesFallbackStoreName;
     return DecoratedBox(
       key: ValueKey('cart-ticket-row-${group.key}'),
       decoration: BoxDecoration(
@@ -4620,40 +4743,21 @@ class _CartTicketGroupCard extends StatelessWidget {
             _CartTicketBrandActionRow(
               productMarker: productMarker,
             ),
-            const SizedBox(height: 14),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 330;
-                final title = _LotteryStockNumberMetaRow(
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _LotteryStockNumberMetaRow(
                   number: group.number,
                   item: group.primaryItem,
-                );
-                final releaseButton = _CartRemovePillButton(
+                ),
+                const Spacer(),
+                const SizedBox(width: 12),
+                _CartRemovePillButton(
                   key: const ValueKey('cart-ticket-remove-action'),
                   onPressed: busy ? null : onRelease,
                   label: l10n.lotteryRemove,
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      title,
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: releaseButton,
-                      ),
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: title),
-                    const SizedBox(width: 8),
-                    releaseButton,
-                  ],
-                );
-              },
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Row(
@@ -4669,49 +4773,32 @@ class _CartTicketGroupCard extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
+                        horizontal: 8,
+                        vertical: 3,
                       ),
                       child: Text(
                         '${l10n.ticketLabelCount} ${l10n.ticketsCount(group.count)}',
                         style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                            Theme.of(context).textTheme.labelSmall?.copyWith(
                                   color: colorScheme.primary,
-                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
                                 ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                 ],
-                Expanded(
-                  child: Text(
-                    storeName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          height: 1.25,
-                        ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      formatBaht(group.total),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                    ),
-                  ),
+                const Spacer(),
+                Text(
+                  formatBaht(group.total),
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
                 ),
               ],
             ),
@@ -4760,8 +4847,8 @@ class _CartTicketBrandActionRow extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: colorScheme.onSurface,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                         height: 1.22,
                       ),
                 ),
@@ -4805,9 +4892,8 @@ class _CartRemovePillButton extends StatelessWidget {
     return DecoratedBox(
       key: const ValueKey('cart-ticket-remove-pill'),
       decoration: decoration,
-      child: SizedBox(
-        height: 48,
-        width: 96,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 40),
         child: FilledButton(
           onPressed: onPressed,
           style: FilledButton.styleFrom(
@@ -4816,10 +4902,10 @@ class _CartRemovePillButton extends StatelessWidget {
             foregroundColor: foreground,
             disabledForegroundColor: foreground,
             shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             shape: const StadiumBorder(),
             textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
           ).copyWith(
@@ -4981,47 +5067,24 @@ class _AmountRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w500,
           height: 1.2,
         );
     final valueStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
           color: colorScheme.onSurface,
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w700,
           height: 1.2,
         );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 340) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(label, style: labelStyle),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: valueStyle,
-                ),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: Text(label, style: labelStyle)),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.right,
-                  style: valueStyle,
-                ),
-              ),
-            ],
-          );
-        },
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: labelStyle)),
+          const SizedBox(width: 12),
+          Text(value, textAlign: TextAlign.right, style: valueStyle),
+        ],
       ),
     );
   }
@@ -5634,44 +5697,32 @@ class _CheckoutSummaryTotalRow extends StatelessWidget {
           );
     final labelStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w500,
           height: 1.2,
         );
-    final value = Wrap(
+    final value = Row(
       key: const ValueKey('checkout-summary-total-value'),
-      alignment: WrapAlignment.end,
-      crossAxisAlignment: WrapCrossAlignment.end,
-      spacing: 4,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         amountText,
-        if (unitText != null) unitText,
+        if (unitText != null) ...[
+          const SizedBox(width: 4),
+          unitText,
+        ],
       ],
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 340) {
-            return Column(
-              key: const ValueKey('checkout-summary-total-row'),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(label, style: labelStyle),
-                const SizedBox(height: 2),
-                Align(alignment: Alignment.centerRight, child: value),
-              ],
-            );
-          }
-          return Row(
-            key: const ValueKey('checkout-summary-total-row'),
-            children: [
-              Expanded(child: Text(label, style: labelStyle)),
-              const SizedBox(width: 12),
-              Flexible(child: value),
-            ],
-          );
-        },
+      child: Row(
+        key: const ValueKey('checkout-summary-total-row'),
+        children: [
+          Expanded(child: Text(label, style: labelStyle)),
+          const SizedBox(width: 12),
+          value,
+        ],
       ),
     );
   }

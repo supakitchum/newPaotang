@@ -30,8 +30,10 @@ bool mobileBiometricAllowedForPlatform(
   final platformKey = platform.trim().toLowerCase();
   if (!const {'ios', 'android'}.contains(platformKey)) return false;
   if (!bootstrap.biometric.enabled) return false;
-  if (!bootstrap.featureFlags
-      .enabled('native_biometric_unlock', fallback: true)) {
+  if (!bootstrap.featureFlags.enabled(
+    'native_biometric_unlock',
+    fallback: true,
+  )) {
     return false;
   }
   if (bootstrap.biometric.platforms.isEmpty) return true;
@@ -57,20 +59,26 @@ bool mobileNativeScreenSecurityAllowedForPlatform(
   String platform,
 ) {
   final platformKey = platform.trim().toLowerCase();
-  final iosScreenshotPolicy =
-      bootstrap.screenSecurity.iosScreenshotPolicy.trim().toLowerCase();
-  final iosScreenshotProtectionEnabled = iosScreenshotPolicy.isNotEmpty &&
+  final iosScreenshotPolicy = bootstrap.screenSecurity.iosScreenshotPolicy
+      .trim()
+      .toLowerCase();
+  final iosScreenshotProtectionEnabled =
+      iosScreenshotPolicy.isNotEmpty &&
       !{'none', 'off', 'disabled'}.contains(iosScreenshotPolicy);
-  if (!bootstrap.featureFlags
-      .enabled('screen_security_native', fallback: true)) {
+  if (!bootstrap.featureFlags.enabled(
+    'screen_security_native',
+    fallback: true,
+  )) {
     return false;
   }
 
   return switch (platformKey) {
-    'android' => bootstrap.screenSecurity.androidFlagSecure ||
-        bootstrap.screenSecurity.androidProtectRecentAppPreview,
-    'ios' => bootstrap.screenSecurity.iosScreenCaptureOverlay ||
-        iosScreenshotProtectionEnabled,
+    'android' =>
+      bootstrap.screenSecurity.androidFlagSecure ||
+          bootstrap.screenSecurity.androidProtectRecentAppPreview,
+    'ios' =>
+      bootstrap.screenSecurity.iosScreenCaptureOverlay ||
+          iosScreenshotProtectionEnabled,
     _ => false,
   };
 }
@@ -91,8 +99,13 @@ bool mobileNativeScreenSecurityLocksOnCapture(
 
   final policy = config.iosScreenshotPolicy.trim().toLowerCase();
   if ({'none', 'off', 'disabled'}.contains(policy)) return false;
-  if ({'overlay', 'overlay_only', 'monitor', 'monitor_only', 'report_only'}
-      .contains(policy)) {
+  if ({
+    'overlay',
+    'overlay_only',
+    'monitor',
+    'monitor_only',
+    'report_only',
+  }.contains(policy)) {
     return false;
   }
   return true;
@@ -159,6 +172,7 @@ List<String> _customerRouteFallbacks(String path) {
     return const ['/buy', '/'];
   }
   if (_pathMatchesAny(path, const [
+    '/support',
     '/tickets',
     '/my-wallet',
     '/reward-claims',
@@ -209,7 +223,8 @@ String _customerFeaturePath(String route) {
     final queryPath = _customerFeaturePathFromQuery(uri);
     if (queryPath.isNotEmpty) return queryPath;
 
-    final hasUrlShape = uri.hasScheme ||
+    final hasUrlShape =
+        uri.hasScheme ||
         trimmed.startsWith('//') ||
         trimmed.startsWith('/') ||
         trimmed.startsWith('?');
@@ -231,8 +246,9 @@ String _customerFeaturePathFromQuery(Uri uri) {
 
 String _customerFeaturePathFromFragment(String fragment) {
   final decoded = _decodeCustomerFeatureRouteValue(fragment.trim());
-  final trimmed =
-      decoded.startsWith('!') ? decoded.substring(1).trim() : decoded;
+  final trimmed = decoded.startsWith('!')
+      ? decoded.substring(1).trim()
+      : decoded;
   if (trimmed.isEmpty) return '';
 
   final queryOnly = _customerFeatureRouteQuery(trimmed);
@@ -366,6 +382,10 @@ class _CustomerRouteFeaturePolicy {
 }
 
 const _customerRouteFeaturePolicies = [
+  _CustomerRouteFeaturePolicy(
+    prefixes: ['/support'],
+    featureKeys: ['customer_support'],
+  ),
   _CustomerRouteFeaturePolicy(
     prefixes: ['/buy', '/search', '/stores'],
     featureKeys: [

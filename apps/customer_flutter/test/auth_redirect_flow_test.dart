@@ -10,6 +10,7 @@ import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/affiliate/data/affiliate_referral_repository.dart';
 import 'package:customer_flutter/features/auth/presentation/login_screen.dart';
 import 'package:customer_flutter/features/auth/presentation/register_screen.dart';
@@ -28,13 +29,14 @@ void main() {
     final repo = _AuthRedirectRepository();
     final tokenStore = AuthTokenStore();
     final api = ApiClient(_testConfig, tokenStore, localeTag: 'en-US');
-    final controller = AuthController(
-      authRepository: repo,
-      tokenStore: tokenStore,
-      biometricAuth: BiometricAuthService(api),
-    )
-      ..isAuthenticated = true
-      ..pinRequired = true;
+    final controller =
+        AuthController(
+            authRepository: repo,
+            tokenStore: tokenStore,
+            biometricAuth: BiometricAuthService(api),
+          )
+          ..isAuthenticated = true
+          ..pinRequired = true;
     final container = ProviderContainer(
       overrides: [
         authRepositoryProvider.overrideWithValue(repo),
@@ -97,8 +99,9 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
-    final loginFields =
-        tester.widgetList<TextField>(find.byType(TextField)).toList();
+    final loginFields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
     expect(
       loginFields[0].autofillHints,
       contains(AutofillHints.telephoneNumber),
@@ -203,9 +206,7 @@ void main() {
     expect(find.text('pin-flow'), findsOneWidget);
   });
 
-  testWidgets('login shows API error copy like Nuxt', (
-    tester,
-  ) async {
+  testWidgets('login shows API error copy like Nuxt', (tester) async {
     final repo = _AuthRedirectRepository(
       loginError: _apiException(
         'เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง',
@@ -222,10 +223,7 @@ void main() {
     await _tapLoginSubmit(tester);
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง'),
-      findsOneWidget,
-    );
+    expect(find.text('เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง'), findsOneWidget);
     expect(find.text('Could not sign in'), findsNothing);
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
@@ -402,9 +400,7 @@ void main() {
     );
   });
 
-  testWidgets('register falls back for internal errors', (
-    tester,
-  ) async {
+  testWidgets('register falls back for internal errors', (tester) async {
     final repo = _AuthRedirectRepository(
       registerError: StateError('internal register failed'),
     );
@@ -439,10 +435,8 @@ void main() {
         GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
         GoRoute(
           path: '/checkout',
-          builder: (context, state) => const Text(
-            'checkout-flow',
-            textDirection: TextDirection.ltr,
-          ),
+          builder: (context, state) =>
+              const Text('checkout-flow', textDirection: TextDirection.ltr),
         ),
       ],
     );
@@ -470,6 +464,92 @@ void main() {
     expect(find.text('checkout-flow'), findsOneWidget);
   });
 
+  testWidgets(
+    'PIN automatically uses an enabled biometric credential and preserves redirect',
+    (tester) async {
+      final repo = _AuthRedirectRepository();
+      final biometric = _AutoBiometricAuthService(
+        assertionToken: 'assertion-auto-pin',
+      );
+      final router = GoRouter(
+        initialLocation: '/pin?redirect=%2Fcheckout',
+        routes: [
+          GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) =>
+                const Text('checkout-flow', textDirection: TextDirection.ltr),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          router: router,
+          repo: repo,
+          authenticated: true,
+          pinRequired: true,
+          biometricAuth: biometric,
+          biometricEnabled: true,
+          platformKey: 'ios',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(biometric.eligibilityChecks, 1);
+      expect(biometric.assertionRequests, 1);
+      expect(repo.lastPinAssertionToken, 'assertion-auto-pin');
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/checkout',
+      );
+      expect(find.text('checkout-flow'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'PIN does not auto-prompt when this device has no biometric credential',
+    (tester) async {
+      final repo = _AuthRedirectRepository();
+      final biometric = _AutoBiometricAuthService(
+        assertionToken: 'unused-assertion',
+        canUnlock: false,
+      );
+      final router = GoRouter(
+        initialLocation: '/pin?redirect=%2Fcheckout',
+        routes: [
+          GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) =>
+                const Text('checkout-flow', textDirection: TextDirection.ltr),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          router: router,
+          repo: repo,
+          authenticated: true,
+          pinRequired: true,
+          biometricAuth: biometric,
+          biometricEnabled: true,
+          platformKey: 'ios',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(biometric.eligibilityChecks, 1);
+      expect(biometric.assertionRequests, 0);
+      expect(repo.lastPinAssertionToken, isEmpty);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/pin?redirect=%2Fcheckout',
+      );
+    },
+  );
+
   testWidgets('PIN status refresh keeps digits entered while it is pending', (
     tester,
   ) async {
@@ -483,10 +563,8 @@ void main() {
         GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
         GoRoute(
           path: '/checkout',
-          builder: (context, state) => const Text(
-            'checkout-flow',
-            textDirection: TextDirection.ltr,
-          ),
+          builder: (context, state) =>
+              const Text('checkout-flow', textDirection: TextDirection.ltr),
         ),
       ],
     );
@@ -536,10 +614,8 @@ void main() {
         GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
         GoRoute(
           path: '/checkout',
-          builder: (context, state) => const Text(
-            'checkout-flow',
-            textDirection: TextDirection.ltr,
-          ),
+          builder: (context, state) =>
+              const Text('checkout-flow', textDirection: TextDirection.ltr),
         ),
       ],
     );
@@ -588,56 +664,58 @@ void main() {
     expect(find.text('checkout-flow'), findsOneWidget);
   });
 
-  testWidgets('PIN keeps Nuxt top header and bottom keypad on large viewports',
-      (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1024, 1000));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'PIN keeps Nuxt top header and bottom keypad on large viewports',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1024, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final repo = _AuthRedirectRepository();
-    final router = GoRouter(
-      initialLocation: '/pin?redirect=%2Fcheckout',
-      routes: [
-        GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
-        GoRoute(
-          path: '/checkout',
-          builder: (context, state) => const Text(
-            'checkout-flow',
-            textDirection: TextDirection.ltr,
+      final repo = _AuthRedirectRepository();
+      final router = GoRouter(
+        initialLocation: '/pin?redirect=%2Fcheckout',
+        routes: [
+          GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) =>
+                const Text('checkout-flow', textDirection: TextDirection.ltr),
           ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          router: router,
+          repo: repo,
+          authenticated: true,
+          pinRequired: true,
+          locale: const Locale('th', 'TH'),
         ),
-      ],
-    );
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(
-      _testApp(
-        router: router,
-        repo: repo,
-        authenticated: true,
-        pinRequired: true,
-        locale: const Locale('th', 'TH'),
-      ),
-    );
-    await tester.pumpAndSettle();
+      final headerRect = tester.getRect(
+        find.byKey(const ValueKey('pin-topbar')),
+      );
+      final titleCenter = tester.getCenter(find.text('ใส่รหัส PIN 6 หลัก'));
+      final keypadRect = tester.getRect(
+        find.byKey(const ValueKey('pin-keypad')),
+      );
+      const viewportCenterX = 512.0;
 
-    final headerRect = tester.getRect(find.byKey(const ValueKey('pin-topbar')));
-    final titleCenter = tester.getCenter(find.text('ใส่รหัส PIN 6 หลัก'));
-    final keypadRect = tester.getRect(find.byKey(const ValueKey('pin-keypad')));
-    const viewportCenterX = 512.0;
-
-    expect(headerRect.top, lessThanOrEqualTo(12));
-    expect(keypadRect.bottom, greaterThan(970));
-    expect(
-      headerRect.center.dx,
-      moreOrLessEquals(viewportCenterX, epsilon: 0.5),
-    );
-    expect(titleCenter.dx, moreOrLessEquals(viewportCenterX, epsilon: 0.5));
-    expect(
-      keypadRect.center.dx,
-      moreOrLessEquals(viewportCenterX, epsilon: 0.5),
-    );
-  });
+      expect(headerRect.top, lessThanOrEqualTo(12));
+      expect(keypadRect.bottom, greaterThan(970));
+      expect(
+        headerRect.center.dx,
+        moreOrLessEquals(viewportCenterX, epsilon: 0.5),
+      );
+      expect(titleCenter.dx, moreOrLessEquals(viewportCenterX, epsilon: 0.5));
+      expect(
+        keypadRect.center.dx,
+        moreOrLessEquals(viewportCenterX, epsilon: 0.5),
+      );
+    },
+  );
 }
 
 Future<void> _tapPinDigits(WidgetTester tester, String pin) async {
@@ -694,31 +772,43 @@ Widget _testApp({
   bool authenticated = false,
   bool pinRequired = false,
   Locale locale = const Locale('en', 'US'),
+  BiometricAuthService? biometricAuth,
+  bool biometricEnabled = false,
+  String platformKey = 'web',
 }) {
   final tokenStore = AuthTokenStore();
   final api = ApiClient(_testConfig, tokenStore, localeTag: 'en-US');
-  final controller = AuthController(
-    authRepository: repo,
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
-    ..isAuthenticated = authenticated
-    ..pinRequired = pinRequired
-    ..pinSetupRequired = false;
+  final controller =
+      AuthController(
+          authRepository: repo,
+          tokenStore: tokenStore,
+          biometricAuth: biometricAuth ?? BiometricAuthService(api),
+        )
+        ..isAuthenticated = authenticated
+        ..pinRequired = pinRequired
+        ..pinSetupRequired = false;
 
   return ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(repo),
       authControllerProvider.overrideWith((_) => controller),
+      customerPlatformKeyProvider.overrideWithValue(platformKey),
       affiliateReferralServiceProvider.overrideWithValue(
         _NoopAffiliateReferralService(),
       ),
       mobileBootstrapProvider.overrideWith(
-        (_) async => MobileBootstrap.fromJson(const {
+        (_) async => MobileBootstrap.fromJson({
           'site': {'display_name': 'Test Shop', 'locale': 'en-US'},
           'mobile': {
             'auth_providers': [],
-            'feature_flags': {'native_biometric_unlock': false},
+            'biometric': {
+              'enabled': biometricEnabled,
+              'platforms': {
+                'ios': ['face_id'],
+                'android': ['biometric_prompt'],
+              },
+            },
+            'feature_flags': {'native_biometric_unlock': biometricEnabled},
           },
         }),
       ),
@@ -748,24 +838,18 @@ GoRouter _authRouter(String initialLocation) {
       ),
       GoRoute(
         path: '/pin',
-        builder: (context, state) => const Text(
-          'pin-flow',
-          textDirection: TextDirection.ltr,
-        ),
+        builder: (context, state) =>
+            const Text('pin-flow', textDirection: TextDirection.ltr),
       ),
       GoRoute(
         path: '/checkout',
-        builder: (context, state) => const Text(
-          'checkout-flow',
-          textDirection: TextDirection.ltr,
-        ),
+        builder: (context, state) =>
+            const Text('checkout-flow', textDirection: TextDirection.ltr),
       ),
       GoRoute(
         path: '/affiliate',
-        builder: (context, state) => const Text(
-          'affiliate-flow',
-          textDirection: TextDirection.ltr,
-        ),
+        builder: (context, state) =>
+            const Text('affiliate-flow', textDirection: TextDirection.ltr),
       ),
     ],
   );
@@ -788,13 +872,14 @@ class _AuthRedirectRepository extends AuthRepository {
     this.loginError,
     this.requestOtpError,
     this.registerError,
-    this.verifyOtpResult =
-        const OtpVerifyResult(verificationToken: 'otp_verified_register'),
+    this.verifyOtpResult = const OtpVerifyResult(
+      verificationToken: 'otp_verified_register',
+    ),
     this.pinStatusCompleter,
   }) : super(
-          api: ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
-          tokenStore: AuthTokenStore(),
-        );
+         api: ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
+         tokenStore: AuthTokenStore(),
+       );
 
   final CustomerSession loginSession;
   final Object? loginError;
@@ -804,6 +889,7 @@ class _AuthRedirectRepository extends AuthRepository {
   final Completer<PinStatus>? pinStatusCompleter;
   String lastLoginUsername = '';
   String lastVerifiedPin = '';
+  String lastPinAssertionToken = '';
   String lastVerifiedOtp = '';
   String? lastRegisterOtpToken;
   int requestOtpCalls = 0;
@@ -882,6 +968,38 @@ class _AuthRedirectRepository extends AuthRepository {
       pinSetupRequired: false,
     );
   }
+
+  @override
+  Future<void> verifyPinAssertion(String pinAssertionToken) async {
+    lastPinAssertionToken = pinAssertionToken;
+  }
+}
+
+class _AutoBiometricAuthService extends BiometricAuthService {
+  _AutoBiometricAuthService({
+    required this.assertionToken,
+    this.canUnlock = true,
+  }) : super(ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'));
+
+  final String? assertionToken;
+  final bool canUnlock;
+  int eligibilityChecks = 0;
+  int assertionRequests = 0;
+
+  @override
+  Future<bool> canUnlockCurrentDevice() async {
+    eligibilityChecks++;
+    return canUnlock;
+  }
+
+  @override
+  Future<String?> requestPinAssertion({
+    String purpose = 'pin_unlock',
+    required String localizedReason,
+  }) async {
+    assertionRequests++;
+    return assertionToken;
+  }
 }
 
 DioException _apiException(
@@ -901,14 +1019,14 @@ DioException _apiException(
 
 class _NoopAffiliateReferralService extends AffiliateReferralService {
   _NoopAffiliateReferralService()
-      : super(
-          config: _testConfig,
-          repository: AffiliateReferralRepository(
-            ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
-          ),
-          store: AffiliateReferralStore(),
-          visitIdStore: PublicVisitIdStore(idFactory: (_) => 'visitor'),
-        );
+    : super(
+        config: _testConfig,
+        repository: AffiliateReferralRepository(
+          ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
+        ),
+        store: AffiliateReferralStore(),
+        visitIdStore: PublicVisitIdStore(idFactory: (_) => 'visitor'),
+      );
 
   @override
   Future<void> applyStored({bool registered = false}) async {}

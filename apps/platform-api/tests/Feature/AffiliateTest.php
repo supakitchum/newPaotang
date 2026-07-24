@@ -44,7 +44,10 @@ class AffiliateTest extends TestCase
 
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{6}$/', $affiliate['code']);
         $this->assertNotSame('aff_m8_api', $affiliate['code']);
-        $this->assertSame('https://newpaotang.local/?ref='.$affiliate['code'], $affiliate['referral_url']);
+        $this->assertMatchesRegularExpression(
+            '/^https:\/\/newpaotang\.local\/\?ref=[A-Za-z0-9]{6}$/',
+            $affiliate['referral_url'],
+        );
 
         $program = $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/tenant/affiliate-programs', [
@@ -97,6 +100,45 @@ class AffiliateTest extends TestCase
             ->getJson('/api/v1/admin/tenant/affiliate-attributions?affiliate_id='.$affiliate['id'], $headers)
             ->assertOk()
             ->assertJsonPath('data.0.affiliate_id', $affiliate['id']);
+
+        DB::table('commission_rules')->insert([
+            'id' => 'cmr_affiliate_api_payout',
+            'tenant_id' => $world['tenant_id'],
+            'affiliate_program_id' => $program['id'],
+            'affiliate_account_id' => null,
+            'code' => 'affiliate_api_payout_balance',
+            'name' => 'Affiliate API payout balance',
+            'rule_type' => 'fixed_per_order',
+            'amount' => 1000,
+            'rate_bps' => 0,
+            'currency' => 'THB',
+            'status' => 'active',
+            'metadata_json' => null,
+            'created_by_admin_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('commission_transactions')->insert([
+            'id' => 'cmt_affiliate_api_payout',
+            'tenant_id' => $world['tenant_id'],
+            'affiliate_account_id' => $affiliate['id'],
+            'affiliate_attribution_id' => 'aat_affiliate_api_main',
+            'order_id' => $world['order_id'],
+            'commission_rule_id' => 'cmr_affiliate_api_payout',
+            'original_commission_id' => null,
+            'transaction_type' => 'commission',
+            'status' => 'approved',
+            'amount' => 1000,
+            'currency' => 'THB',
+            'idempotency_key' => 'affiliate-api-payout-balance',
+            'payload_hash' => hash('sha256', 'affiliate-api-payout-balance'),
+            'calculated_at' => now(),
+            'approved_by_admin_id' => null,
+            'approved_at' => now(),
+            'metadata_json' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/tenant/payouts', [

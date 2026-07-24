@@ -724,8 +724,10 @@ class _SuccessReceiptCard extends StatelessWidget {
                     label: l10n.purchaseHistoryPaymentChannelLabel,
                     value: _successPaymentChannelText(context, item!),
                   ),
-                  const Divider(height: 24),
-                  _SuccessTotalRow(total: item!.total),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _SuccessTotalRow(total: item!.total),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     [
@@ -1112,64 +1114,53 @@ class _SuccessTotalRow extends StatelessWidget {
     final amount = unit.isEmpty
         ? formatted
         : formatted.replaceFirst(RegExp('\\s*${RegExp.escape(unit)}\$'), '');
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final value = Wrap(
-          alignment: constraints.maxWidth < 360
-              ? WrapAlignment.start
-              : WrapAlignment.end,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          spacing: 4,
-          children: [
+    final value = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            amount.trim(),
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+          ),
+          if (unit.isNotEmpty) ...[
+            const SizedBox(width: 4),
             Text(
-              amount.trim(),
-              textAlign:
-                  constraints.maxWidth < 360 ? TextAlign.left : TextAlign.end,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
+              unit,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    height: 1.15,
                   ),
             ),
-            if (unit.isNotEmpty)
-              Text(
-                unit,
-                textAlign:
-                    constraints.maxWidth < 360 ? TextAlign.left : TextAlign.end,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      height: 1.15,
-                    ),
-              ),
           ],
-        );
-        if (constraints.maxWidth < 360) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                l10n.purchaseHistoryTotalLabel,
-                style: _successReceiptLabelStyle(context),
-              ),
-              const SizedBox(height: 4),
-              value,
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Text(
-                l10n.purchaseHistoryTotalLabel,
-                style: _successReceiptLabelStyle(context),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(child: value),
-          ],
-        );
-      },
+        ],
+      ),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Text(
+            l10n.purchaseHistoryTotalLabel,
+            style: _successReceiptLabelStyle(context),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: value,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1232,10 +1223,7 @@ String _successPaymentChannelText(
   BuildContext context,
   PurchaseHistoryOrder item,
 ) {
-  final channel = localizedPurchasePaymentChannel(context, item);
-  final reference = item.maskedPaymentReference;
-  if (reference.isEmpty) return channel;
-  return '$channel\n$reference';
+  return localizedPurchasePaymentChannel(context, item);
 }
 
 class _MaintenanceStatePage extends StatelessWidget {
@@ -2011,18 +1999,21 @@ class _ReceiptRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: highlighted
-                        ? colorScheme.primary
-                        : colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: highlighted
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+              ),
             ),
           ),
         ],

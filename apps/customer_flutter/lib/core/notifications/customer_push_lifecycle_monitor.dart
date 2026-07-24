@@ -13,8 +13,13 @@ import '../../features/notifications/presentation/customer_notification_realtime
 import '../auth/auth_controller.dart';
 import '../i18n/app_locale.dart';
 import '../i18n/customer_locale_controller.dart';
+import 'customer_push_device_context.dart';
 import 'customer_push_installation_store.dart';
 import 'customer_push_platform.dart';
+
+final customerPushRegistrationClockProvider = Provider<DateTime Function()>(
+  (_) => DateTime.now,
+);
 
 class CustomerPushLifecycleMonitor extends ConsumerStatefulWidget {
   const CustomerPushLifecycleMonitor({
@@ -39,6 +44,7 @@ class _CustomerPushLifecycleMonitorState
   VoidCallback? _removeLogoutHook;
   CustomerPushMessage? _pendingTap;
   String _registeredSignature = '';
+  DateTime? _registeredAt;
   bool _syncing = false;
   bool _flushingTap = false;
   bool _loggingOut = false;
@@ -75,7 +81,13 @@ class _CustomerPushLifecycleMonitorState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _scheduleSync();
+    if (state != AppLifecycleState.resumed) return;
+
+    // Reconcile server state because realtime events can be missed while the
+    // process is suspended, even when no notification was tapped.
+    ref.invalidate(customerNotificationUnreadCountProvider);
+    ref.read(customerNotificationRealtimeTickProvider.notifier).state++;
+    _scheduleSync();
   }
 
   @override
@@ -86,6 +98,7 @@ class _CustomerPushLifecycleMonitorState
     });
     ref.listen<Locale>(customerLocaleProvider, (_, __) {
       _registeredSignature = '';
+      _registeredAt = null;
       WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
     });
     return widget.child;
@@ -140,8 +153,22 @@ class _CustomerPushLifecycleMonitorState
     };
     if (platform.isEmpty) return;
 
-    final signature = '$installationId|$platform|$locale|${token.trim()}';
-    if (_registeredSignature == signature) return;
+    final deviceContext = await ref
+        .read(customerPushDeviceContextLoaderProvider)
+        .load();
+    final signature =
+        '$installationId|$platform|$locale|${deviceContext.registrationSignature}|${token.trim()}';
+    final now = ref.read(customerPushRegistrationClockProvider)().toUtc();
+    final registeredAt = _registeredAt;
+    final registrationAge = registeredAt == null
+        ? null
+        : now.difference(registeredAt);
+    if (_registeredSignature == signature &&
+        registrationAge != null &&
+        !registrationAge.isNegative &&
+        registrationAge < const Duration(days: 30)) {
+      return;
+    }
     await ref
         .read(customerNotificationRepositoryProvider)
         .registerDevice(
@@ -149,12 +176,18 @@ class _CustomerPushLifecycleMonitorState
           platform: platform,
           fcmToken: token.trim(),
           locale: locale,
+          appVersion: deviceContext.appVersion,
+          deviceName: deviceContext.deviceName,
+          metadata: deviceContext.metadata,
         );
     _registeredSignature = signature;
+    _registeredAt = now;
   }
 
   void _handleTokenRefresh(String token) {
-    unawaited(_registerTokenSafely(token));
+    _syncQueue = _syncQueue.then((_) async {
+      if (mounted) await _registerTokenSafely(token);
+    });
   }
 
   Future<void> _registerTokenSafely(String token) async {
@@ -233,10 +266,16 @@ class _CustomerPushLifecycleMonitorState
 
   Future<void> _revokeForLogout() async {
     final platform = ref.read(customerPushPlatformProvider);
-    if (!platform.available) return;
     _loggingOut = true;
     _pendingTap = null;
     _registeredSignature = '';
+    _registeredAt = null;
+    try {
+      await _syncQueue;
+    } catch (_) {
+      // Registration failures remain contained before the final revoke.
+    }
+    if (!platform.available) return;
     try {
       final installationId = await ref
           .read(customerPushInstallationStoreProvider)

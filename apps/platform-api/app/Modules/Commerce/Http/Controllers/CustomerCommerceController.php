@@ -4,6 +4,7 @@ namespace App\Modules\Commerce\Http\Controllers;
 
 use App\Shared\Auth\ApiErrorResponse;
 use App\Shared\Auth\CustomerSessionContext;
+use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Shared\Http\RequestHeaderValidator;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
@@ -19,6 +20,7 @@ class CustomerCommerceController extends Controller
         private readonly CommerceService $commerce,
         private readonly RequestHeaderValidator $headers,
         private readonly CommerceRequestValidator $validator,
+        private readonly CustomerAuthService $auth,
     ) {
     }
 
@@ -47,6 +49,12 @@ class CustomerCommerceController extends Controller
 
         if ($errors !== []) {
             return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        $pinVerification = $this->auth->verifyPinOrAssertionForContext($customer, $request->all());
+
+        if (isset($pinVerification['error'])) {
+            return $this->writeResult($request, $pinVerification);
         }
 
         return $this->writeResult($request, $this->commerce->checkout($tenant, $customer, $request->all(), $request), 201);
@@ -281,6 +289,12 @@ class CustomerCommerceController extends Controller
             'reservation_expired' => ApiErrorResponse::reservationExpired($request),
             'wallet_insufficient_balance' => ApiErrorResponse::walletInsufficientBalance($request),
             'not_found' => ApiErrorResponse::notFound($request),
+            'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
+            'pin_required' => ApiErrorResponse::customerPinRequired($request),
+            'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
+            'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
+            'pin_assertion_invalid' => ApiErrorResponse::make($request, 403, 'pin_assertion_invalid', 'The biometric PIN assertion is invalid or expired.'),
             'payment_method_disabled' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment method is currently disabled.']]),
             'payment_provider_not_configured' => ApiErrorResponse::validationFailed($request, [$paymentField => ['This payment provider is not configured. Please contact the store.']]),
             'payment_provider_managed' => ApiErrorResponse::validationFailed($request, ['slip' => ['This payment method does not require a transfer slip.']]),

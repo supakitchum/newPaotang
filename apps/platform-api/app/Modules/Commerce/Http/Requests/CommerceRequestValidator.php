@@ -34,6 +34,11 @@ class CommerceRequestValidator
             $errors['payment_method'][] = 'The payment_method field is invalid.';
         }
 
+        $assertionToken = trim((string) ($payload['pin_assertion_token'] ?? ''));
+        if ($assertionToken === '' && ! preg_match('/^\d{6}$/', trim((string) ($payload['pin'] ?? '')))) {
+            $errors['pin'][] = 'The pin field must contain exactly 6 digits.';
+        }
+
         return $errors;
     }
 
@@ -154,6 +159,95 @@ class CommerceRequestValidator
     public function optionalReasonErrors(array $payload): array
     {
         return $this->payloads->optionalString($payload, 'reason');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function cancelOrderErrors(array $payload): array
+    {
+        $errors = $this->payloads->validate($payload, [
+            'reason' => ['required', 'string', 'max:2000'],
+            'refund_policy' => ['sometimes', 'in:none'],
+        ]);
+
+        if (
+            array_key_exists('refund_policy', $payload)
+            && (string) $payload['refund_policy'] !== 'none'
+        ) {
+            $errors['refund_policy'] = [
+                'Paid orders must be refunded through the dedicated refund endpoint before their financial state can change.',
+            ];
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function updateOrderErrors(array $payload): array
+    {
+        $errors = $this->payloads->validate($payload, [
+            'reason' => ['required', 'string', 'max:2000'],
+            'admin_note' => ['present', 'nullable', 'string', 'max:4000'],
+            'status' => ['prohibited'],
+            'payment_status' => ['prohibited'],
+        ]);
+
+        foreach (['status', 'payment_status'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $errors[$field] = [
+                    'The '.$field.' field cannot be updated directly. Use the dedicated order lifecycle endpoint.',
+                ];
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function refundOrderErrors(array $payload): array
+    {
+        $errors = $this->payloads->merge(
+            $this->payloads->moneyAmount($payload, 'amount'),
+            $this->payloads->requiredString($payload, 'reason'),
+        );
+        $amount = $payload['amount'] ?? null;
+        $currency = is_array($amount) ? strtoupper(trim((string) ($amount['currency'] ?? ''))) : '';
+
+        if (! is_array($amount) || $currency === '') {
+            $errors['amount.currency'][] = 'The amount.currency field is required.';
+        } elseif (preg_match('/\A[A-Z]{3}\z/', $currency) !== 1) {
+            $errors['amount.currency'][] = 'The amount.currency field must be a valid ISO currency code.';
+        }
+
+        if (
+            array_key_exists('method', $payload)
+            && ! in_array((string) $payload['method'], ['wallet_refund', 'manual_refund', 'original_payment'], true)
+        ) {
+            $errors['method'][] = 'The method field is invalid.';
+        }
+
+        $method = trim((string) ($payload['method'] ?? 'wallet_refund'));
+        $reference = trim((string) ($payload['refund_reference'] ?? ''));
+        if (is_string($payload['reason'] ?? null) && mb_strlen((string) $payload['reason']) > 2000) {
+            $errors['reason'][] = 'The reason field must not be greater than 2000 characters.';
+        }
+        if (in_array($method, ['manual_refund', 'original_payment'], true) && $reference === '') {
+            $errors['refund_reference'][] = 'The refund_reference field is required for an external refund.';
+        } elseif (mb_strlen($reference) > 191) {
+            $errors['refund_reference'][] = 'The refund_reference field must not be greater than 191 characters.';
+        } elseif ($method === 'wallet_refund' && $reference !== '') {
+            $errors['refund_reference'][] = 'The refund_reference field must be empty for a wallet refund.';
+        }
+
+        return $errors;
     }
 
     private function rawAmount(mixed $value): ?int

@@ -43,6 +43,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   bool _confirmingSetupPin = false;
   bool _verifying = false;
   bool _resettingPin = false;
+  bool _pinStatusChecked = false;
+  bool _autoBiometricScheduled = false;
+  bool _autoBiometricAttempted = false;
 
   @override
   void initState() {
@@ -71,6 +74,14 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       orElse: () => false,
     );
     final brand = customerPinBrandLabel(context, bootstrap.valueOrNull);
+    _scheduleAutomaticBiometricUnlock(
+      enabled:
+          _pinStatusChecked &&
+          auth.isAuthenticated &&
+          auth.pinRequired &&
+          !setupRequired &&
+          biometricEnabled,
+    );
 
     if (_resettingPin) {
       return _PinResetScreen(
@@ -91,8 +102,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
             builder: (context, constraints) {
               final compact = constraints.maxHeight < 660;
               final horizontal = constraints.maxWidth <= 360 ? 22.0 : 28.0;
-              final mainVerticalPadding =
-                  (constraints.maxHeight * 0.05).clamp(10.0, 58.0).toDouble();
+              final mainVerticalPadding = (constraints.maxHeight * 0.05)
+                  .clamp(10.0, 58.0)
+                  .toDouble();
               return Padding(
                 key: const ValueKey('pin-screen-frame'),
                 padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 22),
@@ -100,9 +112,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                   children: [
                     Align(
                       alignment: Alignment.topCenter,
-                      child: _PinTopBar(
-                        brand: brand,
-                      ),
+                      child: _PinTopBar(brand: brand),
                     ),
                     Expanded(
                       child: Center(
@@ -123,7 +133,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
                                 compact: compact,
                                 showBiometric:
                                     !setupRequired && biometricEnabled,
-                                onBiometric: _unlockWithBiometric,
+                                onBiometric: _requestManualBiometricUnlock,
                                 showForgotPin: !setupRequired,
                                 onForgotPin: _startPinReset,
                               ),
@@ -166,7 +176,10 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   Future<void> _syncPinStatus() async {
     final auth = ref.read(authControllerProvider);
-    if (!auth.isAuthenticated) return;
+    if (!auth.isAuthenticated) {
+      _markPinStatusChecked();
+      return;
+    }
     try {
       await auth.syncPinStatus();
     } catch (error) {
@@ -179,7 +192,51 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         return;
       }
       // Keep the session-provided state when status refresh is unavailable.
+    } finally {
+      _markPinStatusChecked();
     }
+  }
+
+  void _markPinStatusChecked() {
+    if (mounted && !_pinStatusChecked) {
+      setState(() => _pinStatusChecked = true);
+    }
+  }
+
+  void _scheduleAutomaticBiometricUnlock({required bool enabled}) {
+    if (!enabled ||
+        _autoBiometricScheduled ||
+        _autoBiometricAttempted ||
+        _resettingPin ||
+        _verifying) {
+      return;
+    }
+    _autoBiometricScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_tryAutomaticBiometricUnlock());
+    });
+  }
+
+  Future<void> _tryAutomaticBiometricUnlock() async {
+    if (_autoBiometricAttempted) return;
+    _autoBiometricAttempted = true;
+    final auth = ref.read(authControllerProvider);
+    final canUnlock = await auth.canUnlockWithBiometric();
+    if (!mounted ||
+        !canUnlock ||
+        !auth.isAuthenticated ||
+        !auth.pinRequired ||
+        auth.pinSetupRequired ||
+        _resettingPin ||
+        _pin.isNotEmpty) {
+      return;
+    }
+    await _unlockWithBiometric(showFailure: false);
+  }
+
+  void _requestManualBiometricUnlock() {
+    _autoBiometricAttempted = true;
+    unawaited(_unlockWithBiometric());
   }
 
   String _title(CustomerLocalizations l10n, bool setupRequired) {
@@ -252,26 +309,30 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     _goAfterPinUnlock();
   }
 
-  Future<void> _unlockWithBiometric() async {
+  Future<void> _unlockWithBiometric({bool showFailure = true}) async {
+    if (_verifying) return;
     setState(() {
       _verifying = true;
       _pinError = '';
     });
     try {
-      final unlocked =
-          await ref.read(authControllerProvider).unlockWithBiometric(
-                localizedReason: mobileBiometricPromptReason(
-                  ref.read(mobileBootstrapProvider).valueOrNull,
-                  purpose: 'pin_unlock',
-                  fallback: context.l10n.pinBiometricReason,
-                ),
-              );
+      final unlocked = await ref
+          .read(authControllerProvider)
+          .unlockWithBiometric(
+            localizedReason: mobileBiometricPromptReason(
+              ref.read(mobileBootstrapProvider).valueOrNull,
+              purpose: 'pin_unlock',
+              fallback: context.l10n.pinBiometricReason,
+            ),
+          );
       if (!mounted) return;
       if (unlocked) {
         _goAfterPinUnlock();
         return;
       }
-      setState(() => _pinError = context.l10n.pinBiometricUnavailable);
+      if (showFailure) {
+        setState(() => _pinError = context.l10n.pinBiometricUnavailable);
+      }
     } catch (error) {
       if (!mounted) return;
       final failedMessage = context.l10n.pinBiometricFailed;
@@ -282,7 +343,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       )) {
         return;
       }
-      setState(() => _pinError = failedMessage);
+      if (showFailure) {
+        setState(() => _pinError = failedMessage);
+      }
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -316,10 +379,9 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     final redirect = _safeRedirect();
     setState(() => _verifying = true);
     try {
-      await ref.read(authControllerProvider).setupPin(
-            pin: _setupPin,
-            pinConfirmation: _pin,
-          );
+      await ref
+          .read(authControllerProvider)
+          .setupPin(pin: _setupPin, pinConfirmation: _pin);
       if (mounted) _goAfterPinUnlock(redirect);
     } catch (error) {
       if (!mounted) return;
@@ -397,9 +459,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 }
 
 class _PinTopBar extends StatelessWidget {
-  const _PinTopBar({
-    required this.brand,
-  });
+  const _PinTopBar({required this.brand});
 
   final String brand;
 
@@ -418,11 +478,11 @@ class _PinTopBar extends StatelessWidget {
               maxLines: 1,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: _pinBrand,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
+                color: _pinBrand,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
             ),
           ),
         ),
@@ -464,8 +524,9 @@ class _PinMainContent extends StatelessWidget {
     final height = MediaQuery.sizeOf(context).height;
     final dotGap = (height * 0.05).clamp(21.0, 34.0).toDouble();
     final messageTop = (height * 0.03).clamp(12.0, 17.0).toDouble();
-    final messageMinHeight =
-        compact ? 18.0 : (height * 0.04).clamp(18.0, 33.0).toDouble();
+    final messageMinHeight = compact
+        ? 18.0
+        : (height * 0.04).clamp(18.0, 33.0).toDouble();
     final content = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -474,22 +535,22 @@ class _PinMainContent extends StatelessWidget {
           title,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: _pinInk,
-                fontSize: 30,
-                fontWeight: FontWeight.w900,
-                height: 1.2,
-              ),
+            color: _pinInk,
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            height: 1.2,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           subtitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: _pinMuted,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
-              ),
+            color: _pinMuted,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
         ),
         SizedBox(height: dotGap),
         _PinIndicator(length: pinLength, hasError: error.isNotEmpty),
@@ -507,11 +568,11 @@ class _PinMainContent extends StatelessWidget {
               message.isEmpty ? ' ' : message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _pinErrorColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    height: 1.35,
-                  ),
+                color: _pinErrorColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                height: 1.35,
+              ),
             ),
           ),
         ),
@@ -531,24 +592,26 @@ class _PinMainContent extends StatelessWidget {
                 onPressed: verifying ? null : onBiometric,
                 icon: const Icon(Icons.face_retouching_natural, size: 18),
                 label: Text(context.l10n.pinUseBiometric),
-                style: TextButton.styleFrom(
-                  foregroundColor: _pinActionColor(context),
-                  minimumSize: const Size(64, 32),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
+                style:
+                    TextButton.styleFrom(
+                      foregroundColor: _pinActionColor(context),
+                      minimumSize: const Size(64, 32),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
                       ),
-                ).copyWith(
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
-                  ),
-                ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                    ),
               ),
             ),
           ),
@@ -559,24 +622,26 @@ class _PinMainContent extends StatelessWidget {
             child: Center(
               child: TextButton(
                 onPressed: verifying ? null : onForgotPin,
-                style: TextButton.styleFrom(
-                  foregroundColor: _pinActionColor(context),
-                  minimumSize: const Size(64, 32),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
+                style:
+                    TextButton.styleFrom(
+                      foregroundColor: _pinActionColor(context),
+                      minimumSize: const Size(64, 32),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
                       ),
-                ).copyWith(
-                  overlayColor: const WidgetStatePropertyAll(
-                    Colors.transparent,
-                  ),
-                ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                    ).copyWith(
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                    ),
                 child: Text(context.l10n.pinForgot),
               ),
             ),
@@ -590,8 +655,8 @@ class _PinMainContent extends StatelessWidget {
         }
         final contentWidth =
             constraints.hasBoundedWidth && constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : 430.0;
+            ? constraints.maxWidth
+            : 430.0;
         return FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.center,
@@ -663,7 +728,8 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
     final l10n = context.l10n;
     final width = MediaQuery.sizeOf(context).width;
     final horizontal = width <= 360 ? 22.0 : 28.0;
-    final canSubmit = _step == _PinResetStep.otp &&
+    final canSubmit =
+        _step == _PinResetStep.otp &&
         !_submitting &&
         RegExp(r'^\d{6}$').hasMatch(_otp.text);
 
@@ -738,9 +804,7 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
                                 Text(
                                   l10n.pinResetScreenDescription,
                                   textAlign: TextAlign.center,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         color: const Color(0xFF8A929D),
                                         fontSize: 15,
@@ -751,9 +815,7 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
                                 const SizedBox(height: 22),
                                 Text(
                                   l10n.pinResetOtpLabel,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: _pinInk,
                                         fontSize: 13,
@@ -766,7 +828,8 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
                                   child: TextField(
                                     key: const ValueKey('pin-reset-otp-input'),
                                     controller: _otp,
-                                    enabled: _step == _PinResetStep.otp &&
+                                    enabled:
+                                        _step == _PinResetStep.otp &&
                                         !_submitting,
                                     autofocus: _step == _PinResetStep.otp,
                                     autofillHints: const [
@@ -799,8 +862,9 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
                                     opacity: _resetError.isEmpty ? 0 : 1,
                                     duration: const Duration(milliseconds: 120),
                                     child: Container(
-                                      constraints:
-                                          const BoxConstraints(minHeight: 18),
+                                      constraints: const BoxConstraints(
+                                        minHeight: 18,
+                                      ),
                                       alignment: Alignment.center,
                                       padding: const EdgeInsets.only(top: 3),
                                       child: Text(
@@ -876,8 +940,9 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
             builder: (context, constraints) {
               final compact = constraints.maxHeight < 660;
               final horizontal = constraints.maxWidth <= 360 ? 22.0 : 28.0;
-              final mainVerticalPadding =
-                  (constraints.maxHeight * 0.05).clamp(10.0, 58.0).toDouble();
+              final mainVerticalPadding = (constraints.maxHeight * 0.05)
+                  .clamp(10.0, 58.0)
+                  .toDouble();
               return Padding(
                 key: const ValueKey('pin-reset-keypad-screen'),
                 padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 22),
@@ -904,8 +969,8 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
                                 subtitle: _submitting
                                     ? l10n.pinSetupSubmitting
                                     : _confirmingResetPin
-                                        ? l10n.pinResetDescriptionConfirmPin
-                                        : l10n.pinResetDescriptionPin,
+                                    ? l10n.pinResetDescriptionConfirmPin
+                                    : l10n.pinResetDescriptionPin,
                                 helper: _confirmingResetPin
                                     ? l10n.pinResetConfirmPinHelper
                                     : l10n.pinResetNewPinHelper,
@@ -960,10 +1025,10 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
       fillColor: const Color(0xFFF6F8FB),
       hintText: context.l10n.pinResetOtpHint,
       hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: _pinMuted,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+        color: _pinMuted,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       enabledBorder: border(borderColor),
       disabledBorder: border(borderColor),
@@ -978,13 +1043,15 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
       _submitting = true;
     });
     try {
-      final result =
-          await ref.read(authRepositoryProvider).requestPinResetOtp();
+      final result = await ref
+          .read(authRepositoryProvider)
+          .requestPinResetOtp();
       if (!mounted) return;
       _otp.clear();
       setState(() {
-        _resendAfter =
-            result.resendAfterSeconds > 0 ? result.resendAfterSeconds : 60;
+        _resendAfter = result.resendAfterSeconds > 0
+            ? result.resendAfterSeconds
+            : 60;
         _step = _PinResetStep.otp;
       });
       _startTimer();
@@ -1150,7 +1217,9 @@ class _PinResetScreenState extends ConsumerState<_PinResetScreen> {
       _submitting = true;
     });
     try {
-      await ref.read(authControllerProvider).confirmPinResetWithOtp(
+      await ref
+          .read(authControllerProvider)
+          .confirmPinResetWithOtp(
             otpVerificationToken: _otpToken,
             pin: _pin.text,
             pinConfirmation: _pinConfirmation.text,
@@ -1293,11 +1362,11 @@ class _PinResetTopBar extends StatelessWidget {
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: _pinBrand,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
-                      ),
+                    color: _pinBrand,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
                 ),
               ),
             ),
@@ -1368,11 +1437,11 @@ class _PinResetPrimaryAction extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
               ),
             ),
           ),
@@ -1413,11 +1482,11 @@ class _PinResetTextAction extends StatelessWidget {
                   label,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: _pinActionColor(context),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
-                      ),
+                    color: _pinActionColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
                 ),
               ),
             ),
@@ -1431,10 +1500,7 @@ class _PinResetTextAction extends StatelessWidget {
 String _pinDots(int length) => '${'●' * length}${'○' * (6 - length)}';
 
 class _PinProgressLine extends StatelessWidget {
-  const _PinProgressLine({
-    super.key,
-    this.width = 132,
-  });
+  const _PinProgressLine({super.key, this.width = 132});
 
   final double width;
 
@@ -1506,8 +1572,8 @@ class _PinIndicator extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: index < length
                     ? hasError
-                        ? _pinDotError
-                        : _pinInk
+                          ? _pinDotError
+                          : _pinInk
                     : _pinDotEmpty,
               ),
             ),
@@ -1558,45 +1624,46 @@ class _Keypad extends StatelessWidget {
                       : Semantics(
                           button: true,
                           label: key == 'back'
-                              ? MaterialLocalizations.of(context)
-                                  .deleteButtonTooltip
+                              ? MaterialLocalizations.of(
+                                  context,
+                                ).deleteButtonTooltip
                               : key,
                           enabled: enabled && (key != 'back' || pinLength > 0),
                           child: TextButton(
                             onPressed: !enabled
                                 ? null
                                 : key == 'back'
-                                    ? pinLength > 0
-                                        ? onBackspace
-                                        : null
-                                    : () => onDigit(key),
-                            style: TextButton.styleFrom(
-                              foregroundColor:
-                                  key == 'back' ? _pinBack : _pinInk,
-                              disabledForegroundColor:
-                                  (key == 'back' ? _pinBack : _pinInk)
-                                      .withValues(alpha: 0.42),
-                              minimumSize: Size(54, itemHeight),
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
+                                ? pinLength > 0
+                                      ? onBackspace
+                                      : null
+                                : () => onDigit(key),
+                            style:
+                                TextButton.styleFrom(
+                                  foregroundColor: key == 'back'
+                                      ? _pinBack
+                                      : _pinInk,
+                                  disabledForegroundColor:
+                                      (key == 'back' ? _pinBack : _pinInk)
+                                          .withValues(alpha: 0.42),
+                                  minimumSize: Size(54, itemHeight),
+                                  padding: EdgeInsets.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1,
+                                      ),
+                                ).copyWith(
+                                  overlayColor: const WidgetStatePropertyAll(
+                                    Colors.transparent,
                                   ),
-                            ).copyWith(
-                              overlayColor: const WidgetStatePropertyAll(
-                                Colors.transparent,
-                              ),
-                            ),
+                                ),
                             child: key == 'back'
-                                ? const Icon(
-                                    Icons.backspace_outlined,
-                                    size: 17,
-                                  )
+                                ? const Icon(Icons.backspace_outlined, size: 17)
                                 : Text(key),
                           ),
                         ),
