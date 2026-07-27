@@ -93,21 +93,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
   }
 
-  void _openSupport({required bool enabled}) {
-    if (enabled) {
-      context.push('/support');
-      return;
-    }
-    ref
-        .read(appAlertControllerProvider.notifier)
-        .show(
-          title: context.l10n.support('home.title'),
-          message: context.l10n.support('home.unavailable'),
-          button: context.l10n.profileLineAlertAcknowledge,
-          variant: AppAlertVariant.info,
-        );
-  }
-
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(customerProfileSettingsProvider);
@@ -140,7 +125,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return mobileCustomerRouteAllowed(bootstrap, path);
     }
 
-    final supportEnabled = routeEnabled('/support');
     final historyItems = [
       if (routeEnabled('/my-wallet'))
         _ProfileMenuItem(
@@ -207,11 +191,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         title: l10n.customerRouteTitle('lottery_knowledge'),
         path: '/lottery-knowledge',
       ),
-      _ProfileMenuItem(
-        title: l10n.support('home.title'),
-        path: '/support',
-        onTap: () => _openSupport(enabled: supportEnabled),
-      ),
+      _ProfileMenuItem(title: l10n.support('home.title'), path: '/support'),
     ];
     final serviceItems = [
       if (routeEnabled('/profile/biometrics'))

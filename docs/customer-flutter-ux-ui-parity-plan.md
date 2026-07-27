@@ -3556,6 +3556,16 @@ Acceptance evidence for every screen group:
   payload copy and localized internal-error fallbacks remain unchanged, and
   password auth, redirect, PIN handoff, social provider filtering, and OAuth
   launch behavior were not changed.
+- Current Login/Register OTP enforcement note: when the tenant has an active
+  SMS OTP provider, password Login now replaces the credential form with an
+  inline six-digit OTP step and does not create or persist a customer session
+  until that challenge succeeds. The existing safe redirect and PIN handoff
+  run only after OTP verification. Register likewise cannot submit the account
+  creation request until its phone OTP has returned a non-empty verification
+  token, and Platform API independently enforces the same requirement before
+  writing the customer. Tenants without active SMS keep the compatible direct
+  path; refresh, restored-session PIN unlock, and biometric unlock do not ask
+  for login OTP again.
 - Current Reset Password visual note: `/reset-password` now follows Nuxt's
   `BlueHeader` reset hero plus overlapping content-sheet structure instead of
   the earlier centered gradient/brand card. The reset card uses the Nuxt

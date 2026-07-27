@@ -161,9 +161,10 @@ localized maps to Platform, which owns Customer Notification and FCM delivery.
 3. Configure RSA and HMAC secrets; verify health and outbox delivery.
 4. Deploy Platform brokers and RBAC.
 5. Deploy Back Office and Customer Flutter.
-6. Enable the `customer_support` tenant feature flag for an internal tenant.
+6. Enable `support_settings.enabled` for an internal tenant after isolated
+   Support infrastructure is ready.
 7. Run queue/chat/notification/manual mobile acceptance.
-8. Expand the feature flag tenant by tenant.
+8. Expand through isolated Support tenant settings.
 
 During failure testing, stop only Support DB/Valkey/worker/Reverb and verify
 Order/Cart/Checkout remain available and do not gain Support latency.

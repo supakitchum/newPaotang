@@ -174,7 +174,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profile keeps Support visible when the tenant disables it', (
+  testWidgets('profile opens Help Center independently of agent availability', (
     tester,
   ) async {
     final router = _profileRouter();
@@ -197,8 +197,8 @@ void main() {
     await tester.tap(supportMenu);
     await tester.pumpAndSettle();
 
-    expect(find.text('ศูนย์ช่วยเหลือยังไม่เปิดให้บริการ'), findsOneWidget);
-    expect(find.text('ตกลง'), findsOneWidget);
+    expect(find.text('Support route'), findsOneWidget);
+    expect(find.text('ศูนย์ช่วยเหลือยังไม่เปิดให้บริการ'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -263,6 +263,11 @@ GoRouter _profileRouter() {
         path: '/profile/line-notifications',
         builder: (context, state) =>
             const Scaffold(body: Center(child: Text('LINE settings route'))),
+      ),
+      GoRoute(
+        path: '/support',
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Support route'))),
       ),
       GoRoute(
         path: '/maintenance',

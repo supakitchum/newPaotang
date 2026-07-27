@@ -960,6 +960,12 @@ export const usePlatformApi = () => {
     return unwrapData<AnyRecord>(response)
   }
 
+  const resendLoginOtp = async (payload: AnyRecord) =>
+    unwrapData<AnyRecord>(await axios.post('/customer/auth/login/otp/resend', payload))
+
+  const verifyLoginOtp = async (payload: AnyRecord) =>
+    unwrapData<AnyRecord>(await axios.post('/customer/auth/login/otp/verify', payload))
+
   const forgotPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/password/forgot', payload))
 
   const resetPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/password/reset', payload))
@@ -1481,6 +1487,8 @@ export const usePlatformApi = () => {
     rewardLegacy,
     rewardLiveLegacy,
     login,
+    resendLoginOtp,
+    verifyLoginOtp,
     forgotPassword,
     resetPassword,
     requestOtp,

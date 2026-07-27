@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -143,6 +144,7 @@ class AppShell extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        systemOverlayStyle: _primarySystemUiOverlayStyle(colorScheme.primary),
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         centerTitle: true,
         titleSpacing: 0,
@@ -250,6 +252,20 @@ class AppShell extends StatelessWidget {
       fallbackPath: customerDefaultBackPathFor(path),
     );
   }
+}
+
+SystemUiOverlayStyle _primarySystemUiOverlayStyle(Color backgroundColor) {
+  final backgroundBrightness = ThemeData.estimateBrightnessForColor(
+    backgroundColor,
+  );
+  final iconBrightness = backgroundBrightness == Brightness.dark
+      ? Brightness.light
+      : Brightness.dark;
+  return SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarBrightness: backgroundBrightness,
+    statusBarIconBrightness: iconBrightness,
+  );
 }
 
 const double _defaultHeroSheetOverlap = -1;

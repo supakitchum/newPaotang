@@ -121,6 +121,17 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> verifyLoginOtp({
+    required String challengeToken,
+    required String otp,
+  }) async {
+    final session = await _authRepository.verifyLoginOtp(
+      challengeToken: challengeToken,
+      otp: otp,
+    );
+    applySession(session);
+  }
+
   Future<void> register({
     required String firstName,
     required String lastName,

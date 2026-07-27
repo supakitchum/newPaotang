@@ -25,6 +25,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets('login hero extends behind the top system status bar', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/login');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    final safeArea = tester.widget<SafeArea>(
+      find.byKey(const ValueKey('login-screen-safe-area')),
+    );
+    expect(safeArea.top, isFalse);
+    expect(tester.getTopLeft(find.byType(Scaffold).first).dy, 0);
+  });
+
+  testWidgets('register hero extends behind the top system status bar', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/register');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    final safeArea = tester.widget<SafeArea>(
+      find.byKey(const ValueKey('register-screen-safe-area')),
+    );
+    expect(safeArea.top, isFalse);
+    expect(tester.getTopLeft(find.byType(Scaffold).first).dy, 0);
+  });
+
   test('app router is not recreated by PIN status auth refresh', () async {
     final repo = _AuthRedirectRepository();
     final tokenStore = AuthTokenStore();
@@ -147,6 +179,57 @@ void main() {
       '/pin?redirect=%2Fcheckout',
     );
     expect(find.text('pin-flow'), findsOneWidget);
+  });
+
+  testWidgets('login OTP must complete before navigating to PIN', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      loginOtpChallenge: const LoginOtpChallenge(
+        challengeToken: 'lotp_widget',
+        phoneMasked: '081xxxx678',
+        resendAfterSeconds: 0,
+        expiresInSeconds: 600,
+      ),
+      loginSession: const CustomerSession(
+        accessToken: 'access-after-otp',
+        refreshToken: 'refresh-after-otp',
+        pinRequired: true,
+        pinSetupRequired: false,
+        customerId: 'cus_login_otp',
+      ),
+    );
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await _tapLoginSubmit(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('login-otp-panel')), findsOneWidget);
+    expect(repo.verifyLoginOtpCalls, 0);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/login?redirect=%2Fcheckout',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('login-otp-input')),
+      '123456',
+    );
+    final verifyButton = find.widgetWithText(FilledButton, 'Verify OTP');
+    await _scrollUntilVisible(tester, verifyButton);
+    await tester.tap(verifyButton);
+    await tester.pumpAndSettle();
+
+    expect(repo.lastLoginOtp, '123456');
+    expect(repo.verifyLoginOtpCalls, 1);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/pin?redirect=%2Fcheckout',
+    );
   });
 
   testWidgets('login PIN operational errors preserve checkout redirect', (
@@ -293,6 +376,7 @@ void main() {
 
     const panelKey = ValueKey('register-otp-panel');
     expect(find.byKey(panelKey), findsOneWidget);
+    expect(repo.registerCalls, 0);
     expect(find.text('OTP code'), findsOneWidget);
     expect(find.byIcon(Icons.sms_outlined), findsNothing);
     expect(
@@ -947,6 +1031,7 @@ class _AuthRedirectRepository extends AuthRepository {
       customerId: 'cus_default',
     ),
     this.loginError,
+    this.loginOtpChallenge,
     this.requestOtpError,
     this.registerError,
     this.verifyOtpResult = const OtpVerifyResult(
@@ -960,6 +1045,7 @@ class _AuthRedirectRepository extends AuthRepository {
 
   final CustomerSession loginSession;
   final Object? loginError;
+  final LoginOtpChallenge? loginOtpChallenge;
   final Object? requestOtpError;
   final Object? registerError;
   final OtpVerifyResult verifyOtpResult;
@@ -971,6 +1057,8 @@ class _AuthRedirectRepository extends AuthRepository {
   String? lastRegisterOtpToken;
   int requestOtpCalls = 0;
   int registerCalls = 0;
+  int verifyLoginOtpCalls = 0;
+  String lastLoginOtp = '';
 
   @override
   Future<CustomerSession> login({
@@ -980,6 +1068,18 @@ class _AuthRedirectRepository extends AuthRepository {
     lastLoginUsername = username;
     final error = loginError;
     if (error != null) throw error;
+    final challenge = loginOtpChallenge;
+    if (challenge != null) throw LoginOtpChallengeRequired(challenge);
+    return loginSession;
+  }
+
+  @override
+  Future<CustomerSession> verifyLoginOtp({
+    required String challengeToken,
+    required String otp,
+  }) async {
+    verifyLoginOtpCalls++;
+    lastLoginOtp = otp;
     return loginSession;
   }
 

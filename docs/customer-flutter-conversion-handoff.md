@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-07-24
+Last updated: 2026-07-27
 
 ## Objective
 
@@ -11015,22 +11015,24 @@ State-preserving back navigation and read caching (2026-07-24):
 
 Profile Support entry visibility (2026-07-24):
 
-- The Help Center entry no longer disappears silently from Profile when the
-  tenant disables `customer_support`. The menu remains visible; enabled tenants
-  open `/support`, while disabled tenants receive the localized
-  `ศูนย์ช่วยเหลือยังไม่เปิดให้บริการ` alert without bypassing route policy.
+- The Help Center entry remains visible in Profile and now always opens
+  `/support`; the Home headset follows the same rule. Flutter no longer treats
+  `customer_support` as agent availability or blocks Support routes with it.
 - The connected production bootstrap currently returns
-  `customer_support: false`, which was the reason the menu disappeared after
-  switching the native build to the production API. No production/runtime
-  feature flag or database value was changed.
-- All six Profile screen regressions and focused analysis passed. The
-  production-configured iOS release was rebuilt, installed in-place, launched,
-  and observed running on Dank12.
+  `customer_support: false`, which caused the incorrect unavailable alert.
+  Platform Customer/Admin session brokers no longer use this duplicate flag;
+  isolated Support `settings.enabled` is authoritative for tenant availability.
+- Agent availability now controls only queue assignment. With no Available
+  agent, FAQ and Ticket creation remain usable while the chat composer stays
+  locked until assignment.
+- Six Profile regressions, the complete route policy suite, focused Support
+  screens/models, and Platform broker coverage passed. No production/runtime
+  database value was changed.
 
 Support queued-ticket chat gate (2026-07-24):
 
 - Customer FAQ search/accordion and Ticket creation remain available whenever
-  the tenant Support feature is enabled, even when no Support agent is
+  isolated Support `settings.enabled` is true, even when no Support agent is
   Available. The issue submitted with the Ticket is preserved as its first
   message and the request remains in the FIFO queue.
 - Queued Tickets now expose `chat_available: false`. Flutter shows the existing
@@ -11047,3 +11049,39 @@ Support queued-ticket chat gate (2026-07-24):
   passed 21 cases with 159 assertions against the verified
   `newpaotang_support_test` database. No runtime database, commit, push, or
   clear-worktree action was performed.
+
+Login and registration OTP enforcement (2026-07-27):
+
+- A new phone/password login now requires SMS OTP whenever the tenant has an
+  active SMS provider. Valid credentials create a ten-minute tenant-scoped
+  challenge, not a customer session; the session, `last_login_at`, and PIN
+  handoff are created only after the six-digit OTP is verified.
+- Flutter and the legacy Nuxt compatibility surface both keep the customer on
+  Login for the OTP step, support resend cooldown, and preserve the original
+  safe redirect through the final PIN gate. Existing session refresh and
+  returning-app PIN/biometric unlock do not repeat OTP.
+- Registration continues to request and verify `register` OTP first, while the
+  backend now has regression coverage proving that no customer or auth session
+  exists before the verification token is submitted. Tenants without an active
+  SMS provider retain the existing compatible direct login/register paths.
+- Focused Flutter Auth tests passed 37 cases. Platform SMS OTP coverage passed
+  8 cases with 79 assertions, and existing Customer Auth/Password Reset
+  compatibility passed 5 cases with 136 assertions, all against the verified
+  `newpaotang_test` database. Nuxt integration lint and focused Flutter analysis
+  passed. No runtime database, commit, push, or clear-worktree action was
+  performed.
+
+Native status-bar surface consistency (2026-07-27):
+
+- Login and Register now draw their runtime blue hero behind the native status
+  bar instead of letting an outer white SafeArea paint beneath the clock,
+  network, and battery indicators. Their content still starts below the top
+  inset, and bottom safe-area behavior is unchanged.
+- Shared AppShell AppBars explicitly keep a transparent status bar with
+  contrast derived from the runtime primary color. PIN and Security Lock are
+  explicitly treated as light-surface routes with dark status-bar indicators;
+  the remaining blue-header routes use the runtime primary contrast.
+- Focused Auth, AppShell, status-bar, PIN, biometric, and screen-security
+  coverage passed 83 tests. Focused Flutter analysis and `git diff --check`
+  passed. No runtime database, commit, push, or clear-worktree action was
+  performed.

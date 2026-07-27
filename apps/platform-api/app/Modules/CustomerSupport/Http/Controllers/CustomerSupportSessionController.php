@@ -3,7 +3,6 @@
 namespace App\Modules\CustomerSupport\Http\Controllers;
 
 use App\Models\PartnerTenant;
-use App\Models\PartnerTenantFeatureFlag;
 use App\Modules\CustomerSupport\Services\SupportSessionTokenService;
 use App\Shared\Auth\ApiErrorResponse;
 use App\Shared\Auth\CustomerSessionContext;
@@ -26,9 +25,6 @@ class CustomerSupportSessionController extends Controller
         $tenant = PartnerTenant::query()->find($context->tenantId());
         if ($tenant === null) {
             return ApiErrorResponse::notFound($request);
-        }
-        if (! $this->enabled($context->tenantId())) {
-            return ApiErrorResponse::make($request, 503, 'support_unavailable', 'Customer support is currently unavailable.');
         }
         $customer = $context->customer;
         $locale = trim((string) ($customer['preferred_locale'] ?? $request->header('Accept-Language', 'th-TH'))) ?: 'th-TH';
@@ -64,15 +60,5 @@ class CustomerSupportSessionController extends Controller
                 ],
             ],
         ]);
-    }
-
-    private function enabled(string $tenantId): bool
-    {
-        $value = PartnerTenantFeatureFlag::query()
-            ->where('tenant_id', $tenantId)
-            ->where('feature_key', 'customer_support')
-            ->value('enabled');
-
-        return $value === null ? (bool) config('support.enabled_by_default', false) : (bool) $value;
     }
 }

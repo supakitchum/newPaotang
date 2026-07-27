@@ -383,10 +383,6 @@ class _CustomerRouteFeaturePolicy {
 
 const _customerRouteFeaturePolicies = [
   _CustomerRouteFeaturePolicy(
-    prefixes: ['/support'],
-    featureKeys: ['customer_support'],
-  ),
-  _CustomerRouteFeaturePolicy(
     prefixes: ['/buy', '/search', '/stores'],
     featureKeys: [
       'lottery',

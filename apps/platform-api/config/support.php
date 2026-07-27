@@ -1,7 +1,6 @@
 <?php
 
 return [
-    'enabled_by_default' => (bool) env('CUSTOMER_SUPPORT_ENABLED_BY_DEFAULT', false),
     'api_url' => env('SUPPORT_API_URL', '/support-api/v1'),
     'realtime_url' => env('SUPPORT_REALTIME_URL', 'ws://localhost:8081'),
     'realtime_key' => env('SUPPORT_REALTIME_KEY', 'newpaotang-support'),

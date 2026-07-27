@@ -122,8 +122,8 @@ const _socialCallbackStateKeys = [
 
 class AuthRepository {
   AuthRepository({required ApiClient api, required AuthTokenStore tokenStore})
-      : _api = api,
-        _tokenStore = tokenStore;
+    : _api = api,
+      _tokenStore = tokenStore;
 
   final ApiClient _api;
   final AuthTokenStore _tokenStore;
@@ -136,6 +136,36 @@ class AuthRepository {
       '/customer/auth/login',
       auth: false,
       data: {'username': username, 'password': password},
+    );
+    final payload = asMap(response.data);
+    final challenge = LoginOtpChallenge.fromJson(payload);
+    if (challenge.isRequired) {
+      throw LoginOtpChallengeRequired(challenge);
+    }
+    final session = CustomerSession.fromJson(payload);
+    await _saveSession(session);
+    return session;
+  }
+
+  Future<LoginOtpChallenge> resendLoginOtp({
+    required String challengeToken,
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/login/otp/resend',
+      auth: false,
+      data: {'login_challenge_token': challengeToken},
+    );
+    return LoginOtpChallenge.fromJson(asMap(response.data));
+  }
+
+  Future<CustomerSession> verifyLoginOtp({
+    required String challengeToken,
+    required String otp,
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/login/otp/verify',
+      auth: false,
+      data: {'login_challenge_token': challengeToken, 'otp': otp},
     );
     final session = CustomerSession.fromJson(asMap(response.data));
     await _saveSession(session);
@@ -188,8 +218,9 @@ class AuthRepository {
     }
     final session = CustomerSession(
       accessToken: parsed.accessToken,
-      refreshToken:
-          parsed.refreshToken.isEmpty ? refreshToken : parsed.refreshToken,
+      refreshToken: parsed.refreshToken.isEmpty
+          ? refreshToken
+          : parsed.refreshToken,
       pinRequired: parsed.pinRequired,
       pinSetupRequired: parsed.pinSetupRequired,
       customerId: parsed.customerId.isEmpty
@@ -315,9 +346,7 @@ class AuthRepository {
     );
   }
 
-  Future<SocialCallbackResult> lineCallback(
-    Map<String, dynamic> query,
-  ) async {
+  Future<SocialCallbackResult> lineCallback(Map<String, dynamic> query) async {
     return socialCallback(provider: 'line', query: query);
   }
 
@@ -346,8 +375,9 @@ class AuthRepository {
     final normalizedProvider = normalizeSocialAuthProvider(provider);
     final normalizedQuery = _normalizedSocialCallbackData(query);
     final callbackState = _socialCallbackState(normalizedQuery);
-    final callbackContext =
-        await _tokenStore.readSocialCallbackContext(callbackState);
+    final callbackContext = await _tokenStore.readSocialCallbackContext(
+      callbackState,
+    );
     final callbackAuth = auth ?? callbackContext?.auth ?? true;
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/callback',
@@ -423,10 +453,7 @@ class AuthRepository {
   }) async {
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/pin/setup',
-      data: {
-        'pin': pin,
-        'pin_confirmation': pinConfirmation,
-      },
+      data: {'pin': pin, 'pin_confirmation': pinConfirmation},
     );
     return PinStatus.fromJson(asMap(response.data));
   }
@@ -486,9 +513,7 @@ class AuthRepository {
   }
 }
 
-Map<String, dynamic> _normalizedSocialCallbackData(
-  Map<String, dynamic> query,
-) {
+Map<String, dynamic> _normalizedSocialCallbackData(Map<String, dynamic> query) {
   final normalized = Map<String, dynamic>.from(query);
   final payload = _authPayload(normalized, _socialCallbackPayloadWrapperKeys);
   final code = _firstStringByKeys(payload, _socialCallbackCodeKeys);
@@ -507,8 +532,10 @@ String _socialCallbackState(Map<String, dynamic> query) {
 }
 
 String normalizeSocialAuthProvider(String provider) {
-  final normalized =
-      provider.trim().toLowerCase().replaceAll(RegExp(r'[\s\-.]+'), '_');
+  final normalized = provider.trim().toLowerCase().replaceAll(
+    RegExp(r'[\s\-.]+'),
+    '_',
+  );
   return switch (normalized) {
     'gmail' || 'google_login' || 'google_oauth' || 'google_oauth2' => 'google',
     'apple_id' || 'apple_login' || 'sign_in_with_apple' => 'apple',
@@ -552,20 +579,18 @@ class CustomerSession {
   final String preferredLocale;
 
   factory CustomerSession.fromJson(Map<String, dynamic> json) {
-    final payload = _authPayload(
-      json,
-      const [
-        'session',
-        'customer_session',
-        'customerSession',
-        'auth_session',
-        'authSession',
-        'auth',
-      ],
-    );
+    final payload = _authPayload(json, const [
+      'session',
+      'customer_session',
+      'customerSession',
+      'auth_session',
+      'authSession',
+      'auth',
+    ]);
     final user = asMap(payload['user']);
     final customer = asMap(payload['customer']);
-    final setupRequired = _truthy(payload['pin_setup_required']) ||
+    final setupRequired =
+        _truthy(payload['pin_setup_required']) ||
         _truthy(payload['pinSetupRequired']) ||
         _truthy(payload['requires_pin_setup']) ||
         _truthy(payload['requiresPinSetup']) ||
@@ -592,7 +617,8 @@ class CustomerSession {
         customer['refresh_token'],
         customer['refreshToken'],
       ]),
-      pinRequired: _truthy(payload['pin_required']) ||
+      pinRequired:
+          _truthy(payload['pin_required']) ||
           _truthy(payload['pinRequired']) ||
           _truthy(payload['requires_pin']) ||
           _truthy(payload['requiresPin']) ||
@@ -625,6 +651,70 @@ class CustomerSession {
   }
 }
 
+class LoginOtpChallengeRequired implements Exception {
+  const LoginOtpChallengeRequired(this.challenge);
+
+  final LoginOtpChallenge challenge;
+}
+
+class LoginOtpChallenge {
+  const LoginOtpChallenge({
+    required this.challengeToken,
+    required this.phoneMasked,
+    required this.resendAfterSeconds,
+    required this.expiresInSeconds,
+  });
+
+  factory LoginOtpChallenge.fromJson(Map<String, dynamic> json) {
+    final payload = _authPayload(json, const [
+      'login_otp',
+      'loginOtp',
+      'otp_challenge',
+      'otpChallenge',
+      'login_challenge',
+      'loginChallenge',
+      'challenge',
+    ]);
+    return LoginOtpChallenge(
+      challengeToken: _firstString([
+        payload['login_challenge_token'],
+        payload['loginChallengeToken'],
+        payload['challenge_token'],
+        payload['challengeToken'],
+      ]),
+      phoneMasked: _firstString([
+        payload['phone_masked'],
+        payload['phoneMasked'],
+        payload['masked_phone'],
+        payload['maskedPhone'],
+      ]),
+      resendAfterSeconds:
+          _intFrom([
+            payload['resend_after_seconds'],
+            payload['resendAfterSeconds'],
+            payload['retry_after_seconds'],
+            payload['retryAfterSeconds'],
+          ]) ??
+          60,
+      expiresInSeconds:
+          _intFrom([
+            payload['expires_in_seconds'],
+            payload['expiresInSeconds'],
+            payload['expires_in'],
+            payload['expiresIn'],
+          ]) ??
+          600,
+    );
+  }
+
+  final String challengeToken;
+  final String phoneMasked;
+  final int resendAfterSeconds;
+  final int expiresInSeconds;
+
+  bool get isRequired => challengeToken.trim().isNotEmpty;
+}
+
 class CustomerAuthIdentity {
   const CustomerAuthIdentity({
     required this.customerId,
@@ -635,18 +725,15 @@ class CustomerAuthIdentity {
   });
 
   factory CustomerAuthIdentity.fromJson(Map<String, dynamic> json) {
-    final payload = _authPayload(
-      json,
-      const [
-        'profile',
-        'customer_profile',
-        'customerProfile',
-        'customer',
-        'member',
-        'user',
-        'account',
-      ],
-    );
+    final payload = _authPayload(json, const [
+      'profile',
+      'customer_profile',
+      'customerProfile',
+      'customer',
+      'member',
+      'user',
+      'account',
+    ]);
     final explicitHasPin = _firstBoolean([
       payload['has_pin'],
       payload['hasPin'],
@@ -701,23 +788,22 @@ class PinStatus {
   });
 
   factory PinStatus.fromJson(Map<String, dynamic> json) {
-    final payload = _authPayload(
-      json,
-      const [
-        'pin_status',
-        'pinStatus',
-        'status',
-      ],
-    );
+    final payload = _authPayload(json, const [
+      'pin_status',
+      'pinStatus',
+      'status',
+    ]);
     return PinStatus(
       hasPin: _truthy(payload['has_pin']) || _truthy(payload['hasPin']),
       pinVerified:
           _truthy(payload['pin_verified']) || _truthy(payload['pinVerified']),
-      pinRequired: _truthy(payload['pin_required']) ||
+      pinRequired:
+          _truthy(payload['pin_required']) ||
           _truthy(payload['pinRequired']) ||
           _truthy(payload['pin_setup_required']) ||
           _truthy(payload['pinSetupRequired']),
-      pinSetupRequired: _truthy(payload['pin_setup_required']) ||
+      pinSetupRequired:
+          _truthy(payload['pin_setup_required']) ||
           _truthy(payload['pinSetupRequired']),
       lockedUntil: _firstString([
         payload['locked_until'],
@@ -819,7 +905,8 @@ class SocialCallbackResult {
       ),
       code: int.tryParse((payload['code'] ?? 0).toString()) ?? 0,
       session: session.accessToken.isEmpty ? null : session,
-      lineLinkRequired: _truthy(payload['line_link_required']) ||
+      lineLinkRequired:
+          _truthy(payload['line_link_required']) ||
           _truthy(payload['lineLinkRequired']) ||
           _truthy(payload['social_link_required']) ||
           _truthy(payload['socialLinkRequired']) ||
@@ -843,7 +930,8 @@ class SocialCallbackResult {
         profile['avatar_url'],
         profile['avatarUrl'],
       ]),
-      passwordResetReady: _truthy(payload['password_reset_ready']) ||
+      passwordResetReady:
+          _truthy(payload['password_reset_ready']) ||
           _truthy(payload['passwordResetReady']) ||
           _truthy(payload['password_reset_required']) ||
           _truthy(payload['passwordResetRequired']) ||
@@ -912,25 +1000,22 @@ class OtpRequestResult {
   });
 
   factory OtpRequestResult.fromJson(Map<String, dynamic> json) {
-    final payload = _authPayload(
-      json,
-      const [
-        'otp_request',
-        'otpRequest',
-        'otp_request_result',
-        'otpRequestResult',
-        'request',
-        'otp',
-        'pin_reset',
-        'pinReset',
-        'password_reset',
-        'passwordReset',
-        'registration',
-        'register',
-        'details',
-        'detail',
-      ],
-    );
+    final payload = _authPayload(json, const [
+      'otp_request',
+      'otpRequest',
+      'otp_request_result',
+      'otpRequestResult',
+      'request',
+      'otp',
+      'pin_reset',
+      'pinReset',
+      'password_reset',
+      'passwordReset',
+      'registration',
+      'register',
+      'details',
+      'detail',
+    ]);
     final meta = _firstMap([
       payload['meta'],
       payload['metadata'],
@@ -1059,7 +1144,8 @@ class OtpRequestResult {
         delivery['masked'],
         delivery['label'],
       ]),
-      resendAfterSeconds: _intFrom([
+      resendAfterSeconds:
+          _intFrom([
             payload['resend_after_seconds'],
             payload['resendAfterSeconds'],
             payload['resend_after'],
@@ -1123,30 +1209,27 @@ class OtpVerifyResult {
   const OtpVerifyResult({required this.verificationToken});
 
   factory OtpVerifyResult.fromJson(Map<String, dynamic> json) {
-    final payload = _authPayload(
-      json,
-      const [
-        'otp_verification',
-        'otpVerification',
-        'otp_verify',
-        'otpVerify',
-        'otp_verification_result',
-        'otpVerificationResult',
-        'otp_verify_result',
-        'otpVerifyResult',
-        'verification',
-        'verify',
-        'otp',
-        'pin_reset',
-        'pinReset',
-        'password_reset',
-        'passwordReset',
-        'registration',
-        'register',
-        'details',
-        'detail',
-      ],
-    );
+    final payload = _authPayload(json, const [
+      'otp_verification',
+      'otpVerification',
+      'otp_verify',
+      'otpVerify',
+      'otp_verification_result',
+      'otpVerificationResult',
+      'otp_verify_result',
+      'otpVerifyResult',
+      'verification',
+      'verify',
+      'otp',
+      'pin_reset',
+      'pinReset',
+      'password_reset',
+      'passwordReset',
+      'registration',
+      'register',
+      'details',
+      'detail',
+    ]);
     final meta = _firstMap([
       payload['meta'],
       payload['metadata'],
@@ -1352,12 +1435,24 @@ bool? _firstBoolean(Iterable<Object?> values) {
     if (value is num) return value != 0;
     final normalized = value.toString().trim().toLowerCase();
     if (normalized.isEmpty) continue;
-    if (const {'true', '1', 'yes', 'on', 'enabled', 'active'}
-        .contains(normalized)) {
+    if (const {
+      'true',
+      '1',
+      'yes',
+      'on',
+      'enabled',
+      'active',
+    }.contains(normalized)) {
       return true;
     }
-    if (const {'false', '0', 'no', 'off', 'disabled', 'inactive'}
-        .contains(normalized)) {
+    if (const {
+      'false',
+      '0',
+      'no',
+      'off',
+      'disabled',
+      'inactive',
+    }.contains(normalized)) {
       return false;
     }
   }

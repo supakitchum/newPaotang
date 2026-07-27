@@ -51,7 +51,7 @@ class CustomerSupportSessionTest extends TestCase
         ]);
     }
 
-    public function test_customer_support_session_is_tenant_scoped_and_feature_flagged(): void
+    public function test_customer_support_session_is_tenant_scoped_and_independent_of_agent_availability(): void
     {
         $customerId = 'cus_support_session';
         $token = $this->issueCustomerToken($this->tenantId, $customerId);
@@ -80,8 +80,8 @@ class CustomerSupportSessionTest extends TestCase
 
         $this->withToken($token)
             ->postJson('http://'.$this->host.'/api/v1/customer/support-session')
-            ->assertServiceUnavailable()
-            ->assertJsonPath('error.code', 'support_unavailable');
+            ->assertOk()
+            ->assertJsonPath('api_url', 'https://support.example.test/v1');
     }
 
     public function test_admin_support_session_contains_only_granted_support_permissions(): void
@@ -114,6 +114,10 @@ class CustomerSupportSessionTest extends TestCase
             'X-Admin-Scope' => 'tenant',
             'X-Tenant-Id' => $this->tenantId,
         ];
+        DB::table('partner_tenant_feature_flags')
+            ->where('tenant_id', $this->tenantId)
+            ->where('feature_key', 'customer_support')
+            ->update(['enabled' => false, 'updated_at' => now()]);
 
         $supportResponse = $this->withToken($support['access_token'])
             ->postJson('/api/v1/admin/tenant/support-session', [], $headers)

@@ -49,15 +49,52 @@ class CustomerAuthController extends Controller
             return $tenant;
         }
 
-        $response = $this->customerAuth->login($tenant, $request->all());
+        $response = $this->customerAuth->login($tenant, $request->all(), $request);
 
         if ($response === null) {
             return ApiErrorResponse::authenticationRequired($request);
         }
 
-        return isset($response['error'])
-            ? $this->writeResult($request, $response)
-            : response()->json($response);
+        if (isset($response['error']) || isset($response['resource'])) {
+            return $this->writeResult($request, $response);
+        }
+
+        return response()->json($response);
+    }
+
+    public function resendLoginOtp(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        return $this->writeResult(
+            $request,
+            $this->customerAuth->resendLoginOtp(
+                $tenant,
+                (string) $request->input('login_challenge_token', ''),
+                $request,
+            ),
+            202,
+        );
+    }
+
+    public function verifyLoginOtp(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        return $this->writeResult(
+            $request,
+            $this->customerAuth->verifyLoginOtp(
+                $tenant,
+                (string) $request->input('login_challenge_token', ''),
+                (string) $request->input('otp', ''),
+            ),
+        );
     }
 
     public function refresh(Request $request): JsonResponse
@@ -376,6 +413,17 @@ class CustomerAuthController extends Controller
             'pin_assertion_invalid' => ApiErrorResponse::make($request, 403, 'pin_assertion_invalid', 'The biometric PIN assertion is invalid or expired.'),
             'password_invalid' => ApiErrorResponse::make($request, 422, 'password_invalid', 'The account password is incorrect.'),
             'otp_required' => ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['otp_verification_token' => ['OTP verification is required.']]),
+            'validation_failed' => ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['payload' => ['The request payload is invalid.']]),
+            'provider_not_configured' => ApiErrorResponse::make($request, $result['status'] ?? 409, 'sms_otp_provider_not_configured', $result['message'] ?? 'SMS OTP provider is not configured.', $result['details'] ?? []),
+            'otp_cooldown' => ApiErrorResponse::make($request, 429, 'otp_cooldown', $result['message'] ?? 'Please wait before requesting another OTP.', $result['details'] ?? []),
+            'otp_rate_limited' => ApiErrorResponse::make($request, 429, 'otp_rate_limited', $result['message'] ?? 'Too many OTP requests. Please try again later.', $result['details'] ?? []),
+            'sms_send_failed' => ApiErrorResponse::make($request, 503, 'sms_send_failed', $result['message'] ?? 'SMS OTP could not be sent.'),
+            'sms_verify_failed' => ApiErrorResponse::make($request, 503, 'sms_verify_failed', $result['message'] ?? 'SMS OTP could not be verified.'),
+            'otp_invalid' => ApiErrorResponse::make($request, $result['status'] ?? 422, 'otp_invalid', $result['message'] ?? 'OTP is invalid or expired.'),
+            'otp_attempts_exceeded' => ApiErrorResponse::make($request, 429, 'otp_attempts_exceeded', $result['message'] ?? 'OTP verification attempts exceeded.'),
+            'storage_unavailable' => ApiErrorResponse::make($request, 503, 'sms_otp_storage_not_ready', $result['message'] ?? 'SMS OTP storage is not ready.', $result['details'] ?? []),
+            'login_otp_challenge_invalid' => ApiErrorResponse::make($request, $result['status'] ?? 422, 'login_otp_challenge_invalid', $result['message'] ?? 'The login OTP challenge is invalid or expired.'),
+            'login_otp_phone_missing' => ApiErrorResponse::make($request, $result['status'] ?? 409, 'login_otp_phone_missing', $result['message'] ?? 'This account cannot receive a login OTP.'),
             'pin_reset_not_verified' => ApiErrorResponse::make($request, 403, 'pin_reset_not_verified', 'Please verify the account password before resetting PIN.'),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };

@@ -57,6 +57,20 @@ void main() {
     },
   );
 
+  testWidgets('AppShell keeps a transparent primary status bar', (
+    tester,
+  ) async {
+    await _pumpShell(tester, showBottomNavigation: null);
+    await tester.pumpAndSettle();
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    final style = appBar.systemOverlayStyle;
+    expect(style, isNotNull);
+    expect(style?.statusBarColor, Colors.transparent);
+    expect(style?.statusBarIconBrightness, Brightness.light);
+    expect(style?.statusBarBrightness, Brightness.dark);
+  });
+
   testWidgets('AppShell bottom navigation spans mobile viewport like Nuxt', (
     tester,
   ) async {

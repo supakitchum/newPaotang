@@ -161,9 +161,10 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
             final path = normalizeCustomerRoutePath(
               router.routeInformationProvider.value.uri.path,
             );
-            final statusBarBackgroundColor = path == '/pin'
-                ? appTheme.colorScheme.surface
-                : appTheme.colorScheme.primary;
+            final statusBarBackgroundColor = _statusBarBackgroundColorFor(
+              appTheme,
+              path,
+            );
             final systemUiOverlayStyle = _systemUiOverlayStyleFor(
               appTheme,
               statusBarBackgroundColor: statusBarBackgroundColor,
@@ -234,6 +235,13 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
       },
     );
   }
+}
+
+Color _statusBarBackgroundColorFor(ThemeData theme, String path) {
+  return switch (path) {
+    '/pin' || '/security-lock' => theme.colorScheme.surface,
+    _ => theme.colorScheme.primary,
+  };
 }
 
 SystemUiOverlayStyle _systemUiOverlayStyleFor(

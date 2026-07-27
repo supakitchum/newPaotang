@@ -25,6 +25,7 @@ class CustomerAuthService
 {
     private const ACCESS_TOKEN_TTL_SECONDS = 3600;
     private const REFRESH_TOKEN_TTL_SECONDS = 2592000;
+    private const LOGIN_OTP_CHALLENGE_TTL_SECONDS = 600;
     private const PIN_MAX_FAILED_ATTEMPTS = 5;
     private const PIN_LOCK_SECONDS = 900;
 
@@ -130,7 +131,7 @@ class CustomerAuthService
      * @param array<string, mixed> $payload
      * @return array<string, mixed>|null
      */
-    public function login(array $tenant, array $payload): ?array
+    public function login(array $tenant, array $payload, Request $request): ?array
     {
         $username = trim((string) ($payload['username'] ?? ''));
         $password = (string) ($payload['password'] ?? '');
@@ -162,14 +163,128 @@ class CustomerAuthService
             return null;
         }
 
-        Customer::query()->where('id', $customer->id)->update([
-            'last_login_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($this->smsOtp->providerRequiredForLogin((string) $tenant['tenant_id'])) {
+            return $this->beginLoginOtpChallenge(
+                (string) $tenant['tenant_id'],
+                (string) $customer->id,
+                (string) $customer->phone,
+                $request,
+            );
+        }
 
-        $this->ensurePrimaryWallet((string) $tenant['tenant_id'], (string) $customer->id);
+        return $this->completeLogin((string) $tenant['tenant_id'], (string) $customer->id);
+    }
 
-        return $this->issueSession((string) $tenant['tenant_id'], (string) $customer->id);
+    /**
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, message?: string, details?: array<string, mixed>}
+     */
+    public function resendLoginOtp(array $tenant, string $challengeToken, Request $request): array
+    {
+        $challenge = $this->loginOtpChallenge((string) $tenant['tenant_id'], $challengeToken);
+        if ($challenge === null) {
+            return [
+                'error' => 'login_otp_challenge_invalid',
+                'status' => 422,
+                'message' => 'The login OTP challenge is invalid or expired.',
+            ];
+        }
+
+        $result = $this->smsOtp->requestOtp(
+            (string) $tenant['tenant_id'],
+            ['purpose' => SmsOtpService::PURPOSE_LOGIN],
+            $request,
+            SmsOtpService::PURPOSE_LOGIN,
+            (string) $challenge['phone'],
+        );
+
+        if (isset($result['error'])) {
+            return $result;
+        }
+
+        Cache::put(
+            $this->loginOtpChallengeCacheKey((string) $tenant['tenant_id'], $challengeToken),
+            $challenge,
+            now()->addSeconds(self::LOGIN_OTP_CHALLENGE_TTL_SECONDS),
+        );
+
+        return [
+            'resource' => $this->loginOtpChallengeResource(
+                $challengeToken,
+                (string) $challenge['phone'],
+                $result['resource'] ?? [],
+            ),
+            'status' => 202,
+        ];
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, message?: string, details?: array<string, mixed>}
+     */
+    public function verifyLoginOtp(array $tenant, string $challengeToken, string $otp): array
+    {
+        $tenantId = (string) $tenant['tenant_id'];
+        $challenge = $this->loginOtpChallenge($tenantId, $challengeToken);
+        if ($challenge === null) {
+            return [
+                'error' => 'login_otp_challenge_invalid',
+                'status' => 422,
+                'message' => 'The login OTP challenge is invalid or expired.',
+            ];
+        }
+
+        $verification = $this->smsOtp->verifyOtp(
+            $tenantId,
+            ['otp' => $otp],
+            SmsOtpService::PURPOSE_LOGIN,
+            (string) $challenge['phone'],
+        );
+        if (isset($verification['error'])) {
+            return $verification;
+        }
+
+        $verificationToken = trim((string) (($verification['resource'] ?? [])['otp_verification_token'] ?? ''));
+        $consume = $this->smsOtp->consumeVerifiedToken(
+            $tenantId,
+            (string) $challenge['phone'],
+            SmsOtpService::PURPOSE_LOGIN,
+            $verificationToken,
+        );
+        if (($consume['ok'] ?? false) !== true) {
+            return [
+                'error' => 'otp_invalid',
+                'status' => 422,
+                'message' => 'OTP is invalid or expired.',
+            ];
+        }
+
+        $cacheKey = $this->loginOtpChallengeCacheKey($tenantId, $challengeToken);
+        $consumedChallenge = Cache::pull($cacheKey);
+        if (! is_array($consumedChallenge)) {
+            return [
+                'error' => 'login_otp_challenge_invalid',
+                'status' => 422,
+                'message' => 'The login OTP challenge is invalid or expired.',
+            ];
+        }
+
+        $customer = Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', (string) $consumedChallenge['customer_id'])
+            ->first();
+        if (! $customer instanceof Customer || (string) $customer->status !== 'active') {
+            return ['error' => 'authentication_required'];
+        }
+        if ($this->customerSuspensions->isSuspended($customer)) {
+            return [
+                'error' => 'customer_suspended',
+                'suspension' => $this->customerSuspensions->payload($customer),
+            ];
+        }
+
+        return [
+            'resource' => $this->completeLogin($tenantId, (string) $customer->id),
+            'status' => 200,
+        ];
     }
 
     public function createLineCustomer(array $tenant, array $payload): object
@@ -707,6 +822,113 @@ class CustomerAuthService
             'pin_required' => $customer !== null && $this->customerHasPin($customer) && ! $pinVerified,
             'user' => $this->customerProfile($customer, $pinVerified),
         ];
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, message?: string, details?: array<string, mixed>}
+     */
+    private function beginLoginOtpChallenge(string $tenantId, string $customerId, string $phone, Request $request): array
+    {
+        $phone = $this->smsOtp->normalizePhone($phone) ?? '';
+        if ($phone === '') {
+            return [
+                'error' => 'login_otp_phone_missing',
+                'status' => 409,
+                'message' => 'This customer account does not have a phone number for OTP verification.',
+            ];
+        }
+
+        $result = $this->smsOtp->requestOtp(
+            $tenantId,
+            ['purpose' => SmsOtpService::PURPOSE_LOGIN],
+            $request,
+            SmsOtpService::PURPOSE_LOGIN,
+            $phone,
+        );
+        if (isset($result['error']) && ($result['error'] ?? null) !== 'otp_cooldown') {
+            return $result;
+        }
+
+        $challengeToken = 'lotp_'.Str::random(64);
+        Cache::put(
+            $this->loginOtpChallengeCacheKey($tenantId, $challengeToken),
+            [
+                'tenant_id' => $tenantId,
+                'customer_id' => $customerId,
+                'phone' => $phone,
+            ],
+            now()->addSeconds(self::LOGIN_OTP_CHALLENGE_TTL_SECONDS),
+        );
+
+        $delivery = $result['resource'] ?? [];
+        if (($result['error'] ?? null) === 'otp_cooldown') {
+            $delivery['resend_after_seconds'] = (int) (($result['details'] ?? [])['retry_after_seconds'] ?? 60);
+        }
+
+        return [
+            'resource' => $this->loginOtpChallengeResource($challengeToken, $phone, $delivery),
+            'status' => 202,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $delivery
+     * @return array<string, mixed>
+     */
+    private function loginOtpChallengeResource(string $challengeToken, string $phone, array $delivery): array
+    {
+        return [
+            'otp_required' => true,
+            'next_step' => 'otp',
+            'login_challenge_token' => $challengeToken,
+            'phone_masked' => trim((string) ($delivery['phone_masked'] ?? '')) ?: $this->smsOtp->maskedPhone($phone),
+            'expires_in_seconds' => self::LOGIN_OTP_CHALLENGE_TTL_SECONDS,
+            'resend_after_seconds' => max(0, (int) ($delivery['resend_after_seconds'] ?? 60)),
+        ];
+    }
+
+    /**
+     * @return array{tenant_id: string, customer_id: string, phone: string}|null
+     */
+    private function loginOtpChallenge(string $tenantId, string $challengeToken): ?array
+    {
+        $challengeToken = trim($challengeToken);
+        if ($challengeToken === '') {
+            return null;
+        }
+
+        $challenge = Cache::get($this->loginOtpChallengeCacheKey($tenantId, $challengeToken));
+        if (! is_array($challenge)
+            || ! hash_equals($tenantId, (string) ($challenge['tenant_id'] ?? ''))
+            || trim((string) ($challenge['customer_id'] ?? '')) === ''
+            || trim((string) ($challenge['phone'] ?? '')) === '') {
+            return null;
+        }
+
+        return [
+            'tenant_id' => $tenantId,
+            'customer_id' => (string) $challenge['customer_id'],
+            'phone' => (string) $challenge['phone'],
+        ];
+    }
+
+    private function loginOtpChallengeCacheKey(string $tenantId, string $challengeToken): string
+    {
+        return 'customer_login_otp:'.$tenantId.':'.hash('sha256', trim($challengeToken));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function completeLogin(string $tenantId, string $customerId): array
+    {
+        Customer::query()->where('tenant_id', $tenantId)->where('id', $customerId)->update([
+            'last_login_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->ensurePrimaryWallet($tenantId, $customerId);
+
+        return $this->issueSession($tenantId, $customerId);
     }
 
     public function ensurePrimaryWallet(string $tenantId, string $customerId): string

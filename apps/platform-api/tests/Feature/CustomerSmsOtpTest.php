@@ -34,6 +34,11 @@ class CustomerSmsOtpTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('error.code', 'validation_failed')
             ->assertJsonPath('error.details.fields.otp_verification_token.0', 'OTP verification is required before registration.');
+        $this->assertDatabaseMissing('customers', [
+            'tenant_id' => 'ten_sms_register',
+            'phone' => '0801112222',
+        ]);
+        $this->assertSame(0, DB::table('customer_auth_sessions')->where('tenant_id', 'ten_sms_register')->count());
 
         $this->postJson('http://sms-register.m5.test/api/v1/customer/auth/otp/request', [
             'phone' => '0801112222',
@@ -90,6 +95,73 @@ class CustomerSmsOtpTest extends TestCase
             && $request['pin'] === '123456');
     }
 
+    public function test_CustomerSmsOtp_login_issues_session_only_after_one_time_challenge_is_verified(): void
+    {
+        $this->insertActivePartnerTenantWithDomain('par_sms_login', 'ten_sms_login', 'sms-login.m5.test');
+        $this->insertSmsProvider('ten_sms_login');
+        $this->fakeThaiBulkOtp([
+            ['token' => 'login-register-provider-token', 'refno' => 'LGN01'],
+            ['token' => 'login-provider-token', 'refno' => 'LGN02'],
+        ]);
+
+        $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/otp/request', [
+            'phone' => '0802223333',
+            'purpose' => 'register',
+        ])->assertAccepted();
+        $registerToken = $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/otp/verify', [
+            'phone' => '0802223333',
+            'purpose' => 'register',
+            'otp' => '111111',
+        ])->assertOk()->json('otp_verification_token');
+        $registered = $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/register', [
+            'name' => 'SMS Login',
+            'phone' => '0802223333',
+            'password' => 'customer-secret',
+            'password_confirmation' => 'customer-secret',
+            'otp_verification_token' => $registerToken,
+        ], [
+            'Idempotency-Key' => 'sms-login-register',
+        ])->assertCreated()->json();
+
+        $sessionCountBeforeLogin = DB::table('customer_auth_sessions')
+            ->where('tenant_id', 'ten_sms_login')
+            ->count();
+        $challenge = $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/login', [
+            'username' => '0802223333',
+            'password' => 'customer-secret',
+        ])->assertAccepted()
+            ->assertJsonPath('otp_required', true)
+            ->assertJsonPath('next_step', 'otp')
+            ->assertJsonPath('phone_masked', '080xxxx333')
+            ->json();
+
+        $this->assertArrayHasKey('login_challenge_token', $challenge);
+        $this->assertArrayNotHasKey('token', $challenge);
+        $this->assertSame(
+            $sessionCountBeforeLogin,
+            DB::table('customer_auth_sessions')->where('tenant_id', 'ten_sms_login')->count(),
+        );
+
+        $session = $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/login/otp/verify', [
+            'login_challenge_token' => $challenge['login_challenge_token'],
+            'otp' => '222222',
+        ])->assertOk()
+            ->assertJsonPath('user.id', $registered['user']['id'])
+            ->assertJsonPath('pin_setup_required', true)
+            ->json();
+
+        $this->assertNotEmpty($session['token'] ?? null);
+        $this->assertSame(
+            $sessionCountBeforeLogin + 1,
+            DB::table('customer_auth_sessions')->where('tenant_id', 'ten_sms_login')->count(),
+        );
+        $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/login/otp/verify', [
+            'login_challenge_token' => $challenge['login_challenge_token'],
+            'otp' => '222222',
+        ])->assertUnprocessable()
+            ->assertJsonPath('error.code', 'login_otp_challenge_invalid');
+    }
+
     public function test_CustomerSmsOtp_resets_password_and_pin_with_verified_otp(): void
     {
         $this->insertActivePartnerTenantWithDomain('par_sms_reset', 'ten_sms_reset', 'sms-reset.m5.test');
@@ -97,7 +169,8 @@ class CustomerSmsOtpTest extends TestCase
         $this->fakeThaiBulkOtp([
             ['token' => 'reset-register-provider-token', 'refno' => 'RST01'],
             ['token' => 'password-reset-provider-token', 'refno' => 'RST02'],
-            ['token' => 'pin-reset-provider-token', 'refno' => 'RST03'],
+            ['token' => 'login-reset-provider-token', 'refno' => 'RST03'],
+            ['token' => 'pin-reset-provider-token', 'refno' => 'RST04'],
         ]);
 
         $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/otp/request', [
@@ -138,9 +211,15 @@ class CustomerSmsOtpTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('status', 'password_reset');
 
-        $login = $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/login', [
+        $loginChallenge = $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/login', [
             'username' => '0803334444',
             'password' => 'new-secret',
+        ])->assertAccepted()
+            ->assertJsonPath('otp_required', true)
+            ->json();
+        $login = $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/login/otp/verify', [
+            'login_challenge_token' => $loginChallenge['login_challenge_token'],
+            'otp' => '333333',
         ])->assertOk()->json();
 
         $this->withToken($login['token'])
@@ -154,7 +233,7 @@ class CustomerSmsOtpTest extends TestCase
             ->assertAccepted();
         $pinToken = $this->withToken($login['token'])
             ->postJson('http://sms-reset.m5.test/api/v1/customer/auth/pin/reset/verify-otp', [
-                'otp' => '333333',
+                'otp' => '444444',
             ])->assertOk()->json('otp_verification_token');
 
         $this->withToken($login['token'])

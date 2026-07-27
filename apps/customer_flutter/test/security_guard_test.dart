@@ -1170,7 +1170,7 @@ void main() {
     expect(find.text('Public root route'), findsOneWidget);
   });
 
-  testWidgets('CustomerApp uses a light status bar on the PIN route', (
+  testWidgets('CustomerApp matches status bar contrast to the route surface', (
     tester,
   ) async {
     final router = GoRouter(
@@ -1183,6 +1183,10 @@ void main() {
         GoRoute(
           path: '/pin',
           builder: (context, state) => const Text('PIN route'),
+        ),
+        GoRoute(
+          path: '/security-lock',
+          builder: (context, state) => const Text('Security lock route'),
         ),
       ],
     );
@@ -1228,6 +1232,17 @@ void main() {
     );
     expect(systemUiOverlay.value.statusBarColor, Colors.transparent);
     expect(systemUiOverlay.value.statusBarIconBrightness, Brightness.light);
+    expect(systemUiOverlay.value.statusBarBrightness, Brightness.dark);
+
+    router.go('/security-lock');
+    await tester.pumpAndSettle();
+
+    systemUiOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byKey(const ValueKey('customer-system-ui-overlay')),
+    );
+    expect(systemUiOverlay.value.statusBarColor, Colors.transparent);
+    expect(systemUiOverlay.value.statusBarIconBrightness, Brightness.dark);
+    expect(systemUiOverlay.value.statusBarBrightness, Brightness.light);
   });
 
   testWidgets('SensitiveScreenGuard locks session on native capture events', (

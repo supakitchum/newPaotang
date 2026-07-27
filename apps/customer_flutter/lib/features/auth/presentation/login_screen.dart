@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,11 +27,15 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _otp = TextEditingController();
   bool _passwordSubmitting = false;
   bool _rememberMe = true;
   bool _showPassword = false;
   String? _socialSubmittingProvider;
   String _formError = '';
+  LoginOtpChallenge? _loginOtpChallenge;
+  int _resendAfter = 0;
+  Timer? _resendTimer;
 
   bool get _busy => _passwordSubmitting || _socialSubmittingProvider != null;
 
@@ -38,14 +44,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
     _username.addListener(_clearFormError);
     _password.addListener(_clearFormError);
+    _otp.addListener(_clearFormError);
   }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _username.removeListener(_clearFormError);
     _password.removeListener(_clearFormError);
+    _otp.removeListener(_clearFormError);
     _username.dispose();
     _password.dispose();
+    _otp.dispose();
     super.dispose();
   }
 
@@ -61,10 +71,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-        ),
+        decoration: BoxDecoration(color: colorScheme.surface),
         child: SafeArea(
+          key: const ValueKey('login-screen-safe-area'),
+          top: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
               return ListView(
@@ -84,14 +94,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: _LoginFormCard(
                               username: _username,
                               password: _password,
+                              otp: _otp,
                               busy: _busy,
                               passwordSubmitting: _passwordSubmitting,
+                              otpRequired: _loginOtpChallenge != null,
+                              maskedPhone:
+                                  _loginOtpChallenge?.phoneMasked ?? '',
+                              resendAfter: _resendAfter,
                               rememberMe: _rememberMe,
                               showPassword: _showPassword,
                               formError: _formError,
-                              onRememberMeChanged: (value) => setState(
-                                () => _rememberMe = value,
-                              ),
+                              onRememberMeChanged: (value) =>
+                                  setState(() => _rememberMe = value),
                               onTogglePassword: () => setState(
                                 () => _showPassword = !_showPassword,
                               ),
@@ -99,6 +113,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               socialSubmittingProvider:
                                   _socialSubmittingProvider,
                               onLogin: _login,
+                              onResendOtp: _resendLoginOtp,
+                              onChangeAccount: _cancelLoginOtp,
                               onSocialLogin: _socialLogin,
                               onRegister: () => context.go(
                                 customerRegisterRouteForRedirect(
@@ -129,9 +145,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passwordSubmitting = true;
     });
     try {
-      await ref
-          .read(authControllerProvider)
-          .loginWithPassword(_username.text.trim(), _password.text);
+      final challenge = _loginOtpChallenge;
+      if (challenge == null) {
+        await ref
+            .read(authControllerProvider)
+            .loginWithPassword(_username.text.trim(), _password.text);
+      } else {
+        final otp = _otp.text.trim();
+        if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
+          _showFormError(context.l10n.authOtpInvalid);
+          return;
+        }
+        await ref
+            .read(authControllerProvider)
+            .verifyLoginOtp(challengeToken: challenge.challengeToken, otp: otp);
+      }
       await ref.read(affiliateReferralServiceProvider).applyStored();
       if (mounted) {
         final auth = ref.read(authControllerProvider);
@@ -144,6 +172,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         );
       }
+    } on LoginOtpChallengeRequired catch (required) {
+      _applyLoginOtpChallenge(required.challenge);
     } catch (error) {
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(
@@ -157,6 +187,69 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _passwordSubmitting = false);
     }
+  }
+
+  Future<void> _resendLoginOtp() async {
+    final challenge = _loginOtpChallenge;
+    if (_busy || challenge == null || _resendAfter > 0) return;
+    setState(() {
+      _formError = '';
+      _passwordSubmitting = true;
+    });
+    try {
+      final refreshed = await ref
+          .read(authRepositoryProvider)
+          .resendLoginOtp(challengeToken: challenge.challengeToken);
+      _applyLoginOtpChallenge(refreshed);
+    } catch (error) {
+      if (!mounted) return;
+      _showFormError(
+        authOtpErrorMessage(
+          error: error,
+          fallback: context.l10n.authOtpVerificationFailed,
+          otpProviderUnavailable: context.l10n.authOtpVerificationFailed,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _passwordSubmitting = false);
+    }
+  }
+
+  void _applyLoginOtpChallenge(LoginOtpChallenge challenge) {
+    if (!mounted) return;
+    _otp.clear();
+    _resendTimer?.cancel();
+    setState(() {
+      _loginOtpChallenge = challenge;
+      _resendAfter = challenge.resendAfterSeconds > 0
+          ? challenge.resendAfterSeconds
+          : 60;
+      _formError = '';
+    });
+    _startResendTimer();
+  }
+
+  void _startResendTimer() {
+    if (_resendAfter <= 0) return;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _resendAfter <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendAfter = 0);
+        return;
+      }
+      setState(() => _resendAfter -= 1);
+    });
+  }
+
+  void _cancelLoginOtp() {
+    if (_busy) return;
+    _resendTimer?.cancel();
+    _otp.clear();
+    setState(() {
+      _loginOtpChallenge = null;
+      _resendAfter = 0;
+      _formError = '';
+    });
   }
 
   Future<void> _socialLogin(String provider) async {
@@ -254,7 +347,12 @@ class _LoginHeroSection extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 920),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 34, 20, 104),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    34 + MediaQuery.paddingOf(context).top,
+                    20,
+                    104,
+                  ),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: ConstrainedBox(
@@ -265,8 +363,9 @@ class _LoginHeroSection extends StatelessWidget {
                         children: [
                           DecoratedBox(
                             decoration: BoxDecoration(
-                              color:
-                                  colorScheme.onPrimary.withValues(alpha: 0.16),
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.16,
+                              ),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Padding(
@@ -309,8 +408,9 @@ class _LoginHeroSection extends StatelessWidget {
                           Text(
                             context.l10n.loginHeroDescription,
                             style: textTheme.bodyLarge?.copyWith(
-                              color:
-                                  colorScheme.onPrimary.withValues(alpha: 0.9),
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.9,
+                              ),
                               fontSize: 17,
                               height: 1.45,
                             ),
@@ -431,8 +531,12 @@ class _LoginFormCard extends StatelessWidget {
   const _LoginFormCard({
     required this.username,
     required this.password,
+    required this.otp,
     required this.busy,
     required this.passwordSubmitting,
+    required this.otpRequired,
+    required this.maskedPhone,
+    required this.resendAfter,
     required this.rememberMe,
     required this.showPassword,
     required this.formError,
@@ -441,6 +545,8 @@ class _LoginFormCard extends StatelessWidget {
     required this.socialProviders,
     required this.socialSubmittingProvider,
     required this.onLogin,
+    required this.onResendOtp,
+    required this.onChangeAccount,
     required this.onSocialLogin,
     required this.onRegister,
     required this.onForgotPassword,
@@ -448,8 +554,12 @@ class _LoginFormCard extends StatelessWidget {
 
   final TextEditingController username;
   final TextEditingController password;
+  final TextEditingController otp;
   final bool busy;
   final bool passwordSubmitting;
+  final bool otpRequired;
+  final String maskedPhone;
+  final int resendAfter;
   final bool rememberMe;
   final bool showPassword;
   final String formError;
@@ -458,6 +568,8 @@ class _LoginFormCard extends StatelessWidget {
   final List<SocialAuthProvider> socialProviders;
   final String? socialSubmittingProvider;
   final VoidCallback onLogin;
+  final VoidCallback onResendOtp;
+  final VoidCallback onChangeAccount;
   final ValueChanged<String> onSocialLogin;
   final VoidCallback onRegister;
   final VoidCallback onForgotPassword;
@@ -486,19 +598,19 @@ class _LoginFormCard extends StatelessWidget {
             Text(
               l10n.loginFormTitle,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               l10n.loginFormDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 15,
-                    height: 1.35,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                height: 1.35,
+              ),
             ),
             if (formError.trim().isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -509,6 +621,7 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: username,
+              enabled: !busy && !otpRequired,
               autofillHints: const [AutofillHints.telephoneNumber],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
@@ -528,12 +641,13 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: password,
+              enabled: !busy && !otpRequired,
               autofillHints: const [AutofillHints.password],
               style: authInputTextStyle(context),
               obscureText: !showPassword,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) {
-                if (!busy) onLogin();
+                if (!busy && !otpRequired) onLogin();
               },
               decoration: _loginInputDecoration(
                 context,
@@ -551,50 +665,174 @@ class _LoginFormCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            _LoginOptionsRow(
-              rememberMe: rememberMe,
-              enabled: !busy,
-              onRememberMeChanged: onRememberMeChanged,
-              onForgotPassword: onForgotPassword,
-            ),
+            if (otpRequired) ...[
+              const SizedBox(height: 16),
+              _LoginOtpPanel(
+                otp: otp,
+                maskedPhone: maskedPhone,
+                resendAfter: resendAfter,
+                busy: busy,
+                onSubmit: onLogin,
+                onResend: onResendOtp,
+                onChangeAccount: onChangeAccount,
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              _LoginOptionsRow(
+                rememberMe: rememberMe,
+                enabled: !busy,
+                onRememberMeChanged: onRememberMeChanged,
+                onForgotPassword: onForgotPassword,
+              ),
+            ],
             const SizedBox(height: 12),
             authPrimaryActionButton(
               onPressed: busy ? null : onLogin,
               height: 54,
               fontSize: 18,
-              label:
-                  passwordSubmitting ? l10n.loginSubmitting : l10n.loginSubmit,
+              label: otpRequired
+                  ? passwordSubmitting
+                        ? l10n.loginOtpSubmitting
+                        : l10n.loginOtpSubmit
+                  : passwordSubmitting
+                  ? l10n.loginSubmitting
+                  : l10n.loginSubmit,
             ),
-            _SocialLoginPanel(
-              providers: socialProviders,
-              loading: busy,
-              submittingProvider: socialSubmittingProvider,
-              onLogin: onSocialLogin,
+            if (!otpRequired) ...[
+              _SocialLoginPanel(
+                providers: socialProviders,
+                loading: busy,
+                submittingProvider: socialSubmittingProvider,
+                onLogin: onSocialLogin,
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      l10n.loginRegisterPrompt,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  TextButton(
+                    onPressed: busy ? null : onRegister,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 36),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(l10n.loginRegister),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginOtpPanel extends StatelessWidget {
+  const _LoginOtpPanel({
+    required this.otp,
+    required this.maskedPhone,
+    required this.resendAfter,
+    required this.busy,
+    required this.onSubmit,
+    required this.onResend,
+    required this.onChangeAccount,
+  });
+
+  final TextEditingController otp;
+  final String maskedPhone;
+  final int resendAfter;
+  final bool busy;
+  final VoidCallback onSubmit;
+  final VoidCallback onResend;
+  final VoidCallback onChangeAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          key: const ValueKey('login-otp-panel'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.loginOtpTitle,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 4),
+            Text(
+              l10n.authOtpSentTo(maskedPhone),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _LoginFieldLabel(label: l10n.authOtpLabel),
+            const SizedBox(height: 8),
+            TextField(
+              controller: otp,
+              key: const ValueKey('login-otp-input'),
+              enabled: !busy,
+              autofocus: true,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              style: authInputTextStyle(context),
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              onSubmitted: (_) {
+                if (!busy) onSubmit();
+              },
+              decoration: _loginInputDecoration(
+                context,
+                hintText: l10n.loginOtpHint,
+                prefixIcon: const Icon(Icons.chat_bubble_outline),
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Flexible(
-                  child: Text(
-                    l10n.loginRegisterPrompt,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                Expanded(
+                  child: TextButton(
+                    onPressed: busy ? null : onChangeAccount,
+                    child: Text(l10n.loginOtpChangeAccount),
                   ),
                 ),
-                const SizedBox(width: 7),
                 TextButton(
-                  onPressed: busy ? null : onRegister,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 36),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onPressed: busy || resendAfter > 0 ? null : onResend,
+                  child: Text(
+                    resendAfter > 0
+                        ? l10n.authOtpResendIn(resendAfter)
+                        : l10n.authOtpResend,
                   ),
-                  child: Text(l10n.loginRegister),
                 ),
               ],
             ),
@@ -622,10 +860,10 @@ class _LoginOptionsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        );
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 14,
+      fontWeight: FontWeight.w700,
+    );
     return Row(
       children: [
         Expanded(
@@ -682,18 +920,15 @@ class _LoginFieldLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
+        color: Theme.of(context).colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
 
 class _LoginRememberBox extends StatelessWidget {
-  const _LoginRememberBox({
-    required this.checked,
-    required this.disabled,
-  });
+  const _LoginRememberBox({required this.checked, required this.disabled});
 
   final bool checked;
   final bool disabled;
@@ -704,8 +939,8 @@ class _LoginRememberBox extends StatelessWidget {
     final borderColor = disabled
         ? colorScheme.outlineVariant
         : checked
-            ? colorScheme.primary
-            : colorScheme.outlineVariant;
+        ? colorScheme.primary
+        : colorScheme.outlineVariant;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
@@ -743,29 +978,23 @@ class _LoginErrorPanel extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.errorContainer.withValues(alpha: 0.62),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: colorScheme.error.withValues(alpha: 0.14),
-          ),
+          border: Border.all(color: colorScheme.error.withValues(alpha: 0.14)),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.error_outline,
-                color: colorScheme.error,
-                size: 20,
-              ),
+              Icon(Icons.error_outline, color: colorScheme.error, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   message,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
-                        fontWeight: FontWeight.w800,
-                        height: 1.35,
-                      ),
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],
@@ -821,9 +1050,9 @@ class _SocialLoginPanel extends StatelessWidget {
               child: Text(
                 context.l10n.loginDivider,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             Expanded(child: Divider(color: colorScheme.outlineVariant)),
@@ -863,9 +1092,11 @@ class _SocialLoginButton extends StatelessWidget {
     final isSubmitting = submittingProvider == normalizedProvider;
     final colorScheme = Theme.of(context).colorScheme;
     final brandColor = provider.brandColor ?? colorScheme.primary;
-    final backgroundColor = provider.buttonBackgroundColor ??
+    final backgroundColor =
+        provider.buttonBackgroundColor ??
         (normalizedProvider == 'line' ? brandColor : null);
-    final foregroundColor = provider.buttonForegroundColor ??
+    final foregroundColor =
+        provider.buttonForegroundColor ??
         (backgroundColor == null
             ? colorScheme.onSurface
             : colorScheme.onPrimary);
@@ -877,14 +1108,15 @@ class _SocialLoginButton extends StatelessWidget {
           backgroundColor: backgroundColor,
           foregroundColor: foregroundColor,
           side: BorderSide(
-            color: borderColor ??
+            color:
+                borderColor ??
                 colorScheme.outlineVariant.withValues(alpha: 0.90),
           ),
           shape: const StadiumBorder(),
           textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         onPressed: loading ? null : onPressed,
         icon: Icon(

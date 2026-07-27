@@ -76,6 +76,11 @@ class CustomerLocalizations {
   String get loginPasswordHint => _text('auth.login.password_hint');
   String get loginSubmit => _text('auth.login.submit');
   String get loginSubmitting => _text('auth.login.submitting');
+  String get loginOtpTitle => _text('auth.login.otp_title');
+  String get loginOtpHint => _text('auth.login.otp_hint');
+  String get loginOtpSubmit => _text('auth.login.otp_submit');
+  String get loginOtpSubmitting => _text('auth.login.otp_submitting');
+  String get loginOtpChangeAccount => _text('auth.login.otp_change_account');
   String get loginRegister => _text('auth.login.register');
   String get loginRegisterPrompt => _text('auth.login.register_prompt');
   String get loginForgotPassword => _text('auth.login.forgot_password');
@@ -2923,6 +2928,11 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.password_hint': 'กรอกรหัสผ่าน',
     'auth.login.submit': 'เข้าสู่ระบบ',
     'auth.login.submitting': 'กำลังเข้าสู่ระบบ',
+    'auth.login.otp_title': 'ยืนยันการเข้าสู่ระบบด้วย OTP',
+    'auth.login.otp_hint': 'กรอกรหัส OTP',
+    'auth.login.otp_submit': 'ยืนยัน OTP',
+    'auth.login.otp_submitting': 'กำลังยืนยัน OTP',
+    'auth.login.otp_change_account': 'กลับไปแก้ไขข้อมูลเข้าสู่ระบบ',
     'auth.login.register': 'สมัครใช้งาน',
     'auth.login.register_prompt': 'ยังไม่มีบัญชี?',
     'auth.login.forgot_password': 'ลืมรหัสผ่าน?',
@@ -4766,6 +4776,11 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.password_hint': 'Enter your password',
     'auth.login.submit': 'Sign in',
     'auth.login.submitting': 'Signing in',
+    'auth.login.otp_title': 'Verify sign-in with OTP',
+    'auth.login.otp_hint': 'Enter OTP',
+    'auth.login.otp_submit': 'Verify OTP',
+    'auth.login.otp_submitting': 'Verifying OTP',
+    'auth.login.otp_change_account': 'Edit sign-in details',
     'auth.login.register': 'Create account',
     'auth.login.register_prompt': 'No account yet?',
     'auth.login.forgot_password': 'Forgot password?',

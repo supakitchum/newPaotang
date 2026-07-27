@@ -49,7 +49,6 @@ services:
       LOTTO_SCRAPER_TRIGGER_SANOOK_URL: http://lotto-scraper:3200/internal/poll
       LOTTO_SCRAPER_TRIGGER_THAIRATH_URL: http://lotto-scraper-thairath:3200/internal/poll
       LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
-      CUSTOMER_SUPPORT_ENABLED_BY_DEFAULT: "false"
       SUPPORT_API_URL: /support-api/v1
       SUPPORT_REALTIME_URL: ws://localhost:8081
       SUPPORT_REALTIME_KEY: newpaotang-support

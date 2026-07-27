@@ -110,52 +110,52 @@ void main() {
     );
   });
 
-  test('authenticated customer must verify PIN before home or public content',
-      () {
-    for (final path in ['/', '/news', '/activities', '/result']) {
+  test(
+    'authenticated customer must verify PIN before home or public content',
+    () {
+      for (final path in ['/', '/news', '/activities', '/result']) {
+        expect(
+          customerRedirectPath(
+            path: path,
+            isAuthenticated: true,
+            pinRequired: true,
+            isSecurityLocked: false,
+          ),
+          customerPinRouteForRedirect(path),
+          reason: '$path should require PIN after login',
+        );
+      }
+    },
+  );
+
+  test(
+    'authenticated customer uses global PIN before affiliate after login',
+    () {
       expect(
         customerRedirectPath(
-          path: path,
+          path: '/affiliate',
           isAuthenticated: true,
           pinRequired: true,
+          pinSetupRequired: false,
           isSecurityLocked: false,
         ),
-        customerPinRouteForRedirect(path),
-        reason: '$path should require PIN after login',
+        '/pin?redirect=%2Faffiliate',
       );
-    }
-  });
-
-  test('authenticated customer uses global PIN before affiliate after login',
-      () {
-    expect(
-      customerRedirectPath(
-        path: '/affiliate',
-        isAuthenticated: true,
-        pinRequired: true,
-        pinSetupRequired: false,
-        isSecurityLocked: false,
-      ),
-      '/pin?redirect=%2Faffiliate',
-    );
-    expect(
-      customerRedirectPath(
-        path: '/affiliate',
-        isAuthenticated: true,
-        pinRequired: true,
-        pinSetupRequired: true,
-        isSecurityLocked: false,
-      ),
-      '/pin?redirect=%2Faffiliate',
-    );
-  });
+      expect(
+        customerRedirectPath(
+          path: '/affiliate',
+          isAuthenticated: true,
+          pinRequired: true,
+          pinSetupRequired: true,
+          isSecurityLocked: false,
+        ),
+        '/pin?redirect=%2Faffiliate',
+      );
+    },
+  );
 
   test('PIN guard allows only security and operational bypass routes', () {
-    for (final path in [
-      '/pin',
-      '/security-lock',
-      '/account-suspended',
-    ]) {
+    for (final path in ['/pin', '/security-lock', '/account-suspended']) {
       expect(
         customerRedirectPath(
           path: path,
@@ -370,13 +370,34 @@ void main() {
     );
   });
 
+  test(
+    'Help Center access does not depend on agent availability feature flag',
+    () {
+      final bootstrap = MobileBootstrap.fromJson({
+        'featureFlags': {'customer_support': false},
+      });
+
+      expect(mobileCustomerRouteAllowed(bootstrap, '/support'), isTrue);
+      expect(
+        mobileCustomerRouteAllowed(bootstrap, '/support/tickets/stk_1'),
+        isTrue,
+      );
+      expect(
+        customerRedirectPath(
+          path: '/support',
+          isAuthenticated: true,
+          pinRequired: false,
+          isSecurityLocked: false,
+          bootstrap: bootstrap,
+        ),
+        isNull,
+      );
+    },
+  );
+
   test('runtime feature flags normalize URL and deep-link route wrappers', () {
     final bootstrap = MobileBootstrap.fromJson({
-      'featureFlags': {
-        'wallet': false,
-        'tickets': false,
-        'news': false,
-      },
+      'featureFlags': {'wallet': false, 'tickets': false, 'news': false},
     });
 
     expect(
@@ -412,50 +433,45 @@ void main() {
     );
   });
 
-  test('waiting-result feature flag covers the canonical route and Nuxt alias',
-      () {
-    final bootstrap = MobileBootstrap.fromJson({
-      'featureFlags': {
-        'waitingResult': false,
-      },
-    });
+  test(
+    'waiting-result feature flag covers the canonical route and Nuxt alias',
+    () {
+      final bootstrap = MobileBootstrap.fromJson({
+        'featureFlags': {'waitingResult': false},
+      });
 
-    for (final path in [
-      '/waiting-result',
-      '/waiting-result?game_id=game_1',
-      '/wait-result',
-      'https://shop.example.test/#/wait-result?sale_closed=1',
-    ]) {
-      expect(
-        mobileCustomerRouteAllowed(bootstrap, path),
-        isFalse,
-        reason: '$path should follow the waiting-result runtime feature',
-      );
-      expect(
-        mobileCustomerDisabledRouteRedirect(bootstrap, path),
-        '/',
-      );
-    }
+      for (final path in [
+        '/waiting-result',
+        '/waiting-result?game_id=game_1',
+        '/wait-result',
+        'https://shop.example.test/#/wait-result?sale_closed=1',
+      ]) {
+        expect(
+          mobileCustomerRouteAllowed(bootstrap, path),
+          isFalse,
+          reason: '$path should follow the waiting-result runtime feature',
+        );
+        expect(mobileCustomerDisabledRouteRedirect(bootstrap, path), '/');
+      }
 
-    for (final path in [
-      '/result',
-      '/result/full',
-      '/results',
-      '/results/full',
-    ]) {
-      expect(
-        mobileCustomerRouteAllowed(bootstrap, path),
-        isTrue,
-        reason: '$path should not be disabled by waiting_result alone',
-      );
-    }
-  });
+      for (final path in [
+        '/result',
+        '/result/full',
+        '/results',
+        '/results/full',
+      ]) {
+        expect(
+          mobileCustomerRouteAllowed(bootstrap, path),
+          isTrue,
+          reason: '$path should not be disabled by waiting_result alone',
+        );
+      }
+    },
+  );
 
   test('reward-check feature flag covers every customer result route', () {
     final bootstrap = MobileBootstrap.fromJson({
-      'feature_flags': {
-        'reward-check': false,
-      },
+      'feature_flags': {'reward-check': false},
     });
 
     for (final path in [
@@ -471,10 +487,7 @@ void main() {
         isFalse,
         reason: '$path should follow the backend reward_check feature',
       );
-      expect(
-        mobileCustomerDisabledRouteRedirect(bootstrap, path),
-        '/',
-      );
+      expect(mobileCustomerDisabledRouteRedirect(bootstrap, path), '/');
     }
   });
 
@@ -490,26 +503,28 @@ void main() {
     );
   });
 
-  test('authenticated customer is redirected away from guest-only auth routes',
-      () {
-    for (final path in [
-      '/login',
-      '/register',
-      '/forgot-password',
-      '/reset-password',
-    ]) {
-      expect(
-        customerRedirectPath(
-          path: path,
-          isAuthenticated: true,
-          pinRequired: false,
-          isSecurityLocked: false,
-        ),
-        '/',
-        reason: '$path should not be visible after login',
-      );
-    }
-  });
+  test(
+    'authenticated customer is redirected away from guest-only auth routes',
+    () {
+      for (final path in [
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/reset-password',
+      ]) {
+        expect(
+          customerRedirectPath(
+            path: path,
+            isAuthenticated: true,
+            pinRequired: false,
+            isSecurityLocked: false,
+          ),
+          '/',
+          reason: '$path should not be visible after login',
+        );
+      }
+    },
+  );
 
   test('authenticated guest-only routes honor safe redirect targets', () {
     expect(
@@ -581,11 +596,7 @@ void main() {
   });
 }
 
-const _pinBypassPaths = {
-  '/pin',
-  '/security-lock',
-  '/account-suspended',
-};
+const _pinBypassPaths = {'/pin', '/security-lock', '/account-suspended'};
 
 String _samplePath(String pattern) {
   return pattern

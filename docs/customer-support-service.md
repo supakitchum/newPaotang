@@ -143,15 +143,17 @@ and circuit-breaker behavior without blocking the Support write.
 2. Migrate only `newpaotang_support`.
 3. Verify Support health, private attachments, worker, scheduler, and Reverb.
 4. Verify Platform brokers, HMAC ingress, and RBAC.
-5. Deploy BO and Flutter with Support feature still disabled.
-6. Enable `customer_support` for an internal tenant.
+5. Deploy BO and Flutter after the isolated Support endpoints are ready.
+6. Enable the tenant through isolated Support `settings.enabled`; agent
+   availability controls assignment only and never disables FAQ/Ticket access.
 7. Validate Web/Simulator chat, native push, deep link through PIN, and rating.
 8. Stop each Support dependency and load Order/Checkout concurrently; Support
    may degrade, but Commerce success rate and latency must stay within the
    existing operational threshold.
-9. Expand tenant by tenant.
+9. Expand tenant by tenant through isolated Support settings.
 
-No runtime Support migration or feature enablement is implied by this document.
+No runtime Support migration or tenant setting change is implied by this
+document.
 
 Production manifests live in `deploy/digitalocean-support/support-api.yaml` with the
 isolated API, worker, scheduler, Reverb, services, ingress, PDB, and API HPA.

@@ -3,7 +3,6 @@
 namespace App\Modules\CustomerSupport\Http\Controllers;
 
 use App\Models\PartnerTenant;
-use App\Models\PartnerTenantFeatureFlag;
 use App\Modules\CustomerSupport\Services\SupportSessionTokenService;
 use App\Modules\Rbac\Services\PermissionService;
 use App\Shared\Auth\AdminSessionContext;
@@ -52,8 +51,8 @@ class TenantSupportSessionController extends Controller
             return ApiErrorResponse::permissionDenied($request);
         }
         $tenant = PartnerTenant::query()->find($tenantId);
-        if ($tenant === null || ! $this->enabled($tenantId)) {
-            return ApiErrorResponse::make($request, 503, 'support_unavailable', 'Customer support is currently unavailable.');
+        if ($tenant === null) {
+            return ApiErrorResponse::notFound($request);
         }
         $session = $this->tokens->issue([
             'sub' => (string) $context->adminUser['id'],
@@ -82,15 +81,5 @@ class TenantSupportSessionController extends Controller
                 ])),
             ],
         ]);
-    }
-
-    private function enabled(string $tenantId): bool
-    {
-        $value = PartnerTenantFeatureFlag::query()
-            ->where('tenant_id', $tenantId)
-            ->where('feature_key', 'customer_support')
-            ->value('enabled');
-
-        return $value === null ? (bool) config('support.enabled_by_default', false) : (bool) $value;
     }
 }

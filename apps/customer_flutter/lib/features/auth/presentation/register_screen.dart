@@ -86,6 +86,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       body: DecoratedBox(
         decoration: BoxDecoration(color: colorScheme.surface),
         child: SafeArea(
+          key: const ValueKey('register-screen-safe-area'),
+          top: false,
           child: Form(
             key: _formKey,
             child: LayoutBuilder(
@@ -139,19 +141,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(
               l10n.registerFormTitle,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               l10n.registerFormDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 15,
-                    height: 1.35,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                height: 1.35,
+              ),
             ),
             if (_formError.trim().isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -225,8 +227,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onPressed: _submitting
                       ? null
                       : () => setState(
-                            () => _showConfirmPassword = !_showConfirmPassword,
-                          ),
+                          () => _showConfirmPassword = !_showConfirmPassword,
+                        ),
                   icon: _showConfirmPassword
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
@@ -259,8 +261,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               label: _submitting
                   ? l10n.registerSubmitting
                   : _otpSent
-                      ? l10n.registerSubmitWithOtp
-                      : l10n.registerSubmit,
+                  ? l10n.registerSubmitWithOtp
+                  : l10n.registerSubmit,
             ),
             const SizedBox(height: 18),
             Row(
@@ -270,10 +272,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   child: Text(
                     l10n.registerLoginPrompt,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 7),
@@ -281,8 +283,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onPressed: _submitting
                       ? null
                       : () => context.go(
-                            customerLoginRouteForRedirect(_currentRedirect()),
-                          ),
+                          customerLoginRouteForRedirect(_currentRedirect()),
+                        ),
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(0, 36),
@@ -332,11 +334,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
 
     return Column(
-      children: [
-        firstNameField,
-        const SizedBox(height: 16),
-        lastNameField,
-      ],
+      children: [firstNameField, const SizedBox(height: 16), lastNameField],
     );
   }
 
@@ -373,21 +371,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             Text(
               l10n.registerOtpTitle,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
+                color: colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               l10n.authOtpSentTo(sentTo),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    height: 1.4,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 12),
             _RegisterFieldLabel(label: l10n.registerOtpLabel),
@@ -455,11 +453,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
       if (_otpToken.isEmpty) {
         final otpVerificationFailed = context.l10n.authOtpVerificationFailed;
-        final verified = await ref.read(authRepositoryProvider).verifyOtp(
-              phone: _phone.text,
-              purpose: 'register',
-              otp: _otp.text,
-            );
+        final verified = await ref
+            .read(authRepositoryProvider)
+            .verifyOtp(phone: _phone.text, purpose: 'register', otp: _otp.text);
         final verificationToken = verified.verificationToken.trim();
         if (verificationToken.isEmpty) {
           _showFormError(otpVerificationFailed);
@@ -489,7 +485,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _register({String? otpVerificationToken}) {
-    return ref.read(authControllerProvider).register(
+    return ref
+        .read(authControllerProvider)
+        .register(
           firstName: _firstName.text.trim(),
           lastName: _lastName.text.trim(),
           phone: _phone.text,
@@ -500,18 +498,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _requestOtp() async {
-    final result = await ref.read(authRepositoryProvider).requestOtp(
-          phone: _phone.text,
-          purpose: 'register',
-        );
+    final result = await ref
+        .read(authRepositoryProvider)
+        .requestOtp(phone: _phone.text, purpose: 'register');
     _otp.clear();
     _otpToken = '';
     if (!mounted) return;
     setState(() {
       _otpSent = true;
       _maskedPhone = result.phoneMasked;
-      _resendAfter =
-          result.resendAfterSeconds > 0 ? result.resendAfterSeconds : 60;
+      _resendAfter = result.resendAfterSeconds > 0
+          ? result.resendAfterSeconds
+          : 60;
     });
     _startTimer();
   }
@@ -632,9 +630,7 @@ class _RegisterErrorPanel extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.errorContainer.withValues(alpha: 0.62),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: colorScheme.error.withValues(alpha: 0.14),
-          ),
+          border: Border.all(color: colorScheme.error.withValues(alpha: 0.14)),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -647,10 +643,10 @@ class _RegisterErrorPanel extends StatelessWidget {
                 child: Text(
                   message,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
-                        fontWeight: FontWeight.w800,
-                        height: 1.35,
-                      ),
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],
@@ -694,7 +690,12 @@ class _RegisterHeroSection extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 920),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 34, 20, 104),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    34 + MediaQuery.paddingOf(context).top,
+                    20,
+                    104,
+                  ),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: ConstrainedBox(
@@ -705,8 +706,9 @@ class _RegisterHeroSection extends StatelessWidget {
                         children: [
                           DecoratedBox(
                             decoration: BoxDecoration(
-                              color:
-                                  colorScheme.onPrimary.withValues(alpha: 0.16),
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.16,
+                              ),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Padding(
@@ -749,8 +751,9 @@ class _RegisterHeroSection extends StatelessWidget {
                           Text(
                             context.l10n.registerHeroDescription,
                             style: textTheme.bodyLarge?.copyWith(
-                              color:
-                                  colorScheme.onPrimary.withValues(alpha: 0.9),
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.9,
+                              ),
                               fontSize: 17,
                               height: 1.45,
                             ),
@@ -868,10 +871,7 @@ class _RegisterSheet extends StatelessWidget {
 }
 
 class _RegisterLabeledField extends StatelessWidget {
-  const _RegisterLabeledField({
-    required this.label,
-    required this.child,
-  });
+  const _RegisterLabeledField({required this.label, required this.child});
 
   final String label;
   final Widget child;
@@ -899,18 +899,15 @@ class _RegisterFieldLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
+        color: Theme.of(context).colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
 
 class _RegisterResendAction extends StatelessWidget {
-  const _RegisterResendAction({
-    required this.label,
-    required this.onPressed,
-  });
+  const _RegisterResendAction({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback? onPressed;
@@ -924,13 +921,13 @@ class _RegisterResendAction extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: enabled
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              height: 1.25,
-            ),
+          color: enabled
+              ? colorScheme.primary
+              : colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          height: 1.25,
+        ),
       ),
     );
 
@@ -997,13 +994,13 @@ class _RegisterConsentRow extends StatelessWidget {
                     child: Text(
                       label,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: enabled ? 1 : 0.58,
-                            ),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            height: 1.45,
-                          ),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: enabled ? 1 : 0.58,
+                        ),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.45,
+                      ),
                     ),
                   ),
                 ),
@@ -1017,10 +1014,7 @@ class _RegisterConsentRow extends StatelessWidget {
 }
 
 class _RegisterConsentBox extends StatelessWidget {
-  const _RegisterConsentBox({
-    required this.checked,
-    required this.disabled,
-  });
+  const _RegisterConsentBox({required this.checked, required this.disabled});
 
   final bool checked;
   final bool disabled;
@@ -1031,8 +1025,8 @@ class _RegisterConsentBox extends StatelessWidget {
     final borderColor = disabled
         ? colorScheme.outlineVariant
         : checked
-            ? colorScheme.primary
-            : colorScheme.outlineVariant;
+        ? colorScheme.primary
+        : colorScheme.outlineVariant;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,

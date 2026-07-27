@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 class SmsOtpService
 {
     public const PURPOSE_REGISTER = 'register';
+    public const PURPOSE_LOGIN = 'login';
     public const PURPOSE_PASSWORD_RESET = 'password_reset';
     public const PURPOSE_PIN_RESET = 'pin_reset';
 
@@ -441,6 +442,16 @@ class SmsOtpService
         return $this->activeProviderForTenant($tenantId) instanceof TenantSmsProvider;
     }
 
+    public function providerRequiredForLogin(string $tenantId): bool
+    {
+        return $this->activeProviderForTenant($tenantId) instanceof TenantSmsProvider;
+    }
+
+    public function maskedPhone(string $phone): string
+    {
+        return $this->maskPhone($phone);
+    }
+
     /**
      * @return array{ok: bool, error?: string}
      */
@@ -572,7 +583,7 @@ class SmsOtpService
     {
         $purpose = trim((string) $value);
 
-        return in_array($purpose, [self::PURPOSE_REGISTER, self::PURPOSE_PASSWORD_RESET, self::PURPOSE_PIN_RESET], true)
+        return in_array($purpose, [self::PURPOSE_REGISTER, self::PURPOSE_LOGIN, self::PURPOSE_PASSWORD_RESET, self::PURPOSE_PIN_RESET], true)
             ? $purpose
             : null;
     }

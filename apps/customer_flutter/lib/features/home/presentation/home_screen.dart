@@ -9,7 +9,6 @@ import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
@@ -638,8 +637,6 @@ class _HomeNavbarContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
-    final supportEnabled = mobileCustomerRouteAllowed(bootstrap, '/support');
     final wallet = ref.watch(walletSummaryProvider);
     final amount = wallet.maybeWhen(
       data: (summary) => formatBahtForLocale(
@@ -659,10 +656,8 @@ class _HomeNavbarContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 14),
-        if (supportEnabled) ...[
-          const _HomeSupportButton(),
-          const SizedBox(width: 2),
-        ],
+        const _HomeSupportButton(),
+        const SizedBox(width: 2),
         const _HomeNotificationButton(),
         const SizedBox(width: 2),
         _HomeWalletBalanceButton(

@@ -108,6 +108,8 @@ Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show'])
 
 Route::post('/customer/auth/register', [CustomerAuthController::class, 'register']);
 Route::post('/customer/auth/login', [CustomerAuthController::class, 'login']);
+Route::post('/customer/auth/login/otp/resend', [CustomerAuthController::class, 'resendLoginOtp']);
+Route::post('/customer/auth/login/otp/verify', [CustomerAuthController::class, 'verifyLoginOtp']);
 Route::post('/customer/auth/otp/request', [CustomerSmsOtpController::class, 'request']);
 Route::post('/customer/auth/otp/verify', [CustomerSmsOtpController::class, 'verify']);
 Route::post('/customer/auth/password/forgot', [CustomerPasswordResetController::class, 'forgot']);

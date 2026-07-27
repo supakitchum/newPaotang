@@ -6,6 +6,7 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/activities/data/activity_models.dart';
 import 'package:customer_flutter/features/activities/data/activity_repository.dart';
@@ -15,6 +16,7 @@ import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/features/notifications/data/customer_notification_repository.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
+import 'package:customer_flutter/features/support/data/support_repository.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_repository.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +43,7 @@ void main() {
     expect(find.text('0.00'), findsOneWidget);
     expect(find.text('80'), findsNothing);
     expect(find.text('บาท'), findsNothing);
+    expect(find.byKey(const ValueKey('home-header-support')), findsOneWidget);
 
     expect(find.text('287184', skipOffstage: false), findsOneWidget);
     expect(find.text('48', skipOffstage: false), findsOneWidget);
@@ -519,6 +522,12 @@ Future<void> _pumpHome(
           ),
         ),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson(const {
+            'featureFlags': {'customer_support': false},
+          }),
+        ),
+        supportUnreadCountProvider.overrideWith((_) async => 0),
         activityListProvider.overrideWith((_) async => activities),
         newsListProvider.overrideWith((_) async => news),
         currentResultProvider.overrideWith((_) async {
@@ -586,6 +595,12 @@ Future<void> _pumpHomeRouter(
         appConfigProvider.overrideWithValue(_testConfig),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
         authControllerProvider.overrideWith((_) => _authenticatedController()),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson(const {
+            'featureFlags': {'customer_support': false},
+          }),
+        ),
+        supportUnreadCountProvider.overrideWith((_) async => 0),
         walletSummaryProvider.overrideWith(
           (_) async => const WalletSummary(
             wallets: [
