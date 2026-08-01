@@ -2,6 +2,7 @@
 
 namespace App\Modules\PublicSite\Http\Controllers;
 
+use App\Modules\Auth\Passkeys\CustomerPasskeyConfiguration;
 use App\Modules\Auth\Services\TenantSocialAuthService;
 use App\Shared\Auth\ApiErrorResponse;
 use App\Modules\Tenancy\Services\TenantConfigurationService;
@@ -15,6 +16,7 @@ class PublicSiteConfigController extends Controller
     public function __construct(
         private readonly TenantConfigurationService $configuration,
         private readonly TenantSocialAuthService $socialAuth,
+        private readonly CustomerPasskeyConfiguration $passkeys,
     )
     {
     }
@@ -85,6 +87,11 @@ class PublicSiteConfigController extends Controller
             ->filter()
             ->values()
             ->all();
+        $domain = is_array($data['domain'] ?? null) ? $data['domain'] : [];
+        $passkeys = $this->passkeys->resolve([
+            'tenant_id' => $tenantId,
+            'host' => $domain['host'] ?? $request->getHost(),
+        ]);
 
         $data['mobile'] = [
             'app_key' => 'customer_flutter',
@@ -115,6 +122,14 @@ class PublicSiteConfigController extends Controller
                     'android' => ['biometric_prompt'],
                     'web' => [],
                 ],
+            ],
+            'passkeys' => [
+                'enabled' => $passkeys['enabled'],
+                'rp_id' => $passkeys['rp_id'],
+                'rp_name' => $passkeys['rp_name'],
+                'timeout_ms' => $passkeys['timeout'],
+                'max_passkeys' => $passkeys['max_per_customer'],
+                'platforms' => ['ios', 'android', 'web'],
             ],
             'screen_security' => [
                 'android' => [
@@ -149,6 +164,8 @@ class PublicSiteConfigController extends Controller
                     '/profile/auto-reward',
                     '/profile/account-deletion',
                     '/profile/biometrics',
+                    '/profile/passkeys',
+                    '/profile/social-accounts',
                     '/profile/line-notifications',
                     '/profile/reward-bank',
                     '/purchase-history',
@@ -160,6 +177,8 @@ class PublicSiteConfigController extends Controller
                     'native_biometric_unlock' => (bool) ($features['native_biometric_unlock'] ?? true),
                     'social_login_google' => in_array('google', $enabledAuthProviders, true),
                     'social_login_apple' => in_array('apple', $enabledAuthProviders, true),
+                    'social_login_facebook' => in_array('facebook', $enabledAuthProviders, true),
+                    'passkey_login' => $passkeys['enabled'],
                     'screen_security_native' => (bool) ($features['screen_security_native'] ?? true),
                 ],
             ),

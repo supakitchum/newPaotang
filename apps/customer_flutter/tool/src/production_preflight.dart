@@ -604,12 +604,20 @@ void _checkFlutterSplashIdentityBinding(
   final splash = File(
     _join(input.projectRoot, 'lib/shared/widgets/app_splash.dart'),
   );
-  if (!splash.existsSync()) {
+  final main = File(_join(input.projectRoot, 'lib/main.dart'));
+  final pubspec = File(_join(input.projectRoot, 'pubspec.yaml'));
+  final artwork = File(
+    _join(input.projectRoot, 'assets/images/splash/siamblend_splash.jpg'),
+  );
+  if (!splash.existsSync() ||
+      !main.existsSync() ||
+      !pubspec.existsSync() ||
+      !artwork.existsSync()) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'flutter_splash_identity_missing',
         message:
-            'Flutter AppSplashHost must preserve the Nuxt customer splash identity.',
+            'Flutter startup must bundle the owner-approved Siamblend splash artwork and pre-cache it before runApp.',
       ),
     );
     return;
@@ -618,30 +626,46 @@ void _checkFlutterSplashIdentityBinding(
   _requireAllSnippets(
     splash.readAsStringSync(),
     const [
-      'final colorScheme = Theme.of(context).colorScheme;',
-      'color: colorScheme.primary',
-      'AppTheme.splashGradientMid(',
-      'AppTheme.splashGradientEnd(',
-      'colorScheme.secondary',
-      'Theme.of(context).colorScheme.tertiary',
+      "const appSplashBackgroundAsset = 'assets/images/splash/siamblend_splash.jpg';",
+      'precacheAppSplashBackground()',
+      '_appSplashFallbackColor = Color(0xFF0B96DC)',
       'appSplashMinimumDurationProvider',
       'appSplashFadeDurationProvider',
       'mobileBootstrapProvider',
       'authSessionStartupProvider',
-      '_SplashYellowCorner',
-      '_SplashBrandLockup',
-      'brand.logoUrl',
-      'siteName',
-      'FlexibleImage',
-      'Icons.confirmation_number_outlined',
-      '_SplashMark',
-      "ValueKey('app-splash-product-mark')",
+      '_SplashArtwork',
+      'Image.asset(',
+      'BoxFit.contain',
+      'BoxFit.cover',
+      "ValueKey('app-splash-background')",
       '_SplashLoader',
+      "ValueKey('app-splash-loader')",
+      'Color(0xFFE7B64C)',
     ],
     const ProductionPreflightIssue(
       code: 'flutter_splash_identity_missing',
       message:
-          'Flutter splash must preserve the Nuxt customer structure while deriving its brand colors and identity from the resolved runtime theme/bootstrap.',
+          'Flutter splash must use the responsive owner-approved Siamblend artwork and matching safe-area gold loading treatment while preserving bootstrap/auth readiness.',
+    ),
+    issues,
+  );
+  _requireSnippet(
+    main.readAsStringSync(),
+    'await precacheAppSplashBackground();',
+    const ProductionPreflightIssue(
+      code: 'flutter_splash_identity_missing',
+      message:
+          'Flutter must pre-cache the Siamblend splash artwork before runApp to prevent a startup decode flash.',
+    ),
+    issues,
+  );
+  _requireSnippet(
+    pubspec.readAsStringSync(),
+    'assets/images/splash/',
+    const ProductionPreflightIssue(
+      code: 'flutter_splash_identity_missing',
+      message:
+          'pubspec.yaml must package the Siamblend splash artwork used by AppSplashHost.',
     ),
     issues,
   );
@@ -1857,7 +1881,7 @@ void _checkSocialProviderValues(
     ProductionPreflightIssue(
       code: 'social_provider_invalid',
       message:
-          'Unsupported social provider(s): ${invalidProviders.join(', ')}. Supported providers are line, google, and apple.',
+          'Unsupported social provider(s): ${invalidProviders.join(', ')}. Supported providers are line, google, apple, and facebook.',
     ),
   );
 }
@@ -1872,13 +1896,15 @@ void _checkSocialLoginStoreCompliance(
   if (providers.isEmpty) return;
 
   final usesThirdPartyLogin =
-      providers.contains('line') || providers.contains('google');
+      providers.contains('line') ||
+      providers.contains('google') ||
+      providers.contains('facebook');
   if (usesThirdPartyLogin && !providers.contains('apple')) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'ios_sign_in_with_apple_required',
         message:
-            'iOS production builds that enable LINE or Google login must also enable Apple ID login.',
+            'iOS production builds that enable LINE, Google, or Facebook login must also enable Apple ID login.',
       ),
     );
   }
@@ -2069,7 +2095,7 @@ void _checkFlutterSocialProviderRuntimeColorBinding(
   const issue = ProductionPreflightIssue(
     code: 'flutter_social_provider_runtime_color_binding_missing',
     message:
-        'Flutter social-provider UI must keep brand/button colors runtime-configured through mobile bootstrap provider aliases instead of hardcoded LINE/Google/Apple colors.',
+        'Flutter social-provider UI must keep brand/button colors runtime-configured through mobile bootstrap provider aliases instead of hardcoded LINE/Google/Apple/Facebook colors.',
   );
   final files = [
     bootstrap,
@@ -2820,9 +2846,9 @@ void _checkAndroidNativeSecurity(
     ),
     issues,
   );
-  _requireAllSnippets(
+  _requireOrderedSnippets(
     source,
-    const ['override fun onCreate', 'window.setFlags'],
+    const ['override fun onCreate', 'window.setFlags', 'super.onCreate'],
     const ProductionPreflightIssue(
       code: 'android_startup_flag_secure_missing',
       message:
@@ -2852,6 +2878,20 @@ void _checkAndroidNativeSecurity(
   _requireAllSnippets(
     source,
     const [
+      'appWideScreenSecurity = true',
+      'enforceAppWideScreenSecurity()',
+      '"appWideProtection" to appWideScreenSecurity',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_app_wide_screen_security_missing',
+      message:
+          'Android MainActivity must keep FLAG_SECURE and recent-app preview protection active across every customer route, including disable requests during Flutter route transitions.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
       '"reportSecurityEvent"',
       '"securityEvent"',
       'invokeMethod',
@@ -2875,12 +2915,105 @@ void _checkAndroidNativeSecurity(
       'unregisterScreenCaptureCallback',
       'updateScreenCaptureDetection',
       'android_screen_capture_callback',
-      '"screenshot_detected"',
+      'requestScreenSecurityExit(',
     ],
     const ProductionPreflightIssue(
       code: 'android_screen_capture_callback_missing',
       message:
-          'Android 14+ screen-security builds must register the platform screenshot callback only while a sensitive route is active and forward detections to Flutter.',
+          'Android 14+ screen-security builds must register the platform screenshot callback while the protected Activity is active and route delivered detections into the forced-exit policy.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'addScreenRecordingCallback',
+      'removeScreenRecordingCallback',
+      'SCREEN_RECORDING_STATE_VISIBLE',
+      'updateScreenRecordingDetection',
+      'android_screen_recording_callback',
+      'requestScreenSecurityExit(',
+      '"screen_capture_ended"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_recording_callback_missing',
+      message:
+          'Android 15+ screen-security builds must observe screen recording while the protected Activity is active, route visible capture into forced exit, and report recording end.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'requestScreenSecurityExit(',
+      'captureTerminationScheduled',
+      '"screen_security_exit_requested"',
+      'screenSecurityTitleKeys',
+      'Toast.makeText',
+      'R.string.screen_capture_not_allowed',
+      'finishAndRemoveTask()',
+      'exitProcess(0)',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_capture_exit_policy_missing',
+      message:
+          'Android screenshot and recording callbacks must show runtime-localized blocked-copy, request a security lock, remove the task, and terminate the process.',
+    ),
+    issues,
+  );
+  final screenCaptureCopyFiles = [
+    File(
+      _join(input.projectRoot, 'android/app/src/main/res/values/strings.xml'),
+    ),
+    File(
+      _join(
+        input.projectRoot,
+        'android/app/src/main/res/values-th/strings.xml',
+      ),
+    ),
+  ];
+  if (screenCaptureCopyFiles.any(
+    (file) =>
+        !file.existsSync() ||
+        !file.readAsStringSync().contains('screen_capture_not_allowed'),
+  )) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'android_screen_capture_exit_copy_missing',
+        message:
+            'Android screen-capture termination must bundle English and Thai fallback copy for startup before Flutter runtime localization is available.',
+      ),
+    );
+  }
+  _requireAllSnippets(
+    source,
+    const [
+      'override fun onStart()',
+      'activityStarted = true',
+      'override fun onStop()',
+      'activityStarted = false',
+      'updateScreenSecurityDetection()',
+      'unregisterScreenCaptureCallbackIfNeeded()',
+      'unregisterScreenRecordingCallbackIfNeeded()',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_security_lifecycle_missing',
+      message:
+          'Android screenshot and recording callbacks must follow Activity start/stop lifecycle while preserving app-wide protection and the active audit route.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      '"getSecurityState"',
+      '"windowFlagSecure"',
+      '"recentAppPreviewProtected"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'android_screen_security_state_probe_missing',
+      message:
+          'Android screen security must expose native state for physical-device verification of FLAG_SECURE and recent-app preview protection.',
     ),
     issues,
   );
@@ -2984,12 +3117,21 @@ void _checkAndroidLaunchIdentity(
       'android/app/src/main/res/drawable-v21/launch_background.xml',
     ),
   );
-  if (!colors.existsSync() || !launch.existsSync() || !launchV21.existsSync()) {
+  final artwork = File(
+    _join(
+      input.projectRoot,
+      'android/app/src/main/res/drawable-nodpi/siamblend_splash.jpg',
+    ),
+  );
+  if (!colors.existsSync() ||
+      !launch.existsSync() ||
+      !launchV21.existsSync() ||
+      !artwork.existsSync()) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'android_launch_identity_missing',
         message:
-            'Android launch background resources must exist and use the Nuxt customer blue identity.',
+            'Android launch resources must bundle the owner-approved Siamblend artwork.',
       ),
     );
     return;
@@ -2998,17 +3140,20 @@ void _checkAndroidLaunchIdentity(
   final colorSource = colors.readAsStringSync();
   final launchSource = launch.readAsStringSync();
   final launchV21Source = launchV21.readAsStringSync();
-  final missingIdentity =
-      !colorSource.contains('customer_launch_background') ||
-      !colorSource.contains('#087FF0') ||
+  final missingIdentity = !colorSource.contains('customer_launch_background') ||
+      !colorSource.contains('#0B96DC') ||
       !launchSource.contains('@color/customer_launch_background') ||
-      !launchV21Source.contains('@color/customer_launch_background');
+      !launchV21Source.contains('@color/customer_launch_background') ||
+      !launchSource.contains('@drawable/siamblend_splash') ||
+      !launchV21Source.contains('@drawable/siamblend_splash') ||
+      !launchSource.contains('android:gravity="fill"') ||
+      !launchV21Source.contains('android:gravity="fill"');
   if (missingIdentity) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'android_launch_identity_missing',
         message:
-            'Android launch background must be the Nuxt customer blue #087FF0 instead of Flutter/default white or runtime partner colors.',
+            'Android launch background must render the Siamblend splash artwork over its matching #0B96DC fallback.',
       ),
     );
   }
@@ -3048,6 +3193,16 @@ void _checkAndroidManifest(
       code: 'android_screen_capture_permission_missing',
       message:
           'AndroidManifest.xml must declare DETECT_SCREEN_CAPTURE for Android 14+ screenshot detection on sensitive routes.',
+    ),
+    issues,
+  );
+  _requireSnippet(
+    source,
+    'android.permission.DETECT_SCREEN_RECORDING',
+    const ProductionPreflightIssue(
+      code: 'android_screen_recording_permission_missing',
+      message:
+          'AndroidManifest.xml must declare DETECT_SCREEN_RECORDING for Android 15+ recording detection on sensitive routes.',
     ),
     issues,
   );
@@ -3461,28 +3616,49 @@ void _checkIosLaunchIdentity(
   final storyboard = File(
     _join(input.projectRoot, 'ios/Runner/Base.lproj/LaunchScreen.storyboard'),
   );
-  if (!storyboard.existsSync()) {
+  final contents = File(
+    _join(
+      input.projectRoot,
+      'ios/Runner/Assets.xcassets/SplashBackground.imageset/Contents.json',
+    ),
+  );
+  final artwork = File(
+    _join(
+      input.projectRoot,
+      'ios/Runner/Assets.xcassets/SplashBackground.imageset/siamblend_splash.jpg',
+    ),
+  );
+  if (!storyboard.existsSync() ||
+      !contents.existsSync() ||
+      !artwork.existsSync()) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'ios_launch_identity_missing',
         message:
-            'iOS LaunchScreen.storyboard must exist and use the Nuxt customer blue identity.',
+            'iOS LaunchScreen must bundle the owner-approved Siamblend artwork.',
       ),
     );
     return;
   }
 
   final source = storyboard.readAsStringSync();
-  final hasCustomerBlue =
-      source.contains('red="0.03137254902"') &&
-      source.contains('green="0.4980392157"') &&
-      source.contains('blue="0.9411764706"');
-  if (!hasCustomerBlue) {
+  final contentsSource = contents.readAsStringSync();
+  final hasSplashArtwork = source.contains('image="SplashBackground"') &&
+      source.contains('contentMode="scaleAspectFill"') &&
+      source.contains('firstAttribute="leading"') &&
+      source.contains('firstAttribute="top"') &&
+      source.contains('firstAttribute="trailing"') &&
+      source.contains('firstAttribute="bottom"') &&
+      source.contains('red="0.0431372549"') &&
+      source.contains('green="0.5882352941"') &&
+      source.contains('blue="0.862745098"') &&
+      contentsSource.contains('"filename" : "siamblend_splash.jpg"');
+  if (!hasSplashArtwork) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'ios_launch_identity_missing',
         message:
-            'iOS launch screen background must be the Nuxt customer blue #087FF0 instead of Flutter/default white or runtime partner colors.',
+            'iOS launch screen must edge-pin the aspect-fill Siamblend artwork over its matching blue fallback.',
       ),
     );
   }
@@ -4036,9 +4212,10 @@ void _checkWebRuntimeMetadata(
       '"display_mode"',
       '"webDisplay"',
       '"web_display"',
-      '"orientation"',
-      '"webOrientation"',
-      '"web_orientation"',
+      'const manifestOrientation = "portrait-primary"',
+      'customerRequestPortraitOrientation',
+      'lockOrientation(orientation, "portrait-primary")',
+      'customer-portrait-orientation-guard',
       '"lang"',
       '"defaultLocale"',
       '"default_locale"',
@@ -4055,7 +4232,40 @@ void _checkWebRuntimeMetadata(
     const ProductionPreflightIssue(
       code: 'web_runtime_metadata_config_missing',
       message:
-          'web/index.html must support runtime partner metadata for title, description, PWA title, and manifest values.',
+          'web/index.html must support runtime partner metadata and the fixed portrait Web/PWA orientation contract.',
+    ),
+    issues,
+  );
+
+  final splashArtwork = File(
+    _join(input.projectRoot, 'web/splash/siamblend_splash.jpg'),
+  );
+  if (!splashArtwork.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'web_splash_identity_missing',
+        message:
+            'Web startup must package the owner-approved Siamblend splash artwork.',
+      ),
+    );
+    return;
+  }
+  _requireAllSnippets(
+    indexSource,
+    const [
+      'id="customer-bootstrap-splash"',
+      'url("splash/siamblend_splash.jpg")',
+      'customer-bootstrap-loader',
+      'customer-bootstrap-loader-bar',
+      'customer-bootstrap-loading',
+      '"flutter-first-frame"',
+      'splash.classList.add("is-leaving")',
+      'splash.remove()',
+    ],
+    const ProductionPreflightIssue(
+      code: 'web_splash_identity_missing',
+      message:
+          'Web must keep the matching Siamblend loading layer visible until Flutter renders its first frame.',
     ),
     issues,
   );
@@ -4098,6 +4308,23 @@ void _requireAllSnippets(
   if (snippets.any((snippet) => !source.contains(snippet))) issues.add(issue);
 }
 
+void _requireOrderedSnippets(
+  String source,
+  List<String> snippets,
+  ProductionPreflightIssue issue,
+  List<ProductionPreflightIssue> issues,
+) {
+  var searchOffset = 0;
+  for (final snippet in snippets) {
+    final index = source.indexOf(snippet, searchOffset);
+    if (index < 0) {
+      issues.add(issue);
+      return;
+    }
+    searchOffset = index + snippet.length;
+  }
+}
+
 void _rejectSnippet(
   String source,
   String snippet,
@@ -4134,7 +4361,7 @@ bool _looksLikeSha256Fingerprint(String value) {
   return RegExp(r'^([0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$').hasMatch(value);
 }
 
-const _supportedSocialProviders = {'line', 'google', 'apple'};
+const _supportedSocialProviders = {'line', 'google', 'apple', 'facebook'};
 
 Set<String> _normalizedSocialProviders(Iterable<String> providers) {
   return providers
@@ -4148,6 +4375,12 @@ String _normalizeSocialProvider(String provider) {
   return switch (provider.trim().toLowerCase()) {
     'gmail' || 'google_login' || 'google_oauth' || 'google_oauth2' => 'google',
     'apple_id' || 'apple_login' || 'sign_in_with_apple' => 'apple',
+    'fb' ||
+    'facebook_login' ||
+    'facebook_oauth' ||
+    'meta' ||
+    'meta_login' =>
+      'facebook',
     'line_login' || 'line_oa' || 'line_oauth' => 'line',
     final value => value,
   };

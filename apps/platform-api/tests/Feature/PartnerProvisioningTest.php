@@ -376,6 +376,7 @@ class PartnerProvisioningTest extends TestCase
             ->json();
 
         $tenantId = $provisioned['tenants'][0]['id'];
+        $this->acceptOwnerInvitation($provisioned, 'owner-password', 'accept-acme-owner');
 
         $this->assertDatabaseHas('partner_tenant_themes', [
             'tenant_id' => $tenantId,
@@ -747,9 +748,9 @@ class PartnerProvisioningTest extends TestCase
             'password' => 'owner-password',
             'scope' => 'tenant',
             'tenant_id' => $tenantId,
-        ])
+            ])
             ->assertOk()
-            ->assertJsonPath('user.must_change_password', true)
+            ->assertJsonPath('user.must_change_password', false)
             ->json();
 
         $this->withToken($ownerLogin['access_token'])
@@ -1063,13 +1064,44 @@ class PartnerProvisioningTest extends TestCase
      */
     private function provisionViaApi(array $login, string $partnerId, array $payload): array
     {
-        return $this->withToken($login['access_token'])
+        $response = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/partners/'.$partnerId.'/provision', $payload, [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'provision-'.$payload['tenant_code'],
             ])
             ->assertAccepted()
             ->json();
+
+        if (isset($payload['owner_password'])) {
+            $this->acceptOwnerInvitation(
+                $response,
+                (string) $payload['owner_password'],
+                'accept-'.$payload['tenant_code'].'-owner',
+            );
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function acceptOwnerInvitation(array $response, string $password, string $idempotencyKey): void
+    {
+        if (! isset($response['invitation']['path'])) {
+            return;
+        }
+
+        $query = parse_url((string) $response['invitation']['path'], PHP_URL_QUERY);
+        parse_str(is_string($query) ? $query : '', $parameters);
+        $token = (string) ($parameters['token'] ?? '');
+
+        $this->postJson('/api/v1/auth/admin/invitations/'.rawurlencode($token).'/accept', [
+            'password' => $password,
+            'password_confirmation' => $password,
+        ], [
+            'Idempotency-Key' => $idempotencyKey,
+        ])->assertOk();
     }
 
     /**

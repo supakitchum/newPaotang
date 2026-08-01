@@ -80,10 +80,12 @@ void main() {
         '/profile',
         '/profile/language',
         '/profile/biometrics',
+        '/profile/social-accounts',
         '/profile/account-deletion',
         '/purchase-history',
         '/purchase-history/:orderId',
         '/login',
+        '/login/otp',
         '/register',
         '/forgot-password',
         '/reset-password',
@@ -265,6 +267,7 @@ void main() {
       expect(publicCustomerPaths, contains('/activities'));
       expect(publicCustomerPaths, contains('/activities/:slug'));
       expect(publicCustomerPaths, contains('/login'));
+      expect(publicCustomerPaths, contains('/login/otp'));
       expect(publicCustomerPaths, contains('/register'));
       expect(publicCustomerPaths, contains('/news'));
       expect(publicCustomerPaths, contains('/terms'));
@@ -311,6 +314,7 @@ void main() {
         '/profile/language',
         '/profile/auto-reward',
         '/profile/biometrics',
+        '/profile/social-accounts',
         '/profile/line-notifications',
         '/profile/reward-bank',
         '/security-lock',

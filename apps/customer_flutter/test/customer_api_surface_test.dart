@@ -21,8 +21,9 @@ void main() {
           (replacement) => _hasEndpoint(replacement, flutterEndpoints),
         );
         if (!covered) {
-          missing
-              .add('$endpoint -> expected one of ${replacements.join(', ')}');
+          missing.add(
+            '$endpoint -> expected one of ${replacements.join(', ')}',
+          );
         }
         continue;
       }
@@ -44,8 +45,9 @@ void main() {
   });
 
   test('customer API integration map matches Flutter production routing', () {
-    final map = File('../../docs/customer-api-integration-map.md')
-        .readAsStringSync();
+    final map = File(
+      '../../docs/customer-api-integration-map.md',
+    ).readAsStringSync();
 
     expect(
       map,
@@ -61,49 +63,38 @@ void main() {
       map,
       contains('/customer/auth/social/{provider}/login'),
       reason:
-          'Flutter uses the generic store-compliant social login flow for LINE, Google, and Apple.',
+          'Flutter uses the generic store-compliant social login flow for LINE, Google, Apple, and Facebook.',
     );
+    expect(map, contains('/customer/auth/social/{provider}/link-phone'));
+    expect(map, contains('/customer/auth/social/accounts'));
+    expect(map, contains('/customer/auth/social/accounts/{provider}'));
     expect(map, contains('/public/mobile/bootstrap'));
     expect(map, contains('/customer/auth/biometric/challenge'));
     expect(map, contains('/customer/auth/biometric/verify'));
+    expect(map, contains('/customer/auth/passkeys/login/options'));
+    expect(map, contains('/customer/auth/passkeys/login/verify'));
+    expect(map, contains('/customer/auth/passkeys/register/options'));
+    expect(map, contains('/customer/auth/passkeys/{passkey_id}'));
   });
 }
 
 const _intentionalReplacements = <String, List<String>>{
-  '/customer/auth/line': [
-    '/customer/auth/social/',
-  ],
-  '/customer/auth/line/callback': [
-    '/customer/auth/social/',
-  ],
-  '/customer/auth/line/link-phone': [
-    '/customer/auth/social/',
-  ],
-  '/customer/auth/line/login': [
-    '/customer/auth/social/',
-  ],
-  '/customer/auth/me': [
-    '/customer/profile',
-  ],
+  '/customer/auth/line': ['/customer/auth/social/'],
+  '/customer/auth/line/callback': ['/customer/auth/social/'],
+  '/customer/auth/line/link-phone': ['/customer/auth/social/'],
+  '/customer/auth/line/login': ['/customer/auth/social/'],
+  '/customer/auth/me': ['/customer/profile'],
   '/customer/auth/password/forgot': [
     '/customer/auth/otp/request',
     '/customer/auth/social/',
   ],
-  '/customer/auth/pin': [
-    '/customer/auth/pin/status',
-  ],
-  '/customer/auth/pin/change': [
-    '/customer/auth/pin/setup',
-  ],
-  '/customer/auth/pin/reset': [
-    '/customer/auth/pin/reset/request-otp',
-  ],
+  '/customer/auth/pin': ['/customer/auth/pin/status'],
+  '/customer/auth/pin/change': ['/customer/auth/pin/setup'],
+  '/customer/auth/pin/reset': ['/customer/auth/pin/reset/request-otp'],
   '/customer/auth/pin/reset/verify-password': [
     '/customer/auth/pin/reset/verify-otp',
   ],
-  '/public/site-config': [
-    '/public/mobile/bootstrap',
-  ],
+  '/public/site-config': ['/public/mobile/bootstrap'],
 };
 
 Set<String> _extractEndpoints(

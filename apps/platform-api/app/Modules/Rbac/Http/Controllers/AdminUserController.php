@@ -55,6 +55,11 @@ class AdminUserController extends Controller
         return $this->destroy($request, 'central', $admin_user_id);
     }
 
+    public function centralInvitation(Request $request, string $admin_user_id): JsonResponse
+    {
+        return $this->invitation($request, 'central', $admin_user_id);
+    }
+
     public function tenantIndex(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request, 'tenant');
@@ -87,6 +92,11 @@ class AdminUserController extends Controller
     public function tenantDestroy(Request $request, string $admin_user_id): Response
     {
         return $this->destroy($request, 'tenant', $admin_user_id);
+    }
+
+    public function tenantInvitation(Request $request, string $admin_user_id): JsonResponse
+    {
+        return $this->invitation($request, 'tenant', $admin_user_id);
     }
 
     private function show(Request $request, string $scopeType, string $adminUserId): JsonResponse
@@ -158,8 +168,16 @@ class AdminUserController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        if ($this->adminUsers->findUser($scopeType, $context->activeTenantId(), $adminUserId) === null) {
+        $currentUser = $this->adminUsers->findUser($scopeType, $context->activeTenantId(), $adminUserId);
+
+        if ($currentUser === null) {
             return ApiErrorResponse::notFound($request);
+        }
+
+        $transitionErrors = $this->adminUsers->transitionErrors($currentUser, $payload);
+
+        if ($transitionErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $transitionErrors);
         }
 
         if ($this->adminUsers->conflictErrors($scopeType, $context->activeTenantId(), $payload, $adminUserId) !== []) {
@@ -194,6 +212,33 @@ class AdminUserController extends Controller
         }
 
         return response()->noContent();
+    }
+
+    private function invitation(Request $request, string $scopeType, string $adminUserId): JsonResponse
+    {
+        $context = $this->authorizedContext($request, $scopeType);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $user = $this->adminUsers->issueInvitation(
+            $scopeType,
+            $context->activeTenantId(),
+            $adminUserId,
+            $context,
+            $request,
+        );
+
+        return $user === null
+            ? ApiErrorResponse::resourceConflict($request)
+            : response()->json($user);
     }
 
     /**

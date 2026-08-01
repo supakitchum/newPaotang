@@ -1820,7 +1820,16 @@ class BoMenuCompletionService
         $updatedAt = null;
 
         foreach ($rows as $row) {
-            $settings[(string) $row->key] = $row->value_json;
+            $key = (string) $row->key;
+            $value = $row->value_json;
+            if (
+                $key === 'platform_name'
+                && is_string($value)
+                && in_array(strtolower(trim($value)), ['newpaotang', 'newpoatang'], true)
+            ) {
+                $value = 'Siamblend';
+            }
+            $settings[$key] = $value;
             $createdAt ??= $row->created_at;
             $updatedAt = $row->updated_at;
         }
@@ -2699,7 +2708,7 @@ class BoMenuCompletionService
     private function ensureDefaultSystemSettings(): void
     {
         foreach ([
-            'platform_name' => 'NewPaotang',
+            'platform_name' => 'Siamblend',
             'admin_api_version' => 'v1',
             'bo_menu_completion_backend_gaps' => 'implemented',
             'waiting_result_youtube_url' => '',

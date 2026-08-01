@@ -22,6 +22,7 @@ class CustomerSocialIdentity extends BaseModel
         'avatar_url',
         'linked_at',
         'last_login_at',
+        'revoked_at',
         'metadata_json',
         'created_at',
         'updated_at',
@@ -30,6 +31,7 @@ class CustomerSocialIdentity extends BaseModel
     protected $casts = [
         'linked_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'revoked_at' => 'datetime',
         'metadata_json' => 'array',
     ];
 

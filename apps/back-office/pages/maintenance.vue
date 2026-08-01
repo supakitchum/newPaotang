@@ -8,7 +8,7 @@
               <div class="np-maintenance-icon mx-auto mb-4">
                 <i class="ri-tools-line" />
               </div>
-              <img v-if="logoUrl" :src="logoUrl" :alt="displayName" height="38" class="mb-3" />
+              <img :src="logoUrl" :alt="displayName" class="np-maintenance-logo mb-3" />
               <h1 class="h4 fw-semibold mb-2">Partner Back Office is under maintenance</h1>
               <p class="text-muted mb-4">
                 Central has temporarily closed {{ displayName || 'this Partner Back Office' }} for maintenance.
@@ -53,11 +53,12 @@ definePageMeta({ layout: false })
 const hostMode = useAdminHostMode()
 const session = useAdminSession()
 const adminSiteConfig = useAdminSiteConfig()
+const adminBranding = useAdminBranding()
 const loading = ref(false)
 const error = ref<any>(null)
 
 const displayName = computed(() => adminSiteConfig.displayName.value || 'Partner Back Office')
-const logoUrl = computed(() => adminSiteConfig.logoUrl.value)
+const logoUrl = computed(() => adminSiteConfig.logoUrl.value || adminBranding.centralLogoUrl)
 const maintenanceActive = computed(() => adminSiteConfig.maintenanceActive.value)
 const maintenanceMessage = computed(() => adminSiteConfig.maintenanceMessage.value)
 const expectedEndLabel = computed(() => {
@@ -111,6 +112,13 @@ onMounted(async () => {
   height: 4.5rem;
   justify-content: center;
   width: 4.5rem;
+}
+
+.np-maintenance-logo {
+  height: auto;
+  max-height: 5rem;
+  max-width: min(100%, 15rem);
+  object-fit: contain;
 }
 
 .np-maintenance-message {

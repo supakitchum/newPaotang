@@ -2,7 +2,9 @@
 
 use App\Modules\Auth\Http\Controllers\AdminAccountSecurityController;
 use App\Modules\Auth\Http\Controllers\AdminAuthController;
+use App\Modules\Auth\Http\Controllers\AdminInvitationController;
 use App\Modules\Auth\Http\Controllers\CustomerBiometricAuthController;
+use App\Modules\Auth\Http\Controllers\CustomerAccountDeletionController;
 use App\Modules\Auth\Http\Controllers\CustomerRealtimeController;
 use App\Modules\Activities\Http\Controllers\CustomerActivityController;
 use App\Modules\Activities\Http\Controllers\PublicActivityController;
@@ -27,6 +29,7 @@ use App\Modules\CentralStock\Http\Controllers\CentralStockController;
 use App\Modules\Auth\Http\Controllers\CustomerAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerLineAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerPasswordResetController;
+use App\Modules\Auth\Http\Controllers\CustomerPasskeyController;
 use App\Modules\Auth\Http\Controllers\CustomerSocialAuthController;
 use App\Modules\Auth\Http\Controllers\TenantSocialAuthController;
 use App\Modules\Commerce\Http\Controllers\CustomerCommerceController;
@@ -70,6 +73,8 @@ use App\Modules\Translations\Http\Controllers\PublicTranslationController;
 use App\Modules\StorageConnections\Http\Controllers\CentralStorageConnectionController;
 use App\Modules\Reward\Http\Controllers\TenantRewardClaimController;
 use App\Modules\Reward\Http\Controllers\TenantRewardWinnersController;
+use App\Modules\RewardRisk\Http\Controllers\CentralRewardRiskController;
+use App\Modules\RewardRisk\Http\Controllers\TenantRewardRiskController;
 use App\Modules\PartnerStore\Http\Controllers\TenantReservationController;
 use App\Modules\PartnerStore\Http\Controllers\TenantStockController;
 use App\Modules\SupportAccess\Http\Controllers\TenantSupportAccessController;
@@ -121,6 +126,14 @@ Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class
 Route::post('/customer/auth/social/{provider}/login', [CustomerSocialAuthController::class, 'login']);
 Route::match(['get', 'post'], '/customer/auth/social/{provider}/callback', [CustomerSocialAuthController::class, 'callback']);
 Route::post('/customer/auth/social/{provider}/link-phone', [CustomerSocialAuthController::class, 'linkPhone']);
+Route::get('/customer/auth/social/accounts', [CustomerSocialAuthController::class, 'accounts'])
+    ->middleware('customer.auth');
+Route::delete('/customer/auth/social/accounts/{provider}', [CustomerSocialAuthController::class, 'unlink'])
+    ->middleware('customer.auth');
+Route::post('/customer/auth/passkeys/login/options', [CustomerPasskeyController::class, 'loginOptions'])
+    ->middleware('throttle:customer-passkey-public');
+Route::post('/customer/auth/passkeys/login/verify', [CustomerPasskeyController::class, 'login'])
+    ->middleware('throttle:customer-passkey-public');
 Route::post('/customer/auth/refresh', [CustomerAuthController::class, 'refresh']);
 Route::post('/customer/auth/logout', [CustomerAuthController::class, 'logout'])->middleware('customer.auth');
 Route::get('/customer/auth/me', [CustomerAuthController::class, 'me'])->middleware('customer.auth');
@@ -139,8 +152,22 @@ Route::delete('/customer/auth/biometric/devices/{device_id}', [CustomerBiometric
 Route::post('/customer/auth/biometric/challenge', [CustomerBiometricAuthController::class, 'challenge'])->middleware('customer.auth');
 Route::post('/customer/auth/biometric/verify', [CustomerBiometricAuthController::class, 'verify'])->middleware('customer.auth');
 Route::post('/customer/auth/security-events', [CustomerBiometricAuthController::class, 'securityEvent'])->middleware('customer.auth');
+Route::get('/customer/auth/passkeys', [CustomerPasskeyController::class, 'index'])
+    ->middleware(['customer.auth', 'throttle:customer-passkey-management']);
+Route::post('/customer/auth/passkeys/register/options', [CustomerPasskeyController::class, 'registrationOptions'])
+    ->middleware(['customer.auth', 'throttle:customer-passkey-management']);
+Route::post('/customer/auth/passkeys', [CustomerPasskeyController::class, 'store'])
+    ->middleware(['customer.auth', 'throttle:customer-passkey-management']);
+Route::delete('/customer/auth/passkeys/{passkey_id}', [CustomerPasskeyController::class, 'destroy'])
+    ->middleware(['customer.auth', 'throttle:customer-passkey-management']);
 Route::get('/customer/profile', [CustomerAuthController::class, 'profile'])->middleware('customer.auth');
 Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile'])->middleware('customer.auth');
+Route::get('/customer/account-deletion', [CustomerAccountDeletionController::class, 'show'])->middleware('customer.auth');
+Route::get('/customer/account-deletion/eligibility', [CustomerAccountDeletionController::class, 'eligibility'])->middleware('customer.auth');
+Route::post('/customer/account-deletion/request-otp', [CustomerAccountDeletionController::class, 'requestOtp'])->middleware('customer.auth');
+Route::post('/customer/account-deletion/verify-otp', [CustomerAccountDeletionController::class, 'verifyOtp'])->middleware('customer.auth');
+Route::post('/customer/account-deletion', [CustomerAccountDeletionController::class, 'store'])->middleware('customer.auth');
+Route::post('/customer/account-deletion/cancel', [CustomerAccountDeletionController::class, 'cancel'])->middleware('customer.auth');
 Route::get('/customer/line-notifications', [CustomerLineNotificationController::class, 'show'])->middleware('customer.auth');
 Route::patch('/customer/line-notifications', [CustomerLineNotificationController::class, 'update'])->middleware('customer.auth');
 Route::delete('/customer/line-notifications', [CustomerLineNotificationController::class, 'disconnect'])->middleware('customer.auth');
@@ -204,6 +231,10 @@ Route::get('/auth/admin/me', [AdminAuthController::class, 'me'])->middleware('ad
 Route::patch('/auth/admin/me', [AdminAuthController::class, 'updateMe'])->middleware('admin.auth');
 Route::post('/auth/admin/password/forgot', [AdminAccountSecurityController::class, 'forgotPassword']);
 Route::post('/auth/admin/password/reset', [AdminAccountSecurityController::class, 'resetPassword']);
+Route::get('/auth/admin/invitations/{token}', [AdminInvitationController::class, 'show'])
+    ->middleware('throttle:admin-invitation');
+Route::post('/auth/admin/invitations/{token}/accept', [AdminInvitationController::class, 'accept'])
+    ->middleware('throttle:admin-invitation');
 Route::post('/auth/admin/password/change', [AdminAccountSecurityController::class, 'changePassword'])
     ->middleware(['admin.auth', 'support.block:change_password']);
 Route::get('/auth/admin/2fa', [AdminAccountSecurityController::class, 'twoFactorStatus'])
@@ -565,6 +596,14 @@ Route::post('/admin/central/rewards/{reward_result_id}/redraw', [CentralRewardCo
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/rewards/{reward_result_id}/correct', [CentralRewardController::class, 'correct'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-risk/overview', [CentralRewardRiskController::class, 'overview'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-risk/runs', [CentralRewardRiskController::class, 'runs'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-risk/findings', [CentralRewardRiskController::class, 'findings'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-risk/findings/{finding_id}', [CentralRewardRiskController::class, 'finding'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/reports/{report_key}', [ReportController::class, 'centralReport'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/reports/{report_key}/exports', [ReportController::class, 'createCentralExport'])
@@ -586,6 +625,8 @@ Route::post('/admin/central/admin-users', [AdminUserController::class, 'centralS
 Route::get('/admin/central/admin-users/{admin_user_id}', [AdminUserController::class, 'centralShow'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/admin-users/{admin_user_id}', [AdminUserController::class, 'centralUpdate'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/admin-users/{admin_user_id}/invitation', [AdminUserController::class, 'centralInvitation'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::delete('/admin/central/admin-users/{admin_user_id}', [AdminUserController::class, 'centralDestroy'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -864,6 +905,8 @@ Route::get('/admin/tenant/admin-users/{admin_user_id}', [AdminUserController::cl
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::patch('/admin/tenant/admin-users/{admin_user_id}', [AdminUserController::class, 'tenantUpdate'])
     ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:permission_change']);
+Route::post('/admin/tenant/admin-users/{admin_user_id}/invitation', [AdminUserController::class, 'tenantInvitation'])
+    ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:permission_change']);
 Route::delete('/admin/tenant/admin-users/{admin_user_id}', [AdminUserController::class, 'tenantDestroy'])
     ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:delete_user']);
 Route::get('/admin/tenant/roles', [AdminRoleController::class, 'tenantIndex'])
@@ -911,6 +954,18 @@ Route::get('/admin/tenant/reward-claims', [TenantRewardClaimController::class, '
 Route::get('/admin/tenant/winners/games', [TenantRewardWinnersController::class, 'winnerGames'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/winners', [TenantRewardWinnersController::class, 'winners'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/reward-risk/settings', [TenantRewardRiskController::class, 'settings'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/reward-risk/settings', [TenantRewardRiskController::class, 'updateSettings'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/reward-risk/overview', [TenantRewardRiskController::class, 'overview'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/reward-risk/runs', [TenantRewardRiskController::class, 'runs'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/reward-risk/findings', [TenantRewardRiskController::class, 'findings'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/reward-risk/findings/{finding_id}', [TenantRewardRiskController::class, 'finding'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/reward-claims/{claim_id}', [TenantRewardClaimController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

@@ -3,12 +3,18 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Laravel\Passkeys\Contracts\PasskeyUser;
+use Laravel\Passkeys\PasskeyAuthenticatable;
 
-class Customer extends BaseModel
+class Customer extends BaseModel implements AuthenticatableContract, PasskeyUser
 {
+    use AuthenticatableTrait;
     use BelongsToTenant;
+    use PasskeyAuthenticatable;
 
     protected $table = 'customers';
 
@@ -21,6 +27,8 @@ class Customer extends BaseModel
         'first_name',
         'last_name',
         'status',
+        'deleted_at',
+        'phone_reuse_after',
         'suspended_at',
         'suspended_until',
         'suspension_reason',
@@ -53,6 +61,8 @@ class Customer extends BaseModel
 
     protected $casts = [
         'last_login_at' => 'datetime',
+        'deleted_at' => 'datetime',
+        'phone_reuse_after' => 'datetime',
         'suspended_at' => 'datetime',
         'suspended_until' => 'datetime',
         'pin_set_at' => 'datetime',
@@ -66,6 +76,26 @@ class Customer extends BaseModel
     public function authSessions(): HasMany
     {
         return $this->hasMany(CustomerAuthSession::class, 'customer_id');
+    }
+
+    public function passkeys(): HasMany
+    {
+        return $this->hasMany(CustomerPasskey::class, 'user_id');
+    }
+
+    public function getAuthPasswordName(): string
+    {
+        return 'password_hash';
+    }
+
+    public function getPasskeyUsername(): string
+    {
+        return trim((string) ($this->email ?: $this->phone ?: $this->customer_no ?: $this->id));
+    }
+
+    public function getPasskeyDisplayName(): string
+    {
+        return trim((string) ($this->name ?: $this->getPasskeyUsername()));
     }
 
     public function wallet(): HasOne

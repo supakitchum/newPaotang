@@ -3,6 +3,7 @@
 namespace App\Modules\Auth\Http\Controllers;
 
 use App\Modules\Auth\Services\CustomerLineAuthService;
+use App\Modules\Auth\Services\CustomerSocialAccountService;
 use App\Modules\Auth\Services\CustomerSocialAuthService;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
 use App\Shared\Auth\ApiErrorResponse;
@@ -17,6 +18,7 @@ class CustomerSocialAuthController extends Controller
     public function __construct(
         private readonly PartnerStoreService $partnerStore,
         private readonly CustomerSocialAuthService $socialAuth,
+        private readonly CustomerSocialAccountService $socialAccounts,
         private readonly CustomerLineAuthService $lineAuth,
         private readonly CustomerSessionResolver $sessions,
     ) {
@@ -31,11 +33,36 @@ class CustomerSocialAuthController extends Controller
         }
 
         $provider = strtolower(trim($provider));
+        $currentCustomer = $this->optionalCustomerContext($request, (string) $tenant['tenant_id']);
         $result = $provider === 'line'
-            ? $this->lineAuth->redirect($tenant, $request->all(), $request)
-            : $this->socialAuth->redirect($tenant, $provider, $request->all(), $request);
+            ? $this->lineAuth->redirect($tenant, $request->all(), $request, $currentCustomer)
+            : $this->socialAuth->redirect($tenant, $provider, $request->all(), $request, $currentCustomer);
 
         return $this->result($request, $result, $provider);
+    }
+
+    public function accounts(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        return response()->json($this->socialAccounts->accounts($context));
+    }
+
+    public function unlink(Request $request, string $provider): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        return $this->result(
+            $request,
+            $this->socialAccounts->unlink($context, $provider),
+            strtolower(trim($provider)),
+        );
     }
 
     public function callback(Request $request, string $provider): JsonResponse
@@ -94,7 +121,16 @@ class CustomerSocialAuthController extends Controller
         return match ($result['error'] ?? null) {
             'validation_failed' => ApiErrorResponse::validationFailed($request, $result['details']['fields'] ?? $result['errors'] ?? []),
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
+            'pin_required' => ApiErrorResponse::customerPinRequired($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'otp_required', 'otp_invalid' => ApiErrorResponse::make(
+                $request,
+                422,
+                (string) $result['error'],
+                'Phone OTP verification is required before completing social registration.',
+                $result['details'] ?? [],
+            ),
             'customer_suspended' => ApiErrorResponse::customerSuspended($request, $result['details'] ?? []),
             'social_identity_not_linked', 'line_identity_not_linked' => ApiErrorResponse::make(
                 $request,

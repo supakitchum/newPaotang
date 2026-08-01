@@ -9,6 +9,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
@@ -570,6 +571,8 @@ class _PinScreenState extends ConsumerState<PinScreen>
 
   void _goAfterPinUnlock([String? redirect]) {
     try {
+      final router = GoRouter.of(context);
+      customerBackNavigationHistory.completeAuthenticationTransition(router);
       context.go(redirect ?? _safeRedirect());
     } catch (_) {
       // Tests can mount PinScreen without a GoRouter. In the real app this
@@ -705,34 +708,18 @@ class _PinMainContent extends StatelessWidget {
         ],
         if (showBiometric) ...[
           const SizedBox(height: 4),
-          SizedBox(
-            height: 32,
-            child: Center(
-              child: TextButton.icon(
-                onPressed: verifying ? null : onBiometric,
-                icon: const Icon(Icons.face_retouching_natural, size: 18),
-                label: Text(context.l10n.pinUseBiometric),
-                style:
-                    TextButton.styleFrom(
-                      foregroundColor: _pinActionColor(context),
-                      minimumSize: const Size(64, 32),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: Theme.of(context).textTheme.labelLarge
-                          ?.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                    ).copyWith(
-                      overlayColor: const WidgetStatePropertyAll(
-                        Colors.transparent,
-                      ),
-                    ),
-              ),
+          Center(
+            child: IconButton(
+              key: const ValueKey('pin-biometric-button'),
+              onPressed: verifying ? null : onBiometric,
+              tooltip: context.l10n.pinUseBiometric,
+              icon: const Icon(Icons.face_retouching_natural),
+              iconSize: 25,
+              color: _pinActionColor(context),
+              disabledColor: _pinActionColor(context).withValues(alpha: 0.42),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              visualDensity: VisualDensity.compact,
             ),
           ),
         ],
@@ -1730,7 +1717,10 @@ class _Keypad extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final itemWidth = (constraints.maxWidth - horizontalGap * 2) / 3;
-          final itemHeight = (height * 0.085).clamp(36.0, 43.0).toDouble();
+          final itemHeight = compact
+              ? 48.0
+              : (height * 0.09).clamp(50.0, 56.0).toDouble();
+          final digitFontSize = compact ? 26.0 : 28.0;
           return Wrap(
             spacing: horizontalGap,
             runSpacing: verticalGap,
@@ -1773,7 +1763,7 @@ class _Keypad extends StatelessWidget {
                                       .textTheme
                                       .titleLarge
                                       ?.copyWith(
-                                        fontSize: 20,
+                                        fontSize: digitFontSize,
                                         fontWeight: FontWeight.w900,
                                         height: 1,
                                       ),
@@ -1783,7 +1773,7 @@ class _Keypad extends StatelessWidget {
                                   ),
                                 ),
                             child: key == 'back'
-                                ? const Icon(Icons.backspace_outlined, size: 17)
+                                ? const Icon(Icons.backspace_outlined, size: 22)
                                 : Text(key),
                           ),
                         ),

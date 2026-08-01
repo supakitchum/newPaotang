@@ -33,6 +33,10 @@ class CustomerLocalizations {
   String get commonBahtSuffix => _text('common.money.baht_suffix');
   String get appAlertDefaultTitle => _text('app_alert.default_title');
   String get appAlertDefaultButton => _text('app_alert.default_button');
+  String get authSessionReplacedTitle => _text('auth.session_replaced.title');
+  String get authSessionReplacedMessage =>
+      _text('auth.session_replaced.message');
+  String get authSessionReplacedButton => _text('auth.session_replaced.button');
   String get appSplashPreparing => _text('app_splash.preparing');
   String get saleClosureAlertMessage => _text('sale_closure.alert_message');
   String get notificationsTitle => _text('notifications.title');
@@ -103,6 +107,16 @@ class CustomerLocalizations {
   String get loginFailed => _text('auth.login.failed');
   String get socialLoginLinkMissing => _text('auth.login.social_link_missing');
   String get socialLoginFailed => _text('auth.login.social_failed');
+  String get passkeyLogin => _text('auth.passkey.login');
+  String get passkeyLoginSubmitting => _text('auth.passkey.login_submitting');
+  String get passkeyNoCredentials => _text('auth.passkey.no_credentials');
+  String get passkeyDomainNotAssociated =>
+      _text('auth.passkey.domain_not_associated');
+  String get passkeyUnsupported => _text('auth.passkey.unsupported');
+  String get passkeyAccountUnavailable =>
+      _text('auth.passkey.account_unavailable');
+  String get passkeyTimeout => _text('auth.passkey.timeout');
+  String get passkeyLoginFailed => _text('auth.passkey.login_failed');
   String get authFieldRequired => _text('auth.validation.required');
   String get authPhoneInvalid => _text('auth.validation.phone_invalid');
   String get authOtpInvalid => _text('auth.validation.otp_invalid');
@@ -287,6 +301,35 @@ class CustomerLocalizations {
   String socialLinkFailed(String provider) {
     return _text('auth.social.link.failed').replaceAll('{provider}', provider);
   }
+
+  String get socialOnboardingStepPhone =>
+      _text('auth.social.onboarding.step_phone');
+  String get socialOnboardingStepOtp =>
+      _text('auth.social.onboarding.step_otp');
+  String get socialOnboardingStepMember =>
+      _text('auth.social.onboarding.step_member');
+  String get socialOnboardingPhoneTitle =>
+      _text('auth.social.onboarding.phone_title');
+  String get socialOnboardingPhoneDescription =>
+      _text('auth.social.onboarding.phone_description');
+  String get socialOnboardingOtpTitle =>
+      _text('auth.social.onboarding.otp_title');
+  String get socialOnboardingOtpNotice =>
+      _text('auth.social.onboarding.otp_notice');
+  String get socialOnboardingMemberTitle =>
+      _text('auth.social.onboarding.member_title');
+  String get socialOnboardingMemberDescription =>
+      _text('auth.social.onboarding.member_description');
+  String get socialOnboardingMemberNotice =>
+      _text('auth.social.onboarding.member_notice');
+  String get socialOnboardingSendOtp =>
+      _text('auth.social.onboarding.send_otp');
+  String get socialOnboardingVerifyOtp =>
+      _text('auth.social.onboarding.verify_otp');
+  String get socialOnboardingOtpRequestFailed =>
+      _text('auth.social.onboarding.otp_request_failed');
+  String get socialOnboardingPasswordTooShort =>
+      _text('auth.social.onboarding.password_too_short');
 
   String socialProfileAccount(String provider) {
     return _text(
@@ -1153,6 +1196,77 @@ class CustomerLocalizations {
       _text('profile.biometric.revoke_device');
   String get profileBiometricLoadFailed =>
       _text('profile.biometric.load_failed');
+  String get passkeyManagementTitle => _text('profile.passkey.title');
+  String get passkeyManagementSubtitle => _text('profile.passkey.subtitle');
+  String get passkeyManagementDescription =>
+      _text('profile.passkey.description');
+  String get passkeyLoadFailed => _text('profile.passkey.load_failed');
+  String get passkeyDisabledByProvider =>
+      _text('profile.passkey.disabled_by_provider');
+  String passkeyLimitReached(int limit) => _text(
+    'profile.passkey.limit_reached',
+  ).replaceAll('{limit}', limit.toString());
+  String get passkeyAddedTitle => _text('profile.passkey.added_title');
+  String get passkeyAddedMessage => _text('profile.passkey.added_message');
+  String get passkeyDefaultName => _text('profile.passkey.default_name');
+  String get passkeyNameTitle => _text('profile.passkey.name_title');
+  String get passkeyNameDescription =>
+      _text('profile.passkey.name_description');
+  String get passkeyNameLabel => _text('profile.passkey.name_label');
+  String get passkeyContinue => _text('profile.passkey.continue');
+  String get passkeyRevokeTitle => _text('profile.passkey.revoke_title');
+  String passkeyRevokeMessage(String name) =>
+      _text('profile.passkey.revoke_message').replaceAll('{name}', name);
+  String get passkeyRevokeConfirm => _text('profile.passkey.revoke_confirm');
+  String get passkeyRevokedTitle => _text('profile.passkey.revoked_title');
+  String get passkeyRevokedMessage => _text('profile.passkey.revoked_message');
+  String get passkeyRevokeFailed => _text('profile.passkey.revoke_failed');
+  String get passkeyErrorTitle => _text('profile.passkey.error_title');
+  String get passkeyNeverUsed => _text('profile.passkey.never_used');
+  String get passkeyRegisteredAt => _text('profile.passkey.registered_at');
+  String get passkeyLastUsedAt => _text('profile.passkey.last_used_at');
+  String get passkeyStatusActive => _text('profile.passkey.status_active');
+  String get passkeyStatusRevoked => _text('profile.passkey.status_revoked');
+  String get passkeyEmptyTitle => _text('profile.passkey.empty_title');
+  String get passkeyEmptyDescription =>
+      _text('profile.passkey.empty_description');
+  String get passkeyAdding => _text('profile.passkey.adding');
+  String get passkeyAdd => _text('profile.passkey.add');
+  String get passkeyAlreadyExists => _text('profile.passkey.already_exists');
+  String get passkeyAddFailed => _text('profile.passkey.add_failed');
+  String get socialAccountsTitle => _text('profile.social_accounts.title');
+  String get socialAccountsDescription =>
+      _text('profile.social_accounts.description');
+  String socialAccountsConnectedCount(int count) => _text(
+    'profile.social_accounts.connected_count',
+  ).replaceAll('{count}', count.toString());
+  String get socialAccountsLoadFailed =>
+      _text('profile.social_accounts.load_failed');
+  String get socialAccountsConnected =>
+      _text('profile.social_accounts.connected');
+  String get socialAccountsNotConnected =>
+      _text('profile.social_accounts.not_connected');
+  String get socialAccountsUnavailable =>
+      _text('profile.social_accounts.unavailable');
+  String get socialAccountsConnect => _text('profile.social_accounts.connect');
+  String get socialAccountsUnlink => _text('profile.social_accounts.unlink');
+  String socialAccountsUnlinkTitle(String provider) => _text(
+    'profile.social_accounts.unlink_title',
+  ).replaceAll('{provider}', provider);
+  String get socialAccountsUnlinkDescription =>
+      _text('profile.social_accounts.unlink_description');
+  String get socialAccountsUnlinkConfirm =>
+      _text('profile.social_accounts.unlink_confirm');
+  String get socialAccountsUnlinkedTitle =>
+      _text('profile.social_accounts.unlinked_title');
+  String get socialAccountsUnlinkedMessage =>
+      _text('profile.social_accounts.unlinked_message');
+  String get socialAccountsLinkFailed =>
+      _text('profile.social_accounts.link_failed');
+  String get socialAccountsUnlinkFailed =>
+      _text('profile.social_accounts.unlink_failed');
+  String get socialAccountsErrorTitle =>
+      _text('profile.social_accounts.error_title');
   String get profilePurchaseHistory => _text('profile.menu.purchase_history');
   String get profileNewsAll => _text('profile.menu.news_all');
   String get profileTerms => _text('profile.menu.terms');
@@ -1193,6 +1307,46 @@ class CustomerLocalizations {
       _text('account_deletion.no_online_request');
   String get accountDeletionLaunchFailed =>
       _text('account_deletion.launch_failed');
+  String get accountDeletionImpactTitle =>
+      _text('account_deletion.impact.title');
+  String get accountDeletionImpactBody => _text('account_deletion.impact.body');
+  String get accountDeletionEligibilityReady =>
+      _text('account_deletion.eligibility.ready');
+  String get accountDeletionEligibilityBlocked =>
+      _text('account_deletion.eligibility.blocked');
+  String get accountDeletionReasonTitle =>
+      _text('account_deletion.reason.title');
+  String get accountDeletionReasonDetail =>
+      _text('account_deletion.reason.detail');
+  String get accountDeletionReasonNoLongerUse =>
+      _text('account_deletion.reason.no_longer_use');
+  String get accountDeletionReasonPrivacy =>
+      _text('account_deletion.reason.privacy');
+  String get accountDeletionReasonExperience =>
+      _text('account_deletion.reason.experience');
+  String get accountDeletionReasonDuplicate =>
+      _text('account_deletion.reason.duplicate');
+  String get accountDeletionReasonOther =>
+      _text('account_deletion.reason.other');
+  String get accountDeletionPinTitle => _text('account_deletion.pin.title');
+  String get accountDeletionOtpTitle => _text('account_deletion.otp.title');
+  String get accountDeletionOtpSubtitle =>
+      _text('account_deletion.otp.subtitle');
+  String get accountDeletionContinue => _text('account_deletion.continue');
+  String get accountDeletionConfirm => _text('account_deletion.confirm');
+  String get accountDeletionPendingTitle =>
+      _text('account_deletion.pending.title');
+  String get accountDeletionPendingBody =>
+      _text('account_deletion.pending.body');
+  String get accountDeletionBlockedTitle =>
+      _text('account_deletion.blocked.title');
+  String get accountDeletionCancel => _text('account_deletion.cancel');
+  String get accountDeletionCancelConfirm =>
+      _text('account_deletion.cancel.confirm');
+  String get accountDeletionCancelled => _text('account_deletion.cancelled');
+  String get accountDeletionCompleted => _text('account_deletion.completed');
+  String get accountDeletionRetry => _text('account_deletion.retry');
+  String get accountDeletionGenericError => _text('account_deletion.error');
 
   String get walletTitle => _text('wallet.title');
   String get walletBalanceLoading => _text('wallet.balance.loading');
@@ -2726,6 +2880,10 @@ const _localizedValues = <String, Map<String, String>>{
     'common.money.baht_suffix': 'บาท',
     'app_alert.default_title': 'แจ้งเตือน',
     'app_alert.default_button': 'รับทราบ',
+    'auth.session_replaced.title': 'บัญชีถูกออกจากระบบ',
+    'auth.session_replaced.message':
+        'มีการเข้าสู่ระบบบัญชีนี้จากอุปกรณ์ใหม่ อุปกรณ์นี้จึงถูกออกจากระบบ',
+    'auth.session_replaced.button': 'เข้าสู่ระบบใหม่',
     'app_splash.preparing': 'กำลังเตรียมข้อมูลระบบ',
     'sale_closure.alert_message':
         'ระบบพาไปหน้ารอออกผลแล้ว กรุณาตรวจผลรางวัลหลังประกาศผล',
@@ -2882,6 +3040,8 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.profile_line_notifications.title': 'แจ้งเตือนผ่าน LINE',
     'routes.profile_reward_bank.title': 'บัญชีรับเงินรางวัล',
     'routes.profile_biometrics.title': 'อุปกรณ์ Biometric',
+    'routes.profile_passkeys.title': 'Passkey',
+    'routes.profile_social_accounts.title': 'บัญชี Social Login',
     'routes.profile_account_deletion.title': 'ลบบัญชีผู้ใช้',
     'routes.purchase_history.title': 'ประวัติการซื้อสลาก',
     'routes.purchase_history_detail.title': 'รายละเอียดการซื้อสลาก',
@@ -2895,6 +3055,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.term_reward.title': 'เงื่อนไขเงินรางวัล',
     'routes.lottery_knowledge.title': 'ข้อควรรู้การซื้อ-ขายสลากฯ',
     'routes.login.title': 'เข้าสู่ระบบ',
+    'routes.login_otp.title': 'ยืนยัน OTP',
     'routes.register.title': 'สมัครสมาชิก',
     'routes.forgot_password.title': 'ลืมรหัสผ่าน',
     'routes.reset_password.title': 'ตั้งรหัสผ่านใหม่',
@@ -2945,6 +3106,17 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.failed': 'เข้าสู่ระบบไม่สำเร็จ',
     'auth.login.social_link_missing': 'ไม่พบลิงก์เข้าสู่ระบบ',
     'auth.login.social_failed': 'เข้าสู่ระบบด้วยผู้ให้บริการไม่สำเร็จ',
+    'auth.passkey.login': 'เข้าสู่ระบบด้วย Passkey',
+    'auth.passkey.login_submitting': 'กำลังตรวจสอบ Passkey',
+    'auth.passkey.no_credentials':
+        'ไม่พบ Passkey สำหรับบัญชีนี้บนอุปกรณ์ กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
+    'auth.passkey.domain_not_associated':
+        'ยังเชื่อมโยงแอปกับโดเมน Passkey ไม่สำเร็จ กรุณาติดต่อผู้ให้บริการ',
+    'auth.passkey.unsupported': 'อุปกรณ์หรือเบราว์เซอร์นี้ยังไม่รองรับ Passkey',
+    'auth.passkey.account_unavailable':
+        'ไม่พบบัญชีที่ใช้จัดเก็บ Passkey บนอุปกรณ์นี้',
+    'auth.passkey.timeout': 'หมดเวลาตรวจสอบ Passkey กรุณาลองใหม่',
+    'auth.passkey.login_failed': 'เข้าสู่ระบบด้วย Passkey ไม่สำเร็จ',
     'auth.validation.required': 'กรุณากรอกข้อมูล',
     'auth.validation.phone_invalid': 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง',
     'auth.validation.otp_invalid': 'กรุณากรอก OTP 6 หลัก',
@@ -3070,6 +3242,25 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.link.missing':
         'ไม่พบข้อมูลเชื่อมต่อ {provider} กรุณาเริ่มใหม่อีกครั้ง',
     'auth.social.link.failed': 'ผูกบัญชี {provider} ไม่สำเร็จ',
+    'auth.social.onboarding.step_phone': 'เบอร์โทร',
+    'auth.social.onboarding.step_otp': 'OTP',
+    'auth.social.onboarding.step_member': 'ข้อมูลสมาชิก',
+    'auth.social.onboarding.phone_title': 'ยืนยันเบอร์โทรศัพท์',
+    'auth.social.onboarding.phone_description':
+        'กรอกเบอร์โทรศัพท์ที่ต้องการใช้กับบัญชีสมาชิก',
+    'auth.social.onboarding.otp_title': 'กรอกรหัส OTP',
+    'auth.social.onboarding.otp_notice':
+        'ต้องยืนยัน OTP ก่อนจึงจะกรอกข้อมูลสมาชิกและสร้างบัญชีได้',
+    'auth.social.onboarding.member_title': 'ข้อมูลสมาชิก',
+    'auth.social.onboarding.member_description':
+        'กรอกชื่อ นามสกุล และตั้งรหัสผ่านสำหรับบัญชีของคุณ',
+    'auth.social.onboarding.member_notice':
+        'บัญชี Social ใหม่จะถูกสร้างเมื่อยืนยันเบอร์โทรและข้อมูลสมาชิกครบแล้วเท่านั้น',
+    'auth.social.onboarding.send_otp': 'ส่งรหัส OTP',
+    'auth.social.onboarding.verify_otp': 'ยืนยัน OTP',
+    'auth.social.onboarding.otp_request_failed': 'ส่งรหัส OTP ไม่สำเร็จ',
+    'auth.social.onboarding.password_too_short':
+        'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
     'auth.social.profile.account': 'บัญชี {provider}',
     'auth.social.profile.fallback_name': 'ลูกค้า {provider}',
     'auth.social.profile.ready': 'พร้อมผูกบัญชีและเข้าสู่ระบบ',
@@ -3680,6 +3871,65 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.biometric.meta.last_used': 'ใช้งานล่าสุด',
     'profile.biometric.revoke_device': 'ยกเลิกอุปกรณ์นี้',
     'profile.biometric.load_failed': 'โหลดอุปกรณ์ biometric ไม่สำเร็จ',
+    'profile.passkey.title': 'Passkey',
+    'profile.passkey.subtitle': 'เข้าสู่ระบบโดยไม่ต้องพิมพ์รหัสผ่าน',
+    'profile.passkey.description':
+        'ใช้ Face ID, ลายนิ้วมือ หรือรหัสปลดล็อกของอุปกรณ์เพื่อเข้าสู่ระบบอย่างปลอดภัย',
+    'profile.passkey.load_failed': 'โหลดรายการ Passkey ไม่สำเร็จ',
+    'profile.passkey.disabled_by_provider':
+        'ผู้ให้บริการยังไม่ได้เปิดใช้งาน Passkey สำหรับร้านนี้',
+    'profile.passkey.limit_reached':
+        'บัญชีนี้มี Passkey ครบจำนวนสูงสุด {limit} รายการแล้ว',
+    'profile.passkey.added_title': 'เพิ่ม Passkey แล้ว',
+    'profile.passkey.added_message':
+        'ครั้งต่อไปคุณสามารถเลือกเข้าสู่ระบบด้วย Passkey ได้ทันที',
+    'profile.passkey.default_name': 'อุปกรณ์เครื่องนี้',
+    'profile.passkey.name_title': 'ตั้งชื่อ Passkey',
+    'profile.passkey.name_description':
+        'ตั้งชื่อเพื่อให้จำได้ว่า Passkey นี้บันทึกไว้บนอุปกรณ์ใด',
+    'profile.passkey.name_label': 'ชื่อ Passkey',
+    'profile.passkey.continue': 'ดำเนินการต่อ',
+    'profile.passkey.revoke_title': 'ยกเลิก Passkey?',
+    'profile.passkey.revoke_message':
+        'Passkey “{name}” จะไม่สามารถใช้เข้าสู่ระบบบัญชีนี้ได้อีก',
+    'profile.passkey.revoke_confirm': 'ยกเลิก Passkey',
+    'profile.passkey.revoked_title': 'ยกเลิก Passkey แล้ว',
+    'profile.passkey.revoked_message': 'Passkey รายการนี้ถูกนำออกจากบัญชีแล้ว',
+    'profile.passkey.revoke_failed': 'ยกเลิก Passkey ไม่สำเร็จ',
+    'profile.passkey.error_title': 'ดำเนินการ Passkey ไม่สำเร็จ',
+    'profile.passkey.never_used': 'ยังไม่เคยใช้',
+    'profile.passkey.registered_at': 'เพิ่มเมื่อ',
+    'profile.passkey.last_used_at': 'ใช้ล่าสุด',
+    'profile.passkey.status_active': 'ใช้งานอยู่',
+    'profile.passkey.status_revoked': 'ยกเลิกแล้ว',
+    'profile.passkey.empty_title': 'ยังไม่มี Passkey',
+    'profile.passkey.empty_description':
+        'เพิ่ม Passkey เพื่อเข้าสู่ระบบด้วยการปลดล็อกอุปกรณ์เครื่องนี้',
+    'profile.passkey.adding': 'กำลังเพิ่ม Passkey',
+    'profile.passkey.add': 'เพิ่ม Passkey',
+    'profile.passkey.already_exists': 'Passkey นี้ถูกเพิ่มไว้กับบัญชีแล้ว',
+    'profile.passkey.add_failed': 'เพิ่ม Passkey ไม่สำเร็จ',
+    'profile.social_accounts.title': 'บัญชี Social Login',
+    'profile.social_accounts.description':
+        'เชื่อมบัญชีสมาชิกกับ Social Login เพื่อเข้าสู่ระบบได้สะดวกขึ้น',
+    'profile.social_accounts.connected_count': 'เชื่อมต่อแล้ว {count} บัญชี',
+    'profile.social_accounts.load_failed': 'โหลดบัญชี Social Login ไม่สำเร็จ',
+    'profile.social_accounts.connected': 'เชื่อมต่อแล้ว',
+    'profile.social_accounts.not_connected': 'ยังไม่ได้เชื่อมต่อ',
+    'profile.social_accounts.unavailable': 'Tenant ยังไม่ได้เปิดใช้งาน',
+    'profile.social_accounts.connect': 'เชื่อมต่อ',
+    'profile.social_accounts.unlink': 'ยกเลิก',
+    'profile.social_accounts.unlink_title': 'ยกเลิกการเชื่อมต่อ {provider}?',
+    'profile.social_accounts.unlink_description':
+        'หลังยกเลิกจะไม่สามารถใช้บัญชีนี้เข้าสู่ระบบได้จนกว่าจะเชื่อมต่อใหม่',
+    'profile.social_accounts.unlink_confirm': 'ยกเลิกการเชื่อมต่อ',
+    'profile.social_accounts.unlinked_title': 'ยกเลิกการเชื่อมต่อแล้ว',
+    'profile.social_accounts.unlinked_message':
+        'นำบัญชี Social Login ออกจากบัญชีสมาชิกแล้ว',
+    'profile.social_accounts.link_failed': 'เชื่อมบัญชี Social Login ไม่สำเร็จ',
+    'profile.social_accounts.unlink_failed': 'ยกเลิกการเชื่อมต่อไม่สำเร็จ',
+    'profile.social_accounts.error_title':
+        'ดำเนินการบัญชี Social Login ไม่สำเร็จ',
     'profile.menu.purchase_history': 'ประวัติการซื้อสลากฯ',
     'profile.menu.news_all': 'ข่าวสารทั้งหมด',
     'profile.menu.terms': 'ข้อตกลงและเงื่อนไข',
@@ -3703,6 +3953,34 @@ const _localizedValues = <String, Map<String, String>>{
     'account_deletion.no_online_request':
         'ร้านค้านี้ยังไม่ได้ตั้งค่าลิงก์คำขอลบบัญชี กรุณาติดต่อร้านค้าเพื่อดำเนินการ',
     'account_deletion.launch_failed': 'เปิดลิงก์คำขอไม่สำเร็จ',
+    'account_deletion.impact.title': 'โปรดอ่านก่อนลบบัญชี',
+    'account_deletion.impact.body':
+        'เมื่อครบ 7 วัน คุณจะเข้าสู่ระบบไม่ได้อีก Wallet และสิทธิ์ในบัญชีเดิมจะใช้งานไม่ได้ ระหว่างรอบัญชีจะเป็นโหมดอ่านอย่างเดียว ข้อมูลคำสั่งซื้อ การเงิน สลาก และหลักฐานต่างๆ จะยังถูกเก็บไว้ตามข้อกำหนด และเบอร์เดิมสมัครใหม่ได้หลังปิดบัญชี 90 วัน',
+    'account_deletion.eligibility.ready': 'บัญชีพร้อมส่งคำขอลบ',
+    'account_deletion.eligibility.blocked':
+        'กรุณาเคลียร์ยอดเงินและรายการที่กำลังดำเนินการก่อน',
+    'account_deletion.reason.title': 'เหตุผลที่ต้องการลบบัญชี',
+    'account_deletion.reason.detail': 'รายละเอียดเพิ่มเติม',
+    'account_deletion.reason.no_longer_use': 'ไม่ได้ใช้งานแล้ว',
+    'account_deletion.reason.privacy': 'กังวลเรื่องความเป็นส่วนตัว',
+    'account_deletion.reason.experience': 'ประสบการณ์ใช้งานไม่ตรงความต้องการ',
+    'account_deletion.reason.duplicate': 'มีบัญชีซ้ำ',
+    'account_deletion.reason.other': 'อื่นๆ',
+    'account_deletion.pin.title': 'ยืนยัน PIN 6 หลัก',
+    'account_deletion.otp.title': 'ยืนยัน OTP',
+    'account_deletion.otp.subtitle': 'กรอกรหัส 6 หลักที่ส่งไปยังเบอร์สมาชิก',
+    'account_deletion.continue': 'ดำเนินการต่อ',
+    'account_deletion.confirm': 'ยืนยันคำขอลบบัญชี',
+    'account_deletion.pending.title': 'กำลังรอลบบัญชี',
+    'account_deletion.pending.body':
+        'บัญชีอยู่ในโหมดอ่านอย่างเดียวและจะถูกปิดอัตโนมัติเมื่อครบกำหนด',
+    'account_deletion.blocked.title': 'ยังปิดบัญชีไม่ได้',
+    'account_deletion.cancel': 'ยกเลิกการลบบัญชี',
+    'account_deletion.cancel.confirm': 'กรอก PIN เพื่อยกเลิกคำขอ',
+    'account_deletion.cancelled': 'ยกเลิกคำขอลบบัญชีแล้ว',
+    'account_deletion.completed': 'บัญชีนี้ถูกปิดแล้ว',
+    'account_deletion.retry': 'ลองใหม่',
+    'account_deletion.error': 'ดำเนินการไม่สำเร็จ กรุณาลองใหม่',
     'wallet.title': 'กระเป๋าของฉัน',
     'wallet.balance.loading': 'กำลังโหลด...',
     'wallet.recent_ledger': 'ประวัติรายการเดินเงินล่าสุด',
@@ -4565,6 +4843,10 @@ const _localizedValues = <String, Map<String, String>>{
     'common.money.baht_suffix': 'THB',
     'app_alert.default_title': 'Notice',
     'app_alert.default_button': 'OK',
+    'auth.session_replaced.title': 'Signed out',
+    'auth.session_replaced.message':
+        'This account signed in on a new device, so this device was signed out.',
+    'auth.session_replaced.button': 'Sign in again',
     'app_splash.preparing': 'Preparing system data',
     'sale_closure.alert_message':
         'You have been moved to the waiting-for-results page. Please check the results after they are announced.',
@@ -4729,6 +5011,8 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.profile_line_notifications.title': 'LINE Notifications',
     'routes.profile_reward_bank.title': 'Reward Bank Account',
     'routes.profile_biometrics.title': 'Biometric Devices',
+    'routes.profile_passkeys.title': 'Passkeys',
+    'routes.profile_social_accounts.title': 'Social accounts',
     'routes.profile_account_deletion.title': 'Delete Account',
     'routes.purchase_history.title': 'Purchase History',
     'routes.purchase_history_detail.title': 'Purchase Detail',
@@ -4742,6 +5026,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.term_reward.title': 'Reward Terms',
     'routes.lottery_knowledge.title': 'Lottery Buying Knowledge',
     'routes.login.title': 'Sign In',
+    'routes.login_otp.title': 'Verify OTP',
     'routes.register.title': 'Create Account',
     'routes.forgot_password.title': 'Forgot Password',
     'routes.reset_password.title': 'Reset Password',
@@ -4793,6 +5078,18 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.failed': 'Could not sign in',
     'auth.login.social_link_missing': 'Sign-in link was not found',
     'auth.login.social_failed': 'Could not sign in with this provider',
+    'auth.passkey.login': 'Sign in with a passkey',
+    'auth.passkey.login_submitting': 'Checking passkey',
+    'auth.passkey.no_credentials':
+        'No passkey for this account is available on this device. Sign in with your password instead.',
+    'auth.passkey.domain_not_associated':
+        'This app is not associated with the passkey domain yet. Please contact the provider.',
+    'auth.passkey.unsupported':
+        'Passkeys are not supported on this device or browser.',
+    'auth.passkey.account_unavailable':
+        'No account is available to store passkeys on this device.',
+    'auth.passkey.timeout': 'Passkey verification timed out. Please try again.',
+    'auth.passkey.login_failed': 'Could not sign in with a passkey.',
     'auth.validation.required': 'Please fill in this field.',
     'auth.validation.phone_invalid': 'Please enter a valid phone number.',
     'auth.validation.otp_invalid': 'Please enter a 6-digit OTP.',
@@ -4925,6 +5222,25 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.link.missing':
         'Missing {provider} link information. Please start again.',
     'auth.social.link.failed': 'Could not link {provider} account.',
+    'auth.social.onboarding.step_phone': 'Phone',
+    'auth.social.onboarding.step_otp': 'OTP',
+    'auth.social.onboarding.step_member': 'Member details',
+    'auth.social.onboarding.phone_title': 'Verify phone number',
+    'auth.social.onboarding.phone_description':
+        'Enter the phone number you want to use for your member account.',
+    'auth.social.onboarding.otp_title': 'Enter OTP',
+    'auth.social.onboarding.otp_notice':
+        'Verify the OTP before entering member details and creating the account.',
+    'auth.social.onboarding.member_title': 'Member details',
+    'auth.social.onboarding.member_description':
+        'Enter your first name, last name, and set an account password.',
+    'auth.social.onboarding.member_notice':
+        'A new social account is created only after phone verification and all member details are complete.',
+    'auth.social.onboarding.send_otp': 'Send OTP',
+    'auth.social.onboarding.verify_otp': 'Verify OTP',
+    'auth.social.onboarding.otp_request_failed': 'Could not send OTP.',
+    'auth.social.onboarding.password_too_short':
+        'Password must contain at least 6 characters.',
     'auth.social.profile.account': '{provider} account',
     'auth.social.profile.fallback_name': '{provider} customer',
     'auth.social.profile.ready': 'Ready to link account and sign in',
@@ -5552,6 +5868,70 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.biometric.meta.last_used': 'Last used',
     'profile.biometric.revoke_device': 'Revoke this device',
     'profile.biometric.load_failed': 'Could not load biometric devices.',
+    'profile.passkey.title': 'Passkeys',
+    'profile.passkey.subtitle': 'Sign in without typing your password',
+    'profile.passkey.description':
+        'Use Face ID, fingerprint, or your device unlock code to sign in securely.',
+    'profile.passkey.load_failed': 'Could not load passkeys.',
+    'profile.passkey.disabled_by_provider':
+        'Passkeys have not been enabled for this store.',
+    'profile.passkey.limit_reached':
+        'This account has reached the limit of {limit} passkeys.',
+    'profile.passkey.added_title': 'Passkey added',
+    'profile.passkey.added_message':
+        'You can use this passkey the next time you sign in.',
+    'profile.passkey.default_name': 'This device',
+    'profile.passkey.name_title': 'Name this passkey',
+    'profile.passkey.name_description':
+        'Choose a name that helps you remember where this passkey is stored.',
+    'profile.passkey.name_label': 'Passkey name',
+    'profile.passkey.continue': 'Continue',
+    'profile.passkey.revoke_title': 'Revoke passkey?',
+    'profile.passkey.revoke_message':
+        'Passkey “{name}” will no longer be able to sign in to this account.',
+    'profile.passkey.revoke_confirm': 'Revoke passkey',
+    'profile.passkey.revoked_title': 'Passkey revoked',
+    'profile.passkey.revoked_message':
+        'This passkey has been removed from your account.',
+    'profile.passkey.revoke_failed': 'Could not revoke the passkey.',
+    'profile.passkey.error_title': 'Passkey request failed',
+    'profile.passkey.never_used': 'Never used',
+    'profile.passkey.registered_at': 'Added',
+    'profile.passkey.last_used_at': 'Last used',
+    'profile.passkey.status_active': 'Active',
+    'profile.passkey.status_revoked': 'Revoked',
+    'profile.passkey.empty_title': 'No passkeys yet',
+    'profile.passkey.empty_description':
+        'Add a passkey to sign in with this device unlock method.',
+    'profile.passkey.adding': 'Adding passkey',
+    'profile.passkey.add': 'Add passkey',
+    'profile.passkey.already_exists':
+        'This passkey is already linked to your account.',
+    'profile.passkey.add_failed': 'Could not add the passkey.',
+    'profile.social_accounts.title': 'Social login accounts',
+    'profile.social_accounts.description':
+        'Connect your member account to social login for faster sign-in.',
+    'profile.social_accounts.connected_count': '{count} accounts connected',
+    'profile.social_accounts.load_failed':
+        'Could not load social login accounts.',
+    'profile.social_accounts.connected': 'Connected',
+    'profile.social_accounts.not_connected': 'Not connected',
+    'profile.social_accounts.unavailable': 'Not enabled for this tenant',
+    'profile.social_accounts.connect': 'Connect',
+    'profile.social_accounts.unlink': 'Unlink',
+    'profile.social_accounts.unlink_title': 'Unlink {provider}?',
+    'profile.social_accounts.unlink_description':
+        'You will not be able to sign in with this account until it is connected again.',
+    'profile.social_accounts.unlink_confirm': 'Unlink account',
+    'profile.social_accounts.unlinked_title': 'Account unlinked',
+    'profile.social_accounts.unlinked_message':
+        'The social login account was removed from your member account.',
+    'profile.social_accounts.link_failed':
+        'Could not connect the social login account.',
+    'profile.social_accounts.unlink_failed':
+        'Could not unlink the social login account.',
+    'profile.social_accounts.error_title':
+        'Social login account request failed',
     'profile.menu.purchase_history': 'Purchase history',
     'profile.menu.news_all': 'All news',
     'profile.menu.terms': 'Terms and conditions',
@@ -5576,6 +5956,36 @@ const _localizedValues = <String, Map<String, String>>{
     'account_deletion.no_online_request':
         'This store has not configured an online account deletion link yet. Please contact the store to request deletion.',
     'account_deletion.launch_failed': 'Could not open the request link.',
+    'account_deletion.impact.title': 'Read before deleting your account',
+    'account_deletion.impact.body':
+        'After 7 days you can no longer sign in or use the old wallet and benefits. The account is read-only during the grace period. Orders, financial records, tickets, and audit evidence remain retained. The phone number can register again 90 days after closure.',
+    'account_deletion.eligibility.ready': 'This account is ready for deletion',
+    'account_deletion.eligibility.blocked':
+        'Resolve balances and pending transactions first',
+    'account_deletion.reason.title': 'Why are you deleting the account?',
+    'account_deletion.reason.detail': 'Additional details',
+    'account_deletion.reason.no_longer_use': 'I no longer use it',
+    'account_deletion.reason.privacy': 'Privacy concerns',
+    'account_deletion.reason.experience':
+        'The experience did not meet my needs',
+    'account_deletion.reason.duplicate': 'Duplicate account',
+    'account_deletion.reason.other': 'Other',
+    'account_deletion.pin.title': 'Confirm your 6-digit PIN',
+    'account_deletion.otp.title': 'Verify OTP',
+    'account_deletion.otp.subtitle':
+        'Enter the 6-digit code sent to your member phone',
+    'account_deletion.continue': 'Continue',
+    'account_deletion.confirm': 'Confirm account deletion',
+    'account_deletion.pending.title': 'Account deletion pending',
+    'account_deletion.pending.body':
+        'The account is read-only and will close automatically at the deadline.',
+    'account_deletion.blocked.title': 'Account closure is blocked',
+    'account_deletion.cancel': 'Cancel account deletion',
+    'account_deletion.cancel.confirm': 'Enter PIN to cancel the request',
+    'account_deletion.cancelled': 'Account deletion request cancelled',
+    'account_deletion.completed': 'This account has been closed',
+    'account_deletion.retry': 'Try again',
+    'account_deletion.error': 'The request failed. Please try again.',
     'wallet.title': 'My Wallet',
     'wallet.balance.loading': 'Loading...',
     'wallet.recent_ledger': 'Recent transactions',

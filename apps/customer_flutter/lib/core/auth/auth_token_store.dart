@@ -28,6 +28,7 @@ class AuthTokenStore {
   static const _accessKey = 'customer_access_token';
   static const _refreshKey = 'customer_refresh_token';
   static const _customerIdKey = 'customer_id';
+  static const _sessionIdKey = 'customer_session_id';
   static const _socialCallbackAuthStatesKey =
       'customer_social_callback_auth_states';
   static const _socialCallbackRedirectStatesKey =
@@ -41,6 +42,7 @@ class AuthTokenStore {
   String? _accessToken;
   String? _refreshToken;
   String? _customerId;
+  String? _sessionId;
   final _socialCallbackAuthStates = <String, bool>{};
   final _socialCallbackRedirectStates = <String, String>{};
   String? _latestSocialCallbackState;
@@ -48,6 +50,7 @@ class AuthTokenStore {
   String? get accessToken => _accessToken;
   String? get refreshToken => _refreshToken;
   String? get customerId => _customerId;
+  String? get sessionId => _sessionId;
   bool get hasAccessToken =>
       accessToken != null && accessToken!.trim().isNotEmpty;
   bool get hasRefreshToken =>
@@ -60,6 +63,7 @@ class AuthTokenStore {
     _accessToken = await _readCredential(_key(_accessKey));
     _refreshToken = await _readCredential(_key(_refreshKey));
     _customerId = await _readCredential(_key(_customerIdKey));
+    _sessionId = await _readCredential(_key(_sessionIdKey));
     if (_storageScope.isNotEmpty && !hasSessionCredential) {
       await _restoreLegacyCredentials();
     }
@@ -86,10 +90,24 @@ class AuthTokenStore {
     await _storage.write(key: _key(_accessKey), value: accessToken);
   }
 
+  Future<void> saveSessionId(String? sessionId) async {
+    _sessionId = sessionId?.trim();
+    try {
+      if (_sessionId == null || _sessionId!.isEmpty) {
+        await _storage.delete(key: _key(_sessionIdKey));
+        return;
+      }
+      await _storage.write(key: _key(_sessionIdKey), value: _sessionId);
+    } catch (_) {
+      // The in-memory id still protects the active runtime from a late event.
+    }
+  }
+
   Future<void> clear() async {
     _accessToken = null;
     _refreshToken = null;
     _customerId = null;
+    _sessionId = null;
     _socialCallbackAuthStates.clear();
     _socialCallbackRedirectStates.clear();
     _latestSocialCallbackState = null;
@@ -298,9 +316,11 @@ class AuthTokenStore {
     }
 
     final legacyCustomerId = await _readCredential(_customerIdKey);
+    final legacySessionId = await _readCredential(_sessionIdKey);
     _accessToken = legacyAccessToken;
     _refreshToken = legacyRefreshToken;
     _customerId = legacyCustomerId;
+    _sessionId = legacySessionId;
 
     try {
       if (_refreshToken != null) {
@@ -309,12 +329,16 @@ class AuthTokenStore {
       if (_customerId != null) {
         await _storage.write(key: _key(_customerIdKey), value: _customerId);
       }
+      if (_sessionId != null) {
+        await _storage.write(key: _key(_sessionIdKey), value: _sessionId);
+      }
       if (_accessToken != null) {
         await _storage.write(key: _key(_accessKey), value: _accessToken);
       }
       await _storage.delete(key: _accessKey);
       await _storage.delete(key: _refreshKey);
       await _storage.delete(key: _customerIdKey);
+      await _storage.delete(key: _sessionIdKey);
     } catch (_) {
       // Keep the in-memory legacy session. A later startup can retry migration.
     }
@@ -339,6 +363,7 @@ class AuthTokenStore {
       _accessKey,
       _refreshKey,
       _customerIdKey,
+      _sessionIdKey,
       _socialCallbackAuthStatesKey,
       _socialCallbackRedirectStatesKey,
     ]) {

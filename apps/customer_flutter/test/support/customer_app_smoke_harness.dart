@@ -33,6 +33,8 @@ Future<void> runCustomerAppSmokeHarness(
   String? expectedFontFamily,
 }) async {
   final effectivePlatformKey = platformKey ?? currentCustomerPlatformKey();
+  final protectsEntireNativeApp =
+      effectivePlatformKey == 'android' || effectivePlatformKey == 'ios';
   final expectsNativeSecurity = mobileNativeScreenSecurityFallbackForPlatform(
     effectivePlatformKey,
   );
@@ -98,12 +100,14 @@ Future<void> runCustomerAppSmokeHarness(
     tester.widget<WebPrivacyGuard>(find.byType(WebPrivacyGuard)).enabled,
     isFalse,
   );
-  expect(
-    tester
-        .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
-        .enabled,
-    effectivePlatformKey == 'ios',
+  final homeSecurityGuard = tester.widget<SensitiveScreenGuard>(
+    find.byType(SensitiveScreenGuard),
   );
+  expect(homeSecurityGuard.enabled, protectsEntireNativeApp);
+  if (effectivePlatformKey == 'android') {
+    expect(homeSecurityGuard.androidFlagSecure, isTrue);
+    expect(homeSecurityGuard.androidProtectRecentAppPreview, isTrue);
+  }
 
   router.go('/privacy');
   await tester.pumpAndSettle();

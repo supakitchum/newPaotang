@@ -1,14 +1,17 @@
 package com.newpaotang.customer_flutter
 
-import android.annotation.TargetApi
 import android.app.Activity
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.view.WindowManager
+import android.widget.Toast
+import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -19,8 +22,13 @@ import java.security.Signature
 import java.security.UnrecoverableKeyException
 import java.security.spec.ECGenParameterSpec
 import java.util.UUID
+import java.util.function.Consumer
+import kotlin.system.exitProcess
 
 class MainActivity : FlutterFragmentActivity() {
+    private val appWideScreenSecurity = true
+    private val appWideScreenSecurityRoute = "app"
+    private val screenSecurityExitDelayMillis = 900L
     private val screenSecurityChannel = "customer_flutter/screen_security"
     private val biometricKeysChannel = "customer_flutter/biometric_keys"
     private val keyAlias: String
@@ -31,9 +39,14 @@ class MainActivity : FlutterFragmentActivity() {
     private var screenSecurityActive = true
     private var flagSecureEnabled = true
     private var protectRecentAppPreviewEnabled = true
-    private var activeScreenSecurityRoute = ""
+    private var activeScreenSecurityRoute = appWideScreenSecurityRoute
     private var screenSecurityMethodChannel: MethodChannel? = null
     private var screenCaptureCallback: Any? = null
+    private var screenRecordingCallback: Consumer<Int>? = null
+    private var lastScreenRecordingState: Int? = null
+    private var activityStarted = false
+    private var captureBlockedMessage = ""
+    private var captureTerminationScheduled = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         window.setFlags(
@@ -48,12 +61,16 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        updateScreenCaptureDetection()
+        activityStarted = true
+        applyScreenSecurityPolicy()
+        updateScreenSecurityDetection()
     }
 
     override fun onStop() {
-        super.onStop()
+        activityStarted = false
         unregisterScreenCaptureCallbackIfNeeded()
+        unregisterScreenRecordingCallbackIfNeeded()
+        super.onStop()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -68,31 +85,48 @@ class MainActivity : FlutterFragmentActivity() {
                     val args = call.arguments as? Map<*, *>
                     screenSecurityActive = true
                     activeScreenSecurityRoute =
-                        stringArg(args, screenSecurityRouteKeys, activeScreenSecurityRoute)
-                    flagSecureEnabled = boolArg(args, "flag_secure", true)
+                        stringArg(args, screenSecurityRouteKeys, currentScreenSecurityRoute())
+                    captureBlockedMessage =
+                        stringArg(args, screenSecurityTitleKeys, captureBlockedMessage)
+                    flagSecureEnabled =
+                        appWideScreenSecurity || boolArg(args, "flag_secure", true)
                     protectRecentAppPreviewEnabled =
-                        boolArg(args, "protect_recent_app_preview", true)
+                        appWideScreenSecurity ||
+                            boolArg(args, "protect_recent_app_preview", true)
                     applyScreenSecurityPolicy()
-                    updateScreenCaptureDetection()
+                    updateScreenSecurityDetection()
                     result.success(null)
                 }
                 "disable" -> {
-                    screenSecurityActive = false
-                    activeScreenSecurityRoute = ""
+                    if (appWideScreenSecurity) {
+                        enforceAppWideScreenSecurity()
+                    } else {
+                        screenSecurityActive = false
+                        activeScreenSecurityRoute = ""
+                    }
                     applyScreenSecurityPolicy()
-                    updateScreenCaptureDetection()
+                    updateScreenSecurityDetection()
                     result.success(null)
                 }
                 "reportSecurityEvent" -> {
                     val args = call.arguments as? Map<*, *>
                     screenSecurityActive = true
                     activeScreenSecurityRoute =
-                        stringArg(args, screenSecurityRouteKeys, activeScreenSecurityRoute)
-                    flagSecureEnabled = boolArg(args, "flag_secure", flagSecureEnabled)
+                        stringArg(args, screenSecurityRouteKeys, currentScreenSecurityRoute())
+                    captureBlockedMessage =
+                        stringArg(args, screenSecurityTitleKeys, captureBlockedMessage)
+                    flagSecureEnabled =
+                        appWideScreenSecurity ||
+                            boolArg(args, "flag_secure", flagSecureEnabled)
                     protectRecentAppPreviewEnabled =
-                        boolArg(args, "protect_recent_app_preview", protectRecentAppPreviewEnabled)
+                        appWideScreenSecurity ||
+                            boolArg(
+                                args,
+                                "protect_recent_app_preview",
+                                protectRecentAppPreviewEnabled
+                            )
                     applyScreenSecurityPolicy()
-                    updateScreenCaptureDetection()
+                    updateScreenSecurityDetection()
                     sendSecurityEvent(
                         screenSecurityMethodChannel,
                         args,
@@ -100,6 +134,7 @@ class MainActivity : FlutterFragmentActivity() {
                     )
                     result.success(null)
                 }
+                "getSecurityState" -> result.success(screenSecurityState())
                 else -> result.notImplemented()
             }
         }
@@ -179,18 +214,42 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun updateScreenSecurityDetection() {
+        updateScreenCaptureDetection()
+        updateScreenRecordingDetection()
+    }
+
     private fun updateScreenCaptureDetection() {
         if (Build.VERSION.SDK_INT < 34) {
             return
         }
-        if (screenSecurityActive && activeScreenSecurityRoute.isNotBlank()) {
+        if (
+            activityStarted &&
+            screenSecurityActive &&
+            currentScreenSecurityRoute().isNotBlank()
+        ) {
             registerScreenCaptureCallbackIfNeeded()
         } else {
             unregisterScreenCaptureCallbackIfNeeded()
         }
     }
 
-    @TargetApi(34)
+    private fun updateScreenRecordingDetection() {
+        if (Build.VERSION.SDK_INT < 35) {
+            return
+        }
+        if (
+            activityStarted &&
+            screenSecurityActive &&
+            currentScreenSecurityRoute().isNotBlank()
+        ) {
+            registerScreenRecordingCallbackIfNeeded()
+        } else {
+            unregisterScreenRecordingCallbackIfNeeded()
+        }
+    }
+
+    @RequiresApi(34)
     private fun registerScreenCaptureCallbackIfNeeded() {
         if (screenCaptureCallback != null) {
             return
@@ -202,45 +261,187 @@ class MainActivity : FlutterFragmentActivity() {
         registerScreenCaptureCallback(mainExecutor, callback)
     }
 
-    @TargetApi(34)
     private fun unregisterScreenCaptureCallbackIfNeeded() {
         if (Build.VERSION.SDK_INT < 34) {
             screenCaptureCallback = null
             return
         }
+        unregisterScreenCaptureCallbackApi34()
+    }
+
+    @RequiresApi(34)
+    private fun unregisterScreenCaptureCallbackApi34() {
         val callback = screenCaptureCallback as? Activity.ScreenCaptureCallback ?: return
         unregisterScreenCaptureCallback(callback)
         screenCaptureCallback = null
     }
 
-    private fun handleScreenCaptured() {
-        val route = activeScreenSecurityRoute.trim()
-        val channel = screenSecurityMethodChannel ?: return
+    @RequiresApi(35)
+    private fun registerScreenRecordingCallbackIfNeeded() {
+        if (screenRecordingCallback != null) {
+            return
+        }
+        val callback = Consumer<Int> { state ->
+            handleScreenRecordingState(state)
+        }
+        screenRecordingCallback = callback
+        val initialState = windowManager.addScreenRecordingCallback(mainExecutor, callback)
+        handleScreenRecordingState(initialState, emitEnded = false)
+    }
+
+    private fun unregisterScreenRecordingCallbackIfNeeded() {
+        if (Build.VERSION.SDK_INT < 35) {
+            screenRecordingCallback = null
+            lastScreenRecordingState = null
+            return
+        }
+        val callback = screenRecordingCallback ?: return
+        windowManager.removeScreenRecordingCallback(callback)
+        screenRecordingCallback = null
+        lastScreenRecordingState = null
+    }
+
+    @RequiresApi(35)
+    private fun handleScreenRecordingState(state: Int, emitEnded: Boolean = true) {
+        val previousState = lastScreenRecordingState
+        if (previousState == state) {
+            return
+        }
+        lastScreenRecordingState = state
+
+        val recordingVisible = state == WindowManager.SCREEN_RECORDING_STATE_VISIBLE
+        if (
+            !recordingVisible &&
+            (!emitEnded || previousState != WindowManager.SCREEN_RECORDING_STATE_VISIBLE)
+        ) {
+            return
+        }
+
+        val route = currentScreenSecurityRoute()
         if (!screenSecurityActive || route.isEmpty()) {
             return
         }
-        sendSecurityEvent(
-            channel,
+        if (recordingVisible) {
+            requestScreenSecurityExit(
+                reason = "screen_recording",
+                source = "android_screen_recording_callback"
+            )
+        } else {
+            sendNativeSecurityEvent(
+                event = "screen_capture_ended",
+                route = route,
+                reason = "screen_recording",
+                source = "android_screen_recording_callback",
+                captureActive = false
+            )
+        }
+    }
+
+    private fun handleScreenCaptured() {
+        val route = currentScreenSecurityRoute()
+        if (!screenSecurityActive || route.isEmpty()) {
+            return
+        }
+        requestScreenSecurityExit(
+            reason = "screenshot",
+            source = "android_screen_capture_callback"
+        )
+    }
+
+    private fun requestScreenSecurityExit(
+        reason: String,
+        source: String
+    ) {
+        if (captureTerminationScheduled) {
+            return
+        }
+        captureTerminationScheduled = true
+        val route = currentScreenSecurityRoute()
+        sendNativeSecurityEvent(
+            event = "screen_security_exit_requested",
+            route = route,
+            reason = reason,
+            source = source,
+            captureActive = true
+        )
+        runOnUiThread {
+            Toast.makeText(
+                applicationContext,
+                captureBlockedMessage.ifBlank {
+                    getString(R.string.screen_capture_not_allowed)
+                },
+                Toast.LENGTH_LONG
+            ).show()
+            Handler(Looper.getMainLooper()).postDelayed(
+                {
+                    finishAndRemoveTask()
+                    exitProcess(0)
+                },
+                screenSecurityExitDelayMillis
+            )
+        }
+    }
+
+    private fun sendNativeSecurityEvent(
+        event: String,
+        route: String,
+        reason: String,
+        source: String,
+        captureActive: Boolean
+    ) {
+        screenSecurityMethodChannel?.invokeMethod(
+            "securityEvent",
             mapOf(
-                "event" to "screenshot_detected",
-                "eventName" to "screenshot_detected",
-                "nativeEvent" to "android_screen_capture_callback",
+                "event" to event,
+                "eventName" to event,
+                "nativeEvent" to source,
                 "route" to route,
                 "currentRoute" to route,
-                "reason" to "screenshot",
-                "reasonText" to "screenshot",
-                "screenCaptureActive" to true,
-                "source" to "android_screen_capture_callback"
-            ),
-            route
+                "reason" to reason,
+                "reasonText" to reason,
+                "screenCaptureActive" to captureActive,
+                "mediaProjectionActive" to captureActive,
+                "source" to source
+            )
+        )
+    }
+
+    private fun screenSecurityState(): Map<String, Any> {
+        val windowFlagSecure =
+            (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+        val recentsProtected =
+            screenSecurityActive &&
+                protectRecentAppPreviewEnabled &&
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || windowFlagSecure)
+        return mapOf(
+            "sdkInt" to Build.VERSION.SDK_INT,
+            "activityStarted" to activityStarted,
+            "appWideProtection" to appWideScreenSecurity,
+            "screenSecurityActive" to screenSecurityActive,
+            "activeRoute" to currentScreenSecurityRoute(),
+            "flagSecureConfigured" to flagSecureEnabled,
+            "protectRecentAppPreviewConfigured" to protectRecentAppPreviewEnabled,
+            "windowFlagSecure" to windowFlagSecure,
+            "recentAppPreviewProtected" to recentsProtected,
+            "screenCaptureCallbackRegistered" to (screenCaptureCallback != null),
+            "screenRecordingCallbackRegistered" to (screenRecordingCallback != null),
+            "screenRecordingDetectionSupported" to (Build.VERSION.SDK_INT >= 35),
+            "captureTerminationScheduled" to captureTerminationScheduled
         )
     }
 
     private fun applyScreenSecurityPolicy() {
+        if (appWideScreenSecurity) {
+            enforceAppWideScreenSecurity()
+        }
         val recentsApiAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
         val secureWindowRequired =
-            screenSecurityActive &&
-                (flagSecureEnabled || (protectRecentAppPreviewEnabled && !recentsApiAvailable))
+            appWideScreenSecurity ||
+                (screenSecurityActive &&
+                    (
+                        flagSecureEnabled ||
+                            (protectRecentAppPreviewEnabled && !recentsApiAvailable)
+                        ))
 
         if (secureWindowRequired) {
             window.setFlags(
@@ -253,9 +454,23 @@ class MainActivity : FlutterFragmentActivity() {
 
         if (recentsApiAvailable) {
             setRecentsScreenshotEnabled(
-                !(screenSecurityActive && protectRecentAppPreviewEnabled)
+                !(appWideScreenSecurity ||
+                    (screenSecurityActive && protectRecentAppPreviewEnabled))
             )
         }
+    }
+
+    private fun enforceAppWideScreenSecurity() {
+        screenSecurityActive = true
+        flagSecureEnabled = true
+        protectRecentAppPreviewEnabled = true
+        if (activeScreenSecurityRoute.isBlank()) {
+            activeScreenSecurityRoute = appWideScreenSecurityRoute
+        }
+    }
+
+    private fun currentScreenSecurityRoute(): String {
+        return activeScreenSecurityRoute.trim().ifEmpty { appWideScreenSecurityRoute }
     }
 
     private fun boolArg(args: Map<*, *>?, key: String, fallback: Boolean): Boolean {
@@ -387,6 +602,17 @@ class MainActivity : FlutterFragmentActivity() {
         "location",
         "href",
         "uri"
+    )
+
+    private val screenSecurityTitleKeys = listOf(
+        "overlay_title",
+        "overlayTitle",
+        "privacy_overlay_title",
+        "privacyOverlayTitle",
+        "screen_capture_title",
+        "screenCaptureTitle",
+        "security_capture_title",
+        "securityCaptureTitle"
     )
 
     private val screenSecurityReasonKeys = listOf(

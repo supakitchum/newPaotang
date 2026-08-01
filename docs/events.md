@@ -331,6 +331,28 @@ Payload:
 
 Realtime payloads should include only the version and identifiers, not large result data.
 
+### reward.risk.updated
+
+Producer: Reward Risk Assessment worker
+
+Consumer: Tenant owner BO and Central superadmin BO
+
+Realtime payload:
+
+```json
+{
+  "tenant_id": "ten_01HX...",
+  "run_id": "rru_01HX...",
+  "game_id": "game_01HX...",
+  "phase": "provisional",
+  "status": "completed",
+  "finding_count": 2,
+  "updated_at": "2026-08-01T12:00:00Z"
+}
+```
+
+The event contains identifiers and aggregate status only. BO clients refetch detail from the authorized HTTP API.
+
 ### maintenance.changed.v1
 
 Producer: Maintenance Module
@@ -467,6 +489,7 @@ reward-check-normal
 reward-summary
 reward-publish
 reward-notification
+reward-risk
 report-build
 webhook-dispatch
 notification

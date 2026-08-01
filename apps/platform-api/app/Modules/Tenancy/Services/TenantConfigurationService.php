@@ -124,7 +124,7 @@ class TenantConfigurationService
                         'favicon_url' => null,
                     ],
                     'site' => [
-                        'display_name' => 'NewPaotang Back Office',
+                        'display_name' => 'Siamblend Back Office',
                     ],
                     'maintenance' => [
                         'active' => false,
@@ -1222,6 +1222,7 @@ class TenantConfigurationService
             'reward_check' => true,
             'custom_theme' => true,
             'custom_domain' => false,
+            'passkey_login' => (bool) config('passkeys.customer.enabled_default', true),
         ];
 
         $rows = PartnerTenantFeatureFlag::query()->forTenant($tenantId)->get(['feature_key', 'enabled']);

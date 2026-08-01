@@ -18,6 +18,7 @@ use App\Console\Commands\PruneLotteryBackgroundAssetSetsCommand;
 use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
+use App\Console\Commands\ProcessCustomerAccountDeletionsCommand;
 use App\Console\Commands\RecoverCustomerNotificationDeliveriesCommand;
 use App\Console\Commands\RecoverStaleLotteryBackgroundZipImportsCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
@@ -42,7 +43,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         apiPrefix: 'api/v1',
         health: null,
-        then: fn () => Route::middleware('api')->group(__DIR__.'/../routes/health.php'),
+        then: function (): void {
+            Route::middleware('api')->group(__DIR__.'/../routes/health.php');
+            Route::middleware('api')->group(__DIR__.'/../routes/well_known.php');
+        },
     )
     ->withCommands([
         PlatformAboutCommand::class,
@@ -58,6 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
         SeedBaseLotteryNumbersCommand::class,
         SeedCustomerContentFixturesCommand::class,
         ProcessSoldSyncCommand::class,
+        ProcessCustomerAccountDeletionsCommand::class,
         ProcessRewardCheckCommand::class,
         CalculateCommissionsCommand::class,
         PrepareK6BaselineCommand::class,

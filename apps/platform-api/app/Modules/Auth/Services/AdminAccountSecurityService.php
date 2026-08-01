@@ -321,7 +321,7 @@ class AdminAccountSecurityService
                     'secret_version' => 1,
                     'enabled_at' => null,
                     'disabled_at' => null,
-                    'metadata_json' => ['issuer' => 'NewPaotang'],
+                    'metadata_json' => ['issuer' => 'Siamblend'],
                     'updated_at' => now(),
                     'created_at' => now(),
                 ],
@@ -983,7 +983,7 @@ class AdminAccountSecurityService
 
     private function otpauthUrl(string $email, string $secret): string
     {
-        $issuer = 'NewPaotang';
+        $issuer = 'Siamblend';
         $label = rawurlencode($issuer.':'.$email);
 
         return 'otpauth://totp/'.$label.'?secret='.$secret.'&issuer='.rawurlencode($issuer).'&digits=6&period=30';

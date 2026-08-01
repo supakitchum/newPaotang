@@ -74,6 +74,7 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantSalePricePermissionsToDefaultRoles($now);
         $this->grantWinnerMenuToPlatformOwner($now);
         $this->grantTenantWinnerMenuToPartnerOwners($now);
+        $this->grantRewardRiskToRestrictedOwnerRoles($now);
         $this->grantTenantMaintenanceToPartnerOwners($now);
         $this->grantTenantAnnouncementsToPartnerOwners($now);
         $this->grantTenantActivitiesToPartnerOwners($now);
@@ -105,6 +106,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'reward.publish' => 'Publish rewards',
                 'reward.correct' => 'Correct published rewards through correction flow',
                 'reward.audit' => 'View reward audit',
+                'reward_risk.view' => 'View reward risk assessments',
+                'reward_risk.manage' => 'Manage reward risk assessment settings',
                 'reward_entry.view' => 'View central reward entry sessions',
                 'reward_entry.submit' => 'Submit independent reward entry results',
                 'reward_entry.resolve' => 'Resolve reward entry submissions into final reward results',
@@ -187,6 +190,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'reward_claim.approve' => 'Approve reward cashout claims',
                 'reward_claim.reject' => 'Reject reward cashout claims',
                 'reward_claim.pay' => 'Pay reward cashout claims',
+                'reward_risk.view' => 'View reward risk assessments',
+                'reward_risk.manage' => 'Manage reward risk assessment settings',
                 'agent.view' => 'View agents',
                 'agent.create' => 'Create agents',
                 'agent.update' => 'Update agents',
@@ -269,6 +274,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'reward_entry' => 'reward_entry.view',
                 'rewards' => 'reward.view',
                 'winners' => 'reward.view',
+                'reward_risk' => 'reward_risk.view',
                 'prize_checking' => 'reward.view',
                 'sale_price_rules' => 'price_rule.view',
                 'reward_payout_rules' => 'price_rule.view',
@@ -309,6 +315,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'tickets' => 'ticket.view',
                 'exchange_reward' => 'reward_claim.view',
                 'winners' => 'reward_claim.view',
+                'reward_risk' => 'reward_risk.view',
                 'agents' => 'agent.view',
                 'agent_quotas' => 'agent.quota.manage',
                 'payment_settings' => 'payment_settings.view',
@@ -413,7 +420,9 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:games' => '/admin/central/games',
             'central:reward_entry' => '/admin/central/reward-entry',
             'central:winners' => '/admin/central/winners',
+            'central:reward_risk' => '/admin/central/reward-risk',
             'tenant:winners' => '/admin/tenant/winners',
+            'tenant:reward_risk' => '/admin/tenant/reward-risk',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
             'central:sale_price_rules' => '/admin/central/sale-price-rules',
@@ -562,6 +571,10 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Result Entry';
         }
 
+        if ($code === 'reward_risk') {
+            return 'Reward Risk Assessment';
+        }
+
         if ($scopeType === 'tenant' && $code === 'affiliate') {
             return 'Affiliate';
         }
@@ -579,6 +592,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:games',
             'central:rewards',
             'central:winners',
+            'central:reward_risk',
             'central:prize_checking',
             'central:sale_price_rules',
             'central:reward_payout_rules',
@@ -616,6 +630,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:tickets',
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
+            'tenant:reward_risk' => 'Store Operations',
             'tenant:customer_notifications' => 'Store Operations',
             'tenant:customer_support' => 'Store Operations',
             'tenant:line_notifications',
@@ -662,6 +677,7 @@ class DefaultRbacMenuSeeder extends Seeder
             $code === 'dashboard_wallet' => 'ri-wallet-3-line',
             $code === 'dashboard_payout' => 'ri-bank-card-line',
             $code === 'dashboard_monitor' => 'ri-pulse-line',
+            $code === 'reward_risk' => 'ri-radar-line',
             str_contains($code, 'stock') || str_contains($code, 'allocation') => 'ri-archive-stack-line',
             str_contains($code, 'image') => 'ri-image-2-line',
             str_contains($code, 'reward') || str_contains($code, 'prize') || str_contains($code, 'winner') => 'ri-trophy-line',
@@ -1446,6 +1462,62 @@ class DefaultRbacMenuSeeder extends Seeder
         }
 
         $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantRewardRiskToRestrictedOwnerRoles(mixed $now): void
+    {
+        foreach ([
+            'central' => ['super_admin'],
+            'tenant' => ['owner', 'owner_partner'],
+        ] as $scopeType => $roleCodes) {
+            $roleQuery = DB::table('roles')
+                ->where('scope_type', $scopeType)
+                ->whereIn('code', $roleCodes);
+            if ($scopeType === 'central') {
+                $roleQuery->whereNull('tenant_id');
+            }
+            $roleIds = $roleQuery->pluck('id')->all();
+            if ($roleIds === []) {
+                continue;
+            }
+
+            $permissionIds = DB::table('permissions')
+                ->where('scope_type', $scopeType)
+                ->whereIn('code', ['reward_risk.view', 'reward_risk.manage'])
+                ->where('status', 'active')
+                ->pluck('id')
+                ->all();
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+            if ($permissionRows !== []) {
+                DB::table('role_permissions')->insertOrIgnore($permissionRows);
+            }
+
+            $menuId = DB::table('admin_menus')
+                ->where('scope_type', $scopeType)
+                ->where('code', 'reward_risk')
+                ->where('status', 'active')
+                ->value('id');
+            if ($menuId !== null) {
+                DB::table('role_menus')->insertOrIgnore(array_map(fn (string $roleId): array => [
+                    'role_id' => $roleId,
+                    'menu_id' => (string) $menuId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], $roleIds));
+            }
+
+            $this->bumpPermissionCacheVersions($roleIds, $now);
+        }
     }
 
     private function grantTenantMaintenanceToPartnerOwners(mixed $now): void

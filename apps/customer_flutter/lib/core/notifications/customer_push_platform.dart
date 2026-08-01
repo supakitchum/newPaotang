@@ -29,9 +29,13 @@ class CustomerPushMessage {
     required this.actionEntityId,
     required this.title,
     required this.body,
+    this.eventKey = '',
+    this.replacementSessionId = '',
   });
 
   final String notificationId;
+  final String eventKey;
+  final String replacementSessionId;
   final String actionKey;
   final String actionEntityId;
   final String title;
@@ -55,6 +59,11 @@ class CustomerPushMessage {
         'notification_id',
         'notificationId',
       ]),
+      eventKey: _pushText(value, const ['event_key', 'eventKey']),
+      replacementSessionId: _pushText(value, const [
+        'replacement_session_id',
+        'replacementSessionId',
+      ]),
       actionKey: _pushText(value, const ['action_key', 'actionKey']),
       actionEntityId: _pushText(value, const [
         'action_entity_id',
@@ -72,6 +81,8 @@ class CustomerPushMessage {
   Map<String, dynamic> toMap() {
     return {
       'notification_id': notificationId,
+      'event_key': eventKey,
+      'replacement_session_id': replacementSessionId,
       'action_key': actionKey,
       'action_entity_id': actionEntityId,
       'title': title,

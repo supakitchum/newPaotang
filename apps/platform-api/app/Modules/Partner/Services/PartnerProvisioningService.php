@@ -26,6 +26,7 @@ use App\Models\RoleMenu;
 use App\Models\RolePermission;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Modules\Rbac\Services\AdminUserInvitationService;
 use App\Shared\Observability\ObservabilityCatalog;
 use App\Shared\Tenancy\TenantHostNormalizer;
 use App\Support\RealtimeUrl;
@@ -59,8 +60,10 @@ class PartnerProvisioningService
     ];
     private const MAX_PERCENT_BASIS_POINTS = 10000;
 
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AdminUserInvitationService $adminInvitations,
+    ) {
     }
 
     /**
@@ -314,6 +317,25 @@ class PartnerProvisioningService
             }
         }
 
+        if ($section === 'owner' && $tenantId !== null) {
+            $scopeId = $this->tenantScopeId((string) $tenantId);
+            $ownerRoleId = $this->stableId('rol', 'tenant:'.$tenantId.':owner');
+            $ownerId = AdminUserRole::query()
+                ->where('scope_id', $scopeId)
+                ->where('role_id', $ownerRoleId)
+                ->value('admin_user_id');
+            $ownerEmail = strtolower(trim((string) ($sectionPayload['owner_email'] ?? '')));
+            $ownerUsername = $this->ownerUsernameFromPayload($sectionPayload);
+
+            if (AdminUser::query()->where('email', $ownerEmail)->when($ownerId !== null, fn ($query) => $query->where('id', '!=', $ownerId))->exists()) {
+                return ['owner_email' => ['The owner email already exists.']];
+            }
+
+            if (AdminUser::query()->where('username', $ownerUsername)->when($ownerId !== null, fn ($query) => $query->where('id', '!=', $ownerId))->exists()) {
+                return ['owner_username' => ['The owner username already exists.']];
+            }
+        }
+
         return [];
     }
 
@@ -537,8 +559,12 @@ class PartnerProvisioningService
             $errors['owner_name'][] = 'The owner_name field must not be blank.';
         }
 
-        if (array_key_exists('owner_password', $payload) && $payload['owner_password'] !== null && $payload['owner_password'] !== '' && strlen((string) $payload['owner_password']) < 8) {
-            $errors['owner_password'][] = 'The owner_password field must be at least 8 characters.';
+        if (array_key_exists('owner_username', $payload)) {
+            $username = $this->normalizeOwnerUsername((string) $payload['owner_username']);
+
+            if (preg_match('/\A[a-z0-9][a-z0-9._-]{2,49}\z/', $username) !== 1) {
+                $errors['owner_username'][] = 'The owner_username must be 3-50 characters using lowercase letters, numbers, dots, underscores, or hyphens.';
+            }
         }
 
         return $errors;
@@ -704,8 +730,12 @@ class PartnerProvisioningService
             $errors['domain_host'][] = 'The domain_host field must be a non-empty host name.';
         }
 
-        if (array_key_exists('owner_password', $payload) && strlen((string) $payload['owner_password']) < 8) {
-            $errors['owner_password'][] = 'The owner_password field must be at least 8 characters.';
+        if (array_key_exists('owner_username', $payload)) {
+            $username = $this->normalizeOwnerUsername((string) $payload['owner_username']);
+
+            if (preg_match('/\A[a-z0-9][a-z0-9._-]{2,49}\z/', $username) !== 1) {
+                $errors['owner_username'][] = 'The owner_username must be 3-50 characters using lowercase letters, numbers, dots, underscores, or hyphens.';
+            }
         }
 
         if (array_key_exists('features', $payload) && ! is_array($payload['features'])) {
@@ -786,6 +816,17 @@ class PartnerProvisioningService
             $errors['domain_host'][] = 'The domain_host field conflicts with an existing tenant domain.';
         }
 
+        $ownerEmail = strtolower(trim((string) $payload['owner_email']));
+        $ownerUsername = $this->ownerUsernameFromPayload($payload);
+        $usernameConflict = AdminUser::query()
+            ->where('username', $ownerUsername)
+            ->where('email', '!=', $ownerEmail)
+            ->exists();
+
+        if ($usernameConflict) {
+            $errors['owner_username'][] = 'The owner username already exists.';
+        }
+
         return $errors;
     }
 
@@ -827,7 +868,15 @@ class PartnerProvisioningService
             );
 
             $this->upsertDomain($domainId, $partnerId, $tenantId, $domainHost, $payload, $now);
-            $this->ensureTenantScopeAndOwner($partnerId, $tenantId, $tenantName, $payload, $now);
+            $ownerInvitation = $this->ensureTenantScopeAndOwner(
+                $partnerId,
+                $tenantId,
+                $tenantName,
+                $payload,
+                $now,
+                true,
+                $actor->adminUser['id'],
+            );
             $this->ensureTenantConfig($tenantId, $tenantName, $domainHost, $payload, $now);
             $this->ensureRuntimeDefaults($partnerId, $tenantId, $payload, $now);
 
@@ -849,7 +898,11 @@ class PartnerProvisioningService
                 userAgent: $request->userAgent(),
             );
 
-            return $this->findPartner($partnerId);
+            $result = $this->findPartner($partnerId);
+
+            return $result === null || $ownerInvitation === null
+                ? $result
+                : array_merge($result, ['invitation' => $ownerInvitation]);
         });
     }
 
@@ -1162,13 +1215,20 @@ class PartnerProvisioningService
         return $dnsReady && $sslReady && $proxyReady && $httpsReady ? 'active' : 'pending_verification';
     }
 
-    private function ensureTenantScopeAndOwner(string $partnerId, string $tenantId, string $tenantName, array $payload, mixed $now): void
-    {
+    private function ensureTenantScopeAndOwner(
+        string $partnerId,
+        string $tenantId,
+        string $tenantName,
+        array $payload,
+        mixed $now,
+        bool $issueInvitation = false,
+        ?string $createdByAdminId = null,
+    ): ?array {
         $scopeId = $this->tenantScopeId($tenantId);
         $ownerRoleId = $this->stableId('rol', 'tenant:'.$tenantId.':owner');
         $ownerEmail = strtolower(trim((string) $payload['owner_email']));
+        $ownerUsername = $this->ownerUsernameFromPayload($payload);
         $ownerName = trim((string) ($payload['owner_name'] ?? 'Owner '.$tenantName));
-        $ownerPassword = array_key_exists('owner_password', $payload) ? (string) $payload['owner_password'] : null;
 
         $this->updateOrInsert(
             'admin_scopes',
@@ -1184,7 +1244,14 @@ class PartnerProvisioningService
         $this->ensureTenantOwnerRole($ownerRoleId, $tenantId, $now);
         $this->ensureTenantCustomerSupportRoles($tenantId, $now);
 
-        $adminUser = AdminUser::query()->where('email', $ownerEmail)->lockForUpdate()->first();
+        $existingOwnerId = AdminUserRole::query()
+            ->where('scope_id', $scopeId)
+            ->where('role_id', $ownerRoleId)
+            ->lockForUpdate()
+            ->value('admin_user_id');
+        $adminUser = $existingOwnerId === null
+            ? AdminUser::query()->where('email', $ownerEmail)->lockForUpdate()->first()
+            : AdminUser::query()->whereKey($existingOwnerId)->lockForUpdate()->first();
         $adminUserId = $adminUser?->id !== null ? (string) $adminUser->id : $this->stableId('adm', $ownerEmail);
 
         if ($adminUser === null) {
@@ -1192,9 +1259,10 @@ class PartnerProvisioningService
                 'id' => $adminUserId,
                 'name' => $ownerName,
                 'email' => $ownerEmail,
+                'username' => $ownerUsername,
                 'phone' => $payload['owner_phone'] ?? null,
-                'password_hash' => Hash::make($ownerPassword ?? Str::random(64)),
-                'status' => $ownerPassword === null ? 'invited' : 'active',
+                'password_hash' => Hash::make(Str::random(64)),
+                'status' => 'invited',
                 'two_factor_enabled' => false,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -1202,14 +1270,11 @@ class PartnerProvisioningService
         } else {
             $updates = [
                 'name' => $ownerName,
+                'email' => $ownerEmail,
+                'username' => $ownerUsername,
+                'phone' => $payload['owner_phone'] ?? $adminUser->phone,
                 'updated_at' => $now,
             ];
-
-            if ($ownerPassword !== null) {
-                $updates['password_hash'] = Hash::make($ownerPassword);
-                $updates['status'] = 'active';
-                $updates += $this->forcedPasswordColumns(true, null);
-            }
 
             AdminUser::query()->where('id', $adminUserId)->update($updates);
         }
@@ -1230,6 +1295,19 @@ class PartnerProvisioningService
                 'version' => 2,
             ],
             $now,
+        );
+
+        $adminUser = AdminUser::query()->find($adminUserId);
+
+        if (! $issueInvitation || $adminUser === null || $adminUser->status !== 'invited') {
+            return null;
+        }
+
+        return $this->adminInvitations->issue(
+            $adminUser,
+            'tenant',
+            $tenantId,
+            $createdByAdminId,
         );
     }
 
@@ -1719,6 +1797,7 @@ class PartnerProvisioningService
             'id' => (string) $owner->id,
             'name' => $owner->name,
             'email' => (string) $owner->email,
+            'username' => (string) $owner->username,
             'phone' => $owner->phone,
             'status' => (string) $owner->status,
             'updated_at' => $owner->updated_at,
@@ -2359,6 +2438,37 @@ class PartnerProvisioningService
     private function normalizeHost(string $host): string
     {
         return TenantHostNormalizer::normalize($host);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function ownerUsernameFromPayload(array $payload): string
+    {
+        $requested = $this->normalizeOwnerUsername((string) ($payload['owner_username'] ?? ''));
+
+        if ($requested !== '') {
+            return $requested;
+        }
+
+        $email = strtolower(trim((string) ($payload['owner_email'] ?? 'owner')));
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+        $local = preg_replace('/[^a-z0-9._-]+/', '.', $local) ?? 'owner';
+        $local = trim($local, '._-');
+        $domainLabel = explode('.', $domain, 2)[0] ?? '';
+        $domainLabel = preg_replace('/[^a-z0-9_-]+/', '.', $domainLabel) ?? '';
+        $domainLabel = trim($domainLabel, '._-');
+
+        if (strlen($local) < 3) {
+            $local .= '.admin';
+        }
+
+        return substr($domainLabel === '' ? $local : $local.'.'.$domainLabel, 0, 50);
+    }
+
+    private function normalizeOwnerUsername(string $username): string
+    {
+        return strtolower(trim($username));
     }
 
     private function limit(mixed $value): int

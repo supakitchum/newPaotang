@@ -28,7 +28,8 @@ class CustomerLineAuthController extends Controller
             return $tenant;
         }
 
-        $result = $this->lineAuth->redirect($tenant, $request->all(), $request);
+        $currentCustomer = $this->optionalCustomerContext($request, (string) $tenant['tenant_id']);
+        $result = $this->lineAuth->redirect($tenant, $request->all(), $request, $currentCustomer);
 
         return $this->result($request, $result);
     }
@@ -82,7 +83,16 @@ class CustomerLineAuthController extends Controller
         return match ($result['error'] ?? null) {
             'validation_failed' => ApiErrorResponse::validationFailed($request, $result['details']['fields'] ?? []),
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
+            'pin_required' => ApiErrorResponse::customerPinRequired($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'otp_required', 'otp_invalid' => ApiErrorResponse::make(
+                $request,
+                422,
+                (string) $result['error'],
+                'Phone OTP verification is required before completing social registration.',
+                $result['details'] ?? [],
+            ),
             'customer_suspended' => ApiErrorResponse::customerSuspended($request, $result['details'] ?? []),
             'line_identity_not_linked' => ApiErrorResponse::make(
                 $request,

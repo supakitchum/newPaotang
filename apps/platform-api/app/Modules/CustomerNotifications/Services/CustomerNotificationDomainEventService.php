@@ -546,6 +546,25 @@ class CustomerNotificationDomainEventService
         );
     }
 
+    public function sessionReplaced(
+        string $tenantId,
+        string $customerId,
+        string $replacementSessionId,
+    ): void {
+        $this->accountSecurityNotification(
+            $tenantId,
+            $customerId,
+            'account.session.replaced',
+            'session-replaced:'.$replacementSessionId,
+            ['th-TH' => 'มีการเข้าสู่ระบบจากอุปกรณ์ใหม่', 'en-US' => 'New device signed in'],
+            [
+                'th-TH' => 'บัญชีนี้เข้าสู่ระบบบนอุปกรณ์ใหม่แล้ว อุปกรณ์เดิมถูกออกจากระบบ',
+                'en-US' => 'This account signed in on a new device. The previous device was signed out.',
+            ],
+            ['replacement_session_id' => $replacementSessionId],
+        );
+    }
+
     public function passwordChanged(string $tenantId, string $customerId, string $transitionId): void
     {
         $this->accountSecurityNotification(
@@ -577,6 +596,28 @@ class CustomerNotificationDomainEventService
             $added
                 ? ['th-TH' => 'บัญชีของคุณเปิดใช้งานการยืนยันด้วยไบโอเมตริกบนอุปกรณ์ใหม่', 'en-US' => 'Biometric verification was enabled on a new device.']
                 : ['th-TH' => 'อุปกรณ์ไบโอเมตริกถูกยกเลิกจากบัญชีของคุณ', 'en-US' => 'A biometric device was revoked from your account.'],
+        );
+    }
+
+    public function passkeyChanged(
+        string $tenantId,
+        string $customerId,
+        string $passkeyId,
+        string $status,
+        string $transitionId,
+    ): void {
+        $added = $status === 'active';
+        $this->accountSecurityNotification(
+            $tenantId,
+            $customerId,
+            $added ? 'account.passkey.added' : 'account.passkey.revoked',
+            'passkey:'.$passkeyId.':'.$status.':'.$transitionId,
+            $added
+                ? ['th-TH' => 'เพิ่ม Passkey แล้ว', 'en-US' => 'Passkey added']
+                : ['th-TH' => 'ยกเลิก Passkey แล้ว', 'en-US' => 'Passkey revoked'],
+            $added
+                ? ['th-TH' => 'บัญชีของคุณเพิ่ม Passkey สำหรับเข้าสู่ระบบแล้ว', 'en-US' => 'A passkey was added to your account for sign-in.']
+                : ['th-TH' => 'Passkey ถูกยกเลิกจากบัญชีของคุณแล้ว', 'en-US' => 'A passkey was revoked from your account.'],
         );
     }
 
@@ -767,6 +808,7 @@ class CustomerNotificationDomainEventService
         string $dedupeKey,
         array $title,
         array $body,
+        array $metadata = [],
     ): void {
         $this->notify(
             $tenantId,
@@ -782,6 +824,7 @@ class CustomerNotificationDomainEventService
                 'subject_id' => $customerId,
             ],
             $dedupeKey,
+            $metadata,
         );
     }
 

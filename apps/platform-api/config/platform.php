@@ -82,6 +82,24 @@ return [
         'state_ttl_seconds' => 600,
         'provider_exchange_enabled' => env('LINE_LOGIN_PROVIDER_EXCHANGE_ENABLED', false),
     ],
+    'social_auth' => [
+        'http_timeout_seconds' => max(1, (int) env('SOCIAL_AUTH_HTTP_TIMEOUT_SECONDS', 10)),
+        'google' => [
+            'authorize_url' => env('GOOGLE_OAUTH_AUTHORIZE_URL', 'https://accounts.google.com/o/oauth2/v2/auth'),
+            'token_url' => env('GOOGLE_OAUTH_TOKEN_URL', 'https://oauth2.googleapis.com/token'),
+            'userinfo_url' => env('GOOGLE_OAUTH_USERINFO_URL', 'https://openidconnect.googleapis.com/v1/userinfo'),
+        ],
+        'apple' => [
+            'authorize_url' => env('APPLE_OAUTH_AUTHORIZE_URL', 'https://appleid.apple.com/auth/authorize'),
+            'token_url' => env('APPLE_OAUTH_TOKEN_URL', 'https://appleid.apple.com/auth/token'),
+            'issuer' => env('APPLE_OAUTH_ISSUER', 'https://appleid.apple.com'),
+        ],
+        'facebook' => [
+            'authorize_url' => env('FACEBOOK_OAUTH_AUTHORIZE_URL', 'https://www.facebook.com/v25.0/dialog/oauth'),
+            'token_url' => env('FACEBOOK_OAUTH_TOKEN_URL', 'https://graph.facebook.com/v25.0/oauth/access_token'),
+            'profile_url' => env('FACEBOOK_OAUTH_PROFILE_URL', 'https://graph.facebook.com/v25.0/me'),
+        ],
+    ],
     'runtime' => [
         'worker_queues' => array_values(array_filter(array_map(
             'trim',

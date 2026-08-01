@@ -1,169 +1,91 @@
-import 'package:customer_flutter/core/navigation/customer_link_launcher.dart';
-import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/features/profile/data/account_deletion_repository.dart';
 import 'package:customer_flutter/features/profile/presentation/account_deletion_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('account deletion keeps one fixed blue header', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      _buildTestApp(
-        MobileBootstrap.fromJson(const {
-          'site': {'display_name': 'Partner Shop'},
-        }),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final hero = find.byKey(const ValueKey('customer-fixed-hero'));
-    expect(hero, findsOneWidget);
-    expect(find.byType(AppBar), findsNothing);
-    final initialTop = tester.getTopLeft(hero).dy;
-
-    await tester.drag(
-      find.byKey(const ValueKey('customer-fixed-content-region')),
-      const Offset(0, -260),
-    );
-    await tester.pumpAndSettle();
-
-    expect(tester.getTopLeft(hero).dy, initialTop);
-  });
-
-  testWidgets('account deletion screen shows configured request link',
-      (tester) async {
-    await tester.pumpWidget(
-      _buildTestApp(
-        MobileBootstrap.fromJson(const {
-          'site': {'display_name': 'Partner Shop'},
-          'legal': {
-            'account_deletion_url':
-                'https://partner.example.com/account/delete',
-          },
-        }),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('คำขอลบบัญชี'), findsOneWidget);
-    expect(find.text('ส่งคำขอลบบัญชี'), findsOneWidget);
-    expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsNothing);
-  });
-
-  testWidgets('account deletion screen explains fallback when link is missing',
-      (tester) async {
-    await tester.pumpWidget(
-      _buildTestApp(
-        MobileBootstrap.fromJson(const {
-          'site': {'display_name': 'Partner Shop'},
-        }),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('คำขอลบบัญชี'), findsOneWidget);
-    expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsOneWidget);
-  });
-
-  testWidgets('account deletion screen shows support email fallback',
-      (tester) async {
-    await tester.pumpWidget(
-      _buildTestApp(
-        MobileBootstrap.fromJson(const {
-          'site': {'display_name': 'Partner Shop'},
-          'support': {'email': 'support@example.test'},
-        }),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsOneWidget);
-    expect(find.text('ติดต่อร้านค้า support@example.test'), findsOneWidget);
-  });
-
-  testWidgets('account deletion screen shows runtime support URL fallback',
-      (tester) async {
-    await tester.pumpWidget(
-      _buildTestApp(
-        MobileBootstrap.fromJson(const {
-          'site': {'display_name': 'Partner Shop'},
-          'supportConfig': {
-            'channels': [
-              {
-                'type': 'supportUrl',
-                'value': 'https://partner.example.com/support',
-              },
-            ],
-          },
-        }),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('ยังไม่ได้ตั้งค่าลิงก์'), findsOneWidget);
-    expect(find.text('ติดต่อร้านค้าผ่านเว็บไซต์'), findsOneWidget);
-  });
-
-  testWidgets('account deletion shows inline error when request link fails', (
+  testWidgets('account deletion explains consequences before continuing', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _buildTestApp(
-        MobileBootstrap.fromJson(const {
-          'site': {'display_name': 'Partner Shop'},
-          'legal': {
-            'account_deletion_url':
-                'https://partner.example.com/account/delete',
-          },
-        }),
-        launcher: const _FailingLinkLauncher(),
+      _app(
+        const AccountDeletionStatus(
+          request: null,
+          eligible: true,
+          blockers: [],
+        ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final requestButton = find.widgetWithText(
-      FilledButton,
-      'ส่งคำขอลบบัญชี',
+    expect(find.text('โปรดอ่านก่อนลบบัญชี'), findsOneWidget);
+    expect(find.textContaining('90 วัน'), findsOneWidget);
+    expect(find.text('บัญชีพร้อมส่งคำขอลบ'), findsOneWidget);
+    expect(find.text('ดำเนินการต่อ'), findsOneWidget);
+  });
+
+  testWidgets('account deletion lists outstanding blockers', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const AccountDeletionStatus(
+          request: null,
+          eligible: false,
+          blockers: [
+            AccountDeletionBlocker(
+              code: 'wallet_balance',
+              routeKey: 'wallet',
+              details: {'balance_amount': 100},
+            ),
+          ],
+        ),
+      ),
     );
-    await tester.ensureVisible(requestButton);
-    await tester.pumpAndSettle();
-    await tester.tap(requestButton);
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('เปิดลิงก์คำขอไม่สำเร็จ'),
-      findsOneWidget,
+    expect(find.textContaining('Wallet balance remains'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'ดำเนินการต่อ'),
     );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('pending request shows countdown and cancellation action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        AccountDeletionStatus(
+          eligible: true,
+          blockers: const [],
+          request: AccountDeletionRequest(
+            id: 'cad_test',
+            status: 'pending',
+            reasonCode: 'privacy',
+            scheduledFor: DateTime.now().add(const Duration(days: 7)),
+            remainingSeconds: 604800,
+            blockers: const [],
+            readOnly: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('กำลังรอลบบัญชี'), findsOneWidget);
+    expect(find.textContaining('7d'), findsOneWidget);
+    expect(find.text('ยกเลิกการลบบัญชี'), findsOneWidget);
   });
 }
 
-Widget _buildTestApp(
-  MobileBootstrap bootstrap, {
-  CustomerLinkLauncher? launcher,
-}) {
+Widget _app(AccountDeletionStatus status) {
   return ProviderScope(
     overrides: [
-      mobileBootstrapProvider.overrideWith((ref) async => bootstrap),
-      if (launcher != null)
-        customerLinkLauncherProvider.overrideWithValue(launcher),
+      accountDeletionStatusProvider.overrideWith((ref) async => status),
     ],
-    child: const MaterialApp(home: AccountDeletionScreen()),
+    child: const MaterialApp(
+      locale: Locale('th'),
+      home: AccountDeletionScreen(),
+    ),
   );
-}
-
-class _FailingLinkLauncher extends CustomerLinkLauncher {
-  const _FailingLinkLauncher();
-
-  @override
-  Future<bool> openExternal(
-    Uri uri, {
-    bool preferSameWindowInLine = false,
-  }) async {
-    throw StateError('launcher unavailable');
-  }
 }

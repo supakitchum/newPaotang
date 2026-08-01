@@ -22,10 +22,9 @@ class AdminUserTest extends TestCase
         $created = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/admin-users', [
                 'name' => 'Central Managed User',
+                'username' => 'central.managed',
                 'email' => 'managed-central@example.test',
                 'phone' => '020000001',
-                'password' => 'temporary-secret',
-                'status' => 'active',
                 'role_ids' => [$supportRoleId],
             ], [
                 'X-Admin-Scope' => 'central',
@@ -33,13 +32,39 @@ class AdminUserTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('tenant_id', null)
+            ->assertJsonPath('username', 'central.managed')
             ->assertJsonPath('email', 'managed-central@example.test')
+            ->assertJsonPath('status', 'invited')
             ->assertJsonPath('roles.0.id', $supportRoleId)
             ->assertJsonPath('permissions.0', 'dashboard.view')
             ->json();
 
-        $this->assertSafeAdminUserResponse($created);
-        $this->assertTrue(Hash::check('temporary-secret', (string) DB::table('admin_users')->where('id', $created['id'])->value('password_hash')));
+        $token = $this->invitationToken($created);
+        $this->assertNotSame('', $token);
+        $this->getJson('/api/v1/auth/admin/invitations/'.rawurlencode($token))
+            ->assertOk()
+            ->assertJsonPath('invitation.username', 'central.managed')
+            ->assertJsonPath('invitation.scope_type', 'central');
+        $this->postJson('/api/v1/auth/admin/invitations/'.rawurlencode($token).'/accept', [
+            'password' => 'accepted-secret',
+            'password_confirmation' => 'accepted-secret',
+        ], ['Idempotency-Key' => 'central-invitation-accept'])
+            ->assertOk()
+            ->assertJsonPath('status', 'accepted')
+            ->assertJsonPath('user.username', 'central.managed');
+        $this->postJson('/api/v1/auth/admin/invitations/'.rawurlencode($token).'/accept', [
+            'password' => 'accepted-secret',
+            'password_confirmation' => 'accepted-secret',
+        ], ['Idempotency-Key' => 'central-invitation-reuse'])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'admin_invitation_used');
+        $this->assertTrue(Hash::check('accepted-secret', (string) DB::table('admin_users')->where('id', $created['id'])->value('password_hash')));
+        $this->assertDatabaseHas('admin_users', ['id' => $created['id'], 'status' => 'active']);
+        $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'central.managed',
+            'password' => 'accepted-secret',
+            'scope' => 'central',
+        ])->assertOk();
 
         $list = $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/admin-users', ['X-Admin-Scope' => 'central'])
@@ -48,6 +73,7 @@ class AdminUserTest extends TestCase
             ->json('data');
 
         $this->assertContains('managed-central@example.test', array_column($list, 'email'));
+        $this->assertSafeAdminUserResponse($list[0]);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/admin-users/'.$created['id'], ['X-Admin-Scope' => 'central'])
@@ -178,10 +204,10 @@ class AdminUserTest extends TestCase
         $created = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/tenant/admin-users', [
                 'name' => 'Tenant Managed User',
+                'username' => 'tenant.managed',
                 'email' => 'managed-tenant@example.test',
                 'phone' => '020000002',
                 'role_ids' => [$supportRoleId],
-                'send_invitation' => false,
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_auth',
@@ -189,12 +215,30 @@ class AdminUserTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('tenant_id', 'ten_auth')
+            ->assertJsonPath('username', 'tenant.managed')
             ->assertJsonPath('email', 'managed-tenant@example.test')
             ->assertJsonPath('status', 'invited')
             ->assertJsonPath('roles.0.id', $supportRoleId)
             ->json();
 
-        $this->assertSafeAdminUserResponse($created);
+        $firstToken = $this->invitationToken($created);
+        $regenerated = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/tenant/admin-users/'.$created['id'].'/invitation', [], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+                'Idempotency-Key' => 'tenant-user-invitation',
+            ])
+            ->assertOk()
+            ->assertJsonPath('username', 'tenant.managed')
+            ->json();
+        $secondToken = $this->invitationToken($regenerated);
+        $this->assertNotSame($firstToken, $secondToken);
+        $this->getJson('/api/v1/auth/admin/invitations/'.rawurlencode($firstToken))->assertNotFound();
+        $this->postJson('/api/v1/auth/admin/invitations/'.rawurlencode($secondToken).'/accept', [
+            'password' => 'tenant-accepted-secret',
+            'password_confirmation' => 'tenant-accepted-secret',
+        ], ['Idempotency-Key' => 'tenant-invitation-accept'])
+            ->assertOk();
 
         $list = $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/tenant/admin-users', [
@@ -218,7 +262,6 @@ class AdminUserTest extends TestCase
         $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/tenant/admin-users/'.$created['id'], [
                 'name' => 'Tenant Managed User Updated',
-                'status' => 'active',
                 'role_ids' => [$ordersRoleId],
             ], [
                 'X-Admin-Scope' => 'tenant',
@@ -257,6 +300,51 @@ class AdminUserTest extends TestCase
             ->getJson('/api/v1/admin/central/admin-users', ['X-Admin-Scope' => 'central'])
             ->assertForbidden()
             ->assertJsonPath('error.code', 'permission_denied');
+    }
+
+    public function test_admin_user_creation_rejects_duplicate_username_and_direct_password_activation(): void
+    {
+        $login = $this->createCentralManagerSession(['admin_user.manage']);
+        $roleId = $this->insertRole('central', null, 'central_support', 'Central Support', ['dashboard.view']);
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/admin-users', [
+                'name' => 'First Username',
+                'username' => 'shared.username',
+                'email' => 'first-username@example.test',
+                'role_ids' => [$roleId],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'first-username-create',
+            ])
+            ->assertCreated();
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/admin-users', [
+                'name' => 'Duplicate Username',
+                'username' => 'shared.username',
+                'email' => 'second-username@example.test',
+                'role_ids' => [$roleId],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'duplicate-username-create',
+            ])
+            ->assertConflict();
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/admin-users', [
+                'name' => 'Direct Password',
+                'username' => 'direct.password',
+                'email' => 'direct-password@example.test',
+                'password' => 'temporary-secret',
+                'status' => 'active',
+                'role_ids' => [$roleId],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'direct-password-create',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
     }
 
     public function test_tenant_admin_cannot_access_or_mutate_another_tenant_admin_user(): void
@@ -519,5 +607,17 @@ class AdminUserTest extends TestCase
         $this->assertStringNotContainsString('temporary-secret', $json);
         $this->assertStringNotContainsString('token', $json);
         $this->assertStringNotContainsString('invitation', $json);
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private function invitationToken(array $response): string
+    {
+        $path = (string) ($response['invitation']['path'] ?? '');
+        $query = parse_url($path, PHP_URL_QUERY);
+        parse_str(is_string($query) ? $query : '', $parameters);
+
+        return (string) ($parameters['token'] ?? '');
     }
 }

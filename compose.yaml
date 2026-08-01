@@ -23,6 +23,8 @@ services:
       APP_ENV: local
       APP_KEY: base64:bmV3cGFvdGFuZy1sb2NhbC1kZXYta2V5LTEyMzQ1Njc=
       APP_DEBUG: "true"
+      PLATFORM_BACK_OFFICE_URL: ${PLATFORM_BACK_OFFICE_URL:-http://localhost:3100}
+      ADMIN_INVITATION_TTL_HOURS: ${ADMIN_INVITATION_TTL_HOURS:-168}
       APP_TIMEZONE: Asia/Bangkok
       TZ: Asia/Bangkok
       DB_CONNECTION: pgsql
@@ -74,7 +76,7 @@ services:
       dockerfile: Dockerfile
       target: development
     working_dir: /var/www/html
-    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --queue=${PLATFORM_WORKER_QUEUES:-partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default}
+    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --queue=${PLATFORM_WORKER_QUEUES:-partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,reward-risk,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default}
     environment:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local

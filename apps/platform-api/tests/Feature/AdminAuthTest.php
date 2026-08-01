@@ -367,7 +367,8 @@ class AdminAuthTest extends TestCase
             ->assertOk()
             ->assertJsonPath('mode', 'central')
             ->assertJsonPath('partner', null)
-            ->assertJsonPath('tenant', null);
+            ->assertJsonPath('tenant', null)
+            ->assertJsonPath('site.display_name', 'Siamblend Back Office');
     }
 
     public function test_partner_bo_and_storefront_resolve_idn_domains_from_punycode_hosts(): void

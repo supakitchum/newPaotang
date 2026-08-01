@@ -1,4 +1,4 @@
-# NewPaotang Back Office Template Asset Notice
+# Siamblend Back Office Template Asset Notice
 
 This directory contains selected compiled assets copied from:
 

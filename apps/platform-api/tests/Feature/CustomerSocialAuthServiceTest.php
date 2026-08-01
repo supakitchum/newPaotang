@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Auth\Http\Controllers\CustomerSocialAuthController;
+use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Auth\Services\CustomerRealtimeAuthService;
 use App\Modules\Auth\Services\TenantSocialAuthService;
 use App\Modules\Partner\Services\PartnerProvisioningService;
@@ -12,6 +13,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class CustomerSocialAuthServiceTest extends TestCase
@@ -62,6 +65,214 @@ class CustomerSocialAuthServiceTest extends TestCase
         ]);
     }
 
+    public function test_google_callback_exchange_creates_social_link_handoff(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        Http::fake([
+            'https://oauth2.googleapis.com/token' => Http::response([
+                'access_token' => 'google-access-token',
+                'token_type' => 'Bearer',
+            ]),
+            'https://openidconnect.googleapis.com/v1/userinfo' => Http::response([
+                'sub' => 'google-user-1',
+                'name' => 'Google Customer',
+                'email' => 'google@example.test',
+                'picture' => 'https://images.example.test/google-user-1.jpg',
+            ]),
+        ]);
+
+        $login = $this->loginResponse('google', 'social-store.test');
+        parse_str((string) parse_url((string) ($login['url'] ?? ''), PHP_URL_QUERY), $loginQuery);
+        $response = $this->callbackResponse('google', 'social-store.test', [
+            'code' => 'google-code',
+            'state' => $loginQuery['state'] ?? '',
+        ]);
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $this->assertTrue((bool) ($payload['social_link_required'] ?? false));
+        $this->assertSame('google', $payload['provider'] ?? null);
+        $this->assertSame('Google Customer', $payload['profile']['display_name'] ?? null);
+        $this->assertSame('google@example.test', $payload['profile']['email'] ?? null);
+        $this->assertNotEmpty($payload['link_token'] ?? null);
+    }
+
+    public function test_social_onboarding_rejects_invalid_otp_without_creating_customer(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedSocialLinkToken(
+            provider: 'google',
+            providerUserId: 'google-new-customer-invalid',
+            plainToken: 'social-link-invalid-otp',
+        );
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/social/google/link-phone', [
+            'link_token' => 'social-link-invalid-otp',
+            'phone' => '0812345678',
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'password' => 'secret1234',
+            'password_confirmation' => 'secret1234',
+            'otp_verification_token' => 'invalid-social-otp',
+            'accepted_terms' => true,
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'otp_invalid');
+
+        $this->assertDatabaseMissing('customers', [
+            'tenant_id' => 'ten_social',
+            'phone' => '0812345678',
+        ]);
+        $this->assertDatabaseHas('customer_line_link_tokens', [
+            'tenant_id' => 'ten_social',
+            'token_hash' => hash('sha256', 'social-link-invalid-otp'),
+            'status' => 'pending',
+            'consumed_at' => null,
+        ]);
+    }
+
+    public function test_social_onboarding_requires_verified_phone_and_complete_member_profile(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedSocialLinkToken(
+            provider: 'google',
+            providerUserId: 'google-new-customer',
+            plainToken: 'social-link-valid',
+        );
+        $this->seedVerifiedOtp('0812345678', 'verified-social-otp');
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/social/google/link-phone', [
+            'link_token' => 'social-link-valid',
+            'phone' => '0812345678',
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'password' => 'secret1234',
+            'password_confirmation' => 'secret1234',
+            'otp_verification_token' => 'verified-social-otp',
+            'accepted_terms' => true,
+        ])->assertOk()
+            ->assertJsonPath('session_activation_required', true)
+            ->assertJsonPath('user.first_name', 'Ada')
+            ->assertJsonPath('user.last_name', 'Lovelace');
+
+        $customer = DB::table('customers')
+            ->where('tenant_id', 'ten_social')
+            ->where('phone', '0812345678')
+            ->first();
+
+        $this->assertNotNull($customer);
+        $this->assertSame('Ada', $customer->first_name);
+        $this->assertSame('Lovelace', $customer->last_name);
+        $this->assertDatabaseHas('customer_social_identities', [
+            'tenant_id' => 'ten_social',
+            'customer_id' => $customer->id,
+            'provider' => 'google',
+            'provider_user_id' => 'google-new-customer',
+        ]);
+        $this->assertDatabaseHas('customer_line_link_tokens', [
+            'tenant_id' => 'ten_social',
+            'token_hash' => hash('sha256', 'social-link-valid'),
+            'status' => 'consumed',
+        ]);
+        $this->assertNotNull(
+            DB::table('otp_verifications')
+                ->where('verification_token_hash', hash('sha256', 'verified-social-otp'))
+                ->value('consumed_at'),
+        );
+    }
+
+    public function test_line_social_onboarding_uses_the_same_verified_member_contract(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedSocialLinkToken(
+            provider: 'line',
+            providerUserId: 'line-new-customer',
+            plainToken: 'line-social-link-valid',
+        );
+        $this->seedVerifiedOtp('0823456789', 'verified-line-social-otp');
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/social/line/link-phone', [
+            'link_token' => 'line-social-link-valid',
+            'phone' => '0823456789',
+            'first_name' => 'Grace',
+            'last_name' => 'Hopper',
+            'password' => 'secret1234',
+            'password_confirmation' => 'secret1234',
+            'otp_verification_token' => 'verified-line-social-otp',
+            'accepted_terms' => true,
+        ])->assertOk()
+            ->assertJsonPath('user.first_name', 'Grace')
+            ->assertJsonPath('user.last_name', 'Hopper');
+
+        $customerId = DB::table('customers')
+            ->where('tenant_id', 'ten_social')
+            ->where('phone', '0823456789')
+            ->value('id');
+
+        $this->assertNotNull($customerId);
+        $this->assertDatabaseHas('customer_line_identities', [
+            'tenant_id' => 'ten_social',
+            'customer_id' => $customerId,
+            'line_user_id' => 'line-new-customer',
+        ]);
+    }
+
+    public function test_customer_can_list_and_unlink_own_social_accounts(): void
+    {
+        $this->seedTenant('social-store.test');
+        DB::table('customers')->insert([
+            'id' => 'cus_social_accounts',
+            'tenant_id' => 'ten_social',
+            'phone' => '0899999999',
+            'name' => 'Social Account Customer',
+            'pin_hash' => Hash::make('123456'),
+            'pin_set_at' => now(),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('customer_social_identities')->insert([
+            'id' => 'csi_social_accounts_google',
+            'tenant_id' => 'ten_social',
+            'customer_id' => 'cus_social_accounts',
+            'provider' => 'google',
+            'provider_user_id' => 'google-linked-customer',
+            'email' => 'linked@example.test',
+            'display_name' => 'Linked Google',
+            'avatar_url' => null,
+            'linked_at' => now(),
+            'last_login_at' => now(),
+            'metadata_json' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $session = app(CustomerAuthService::class)->issueSession(
+            'ten_social',
+            'cus_social_accounts',
+            pinVerifiedAt: now()->toISOString(),
+        );
+        $headers = ['Authorization' => 'Bearer '.$session['token']];
+
+        $this->withHeaders($headers)
+            ->getJson('http://social-store.test/api/v1/customer/auth/social/accounts')
+            ->assertOk()
+            ->assertJsonPath('accounts.1.provider', 'google')
+            ->assertJsonPath('accounts.1.linked', true)
+            ->assertJsonPath('accounts.1.display_name', 'Linked Google');
+
+        $this->withHeaders($headers)
+            ->deleteJson('http://social-store.test/api/v1/customer/auth/social/accounts/google')
+            ->assertOk()
+            ->assertJsonPath('accounts.1.provider', 'google')
+            ->assertJsonPath('accounts.1.linked', false);
+
+        $this->assertDatabaseMissing('customer_social_identities', [
+            'tenant_id' => 'ten_social',
+            'customer_id' => 'cus_social_accounts',
+            'provider' => 'google',
+        ]);
+    }
+
     public function test_apple_login_uses_storefront_callback_url_with_query_response_mode(): void
     {
         $this->seedTenant('social-store.example.com');
@@ -72,6 +283,7 @@ class CustomerSocialAuthServiceTest extends TestCase
 
         $this->assertSame('https://social-store.example.com/social/apple/callback', $query['redirect_uri'] ?? null);
         $this->assertSame('query', $query['response_mode'] ?? null);
+        $this->assertArrayNotHasKey('scope', $query);
         $this->assertStringNotContainsString('/api/v1/', (string) ($query['redirect_uri'] ?? ''));
         $this->assertDatabaseHas('customer_external_auth_states', [
             'tenant_id' => 'ten_social',
@@ -100,6 +312,100 @@ class CustomerSocialAuthServiceTest extends TestCase
         ]);
     }
 
+    public function test_apple_callback_exchange_validates_claims_and_creates_social_link_handoff(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('apple');
+        $privateKey = openssl_pkey_new([
+            'private_key_type' => OPENSSL_KEYTYPE_EC,
+            'curve_name' => 'prime256v1',
+        ]);
+        $this->assertNotFalse($privateKey);
+        $exported = openssl_pkey_export($privateKey, $privateKeyPem);
+        $this->assertTrue($exported);
+        DB::table('tenant_social_auth_providers')
+            ->where('tenant_id', 'ten_social')
+            ->where('provider', 'apple')
+            ->update(['private_key_encrypted' => Crypt::encryptString($privateKeyPem)]);
+        Http::fake([
+            'https://appleid.apple.com/auth/token' => Http::response([
+                'access_token' => 'apple-access-token',
+                'token_type' => 'Bearer',
+                'id_token' => $this->testJwt([
+                    'sub' => 'apple-user-1',
+                    'iss' => 'https://appleid.apple.com',
+                    'aud' => 'apple-client-id',
+                    'exp' => time() + 600,
+                    'email' => 'apple@example.test',
+                ]),
+            ]),
+        ]);
+
+        $login = $this->loginResponse('apple', 'social-store.test');
+        parse_str((string) parse_url((string) ($login['url'] ?? ''), PHP_URL_QUERY), $loginQuery);
+        $response = $this->callbackResponse('apple', 'social-store.test', [
+            'code' => 'apple-code',
+            'state' => $loginQuery['state'] ?? '',
+        ]);
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $this->assertTrue((bool) ($payload['social_link_required'] ?? false));
+        $this->assertSame('apple', $payload['provider'] ?? null);
+        $this->assertSame('apple@example.test', $payload['profile']['email'] ?? null);
+        $this->assertNotEmpty($payload['link_token'] ?? null);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://appleid.apple.com/auth/token'
+            && $request['client_id'] === 'apple-client-id'
+            && $request['code'] === 'apple-code'
+            && count(explode('.', (string) $request['client_secret'])) === 3);
+    }
+
+    public function test_facebook_login_and_callback_exchange_use_tenant_credentials(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('facebook');
+        Http::fake([
+            'https://graph.facebook.com/v25.0/oauth/access_token' => Http::response([
+                'access_token' => 'facebook-access-token',
+                'token_type' => 'bearer',
+            ]),
+            'https://graph.facebook.com/v25.0/me*' => Http::response([
+                'id' => 'facebook-user-1',
+                'name' => 'Facebook Customer',
+                'email' => 'facebook@example.test',
+                'picture' => ['data' => ['url' => 'https://images.example.test/facebook-user-1.jpg']],
+            ]),
+        ]);
+
+        $login = $this->loginResponse('facebook', 'social-store.test');
+        parse_str((string) parse_url((string) ($login['url'] ?? ''), PHP_URL_QUERY), $loginQuery);
+
+        $this->assertSame('facebook-client-id', $loginQuery['client_id'] ?? null);
+        $this->assertSame('http://social-store.test/social/facebook/callback', $loginQuery['redirect_uri'] ?? null);
+        $this->assertSame('public_profile,email', $loginQuery['scope'] ?? null);
+
+        $response = $this->callbackResponse('facebook', 'social-store.test', [
+            'code' => 'facebook-code',
+            'state' => $loginQuery['state'] ?? '',
+        ]);
+
+        $this->assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertTrue((bool) ($payload['social_link_required'] ?? false));
+        $this->assertSame('facebook', $payload['provider'] ?? null);
+        $this->assertSame('Facebook Customer', $payload['profile']['display_name'] ?? null);
+        $this->assertSame('facebook@example.test', $payload['profile']['email'] ?? null);
+        $this->assertNotEmpty($payload['link_token'] ?? null);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://graph.facebook.com/v25.0/oauth/access_token'
+            && $request['client_id'] === 'facebook-client-id'
+            && $request['client_secret'] === 'facebook-secret'
+            && $request['code'] === 'facebook-code');
+        Http::assertSent(fn ($request): bool => str_starts_with($request->url(), 'https://graph.facebook.com/v25.0/me')
+            && $request['fields'] === 'id,name,email,picture.width(256).height(256)'
+            && $request['appsecret_proof'] === hash_hmac('sha256', 'facebook-access-token', 'facebook-secret'));
+    }
+
     public function test_tenant_social_settings_return_storefront_callback_urls(): void
     {
         $this->seedTenant('social-store.test');
@@ -110,20 +416,23 @@ class CustomerSocialAuthServiceTest extends TestCase
         $this->assertSame('http://social-store.test/line/callback', $callbacks['line'] ?? null);
         $this->assertSame('http://social-store.test/social/google/callback', $callbacks['google'] ?? null);
         $this->assertSame('http://social-store.test/social/apple/callback', $callbacks['apple'] ?? null);
+        $this->assertSame('http://social-store.test/social/facebook/callback', $callbacks['facebook'] ?? null);
     }
 
     public function test_mobile_bootstrap_social_flags_follow_enabled_provider_configuration(): void
     {
         $this->seedTenant('social-store.test');
         $this->seedProvider('google');
+        $this->seedProvider('facebook');
 
         $response = $this->getJson('http://social-store.test/api/v1/public/mobile/bootstrap')
             ->assertOk()
             ->json('data.mobile');
 
-        $this->assertSame(['google'], array_column($response['auth_providers'] ?? [], 'provider'));
+        $this->assertSame(['google', 'facebook'], array_column($response['auth_providers'] ?? [], 'provider'));
         $this->assertTrue((bool) ($response['feature_flags']['social_login_google'] ?? false));
         $this->assertFalse((bool) ($response['feature_flags']['social_login_apple'] ?? true));
+        $this->assertTrue((bool) ($response['feature_flags']['social_login_facebook'] ?? false));
     }
 
     public function test_mobile_bootstrap_merges_tenant_feature_flags_without_overriding_social_provider_config(): void
@@ -174,6 +483,7 @@ class CustomerSocialAuthServiceTest extends TestCase
         $this->assertTrue((bool) ($flags['custom_mobile_gate'] ?? false));
         $this->assertTrue((bool) ($flags['social_login_google'] ?? false));
         $this->assertFalse((bool) ($flags['social_login_apple'] ?? true));
+        $this->assertFalse((bool) ($flags['social_login_facebook'] ?? true));
     }
 
     public function test_mobile_bootstrap_marks_financial_identity_routes_as_sensitive(): void
@@ -203,6 +513,7 @@ class CustomerSocialAuthServiceTest extends TestCase
             '/profile',
             '/profile/auto-reward',
             '/profile/biometrics',
+            '/profile/social-accounts',
             '/profile/line-notifications',
             '/profile/reward-bank',
             '/purchase-history',
@@ -350,6 +661,36 @@ class CustomerSocialAuthServiceTest extends TestCase
         $this->assertSame('#1F2937', $metadata['appearance']['button_foreground_color'] ?? null);
     }
 
+    public function test_facebook_provider_settings_encrypt_tenant_app_credentials(): void
+    {
+        $this->seedTenant('social-store.test');
+
+        $result = app(TenantSocialAuthService::class)->update('ten_social', 'facebook', [
+            'status' => 'active',
+            'client_id' => 'tenant-facebook-app-id',
+            'client_secret' => 'tenant-facebook-app-secret',
+            'display_label' => 'Continue with Facebook',
+        ]);
+
+        $this->assertArrayNotHasKey('error', $result);
+        $record = DB::table('tenant_social_auth_providers')
+            ->where('tenant_id', 'ten_social')
+            ->where('provider', 'facebook')
+            ->first();
+        $provider = collect($result['resource']['data']['providers'] ?? [])
+            ->firstWhere('provider', 'facebook');
+        $metadata = json_decode((string) ($record?->metadata_json ?? '{}'), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertNotSame('tenant-facebook-app-id', $record?->client_id_encrypted);
+        $this->assertNotSame('tenant-facebook-app-secret', $record?->client_secret_encrypted);
+        $this->assertSame('tenant-facebook-app-id', Crypt::decryptString((string) $record?->client_id_encrypted));
+        $this->assertSame('tenant-facebook-app-secret', Crypt::decryptString((string) $record?->client_secret_encrypted));
+        $this->assertSame(['public_profile', 'email'], $metadata['scopes'] ?? null);
+        $this->assertSame('Continue with Facebook', $provider['label'] ?? null);
+        $this->assertTrue((bool) ($provider['ready'] ?? false));
+        $this->assertArrayNotHasKey('client_secret', $provider);
+    }
+
     public function test_line_customer_appearance_can_be_saved_without_owning_line_credentials(): void
     {
         $this->seedTenant('social-store.test');
@@ -402,6 +743,35 @@ class CustomerSocialAuthServiceTest extends TestCase
         return json_decode((string) $result->getContent(), true, 512, JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * @param array<string, mixed> $query
+     */
+    private function callbackResponse(string $provider, string $host, array $query): \Illuminate\Http\JsonResponse
+    {
+        $request = Request::create(
+            '/api/v1/customer/auth/social/'.$provider.'/callback',
+            'GET',
+            $query,
+            [],
+            [],
+            ['HTTP_HOST' => $host],
+        );
+
+        return app(CustomerSocialAuthController::class)->callback($request, $provider);
+    }
+
+    /**
+     * @param array<string, mixed> $claims
+     */
+    private function testJwt(array $claims): string
+    {
+        $encode = static fn (array $value): string => rtrim(strtr(base64_encode(
+            json_encode($value, JSON_THROW_ON_ERROR),
+        ), '+/', '-_'), '=');
+
+        return $encode(['alg' => 'none']).'.'.$encode($claims).'.test-signature';
+    }
+
     private function seedTenant(string $host): void
     {
         DB::table('partners')->insert([
@@ -447,12 +817,75 @@ class CustomerSocialAuthServiceTest extends TestCase
             'provider' => $provider,
             'status' => 'active',
             'client_id_encrypted' => Crypt::encryptString($provider.'-client-id'),
-            'client_secret_encrypted' => $provider === 'google' ? Crypt::encryptString('google-secret') : null,
+            'client_secret_encrypted' => match ($provider) {
+                'google' => Crypt::encryptString('google-secret'),
+                'facebook' => Crypt::encryptString('facebook-secret'),
+                default => null,
+            },
             'team_id_encrypted' => $provider === 'apple' ? Crypt::encryptString('TEAMID') : null,
             'key_id_encrypted' => $provider === 'apple' ? Crypt::encryptString('KEYID') : null,
             'private_key_encrypted' => $provider === 'apple' ? Crypt::encryptString('private-key') : null,
             'redirect_uri' => null,
             'metadata_json' => json_encode(['test' => true], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function seedSocialLinkToken(
+        string $provider,
+        string $providerUserId,
+        string $plainToken,
+    ): void {
+        DB::table('customer_line_link_tokens')->insert([
+            'id' => 'clt_'.substr(hash('sha256', $plainToken), 0, 20),
+            'tenant_id' => 'ten_social',
+            'token_hash' => hash('sha256', $plainToken),
+            'line_user_id' => $provider === 'line'
+                ? $providerUserId
+                : $provider.':'.$providerUserId,
+            'display_name' => 'New Social Customer',
+            'picture_url' => null,
+            'friend_flag' => false,
+            'status' => 'pending',
+            'expires_at' => now()->addMinutes(15),
+            'consumed_at' => null,
+            'metadata_json' => json_encode([
+                'provider' => $provider,
+                'profile' => [
+                    'id' => $providerUserId,
+                    'display_name' => 'New Social Customer',
+                    'email' => 'new-social@example.test',
+                    'avatar_url' => null,
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function seedVerifiedOtp(string $phone, string $plainToken): void
+    {
+        DB::table('otp_verifications')->insert([
+            'id' => 'otp_'.substr(hash('sha256', $plainToken), 0, 20),
+            'tenant_id' => 'ten_social',
+            'provider_id' => null,
+            'provider' => 'test',
+            'purpose' => 'register',
+            'phone' => $phone,
+            'phone_normalized' => $phone,
+            'otp_hash' => 'not-used-after-verification',
+            'verification_token_hash' => hash('sha256', $plainToken),
+            'status' => 'verified',
+            'attempts' => 1,
+            'max_attempts' => 5,
+            'expires_at' => now()->addMinutes(10),
+            'cooldown_until' => null,
+            'verified_at' => now(),
+            'consumed_at' => null,
+            'requested_ip' => '127.0.0.1',
+            'requested_user_agent' => 'social-onboarding-test',
+            'metadata_json' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

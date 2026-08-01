@@ -23,7 +23,7 @@ export default defineNuxtConfig({
   ],
   app: {
     head: {
-      title: 'NewPaotang Back Office',
+      title: 'Siamblend Back Office',
       htmlAttrs: {
         lang: 'en',
         dir: 'ltr',
@@ -37,7 +37,9 @@ export default defineNuxtConfig({
         'data-header-position': 'fixed',
       },
       link: [
-        { rel: 'icon', href: '/admin-template/assets/images/brand-logos/favicon.ico' },
+        { rel: 'icon', type: 'image/x-icon', href: '/brand/siamblend-favicon.ico' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/brand/favicon-32x32.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/brand/apple-touch-icon.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { id: 'style', rel: 'stylesheet', href: '/admin-template/assets/libs/bootstrap/css/bootstrap.min.css' },
@@ -45,6 +47,10 @@ export default defineNuxtConfig({
         { rel: 'stylesheet', href: '/admin-template/assets/css/icons.css' },
         { rel: 'stylesheet', href: '/admin-template/assets/libs/node-waves/waves.min.css' },
         { rel: 'stylesheet', href: '/admin-template/assets/libs/simplebar/simplebar.min.css' },
+      ],
+      meta: [
+        { name: 'application-name', content: 'Siamblend Back Office' },
+        { name: 'apple-mobile-web-app-title', content: 'Siamblend' },
       ],
     },
   },

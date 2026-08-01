@@ -508,6 +508,7 @@ void main() {
     () {
       for (final path in [
         '/login',
+        '/login/otp',
         '/register',
         '/forgot-password',
         '/reset-password',

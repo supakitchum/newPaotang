@@ -84,15 +84,26 @@
                 </select>
               </div>
               <div class="col-md-8">
-                <label class="form-label">Client ID</label>
-                <input v-model.trim="forms[provider.provider].client_id" class="form-control" autocomplete="off" :placeholder="provider.client_id_masked || 'Client ID / Services ID'">
+                <label class="form-label">{{ provider.provider === 'facebook' ? 'App ID' : 'Client ID' }}</label>
+                <input
+                  v-model.trim="forms[provider.provider].client_id"
+                  class="form-control"
+                  autocomplete="off"
+                  :placeholder="provider.client_id_masked || (provider.provider === 'facebook' ? 'Facebook App ID' : 'Client ID / Services ID')"
+                >
                 <div v-if="provider.client_id_masked" class="form-text">Saved: {{ provider.client_id_masked }}</div>
               </div>
 
-              <template v-if="provider.provider === 'google'">
+              <template v-if="provider.provider === 'google' || provider.provider === 'facebook'">
                 <div class="col-12">
-                  <label class="form-label">Client Secret</label>
-                  <input v-model="forms.google.client_secret" class="form-control" type="password" autocomplete="off" :placeholder="provider.client_secret_configured ? 'Leave blank to keep existing secret' : 'Google client secret'">
+                  <label class="form-label">{{ provider.provider === 'facebook' ? 'App Secret' : 'Client Secret' }}</label>
+                  <input
+                    v-model="forms[provider.provider].client_secret"
+                    class="form-control"
+                    type="password"
+                    autocomplete="new-password"
+                    :placeholder="provider.client_secret_configured ? 'Leave blank to keep existing secret' : (provider.provider === 'facebook' ? 'Facebook App Secret' : 'Google Client Secret')"
+                  >
                   <div v-if="provider.client_secret_configured" class="form-text">Saved and encrypted.</div>
                 </div>
               </template>
@@ -214,6 +225,15 @@ const forms = reactive<Record<string, any>>({
     button_background_color: '',
     button_foreground_color: '',
   },
+  facebook: {
+    status: 'inactive',
+    client_id: '',
+    client_secret: '',
+    display_label: '',
+    brand_color: '',
+    button_background_color: '',
+    button_foreground_color: '',
+  },
 })
 
 const tenantId = computed(() => session.currentTenantId.value)
@@ -298,8 +318,8 @@ const applyProviderToForm = (provider: any) => {
 
   form.status = provider.status || 'inactive'
   form.client_id = ''
-  if (provider.provider === 'google') {
-    forms.google.client_secret = ''
+  if (provider.provider === 'google' || provider.provider === 'facebook') {
+    forms[provider.provider].client_secret = ''
   }
   if (provider.provider === 'apple') {
     forms.apple.team_id = ''
@@ -321,18 +341,21 @@ const goLineSettings = () => navigateTo('/admin/tenant/line-notifications')
 const providerLabel = (provider: string) => {
   if (provider === 'google') return 'Google / Gmail'
   if (provider === 'apple') return 'Apple ID'
+  if (provider === 'facebook') return 'Facebook'
   return 'LINE'
 }
 
 const providerSubtitle = (provider: any) => {
   if (provider.provider === 'line') return 'Uses LINE Login settings from LINE Notifications.'
-  if (provider.provider === 'google') return 'Required when LINE Login is enabled in a mobile app.'
-  return 'Required by iOS App Review when other social logins are available.'
+  if (provider.provider === 'google') return 'Tenant-owned Google OAuth credentials for Customer login.'
+  if (provider.provider === 'facebook') return 'Tenant-owned Meta app credentials for Facebook Login.'
+  return 'Tenant-owned Sign in with Apple credentials for Customer login.'
 }
 
 const providerIcon = (provider: string) => {
   if (provider === 'line') return 'ri-line-line'
   if (provider === 'apple') return 'ri-apple-fill'
+  if (provider === 'facebook') return 'ri-facebook-fill'
   return 'ri-google-fill'
 }
 
@@ -340,6 +363,7 @@ const providerIconClass = (provider: string) => ({
   'is-line': provider === 'line',
   'is-google': provider === 'google',
   'is-apple': provider === 'apple',
+  'is-facebook': provider === 'facebook',
 })
 
 const titleize = (value: any) => String(value || '-').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
@@ -386,6 +410,10 @@ onMounted(loadSettings)
 
 .np-social-icon.is-apple {
   background: #111827;
+}
+
+.np-social-icon.is-facebook {
+  background: #1877f2;
 }
 
 .np-provider-form,

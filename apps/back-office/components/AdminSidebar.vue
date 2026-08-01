@@ -2,8 +2,8 @@
   <aside class="app-sidebar sticky" id="sidebar">
     <div class="main-sidebar-header">
       <NuxtLink to="/admin" class="header-logo">
-        <img src="/admin-template/assets/images/brand-logos/desktop-logo.png" alt="NewPaotang" class="desktop-logo" />
-        <img src="/admin-template/assets/images/brand-logos/toggle-logo.png" alt="NewPaotang" class="toggle-logo" />
+        <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" />
+        <img :src="compactLogoUrl" :alt="displayName" class="toggle-logo np-admin-brand-mark" />
       </NuxtLink>
     </div>
     <div class="main-sidebar" data-simplebar>
@@ -70,6 +70,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { currentScope } = useAdminSession()
+const { logoUrl, compactLogoUrl, displayName } = useAdminBranding()
 const { mapRoute, iconFor } = useAdminNavigation()
 const { t } = useAdminLocale()
 const route = useRoute()

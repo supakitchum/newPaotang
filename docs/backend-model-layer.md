@@ -49,6 +49,7 @@ Every concrete model declares an explicit non-empty `protected $fillable = [...]
 | partner_tenants | PartnerTenant | domain model | `scopeForTenant` maps to `id` |
 | partner_tenant_domains | PartnerTenantDomain | domain model | `scopeForTenant` |
 | admin_users | AdminUser | domain model | scope via RBAC |
+| admin_user_invitations | AdminUserInvitation | one-time admin activation token hash | scope and nullable tenant snapshot |
 | admin_scopes | AdminScope | domain model | nullable `tenant_id`, `scopeForTenant` |
 | roles | Role | domain model | nullable `tenant_id`, `scopeForTenant` |
 | permissions | Permission | domain model | scope_type only |
@@ -99,6 +100,10 @@ Every concrete model declares an explicit non-empty `protected $fillable = [...]
 | winning_tickets | WinningTicket | domain model | `scopeForTenant` |
 | reward_publish_logs | RewardPublishLog | audit model | reward/game scoped |
 | reward_claims | RewardClaim | domain model | `scopeForTenant` |
+| tenant_reward_risk_settings | TenantRewardRiskSetting | reward risk runtime setting | `scopeForTenant` by `tenant_id` |
+| reward_risk_runs | RewardRiskRun | read-only assessment run | `scopeForTenant` by `tenant_id` |
+| reward_risk_findings | RewardRiskFinding | threshold finding | `scopeForTenant` by `tenant_id` |
+| reward_risk_finding_tickets | RewardRiskFindingTicket | assessment evidence | `scopeForTenant` by `tenant_id` |
 | agents | Agent | domain model | `scopeForTenant` |
 | agent_quotas | AgentQuota | domain model | `scopeForTenant` |
 | affiliate_accounts | AffiliateAccount | domain model | `scopeForTenant` |
@@ -138,6 +143,7 @@ tenant -> maintenance settings/events/bypasses/support access requests/impersona
 order -> items/tickets/payments/commission transactions
 wallet -> ledger entries/topups/reward claims
 reward result -> prizes/check batches/winning tickets/publish logs
+reward risk setting -> runs -> findings -> ticket/winning-ticket evidence
 affiliate account -> links/attributions/commission transactions/payouts
 commission transaction -> affiliate account/order/rule/original reversal chain
 RBAC pivots -> admin user roles, role permissions, role menus, permission cache versions

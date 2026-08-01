@@ -9,6 +9,7 @@ use App\Models\AuditLog;
 use App\Models\Partner;
 use App\Models\PartnerTenant;
 use App\Models\Role;
+use App\Modules\RewardRisk\Services\RewardRiskAccessService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Carbon\CarbonImmutable;
@@ -17,8 +18,10 @@ use Illuminate\Support\Facades\Schema;
 
 class AdminOperationsService
 {
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RewardRiskAccessService $rewardRiskAccess,
+    ) {
     }
 
     /**
@@ -174,6 +177,10 @@ class AdminOperationsService
                 return 'topup.view';
             }
 
+            if (str_ends_with($channelName, '.reward-risk')) {
+                return 'reward_risk.view';
+            }
+
             return null;
         }
 
@@ -183,6 +190,10 @@ class AdminOperationsService
 
         if ($this->isCentralStockTableChannel($channelName)) {
             return 'stock.view';
+        }
+
+        if ($channelName === 'private-admin.central.reward-risk') {
+            return 'reward_risk.view';
         }
 
         return null;
@@ -4691,12 +4702,17 @@ class AdminOperationsService
         $adminUserId = $context->adminUser['id'];
 
         if ($scopeType === 'central') {
+            if ($channelName === 'private-admin.central.reward-risk' && ! $this->rewardRiskAccess->isCentralSuperAdmin($context)) {
+                return false;
+            }
+
             return in_array($channelName, [
                 'private-admin.central',
                 'presence-admin.central',
                 'private-admin.central.dashboard',
                 'private-admin.central.audit',
                 'private-admin.central.menu',
+                'private-admin.central.reward-risk',
                 'private-admin.central.admin.'.$adminUserId,
                 'presence-admin.central.admin.'.$adminUserId,
             ], true) || $this->isCentralStockGenerationChannel($channelName)
@@ -4712,12 +4728,17 @@ class AdminOperationsService
             return false;
         }
 
+        if ($channelName === 'private-admin.tenant.'.$tenantId.'.reward-risk' && ! $this->rewardRiskAccess->isTenantOwner($context)) {
+            return false;
+        }
+
         return in_array($channelName, [
             'private-admin.tenant.'.$tenantId,
             'presence-admin.tenant.'.$tenantId,
             'private-admin.tenant.'.$tenantId.'.dashboard',
             'private-admin.tenant.'.$tenantId.'.audit',
             'private-admin.tenant.'.$tenantId.'.menu',
+            'private-admin.tenant.'.$tenantId.'.reward-risk',
             'private-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
             'presence-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
         ], true) || $this->isTenantStockChannel($channelName, $tenantId)

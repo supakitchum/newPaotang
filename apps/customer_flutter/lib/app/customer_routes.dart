@@ -289,6 +289,18 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     sensitive: true,
   ),
   CustomerFeatureRoute(
+    path: '/profile/passkeys',
+    key: 'profile_passkeys',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/profile/social-accounts',
+    key: 'profile_social_accounts',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/profile/account-deletion',
     key: 'profile_account_deletion',
     group: CustomerFeatureGroup.account,
@@ -363,6 +375,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
     path: '/login',
     key: 'login',
+    group: CustomerFeatureGroup.system,
+    public: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/login/otp',
+    key: 'login_otp',
     group: CustomerFeatureGroup.system,
     public: true,
   ),

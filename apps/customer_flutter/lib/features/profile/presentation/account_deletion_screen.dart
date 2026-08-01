@@ -1,513 +1,701 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
-import '../../../core/navigation/customer_link_launcher.dart';
-import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/utils/api_errors.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../data/account_deletion_repository.dart';
 
-Color _accountDeletionSurfaceTint(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.surface, colorScheme.primaryContainer, 0.08) ??
-    colorScheme.surface;
+enum _DeletionStep { impact, reason, pin, otp }
 
-Color _accountDeletionSoftOutline(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.outlineVariant, colorScheme.primary, 0.16) ??
-    colorScheme.outlineVariant;
-
-Color _accountDeletionWarningTint(ColorScheme colorScheme) =>
-    Color.lerp(colorScheme.tertiaryContainer, colorScheme.surface, 0.18) ??
-    colorScheme.tertiaryContainer.withValues(alpha: 0.82);
-
-class AccountDeletionScreen extends ConsumerWidget {
+class AccountDeletionScreen extends ConsumerStatefulWidget {
   const AccountDeletionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bootstrap = ref.watch(mobileBootstrapProvider);
-    final l10n = context.l10n;
+  ConsumerState<AccountDeletionScreen> createState() =>
+      _AccountDeletionScreenState();
+}
 
+class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
+  final _detailController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _otpController = TextEditingController();
+  _DeletionStep _step = _DeletionStep.impact;
+  String _reasonCode = '';
+  String _pinVerificationToken = '';
+  bool _busy = false;
+  String _error = '';
+
+  @override
+  void dispose() {
+    _detailController.dispose();
+    _pinController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ref.watch(accountDeletionStatusProvider);
     return AppShell(
-      title: l10n.accountDeletionTitle,
-      currentPath: '/profile',
+      title: context.l10n.accountDeletionTitle,
+      currentPath: '/profile/account-deletion',
       backPath: '/profile',
       sensitive: true,
-      showBottomNavigation: true,
-      heroMinHeight: 248,
-      heroSheetOverlap: MediaQuery.sizeOf(context).width >= 768 ? 28 : 38,
-      heroContentTopGap: 18,
-      heroContent: const _AccountDeletionHeroContent(),
-      child: _AccountDeletionContentSheet(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            CustomerPageBody(
-              top: 16,
-              bottom: 128,
-              mobileHorizontal: 14,
-              minViewportHeight: true,
-              child: bootstrap.when(
-                data: (data) => _AccountDeletionContent(bootstrap: data),
-                loading: () => const _AccountDeletionLoadingCard(),
-                error: (_, __) => _AccountDeletionContent(
-                  bootstrap: MobileBootstrap.fromJson(const {}),
+      child: status.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => _LoadError(
+          message: _message(error),
+          onRetry: () => ref.invalidate(accountDeletionStatusProvider),
+        ),
+        data: (data) {
+          final request = data.request;
+          if (request != null && request.isOpen) {
+            return _PendingDeletionView(
+              request: request,
+              onCancel: _showCancelSheet,
+              busy: _busy,
+            );
+          }
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: CustomerPageBody(
+                    top: 14,
+                    bottom: 24,
+                    minViewportHeight: true,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _stepContent(data),
+                    ),
+                  ),
                 ),
               ),
+              _BottomAction(
+                label: _actionLabel,
+                busy: _busy,
+                enabled: _canContinue(data),
+                onPressed: () => _continue(data),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _stepContent(AccountDeletionStatus status) {
+    return switch (_step) {
+      _DeletionStep.impact => _ImpactStep(
+        key: const ValueKey('impact'),
+        status: status,
+        error: _error,
+      ),
+      _DeletionStep.reason => _ReasonStep(
+        key: const ValueKey('reason'),
+        selected: _reasonCode,
+        detailController: _detailController,
+        error: _error,
+        onChanged: (value) => setState(() {
+          _reasonCode = value;
+          _error = '';
+        }),
+      ),
+      _DeletionStep.pin => _CodeStep(
+        key: const ValueKey('pin'),
+        title: context.l10n.accountDeletionPinTitle,
+        controller: _pinController,
+        obscure: true,
+        error: _error,
+        onComplete: () => _continue(status),
+      ),
+      _DeletionStep.otp => _CodeStep(
+        key: const ValueKey('otp'),
+        title: context.l10n.accountDeletionOtpTitle,
+        subtitle: context.l10n.accountDeletionOtpSubtitle,
+        controller: _otpController,
+        error: _error,
+        onComplete: () => _continue(status),
+      ),
+    };
+  }
+
+  String get _actionLabel => switch (_step) {
+    _DeletionStep.otp => context.l10n.accountDeletionConfirm,
+    _ => context.l10n.accountDeletionContinue,
+  };
+
+  bool _canContinue(AccountDeletionStatus status) {
+    if (_busy) return false;
+    return switch (_step) {
+      _DeletionStep.impact => status.eligible,
+      _DeletionStep.reason =>
+        _reasonCode.isNotEmpty &&
+            (_reasonCode != 'other' ||
+                _detailController.text.trim().isNotEmpty),
+      _DeletionStep.pin => _pinController.text.length == 6,
+      _DeletionStep.otp => _otpController.text.length == 6,
+    };
+  }
+
+  Future<void> _continue(AccountDeletionStatus status) async {
+    if (!_canContinue(status)) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _error = '';
+      _busy = true;
+    });
+    try {
+      if (_step == _DeletionStep.impact) {
+        setState(() => _step = _DeletionStep.reason);
+        return;
+      }
+      if (_step == _DeletionStep.reason) {
+        setState(() => _step = _DeletionStep.pin);
+        return;
+      }
+      if (_step == _DeletionStep.pin) {
+        final result = await ref
+            .read(accountDeletionRepositoryProvider)
+            .requestOtp(_pinController.text);
+        _pinVerificationToken = result.pinVerificationToken;
+        if (!mounted) return;
+        setState(() => _step = _DeletionStep.otp);
+        return;
+      }
+      final otpToken = await ref
+          .read(accountDeletionRepositoryProvider)
+          .verifyOtp(_otpController.text);
+      await ref
+          .read(accountDeletionRepositoryProvider)
+          .create(
+            reasonCode: _reasonCode,
+            reasonDetail: _detailController.text.trim(),
+            pinVerificationToken: _pinVerificationToken,
+            otpVerificationToken: otpToken,
+          );
+      ref.invalidate(accountDeletionStatusProvider);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = _message(error);
+        if (_step == _DeletionStep.otp) _otpController.clear();
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _showCancelSheet() async {
+    final controller = TextEditingController();
+    final pin = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              context.l10n.accountDeletionCancelConfirm,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(counterText: ''),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () {
+                if (controller.text.length == 6) {
+                  Navigator.of(sheetContext).pop(controller.text);
+                }
+              },
+              child: Text(context.l10n.accountDeletionCancel),
             ),
           ],
         ),
       ),
     );
+    controller.dispose();
+    if (pin == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(accountDeletionRepositoryProvider).cancel(pin);
+      ref.invalidate(accountDeletionStatusProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.accountDeletionCancelled)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_message(error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _message(Object error) {
+    final info = ApiErrorInfo.fromObject(error);
+    return info.message.trim().isNotEmpty
+        ? info.message.trim()
+        : context.l10n.accountDeletionGenericError;
   }
 }
 
-class _AccountDeletionContent extends ConsumerStatefulWidget {
-  const _AccountDeletionContent({required this.bootstrap});
+class _ImpactStep extends StatelessWidget {
+  const _ImpactStep({required this.status, required this.error, super.key});
 
-  final MobileBootstrap bootstrap;
-
-  @override
-  ConsumerState<_AccountDeletionContent> createState() =>
-      _AccountDeletionContentState();
-}
-
-class _AccountDeletionContentState
-    extends ConsumerState<_AccountDeletionContent> {
-  String _noticeMessage = '';
+  final AccountDeletionStatus status;
+  final String error;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final requestUri = Uri.tryParse(widget.bootstrap.accountDeletionUrl);
-    final supportUri = _supportPhoneUri(widget.bootstrap.supportPhone);
-    final supportEmailUri = _supportEmailUri(widget.bootstrap.supportEmail);
-    final supportUrlUri = _supportUrlUri(widget.bootstrap.supportUrl);
-    final supportPhone = widget.bootstrap.supportPhone.trim();
-    final supportEmail = widget.bootstrap.supportEmail.trim();
-    final supportUrl = widget.bootstrap.supportUrl.trim();
-    final canOpenRequest = isSafeExternalLinkUri(requestUri);
-    final canCallSupport = isSafeExternalLinkUri(supportUri);
-    final canEmailSupport = !canCallSupport &&
-        supportEmail.isNotEmpty &&
-        isSafeExternalLinkUri(supportEmailUri);
-    final canOpenSupportUrl = !canCallSupport &&
-        !canEmailSupport &&
-        supportUrl.isNotEmpty &&
-        isSafeExternalLinkUri(supportUrlUri);
-    final supportLabel = canCallSupport
-        ? l10n.accountDeletionContactSupportWithPhone(supportPhone)
-        : canEmailSupport
-            ? l10n.accountDeletionContactSupportWithEmail(supportEmail)
-            : canOpenSupportUrl
-                ? l10n.accountDeletionContactSupportOnline
-                : l10n.accountDeletionContactSupport;
-    final supportActionUri = canCallSupport
-        ? supportUri
-        : canEmailSupport
-            ? supportEmailUri
-            : canOpenSupportUrl
-                ? supportUrlUri
-                : null;
-    final supportIcon = canCallSupport
-        ? Icons.phone_outlined
-        : canEmailSupport
-            ? Icons.mail_outline
-            : Icons.open_in_new;
-    final showSupportAction = supportActionUri != null;
-
+    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _AccountDeletionInfoCard(
-          icon: Icons.info_outline,
-          title: l10n.accountDeletionBeforeTitle,
-          body: l10n.accountDeletionBeforeBody,
-        ),
-        if (_noticeMessage.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _AccountDeletionInlineNotice(message: _noticeMessage),
-        ],
-        const SizedBox(height: 12),
-        _AccountDeletionSurface(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _AccountDeletionIcon(
-                      icon: Icons.support_agent_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.accountDeletionRequestTitle,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n.accountDeletionRequestBody,
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (canOpenRequest)
-                  FilledButton.icon(
-                    onPressed: () => _open(
-                      context,
-                      requestUri!,
-                    ),
-                    icon: const Icon(Icons.open_in_new),
-                    label: Text(l10n.accountDeletionOpenRequest),
-                    style: _accountDeletionPrimaryButtonStyle(context),
-                  )
-                else
-                  _AccountDeletionNotice(
-                    message: l10n.accountDeletionNoOnlineRequest,
-                  ),
-                if (showSupportAction) ...[
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () => _open(context, supportActionUri),
-                    icon: Icon(supportIcon),
-                    label: Text(supportLabel),
-                    style: _accountDeletionOutlineButtonStyle(context),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _open(BuildContext context, Uri uri) async {
-    setState(() => _noticeMessage = '');
-    try {
-      final opened = await ref.read(customerLinkLauncherProvider).openExternal(
-            uri,
-          );
-      if (opened || !context.mounted) return;
-      setState(() {
-        _noticeMessage = context.l10n.accountDeletionLaunchFailed;
-      });
-    } catch (_) {
-      if (!context.mounted) return;
-      setState(() {
-        _noticeMessage = context.l10n.accountDeletionLaunchFailed;
-      });
-    }
-  }
-}
-
-class _AccountDeletionLoadingCard extends StatelessWidget {
-  const _AccountDeletionLoadingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _AccountDeletionSurface(
-      child: Padding(
-        padding: EdgeInsets.all(18),
-        child: Column(
-          children: [
-            _AccountDeletionSkeletonLine(widthFactor: 0.72, height: 16),
-            SizedBox(height: 12),
-            _AccountDeletionSkeletonLine(widthFactor: 1, height: 12),
-            SizedBox(height: 8),
-            _AccountDeletionSkeletonLine(widthFactor: 0.84, height: 12),
-            SizedBox(height: 18),
-            _AccountDeletionSkeletonLine(widthFactor: 1, height: 48),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountDeletionHeroContent extends StatelessWidget {
-  const _AccountDeletionHeroContent();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.errorContainer,
-            border: Border.all(
-              color: colorScheme.onPrimary.withValues(alpha: 0.68),
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SizedBox.square(
-            dimension: 62,
-            child: Icon(
-              Icons.delete_outline,
-              color: colorScheme.error,
-              size: 34,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
+        _Panel(
+          color: colors.errorContainer.withValues(alpha: 0.45),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Icon(Icons.warning_amber_rounded, color: colors.error),
+              const SizedBox(height: 10),
               Text(
-                l10n.accountDeletionHeroTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w900,
-                      height: 1.18,
-                    ),
+                context.l10n.accountDeletionImpactTitle,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
-                l10n.accountDeletionHeroSubtitle,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  height: 1.45,
+                context.l10n.accountDeletionImpactBody,
+                style: const TextStyle(height: 1.55),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _Panel(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                status.eligible ? Icons.check_circle : Icons.info_outline,
+                color: status.eligible ? Colors.green : colors.error,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      status.eligible
+                          ? context.l10n.accountDeletionEligibilityReady
+                          : context.l10n.accountDeletionEligibilityBlocked,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    if (!status.eligible) ...[
+                      const SizedBox(height: 8),
+                      ...status.blockers.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Text('• ${_blockerLabel(context, item.code)}'),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
         ),
+        if (error.isNotEmpty) _InlineError(error),
       ],
     );
   }
 }
 
-class _AccountDeletionContentSheet extends StatelessWidget {
-  const _AccountDeletionContentSheet({required this.child});
+class _ReasonStep extends StatelessWidget {
+  const _ReasonStep({
+    required this.selected,
+    required this.detailController,
+    required this.error,
+    required this.onChanged,
+    super.key,
+  });
 
-  final Widget child;
+  final String selected;
+  final TextEditingController detailController;
+  final String error;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(color: colorScheme.primary),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+    final choices = {
+      'no_longer_use': context.l10n.accountDeletionReasonNoLongerUse,
+      'privacy': context.l10n.accountDeletionReasonPrivacy,
+      'experience': context.l10n.accountDeletionReasonExperience,
+      'duplicate_account': context.l10n.accountDeletionReasonDuplicate,
+      'other': context.l10n.accountDeletionReasonOther,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.accountDeletionReasonTitle,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
-        child: child,
-      ),
+        const SizedBox(height: 12),
+        _Panel(
+          padding: EdgeInsets.zero,
+          child: RadioGroup<String>(
+            groupValue: selected,
+            onChanged: (value) {
+              if (value != null) onChanged(value);
+            },
+            child: Column(
+              children: choices.entries
+                  .map(
+                    (entry) => RadioListTile<String>(
+                      value: entry.key,
+                      title: Text(entry.value),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: detailController,
+          maxLength: 500,
+          maxLines: 5,
+          decoration: InputDecoration(
+            labelText: context.l10n.accountDeletionReasonDetail,
+            alignLabelWithHint: true,
+          ),
+        ),
+        if (error.isNotEmpty) _InlineError(error),
+      ],
     );
   }
 }
 
-class _AccountDeletionInfoCard extends StatelessWidget {
-  const _AccountDeletionInfoCard({
-    required this.icon,
+class _CodeStep extends StatelessWidget {
+  const _CodeStep({
     required this.title,
-    required this.body,
+    required this.controller,
+    required this.error,
+    required this.onComplete,
+    this.subtitle = '',
+    this.obscure = false,
+    super.key,
   });
 
-  final IconData icon;
   final String title;
-  final String body;
+  final String subtitle;
+  final TextEditingController controller;
+  final String error;
+  final bool obscure;
+  final VoidCallback onComplete;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _AccountDeletionSurface(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _AccountDeletionIcon(
-              icon: icon,
-              color: colorScheme.tertiary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+    return Column(
+      children: [
+        const SizedBox(height: 32),
+        Icon(
+          obscure ? Icons.lock_outline : Icons.sms_outlined,
+          size: 52,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: 18),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(subtitle, textAlign: TextAlign.center),
+        ],
+        const SizedBox(height: 24),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 300),
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            obscureText: obscure,
+            obscuringCharacter: '●',
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            autofillHints: obscure ? null : const [AutofillHints.oneTimeCode],
+            maxLength: 6,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 28, letterSpacing: 0),
+            decoration: const InputDecoration(counterText: ''),
+            onChanged: (value) {
+              if (value.length == 6 && !obscure) onComplete();
+            },
+            onSubmitted: (_) => onComplete(),
+          ),
+        ),
+        if (error.isNotEmpty) _InlineError(error),
+      ],
+    );
+  }
+}
+
+class _PendingDeletionView extends StatefulWidget {
+  const _PendingDeletionView({
+    required this.request,
+    required this.onCancel,
+    required this.busy,
+  });
+
+  final AccountDeletionRequest request;
+  final VoidCallback onCancel;
+  final bool busy;
+
+  @override
+  State<_PendingDeletionView> createState() => _PendingDeletionViewState();
+}
+
+class _PendingDeletionViewState extends State<_PendingDeletionView> {
+  Timer? _timer;
+  late int _seconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _seconds = widget.request.remainingSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _seconds > 0) setState(() => _seconds--);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final blocked = widget.request.status == 'blocked';
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: CustomerPageBody(
+              top: 20,
+              bottom: 24,
+              minViewportHeight: true,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
+                  Icon(
+                    blocked ? Icons.info_outline : Icons.schedule,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 16),
                   Text(
-                    body,
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
+                    blocked
+                        ? context.l10n.accountDeletionBlockedTitle
+                        : context.l10n.accountDeletionPendingTitle,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.accountDeletionPendingBody,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (!blocked) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      _duration(_seconds),
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ],
+                  if (blocked && widget.request.blockers.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _Panel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: widget.request.blockers
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 5,
+                                ),
+                                child: Text(
+                                  '• ${_blockerLabel(context, item.code)}',
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        _BottomAction(
+          label: context.l10n.accountDeletionCancel,
+          busy: widget.busy,
+          enabled: !widget.busy,
+          destructive: true,
+          onPressed: widget.onCancel,
+        ),
+      ],
     );
   }
 }
 
-class _AccountDeletionNotice extends StatelessWidget {
-  const _AccountDeletionNotice({required this.message});
+class _BottomAction extends StatelessWidget {
+  const _BottomAction({
+    required this.label,
+    required this.busy,
+    required this.enabled,
+    required this.onPressed,
+    this.destructive = false,
+  });
 
-  final String message;
+  final String label;
+  final bool busy;
+  final bool enabled;
+  final bool destructive;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _accountDeletionWarningTint(colorScheme),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.tertiary.withValues(alpha: 0.24),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          message,
-          style: TextStyle(
-            color: colorScheme.onTertiaryContainer,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            height: 1.35,
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surface,
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+        child: FilledButton(
+          onPressed: enabled ? onPressed : null,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            backgroundColor: destructive ? colors.error : colors.primary,
           ),
+          child: busy
+              ? const SizedBox.square(
+                  dimension: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(label),
         ),
       ),
     );
   }
 }
 
-class _AccountDeletionSurface extends StatelessWidget {
-  const _AccountDeletionSurface({required this.child});
+class _Panel extends StatelessWidget {
+  const _Panel({
+    required this.child,
+    this.color,
+    this.padding = const EdgeInsets.all(16),
+  });
 
   final Widget child;
+  final Color? color;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: padding,
       decoration: BoxDecoration(
-        color: _accountDeletionSurfaceTint(colorScheme),
-        border: Border.all(color: _accountDeletionSoftOutline(colorScheme)),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        color: color ?? colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: child,
     );
   }
 }
 
-class _AccountDeletionSkeletonLine extends StatelessWidget {
-  const _AccountDeletionSkeletonLine({
-    required this.widthFactor,
-    required this.height,
-  });
-
-  final double widthFactor;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      alignment: Alignment.centerLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.80),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: SizedBox(height: height),
-      ),
-    );
-  }
-}
-
-class _AccountDeletionInlineNotice extends StatelessWidget {
-  const _AccountDeletionInlineNotice({required this.message});
+class _InlineError extends StatelessWidget {
+  const _InlineError(this.message);
 
   final String message;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.50),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.error.withValues(alpha: 0.22)),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
       ),
+    );
+  }
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline_rounded,
-              color: colorScheme.error,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
-              ),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: Text(context.l10n.accountDeletionRetry),
             ),
           ],
         ),
@@ -516,61 +704,44 @@ class _AccountDeletionInlineNotice extends StatelessWidget {
   }
 }
 
-class _AccountDeletionIcon extends StatelessWidget {
-  const _AccountDeletionIcon({required this.icon, required this.color});
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 22,
-      backgroundColor: color.withAlpha(24),
-      child: Icon(icon, color: color),
-    );
-  }
+String _duration(int seconds) {
+  final duration = Duration(seconds: seconds);
+  final days = duration.inDays;
+  final hours = duration.inHours.remainder(24);
+  final minutes = duration.inMinutes.remainder(60);
+  final secs = duration.inSeconds.remainder(60);
+  return '${days}d ${hours.toString().padLeft(2, '0')}:'
+      '${minutes.toString().padLeft(2, '0')}:'
+      '${secs.toString().padLeft(2, '0')}';
 }
 
-ButtonStyle _accountDeletionPrimaryButtonStyle(BuildContext context) {
-  return FilledButton.styleFrom(
-    minimumSize: const Size.fromHeight(52),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-  );
-}
-
-ButtonStyle _accountDeletionOutlineButtonStyle(BuildContext context) {
-  final color = Theme.of(context).colorScheme.primary;
-  return OutlinedButton.styleFrom(
-    foregroundColor: color,
-    side: BorderSide(color: color.withValues(alpha: 0.28)),
-    minimumSize: const Size.fromHeight(50),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
-  );
-}
-
-Uri? _supportPhoneUri(String phone) {
-  final sanitized = phone.trim().replaceAll(RegExp(r'[^\d+]'), '');
-  if (sanitized.isEmpty) return null;
-  final normalized = sanitized.startsWith('+')
-      ? '+${sanitized.substring(1).replaceAll('+', '')}'
-      : sanitized.replaceAll('+', '');
-  if (normalized.replaceAll('+', '').isEmpty) return null;
-  return Uri(scheme: 'tel', path: normalized);
-}
-
-Uri? _supportEmailUri(String email) {
-  final normalized = email.trim();
-  if (normalized.isEmpty || normalized.contains(RegExp(r'\s'))) return null;
-  if (!normalized.contains('@')) return null;
-  return Uri(scheme: 'mailto', path: normalized);
-}
-
-Uri? _supportUrlUri(String url) {
-  final uri = Uri.tryParse(url.trim());
-  return uri?.scheme.toLowerCase() == 'https' && isSafeExternalLinkUri(uri)
-      ? uri
-      : null;
+String _blockerLabel(BuildContext context, String code) {
+  final thai = Localizations.localeOf(context).languageCode == 'th';
+  return switch (code) {
+    'wallet_balance' =>
+      thai ? 'ยังมียอดเงินใน Wallet' : 'Wallet balance remains',
+    'orders_pending' =>
+      thai ? 'มีคำสั่งซื้อที่กำลังดำเนินการ' : 'Orders are pending',
+    'topups_pending' =>
+      thai ? 'มีรายการเติมเงินที่กำลังดำเนินการ' : 'Topups are pending',
+    'reward_claims_pending' =>
+      thai
+          ? 'มีรายการขึ้นเงินรางวัลที่กำลังดำเนินการ'
+          : 'Reward claims are pending',
+    'activity_claims_pending' =>
+      thai
+          ? 'มีรายการรับรางวัลกิจกรรมที่กำลังดำเนินการ'
+          : 'Activity claims are pending',
+    'activity_awards_unclaimed' =>
+      thai
+          ? 'มีรางวัลกิจกรรมที่ยังไม่ได้รับ'
+          : 'Activity awards remain unclaimed',
+    'affiliate_balance' =>
+      thai ? 'ยังมียอดคอมมิชชันคงเหลือ' : 'Affiliate balance remains',
+    'affiliate_payouts_pending' =>
+      thai
+          ? 'มีรายการถอนคอมมิชชันที่กำลังดำเนินการ'
+          : 'Affiliate payouts are pending',
+    _ => context.l10n.accountDeletionEligibilityBlocked,
+  };
 }

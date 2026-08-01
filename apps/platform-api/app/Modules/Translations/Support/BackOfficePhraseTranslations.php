@@ -478,7 +478,7 @@ class BackOfficePhraseTranslations
             'Name' => 'ชื่อ',
             'Net amount' => 'ยอดสุทธิ',
             'New request' => 'คำขอใหม่',
-            'NewPaotang Back Office' => 'NewPaotang Back Office',
+            'Siamblend Back Office' => 'Siamblend Back Office',
             'Notify customer' => 'แจ้งลูกค้า',
             'Notify member' => 'แจ้งสมาชิก',
             'Number search' => 'ค้นหาเลข',

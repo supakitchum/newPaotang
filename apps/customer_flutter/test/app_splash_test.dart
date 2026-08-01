@@ -35,17 +35,18 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey('app-splash-product-mark')),
-      findsOneWidget,
+    expect(find.byKey(const ValueKey('app-splash-background')), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-splash-loader')), findsOneWidget);
+    final artwork = tester.widget<Image>(
+      find.byKey(const ValueKey('app-splash-background')),
     );
-    expect(find.text('Demo Shop'), findsOneWidget);
+    expect((artwork.image as AssetImage).assetName, appSplashBackgroundAsset);
     expect(find.text('Ready content'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('app-splash-product-mark')), findsNothing);
+    expect(find.byKey(const ValueKey('app-splash-background')), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -65,7 +66,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('app-splash-product-mark')), findsNothing);
+    expect(find.byKey(const ValueKey('app-splash-background')), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
@@ -89,20 +90,17 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(
-      find.byKey(const ValueKey('app-splash-product-mark')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('app-splash-background')), findsOneWidget);
 
     authStartup.complete();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(find.byKey(const ValueKey('app-splash-product-mark')), findsNothing);
+    expect(find.byKey(const ValueKey('app-splash-background')), findsNothing);
     expect(find.text('Ready content'), findsOneWidget);
   });
 
-  testWidgets('AppSplashHost keeps its first-frame color while theme changes', (
+  testWidgets('AppSplashHost keeps its artwork surface while theme changes', (
     tester,
   ) async {
     final bootstrap = Completer<MobileBootstrap>();
@@ -128,12 +126,51 @@ void main() {
     Material splashSurface() => tester.widget<Material>(
       find.byKey(const ValueKey('app-splash-surface')),
     );
-    expect(splashSurface().color, const Color(0xFF087FF0));
+    expect(splashSurface().color, const Color(0xFF0B96DC));
 
     theme.value = const Color(0xFF16A085);
     await tester.pump();
-    expect(splashSurface().color, const Color(0xFF087FF0));
+    expect(splashSurface().color, const Color(0xFF0B96DC));
+    expect(find.byKey(const ValueKey('app-splash-background')), findsOneWidget);
   });
+
+  testWidgets(
+    'AppSplashHost adapts artwork fit for portrait and wide screens',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appSplashMinimumDurationProvider.overrideWithValue(
+              const Duration(seconds: 5),
+            ),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson(const {
+                'site': {'display_name': 'Demo Shop', 'locale': 'th-TH'},
+              }),
+            ),
+          ],
+          child: const _SplashHarness(),
+        ),
+      );
+      await tester.pump();
+
+      Image artwork() => tester.widget<Image>(
+        find.byKey(const ValueKey('app-splash-background')),
+      );
+      expect(artwork().fit, BoxFit.cover);
+
+      tester.view.physicalSize = const Size(1280, 720);
+      await tester.pump();
+
+      expect(artwork().fit, BoxFit.contain);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('TenantBrandHeader resolves relative partner logo URLs', (
     tester,

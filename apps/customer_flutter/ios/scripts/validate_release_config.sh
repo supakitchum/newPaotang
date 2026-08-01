@@ -35,6 +35,7 @@ normalize_identifier() {
 require_value "APP_DISPLAY_NAME"
 require_value "CUSTOMER_FLUTTER_URL_SCHEME"
 require_value "CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN"
+require_value "CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN"
 require_value "PRODUCT_BUNDLE_IDENTIFIER"
 require_value "DEVELOPMENT_TEAM"
 
@@ -57,6 +58,22 @@ case "${CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN:-}" in
     ;;
   *)
     echo "error: CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN must start with applinks: for Release builds." >&2
+    missing=1
+    ;;
+esac
+
+case "${CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN:-}" in
+  webcredentials:*)
+    ;;
+  *)
+    echo "error: CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN must start with webcredentials: for Release builds." >&2
+    missing=1
+    ;;
+esac
+
+case "${CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN:-}" in
+  webcredentials:localhost|webcredentials:*.localhost|webcredentials:127.*|webcredentials:0.0.0.0)
+    echo "error: CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN must use a production domain." >&2
     missing=1
     ;;
 esac

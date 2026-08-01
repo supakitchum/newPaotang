@@ -393,6 +393,68 @@ class CustomerNotificationTest extends TestCase
         $this->assertDatabaseCount('customer_push_devices', 0);
     }
 
+    public function test_session_replacement_push_reaches_the_just_revoked_device_once(): void
+    {
+        $this->seedTenant('par_notify_replaced', 'ten_notify_replaced', 'notify-replaced.test');
+        $this->seedCustomer('ten_notify_replaced', 'cus_notify_replaced', 'CUS-NOTIFY-REPLACED');
+        $service = app(CustomerNotificationService::class);
+        $service->registerDevice('ten_notify_replaced', 'cus_notify_replaced', [
+            'installation_id' => 'install_notify_replaced',
+            'platform' => 'ios',
+            'fcm_token' => str_repeat('replacement-fcm-token-', 8),
+            'locale' => 'th-TH',
+        ]);
+        $service->createForCustomer(
+            'ten_notify_replaced',
+            'cus_notify_replaced',
+            'account.session.replaced',
+            [
+                'category' => 'account',
+                'title' => 'มีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
+                'body' => 'อุปกรณ์เดิมถูกออกจากระบบ',
+                'action_key' => 'none',
+                'subject_type' => 'customer',
+                'subject_id' => 'cus_notify_replaced',
+            ],
+            [
+                'dedupe_key' => 'session-replaced:caus_replacement_new',
+                'metadata' => ['replacement_session_id' => 'caus_replacement_new'],
+            ],
+        );
+
+        $delivery = CustomerNotificationDelivery::query()->firstOrFail();
+        CustomerPushDevice::query()->firstOrFail()->forceFill([
+            'revoked_at' => now(),
+            'updated_at' => now(),
+        ])->save();
+
+        $sentMessage = null;
+        $this->mock(FirebaseCloudMessagingClient::class, function (MockInterface $mock) use (&$sentMessage): void {
+            $mock->shouldReceive('send')
+                ->once()
+                ->with(\Mockery::on(function (array $message) use (&$sentMessage): bool {
+                    $sentMessage = $message;
+
+                    return true;
+                }))
+                ->andReturn([
+                    'ok' => true,
+                    'message_id' => 'projects/test/messages/session-replaced',
+                ]);
+        });
+        $this->app->forgetInstance(CustomerNotificationService::class);
+
+        app(CustomerNotificationService::class)->processDelivery((string) $delivery->id);
+
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'id' => $delivery->id,
+            'status' => 'sent',
+            'attempts' => 1,
+        ]);
+        $this->assertSame('account.session.replaced', $sentMessage['data']['event_key'] ?? null);
+        $this->assertSame('caus_replacement_new', $sentMessage['data']['replacement_session_id'] ?? null);
+    }
+
     public function test_device_installation_and_token_move_to_the_latest_customer_without_payload_error_revocation(): void
     {
         $this->seedTenant('par_notify_move_a', 'ten_notify_move_a', 'notify-move-a.test');
@@ -1094,6 +1156,7 @@ class CustomerNotificationTest extends TestCase
         $this->assertIsArray($sentMessage);
         $this->assertSame('OTP 123456 สำหรับบัญชี 0123456789', $sentMessage['notification']['title'] ?? null);
         $this->assertSame('ยอดเงิน 9,999.00 บาท', $sentMessage['notification']['body'] ?? null);
+        $this->assertSame('admin.direct_message', $sentMessage['data']['event_key'] ?? null);
         $this->assertSame('wallet', $sentMessage['data']['action_key'] ?? null);
     }
 

@@ -673,6 +673,8 @@ const Map<String, String> _canonicalRealtimeEvents = {
   'customernotificationcreated': 'customer.notification.created',
   'customernotificationread': 'customer.notification.read',
   'customernotificationupdated': 'customer.notification.updated',
+  'customerauthsessionreplaced': 'customer.auth.session-replaced',
+  'customersessionreplaced': 'customer.auth.session-replaced',
   'rewardresultpublished': 'reward.result.live.updated',
   'rewardresultliveupdated': 'reward.result.live.updated',
   'rewardresultupdated': 'reward.result.live.updated',

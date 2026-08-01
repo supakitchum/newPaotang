@@ -12,6 +12,10 @@ void main() {
       customerPinRouteForRedirect('/tickets/view?id=ticket_123'),
       '/pin?redirect=%2Ftickets%2Fview%3Fid%3Dticket_123',
     );
+    expect(
+      customerLoginOtpRouteForRedirect('/checkout?from=cart'),
+      '/login/otp?redirect=%2Fcheckout%3Ffrom%3Dcart',
+    );
   });
 
   test('safe customer redirect rejects external and auth-loop targets', () {
@@ -21,6 +25,7 @@ void main() {
       'https://partner.example.com/checkout',
       '//partner.example.com/checkout',
       '/login',
+      '/login/otp',
       '/register',
       '/forgot-password',
       '/reset-password',

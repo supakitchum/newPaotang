@@ -22,8 +22,10 @@ class AdminUserManagementService
     private const PROTECTED_PLATFORM_ADMIN_IDS = ['adm_platform_owner'];
     private const PROTECTED_PLATFORM_ADMIN_EMAILS = ['superadmin@newpaotang.test'];
 
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly AdminUserInvitationService $invitations,
+    ) {
     }
 
     /**
@@ -79,8 +81,26 @@ class AdminUserManagementService
             }
         }
 
+        if ($creating || array_key_exists('username', $payload)) {
+            $username = $this->normalizeUsername($payload['username'] ?? '');
+
+            if ($username === '') {
+                $errors['username'][] = 'The username field is required.';
+            } elseif (preg_match('/\A[a-z0-9][a-z0-9._-]{2,49}\z/', $username) !== 1) {
+                $errors['username'][] = 'The username must be 3-50 characters using lowercase letters, numbers, dots, underscores, or hyphens.';
+            }
+        }
+
         if (array_key_exists('status', $payload) && ! in_array($payload['status'], ['active', 'invited', 'suspended', 'disabled'], true)) {
             $errors['status'][] = 'The status field must be active, invited, suspended, or disabled.';
+        }
+
+        if ($creating && array_key_exists('status', $payload) && $payload['status'] !== 'invited') {
+            $errors['status'][] = 'New admin users must activate their account through an invitation link.';
+        }
+
+        if (array_key_exists('password', $payload)) {
+            $errors['password'][] = 'Admin passwords must be created by the recipient through an invitation link.';
         }
 
         if ($creating || array_key_exists('role_ids', $payload)) {
@@ -111,28 +131,58 @@ class AdminUserManagementService
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
+    public function transitionErrors(array $currentUser, array $payload): array
+    {
+        if (
+            ($currentUser['status'] ?? null) === 'invited'
+            && ($payload['status'] ?? null) === 'active'
+        ) {
+            return [
+                'status' => ['Invited admin users must activate their account through an invitation link.'],
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
     public function conflictErrors(string $scopeType, ?string $tenantId, array $payload, ?string $adminUserId = null): array
     {
         $errors = [];
 
-        if (! array_key_exists('email', $payload)) {
-            return $errors;
+        if (array_key_exists('email', $payload)) {
+            $email = strtolower(trim((string) $payload['email']));
+
+            if ($email !== '') {
+                $query = AdminUser::query()->where('email', $email);
+
+                if ($adminUserId !== null) {
+                    $query->where('id', '!=', $adminUserId);
+                }
+
+                if ($query->exists()) {
+                    $errors['email'][] = 'The email address already exists.';
+                }
+            }
         }
 
-        $email = strtolower(trim((string) $payload['email']));
+        if (array_key_exists('username', $payload)) {
+            $username = $this->normalizeUsername($payload['username']);
 
-        if ($email === '') {
-            return $errors;
-        }
+            if ($username !== '') {
+                $query = AdminUser::query()->where('username', $username);
 
-        $query = AdminUser::query()->where('email', $email);
+                if ($adminUserId !== null) {
+                    $query->where('id', '!=', $adminUserId);
+                }
 
-        if ($adminUserId !== null) {
-            $query->where('id', '!=', $adminUserId);
-        }
-
-        if ($query->exists()) {
-            $errors['email'][] = 'The email address already exists.';
+                if ($query->exists()) {
+                    $errors['username'][] = 'The username already exists.';
+                }
+            }
         }
 
         return $errors;
@@ -153,9 +203,10 @@ class AdminUserManagementService
                 'id' => $adminUserId,
                 'name' => trim((string) $payload['name']),
                 'email' => strtolower(trim((string) $payload['email'])),
+                'username' => $this->normalizeUsername($payload['username']),
                 'phone' => $payload['phone'] ?? null,
-                'password_hash' => Hash::make(array_key_exists('password', $payload) ? (string) $payload['password'] : Str::random(64)),
-                'status' => $payload['status'] ?? 'invited',
+                'password_hash' => Hash::make(Str::random(64)),
+                'status' => 'invited',
                 'two_factor_enabled' => false,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -165,7 +216,15 @@ class AdminUserManagementService
             $this->invalidatePermissionCache($adminUserId, $scopeId);
             $this->auditAdminUserChange($actor, $request, $scopeType, $tenantId, $adminUserId, 'created', $payload);
 
-            return $this->findUser($scopeType, $tenantId, $adminUserId);
+            $user = $this->findUser($scopeType, $tenantId, $adminUserId);
+            $invitation = $this->invitations->issue(
+                AdminUser::query()->findOrFail($adminUserId),
+                $scopeType,
+                $tenantId,
+                $actor->adminUser['id'],
+            );
+
+            return array_merge($user, ['invitation' => $invitation]);
         });
     }
 
@@ -193,9 +252,8 @@ class AdminUserManagementService
                 $updates['email'] = strtolower(trim((string) $payload['email']));
             }
 
-            if (array_key_exists('password', $payload)) {
-                $updates['password_hash'] = Hash::make((string) $payload['password']);
-                $updates = array_merge($updates, $this->forcedPasswordColumns(true, null));
+            if (array_key_exists('username', $payload)) {
+                $updates['username'] = $this->normalizeUsername($payload['username']);
             }
 
             AdminUser::query()->whereKey($adminUserId)->update($updates);
@@ -226,6 +284,7 @@ class AdminUserManagementService
                 ->delete();
 
             $this->invalidatePermissionCache($adminUserId, $scopeId);
+            $this->invitations->revokeForUser($adminUserId);
 
             if (! AdminUserRole::where('admin_user_id', $adminUserId)->exists()) {
                 AdminUser::query()
@@ -239,6 +298,43 @@ class AdminUserManagementService
             $this->auditAdminUserChange($actor, $request, $scopeType, $tenantId, $adminUserId, 'disabled', []);
 
             return true;
+        });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function issueInvitation(
+        string $scopeType,
+        ?string $tenantId,
+        string $adminUserId,
+        AdminSessionContext $actor,
+        Request $request,
+    ): ?array {
+        return DB::transaction(function () use ($scopeType, $tenantId, $adminUserId, $actor, $request): ?array {
+            $user = $this->findUser($scopeType, $tenantId, $adminUserId);
+
+            if ($user === null || $user['status'] !== 'invited') {
+                return null;
+            }
+
+            $invitation = $this->invitations->issue(
+                AdminUser::query()->findOrFail($adminUserId),
+                $scopeType,
+                $tenantId,
+                $actor->adminUser['id'],
+            );
+            $this->auditAdminUserChange(
+                $actor,
+                $request,
+                $scopeType,
+                $tenantId,
+                $adminUserId,
+                'invitation.issued',
+                [],
+            );
+
+            return array_merge($user, ['invitation' => $invitation]);
         });
     }
 
@@ -266,6 +362,7 @@ class AdminUserManagementService
             'admin_users.id',
             'admin_users.name',
             'admin_users.email',
+            'admin_users.username',
             'admin_users.phone',
             'admin_users.status',
             'admin_users.two_factor_enabled',
@@ -407,6 +504,7 @@ class AdminUserManagementService
             'tenant_id' => $scopeType === 'tenant' ? $tenantId : null,
             'name' => (string) $user->name,
             'email' => (string) $user->email,
+            'username' => (string) $user->username,
             'phone' => $user->phone,
             'status' => (string) $user->status,
             'roles' => $roles,
@@ -433,6 +531,11 @@ class AdminUserManagementService
         }
 
         return $columns;
+    }
+
+    private function normalizeUsername(mixed $username): string
+    {
+        return strtolower(trim((string) $username));
     }
 
     /**

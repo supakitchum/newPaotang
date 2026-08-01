@@ -403,8 +403,25 @@ class CustomerAuthController extends Controller
     {
         return match ($result['error'] ?? null) {
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'customer_session_replaced' => ApiErrorResponse::make(
+                $request,
+                401,
+                'customer_session_replaced',
+                'This account signed in on a new device. The previous device was signed out.',
+                [
+                    'replacement_session_id' => $result['replacement_session_id'] ?? null,
+                    'replaced_at' => $result['replaced_at'] ?? null,
+                ],
+            ),
             'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'account_reuse_cooldown' => ApiErrorResponse::make(
+                $request,
+                409,
+                'account_reuse_cooldown',
+                'This phone number can be registered again after the retention cooldown.',
+                $result['details'] ?? [],
+            ),
             'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
             'pin_required' => ApiErrorResponse::customerPinRequired($request),
             'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),

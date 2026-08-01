@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_token_store.dart';
+import '../auth/customer_session_replacement_controller.dart';
 import '../config/app_config.dart';
 import '../i18n/app_locale.dart';
 import '../i18n/customer_locale_controller.dart';
 import '../utils/idempotency_key.dart';
+import '../utils/api_errors.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final config = ref.watch(appConfigProvider);
@@ -16,6 +18,11 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     tokenStore,
     localeTag: localeTag(initialLocale),
     localeTagResolver: () => localeTag(ref.read(customerLocaleProvider)),
+    onSessionReplaced: (info) {
+      ref
+          .read(customerSessionReplacementControllerProvider.notifier)
+          .notify(replacementSessionId: info.replacementSessionId);
+    },
   );
 });
 
@@ -25,15 +32,18 @@ class ApiClient {
     this._tokenStore, {
     required String localeTag,
     String Function()? localeTagResolver,
+    void Function(ApiErrorInfo)? onSessionReplaced,
     Dio? dio,
-  })  : _localeTag = localeTag,
-        _localeTagResolver = localeTagResolver,
-        _tenantHost = config.normalizedTenantHost,
-        _dio = _configuredDio(config.apiBaseUrl, dio);
+  }) : _localeTag = localeTag,
+       _localeTagResolver = localeTagResolver,
+       _onSessionReplaced = onSessionReplaced,
+       _tenantHost = config.normalizedTenantHost,
+       _dio = _configuredDio(config.apiBaseUrl, dio);
 
   final AuthTokenStore _tokenStore;
   final String _localeTag;
   final String Function()? _localeTagResolver;
+  final void Function(ApiErrorInfo)? _onSessionReplaced;
   final String _tenantHost;
   final Dio _dio;
   Future<bool>? _refreshInFlight;
@@ -188,6 +198,7 @@ class ApiClient {
     try {
       return await request();
     } on DioException catch (error) {
+      if (_notifySessionReplaced(error)) rethrow;
       if (!_shouldAttemptTokenRefresh(path: path, auth: auth, error: error)) {
         rethrow;
       }
@@ -238,9 +249,7 @@ class ApiClient {
       final response = await _dio.post<Map<String, dynamic>>(
         _path('/customer/auth/refresh'),
         data: {'refresh_token': currentRefreshToken},
-        options: Options(
-          headers: _headers(auth: false, requestId: requestId),
-        ),
+        options: Options(headers: _headers(auth: false, requestId: requestId)),
       );
       final payload = _sessionPayload(_asMap(response.data));
       final user = _asMap(payload['user']);
@@ -278,12 +287,21 @@ class ApiClient {
       ]);
       await _tokenStore.save(
         accessToken: accessToken,
-        refreshToken:
-            nextRefreshToken.isEmpty ? currentRefreshToken : nextRefreshToken,
+        refreshToken: nextRefreshToken.isEmpty
+            ? currentRefreshToken
+            : nextRefreshToken,
         customerId: customerId.isEmpty ? _tokenStore.customerId : customerId,
       );
+      final nextSessionId = _firstString([
+        payload['session_id'],
+        payload['sessionId'],
+      ]);
+      if (nextSessionId.isNotEmpty) {
+        await _tokenStore.saveSessionId(nextSessionId);
+      }
       return true;
     } on DioException catch (error) {
+      if (_notifySessionReplaced(error)) rethrow;
       if (_isRejectedRefreshToken(error)) return false;
       rethrow;
     }
@@ -291,6 +309,19 @@ class ApiClient {
 
   bool _isRejectedRefreshToken(DioException error) {
     return error.response?.statusCode == 401;
+  }
+
+  bool _notifySessionReplaced(DioException error) {
+    final info = ApiErrorInfo.fromObject(error);
+    if (!info.isCustomerSessionReplaced) return false;
+    final replacementSessionId = info.replacementSessionId;
+    final currentSessionId = _tokenStore.sessionId?.trim() ?? '';
+    if (replacementSessionId.isNotEmpty &&
+        replacementSessionId == currentSessionId) {
+      return true;
+    }
+    _onSessionReplaced?.call(info);
+    return true;
   }
 
   Map<String, String> _headers({

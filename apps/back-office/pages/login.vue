@@ -14,7 +14,7 @@
               <div class="col-lg-6">
                 <div class="card-body p-4 p-lg-5">
                   <div class="mb-4">
-                    <img :src="loginLogoUrl" :alt="loginLogoAlt" height="34" class="mb-3" data-partner-login-brand-logo />
+                    <img :src="loginLogoUrl" :alt="loginLogoAlt" class="np-login-brand-logo mb-3" data-partner-login-brand-logo />
                     <h4 class="mb-1" data-partner-login-brand-name>{{ loginTitle }}</h4>
                     <p class="text-muted mb-0">{{ loginSubtitle }}</p>
                   </div>
@@ -70,6 +70,7 @@ const session = useAdminSession()
 const { t } = useAdminLocale()
 const hostMode = useAdminHostMode()
 const adminSiteConfig = useAdminSiteConfig()
+const adminBranding = useAdminBranding()
 const route = useRoute()
 const loading = ref(false)
 const error = ref<any>(null)
@@ -88,9 +89,9 @@ const loginSubtitle = computed(() => (
     ? t('login.partnerSubtitle')
     : t('login.subtitle')
 ))
-const defaultLoginLogoUrl = '/admin-template/assets/images/brand-logos/desktop-logo.png'
+const defaultLoginLogoUrl = adminBranding.centralLogoUrl
 const loginLogoUrl = computed(() => isPartnerBoMode.value ? adminSiteConfig.logoUrl.value || defaultLoginLogoUrl : defaultLoginLogoUrl)
-const loginLogoAlt = computed(() => isPartnerBoMode.value ? partnerDisplayName.value : 'NewPaotang')
+const loginLogoAlt = computed(() => isPartnerBoMode.value ? partnerDisplayName.value : adminBranding.systemName)
 const siteConfigError = computed({
   get: () => adminSiteConfig.error.value,
   set: (value) => {

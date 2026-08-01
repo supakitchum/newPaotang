@@ -66,7 +66,7 @@ class StaticTranslationCatalog
                 'common.signIn' => 'Sign in',
             ],
             'login' => [
-                'login.heroTitle' => 'NewPaotang Back Office',
+                'login.heroTitle' => 'Siamblend Back Office',
                 'login.heroSubtitle' => 'Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.',
                 'login.partnerHeroSubtitle' => 'Secure tenant operations for this partner domain.',
                 'login.title' => 'Admin sign in',
@@ -605,6 +605,7 @@ class StaticTranslationCatalog
         return self::rows('api', [
             'errors' => [
                 'api.errors.authentication_required' => 'Authentication token is missing, invalid, expired, or revoked.',
+                'api.errors.customer_session_replaced' => 'This account signed in on a new device. The previous device was signed out.',
                 'api.errors.permission_denied' => 'You do not have permission to perform this action.',
                 'api.errors.resource_not_found' => 'The requested resource was not found.',
                 'api.errors.resource_conflict' => 'The resource conflicts with existing state.',

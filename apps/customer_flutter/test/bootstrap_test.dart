@@ -35,72 +35,81 @@ void main() {
   });
 
   test('mobile bootstrap falls back to configured app display name', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {'site': <String, dynamic>{}},
-      defaultSiteName: 'Partner Lottery',
-    );
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'site': <String, dynamic>{},
+    }, defaultSiteName: 'Partner Lottery');
 
     expect(bootstrap.siteName, 'Partner Lottery');
   });
 
   test('mobile bootstrap maps runtime asset CDN configuration', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'api': {
-          'asset_cdn_base_url': 'https://cdn.partner.example/assets',
-        },
-      },
-    );
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'api': {'asset_cdn_base_url': 'https://cdn.partner.example/assets'},
+    });
 
-    expect(
-      bootstrap.assetCdnBaseUrl,
-      'https://cdn.partner.example/assets',
-    );
+    expect(bootstrap.assetCdnBaseUrl, 'https://cdn.partner.example/assets');
   });
 
   test('mobile bootstrap maps runtime tenant domain identity', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'domain': {
-          'host': 'partner.example.com',
-          'canonical_url': 'https://partner.example.com',
-        },
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'domain': {
+        'host': 'partner.example.com',
+        'canonical_url': 'https://partner.example.com',
       },
-    );
+    });
 
     expect(bootstrap.tenantHost, 'partner.example.com');
     expect(bootstrap.canonicalUrl, 'https://partner.example.com');
   });
 
-  test('mobile bootstrap accepts mobile asset CDN aliases', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'mobileConfig': {
-          'apiConfig': {
-            'assetCdnBaseUrl': 'https://media.partner.example',
-          },
+  test('mobile bootstrap maps tenant passkey policy', () {
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'mobile': {
+        'passkeys': {
+          'enabled': true,
+          'rp_id': 'partner.example.com',
+          'rp_name': 'Partner Lottery',
+          'timeout_ms': 45000,
+          'max_passkeys': 6,
+          'platforms': ['ios', 'android', 'web'],
         },
+        'feature_flags': {'passkey_login': true},
       },
-    );
+    });
 
+    expect(bootstrap.passkeys.enabled, isTrue);
+    expect(bootstrap.passkeys.relyingPartyId, 'partner.example.com');
+    expect(bootstrap.passkeys.relyingPartyName, 'Partner Lottery');
+    expect(bootstrap.passkeys.timeoutMilliseconds, 45000);
+    expect(bootstrap.passkeys.maxPasskeys, 6);
+    expect(bootstrap.passkeys.supportsPlatform('ios'), isTrue);
+    expect(bootstrap.passkeys.supportsPlatform('macos'), isFalse);
     expect(
-      bootstrap.assetCdnBaseUrl,
-      'https://media.partner.example',
+      bootstrap.featureFlags.enabled('passkey_login', fallback: false),
+      isTrue,
     );
   });
 
-  test('mobile bootstrap maps waiting result live configuration', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'site': <String, dynamic>{},
-        'live': {
-          'waiting_result_youtube_url': 'https://youtu.be/demo',
-          'waiting_result_youtube_embed_url':
-              'https://www.youtube.com/embed/demo',
-          'source': 'tenant_override',
-        },
+  test('mobile bootstrap accepts mobile asset CDN aliases', () {
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'mobileConfig': {
+        'apiConfig': {'assetCdnBaseUrl': 'https://media.partner.example'},
       },
-    );
+    });
+
+    expect(bootstrap.assetCdnBaseUrl, 'https://media.partner.example');
+  });
+
+  test('mobile bootstrap maps waiting result live configuration', () {
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'site': <String, dynamic>{},
+      'live': {
+        'waiting_result_youtube_url': 'https://youtu.be/demo',
+        'waiting_result_youtube_embed_url':
+            'https://www.youtube.com/embed/demo',
+        'source': 'tenant_override',
+      },
+    });
 
     expect(bootstrap.live.configured, isTrue);
     expect(
@@ -111,26 +120,21 @@ void main() {
   });
 
   test('mobile bootstrap accepts mobile live camelCase config aliases', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'liveConfig': {
+        'waitingResultYoutubeUrl': 'https://youtu.be/fallback',
+        'source': 'top_level',
+      },
+      'mobileConfig': {
         'liveConfig': {
-          'waitingResultYoutubeUrl': 'https://youtu.be/fallback',
-          'source': 'top_level',
-        },
-        'mobileConfig': {
-          'liveConfig': {
-            'waitingResultYoutubeEmbedUrl':
-                'https://www.youtube.com/embed/mobile',
-            'provider': 'mobile_bo',
-          },
+          'waitingResultYoutubeEmbedUrl':
+              'https://www.youtube.com/embed/mobile',
+          'provider': 'mobile_bo',
         },
       },
-    );
+    });
 
-    expect(
-      bootstrap.live.waitingResultYoutubeUrl,
-      'https://youtu.be/fallback',
-    );
+    expect(bootstrap.live.waitingResultYoutubeUrl, 'https://youtu.be/fallback');
     expect(
       bootstrap.live.waitingResultYoutubeEmbedUrl,
       'https://www.youtube.com/embed/mobile',
@@ -143,10 +147,9 @@ void main() {
   });
 
   test(
-      'mobile bootstrap merges BO wrapper aliases for realtime payment and security',
-      () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
+    'mobile bootstrap merges BO wrapper aliases for realtime payment and security',
+    () {
+      final bootstrap = MobileBootstrap.fromJson(const {
         'realtimeConfig': {
           'enabled': 'on',
           'websocketUrl': 'wss://root.example.test/app',
@@ -203,63 +206,66 @@ void main() {
             },
           },
         },
-      },
-    );
+      });
 
-    expect(bootstrap.realtime.enabled, isTrue);
-    expect(bootstrap.realtime.configured, isTrue);
-    expect(bootstrap.realtime.url, 'wss://mobile.example.test/app');
-    expect(bootstrap.realtime.key, 'mobile-key');
-    expect(bootstrap.realtime.authEndpoint, '/root/realtime/auth');
-    expect(bootstrap.realtime.client, 'root-client');
-    expect(bootstrap.payment.checkoutPaymentMethod, 'external_payment');
-    expect(bootstrap.payment.checkoutPaymentMethods, [
-      checkoutPaymentMethodWallet,
-      checkoutPaymentMethodExternalPayment,
-    ]);
-    expect(bootstrap.biometric.enabled, isTrue);
-    expect(bootstrap.biometric.assertionTokenTtlSeconds, 240);
-    expect(
-      bootstrap.biometric.promptReasonForPurpose(
-        'pin_unlock',
-        fallback: 'Fallback prompt',
-      ),
-      'Runtime biometric prompt',
-    );
-    expect(
-      bootstrap.biometric.promptReasonForPurpose(
-        'biometric_setup',
-        fallback: 'Fallback setup',
-        setup: true,
-      ),
-      'Runtime setup prompt',
-    );
-    expect(
-      bootstrap.biometric.promptReasonForPurpose(
-        'reward_claim',
-        fallback: 'Fallback reward',
-      ),
-      'Runtime reward claim prompt',
-    );
-    expect(
-      bootstrap.biometric.promptReasonForPurpose(
-        'profile_update',
-        fallback: 'Fallback profile',
-      ),
-      'Runtime profile update prompt',
-    );
-    expect(bootstrap.biometric.platforms['ios'], ['face_id']);
-    expect(bootstrap.biometric.platforms['android'], ['biometric_prompt']);
-    expect(
-      bootstrap.screenSecurity.isSensitiveRoute('/security-secure'),
-      isTrue,
-    );
-    expect(bootstrap.screenSecurity.privacyOverlayTitle, 'Tenant Privacy Mode');
-    expect(
-      bootstrap.screenSecurity.privacyOverlayDescription,
-      'Tenant sensitive content is hidden.',
-    );
-  });
+      expect(bootstrap.realtime.enabled, isTrue);
+      expect(bootstrap.realtime.configured, isTrue);
+      expect(bootstrap.realtime.url, 'wss://mobile.example.test/app');
+      expect(bootstrap.realtime.key, 'mobile-key');
+      expect(bootstrap.realtime.authEndpoint, '/root/realtime/auth');
+      expect(bootstrap.realtime.client, 'root-client');
+      expect(bootstrap.payment.checkoutPaymentMethod, 'external_payment');
+      expect(bootstrap.payment.checkoutPaymentMethods, [
+        checkoutPaymentMethodWallet,
+        checkoutPaymentMethodExternalPayment,
+      ]);
+      expect(bootstrap.biometric.enabled, isTrue);
+      expect(bootstrap.biometric.assertionTokenTtlSeconds, 240);
+      expect(
+        bootstrap.biometric.promptReasonForPurpose(
+          'pin_unlock',
+          fallback: 'Fallback prompt',
+        ),
+        'Runtime biometric prompt',
+      );
+      expect(
+        bootstrap.biometric.promptReasonForPurpose(
+          'biometric_setup',
+          fallback: 'Fallback setup',
+          setup: true,
+        ),
+        'Runtime setup prompt',
+      );
+      expect(
+        bootstrap.biometric.promptReasonForPurpose(
+          'reward_claim',
+          fallback: 'Fallback reward',
+        ),
+        'Runtime reward claim prompt',
+      );
+      expect(
+        bootstrap.biometric.promptReasonForPurpose(
+          'profile_update',
+          fallback: 'Fallback profile',
+        ),
+        'Runtime profile update prompt',
+      );
+      expect(bootstrap.biometric.platforms['ios'], ['face_id']);
+      expect(bootstrap.biometric.platforms['android'], ['biometric_prompt']);
+      expect(
+        bootstrap.screenSecurity.isSensitiveRoute('/security-secure'),
+        isTrue,
+      );
+      expect(
+        bootstrap.screenSecurity.privacyOverlayTitle,
+        'Tenant Privacy Mode',
+      );
+      expect(
+        bootstrap.screenSecurity.privacyOverlayDescription,
+        'Tenant sensitive content is hidden.',
+      );
+    },
+  );
 
   test('mobile bootstrap repository accepts standard data payload', () async {
     final repository = MobileBootstrapRepository(
@@ -304,57 +310,47 @@ void main() {
   });
 
   test('mobile bootstrap accepts social provider production aliases', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'mobileConfig': {
-          'authProviders': [
-            {
-              'key': 'line_oauth',
-              'displayLabel': 'LINE',
-              'isEnabled': true,
-              'brandColor': '#00B900',
-              'buttonBackgroundColor': {'hex': '#00C300'},
-              'buttonForegroundColor': {'value': '#FFFFFF'},
-            },
-            {
-              'provider': 'discord',
-              'enabled': true,
-            },
-            {
-              'provider': 'gmail',
-              'enabled': false,
-            },
-          ],
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'mobileConfig': {
+        'authProviders': [
+          {
+            'key': 'line_oauth',
+            'displayLabel': 'LINE',
+            'isEnabled': true,
+            'brandColor': '#00B900',
+            'buttonBackgroundColor': {'hex': '#00C300'},
+            'buttonForegroundColor': {'value': '#FFFFFF'},
+          },
+          {'provider': 'discord', 'enabled': true},
+          {'provider': 'gmail', 'enabled': false},
+        ],
+      },
+      'socialProviders': {
+        'providers': [
+          {'provider': 'line', 'label': 'Duplicate LINE', 'enabled': true},
+        ],
+        'google_oauth2': {
+          'displayName': 'Google Login',
+          'status': 'available',
+          'colors': {'primary': '#4285F4'},
         },
-        'socialProviders': {
-          'providers': [
-            {
-              'provider': 'line',
-              'label': 'Duplicate LINE',
-              'enabled': true,
-            },
-          ],
-          'google_oauth2': {
-            'displayName': 'Google Login',
-            'status': 'available',
-            'colors': {'primary': '#4285F4'},
-          },
-          'apple_login': {
-            'status': 'ready',
-            'brand': {'color': '#111111'},
-          },
+        'apple_login': {
+          'status': 'ready',
+          'brand': {'color': '#111111'},
         },
       },
-    );
+    });
 
-    expect(
-      bootstrap.authProviders.map((provider) => provider.provider),
-      ['line', 'google', 'apple'],
-    );
-    expect(
-      bootstrap.authProviders.map((provider) => provider.label),
-      ['LINE', 'Google Login', 'Apple ID'],
-    );
+    expect(bootstrap.authProviders.map((provider) => provider.provider), [
+      'line',
+      'google',
+      'apple',
+    ]);
+    expect(bootstrap.authProviders.map((provider) => provider.label), [
+      'LINE',
+      'Google Login',
+      'Apple ID',
+    ]);
     expect(bootstrap.authProviders[0].brandColor, const Color(0xFF00B900));
     expect(
       bootstrap.authProviders[0].buttonBackgroundColor,
@@ -369,51 +365,47 @@ void main() {
   });
 
   test('mobile bootstrap accepts biometric platform allowlist aliases', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'mobileConfig': {
-          'biometricConfig': {
-            'enabled': true,
-            'supportedPlatforms': [
-              {
-                'platform': 'ios',
-                'capabilities': ['face_id'],
-              },
-              {
-                'platform': 'android',
-                'enabled': false,
-                'capabilities': ['biometric_prompt'],
-              },
-              'macos',
-            ],
-          },
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'mobileConfig': {
+        'biometricConfig': {
+          'enabled': true,
+          'supportedPlatforms': [
+            {
+              'platform': 'ios',
+              'capabilities': ['face_id'],
+            },
+            {
+              'platform': 'android',
+              'enabled': false,
+              'capabilities': ['biometric_prompt'],
+            },
+            'macos',
+          ],
         },
       },
-    );
+    });
 
     expect(bootstrap.biometric.supportsPlatform('ios'), isTrue);
     expect(bootstrap.biometric.platforms['ios'], ['face_id']);
     expect(bootstrap.biometric.supportsPlatform('android'), isFalse);
     expect(bootstrap.biometric.supportsPlatform('macos'), isTrue);
 
-    final keyed = MobileBootstrap.fromJson(
-      const {
-        'mobileConfig': {
-          'biometricConfig': {
-            'enabled': 'on',
-            'platforms': {
-              'ios': true,
-              'android': false,
-              'macos': {
-                'available': 'on',
-                'capabilities': ['touch_id'],
-              },
-              'windows': 'supported',
+    final keyed = MobileBootstrap.fromJson(const {
+      'mobileConfig': {
+        'biometricConfig': {
+          'enabled': 'on',
+          'platforms': {
+            'ios': true,
+            'android': false,
+            'macos': {
+              'available': 'on',
+              'capabilities': ['touch_id'],
             },
+            'windows': 'supported',
           },
         },
       },
-    );
+    });
 
     expect(keyed.biometric.enabled, isTrue);
     expect(keyed.biometric.supportsPlatform('ios'), isTrue);
@@ -424,41 +416,39 @@ void main() {
   });
 
   test('mobile bootstrap accepts screen security route policy aliases', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'mobileConfig': {
-          'screenSecurity': {
-            'secureRoutes': [
-              'https://partner.example.com/my-wallet?tab=summary',
-              'customer://screen-security?route=%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'mobileConfig': {
+        'screenSecurity': {
+          'secureRoutes': [
+            'https://partner.example.com/my-wallet?tab=summary',
+            'customer://screen-security?route=%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
+          ],
+          'android': {
+            'protectedRoutes': '/reward-claims,/activity-claims/:claimId',
+          },
+          'ios': {
+            'sensitiveRoutes': [
+              {'path': '/tickets/:ticketId', 'status': 'available'},
+              {
+                'currentUrl':
+                    'https://partner.example.com/tickets/ticket_42?tab=image',
+                'status': 'available',
+              },
+              {'route': '/disabled-native', 'enabled': 'off'},
             ],
-            'android': {
-              'protectedRoutes': '/reward-claims,/activity-claims/:claimId',
-            },
-            'ios': {
-              'sensitiveRoutes': [
-                {'path': '/tickets/:ticketId', 'status': 'available'},
-                {
-                  'currentUrl':
-                      'https://partner.example.com/tickets/ticket_42?tab=image',
-                  'status': 'available',
-                },
-                {'route': '/disabled-native', 'enabled': 'off'},
-              ],
-            },
-            'web': {
-              'routePatterns': [
-                'https://partner.example.com/partner-secure/*?view=hidden',
-                {
-                  '#/profile/account-deletion?intent=delete': 'on',
-                  '/disabled-web': false,
-                },
-              ],
-            },
+          },
+          'web': {
+            'routePatterns': [
+              'https://partner.example.com/partner-secure/*?view=hidden',
+              {
+                '#/profile/account-deletion?intent=delete': 'on',
+                '/disabled-web': false,
+              },
+            ],
           },
         },
       },
-    );
+    });
 
     expect(bootstrap.screenSecurity.sensitiveRoutes, [
       '/my-wallet',
@@ -507,44 +497,34 @@ void main() {
       bootstrap.screenSecurity.isSensitiveRoute('/disabled-native'),
       isFalse,
     );
-    expect(
-      bootstrap.screenSecurity.isSensitiveRoute('/disabled-web'),
-      isFalse,
-    );
+    expect(bootstrap.screenSecurity.isSensitiveRoute('/disabled-web'), isFalse);
   });
 
   test('mobile bootstrap normalizes feature and plugin flag aliases', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      const {
-        'siteConfig': {
-          'featureFlags': {
-            'nativeBiometricUnlock': true,
-          },
-        },
-        'features': [
-          {'key': 'screen-security-native', 'status': 'disabled'},
-          {'pluginKey': 'customer.realtime.monitor', 'enabled': 'on'},
-        ],
-        'mobileConfig': {
-          'pluginSettings': {
-            'native-biometric-unlock': {'allowed': false},
-            'screenSecurityNative': {'supported': 'yes'},
-          },
-          'features': {
-            'claims': {
-              'rewardClaims': {'status': 'available'},
-            },
-          },
-          'enabledPlugins': ['wallet.topup'],
-        },
+    final bootstrap = MobileBootstrap.fromJson(const {
+      'siteConfig': {
+        'featureFlags': {'nativeBiometricUnlock': true},
       },
-    );
+      'features': [
+        {'key': 'screen-security-native', 'status': 'disabled'},
+        {'pluginKey': 'customer.realtime.monitor', 'enabled': 'on'},
+      ],
+      'mobileConfig': {
+        'pluginSettings': {
+          'native-biometric-unlock': {'allowed': false},
+          'screenSecurityNative': {'supported': 'yes'},
+        },
+        'features': {
+          'claims': {
+            'rewardClaims': {'status': 'available'},
+          },
+        },
+        'enabledPlugins': ['wallet.topup'],
+      },
+    });
 
     expect(
-      bootstrap.featureFlags.enabled(
-        'native_biometric_unlock',
-        fallback: true,
-      ),
+      bootstrap.featureFlags.enabled('native_biometric_unlock', fallback: true),
       isFalse,
     );
     expect(bootstrap.featureFlags.enabled('screen_security_native'), isTrue);
@@ -558,20 +538,16 @@ void main() {
   });
 
   test('mobile bootstrap accepts tenant id and site name aliases', () {
-    final nestedTenant = MobileBootstrap.fromJson(
-      const {
-        'siteConfig': {
-          'siteName': 'Nested Tenant Shop',
-          'tenant': {'id': 'tenant_nested_1'},
-        },
+    final nestedTenant = MobileBootstrap.fromJson(const {
+      'siteConfig': {
+        'siteName': 'Nested Tenant Shop',
+        'tenant': {'id': 'tenant_nested_1'},
       },
-    );
-    final topLevelTenant = MobileBootstrap.fromJson(
-      const {
-        'site': {'name': 'Top Level Tenant Shop'},
-        'tenantId': 'tenant_top_1',
-      },
-    );
+    });
+    final topLevelTenant = MobileBootstrap.fromJson(const {
+      'site': {'name': 'Top Level Tenant Shop'},
+      'tenantId': 'tenant_top_1',
+    });
 
     expect(nestedTenant.siteName, 'Nested Tenant Shop');
     expect(nestedTenant.tenantId, 'tenant_nested_1');
@@ -769,10 +745,7 @@ void main() {
     expect(english.profileRewardBankSaveButton, 'Save payout account');
     expect(thai.profileAutoReward, 'ขึ้นเงินรางวัลอัตโนมัติ');
     expect(english.profileAutoReward, 'Automatic reward claim');
-    expect(
-      thai.profileAutoRewardSelectTitle,
-      'เลือกช่องทางรับเงินรางวัลหลัก',
-    );
+    expect(thai.profileAutoRewardSelectTitle, 'เลือกช่องทางรับเงินรางวัลหลัก');
     expect(
       english.profileAutoRewardSelectTitle,
       'Choose primary reward payout channel',
@@ -858,10 +831,7 @@ void main() {
     expect(english.rewardClaimStatusPaid, 'Paid successfully');
     expect(thai.activityClaimsTitle, 'ประวัติขึ้นเงินรางวัลกิจกรรม');
     expect(english.activityClaimsTitle, 'Activity reward claim history');
-    expect(
-      thai.activityClaimsLoading,
-      'กำลังโหลดประวัติขึ้นเงินกิจกรรม...',
-    );
+    expect(thai.activityClaimsLoading, 'กำลังโหลดประวัติขึ้นเงินกิจกรรม...');
     expect(
       english.activityClaimsLoading,
       'Loading activity reward claim history...',
@@ -890,10 +860,7 @@ void main() {
 
   test('mobile bootstrap resolves locale from site payload', () {
     final bootstrap = MobileBootstrap.fromJson({
-      'site': {
-        'display_name': 'Partner Demo',
-        'locale': 'en-US',
-      },
+      'site': {'display_name': 'Partner Demo', 'locale': 'en-US'},
     });
 
     expect(bootstrap.siteName, 'Partner Demo');
@@ -901,103 +868,98 @@ void main() {
   });
 
   test('mobile bootstrap falls back to configured default locale', () {
-    final bootstrap = MobileBootstrap.fromJson(
-      {
-        'site': {'display_name': 'Partner Demo'},
-      },
-      defaultLocale: 'en-US',
-    );
+    final bootstrap = MobileBootstrap.fromJson({
+      'site': {'display_name': 'Partner Demo'},
+    }, defaultLocale: 'en-US');
 
     expect(localeTag(bootstrap.locale), 'en-US');
   });
 
   test('mobile bootstrap resolves runtime localized config text', () {
-    final english = MobileBootstrap.fromJson(
-      const {
-        'site': {
-          'locale': 'th-TH',
-          'display_name': 'ชื่อสำรอง',
-          'display_name_i18n': {
-            'th-TH': 'ร้านสลากตัวอย่าง',
-            'en-US': 'Demo Lottery',
-          },
-        },
-        'legal': {
-          'terms_content': 'เงื่อนไขสำรอง',
-          'terms_content_i18n': {
-            'th-TH': 'เงื่อนไขภาษาไทย',
-            'en-US': 'English terms',
-          },
-          'privacy_content': 'ความเป็นส่วนตัวสำรอง',
-          'privacy_content_i18n': [
-            {'locale': 'th-TH', 'content': 'ความเป็นส่วนตัวภาษาไทย'},
-            {'locale': 'en-US', 'content': 'English privacy'},
-          ],
-        },
-        'maintenance': {
-          'active': true,
-          'message': 'ข้อความสำรอง',
-          'message_i18n': {
-            'th-TH': 'ปิดปรับปรุงชั่วคราว',
-            'en-US': 'Temporarily unavailable',
-          },
+    final english = MobileBootstrap.fromJson(const {
+      'site': {
+        'locale': 'th-TH',
+        'display_name': 'ชื่อสำรอง',
+        'display_name_i18n': {
+          'th-TH': 'ร้านสลากตัวอย่าง',
+          'en-US': 'Demo Lottery',
         },
       },
-      contentLocale: 'en-US',
-    );
+      'legal': {
+        'terms_content': 'เงื่อนไขสำรอง',
+        'terms_content_i18n': {
+          'th-TH': 'เงื่อนไขภาษาไทย',
+          'en-US': 'English terms',
+        },
+        'privacy_content': 'ความเป็นส่วนตัวสำรอง',
+        'privacy_content_i18n': [
+          {'locale': 'th-TH', 'content': 'ความเป็นส่วนตัวภาษาไทย'},
+          {'locale': 'en-US', 'content': 'English privacy'},
+        ],
+      },
+      'maintenance': {
+        'active': true,
+        'message': 'ข้อความสำรอง',
+        'message_i18n': {
+          'th-TH': 'ปิดปรับปรุงชั่วคราว',
+          'en-US': 'Temporarily unavailable',
+        },
+      },
+    }, contentLocale: 'en-US');
 
     expect(english.siteName, 'Demo Lottery');
     expect(english.termsContent, 'English terms');
     expect(english.privacyContent, 'English privacy');
     expect(english.maintenance.message, 'Temporarily unavailable');
 
-    final thai = MobileBootstrap.fromJson(
-      const {
-        'site': {
-          'locale': 'th-TH',
-          'display_name_i18n': {
-            'th-TH': 'ร้านสลากตัวอย่าง',
-            'en-US': 'Demo Lottery',
-          },
+    final thai = MobileBootstrap.fromJson(const {
+      'site': {
+        'locale': 'th-TH',
+        'display_name_i18n': {
+          'th-TH': 'ร้านสลากตัวอย่าง',
+          'en-US': 'Demo Lottery',
         },
       },
-      contentLocale: 'th',
-    );
+    }, contentLocale: 'th');
 
     expect(thai.siteName, 'ร้านสลากตัวอย่าง');
   });
 
-  test('mobile bootstrap provider reloads when customer locale changes',
-      () async {
-    late ProviderContainer container;
-    final api = _LocaleAwareBootstrapApiClient(
-      () => localeTag(container.read(customerLocaleProvider)),
-    );
-    container = ProviderContainer(
-      overrides: [
-        appConfigProvider.overrideWithValue(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'th-TH',
+  test(
+    'mobile bootstrap provider reloads when customer locale changes',
+    () async {
+      late ProviderContainer container;
+      final api = _LocaleAwareBootstrapApiClient(
+        () => localeTag(container.read(customerLocaleProvider)),
+      );
+      container = ProviderContainer(
+        overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
           ),
-        ),
-        mobileBootstrapRepositoryProvider.overrideWithValue(
-          MobileBootstrapRepository(api),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
+          mobileBootstrapRepositoryProvider.overrideWithValue(
+            MobileBootstrapRepository(api),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    final thai = await container.read(mobileBootstrapProvider.future);
-    expect(thai.siteName, 'ร้านสลากตัวอย่าง');
+      final thai = await container.read(mobileBootstrapProvider.future);
+      expect(thai.siteName, 'ร้านสลากตัวอย่าง');
 
-    container.read(customerLocaleProvider.notifier).state =
-        const Locale('en', 'US');
-    final english = await container.read(mobileBootstrapProvider.future);
+      container.read(customerLocaleProvider.notifier).state = const Locale(
+        'en',
+        'US',
+      );
+      final english = await container.read(mobileBootstrapProvider.future);
 
-    expect(english.siteName, 'Demo Lottery');
-    expect(api.requestedLocales, ['th-TH', 'en-US']);
-  });
+      expect(english.siteName, 'Demo Lottery');
+      expect(api.requestedLocales, ['th-TH', 'en-US']);
+    },
+  );
 
   test('mobile bootstrap maps checkout payment config with safe fallback', () {
     final bootstrap = MobileBootstrap.fromJson({
@@ -1015,23 +977,17 @@ void main() {
       },
     });
 
-    expect(
-      bootstrap.payment.checkoutPaymentMethods,
-      [
-        checkoutPaymentMethodWallet,
-        checkoutPaymentMethodExternalPayment,
-      ],
-    );
+    expect(bootstrap.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodWallet,
+      checkoutPaymentMethodExternalPayment,
+    ]);
     expect(
       bootstrap.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
     );
-    expect(
-      bootstrap.payment.checkoutPaymentMethodLabels,
-      {
-        checkoutPaymentMethodExternalPayment: 'Partner Gateway',
-      },
-    );
+    expect(bootstrap.payment.checkoutPaymentMethodLabels, {
+      checkoutPaymentMethodExternalPayment: 'Partner Gateway',
+    });
 
     final defaultOnly = MobileBootstrap.fromJson({
       'mobile': {
@@ -1041,13 +997,10 @@ void main() {
       },
     });
 
-    expect(
-      defaultOnly.payment.checkoutPaymentMethods,
-      [
-        checkoutPaymentMethodExternalPayment,
-        checkoutPaymentMethodWallet,
-      ],
-    );
+    expect(defaultOnly.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodExternalPayment,
+      checkoutPaymentMethodWallet,
+    ]);
     expect(
       defaultOnly.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
@@ -1060,28 +1013,21 @@ void main() {
       },
     });
 
-    expect(
-      invalid.payment.checkoutPaymentMethods,
-      [checkoutPaymentMethodWallet],
-    );
+    expect(invalid.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodWallet,
+    ]);
     expect(invalid.payment.checkoutPaymentMethod, checkoutPaymentMethodWallet);
 
     final objectRows = MobileBootstrap.fromJson({
       'mobileConfig': {
         'payment': {
           'checkoutPaymentMethods': [
-            {
-              'key': checkoutPaymentMethodExternalPayment,
-              'enabled': true,
-            },
+            {'key': checkoutPaymentMethodExternalPayment, 'enabled': true},
             {
               'paymentMethod': checkoutPaymentMethodWallet,
               'status': 'disabled',
             },
-            {
-              'key': 'cash',
-              'enabled': true,
-            },
+            {'key': 'cash', 'enabled': true},
           ],
           'defaultCheckoutPaymentMethod': checkoutPaymentMethodExternalPayment,
           'checkoutPaymentMethodOptions': [
@@ -1094,20 +1040,16 @@ void main() {
       },
     });
 
-    expect(
-      objectRows.payment.checkoutPaymentMethods,
-      [checkoutPaymentMethodExternalPayment],
-    );
+    expect(objectRows.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodExternalPayment,
+    ]);
     expect(
       objectRows.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
     );
-    expect(
-      objectRows.payment.checkoutPaymentMethodLabels,
-      {
-        checkoutPaymentMethodExternalPayment: 'Runtime Pay',
-      },
-    );
+    expect(objectRows.payment.checkoutPaymentMethodLabels, {
+      checkoutPaymentMethodExternalPayment: 'Runtime Pay',
+    });
   });
 
   test('mobile bootstrap accepts public site payment method aliases', () {
@@ -1125,10 +1067,9 @@ void main() {
       },
     });
 
-    expect(
-      publicSitePayment.payment.checkoutPaymentMethods,
-      [checkoutPaymentMethodExternalPayment],
-    );
+    expect(publicSitePayment.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodExternalPayment,
+    ]);
     expect(
       publicSitePayment.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
@@ -1145,10 +1086,9 @@ void main() {
       },
     });
 
-    expect(
-      keyedMethods.payment.checkoutPaymentMethods,
-      [checkoutPaymentMethodWallet],
-    );
+    expect(keyedMethods.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodWallet,
+    ]);
   });
 
   test('mobile bootstrap respects checkout support visibility aliases', () {
@@ -1163,10 +1103,9 @@ void main() {
       },
     });
 
-    expect(
-      bootstrap.payment.checkoutPaymentMethods,
-      [checkoutPaymentMethodExternalPayment],
-    );
+    expect(bootstrap.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodExternalPayment,
+    ]);
     expect(
       bootstrap.payment.checkoutPaymentMethod,
       checkoutPaymentMethodExternalPayment,
@@ -1184,36 +1123,28 @@ void main() {
       },
     });
 
-    expect(
-      keyed.payment.checkoutPaymentMethods,
-      [checkoutPaymentMethodExternalPayment],
-    );
+    expect(keyed.payment.checkoutPaymentMethods, [
+      checkoutPaymentMethodExternalPayment,
+    ]);
   });
 
   test('mobile bootstrap accepts support phone contact aliases', () {
-    final topLevel = MobileBootstrap.fromJson(
-      const {
-        'supportPhone': '021111111',
-        'supportUrl': 'https://support.top-level.example.test/help',
-      },
-    );
-    final nestedContact = MobileBootstrap.fromJson(
-      const {
-        'mobileConfig': {
-          'supportConfig': {
-            'phoneNumber': '022222222',
-            'emailAddress': 'support@example.test',
-            'helpUrl': 'https://support.nested.example.test/contact',
-          },
+    final topLevel = MobileBootstrap.fromJson(const {
+      'supportPhone': '021111111',
+      'supportUrl': 'https://support.top-level.example.test/help',
+    });
+    final nestedContact = MobileBootstrap.fromJson(const {
+      'mobileConfig': {
+        'supportConfig': {
+          'phoneNumber': '022222222',
+          'emailAddress': 'support@example.test',
+          'helpUrl': 'https://support.nested.example.test/contact',
         },
       },
-    );
+    });
 
     expect(topLevel.supportPhone, '021111111');
-    expect(
-      topLevel.supportUrl,
-      'https://support.top-level.example.test/help',
-    );
+    expect(topLevel.supportUrl, 'https://support.top-level.example.test/help');
     expect(nestedContact.supportPhone, '022222222');
     expect(nestedContact.supportEmail, 'support@example.test');
     expect(
@@ -1288,10 +1219,7 @@ void main() {
 
   test('mobile bootstrap maps partner brand and theme payload', () {
     final bootstrap = MobileBootstrap.fromJson({
-      'site': {
-        'display_name': 'Partner Demo',
-        'locale': 'th-TH',
-      },
+      'site': {'display_name': 'Partner Demo', 'locale': 'th-TH'},
       'mobile': {
         'lottery_product_label': 'L6',
         'ticket_image_watermark': 'GLO',
@@ -1339,10 +1267,7 @@ void main() {
 
   test('mobile bootstrap maps camelCase partner brand and theme payload', () {
     final bootstrap = MobileBootstrap.fromJson({
-      'siteConfig': {
-        'displayName': 'Partner Camel',
-        'locale': 'en-US',
-      },
+      'siteConfig': {'displayName': 'Partner Camel', 'locale': 'en-US'},
       'mobileConfig': {
         'product_marker': 'L6',
         'themeConfig': {
@@ -1379,61 +1304,54 @@ void main() {
     expect(bootstrap.theme.fontFamily, 'Inter');
   });
 
-  test('mobile bootstrap merges mobile brand and design token theme payload',
-      () {
-    final bootstrap = MobileBootstrap.fromJson({
-      'siteConfig': {
-        'displayName': 'Partner Token Theme',
-        'locale': 'en-US',
-      },
-      'brand': <String, dynamic>{},
-      'theme': <String, dynamic>{},
-      'mobileConfig': {
-        'brandConfig': {
-          'logoUrl': 'https://partner.example/mobile-logo.webp',
-          'faviconUrl': 'https://partner.example/mobile-favicon.ico',
-        },
-        'themeConfig': {
-          'brand': {
-            'primary': '#102A43',
-            'secondary': '#38BDF8',
+  test(
+    'mobile bootstrap merges mobile brand and design token theme payload',
+    () {
+      final bootstrap = MobileBootstrap.fromJson({
+        'siteConfig': {'displayName': 'Partner Token Theme', 'locale': 'en-US'},
+        'brand': <String, dynamic>{},
+        'theme': <String, dynamic>{},
+        'mobileConfig': {
+          'brandConfig': {
+            'logoUrl': 'https://partner.example/mobile-logo.webp',
+            'faviconUrl': 'https://partner.example/mobile-favicon.ico',
           },
-          'semantic': {
-            'cta': '#F97316',
-            'background': '#F8FAFC',
-            'text': '#0F172A',
+          'themeConfig': {
+            'brand': {'primary': '#102A43', 'secondary': '#38BDF8'},
+            'semantic': {
+              'cta': '#F97316',
+              'background': '#F8FAFC',
+              'text': '#0F172A',
+            },
+            'typography': {'fontFamily': 'Kanit'},
           },
-          'typography': {'fontFamily': 'Kanit'},
         },
-      },
-    });
+      });
 
-    expect(bootstrap.brand.logoUrl, 'https://partner.example/mobile-logo.webp');
-    expect(
-      bootstrap.brand.faviconUrl,
-      'https://partner.example/mobile-favicon.ico',
-    );
-    expect(bootstrap.theme.primaryColor, const Color(0xFF102A43));
-    expect(bootstrap.theme.secondaryColor, const Color(0xFF38BDF8));
-    expect(bootstrap.theme.accentColor, const Color(0xFFF97316));
-    expect(bootstrap.theme.backgroundColor, const Color(0xFFF8FAFC));
-    expect(bootstrap.theme.textColor, const Color(0xFF0F172A));
-    expect(bootstrap.theme.fontFamily, 'Kanit');
-  });
+      expect(
+        bootstrap.brand.logoUrl,
+        'https://partner.example/mobile-logo.webp',
+      );
+      expect(
+        bootstrap.brand.faviconUrl,
+        'https://partner.example/mobile-favicon.ico',
+      );
+      expect(bootstrap.theme.primaryColor, const Color(0xFF102A43));
+      expect(bootstrap.theme.secondaryColor, const Color(0xFF38BDF8));
+      expect(bootstrap.theme.accentColor, const Color(0xFFF97316));
+      expect(bootstrap.theme.backgroundColor, const Color(0xFFF8FAFC));
+      expect(bootstrap.theme.textColor, const Color(0xFF0F172A));
+      expect(bootstrap.theme.fontFamily, 'Kanit');
+    },
+  );
 
   test('mobile bootstrap accepts nested design-token theme wrappers', () {
     final bootstrap = MobileBootstrap.fromJson({
-      'siteConfig': {
-        'displayName': 'Partner Design Tokens',
-        'locale': 'th-TH',
-      },
+      'siteConfig': {'displayName': 'Partner Design Tokens', 'locale': 'th-TH'},
       'mobileConfig': {
         'themeConfig': {
           'designTokens': {
-            'colors': {
-              'primary': '#0F4C81',
-              'secondary': '#14B8A6',
-            },
+            'colors': {'primary': '#0F4C81', 'secondary': '#14B8A6'},
             'semantic': {
               'cta': '#F59E0B',
               'surface': '#F7FAFC',
@@ -1459,10 +1377,7 @@ void main() {
         'themeConfig': {
           'themes': {
             'light': {
-              'colors': {
-                'primary': '#155EEF',
-                'surface': '#F8FAFC',
-              },
+              'colors': {'primary': '#155EEF', 'surface': '#F8FAFC'},
               'fonts': {
                 'body': {'family': 'LINE Seed Sans TH'},
               },
@@ -1489,46 +1404,40 @@ void main() {
     expect(listFontTheme.fontFamily, 'IBM Plex Sans Thai');
   });
 
-  test('mobile bootstrap deep-merges partner theme without blank overrides',
-      () {
-    final bootstrap = MobileBootstrap.fromJson({
-      'brand': {
-        'logo_url': 'https://partner.example/top-logo.webp',
-      },
-      'theme': {
-        'colors': {
-          'primary': '#102A43',
-          'foreground': '#0F172A',
+  test(
+    'mobile bootstrap deep-merges partner theme without blank overrides',
+    () {
+      final bootstrap = MobileBootstrap.fromJson({
+        'brand': {'logo_url': 'https://partner.example/top-logo.webp'},
+        'theme': {
+          'colors': {'primary': '#102A43', 'foreground': '#0F172A'},
+          'font_family': 'Prompt',
         },
-        'font_family': 'Prompt',
-      },
-      'mobileConfig': {
-        'brandConfig': {
-          'logoUrl': '',
-          'favicon': {'url': 'https://partner.example/mobile-icon.png'},
-        },
-        'themeConfig': {
-          'colors': {
-            'secondary': '#38BDF8',
-            'primary': '',
+        'mobileConfig': {
+          'brandConfig': {
+            'logoUrl': '',
+            'favicon': {'url': 'https://partner.example/mobile-icon.png'},
           },
-          'semantic': {'cta': '#F97316'},
-          'fontFamily': '',
+          'themeConfig': {
+            'colors': {'secondary': '#38BDF8', 'primary': ''},
+            'semantic': {'cta': '#F97316'},
+            'fontFamily': '',
+          },
         },
-      },
-    });
+      });
 
-    expect(bootstrap.brand.logoUrl, 'https://partner.example/top-logo.webp');
-    expect(
-      bootstrap.brand.faviconUrl,
-      'https://partner.example/mobile-icon.png',
-    );
-    expect(bootstrap.theme.primaryColor, const Color(0xFF102A43));
-    expect(bootstrap.theme.secondaryColor, const Color(0xFF38BDF8));
-    expect(bootstrap.theme.accentColor, const Color(0xFFF97316));
-    expect(bootstrap.theme.textColor, const Color(0xFF0F172A));
-    expect(bootstrap.theme.fontFamily, 'Prompt');
-  });
+      expect(bootstrap.brand.logoUrl, 'https://partner.example/top-logo.webp');
+      expect(
+        bootstrap.brand.faviconUrl,
+        'https://partner.example/mobile-icon.png',
+      );
+      expect(bootstrap.theme.primaryColor, const Color(0xFF102A43));
+      expect(bootstrap.theme.secondaryColor, const Color(0xFF38BDF8));
+      expect(bootstrap.theme.accentColor, const Color(0xFFF97316));
+      expect(bootstrap.theme.textColor, const Color(0xFF0F172A));
+      expect(bootstrap.theme.fontFamily, 'Prompt');
+    },
+  );
 
   test('mobile bootstrap accepts nested partner brand asset aliases', () {
     final bootstrap = MobileBootstrap.fromJson({
@@ -1536,9 +1445,7 @@ void main() {
         'assets': {
           'logo': {'assetUrl': '/storage/partner-logo.svg'},
           'favicon': {'publicUrl': 'https://partner.example/favicon.png'},
-          'shareImage': {
-            'fullUrl': 'https://partner.example/share-cover.webp',
-          },
+          'shareImage': {'fullUrl': 'https://partner.example/share-cover.webp'},
         },
       },
     });
@@ -1554,9 +1461,7 @@ void main() {
   test('mobile bootstrap accepts appearance and branding config wrappers', () {
     final bootstrap = MobileBootstrap.fromJson({
       'appearance': {
-        'brand': {
-          'logo': '/storage/root-logo.webp',
-        },
+        'brand': {'logo': '/storage/root-logo.webp'},
         'theme': {
           'colors': {
             'primary': {'value': '#1D4ED8'},
@@ -1611,9 +1516,7 @@ void main() {
     expect(bootstrap.theme.backgroundColor, const Color(0xE6F8FAFC));
     expect(bootstrap.theme.textColor, const Color(0xD90F1729));
 
-    final legacyHex = AppThemeTokens.fromJson({
-      'primaryColor': '0x80123456',
-    });
+    final legacyHex = AppThemeTokens.fromJson({'primaryColor': '0x80123456'});
     expect(legacyHex.primaryColor, const Color(0x80123456));
 
     final hslTheme = AppThemeTokens.fromJson({
@@ -1708,18 +1611,12 @@ void main() {
       AppTheme.ticketTabStart(AppTheme.appBlue),
       AppTheme.appTicketTabStart,
     );
-    expect(
-      AppTheme.ticketTabEnd(AppTheme.appBlue),
-      AppTheme.appTicketTabEnd,
-    );
+    expect(AppTheme.ticketTabEnd(AppTheme.appBlue), AppTheme.appTicketTabEnd);
     expect(
       AppTheme.ticketCountText(AppTheme.appBlue),
       AppTheme.appTicketCountText,
     );
-    expect(
-      AppTheme.claimChevron(AppTheme.appBlue),
-      AppTheme.appClaimChevron,
-    );
+    expect(AppTheme.claimChevron(AppTheme.appBlue), AppTheme.appClaimChevron);
     expect(AppTheme.lotterySix(AppTheme.appBlue), AppTheme.appLotterySix);
     expect(
       AppTheme.maintenanceGradientEnd(AppTheme.appBlue, AppTheme.appInk),
@@ -1857,26 +1754,14 @@ void main() {
       AppTheme.pinGradientStart(primary),
       isNot(AppTheme.appPinGradientStart),
     );
-    expect(
-      AppTheme.pinGradientEnd(primary),
-      isNot(AppTheme.appPinGradientEnd),
-    );
-    expect(
-      AppTheme.ticketTabStart(primary),
-      isNot(AppTheme.appTicketTabStart),
-    );
-    expect(
-      AppTheme.ticketTabEnd(primary),
-      isNot(AppTheme.appTicketTabEnd),
-    );
+    expect(AppTheme.pinGradientEnd(primary), isNot(AppTheme.appPinGradientEnd));
+    expect(AppTheme.ticketTabStart(primary), isNot(AppTheme.appTicketTabStart));
+    expect(AppTheme.ticketTabEnd(primary), isNot(AppTheme.appTicketTabEnd));
     expect(
       AppTheme.ticketCountText(primary),
       isNot(AppTheme.appTicketCountText),
     );
-    expect(
-      AppTheme.claimChevron(primary),
-      isNot(AppTheme.appClaimChevron),
-    );
+    expect(AppTheme.claimChevron(primary), isNot(AppTheme.appClaimChevron));
     expect(AppTheme.lotterySix(primary), isNot(AppTheme.appLotterySix));
     expect(
       AppTheme.maintenanceGradientEnd(primary, theme.colorScheme.onSurface),
@@ -1919,14 +1804,14 @@ void main() {
 
 class _BootstrapApiClient extends ApiClient {
   _BootstrapApiClient(this.response)
-      : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'th-TH',
-          ),
-          AuthTokenStore(),
-          localeTag: 'th-TH',
-        );
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        AuthTokenStore(),
+        localeTag: 'th-TH',
+      );
 
   final Map<String, dynamic> response;
 
@@ -1945,15 +1830,15 @@ class _BootstrapApiClient extends ApiClient {
 
 class _LocaleAwareBootstrapApiClient extends ApiClient {
   _LocaleAwareBootstrapApiClient(String Function() localeResolver)
-      : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'th-TH',
-          ),
-          AuthTokenStore(),
-          localeTag: 'th-TH',
-          localeTagResolver: localeResolver,
-        );
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        AuthTokenStore(),
+        localeTag: 'th-TH',
+        localeTagResolver: localeResolver,
+      );
 
   final List<String> requestedLocales = [];
 

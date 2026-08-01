@@ -21,7 +21,10 @@ Nuxt customer UI.
   public/customer APIs resolve the correct tenant without hardcoding it in code.
 - PIN remains the recovery method. Biometric unlock is only enabled after the
   customer signs in, verifies PIN once, and registers the current device.
-- Sensitive screens must be wrapped by `SensitiveScreenGuard`.
+- Sensitive screens must be wrapped by `SensitiveScreenGuard` for route-aware
+  audit and session locking. Android additionally enforces app-wide
+  `FLAG_SECURE` and protected Recent Apps previews; route changes or a Flutter
+  `disable` request must never remove those native controls.
 
 ## Feature Coverage
 
@@ -52,16 +55,24 @@ screen patterns into shared Flutter components.
 
 ## Native Security
 
-Android uses `FLAG_SECURE` in `MainActivity` for sensitive screens, which blocks
-screenshots, screen recording, and recent-app previews while the guard is active.
-On Android 14+, the manifest declares `DETECT_SCREEN_CAPTURE` and
-`MainActivity` registers `Activity.ScreenCaptureCallback` only while a sensitive
-route is active. Detected screenshots are forwarded to Flutter as
-`screenshot_detected` security events with the current route, while
-`FLAG_SECURE` remains the primary prevention layer. Android also forwards
-native/report-only screen-security events back to Flutter as `securityEvent`
-callbacks so matched sensitive routes are audited and locked through the same
-guard path as iOS.
+Android applies `FLAG_SECURE` and protected Recent Apps previews app-wide from
+before the first Flutter frame. Flutter route changes and runtime `disable`
+requests cannot clear those native controls. Android 14 screenshot and Android
+15 recording callbacks remain registered while the Activity is started. If the
+platform reports an active capture, native code sends
+`screen_security_exit_requested`, displays the runtime-localized blocked-copy
+(with bundled English/Thai startup fallbacks), removes the task, and terminates
+the process.
+
+Android's official screenshot callback is not invoked while `FLAG_SECURE` is
+set. Android versions before API 34 also expose no public screenshot callback,
+and screen-recording visibility is available only from API 35. Keep
+`FLAG_SECURE` as the privacy guarantee instead of disabling it to detect a
+screenshot after customer data has already been captured. On OS/device paths
+that expose no callback, Android blocks or blanks the capture but cannot show
+the app-owned warning or terminate in response to the unavailable signal.
+Native/report-only screen-security events are still forwarded to Flutter for
+route-aware audit and session locking.
 
 iOS applies the native secure-canvas guard across the entire customer app while
 the runtime `screen_security_native` feature and screenshot policy are enabled.
@@ -106,6 +117,34 @@ Required native permissions/config:
 
 - iOS `NSFaceIDUsageDescription`
 - Android `android.permission.USE_BIOMETRIC`
+
+## Passkeys
+
+Passkey login uses the tenant's exact customer domain as the WebAuthn RP ID.
+The Login action is shown only when `mobile.passkeys.enabled`,
+`mobile.feature_flags.passkey_login`, the platform allowlist, and local
+authenticator availability all pass. A successful assertion still goes through
+the shared PIN/biometric session-activation gate.
+
+Production association is required:
+
+- Platform API: set `CUSTOMER_PASSKEY_IOS_APP_IDS` to
+  `{APPLE_TEAM_ID}.{IOS_BUNDLE_ID}`.
+- Platform API: set `CUSTOMER_PASSKEY_ANDROID_PACKAGE_NAME` and every release
+  signing SHA-256 value in
+  `CUSTOMER_PASSKEY_ANDROID_SHA256_FINGERPRINTS`.
+- iOS build: set
+  `CUSTOMER_FLUTTER_IOS_WEBCREDENTIALS_DOMAIN=webcredentials:{tenant-domain}`;
+  one tenant-branded app build must match its own RP domain.
+- Every active tenant domain must route
+  `/.well-known/apple-app-site-association` and
+  `/.well-known/assetlinks.json` to Platform API without an `/api/v1` prefix.
+- Web must load the checked-in `web/passkeys.bundle.js` before
+  `flutter_bootstrap.js`.
+
+Customers register or revoke credentials under `/profile/passkeys` after PIN
+confirmation. Disable a tenant with the `passkey_login` feature flag; do not
+remove credentials or change RP IDs as a substitute for disabling the UI.
 
 ## Deep Links And Social Callbacks
 
@@ -223,11 +262,12 @@ fingerprint, and Apple App Site Association targets the release Team ID /
 bundle ID with the required auth/reset/checkout paths. Pass every enabled
 customer social login provider with
 `--social-provider` or set
-`CUSTOMER_FLUTTER_SOCIAL_PROVIDERS=line,google,apple`; supported values are
-`line`, `google`, and `apple` only. The production preflight fails unknown
+`CUSTOMER_FLUTTER_SOCIAL_PROVIDERS=line,google,apple,facebook`; supported
+values are `line`, `google`, `apple`, and `facebook` only. The production
+preflight fails unknown
 provider names so typoed settings cannot bypass store-compliance checks. iOS
-production preflight fails when LINE or Google login is enabled without Apple ID
-login. For the final App Store / Play Store submission pass, add
+production preflight fails when LINE, Google, or Facebook login is enabled
+without Apple ID login. For the final App Store / Play Store submission pass, add
 `--require-store-listing-metadata` or set
 `CUSTOMER_FLUTTER_REQUIRE_STORE_LISTING_METADATA=true`, then provide
 `--store-privacy-policy-url` / `CUSTOMER_FLUTTER_STORE_PRIVACY_POLICY_URL`,
@@ -260,16 +300,19 @@ values use aliases such as `themeColor`, `faviconUrl`, `appleTouchIconUrl`,
 from `socialTitle`/`ogTitle`, `socialDescription`/`ogDescription`, and
 `shareImageUrl`/`ogImageUrl`/`socialImageUrl`; canonical/social URL and
 installable PWA identity/scope use `canonicalUrl`/`siteUrl`,
-`manifestId`/`webAppId`, and `scope`/`webScope`. Manifest launch, display, and
-orientation values can also stay runtime-driven through `startUrl`/`webStartUrl`,
-`displayMode`/`webDisplay`, and `orientation`/`webOrientation`; snake_case
-aliases are accepted for BO/hosting payloads. The web shell also keeps the HTML
-language and text direction runtime-driven through `lang`/`defaultLocale` and
-`dir`/`textDirection`, and preflight checks that wiring so partner web releases
-do not ship with generic document metadata. Keep those values runtime or hosting
-configured instead of replacing the checked-in generic web assets with
-partner-specific files. Use `--target web` when checking a same-origin web build
-that keeps
+`manifestId`/`webAppId`, and `scope`/`webScope`. Manifest launch and display
+remain runtime-driven through `startUrl`/`webStartUrl` and
+`displayMode`/`webDisplay`; snake_case aliases are accepted for BO/hosting
+payloads. Orientation is deliberately fixed to `portrait-primary` and runtime
+config cannot override it. Native builds are also restricted to portrait, while
+the mobile Web/PWA shell requests a browser orientation lock and blocks the app
+surface in landscape when the browser does not support locking. The web shell
+also keeps the HTML language and text direction runtime-driven through
+`lang`/`defaultLocale` and `dir`/`textDirection`, and preflight checks that
+wiring so partner web releases do not ship with generic document metadata. Keep
+those values runtime or hosting configured instead of replacing the checked-in
+generic web assets with partner-specific files. Use `--target web` when checking
+a same-origin web build that keeps
 `API_BASE_URL=/api/v1`.
 
 The Docker Web image now renders `customer-runtime-config.js`,

@@ -250,6 +250,50 @@ void main() {
     expect(issues, isEmpty);
   });
 
+  test('production preflight validates checked-in Android screen security', () {
+    final issues = runCustomerFlutterProductionPreflight(
+      const ProductionPreflightInput(
+        target: CustomerFlutterTarget.android,
+        production: true,
+        checkFiles: true,
+        androidRequireSigning: false,
+        apiBaseUrl: 'https://partner.example.com/api/v1',
+        appDisplayName: 'Partner Lottery',
+        androidPackage: 'com.partner.customer',
+        androidCallbackScheme: 'partnerlottery',
+        androidCallbackHost: 'partner.example.com',
+      ),
+    );
+    const androidScreenSecurityIssueCodes = {
+      'android_flag_secure_missing',
+      'android_startup_flag_secure_missing',
+      'android_screen_security_channel_missing',
+      'android_screen_security_methods_missing',
+      'android_app_wide_screen_security_missing',
+      'android_screen_security_event_callback_missing',
+      'android_screen_capture_callback_missing',
+      'android_screen_recording_callback_missing',
+      'android_screen_capture_exit_policy_missing',
+      'android_screen_capture_exit_copy_missing',
+      'android_screen_security_lifecycle_missing',
+      'android_screen_security_state_probe_missing',
+      'android_recent_app_preview_guard_missing',
+      'android_screen_capture_permission_missing',
+      'android_screen_recording_permission_missing',
+      'android_backup_disabled_missing',
+      'android_cleartext_traffic_not_disabled',
+    };
+
+    expect(
+      issues
+          .where(
+            (issue) => androidScreenSecurityIssueCodes.contains(issue.code),
+          )
+          .toList(),
+      isEmpty,
+    );
+  });
+
   test('production preflight validates deep-link association artifacts', () {
     final root = Directory.systemTemp.createTempSync('customer_flutter_links_');
     try {
@@ -561,7 +605,13 @@ final menu = [
           'android_flag_secure_missing',
           'android_startup_flag_secure_missing',
           'android_screen_security_channel_missing',
+          'android_app_wide_screen_security_missing',
           'android_recent_app_preview_guard_missing',
+          'android_screen_recording_callback_missing',
+          'android_screen_capture_exit_policy_missing',
+          'android_screen_capture_exit_copy_missing',
+          'android_screen_security_lifecycle_missing',
+          'android_screen_security_state_probe_missing',
           'android_biometric_channel_missing',
           'flutter_screen_security_service_missing',
           'flutter_sensitive_screen_guard_missing',
@@ -578,6 +628,51 @@ final menu = [
           'ios_screen_security_aliases_missing',
           'ios_biometric_channel_missing',
         }),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
+  });
+
+  test('production preflight rejects late Android startup protection', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_startup_security_',
+    );
+    try {
+      _writeFile(
+        root,
+        'android/app/src/main/kotlin/com/example/MainActivity.kt',
+        '''
+class MainActivity {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    window.setFlags(
+      WindowManager.LayoutParams.FLAG_SECURE,
+      WindowManager.LayoutParams.FLAG_SECURE
+    )
+  }
+}
+''',
+      );
+
+      final issues = runCustomerFlutterProductionPreflight(
+        ProductionPreflightInput(
+          target: CustomerFlutterTarget.android,
+          production: true,
+          checkFiles: true,
+          androidRequireSigning: false,
+          projectRoot: root.path,
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          appDisplayName: 'Partner Lottery',
+          androidPackage: 'com.partner.customer',
+          androidCallbackScheme: 'partnerlottery',
+          androidCallbackHost: 'partner.example.com',
+        ),
+      );
+
+      expect(
+        issues.map((issue) => issue.code),
+        contains('android_startup_flag_secure_missing'),
       );
     } finally {
       root.deleteSync(recursive: true);
@@ -1398,6 +1493,7 @@ class MainActivity {
           containsAll({
             'android_biometric_permission_missing',
             'android_screen_capture_permission_missing',
+            'android_screen_recording_permission_missing',
             'android_custom_scheme_callback_missing',
             'android_app_links_missing',
             'android_runtime_config_missing',
@@ -2491,7 +2587,11 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     <link rel="manifest" href="manifest.json">
   </head>
   <body>
+    <div id="customer-portrait-orientation-guard"></div>
     <script>
+      window.customerRequestPortraitOrientation = function () {};
+      function lockOrientation(orientation, value) {}
+      lockOrientation(orientation, "portrait-primary");
       const runtimeConfigSources = [
         window.customerFlutterWebConfig,
         window.customerFlutterConfig,
@@ -2552,7 +2652,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       const manifestId = firstConfigValue(["manifestId", "manifest_id", "webAppId", "web_app_id"], canonicalUrl);
       const manifestScope = firstConfigValue(["scope", "webScope", "web_scope"], startUrl);
       const manifestDisplay = firstConfigValue(["displayMode", "display_mode", "webDisplay", "web_display"], "standalone");
-      const manifestOrientation = firstConfigValue(["orientation", "webOrientation", "web_orientation"], "portrait-primary");
+      const manifestOrientation = "portrait-primary";
       const htmlLang = firstConfigValue(["lang", "defaultLocale", "default_locale"], "");
       const htmlDir = firstConfigValue(["dir", "textDirection", "text_direction"], "");
       document.title = appName;
@@ -3292,7 +3392,7 @@ class AppShell {
     );
   });
 
-  test('ios production preflight requires Apple login with LINE or Google', () {
+  test('ios production preflight requires Apple login with third parties', () {
     final issues = runCustomerFlutterProductionPreflight(
       const ProductionPreflightInput(
         target: CustomerFlutterTarget.ios,
@@ -3305,7 +3405,7 @@ class AppShell {
         iosBundleId: 'com.partner.customer',
         iosUrlScheme: 'partnerlottery',
         iosAssociatedDomain: 'applinks:partner.example.com',
-        socialAuthProviders: ['line_oauth', 'google_oauth2'],
+        socialAuthProviders: ['line_oauth', 'google_oauth2', 'facebook_oauth'],
       ),
     );
 
@@ -3356,7 +3456,13 @@ class AppShell {
         iosBundleId: 'com.partner.customer',
         iosUrlScheme: 'partnerlottery',
         iosAssociatedDomain: 'applinks:partner.example.com',
-        socialAuthProviders: ['LINE', 'google_oauth2', 'apple_login', 'google'],
+        socialAuthProviders: [
+          'LINE',
+          'google_oauth2',
+          'apple_login',
+          'facebook_oauth',
+          'google',
+        ],
       ),
     );
 

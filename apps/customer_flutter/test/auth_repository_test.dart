@@ -264,8 +264,12 @@ void main() {
       provider: 'google_oauth2',
       linkToken: 'link-token',
       phone: '0812345678',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
       password: 'secret1234',
       passwordConfirmation: 'secret1234',
+      otpVerificationToken: 'otp-verified-social',
+      acceptedTerms: true,
       redirect: '/checkout?order_id=ord_link',
     );
 
@@ -283,8 +287,13 @@ void main() {
     expect(api.payloads.last, {
       'link_token': 'link-token',
       'phone': '0812345678',
+      'first_name': 'Ada',
+      'last_name': 'Lovelace',
+      'name': 'Ada Lovelace',
       'password': 'secret1234',
       'password_confirmation': 'secret1234',
+      'otp_verification_token': 'otp-verified-social',
+      'accepted_terms': true,
       'redirect': '/checkout?order_id=ord_link',
     });
     expect(session.accessToken, 'access-linked-social');
@@ -311,7 +320,8 @@ void main() {
       '/customer/auth/social/line/login',
       '/customer/auth/social/line/callback',
     ]);
-    expect(api.authFlags, [false, true]);
+    expect(api.authFlags, [true, true]);
+    expect(api.payloads.first['purpose'], 'link');
     expect(callback.session?.accessToken, 'access-line-linked');
     expect(callback.redirectPath, '/profile/line-notifications');
   });
@@ -323,7 +333,7 @@ void main() {
 
     final url = await repository.socialLoginUrl(
       'google',
-      purpose: 'profile_link',
+      purpose: 'link',
       redirect: '/profile/line-notifications',
       callbackUsesAuth: true,
     );
@@ -343,7 +353,7 @@ void main() {
       '/customer/auth/social/google/login',
       '/customer/auth/social/google/callback',
     ]);
-    expect(api.authFlags, [false, true]);
+    expect(api.authFlags, [true, true]);
     expect(callback.session?.accessToken, 'access-google-callback');
   });
 
@@ -613,7 +623,7 @@ class _AuthApiClient extends ApiClient {
         'data': {
           'resource': {
             'socialLogin': switch (payloads.last['purpose']) {
-              'profile_link' => {
+              'link' => {
                 'authorizationUrl':
                     'https://auth.example.test/google/callback#callbackState=google-fragment-state',
               },

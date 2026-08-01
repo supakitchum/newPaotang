@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-07-27
+Last updated: 2026-08-01
 
 ## Objective
 
@@ -13,7 +13,7 @@ Convert the current customer Nuxt application to Flutter in
 
 The Flutter app must preserve the current customer business flows, resolve
 tenant/partner configuration at runtime, avoid hardcoded partner values, support
-LINE/Google/Apple login, support biometric unlock as a PIN alternative on
+LINE/Google/Apple/Facebook login, support biometric unlock as a PIN alternative on
 native mobile, and apply native-first screen security.
 
 ## Current Overall Status
@@ -37,6 +37,8 @@ shared shell pieces because they affect the highest-value pages:
 loading, error, and action states.
 
 ## Hard Rules For Future Work
+
+- Reward Risk Assessment is intentionally BO-only. Do not add a Flutter menu, customer API call, customer notification, or route for it. The feature must remain read-only toward tickets, images, purchase history, winners, claims, and payouts.
 
 - Do **not** touch runtime DB `newpaotang` unless the user explicitly requests
   that exact runtime action in the current turn.
@@ -114,13 +116,36 @@ Important Flutter primitives:
 | Theme/localization foundation | 85% | 15% |
 | Social login generic Flutter routes | 97% | 3% |
 | Biometric client/server foundation | 70% | 30% |
-| Native screen security foundation/preflight | 82% | 18% |
+| Native screen security foundation/preflight | 97% | 3% |
 | Store readiness privacy/account deletion | 76% | 24% |
 | API surface audit against Nuxt | 97% | 3% |
 | Production preflight tool | 97% | 3% |
 
 Recent verified work:
 
+- Customer authentication now enforces one fully active device session per
+  tenant account without cutting off the previous device during an unfinished
+  login. Password/social login and registration issue a pending session; the
+  previous active session remains usable through SMS OTP and while the new
+  device is still at PIN/Face ID. Only a successful PIN setup, PIN verification,
+  or biometric PIN assertion atomically activates the new session, revokes all
+  older access/refresh sessions with `customer_session_replaced`, and revokes
+  their push-device registrations. The old foreground client receives a
+  private realtime replacement event. The final security Push is created
+  before revoking the old registration and carries both
+  `account.session.replaced` and `replacement_session_id`, so an
+  idle/background old device can show the warning and clear its local session
+  while the newly activated session ignores any delayed copy addressed to
+  itself. An old access or refresh request remains an authoritative fallback.
+  Flutter persists `session_id`, clears the old local credentials, routes to
+  Login, displays localized replacement copy, and clears its push-registration
+  cache so a later valid login registers the device again. Social-account
+  linking uses verified session rotation rather than posing as a second-device
+  login. The non-destructive migration is present but was not run against
+  runtime `newpaotang`. Focused Platform Auth, Social Auth, LINE, and Customer
+  Notification suites passed 53 tests with 515 assertions; focused Flutter
+  auth/API/notification tests passed 47 tests and `flutter analyze` reported
+  no issues.
 - iOS sensitive-route capture protection now activates before a screenshot is
   requested instead of relying only on
   `UIApplication.userDidTakeScreenshotNotification`, which iOS emits after the
@@ -1244,11 +1269,21 @@ Recent verified work:
 - Web/PWA manifest runtime-config aliases advanced: `web/index.html` now
   resolves app/name/description/theme/icon/social/canonical/PWA values through
   a shared runtime-config alias helper that accepts camelCase and snake_case BO
-  keys. Manifest launch/display/orientation values are now runtime-driven via
-  aliases such as `startUrl`/`start_url`/`webStartUrl`, `displayMode`/
-  `display_mode`/`webDisplay`, and `orientation`/`webOrientation`, and the
-  production preflight gate now rejects web shells that drop this alias-aware
-  manifest contract.
+  keys. Manifest launch/display values remain runtime-driven via aliases such
+  as `startUrl`/`start_url`/`webStartUrl` and `displayMode`/`display_mode`/
+  `webDisplay`. Orientation is fixed to `portrait-primary`; tenant/runtime
+  config can no longer restore landscape.
+- Portrait-only platform contract advanced: Flutter startup locks native
+  orientation to portrait, Android also locks `MainActivity`, and iPhone/iPad
+  advertise portrait as their only supported orientation. Installed PWA builds
+  use `portrait-primary`; mobile Web/PWA also requests the Screen Orientation
+  API lock and blocks the Flutter surface in landscape when the browser rejects
+  that API.
+- Portrait-only verification passed with Flutter analysis, the focused
+  cross-platform source contract test, the Web production-preflight contract,
+  Web release build, Android debug APK build, and unsigned iOS device build.
+  Packaged Android/iOS/Web artifacts were inspected and retain the portrait
+  restrictions.
 - Web/PWA locale metadata preflight advanced: the checked-in web shell now keeps
   document `lang` and `dir` runtime-driven through `lang`/`language`/
   `defaultLocale` and `dir`/`textDirection` aliases, and production preflight
@@ -6484,9 +6519,9 @@ Recent verified work:
 | Profile | Main menu/member code, `8-อื่นๆ` hero/content-sheet structure, and source section order now match Nuxt: history contains wallet/purchase/reward/activity claims plus activities/affiliate, reward settings contains bank/auto reward/LINE, and About contains news/terms/lottery knowledge/contact. The owner-requested language control is a full-width menu row at the original language-card position and opens a responsive BlueHeader/content-sheet locale list; locale save failure restores the previous choice. Reward Bank now uses the source 214px BlueHeader, 38/28px overlap, 640px form rail and labels above 50px inputs without pull-to-refresh. Auto Reward restores the source 328px intro stage, responsive artwork, 164px select hero, option sizing and fixed 64px CTA. LINE restores the 226px single hero, runtime provider-colored brand surfaces, 56x32 switch and footer fixed above the Nuxt bottom nav. Added biometric/privacy/account-deletion controls are isolated after the Nuxt sections and remain runtime-feature filtered. Remaining work is deferred native biometric/account-deletion device QA and final owner responsive signoff. | 1% |
 | Affiliate | Final owner/device responsive signoff only; `/affiliate` now uses one Nuxt `BlueHeader` with the 248px hero and 58/42px sheet overlap instead of a generic AppBar plus second hero. Registration, metrics, four tabs, overview/withdraw columns, link/bank cards, commission/payout headings, row dividers, narrow-screen stacking, disabled payout rules, centralized PIN handoff, backend error copy, idempotency, and production wrapper/camelCase/pagination aliases are covered in code. | 1% |
 | Auth | Remaining owner/device OTP-provider smoke only for the original Nuxt auth surface. Global PIN verification follows the Nuxt keypad rhythm while preserving redirect return and digit retention. Forgot PIN now sends OTP immediately, uses the source full-screen 42px topbar/390px OTP form, hands off to the full-screen Nuxt keypad for new/confirm PIN, and returns directly to the saved redirect without a modal or completion interstitial; normal `/pin` still has no back action. Login/register copy and field stacking match Nuxt labels/terms/OTP rhythm, Forgot/Reset use the source BlueHeader/sheet/input/action structure, backend error copy remains inline, and auth parser/short-viewport behavior is covered in code. | 1% |
-| Social Login | LINE/Google/Apple provider config is runtime filtered on login, grouped auth/social bootstrap wrappers plus aliases/keyed maps/status aliases are covered, and social return paths preserve the centralized PIN handoff. Callback auth mode follows initiating OAuth state across URL/fragment/payload/wrapper aliases; an already authenticated callback with no `code`/`state` now resumes its safe redirect instead of showing a false missing-data failure. Direct query, fragment-only, hash/hashbang route, encoded-fragment, universal-link, and custom-scheme auth returns now share one parser before reset/callback/link-phone routing, with ordinary query values taking precedence over fragment aliases. Callback uses the Nuxt full-screen left-aligned, status-only login hero with source badge/type rhythm; callback/link-phone copy and accents consume runtime provider labels plus brand/button colors. Link-phone follows source sheet overlap, responsive 380/768 breakpoints, profile-card sizing, input/action/autofill styling, backend-owned phone validation, inline recovery, and first-time session handoff. Remaining work is real-provider/device callback and linking smoke plus store-compliance signoff. | 3% |
+| Social Login | LINE/Google/Apple/Facebook provider config is runtime filtered on login, grouped auth/social bootstrap wrappers plus aliases/keyed maps/status aliases are covered, and social return paths preserve the centralized PIN and one-active-device handoff. Google OIDC, Apple token/client-secret flow, Facebook Graph exchange, encrypted tenant credentials, first-time social phone linking, runtime provider appearance, and callback state/redirect handling are implemented. Remaining work is entering each tenant's production provider credentials, registering the emitted callback URLs in Google/Apple/Meta consoles, and real-provider/device callback plus store-compliance signoff. | 2% |
 | Face ID/Biometric | Native key generation, challenge signing, PIN assertion token, fallback/revoke/device management QA; wrapper/nested challenge and assertion payload merging, JSON-string wrapper parsing for assertion and device-list payloads, object scalar native key/challenge/assertion/device rows, credential/native key/signature payload aliases including provider/passkey public-key/challenge/signature/assertion aliases, `rawId` device ids, object `publicKeyJwk` key rows, COSE/algorithm normalization into backend-supported `ES256`/`RS256`, WebAuthn-style `credential.response.signature` wrappers plus optional `credential_id`/`client_data_json`/`authenticator_data`/`user_handle`/algorithm verify metadata forwarding, WebAuthn `publicKey`/request-options challenge parsing plus native `signChallenge` option forwarding, extended WebAuthn `excludeCredentials`/`authenticatorSelection`/`attestation`/`mediation`/`hints`/`pubKeyCredParams` option forwarding, WebAuthn `allowCredentials` descriptor aliases such as `credentialId`/`rawId`/`credentialDescriptors`, nested provider credential containers, base64/base64url challenge and credential-id object scalars, nested `rp.id` and `user.id`, BO keyed/status platform allowlists, runtime prompt-copy aliases for setup/assertion purposes, device-list record/keyed-map aliases, metadata/attributes/platform/lifecycle device row wrappers, platform/status/timestamp metadata normalization, Android strong-biometric-only key policy, current-device revoke cleanup, stale native key/id cleanup after OS key invalidation, native create/sign metadata maps, inline device-management result surfaces, localized current-device badge/refreshable capability lookup, runtime-themed capability/loading/device metadata panels, Nuxt-style keypad PIN confirmation before biometric setup, and release preflight coverage for the Flutter/native biometric bridge are now covered in code. | 21% |
-| Native screen security | Android FLAG_SECURE validation, iOS screenshot/recording privacy overlay behavior, native smoke; nested native event payload plus JSON-string/nativePayload/arguments/userInfo/notification wrappers, grouped native route/event/capture-state wrapper merging, object scalar event/route/reason/capture-state rows including text/label/rawValue variants, full URL, fully encoded URL, double-encoded query URL, hashbang, ordered/unordered query, fragment-query, direct query-string, route-object, fullPath/returnUrl/redirectUrl/hash/fragment/navigation/view parsing, shared route-registry normalization for full URL/query/hash sensitive paths, capture-state changed event normalization, runtime-configured native privacy-overlay copy aliases, BO full-URL/hash/query/wrapper sensitive-route policy normalization, iOS native route/event/reason/policy/copy alias handling, native Android/iOS boolean aliases for screen-security policy flags, iOS notification names/raw state payloads, Android media projection/reportSecurityEvent aliases, Android 14 `ScreenCaptureCallback` screenshot events with `DETECT_SCREEN_CAPTURE`, BO object/keyed-map sensitive-route policies, and route-scoped app-lifecycle PIN locking are now covered in code and release-gated where static checks can verify them, Android app-backup disabling is enforced in the manifest and preflight, and Android release cleartext traffic is disabled and release-gated. | 17% |
+| Native screen security | Implementation and non-visual native verification are closed for the current Android scope: sensitive routes apply `FLAG_SECURE`, older-device recent-app fallback, API 33+ recent-app screenshot blocking, Android 14 screenshot observation, Android 15 recording observation, lifecycle callback cleanup/restoration, protected/public/protected route transitions, runtime policy aliases, route-scoped audit/PIN locking, backup disabling, release cleartext policy, and preflight gates. iOS app-wide capture protection is separately covered in its physical-device pass. Remaining work is owner-observed Android screenshot, Recent Apps, and recording output on a physical device, plus deployment-secret Release packaging. | 3% |
 | Web security fallback | Temporarily disabled in the running Customer app per owner UX direction: Flutter Web no longer enables the browser privacy cover/watermark and no longer forces lifecycle PIN re-entry when the tab loses focus or becomes hidden. The parser/helper/preflight plumbing for runtime web privacy modes, browser activity aliases, sensitive-route policy matching, runtime copy, and Web/PWA config aliases remains dormant for a future explicit re-enable. Production preflight now release-gates the current opt-out instead of incorrectly requiring the removed watermark/cover presentation, so UX/API parity work cannot silently restore the "screen capture is not allowed" interruption. | 18% |
 | Partner theming | Final owner/browser/device review of partner identity data remains. Runtime logo, site name, provider-specific colors, metadata, configuration, and theme tokens remain supported. `CustomerApp` applies the bootstrap API theme after it loads, while the pre-bootstrap/missing-value fallback remains Nuxt blue `#087FF0`, sky `#19B8EF`, yellow `#FFD10B`, and bundled Kanit. The runtime schema defaults and the current legacy tenant row now use that same blue/Kanit identity, preventing the old green/Inter defaults from changing Profile, PIN actions, Tickets, and other shared surfaces. Production preflight requires this runtime binding and its blue/Kanit fallback. Status-owned success/pending/rejected/warning/error and provider-owned colors remain unchanged. | 5% |
 | Realtime | Core reconnect, channel removal, event aliasing, payload alias hardening, object scalar event-name rows, backend event-class aliases, top-level message aliases, grouped bridge/provider/outbox envelope wrappers, backend outbox aliases, payload fallback, backend `payload_json`/`metadata.details`/`context.object` field extraction, raw message sibling `metadata`/`context` preservation after `payload`/`data`/`messageEnvelope` selection, wrapped payload field extraction, latest plus current-game result channels with object-scalar/currentGame/selectedGame ids, stock price/availability object-scalar patch fields, topup/wallet customer-channel subscription including wallet transaction and ledger-entry event aliases, serialized monitor synchronization, channel-specific reconnect recovery for site config/stock/revenue/money/claims/results, presence-channel isolation, cart/orders/tickets revenue-channel subscription, reward-claim-to-ticket invalidation including order-item/ticket-row/object-scalar ticket aliases, activity-claim-to-activity-detail award refresh, activity-claim detail invalidation from nested award/activityAward claim rows, `/app` endpoint/proxy socket URL normalization, extended bridge/outbox event-name aliases such as `broadcastAs`/`domainEventName`/`messageName` and `eventEnvelope`/`dataEnvelope`/`messageEnvelope`/`outboxMessage` wrappers, `eventName`/`channelName`/`subscriptionChannel` message-level parsing, and release preflight coverage for realtime protocol/monitor/socket URL bindings including object-scalar event extraction are covered; remaining work is provider/backend and owner-device behavior smoke. | 9% |
@@ -11056,15 +11091,25 @@ Login and registration OTP enforcement (2026-07-27):
   active SMS provider. Valid credentials create a ten-minute tenant-scoped
   challenge, not a customer session; the session, `last_login_at`, and PIN
   handoff are created only after the six-digit OTP is verified.
-- Flutter and the legacy Nuxt compatibility surface both keep the customer on
-  Login for the OTP step, support resend cooldown, and preserve the original
-  safe redirect through the final PIN gate. Existing session refresh and
-  returning-app PIN/biometric unlock do not repeat OTP.
+- Flutter closes the Login keyboard before submitting credentials and opens a
+  dedicated `/login/otp` page when the API returns a challenge. The challenge
+  remains in memory instead of being placed in the URL; direct or refreshed
+  access without that state returns to Login. Resend cooldown and the original
+  safe redirect through the final PIN gate remain intact. The legacy Nuxt
+  compatibility surface retains its existing inline step, while existing
+  session refresh and returning-app PIN/biometric unlock do not repeat OTP.
+- iOS now explicitly closes the active text-input and Autofill context, then
+  waits for the keyboard inset animation to settle before starting the Login
+  request, so a stale credential text client cannot cross into the OTP route.
+  The dedicated OTP page then activates one native one-time-code input shortly
+  after its first frame and renders that input as six responsive square cells,
+  allowing iOS to offer the code from Messages without attaching six competing
+  text clients. Android keeps its existing behavior.
 - Registration continues to request and verify `register` OTP first, while the
   backend now has regression coverage proving that no customer or auth session
   exists before the verification token is submitted. Tenants without an active
   SMS provider retain the existing compatible direct login/register paths.
-- Focused Flutter Auth tests passed 37 cases. Platform SMS OTP coverage passed
+- Focused Flutter Auth/navigation/security tests passed 138 cases. Platform SMS OTP coverage passed
   8 cases with 79 assertions, and existing Customer Auth/Password Reset
   compatibility passed 5 cases with 136 assertions, all against the verified
   `newpaotang_test` database. Nuxt integration lint and focused Flutter analysis
@@ -11085,3 +11130,300 @@ Native status-bar surface consistency (2026-07-27):
   coverage passed 83 tests. Focused Flutter analysis and `git diff --check`
   passed. No runtime database, commit, push, or clear-worktree action was
   performed.
+
+Android screen-security API 30/35 closure pass (2026-07-27):
+
+- Android 15 now declares `DETECT_SCREEN_RECORDING` and observes
+  `WindowManager` recording visibility only while the Activity is started on a
+  sensitive route. Recording start/end emits the existing route-scoped
+  `securityEvent` payload so audit and PIN locking share the same path as
+  Android screenshot detection.
+- Screenshot and recording callback registration now follows `onStart`/
+  `onStop` as well as route enable/disable. This prevents native callbacks from
+  remaining registered while the Activity is stopped. `FLAG_SECURE` and
+  API 33+ recent-app screenshot blocking remain the primary prevention
+  controls.
+- The native bridge exposes a read-only integration state probe for SDK level,
+  active route, `FLAG_SECURE`, recent-app protection, and callback registration.
+  It contains no credentials or customer data and is used only to verify the
+  host Window policy without taking screenshots.
+- The connected physical M2006C3LG on Android 11/API 30 passed the native
+  screen-only integration flow: `/my-wallet` enabled `FLAG_SECURE` and the
+  older-device recent-app fallback, while `disable` cleared both. A newly
+  provisioned Android 15/API 35 emulator passed the same assertions plus active
+  Android 14 screenshot-callback and Android 15 recording-callback
+  registration.
+- Android debug APK compile, a 43.1MB production-configured Profile/AOT APK
+  build/install/foreground launch on the connected physical device, focused
+  production-preflight checks, 38 screen-security/PIN tests, focused analysis,
+  and `git diff --check` passed.
+  The broader production-preflight file still has unrelated pre-existing
+  failures for Support external-link policy, iOS release/system-chrome gates,
+  and a stale Web manifest theme expectation.
+- Android 15 lifecycle verification also passed with the real Activity moving
+  `RESUMED -> STOPPED -> RESUMED`. After the same process returned to the
+  foreground, the native state probe still reported `/my-wallet`,
+  `FLAG_SECURE`, recent-app protection, and both Android 14 screenshot and
+  Android 15 recording callbacks as active; disabling the route then removed
+  every native control.
+- The same Android 15 native harness now verifies a complete
+  protected/public/protected transition. After disabling `/my-wallet`, the
+  native Window and callbacks clear; enabling `/checkout` in the same process
+  restores `FLAG_SECURE`, recent-app protection, and both available callbacks
+  with the new active route.
+- Android Lint passes against min SDK 24. API 34/35 helpers now use explicit
+  `@RequiresApi` contracts and guarded unregister helpers, leaving no
+  `NewApi`, `InlinedApi`, or native screen-security SDK-level warning in the
+  generated lint report.
+- Production preflight now checks lifecycle callback cleanup/restoration and
+  verifies the cold-start statement as an ordered contract:
+  `onCreate -> window.setFlags(FLAG_SECURE) -> super.onCreate`. A focused
+  regression proves that moving `FLAG_SECURE` after `super.onCreate` is rejected,
+  while the checked-in Android screen-security contract passes independently
+  from unrelated all-target preflight findings.
+- A fresh Profile/AOT APK build passed and its packaged manifest was inspected:
+  target SDK 36 retains `DETECT_SCREEN_CAPTURE`,
+  `DETECT_SCREEN_RECORDING`, backup disabling, and portrait Activity policy.
+  A fresh local Release build correctly stopped at the existing deployment
+  gate because no production `google-services.json` secret is present in the
+  workspace. No placeholder Firebase/provider configuration was generated;
+  Release must be rebuilt by deployment with the real injected partner secret.
+- No screenshot automation, runtime database access, commit, push, or
+  clear-worktree action was used. Final visual acceptance for actual
+  screenshot, recent-app preview, and screen-recording output on the connected
+  physical Android remains user-observed by project rule. Use
+  `docs/customer-android-screen-security-manual-qa.md` for the exact route,
+  device-version, and expected-result matrix before closing the active goal.
+
+Android physical screen-security acceptance (2026-07-27):
+
+- The user explicitly authorized direct real-device testing. A separate
+  `com.siamblend.securitytest` integration APK rendered synthetic public and
+  protected screens so the acceptance contained no customer data and did not
+  depend on a login session.
+- Xiaomi M2006C3LG running Android 11/API 30 passed the visual prevention
+  checks. The public baseline was capturable; after enabling `/my-wallet`,
+  screenshot output contained no app pixels, an eight-second screen recording
+  rendered the app area black, and Recent Apps displayed a blank task preview.
+- The Activity was moved through Recent Apps and brought back to the
+  foreground. The protected content remained absent from capture, while the
+  native state probe still reported active `FLAG_SECURE`, recent-app
+  protection, and `/my-wallet`. The same run also completed the
+  `/my-wallet -> disabled -> /checkout` native policy cycle.
+- `flutter drive` completed all five integration cases with `All tests
+  passed`. The visual harness is opt-in through
+  `NATIVE_SECURITY_VISUAL_ACCEPTANCE`; normal integration behavior remains
+  unchanged.
+- The isolated test package and temporary device recording were removed. An
+  initial Gradle-daemon cache reuse had installed the harness over the existing
+  debug `com.siamblend` package without clearing its data; the normal
+  `lib/main.dart` build was immediately rebuilt with the existing SiamBlend
+  application id, label, deep-link host, production API origin, and tenant
+  host, then installed in-place and launched successfully.
+- No runtime database, commit, push, or clear-worktree action was performed.
+  The remaining missing `google-services.json` and release signing inputs are
+  deployment secrets required for final Store artifact packaging, not an
+  unresolved Android screen-protection behavior.
+
+Siamblend cross-platform splash refresh (2026-07-28):
+
+- Customer startup now uses the owner-supplied Siamblend artwork as the
+  full-screen launch background on Flutter, iOS, Android, Web, and installed
+  PWA startup. Portrait screens use responsive cover framing; wider Web/tablet
+  surfaces contain the complete 9:16 artwork against its matching blue.
+- The Flutter and pre-Flutter Web loading treatments now share a compact
+  blue-glass surface and animated gold progress line. Web keeps the static
+  startup layer above the engine until `flutter-first-frame`, then fades into
+  the matching Flutter splash without exposing a white frame.
+- Native startup uses an edge-pinned iOS asset-catalog image and an Android
+  launch drawable with matching status/navigation-bar fallback colors. Flutter
+  precaches the bundled artwork before `runApp` to avoid a decode flash.
+- Focused splash tests passed 8 cases, focused analysis and resource lint
+  passed, and fresh Web release, Android debug APK, and iOS Simulator builds
+  succeeded. Packaged artifacts were inspected for the new artwork. The
+  Customer Docker image was rebuilt and `http://localhost:3000` now serves the
+  new startup layer and artwork successfully. No screenshot automation,
+  runtime database access, commit, push, or clear-worktree action was
+  performed.
+
+Android app-wide screenshot-protection hotfix (2026-07-28):
+
+- Root cause was the former sensitive-route policy: `SensitiveScreenGuard`
+  sent `disable` when Flutter entered a public route, and Android then cleared
+  `FLAG_SECURE`. Android protection is now app-wide. MainActivity sets
+  `FLAG_SECURE` before the first Flutter frame, reapplies it on Activity start,
+  protects Recent Apps, and treats later Flutter disable/config-false requests
+  as non-authoritative for these native controls.
+- Flutter keeps the root native guard enabled on every Android route and forces
+  both Android prevention arguments on. Sensitive-route classification still
+  controls lifecycle PIN locking and route-aware audit behavior; it no longer
+  creates a screenshot window while navigating through public screens.
+- Production preflight now rejects Android builds that omit the app-wide
+  enforcement/state contract. Customer smoke coverage includes a public-route
+  bootstrap that explicitly supplies both Android flags as false and verifies
+  that the app-wide guard remains enabled.
+- Focused analysis passed, the 43 CustomerApp/screen-security tests passed, the
+  checked-in Android preflight check passed, Kotlin compilation passed, and the
+  real native integration suite passed four cases on the connected Xiaomi
+  M2006C3LG running Android 11/API 30. The integration verifies that a Flutter
+  `disable` call cannot clear `windowFlagSecure` or recent-app protection.
+- The normal `com.siamblend` app was rebuilt with its existing production API
+  origin and tenant host, installed in-place without clearing app data, and
+  launched successfully. After Flutter loaded, `dumpsys window` reported
+  `SECURE` on MainActivity. No screenshot automation was used; final visible
+  screenshot/recording acceptance remains owner-observed.
+- Android lint reached the project report with no new native screen-security
+  error, but the overall task remains red on two pre-existing min-SDK errors:
+  `android:windowLightNavigationBar` is currently declared in unqualified
+  `values` and `values-night` resources although it requires API 27. No runtime
+  database, commit, push, or clear-worktree action was performed.
+
+Android detected-capture forced exit (2026-07-28):
+
+- Android screenshot and recording callbacks now converge on one idempotent
+  native exit policy. A delivered callback sends
+  `screen_security_exit_requested`, shows the runtime-localized
+  `overlay_title` with English/Thai native fallback copy, waits briefly for the
+  warning to render, removes the task, and terminates the process.
+- App-wide `FLAG_SECURE` remains authoritative. Android's API 34
+  `ScreenCaptureCallback` is documented not to fire on a secure Window, API
+  33 and lower have no public screenshot callback, and recording visibility is
+  available only from API 35. Therefore older or blocked capture attempts keep
+  the content black/absent but cannot trigger app-owned copy or termination
+  without an OS signal. The implementation deliberately does not weaken
+  `FLAG_SECURE` to detect an already-created screenshot.
+- Production preflight now rejects missing Android forced-exit code or missing
+  English/Thai startup copy. The native state probe exposes only whether exit
+  has been scheduled so integration can verify the idle contract without
+  taking screenshots or killing the test process.
+- Checked-in Android preflight and its missing-hook regression passed, the
+  focused CustomerApp/screen-security suite passed 43 tests, focused analysis
+  and Kotlin/resource compilation passed, and `git diff --check` remained
+  clean. A production-configured debug APK was then built and installed
+  in-place on the connected Xiaomi M2006C3LG without clearing app data.
+- The installed `com.siamblend` process launched and remained resumed, while
+  `dumpsys window` reported `SECURE` on MainActivity. The device runs Android
+  11/API 30, so it cannot emit the API 34/35 callbacks needed to exercise the
+  warning/forced-exit branch; that branch remains covered by compile and
+  preflight contract until owner-observed QA is available on Android 14/15.
+  No runtime database, commit, push, clear-worktree, or screenshot automation
+  was used.
+
+Tenant-scoped Google/Apple/Facebook social login (2026-07-29):
+
+- Tenant Social Login settings now manage Google Client ID/Secret, Apple
+  Services ID/Team ID/Key ID/private `.p8` key, and Facebook App ID/Secret
+  independently per tenant. Secrets remain encrypted at rest and masked in BO;
+  customer bootstrap exposes only enabled/readied providers, runtime labels,
+  and runtime button colors.
+- The generic customer OAuth flow now supports Google OIDC, Sign in with
+  Apple, and Facebook Login end to end: tenant callback URL generation,
+  state/host/expiry validation, provider token/profile exchange, existing
+  identity login, current-customer linking, first-time phone linking, global
+  PIN handoff, and the existing one-active-device session activation path.
+  Facebook profile exchange includes `appsecret_proof`.
+- Apple keeps a query callback without requesting name/email scopes because
+  the converted Flutter storefront currently consumes a query deep link.
+  Requesting those Apple scopes requires `form_post`; customer identity still
+  comes from the validated token subject and first-time users continue through
+  the existing phone-link flow. Production provider setup must use the exact
+  callback URLs shown by BO.
+- Flutter recognizes Google/Gmail, Apple ID, Facebook/Meta, and LINE aliases,
+  renders only runtime-enabled providers, preserves provider-specific callback
+  and PIN return paths, and includes Facebook in iOS third-party-login
+  compliance checks that require Apple ID to be enabled too.
+- Verification completed: PHP syntax passed for the changed service, config,
+  controller, and feature test; Flutter parser/social coverage passed 159
+  tests; focused social production-preflight coverage passed 4 tests; focused
+  Flutter analysis passed earlier in the pass; Back Office lint and production
+  build passed. The platform feature suite passed 16 tests/92 assertions after
+  the Facebook and tenant-credential changes. Two additional Google/Apple
+  callback-exchange regressions were added and syntax-checked, but their DB
+  rerun remains pending because Docker Desktop reported that it was unable to
+  start.
+- Remaining production work is tenant-owned provider registration and
+  credentials in Google Cloud, Apple Developer, and Meta Developer consoles,
+  followed by real-provider callback/device and store-compliance smoke tests.
+  No runtime database was accessed, and no commit, push, or clear-worktree
+  process was performed.
+
+Tenant-scoped customer Passkeys (2026-07-30):
+
+- Platform API now owns WebAuthn registration and authentication ceremonies
+  through `laravel/passkeys`. Challenges persist with tenant, exact RP ID,
+  allowed origins, ceremony, expiry, and one-time consumption state.
+  Credentials are tenant/customer scoped, revocable, counter-updated after
+  verification, and never expose credential material through customer APIs.
+- Passkey login issues the same PIN-gated, single-device customer session as
+  password/social login. It does not bypass the global PIN screen or revoke the
+  old device until PIN setup, PIN verify, or biometric activation succeeds.
+- Flutter exposes a runtime-gated Passkey action on Login and a
+  `/profile/passkeys` management screen for list, register, name, and revoke.
+  The client validates challenge RP ID against the active runtime tenant host
+  before invoking iOS, Android, or Web credentials.
+- Tenant bootstrap exposes `mobile.passkeys` plus
+  `mobile.feature_flags.passkey_login`. The tenant domain serves Apple
+  `webcredentials` and Android Digital Asset Links from `/.well-known` using
+  deployment-owned app IDs, package name, and release certificate
+  fingerprints.
+- iOS includes the build-configured `webcredentials:` Associated Domain. Web
+  ships the pinned package bundle before Flutter bootstrap. Android relies on
+  the tenant-hosted `assetlinks.json`; no partner ID, RP ID, credential, or
+  endpoint is hardcoded in Dart.
+- Verification passed `CustomerPasskeyTest` with 3 tests/60 assertions,
+  including a real ES256 WebAuthn assertion, challenge expiry, tenant
+  isolation, PIN gating, idempotency, wallet creation, single-device
+  activation, feature flag, and association files. Flutter passkey/bootstrap
+  coverage passed 48 tests. Runtime DB was not migrated, and no commit, push,
+  or clear-worktree process was performed.
+
+Mandatory Social onboarding and account linking (2026-07-30):
+
+- First-time LINE, Google, Apple, and Facebook identities now share one
+  mandatory three-step onboarding surface: phone, register-purpose OTP, then
+  first name, last name, password confirmation, and terms acceptance. The
+  backend consumes the verified tenant/phone OTP token before creating the
+  customer, so invalid or missing OTP cannot leave a partial member record.
+- Existing signed-in customers manage providers at
+  `/profile/social-accounts`. Connect launches authenticated OAuth with
+  purpose `link`, binds the callback state to the current customer, rotates
+  the verified session without treating the operation as a second-device
+  login, and returns to the same Profile screen. Unlink is tenant/customer
+  scoped and idempotent.
+- Added `GET /customer/auth/social/accounts` and
+  `DELETE /customer/auth/social/accounts/{provider}`. Provider labels,
+  availability, and appearance remain runtime tenant data; no provider or
+  credential is hardcoded into the account-management API.
+- Focused Flutter analysis passed. Auth/onboarding, account/route, and API-map
+  coverage passed 59 tests. The 22-test platform Social suite proved that invalid OTP
+  creates no customer and valid OTP creates the complete profile plus Social
+  identity; the protected account list/unlink test also passed against
+  `newpaotang_test`. Runtime DB was not accessed, and no commit, push, or
+  clear-worktree action was performed.
+
+Automated customer account deletion (2026-07-30):
+
+- `/profile/account-deletion` is now an in-app lifecycle rather than an
+  external tenant link. Flutter checks outstanding balances and transactions,
+  explains the retained-evidence policy, requires a reason, then verifies the
+  current six-digit PIN and tenant SMS OTP before creating the request.
+- A confirmed request has a 168-hour grace period. Customer API writes become
+  read-only except auth, notification read state, Support, and cancellation.
+  The status screen shows the deadline, countdown, blockers, and PIN-confirmed
+  cancellation action.
+- Platform retains customer, order, wallet ledger, lottery, claim, Affiliate,
+  and audit rows. Finalization changes the customer to `deleted`, clears login
+  secrets, revokes sessions/devices/passkeys/social identities, and leaves all
+  evidence rows intact.
+- Submission is blocked while Wallet/Affiliate balances or pending financial,
+  payout, reward, or activity records remain. The finalizer checks again to
+  handle asynchronous webhooks and retries blocked requests automatically.
+- `customer-accounts:process-deletions` runs every minute with overlap and
+  single-server guards, sends the 24-hour reminder, and closes due accounts
+  without admin approval. A deleted phone can create a new customer after the
+  90-day cooldown while the old customer remains queryable as evidence.
+- Focused Platform coverage passed 41 tests/364 assertions across account
+  deletion, Customer Auth, Social Auth, and LINE identity regressions. Flutter
+  focused analysis and 3 account-deletion widget tests passed. Only
+  `newpaotang_test` was used; runtime DB was not
+  migrated and no commit, push, or worktree clearing was performed.

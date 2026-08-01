@@ -409,7 +409,7 @@ const botForm = reactive({
 
 const telegramTestForm = reactive({
   chat_id: '',
-  message: 'ทดสอบแจ้งเตือน Telegram จาก newPaotang',
+  message: 'ทดสอบแจ้งเตือน Telegram จาก Siamblend',
 })
 
 const templateForm = reactive({

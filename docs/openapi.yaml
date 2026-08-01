@@ -140,6 +140,46 @@ paths:
           $ref: "#/components/responses/TenantNotFound"
         "409":
           $ref: "#/components/responses/DomainNotActive"
+  /.well-known/apple-app-site-association:
+    get:
+      tags: [Public Tenant]
+      security: []
+      servers:
+        - url: /
+      summary: Resolve Apple app and WebAuthn association for the tenant domain
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+      responses:
+        "200":
+          description: Apple App Site Association with applinks and webcredentials app IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+  /.well-known/assetlinks.json:
+    get:
+      tags: [Public Tenant]
+      security: []
+      servers:
+        - url: /
+      summary: Resolve Android Digital Asset Links for the tenant domain
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+      responses:
+        "200":
+          description: Android application package and release certificate associations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
   /public/translations:
     get:
       tags: [Public Tenant]
@@ -624,6 +664,59 @@ paths:
       responses:
         "204":
           description: Admin password reset
+  /auth/admin/invitations/{token}:
+    get:
+      tags: [System Auth]
+      security: []
+      summary: Preview a pending one-time admin invitation
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminInvitationPreviewResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /auth/admin/invitations/{token}/accept:
+    post:
+      tags: [System Auth]
+      security: []
+      summary: Set the invited admin password and activate the account
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminInvitationAcceptRequest"
+      responses:
+        "200":
+          description: Admin invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminInvitationAcceptedResponse"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "410":
+          description: Invitation expired
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /auth/admin/password/change:
     post:
       tags: [System Auth]
@@ -1046,6 +1139,77 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
+  /customer/account-deletion:
+    get:
+      tags: [Customer]
+      summary: Load account deletion status and eligibility
+      responses:
+        "200":
+          description: Account deletion status and eligibility
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      tags: [Customer]
+      summary: Schedule account deletion after PIN and OTP verification
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason_code, pin_verification_token, otp_verification_token]
+              properties:
+                reason_code:
+                  type: string
+                  enum: [no_longer_use, privacy, experience, duplicate_account, other]
+                reason_detail:
+                  type: string
+                  maxLength: 500
+                pin_verification_token:
+                  type: string
+                otp_verification_token:
+                  type: string
+      responses:
+        "201":
+          description: Account deletion scheduled
+        "409":
+          description: Outstanding balance, transaction, or open request
+        "422":
+          description: Verification or validation failed
+  /customer/account-deletion/eligibility:
+    get:
+      tags: [Customer]
+      summary: Check whether the customer may request account deletion
+      responses:
+        "200":
+          description: Eligibility and blocker list
+  /customer/account-deletion/request-otp:
+    post:
+      tags: [Customer]
+      summary: Verify PIN and send account-deletion OTP
+      responses:
+        "202":
+          description: OTP sent with short-lived PIN verification token
+  /customer/account-deletion/verify-otp:
+    post:
+      tags: [Customer]
+      summary: Verify account-deletion OTP
+      responses:
+        "200":
+          description: One-time OTP verification token
+  /customer/account-deletion/cancel:
+    post:
+      tags: [Customer]
+      summary: Cancel an open account deletion request using PIN
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      responses:
+        "200":
+          description: Account deletion cancelled
+        "404":
+          description: No open deletion request
   /customer/line-notifications:
     get:
       tags: [Customer]
@@ -1530,6 +1694,207 @@ paths:
           $ref: "#/components/responses/ResourceConflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/social/accounts:
+    get:
+      tags: [Customer Auth]
+      summary: List social login accounts linked to the current customer
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Supported social providers and current link states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSocialAccountCollection"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /customer/auth/social/accounts/{provider}:
+    delete:
+      tags: [Customer Auth]
+      summary: Unlink one social login account from the current customer
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/SocialProviderPath"
+      responses:
+        "200":
+          description: Updated supported social providers and link states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSocialAccountCollection"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/auth/passkeys/login/options:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Create a tenant-scoped passkey authentication challenge
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: WebAuthn authentication options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPasskeyChallengeResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/passkeys/login/verify:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Verify a passkey assertion and issue a PIN-gated customer session
+      description: The session becomes the active device only after the existing PIN or biometric activation boundary succeeds.
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPasskeyVerifyRequest"
+      responses:
+        "200":
+          description: Customer passkey session
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/CustomerAuthResponse"
+                  - type: object
+                    properties:
+                      passkey_login:
+                        type: boolean
+                        const: true
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/passkeys:
+    get:
+      tags: [Customer Auth]
+      summary: List passkeys registered by the current customer
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Customer passkey collection and registration policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPasskeyListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    post:
+      tags: [Customer Auth]
+      summary: Register a passkey after current-session PIN confirmation
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPasskeyRegisterRequest"
+      responses:
+        "201":
+          description: Passkey registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CustomerPasskey"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/passkeys/register/options:
+    post:
+      tags: [Customer Auth]
+      summary: Create passkey registration options for the current customer
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: WebAuthn registration options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPasskeyChallengeResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /customer/auth/passkeys/{passkey_id}:
+    delete:
+      tags: [Customer Auth]
+      summary: Revoke one passkey owned by the current tenant customer
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: passkey_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Passkey revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /customer/auth/pin/status:
     get:
       tags: [Customer Auth]
@@ -2875,7 +3240,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResourceListResponse"
+                $ref: "#/components/schemas/AdminUserListResponse"
         "403":
           $ref: "#/components/responses/PermissionDenied"
     post:
@@ -2890,14 +3255,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminCreateRequest"
+              $ref: "#/components/schemas/CreateTenantAdminUserRequest"
       responses:
         "201":
-          description: Central admin user created
+          description: Central admin user invited; the raw invitation link is returned only in this response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResource"
+                $ref: "#/components/schemas/AdminUserWithInvitation"
         "403":
           $ref: "#/components/responses/PermissionDenied"
   /admin/central/admin-users/{admin_user_id}:
@@ -2918,7 +3283,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResource"
+                $ref: "#/components/schemas/AdminUser"
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
@@ -2938,14 +3303,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminPatchRequest"
+              $ref: "#/components/schemas/UpdateTenantAdminUserRequest"
       responses:
         "200":
           description: Central admin user updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResource"
+                $ref: "#/components/schemas/AdminUser"
         "404":
           $ref: "#/components/responses/NotFound"
     delete:
@@ -2965,6 +3330,28 @@ paths:
           description: Central admin user disabled
         "404":
           $ref: "#/components/responses/NotFound"
+  /admin/central/admin-users/{admin_user_id}/invitation:
+    post:
+      tags: [Central Admin]
+      summary: Revoke the previous link and generate a new invitation link
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: admin_user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New one-time invitation link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserWithInvitation"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
   /admin/central/roles:
     get:
       tags: [Central Admin]
@@ -3180,7 +3567,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminActionRequest"
+              $ref: "#/components/schemas/PartnerProvisionRequest"
       responses:
         "202":
           description: Tenant provisioning accepted
@@ -6803,11 +7190,11 @@ paths:
               $ref: "#/components/schemas/CreateTenantAdminUserRequest"
       responses:
         "201":
-          description: Tenant admin user created or invited
+          description: Tenant admin user invited; the raw invitation link is returned only in this response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminUser"
+                $ref: "#/components/schemas/AdminUserWithInvitation"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
@@ -6894,6 +7281,29 @@ paths:
           $ref: "#/components/responses/PermissionDenied"
         "404":
           $ref: "#/components/responses/NotFound"
+  /admin/tenant/admin-users/{admin_user_id}/invitation:
+    post:
+      tags: [Tenant Admin]
+      summary: Revoke the previous link and generate a new tenant admin invitation
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: admin_user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New one-time invitation link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserWithInvitation"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
   /admin/tenant/roles:
     get:
       tags: [Tenant Admin]
@@ -10258,6 +10668,217 @@ paths:
         "409":
           $ref: "#/components/responses/ResourceConflict"
 
+  /admin/tenant/reward-risk/settings:
+    get:
+      tags: [Tenant Admin]
+      summary: Read Reward Risk Assessment settings for the selected tenant owner
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Tenant Reward Risk Assessment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskSettings"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+    put:
+      tags: [Tenant Admin]
+      summary: Update Reward Risk Assessment settings for the selected tenant owner
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardRiskSettingsInput"
+      responses:
+        "200":
+          description: Updated Reward Risk Assessment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskSettings"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/tenant/reward-risk/overview:
+    get:
+      tags: [Tenant Admin]
+      summary: View current provisional and final Reward Risk Assessment status
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskGameFilter"
+      responses:
+        "200":
+          description: Tenant Reward Risk Assessment overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantRewardRiskOverview"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/tenant/reward-risk/runs:
+    get:
+      tags: [Tenant Admin]
+      summary: List Reward Risk Assessment run history for the selected tenant
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskGameFilter"
+        - $ref: "#/components/parameters/RewardRiskPhaseFilter"
+        - $ref: "#/components/parameters/CursorQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Cursor-paginated Reward Risk Assessment runs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskRunList"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/tenant/reward-risk/findings:
+    get:
+      tags: [Tenant Admin]
+      summary: List threshold findings with full in-tenant customer detail
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskGameFilter"
+        - $ref: "#/components/parameters/RewardRiskPhaseFilter"
+        - $ref: "#/components/parameters/RewardRiskPrizeTypeFilter"
+        - $ref: "#/components/parameters/CursorQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Cursor-paginated Reward Risk Assessment findings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskFindingList"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/tenant/reward-risk/findings/{finding_id}:
+    get:
+      tags: [Tenant Admin]
+      summary: View a tenant Reward Risk Assessment finding and ticket evidence
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskFindingId"
+      responses:
+        "200":
+          description: Reward Risk Assessment finding detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskFinding"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /admin/central/reward-risk/overview:
+    get:
+      tags: [Central Admin]
+      summary: View aggregate Reward Risk Assessment status across tenants
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskTenantFilter"
+        - $ref: "#/components/parameters/RewardRiskGameFilter"
+        - $ref: "#/components/parameters/RewardRiskPhaseFilter"
+      responses:
+        "200":
+          description: Central Reward Risk Assessment overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CentralRewardRiskOverview"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/reward-risk/runs:
+    get:
+      tags: [Central Admin]
+      summary: List Reward Risk Assessment runs across tenants
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskTenantFilter"
+        - $ref: "#/components/parameters/RewardRiskGameFilter"
+        - $ref: "#/components/parameters/RewardRiskPhaseFilter"
+        - $ref: "#/components/parameters/CursorQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Cursor-paginated Reward Risk Assessment runs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskRunList"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/reward-risk/findings:
+    get:
+      tags: [Central Admin]
+      summary: List Reward Risk Assessment findings with masked customer data
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskTenantFilter"
+        - $ref: "#/components/parameters/RewardRiskGameFilter"
+        - $ref: "#/components/parameters/RewardRiskPhaseFilter"
+        - $ref: "#/components/parameters/RewardRiskPrizeTypeFilter"
+        - $ref: "#/components/parameters/CursorQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Cursor-paginated masked Reward Risk Assessment findings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskFindingList"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/reward-risk/findings/{finding_id}:
+    get:
+      tags: [Central Admin]
+      summary: View masked Reward Risk Assessment finding detail
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/RewardRiskFindingId"
+      responses:
+        "200":
+          description: Masked Reward Risk Assessment finding detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardRiskFinding"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -10288,6 +10909,43 @@ components:
         minimum: 1
         maximum: 100
         default: 50
+    CursorQuery:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    RewardRiskFindingId:
+      name: finding_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RewardRiskTenantFilter:
+      name: tenant_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RewardRiskGameFilter:
+      name: game_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RewardRiskPhaseFilter:
+      name: phase
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [provisional, final]
+    RewardRiskPrizeTypeFilter:
+      name: prize_type
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/RewardRiskPrizeType"
     IdempotencyKeyHeader:
       name: Idempotency-Key
       in: header
@@ -10330,7 +10988,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [line, google, apple]
+        enum: [line, google, apple, facebook]
     ActivityIdPath:
       name: activity_id
       in: path
@@ -10417,6 +11075,152 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    RewardRiskPrizeType:
+      type: string
+      enum: [first_prize, near_first_prize, second_prize, third_prize, fourth_prize, fifth_prize, front3, back3, back2]
+    RewardRiskSettingsInput:
+      type: object
+      required: [enabled, monitored_prize_types, threshold_multiplier]
+      properties:
+        enabled:
+          type: boolean
+        monitored_prize_types:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/RewardRiskPrizeType"
+        threshold_multiplier:
+          type: string
+          pattern: "^[0-9]+(\\.[0-9]{1,2})?$"
+          examples: ["1.00"]
+    RewardRiskSettings:
+      allOf:
+        - $ref: "#/components/schemas/RewardRiskSettingsInput"
+        - type: object
+          required: [tenant_id, version]
+          properties:
+            tenant_id:
+              type: string
+            version:
+              type: integer
+            updated_at:
+              type: [string, "null"]
+              format: date-time
+    RewardRiskRun:
+      type: object
+      required: [id, tenant_id, game_id, phase, reward_version, status, is_current, evaluated_group_count, finding_count, total_purchase_amount, total_prize_amount, currency]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        tenant_name: { type: [string, "null"] }
+        partner_name: { type: [string, "null"] }
+        game_id: { type: string }
+        game_name: { type: [string, "null"] }
+        reward_result_id: { type: string }
+        phase: { type: string, enum: [provisional, final] }
+        reward_version: { type: integer }
+        status: { type: string, enum: [queued, processing, completed, failed, superseded] }
+        is_current: { type: boolean }
+        evaluated_group_count: { type: integer }
+        finding_count: { type: integer }
+        total_purchase_amount: { type: integer, description: Integer minor units. }
+        total_prize_amount: { type: integer, description: Integer minor units. }
+        currency: { type: string, example: THB }
+        settings_snapshot: { $ref: "#/components/schemas/RewardRiskSettings" }
+        last_error: { type: [string, "null"] }
+        created_at: { type: [string, "null"], format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+        superseded_at: { type: [string, "null"], format: date-time }
+    RewardRiskFinding:
+      type: object
+      required: [id, run_id, tenant_id, game_id, customer, full_number, prize_types, ticket_count, purchase_amount, prize_amount, threshold_multiplier, threshold_amount, excess_amount, currency, status]
+      properties:
+        id: { type: string }
+        run_id: { type: string }
+        tenant_id: { type: string }
+        tenant_name: { type: [string, "null"] }
+        partner_name: { type: [string, "null"] }
+        game_id: { type: string }
+        game_name: { type: [string, "null"] }
+        phase: { type: string, enum: [provisional, final] }
+        reward_version: { type: integer }
+        customer:
+          type: object
+          properties:
+            id: { type: [string, "null"], description: Null in Central responses. }
+            customer_no: { type: string, description: Masked in Central responses. }
+            name: { type: [string, "null"], description: Null in Central responses. }
+            phone: { type: string, description: Masked in Central responses. }
+        full_number: { type: string }
+        prize_types:
+          type: array
+          items: { $ref: "#/components/schemas/RewardRiskPrizeType" }
+        ticket_count: { type: integer }
+        purchase_amount: { type: integer, description: Integer minor units. }
+        prize_amount: { type: integer, description: Integer minor units. }
+        threshold_multiplier: { type: string }
+        threshold_amount: { type: integer, description: Integer minor units. }
+        excess_amount: { type: integer, description: Integer minor units. }
+        currency: { type: string, example: THB }
+        status: { type: string, const: threshold_exceeded }
+        tickets:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              ticket_id: { type: string }
+              winning_ticket_id: { type: string }
+              prize_type: { $ref: "#/components/schemas/RewardRiskPrizeType" }
+              prize_number: { type: string }
+              amount: { type: integer }
+              currency: { type: string }
+    RewardRiskCursorMeta:
+      type: object
+      required: [next_cursor, has_more]
+      properties:
+        next_cursor: { type: [string, "null"] }
+        has_more: { type: boolean }
+    RewardRiskRunList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/RewardRiskRun" }
+        meta: { $ref: "#/components/schemas/RewardRiskCursorMeta" }
+    RewardRiskFindingList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/RewardRiskFinding" }
+        meta: { $ref: "#/components/schemas/RewardRiskCursorMeta" }
+    TenantRewardRiskOverview:
+      type: object
+      required: [settings]
+      properties:
+        settings: { $ref: "#/components/schemas/RewardRiskSettings" }
+        game_id: { type: [string, "null"] }
+        provisional:
+          oneOf:
+            - $ref: "#/components/schemas/RewardRiskRun"
+            - type: "null"
+        final:
+          oneOf:
+            - $ref: "#/components/schemas/RewardRiskRun"
+            - type: "null"
+    CentralRewardRiskOverview:
+      type: object
+      required: [enabled_tenant_count, run_count, finding_count, total_prize_amount, total_purchase_amount, currency]
+      properties:
+        enabled_tenant_count: { type: integer }
+        run_count: { type: integer }
+        finding_count: { type: integer }
+        total_prize_amount: { type: integer }
+        total_purchase_amount: { type: integer }
+        currency: { type: string, example: THB }
     ErrorResponse:
       type: object
       required: [error]
@@ -12491,6 +13295,9 @@ components:
       type: object
       required: [token, user]
       properties:
+        session_id:
+          type: string
+          description: Stable id of the issued access/refresh session pair.
         token:
           type: string
         refresh_token:
@@ -12501,6 +13308,9 @@ components:
           nullable: true
         pin_verified:
           type: boolean
+        session_activation_required:
+          type: boolean
+          description: True until PIN setup, PIN verification, or biometric assertion completes the new-device login.
         pin_setup_required:
           type: boolean
         pin_required:
@@ -12511,6 +13321,110 @@ components:
           type: string
           nullable: true
           description: Optional redirect order id for payment continuation.
+    CustomerPasskeyChallengeResponse:
+      type: object
+      required: [challenge_id, options, rp_id, expires_in]
+      properties:
+        challenge_id:
+          type: string
+        options:
+          type: object
+          description: Browser-facing PublicKeyCredential request or creation options.
+          additionalProperties: true
+        rp_id:
+          type: string
+          description: Exact active tenant host used as the WebAuthn relying-party ID.
+        expires_in:
+          type: integer
+          minimum: 1
+    CustomerPasskeyCredential:
+      type: object
+      required: [id, rawId, type, response]
+      properties:
+        id:
+          type: string
+          description: Base64URL credential identifier.
+        rawId:
+          type: string
+          description: Base64URL credential identifier returned by the authenticator.
+        type:
+          type: string
+          const: public-key
+        response:
+          type: object
+          description: Authenticator assertion or attestation response with Base64URL binary fields.
+          additionalProperties: true
+        authenticatorAttachment:
+          type: string
+          nullable: true
+        clientExtensionResults:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+    CustomerPasskeyVerifyRequest:
+      type: object
+      required: [challenge_id, credential]
+      additionalProperties: false
+      properties:
+        challenge_id:
+          type: string
+        credential:
+          $ref: "#/components/schemas/CustomerPasskeyCredential"
+    CustomerPasskeyRegisterRequest:
+      type: object
+      required: [challenge_id, credential]
+      additionalProperties: false
+      properties:
+        challenge_id:
+          type: string
+        name:
+          type: string
+          maxLength: 120
+        credential:
+          $ref: "#/components/schemas/CustomerPasskeyCredential"
+    CustomerPasskey:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        authenticator:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, revoked]
+        registered_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+    CustomerPasskeyListResponse:
+      type: object
+      required: [data, enabled, can_register, rp_id, max_passkeys]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerPasskey"
+        enabled:
+          type: boolean
+        can_register:
+          type: boolean
+        rp_id:
+          type: string
+        max_passkeys:
+          type: integer
+          minimum: 1
     ExternalLoginRedirect:
       type: object
       required: [url]
@@ -12719,14 +13633,32 @@ components:
         redirect:
           type: string
           nullable: true
+        social_onboarding_required:
+          type: boolean
+        phone_verification_required:
+          type: boolean
+        member_profile_required:
+          type: boolean
       additionalProperties: true
     CustomerSocialLinkPhoneRequest:
       type: object
-      required: [link_token, phone, password, password_confirmation]
+      required:
+        - link_token
+        - phone
+        - first_name
+        - last_name
+        - password
+        - password_confirmation
+        - otp_verification_token
+        - accepted_terms
       properties:
         link_token:
           type: string
         phone:
+          type: string
+        first_name:
+          type: string
+        last_name:
           type: string
         password:
           type: string
@@ -12734,8 +13666,48 @@ components:
         password_confirmation:
           type: string
           format: password
+        otp_verification_token:
+          type: string
+          description: Verified register-purpose OTP token for this tenant and phone.
+        accepted_terms:
+          type: boolean
+          const: true
         redirect:
           type: string
+    CustomerSocialAccountCollection:
+      type: object
+      required: [accounts]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerSocialAccount"
+    CustomerSocialAccount:
+      type: object
+      required: [provider, linked]
+      properties:
+        provider:
+          type: string
+          enum: [line, google, apple, facebook]
+        linked:
+          type: boolean
+        display_name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        picture_url:
+          type: string
+          nullable: true
+        linked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
     CustomerPinStatus:
       type: object
       properties:
@@ -13479,7 +14451,7 @@ components:
           additionalProperties: true
     MobileRuntimeConfig:
       type: object
-      required: [app_key, supported_platforms, auth_providers, line, realtime, feature_flags]
+      required: [app_key, supported_platforms, auth_providers, line, realtime, passkeys, feature_flags]
       properties:
         app_key:
           type: string
@@ -13507,6 +14479,8 @@ components:
         biometric:
           type: object
           additionalProperties: true
+        passkeys:
+          $ref: "#/components/schemas/MobilePasskeyConfig"
         screen_security:
           type: object
           additionalProperties: true
@@ -13515,13 +14489,34 @@ components:
           additionalProperties:
             type: boolean
       additionalProperties: true
+    MobilePasskeyConfig:
+      type: object
+      required: [enabled, rp_id, rp_name, timeout_ms, max_passkeys, platforms]
+      properties:
+        enabled:
+          type: boolean
+        rp_id:
+          type: string
+        rp_name:
+          type: string
+        timeout_ms:
+          type: integer
+          minimum: 1
+        max_passkeys:
+          type: integer
+          minimum: 1
+        platforms:
+          type: array
+          items:
+            type: string
+            enum: [ios, android, web]
     SocialAuthProvider:
       type: object
       required: [provider]
       properties:
         provider:
           type: string
-          enum: [line, google, apple]
+          enum: [line, google, apple, facebook]
         enabled:
           type: boolean
         display_name:
@@ -15346,7 +16341,7 @@ components:
           $ref: "#/components/schemas/CursorMeta"
     AdminUser:
       type: object
-      required: [id, tenant_id, name, email, status, roles, permissions]
+      required: [id, tenant_id, name, username, email, status, roles, permissions]
       properties:
         id:
           type: string
@@ -15354,6 +16349,8 @@ components:
           type: string
           description: Tenant ownership boundary for tenant admin accounts.
         name:
+          type: string
+        username:
           type: string
         email:
           type: string
@@ -15384,10 +16381,13 @@ components:
           format: date-time
     CreateTenantAdminUserRequest:
       type: object
-      required: [name, email, role_ids]
+      required: [name, username, email, role_ids]
       properties:
         name:
           type: string
+        username:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,49}$"
         email:
           type: string
           format: email
@@ -15398,14 +16398,35 @@ components:
           minItems: 1
           items:
             type: string
-        send_invitation:
-          type: boolean
-          default: true
+    PartnerProvisionRequest:
+      type: object
+      required: [owner_username, owner_email]
+      properties:
+        tenant_code: { type: string }
+        tenant_name: { type: string }
+        tenant_status: { type: string }
+        domain_host: { type: string }
+        domain_type: { type: string, enum: [subdomain, custom_domain] }
+        owner_username:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,49}$"
+        owner_email: { type: string, format: email }
+        owner_name: { type: string }
+        owner_phone: { type: string, nullable: true }
+        site_name: { type: string }
+        billing_plan_code: { type: string }
+        deployment_mode: { type: string }
+        features:
+          type: object
+          additionalProperties: { type: boolean }
     UpdateTenantAdminUserRequest:
       type: object
       properties:
         name:
           type: string
+        username:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9._-]{2,49}$"
         phone:
           type: string
           nullable: true
@@ -15416,6 +16437,62 @@ components:
           type: array
           items:
             type: string
+    AdminInvitation:
+      type: object
+      required: [path, url, expires_at]
+      properties:
+        path:
+          type: string
+          description: Back Office-relative acceptance path. BO should resolve this against its current tenant or central origin.
+        url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+    AdminUserWithInvitation:
+      allOf:
+        - $ref: "#/components/schemas/AdminUser"
+        - type: object
+          required: [invitation]
+          properties:
+            invitation:
+              $ref: "#/components/schemas/AdminInvitation"
+    AdminInvitationPreviewResponse:
+      type: object
+      required: [invitation]
+      properties:
+        invitation:
+          type: object
+          required: [name, username, email_masked, scope_type, expires_at]
+          properties:
+            name: { type: string }
+            username: { type: string }
+            email_masked: { type: string }
+            scope_type: { type: string, enum: [central, tenant] }
+            tenant_id: { type: string, nullable: true }
+            tenant_name: { type: string, nullable: true }
+            expires_at: { type: string, format: date-time }
+    AdminInvitationAcceptRequest:
+      type: object
+      required: [password, password_confirmation]
+      properties:
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password, minLength: 8 }
+    AdminInvitationAcceptedResponse:
+      type: object
+      required: [status, user, login_path]
+      properties:
+        status: { type: string, enum: [accepted] }
+        user:
+          type: object
+          required: [id, username, scope_type]
+          properties:
+            id: { type: string }
+            username: { type: string }
+            scope_type: { type: string, enum: [central, tenant] }
+            tenant_id: { type: string, nullable: true }
+        login_path: { type: string }
     AdminRoleListResponse:
       type: object
       required: [data]

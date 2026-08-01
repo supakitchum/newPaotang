@@ -565,6 +565,9 @@ void main() {
     expect(normalizeSocialAuthProvider('apple_id'), 'apple');
     expect(normalizeSocialAuthProvider('apple_login'), 'apple');
     expect(normalizeSocialAuthProvider('sign_in_with_apple'), 'apple');
+    expect(normalizeSocialAuthProvider('fb'), 'facebook');
+    expect(normalizeSocialAuthProvider('facebook_oauth'), 'facebook');
+    expect(normalizeSocialAuthProvider('meta_login'), 'facebook');
 
     final callback = SocialCallbackResult.fromJson({
       'provider': 'apple_id',
@@ -1138,7 +1141,7 @@ void main() {
           {'provider': 'line_oauth', 'enabled': true},
           {'provider': 'google_oauth2', 'enabled': true, 'label': ''},
           {'provider': 'apple_login', 'enabled': true},
-          {'provider': 'facebook', 'enabled': true},
+          {'provider': 'facebook_oauth', 'enabled': true},
           {'provider': 'google', 'enabled': false},
         ],
       },
@@ -1146,11 +1149,11 @@ void main() {
 
     expect(
       bootstrap.authProviders.map((provider) => provider.provider),
-      ['line', 'google', 'apple'],
+      ['line', 'google', 'apple', 'facebook'],
     );
     expect(
       bootstrap.authProviders.map((provider) => provider.label),
-      ['LINE', 'Google', 'Apple ID'],
+      ['LINE', 'Google', 'Apple ID', 'Facebook'],
     );
   });
 

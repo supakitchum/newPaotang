@@ -2,7 +2,7 @@
 
 ## App Structure
 
-`apps/back-office` is the Nuxt admin dashboard app for NewPaotang back-office operations.
+`apps/back-office` is the Nuxt admin dashboard app for Siamblend back-office operations.
 
 Key folders:
 

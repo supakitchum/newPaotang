@@ -194,6 +194,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _ProfileMenuItem(title: l10n.support('home.title'), path: '/support'),
     ];
     final serviceItems = [
+      if (routeEnabled('/profile/social-accounts'))
+        _ProfileMenuItem(
+          title: l10n.socialAccountsTitle,
+          path: '/profile/social-accounts',
+        ),
+      if ((bootstrap?.passkeys.enabled ?? false) &&
+          routeEnabled('/profile/passkeys'))
+        _ProfileMenuItem(
+          title: l10n.passkeyManagementTitle,
+          path: '/profile/passkeys',
+        ),
       if (routeEnabled('/profile/biometrics'))
         _ProfileMenuItem(
           title: l10n.profileBiometrics,

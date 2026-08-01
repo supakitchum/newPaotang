@@ -13,6 +13,7 @@ import '../features/activities/presentation/activities_screen.dart';
 import '../features/affiliate/presentation/affiliate_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/line_auth_screens.dart';
+import '../features/auth/presentation/login_otp_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
@@ -28,8 +29,10 @@ import '../features/profile/presentation/account_deletion_screen.dart';
 import '../features/profile/presentation/biometric_devices_screen.dart';
 import '../features/profile/presentation/line_notifications_screen.dart';
 import '../features/profile/presentation/language_screen.dart';
+import '../features/profile/presentation/passkeys_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/reward_bank_screen.dart';
+import '../features/profile/presentation/social_accounts_screen.dart';
 import '../features/purchase_history/presentation/purchase_history_detail_screen.dart';
 import '../features/purchase_history/presentation/purchase_history_screen.dart';
 import '../features/reward_claims/presentation/reward_claim_detail_screen.dart';
@@ -79,6 +82,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         data: (data) => data.maintenance,
         orElse: () => null,
       );
+      if (state.uri.path == '/login/otp' &&
+          !auth.isAuthenticated &&
+          ref.read(loginOtpFlowProvider) == null) {
+        return customerLoginRouteForRedirect(
+          state.uri.queryParameters['redirect'],
+        );
+      }
       return customerRedirectPath(
         path: state.uri.path,
         requestedLocation: state.uri.toString(),
@@ -95,6 +105,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login/otp',
+        builder: (context, state) => const LoginOtpScreen(),
+      ),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
@@ -288,6 +302,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/biometrics',
         builder: (context, state) => const BiometricDevicesScreen(),
+      ),
+      GoRoute(
+        path: '/profile/passkeys',
+        builder: (context, state) => const PasskeysScreen(),
+      ),
+      GoRoute(
+        path: '/profile/social-accounts',
+        builder: (context, state) => const SocialAccountsScreen(),
       ),
       GoRoute(
         path: '/profile/account-deletion',
@@ -586,6 +608,7 @@ bool _routeQueryBool(String? value) {
 
 bool _isGuestOnlyPath(String path) {
   return path == '/login' ||
+      path == '/login/otp' ||
       path == '/register' ||
       path == '/forgot-password' ||
       path == '/reset-password';

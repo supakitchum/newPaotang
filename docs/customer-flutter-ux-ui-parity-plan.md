@@ -3557,15 +3557,22 @@ Acceptance evidence for every screen group:
   password auth, redirect, PIN handoff, social provider filtering, and OAuth
   launch behavior were not changed.
 - Current Login/Register OTP enforcement note: when the tenant has an active
-  SMS OTP provider, password Login now replaces the credential form with an
-  inline six-digit OTP step and does not create or persist a customer session
-  until that challenge succeeds. The existing safe redirect and PIN handoff
-  run only after OTP verification. Register likewise cannot submit the account
-  creation request until its phone OTP has returned a non-empty verification
-  token, and Platform API independently enforces the same requirement before
-  writing the customer. Tenants without active SMS keep the compatible direct
-  path; refresh, restored-session PIN unlock, and biometric unlock do not ask
-  for login OTP again.
+  SMS OTP provider, password Login now closes the credential keyboard and
+  navigates to a dedicated `/login/otp` page instead of replacing the Login
+  form inline. The challenge stays in application memory rather than the URL,
+  direct/refresh access without a challenge returns to Login, and the existing
+  safe redirect and PIN handoff run only after OTP verification. Register
+  likewise cannot submit the account creation request until its phone OTP has
+  returned a non-empty verification token, and Platform API independently
+  enforces the same requirement before writing the customer. Tenants without
+  active SMS keep the compatible direct path; refresh, restored-session PIN
+  unlock, and biometric unlock do not ask for login OTP again.
+- Current Login OTP iOS keyboard/UI note: Login and OTP route transitions close
+  the active iOS credential text-input and Autofill context and wait for the
+  bottom inset to settle before the Login request starts. `/login/otp`
+  activates a single native `oneTimeCode` input shortly after the first frame
+  but renders it as six centered responsive square cells; this exposes the
+  native Messages code suggestion while preventing stacked keyboard clients.
 - Current Reset Password visual note: `/reset-password` now follows Nuxt's
   `BlueHeader` reset hero plus overlapping content-sheet structure instead of
   the earlier centered gradient/brand card. The reset card uses the Nuxt
@@ -4249,6 +4256,22 @@ Status: in progress.
   path with the active route, while `FLAG_SECURE` and recent-app privacy remain
   the prevention controls. This was verified with Android Kotlin compile and
   preflight tests, not automated screenshot capture.
+- Android 15 screen-recording detection note: Android now declares
+  `DETECT_SCREEN_RECORDING` and registers the `WindowManager` recording
+  callback only while the Activity is started on a sensitive route. Recording
+  start/end states use the same route-scoped Flutter audit/lock channel and the
+  callback is removed on route disable or `onStop`. The native integration
+  harness reads a non-mutating state probe to assert `FLAG_SECURE`, recent-app
+  protection, screenshot callback registration, and recording callback
+  registration without screenshot automation. The Android 15 lifecycle smoke
+  additionally moved the real Activity through background and foreground and
+  confirmed that all route-scoped controls were restored after `onStart`. A
+  protected/public/protected route cycle also confirms that disabling a public
+  route clears the Window policy and entering the next sensitive route restores
+  it with the new route. Android Lint reports no screen-security `NewApi`
+  warning against min SDK 24. Production preflight requires callback lifecycle
+  cleanup/restoration and the cold-start ordering that applies `FLAG_SECURE`
+  before `super.onCreate`.
 - Mobile bootstrap flat security-policy note: screen-security runtime config
   now accepts flat BO payload aliases (`flagSecure`,
   `protectRecentAppPreview`, `screenshotPolicy`, `screenCaptureOverlay`,
@@ -4581,11 +4604,14 @@ Acceptance evidence:
   canonical/PWA identity wiring.
 - Web/PWA manifest runtime-alias note: the web shell now resolves runtime
   metadata through a shared alias helper, including camelCase and snake_case
-  BO/hosting keys. Manifest `start_url`, `display`, and `orientation` are
-  runtime-driven through aliases such as `startUrl`/`start_url`/`webStartUrl`,
-  `displayMode`/`display_mode`/`webDisplay`, and
-  `orientation`/`webOrientation`; production preflight checks this alias-aware
-  manifest wiring so partner web installs do not require checked-in HTML forks.
+  BO/hosting keys. Manifest `start_url` and `display` remain runtime-driven
+  through aliases such as `startUrl`/`start_url`/`webStartUrl` and
+  `displayMode`/`display_mode`/`webDisplay`. Orientation is a platform contract,
+  fixed to `portrait-primary`, and cannot be overridden by tenant config.
+- Portrait-only UI note: native Flutter startup, Android Activity metadata, and
+  iPhone/iPad orientation declarations all allow portrait only. Mobile Web/PWA
+  requests a portrait lock and replaces the app surface with a rotate-device
+  guard in landscape on browsers that cannot lock orientation.
 - Web/PWA runtime config source note: `web/index.html` now also accepts runtime
   metadata from multiple hosting/BO injection names:
   `customerFlutterWebConfig`, `customerFlutterConfig`, `customerConfig`,
@@ -6038,8 +6064,15 @@ different tenant's identity.
 
 Native security acceptance rule: native privacy and biometric behavior must
 preserve the existing centralized PIN screen and route return flow. Android
-uses `FLAG_SECURE` plus protected recent-app previews on configured sensitive
-routes. iOS keeps a cover while recording/mirroring or inactive, while a
+uses app-wide `FLAG_SECURE` plus protected recent-app previews on every
+customer route; Flutter route changes and runtime disable requests must never
+clear those native controls. When an Android 14/15 platform capture callback is
+actually delivered, native code must show the runtime-localized blocked-copy,
+send `screen_security_exit_requested`, remove the task, and terminate the
+process. Do not remove `FLAG_SECURE` to make screenshot detection fire:
+Android's official screenshot callback is explicitly unavailable on a secure
+Window, and older Android versions expose no equivalent callback. iOS keeps a
+cover while recording/mirroring or inactive, while a
 single static-screenshot event must lock the sensitive session and then remove
 its native cover quickly enough for the same shared PIN screen to remain
 usable. Face ID/Touch ID assertion signing must present only one native prompt
@@ -6054,3 +6087,47 @@ active; a real app switch before or after that prompt must continue to lock a
 sensitive route. Bundle English and Thai `NSFaceIDUsageDescription` values in
 the iOS app so the permission sheet is readable before Flutter/runtime copy is
 available. Cancelling a scan preserves the current local key and device id.
+
+Owner-directed Siamblend splash override: startup uses the supplied Siamblend
+9:16 artwork instead of the former Nuxt gradient/product-mark composition.
+Keep the same artwork across native iOS launch, native Android launch, the
+pre-Flutter Web layer, and `AppSplashHost`. Portrait surfaces use full-bleed
+cover framing; wide/tablet Web surfaces contain the complete artwork against
+its matching blue rather than cropping the identity. The only overlay is the
+bottom safe-area loading treatment: compact translucent blue, medium white
+copy, and a thin animated gold line. Web must retain this layer until
+`flutter-first-frame`, Flutter must precache the asset before `runApp`, and
+native fallback system bars must match the artwork blue so startup never
+reveals a white flash.
+
+Passkey identity extension: Passkey is an additional authentication method,
+not a replacement PIN screen or a second PIN flow. Show the Login action only
+when runtime bootstrap enables `passkey_login`, the platform is allowlisted,
+and the authenticator reports support. A successful assertion follows the same
+redirect and centralized PIN gate as password/social login. Credential
+management lives under Profile in the existing compact title-header and
+content-sheet shell, requires current-session PIN verification, and uses
+runtime theme and localized copy. Never render a disabled placeholder action,
+hardcode an RP domain, or fall back to a Material-default credential dialog
+when the native or browser authenticator is unavailable.
+
+Social identity completion rule: every unknown LINE, Google, Apple, or
+Facebook identity must use the same responsive three-step customer onboarding
+surface. Keep provider identity/profile context visible, then require phone,
+six-digit OTP verification, and complete member data before final submission.
+Do not restore the former single-card phone/password shortcut or create a
+customer before OTP consumption succeeds. Existing normal accounts connect
+and unlink providers from `/profile/social-accounts` under the standard
+compact title header, rounded content sheet, runtime tenant theme/provider
+appearance, dynamic back navigation, and centralized PIN guard.
+
+Account deletion lifecycle rule: keep deletion under the standard compact
+title header and runtime theme, but replace the former external-link card with
+the native flow. The first state must explain the seven-day grace period,
+read-only behavior, retained transaction evidence, and 90-day phone cooldown
+before enabling Continue. Show eligibility blockers inline, collect one reason
+plus optional detail, use explicit PIN followed by six-digit OTP, then show a
+fixed-bottom confirmation action. Pending requests use a countdown/status
+surface and a fixed-bottom cancellation action; blocked requests list the
+outstanding items. Do not offer biometric substitution for the required PIN
+confirmation and do not add an admin-review state.

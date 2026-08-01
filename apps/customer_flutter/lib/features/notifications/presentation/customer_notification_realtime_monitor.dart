@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_controller.dart';
+import '../../../core/auth/customer_session_replacement_controller.dart';
 import '../../../core/auth/auth_token_store.dart';
 import '../../../core/realtime/customer_realtime_client.dart';
 import '../../../core/realtime/customer_realtime_monitor.dart';
@@ -22,6 +23,14 @@ bool shouldRefreshNotificationsFromRealtimeEvent(CustomerRealtimeEvent event) {
   return name == 'customer.notification.created' ||
       name == 'customer.notification.read' ||
       name == 'customer.notification.updated';
+}
+
+bool isCustomerSessionReplacementRealtimeEvent(CustomerRealtimeEvent event) {
+  return normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) ==
+      'customer.auth.session-replaced';
 }
 
 class CustomerNotificationRealtimeMonitor extends ConsumerStatefulWidget {
@@ -151,6 +160,13 @@ class _CustomerNotificationRealtimeMonitorState
   }
 
   void _handleEvent(CustomerRealtimeEvent event) {
+    if (isCustomerSessionReplacementRealtimeEvent(event)) {
+      ref
+          .read(customerSessionReplacementControllerProvider.notifier)
+          .notify(replacementSessionId: _replacementSessionId(event.payload));
+      return;
+    }
+
     if (!shouldRefreshNotificationsFromRealtimeEvent(event) &&
         !_subscriptionTracker.register(event)) {
       return;
@@ -163,4 +179,21 @@ class _CustomerNotificationRealtimeMonitorState
       ref.read(customerNotificationRealtimeTickProvider.notifier).state++;
     });
   }
+}
+
+String _replacementSessionId(Map<String, dynamic> payload) {
+  for (final key in const ['replacement_session_id', 'replacementSessionId']) {
+    final value = payload[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty) return value;
+  }
+  for (final key in const ['data', 'payload', 'resource']) {
+    final nested = payload[key];
+    if (nested is Map) {
+      final value = _replacementSessionId(
+        nested.map((key, value) => MapEntry(key.toString(), value)),
+      );
+      if (value.isNotEmpty) return value;
+    }
+  }
+  return '';
 }

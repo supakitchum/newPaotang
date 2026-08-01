@@ -11,6 +11,7 @@ import '../../features/notifications/data/customer_notification_repository.dart'
 import '../../features/notifications/presentation/customer_notification_navigation.dart';
 import '../../features/notifications/presentation/customer_notification_realtime_monitor.dart';
 import '../auth/auth_controller.dart';
+import '../auth/customer_session_replacement_controller.dart';
 import '../i18n/app_locale.dart';
 import '../i18n/customer_locale_controller.dart';
 import 'customer_push_device_context.dart';
@@ -93,7 +94,11 @@ class _CustomerPushLifecycleMonitorState
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthController>(authControllerProvider, (_, auth) {
-      if (!auth.isAuthenticated) _loggingOut = false;
+      if (!auth.isAuthenticated) {
+        _loggingOut = false;
+        _registeredSignature = '';
+        _registeredAt = null;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
     });
     ref.listen<Locale>(customerLocaleProvider, (_, __) {
@@ -202,10 +207,22 @@ class _CustomerPushLifecycleMonitorState
     if (!mounted) return;
     ref.invalidate(customerNotificationUnreadCountProvider);
     ref.read(customerNotificationRealtimeTickProvider.notifier).state++;
+    if (_isSessionReplacementPush(message)) {
+      ref
+          .read(customerSessionReplacementControllerProvider.notifier)
+          .notify(replacementSessionId: message.replacementSessionId);
+    }
   }
 
   void _handleTap(CustomerPushMessage message) {
     if (!mounted) return;
+    if (_isSessionReplacementPush(message)) {
+      _pendingTap = null;
+      ref
+          .read(customerSessionReplacementControllerProvider.notifier)
+          .notify(replacementSessionId: message.replacementSessionId);
+      return;
+    }
     _pendingTap = message;
     ref.invalidate(customerNotificationUnreadCountProvider);
     ref.read(customerNotificationRealtimeTickProvider.notifier).state++;
@@ -292,6 +309,10 @@ class _CustomerPushLifecycleMonitorState
       // Local token cleanup is best effort and must not block explicit logout.
     }
   }
+}
+
+bool _isSessionReplacementPush(CustomerPushMessage message) {
+  return message.eventKey.trim().toLowerCase() == 'account.session.replaced';
 }
 
 bool _isUnlocked(AuthController auth) {

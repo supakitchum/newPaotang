@@ -2,6 +2,7 @@
 
 namespace App\Shared\Auth\Http\Middleware;
 
+use App\Models\CustomerAccountDeletionRequest;
 use App\Shared\Auth\ApiErrorResponse;
 use App\Shared\Auth\CustomerSessionResolver;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
@@ -42,6 +43,18 @@ class AuthenticateCustomer
         $context = $this->sessions->resolveAccessToken($request->bearerToken(), $tenantId);
 
         if ($context === null) {
+            $failure = $this->sessions->failure();
+
+            if ($failure !== null) {
+                return ApiErrorResponse::make(
+                    $request,
+                    401,
+                    $failure['code'],
+                    $failure['message'],
+                    $failure['details'],
+                );
+            }
+
             $suspension = $this->sessions->suspendedCustomerForAccessToken($request->bearerToken(), $tenantId);
 
             if ($suspension !== null) {
@@ -64,6 +77,26 @@ class AuthenticateCustomer
         $request->attributes->set('customer_session', $context);
         $request->attributes->set('customer_tenant', $tenant['context']);
 
+        if ($this->blocksPendingDeletion($request, $context->tenantId(), $context->customerId())) {
+            $deletion = CustomerAccountDeletionRequest::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('customer_id', $context->customerId())
+                ->whereIn('status', ['pending', 'blocked'])
+                ->first();
+
+            return ApiErrorResponse::make(
+                $request,
+                423,
+                'account_deletion_pending',
+                'This account is read-only while deletion is pending.',
+                [
+                    'status' => $deletion?->status,
+                    'scheduled_for' => $deletion?->scheduled_for?->toISOString(),
+                    'route' => '/profile/account-deletion',
+                ],
+            );
+        }
+
         return $next($request);
     }
 
@@ -74,11 +107,46 @@ class AuthenticateCustomer
             'api/v1/customer/auth/me',
             'api/v1/customer/auth/pin/*',
             'api/v1/customer/profile',
+            'api/v1/customer/account-deletion*',
+        );
+    }
+
+    private function blocksPendingDeletion(Request $request, string $tenantId, string $customerId): bool
+    {
+        if ($request->isMethod('GET') || ! CustomerAccountDeletionRequest::query()
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customerId)
+            ->whereIn('status', ['pending', 'blocked'])
+            ->exists()) {
+            return false;
+        }
+
+        return ! $request->is(
+            'api/v1/customer/account-deletion*',
+            'api/v1/customer/auth/logout',
+            'api/v1/customer/auth/refresh',
+            'api/v1/customer/auth/me',
+            'api/v1/customer/auth/pin/*',
+            'api/v1/customer/notifications/*/read',
+            'api/v1/customer/notifications/read-all',
+            'api/v1/customer/realtime/auth',
+            'api/v1/customer/support-session',
         );
     }
 
     private function requiresPinUnlock(Request $request): bool
     {
+        if ($request->is(
+            'api/v1/customer/auth/biometric/challenge',
+            'api/v1/customer/auth/biometric/verify',
+        )) {
+            return false;
+        }
+
+        if ($request->isMethod('GET') && $request->is('api/v1/customer/auth/biometric/devices')) {
+            return false;
+        }
+
         return ! $request->is(
             'api/v1/customer/auth/logout',
             'api/v1/customer/auth/me',

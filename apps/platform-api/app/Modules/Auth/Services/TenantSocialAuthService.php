@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 
 class TenantSocialAuthService
 {
-    public const PROVIDERS = ['line', 'google', 'apple'];
+    public const PROVIDERS = ['line', 'google', 'apple', 'facebook'];
 
     public function __construct(private readonly TenantLineNotificationService $lineNotifications)
     {
@@ -122,7 +122,7 @@ class TenantSocialAuthService
     {
         $provider = $this->normalizeProvider($provider);
 
-        if (! in_array($provider, ['google', 'apple'], true)) {
+        if (! in_array($provider, ['google', 'apple', 'facebook'], true)) {
             return ['error' => 'provider_managed_elsewhere'];
         }
 
@@ -211,7 +211,7 @@ class TenantSocialAuthService
 
         return [
             'provider' => $provider,
-            'label' => $appearance['display_label'] ?: ($provider === 'google' ? 'Google / Gmail' : 'Apple ID'),
+            'label' => $appearance['display_label'] ?: $this->defaultProviderLabel($provider),
             'display_label' => $appearance['display_label'],
             'brand_color' => $appearance['brand_color'],
             'button_background_color' => $appearance['button_background_color'],
@@ -330,9 +330,11 @@ class TenantSocialAuthService
         $metadata = is_array($record?->metadata_json) ? $record->metadata_json : [];
 
         if ($provider !== 'line') {
-            $metadata['scopes'] = $provider === 'google'
-                ? ['openid', 'profile', 'email']
-                : ['name', 'email'];
+            $metadata['scopes'] = match ($provider) {
+                'google' => ['openid', 'profile', 'email'],
+                'facebook' => ['public_profile', 'email'],
+                default => [],
+            };
         }
 
         $appearance = is_array($metadata['appearance'] ?? null) ? $metadata['appearance'] : [];
@@ -387,7 +389,13 @@ class TenantSocialAuthService
 
     private function normalizeProvider(string $provider): string
     {
-        return strtolower(trim($provider));
+        return match (strtolower(trim($provider))) {
+            'gmail', 'google_login', 'google_oauth', 'google_oauth2' => 'google',
+            'apple_id', 'apple_login', 'sign_in_with_apple' => 'apple',
+            'fb', 'facebook_login', 'facebook_oauth', 'meta', 'meta_login' => 'facebook',
+            'line_login', 'line_oa', 'line_oauth' => 'line',
+            default => strtolower(trim($provider)),
+        };
     }
 
     private function callbackUrlFor(string $provider, string $tenantId): string
@@ -404,7 +412,18 @@ class TenantSocialAuthService
             'line' => $this->customerCallbackUrl($tenantId, 'line'),
             'google' => $this->customerCallbackUrl($tenantId, 'google'),
             'apple' => $this->customerCallbackUrl($tenantId, 'apple'),
+            'facebook' => $this->customerCallbackUrl($tenantId, 'facebook'),
         ];
+    }
+
+    private function defaultProviderLabel(string $provider): string
+    {
+        return match ($provider) {
+            'google' => 'Google / Gmail',
+            'apple' => 'Apple ID',
+            'facebook' => 'Facebook',
+            default => strtoupper($provider),
+        };
     }
 
     private function storefrontBaseUrl(string $tenantId): string

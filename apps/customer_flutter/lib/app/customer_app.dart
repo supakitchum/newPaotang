@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'customer_routes.dart';
 import 'router.dart';
 import '../core/auth/auth_controller.dart';
+import '../core/auth/customer_session_replacement_monitor.dart';
 import '../core/config/app_config.dart';
 import '../core/i18n/app_locale.dart';
 import '../core/i18n/customer_locale_controller.dart';
@@ -189,21 +190,23 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
                                     child: AffiliateReferralMonitor(
                                       router: router,
                                       child: AppAlertHost(
-                                        child: AnnouncementModalHost(
-                                          router: router,
-                                          child: SaleClosureGuard(
+                                        child: CustomerSessionReplacementMonitor(
+                                          child: AnnouncementModalHost(
                                             router: router,
-                                            child:
-                                                _CustomerRuntimeSecurityLayer(
-                                                  router: router,
-                                                  bootstrap: bootstrap,
-                                                  platformKey: platformKey,
-                                                  screenSecurityEnabled:
-                                                      screenSecurityEnabled,
-                                                  webPrivacyEnabled:
-                                                      webPrivacyEnabled,
-                                                  child: appChild,
-                                                ),
+                                            child: SaleClosureGuard(
+                                              router: router,
+                                              child:
+                                                  _CustomerRuntimeSecurityLayer(
+                                                    router: router,
+                                                    bootstrap: bootstrap,
+                                                    platformKey: platformKey,
+                                                    screenSecurityEnabled:
+                                                        screenSecurityEnabled,
+                                                    webPrivacyEnabled:
+                                                        webPrivacyEnabled,
+                                                    child: appChild,
+                                                  ),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -313,15 +316,22 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
           path,
           extraSensitiveRoutes: extraSensitiveRoutes,
         );
-        final protectEntireApp = platformKey.trim().toLowerCase() == 'ios';
+        final normalizedPlatformKey = platformKey.trim().toLowerCase();
+        final protectEntireAndroidApp = normalizedPlatformKey == 'android';
+        final protectEntireIosApp = normalizedPlatformKey == 'ios';
 
         return SensitiveScreenGuard(
           enabled:
-              screenSecurityEnabled && (protectEntireApp || routeSensitive),
+              protectEntireAndroidApp ||
+              (screenSecurityEnabled &&
+                  (protectEntireIosApp || routeSensitive)),
           route: path.isEmpty ? 'app' : path,
-          androidFlagSecure: screenSecurity?.androidFlagSecure,
-          androidProtectRecentAppPreview:
-              screenSecurity?.androidProtectRecentAppPreview,
+          androidFlagSecure: protectEntireAndroidApp
+              ? true
+              : screenSecurity?.androidFlagSecure,
+          androidProtectRecentAppPreview: protectEntireAndroidApp
+              ? true
+              : screenSecurity?.androidProtectRecentAppPreview,
           iosScreenshotPolicy: screenSecurity?.iosScreenshotPolicy,
           iosScreenCaptureOverlay: screenSecurity?.iosScreenCaptureOverlay,
           iosExitApp: screenSecurity?.iosExitApp,

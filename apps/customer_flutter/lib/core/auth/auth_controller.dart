@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_repository.dart';
 import 'auth_token_store.dart';
+import 'customer_passkey_repository.dart';
 import '../security/biometric_auth_service.dart';
 import '../utils/api_errors.dart';
 
@@ -11,6 +12,7 @@ final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
     authRepository: ref.watch(authRepositoryProvider),
     tokenStore: ref.watch(authTokenStoreProvider),
     biometricAuth: ref.watch(biometricAuthServiceProvider),
+    passkeys: ref.watch(customerPasskeyRepositoryProvider),
   );
 });
 
@@ -23,9 +25,11 @@ class AuthController extends ChangeNotifier {
     required AuthRepository authRepository,
     required AuthTokenStore tokenStore,
     required BiometricAuthService biometricAuth,
+    CustomerPasskeyRepository? passkeys,
   }) : _authRepository = authRepository,
        _tokenStore = tokenStore,
-       _biometricAuth = biometricAuth {
+       _biometricAuth = biometricAuth,
+       _passkeys = passkeys {
     isAuthenticated = _tokenStore.hasSessionCredential;
     pinRequired = isAuthenticated;
   }
@@ -33,6 +37,7 @@ class AuthController extends ChangeNotifier {
   final AuthRepository _authRepository;
   final AuthTokenStore _tokenStore;
   final BiometricAuthService _biometricAuth;
+  final CustomerPasskeyRepository? _passkeys;
 
   bool isAuthenticated = false;
   bool pinRequired = false;
@@ -81,7 +86,9 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       final info = ApiErrorInfo.fromObject(error);
-      if (info.isAuthenticationExpired || info.isCustomerSuspended) {
+      if (info.isAuthenticationExpired ||
+          info.isCustomerSessionReplaced ||
+          info.isCustomerSuspended) {
         await _authRepository.clearLocalSession();
         _setGuestSession(
           redirectPath: info.isCustomerSuspended
@@ -119,6 +126,15 @@ class AuthController extends ChangeNotifier {
     preferredLocale = session.preferredLocale;
     startupRedirectPath = '';
     notifyListeners();
+  }
+
+  Future<void> loginWithPasskey() async {
+    final passkeys = _passkeys;
+    if (passkeys == null) {
+      throw StateError('Passkey login is unavailable.');
+    }
+    final session = await passkeys.login();
+    applySession(session);
   }
 
   Future<void> verifyLoginOtp({
@@ -182,6 +198,11 @@ class AuthController extends ChangeNotifier {
     } finally {
       _setGuestSession();
     }
+  }
+
+  Future<void> forceSessionReplaced() async {
+    await _authRepository.clearLocalSession();
+    _setGuestSession();
   }
 
   Future<void> verifyPin(String pin) async {

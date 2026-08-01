@@ -472,28 +472,34 @@ class TenantLineNotificationService
         $existingLineIdentity = CustomerLineIdentity::query()
             ->where('tenant_id', $tenantId)
             ->where('line_user_id', $lineUserId)
+            ->whereNull('revoked_at')
             ->first();
         $id = (string) ($existingLineIdentity?->id ?: CustomerLineIdentity::query()
             ->where('tenant_id', $tenantId)
             ->where('customer_id', $customerId)
+            ->whereNull('revoked_at')
             ->value('id') ?: 'cli_'.Str::ulid()->toBase32());
 
-        return CustomerLineIdentity::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'line_user_id' => $lineUserId],
-            [
-                'id' => $id,
-                'customer_id' => $customerId,
-                'display_name' => $this->cleanString($profile['displayName'] ?? $profile['name'] ?? null) ?: null,
-                'picture_url' => $this->cleanString($profile['pictureUrl'] ?? $profile['picture'] ?? null) ?: null,
-                'friend_flag' => $friendFlag,
-                'notification_enabled' => true,
-                'linked_at' => $now,
-                'last_login_at' => $now,
-                'last_friend_checked_at' => $now,
-                'unreachable_at' => null,
-                'updated_at' => $now,
-            ],
-        );
+        $identity = $existingLineIdentity ?? new CustomerLineIdentity([
+            'id' => $id,
+            'tenant_id' => $tenantId,
+            'line_user_id' => $lineUserId,
+        ]);
+        $identity->fill([
+            'customer_id' => $customerId,
+            'display_name' => $this->cleanString($profile['displayName'] ?? $profile['name'] ?? null) ?: null,
+            'picture_url' => $this->cleanString($profile['pictureUrl'] ?? $profile['picture'] ?? null) ?: null,
+            'friend_flag' => $friendFlag,
+            'notification_enabled' => true,
+            'linked_at' => $now,
+            'last_login_at' => $now,
+            'last_friend_checked_at' => $now,
+            'unreachable_at' => null,
+            'revoked_at' => null,
+            'updated_at' => $now,
+        ])->save();
+
+        return $identity;
     }
 
     public function channelReadyForLogin(?TenantLineChannel $channel): bool
@@ -517,6 +523,7 @@ class TenantLineNotificationService
             $identity = CustomerLineIdentity::query()
                 ->where('tenant_id', $tenantId)
                 ->where('customer_id', $customerId)
+                ->whereNull('revoked_at')
                 ->where('notification_enabled', true)
                 ->first();
             $template = $this->templateForEvent($tenantId, $eventKey);

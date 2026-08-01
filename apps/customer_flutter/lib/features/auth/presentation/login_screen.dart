@@ -1,13 +1,13 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:passkeys/types.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/auth/customer_passkey_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/navigation/customer_redirect.dart';
@@ -15,7 +15,9 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
+import 'auth_keyboard.dart';
 import 'auth_visual_tokens.dart';
+import 'login_otp_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -27,35 +29,31 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
-  final _otp = TextEditingController();
   bool _passwordSubmitting = false;
+  bool _passkeySubmitting = false;
   bool _rememberMe = true;
   bool _showPassword = false;
   String? _socialSubmittingProvider;
   String _formError = '';
-  LoginOtpChallenge? _loginOtpChallenge;
-  int _resendAfter = 0;
-  Timer? _resendTimer;
 
-  bool get _busy => _passwordSubmitting || _socialSubmittingProvider != null;
+  bool get _busy =>
+      _passwordSubmitting ||
+      _passkeySubmitting ||
+      _socialSubmittingProvider != null;
 
   @override
   void initState() {
     super.initState();
     _username.addListener(_clearFormError);
     _password.addListener(_clearFormError);
-    _otp.addListener(_clearFormError);
   }
 
   @override
   void dispose() {
-    _resendTimer?.cancel();
     _username.removeListener(_clearFormError);
     _password.removeListener(_clearFormError);
-    _otp.removeListener(_clearFormError);
     _username.dispose();
     _password.dispose();
-    _otp.dispose();
     super.dispose();
   }
 
@@ -67,6 +65,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       data: (data) => data.authProviders,
       orElse: () => const <SocialAuthProvider>[],
     );
+    final passkeyAvailable =
+        ref.watch(customerPasskeyAvailabilityProvider).valueOrNull ?? false;
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
@@ -78,6 +78,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.zero,
                 children: [
                   _LoginHeroSection(
@@ -94,13 +96,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: _LoginFormCard(
                               username: _username,
                               password: _password,
-                              otp: _otp,
                               busy: _busy,
                               passwordSubmitting: _passwordSubmitting,
-                              otpRequired: _loginOtpChallenge != null,
-                              maskedPhone:
-                                  _loginOtpChallenge?.phoneMasked ?? '',
-                              resendAfter: _resendAfter,
+                              passkeySubmitting: _passkeySubmitting,
+                              passkeyAvailable: passkeyAvailable,
                               rememberMe: _rememberMe,
                               showPassword: _showPassword,
                               formError: _formError,
@@ -113,8 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               socialSubmittingProvider:
                                   _socialSubmittingProvider,
                               onLogin: _login,
-                              onResendOtp: _resendLoginOtp,
-                              onChangeAccount: _cancelLoginOtp,
+                              onPasskeyLogin: _passkeyLogin,
                               onSocialLogin: _socialLogin,
                               onRegister: () => context.go(
                                 customerRegisterRouteForRedirect(
@@ -140,26 +138,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _login() async {
     if (_busy) return;
+    final username = _username.text.trim();
+    final password = _password.text;
+    final keyboardDismissal = dismissAuthKeyboard(
+      context,
+      waitForAnimation: true,
+      finishAutofillContext: true,
+    );
+    ref.read(loginOtpFlowProvider.notifier).state = null;
     setState(() {
       _formError = '';
       _passwordSubmitting = true;
     });
+    await keyboardDismissal;
+    if (!mounted) return;
     try {
-      final challenge = _loginOtpChallenge;
-      if (challenge == null) {
-        await ref
-            .read(authControllerProvider)
-            .loginWithPassword(_username.text.trim(), _password.text);
-      } else {
-        final otp = _otp.text.trim();
-        if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
-          _showFormError(context.l10n.authOtpInvalid);
-          return;
-        }
-        await ref
-            .read(authControllerProvider)
-            .verifyLoginOtp(challengeToken: challenge.challengeToken, otp: otp);
-      }
+      await ref
+          .read(authControllerProvider)
+          .loginWithPassword(username, password);
       await ref.read(affiliateReferralServiceProvider).applyStored();
       if (mounted) {
         final auth = ref.read(authControllerProvider);
@@ -173,7 +169,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } on LoginOtpChallengeRequired catch (required) {
-      _applyLoginOtpChallenge(required.challenge);
+      if (!mounted) return;
+      final redirect = _currentRedirect();
+      ref.read(loginOtpFlowProvider.notifier).state = LoginOtpFlowState(
+        challenge: required.challenge,
+        redirect: redirect,
+      );
+      context.go(customerLoginOtpRouteForRedirect(redirect));
     } catch (error) {
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(
@@ -187,69 +189,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _passwordSubmitting = false);
     }
-  }
-
-  Future<void> _resendLoginOtp() async {
-    final challenge = _loginOtpChallenge;
-    if (_busy || challenge == null || _resendAfter > 0) return;
-    setState(() {
-      _formError = '';
-      _passwordSubmitting = true;
-    });
-    try {
-      final refreshed = await ref
-          .read(authRepositoryProvider)
-          .resendLoginOtp(challengeToken: challenge.challengeToken);
-      _applyLoginOtpChallenge(refreshed);
-    } catch (error) {
-      if (!mounted) return;
-      _showFormError(
-        authOtpErrorMessage(
-          error: error,
-          fallback: context.l10n.authOtpVerificationFailed,
-          otpProviderUnavailable: context.l10n.authOtpVerificationFailed,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _passwordSubmitting = false);
-    }
-  }
-
-  void _applyLoginOtpChallenge(LoginOtpChallenge challenge) {
-    if (!mounted) return;
-    _otp.clear();
-    _resendTimer?.cancel();
-    setState(() {
-      _loginOtpChallenge = challenge;
-      _resendAfter = challenge.resendAfterSeconds > 0
-          ? challenge.resendAfterSeconds
-          : 60;
-      _formError = '';
-    });
-    _startResendTimer();
-  }
-
-  void _startResendTimer() {
-    if (_resendAfter <= 0) return;
-    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _resendAfter <= 1) {
-        timer.cancel();
-        if (mounted) setState(() => _resendAfter = 0);
-        return;
-      }
-      setState(() => _resendAfter -= 1);
-    });
-  }
-
-  void _cancelLoginOtp() {
-    if (_busy) return;
-    _resendTimer?.cancel();
-    _otp.clear();
-    setState(() {
-      _loginOtpChallenge = null;
-      _resendAfter = 0;
-      _formError = '';
-    });
   }
 
   Future<void> _socialLogin(String provider) async {
@@ -289,6 +228,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _socialSubmittingProvider = null);
     }
+  }
+
+  Future<void> _passkeyLogin() async {
+    if (_busy) return;
+    final keyboardDismissal = dismissAuthKeyboard(
+      context,
+      waitForAnimation: true,
+      finishAutofillContext: true,
+    );
+    setState(() {
+      _formError = '';
+      _passkeySubmitting = true;
+    });
+    await keyboardDismissal;
+    if (!mounted) return;
+
+    try {
+      await ref.read(authControllerProvider).loginWithPasskey();
+      await ref.read(affiliateReferralServiceProvider).applyStored();
+      if (!mounted) return;
+      final auth = ref.read(authControllerProvider);
+      context.go(
+        customerPostAuthRouteForRedirect(
+          redirect: _currentRedirect(),
+          pinRequired: auth.pinRequired,
+          pinSetupRequired: auth.pinSetupRequired,
+        ),
+      );
+    } on PasskeyAuthCancelledException {
+      // Cancelling the native account picker leaves the login form unchanged.
+    } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
+      _showFormError(_passkeyErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _passkeySubmitting = false);
+    }
+  }
+
+  String _passkeyErrorMessage(Object error) {
+    final l10n = context.l10n;
+    return switch (error) {
+      NoCredentialsAvailableException() => l10n.passkeyNoCredentials,
+      DomainNotAssociatedException() => l10n.passkeyDomainNotAssociated,
+      DeviceNotSupportedException() ||
+      PasskeyUnsupportedException() => l10n.passkeyUnsupported,
+      MissingGoogleSignInException() ||
+      SyncAccountNotAvailableException() => l10n.passkeyAccountUnavailable,
+      TimeoutException() => l10n.passkeyTimeout,
+      _ => authErrorMessage(error, l10n.passkeyLoginFailed),
+    };
   }
 
   String _errorMessage(Object error, String fallback) {
@@ -531,12 +527,10 @@ class _LoginFormCard extends StatelessWidget {
   const _LoginFormCard({
     required this.username,
     required this.password,
-    required this.otp,
     required this.busy,
     required this.passwordSubmitting,
-    required this.otpRequired,
-    required this.maskedPhone,
-    required this.resendAfter,
+    required this.passkeySubmitting,
+    required this.passkeyAvailable,
     required this.rememberMe,
     required this.showPassword,
     required this.formError,
@@ -545,8 +539,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.socialProviders,
     required this.socialSubmittingProvider,
     required this.onLogin,
-    required this.onResendOtp,
-    required this.onChangeAccount,
+    required this.onPasskeyLogin,
     required this.onSocialLogin,
     required this.onRegister,
     required this.onForgotPassword,
@@ -554,12 +547,10 @@ class _LoginFormCard extends StatelessWidget {
 
   final TextEditingController username;
   final TextEditingController password;
-  final TextEditingController otp;
   final bool busy;
   final bool passwordSubmitting;
-  final bool otpRequired;
-  final String maskedPhone;
-  final int resendAfter;
+  final bool passkeySubmitting;
+  final bool passkeyAvailable;
   final bool rememberMe;
   final bool showPassword;
   final String formError;
@@ -568,8 +559,7 @@ class _LoginFormCard extends StatelessWidget {
   final List<SocialAuthProvider> socialProviders;
   final String? socialSubmittingProvider;
   final VoidCallback onLogin;
-  final VoidCallback onResendOtp;
-  final VoidCallback onChangeAccount;
+  final VoidCallback onPasskeyLogin;
   final ValueChanged<String> onSocialLogin;
   final VoidCallback onRegister;
   final VoidCallback onForgotPassword;
@@ -621,7 +611,7 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: username,
-              enabled: !busy && !otpRequired,
+              enabled: !busy,
               autofillHints: const [AutofillHints.telephoneNumber],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
@@ -641,13 +631,17 @@ class _LoginFormCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: password,
-              enabled: !busy && !otpRequired,
+              enabled: !busy,
               autofillHints: const [AutofillHints.password],
               style: authInputTextStyle(context),
               obscureText: !showPassword,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) {
-                if (!busy && !otpRequired) onLogin();
+                if (busy) return;
+                FocusManager.instance.primaryFocus?.unfocus(
+                  disposition: UnfocusDisposition.scope,
+                );
+                onLogin();
               },
               decoration: _loginInputDecoration(
                 context,
@@ -665,174 +659,76 @@ class _LoginFormCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (otpRequired) ...[
-              const SizedBox(height: 16),
-              _LoginOtpPanel(
-                otp: otp,
-                maskedPhone: maskedPhone,
-                resendAfter: resendAfter,
-                busy: busy,
-                onSubmit: onLogin,
-                onResend: onResendOtp,
-                onChangeAccount: onChangeAccount,
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-              _LoginOptionsRow(
-                rememberMe: rememberMe,
-                enabled: !busy,
-                onRememberMeChanged: onRememberMeChanged,
-                onForgotPassword: onForgotPassword,
-              ),
-            ],
+            const SizedBox(height: 8),
+            _LoginOptionsRow(
+              rememberMe: rememberMe,
+              enabled: !busy,
+              onRememberMeChanged: onRememberMeChanged,
+              onForgotPassword: onForgotPassword,
+            ),
             const SizedBox(height: 12),
             authPrimaryActionButton(
               onPressed: busy ? null : onLogin,
               height: 54,
               fontSize: 18,
-              label: otpRequired
-                  ? passwordSubmitting
-                        ? l10n.loginOtpSubmitting
-                        : l10n.loginOtpSubmit
-                  : passwordSubmitting
+              label: passwordSubmitting
                   ? l10n.loginSubmitting
                   : l10n.loginSubmit,
             ),
-            if (!otpRequired) ...[
-              _SocialLoginPanel(
-                providers: socialProviders,
-                loading: busy,
-                submittingProvider: socialSubmittingProvider,
-                onLogin: onSocialLogin,
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      l10n.loginRegisterPrompt,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+            if (passkeyAvailable) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 54,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('login-passkey-button'),
+                  onPressed: busy ? null : onPasskeyLogin,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.primary,
+                    side: BorderSide(color: colorScheme.primary),
+                    shape: const StadiumBorder(),
+                    textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 7),
-                  TextButton(
-                    onPressed: busy ? null : onRegister,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 36),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(l10n.loginRegister),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginOtpPanel extends StatelessWidget {
-  const _LoginOtpPanel({
-    required this.otp,
-    required this.maskedPhone,
-    required this.resendAfter,
-    required this.busy,
-    required this.onSubmit,
-    required this.onResend,
-    required this.onChangeAccount,
-  });
-
-  final TextEditingController otp;
-  final String maskedPhone;
-  final int resendAfter;
-  final bool busy;
-  final VoidCallback onSubmit;
-  final VoidCallback onResend;
-  final VoidCallback onChangeAccount;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          key: const ValueKey('login-otp-panel'),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l10n.loginOtpTitle,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.authOtpSentTo(maskedPhone),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _LoginFieldLabel(label: l10n.authOtpLabel),
-            const SizedBox(height: 8),
-            TextField(
-              controller: otp,
-              key: const ValueKey('login-otp-input'),
-              enabled: !busy,
-              autofocus: true,
-              autofillHints: const [AutofillHints.oneTimeCode],
-              style: authInputTextStyle(context),
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
-              ],
-              onSubmitted: (_) {
-                if (!busy) onSubmit();
-              },
-              decoration: _loginInputDecoration(
-                context,
-                hintText: l10n.loginOtpHint,
-                prefixIcon: const Icon(Icons.chat_bubble_outline),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: busy ? null : onChangeAccount,
-                    child: Text(l10n.loginOtpChangeAccount),
+                  icon: const Icon(Icons.key_rounded),
+                  label: Text(
+                    passkeySubmitting
+                        ? l10n.passkeyLoginSubmitting
+                        : l10n.passkeyLogin,
                   ),
                 ),
-                TextButton(
-                  onPressed: busy || resendAfter > 0 ? null : onResend,
+              ),
+            ],
+            _SocialLoginPanel(
+              providers: socialProviders,
+              loading: busy,
+              submittingProvider: socialSubmittingProvider,
+              onLogin: onSocialLogin,
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
                   child: Text(
-                    resendAfter > 0
-                        ? l10n.authOtpResendIn(resendAfter)
-                        : l10n.authOtpResend,
+                    l10n.loginRegisterPrompt,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
+                ),
+                const SizedBox(width: 7),
+                TextButton(
+                  onPressed: busy ? null : onRegister,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(l10n.loginRegister),
                 ),
               ],
             ),
@@ -1155,6 +1051,7 @@ List<SocialAuthProvider> _visibleSocialProviders(
 
 IconData _providerIcon(String provider) {
   if (provider == 'apple') return Icons.apple;
+  if (provider == 'facebook') return Icons.facebook;
   if (provider == 'google') return Icons.mail_outline;
   return Icons.chat_bubble_outline;
 }

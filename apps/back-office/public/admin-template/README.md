@@ -1,6 +1,6 @@
 # Meno Template Assets
 
-This folder contains the selected compiled assets copied from `admin_dashboard_template/Meno_esbuild/dist/assets` for the first NewPaotang back-office foundation slice.
+This folder contains the selected compiled assets copied from `admin_dashboard_template/Meno_esbuild/dist/assets` for the Siamblend back-office foundation.
 
 Copied asset groups:
 

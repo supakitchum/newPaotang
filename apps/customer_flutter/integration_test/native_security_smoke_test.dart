@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:customer_flutter/core/security/screen_security_service.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -11,12 +11,49 @@ import 'package:local_auth/local_auth.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('native screen-security bridge preserves route policy', (
+  testWidgets('native screen-security bridge preserves app-wide policy', (
     tester,
   ) async {
     if (!Platform.isIOS && !Platform.isAndroid) return;
 
     final service = ScreenSecurityService();
+    const screenSecurityChannel = MethodChannel(
+      'customer_flutter/screen_security',
+    );
+    const visualAcceptance = bool.fromEnvironment(
+      'NATIVE_SECURITY_VISUAL_ACCEPTANCE',
+    );
+    const visualPublicSeconds = int.fromEnvironment(
+      'NATIVE_SECURITY_VISUAL_PUBLIC_SECONDS',
+      defaultValue: 15,
+    );
+    const visualProtectedSeconds = int.fromEnvironment(
+      'NATIVE_SECURITY_VISUAL_PROTECTED_SECONDS',
+      defaultValue: 60,
+    );
+
+    if (visualAcceptance) {
+      await service.disable();
+      await tester.pumpWidget(
+        const _SecurityVisualProbe(
+          title: 'APP-WIDE PROTECTION BASELINE',
+          subtitle: 'This synthetic screen must stay protected.',
+          backgroundColor: Color(0xFFFFD10B),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (Platform.isAndroid) {
+        final baselineState = _stringMap(
+          await screenSecurityChannel.invokeMethod<Object?>('getSecurityState'),
+        );
+        expect(baselineState['appWideProtection'], isTrue);
+        expect(baselineState['screenSecurityActive'], isTrue);
+        expect(baselineState['windowFlagSecure'], isTrue);
+        expect(baselineState['recentAppPreviewProtected'], isTrue);
+      }
+      stdout.writeln('NATIVE_SECURITY_APP_WIDE_BASELINE_READY');
+      await Future<void>.delayed(Duration(seconds: visualPublicSeconds));
+    }
 
     await service.enable(
       route: '/my-wallet',
@@ -27,10 +64,68 @@ void main() {
       iosScreenshotPolicy: 'lock_and_blank',
       iosScreenCaptureOverlay: true,
     );
+    if (Platform.isAndroid) {
+      final enabledState = _stringMap(
+        await screenSecurityChannel.invokeMethod<Object?>('getSecurityState'),
+      );
+      final sdkInt = enabledState['sdkInt'] as int? ?? 0;
+      final activityStarted = enabledState['activityStarted'] == true;
+      expect(enabledState['screenSecurityActive'], isTrue);
+      expect(enabledState['activeRoute'], '/my-wallet');
+      expect(enabledState['flagSecureConfigured'], isTrue);
+      expect(enabledState['protectRecentAppPreviewConfigured'], isTrue);
+      expect(enabledState['windowFlagSecure'], isTrue);
+      expect(enabledState['recentAppPreviewProtected'], isTrue);
+      expect(enabledState['captureTerminationScheduled'], isFalse);
+      expect(
+        enabledState['screenCaptureCallbackRegistered'],
+        activityStarted && sdkInt >= 34,
+      );
+      expect(
+        enabledState['screenRecordingCallbackRegistered'],
+        activityStarted && sdkInt >= 35,
+      );
+      expect(enabledState['screenRecordingDetectionSupported'], sdkInt >= 35);
+    }
+    if (visualAcceptance) {
+      await tester.pumpWidget(
+        const _SecurityVisualProbe(
+          title: 'PROTECTED CONTENT',
+          subtitle: 'Screenshots, recordings, and Recents must hide this.',
+          backgroundColor: Color(0xFFED1556),
+        ),
+      );
+      await tester.pumpAndSettle();
+      stdout.writeln('NATIVE_SECURITY_PROTECTED_READY');
+      await Future<void>.delayed(Duration(seconds: visualProtectedSeconds));
+      if (Platform.isAndroid) {
+        final resumedState = _stringMap(
+          await screenSecurityChannel.invokeMethod<Object?>('getSecurityState'),
+        );
+        expect(resumedState['activityStarted'], isTrue);
+        expect(resumedState['screenSecurityActive'], isTrue);
+        expect(resumedState['activeRoute'], '/my-wallet');
+        expect(resumedState['windowFlagSecure'], isTrue);
+        expect(resumedState['recentAppPreviewProtected'], isTrue);
+      }
+    }
     const holdSeconds = int.fromEnvironment('NATIVE_SECURITY_HOLD_SECONDS');
     if (holdSeconds > 0) {
       stdout.writeln('NATIVE_SCREEN_POLICY_READY:/my-wallet');
       await Future<void>.delayed(Duration(seconds: holdSeconds));
+      if (Platform.isAndroid) {
+        final resumedState = _stringMap(
+          await screenSecurityChannel.invokeMethod<Object?>('getSecurityState'),
+        );
+        final sdkInt = resumedState['sdkInt'] as int? ?? 0;
+        expect(resumedState['activityStarted'], isTrue);
+        expect(resumedState['screenSecurityActive'], isTrue);
+        expect(resumedState['activeRoute'], '/my-wallet');
+        expect(resumedState['windowFlagSecure'], isTrue);
+        expect(resumedState['recentAppPreviewProtected'], isTrue);
+        expect(resumedState['screenCaptureCallbackRegistered'], sdkInt >= 34);
+        expect(resumedState['screenRecordingCallbackRegistered'], sdkInt >= 35);
+      }
     }
     final eventFuture = service.events.first.timeout(
       const Duration(seconds: 10),
@@ -46,6 +141,54 @@ void main() {
     expect(event.route, '/my-wallet');
     expect(event.reason, 'native_integration_smoke');
 
+    await service.disable();
+    if (Platform.isAndroid) {
+      final disabledState = _stringMap(
+        await screenSecurityChannel.invokeMethod<Object?>('getSecurityState'),
+      );
+      final sdkInt = disabledState['sdkInt'] as int? ?? 0;
+      final activityStarted = disabledState['activityStarted'] == true;
+      expect(disabledState['appWideProtection'], isTrue);
+      expect(disabledState['screenSecurityActive'], isTrue);
+      expect(disabledState['activeRoute'], isNotEmpty);
+      expect(disabledState['windowFlagSecure'], isTrue);
+      expect(disabledState['recentAppPreviewProtected'], isTrue);
+      expect(
+        disabledState['screenCaptureCallbackRegistered'],
+        activityStarted && sdkInt >= 34,
+      );
+      expect(
+        disabledState['screenRecordingCallbackRegistered'],
+        activityStarted && sdkInt >= 35,
+      );
+    }
+
+    await service.enable(
+      route: '/checkout',
+      androidFlagSecure: true,
+      androidProtectRecentAppPreview: true,
+      iosScreenshotPolicy: 'lock_and_blank',
+      iosScreenCaptureOverlay: true,
+    );
+    if (Platform.isAndroid) {
+      final reenabledState = _stringMap(
+        await screenSecurityChannel.invokeMethod<Object?>('getSecurityState'),
+      );
+      final sdkInt = reenabledState['sdkInt'] as int? ?? 0;
+      final activityStarted = reenabledState['activityStarted'] == true;
+      expect(reenabledState['screenSecurityActive'], isTrue);
+      expect(reenabledState['activeRoute'], '/checkout');
+      expect(reenabledState['windowFlagSecure'], isTrue);
+      expect(reenabledState['recentAppPreviewProtected'], isTrue);
+      expect(
+        reenabledState['screenCaptureCallbackRegistered'],
+        activityStarted && sdkInt >= 34,
+      );
+      expect(
+        reenabledState['screenRecordingCallbackRegistered'],
+        activityStarted && sdkInt >= 35,
+      );
+    }
     await service.disable();
   });
 
@@ -253,4 +396,128 @@ void main() {
 Map<String, Object?> _stringMap(Object? value) {
   if (value is! Map) return const {};
   return value.map((key, item) => MapEntry(key.toString(), item));
+}
+
+class _SecurityVisualProbe extends StatelessWidget {
+  const _SecurityVisualProbe({
+    required this.title,
+    required this.subtitle,
+    required this.backgroundColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: backgroundColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                color: const Color(0xFF087FF0),
+                child: const Text(
+                  'SIAMBLEND ANDROID SECURITY TEST',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(
+                        color: const Color(0xFF172033),
+                        width: 6,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF172033),
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            subtitle,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF3D4656),
+                              fontSize: 18,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          const Row(
+                            children: [
+                              Expanded(
+                                child: _SecurityColorBlock(
+                                  color: Color(0xFF087FF0),
+                                ),
+                              ),
+                              Expanded(
+                                child: _SecurityColorBlock(
+                                  color: Color(0xFFFFD10B),
+                                ),
+                              ),
+                              Expanded(
+                                child: _SecurityColorBlock(
+                                  color: Color(0xFFED1556),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'TEST DATA ONLY - NO CUSTOMER INFORMATION',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF087FF0),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecurityColorBlock extends StatelessWidget {
+  const _SecurityColorBlock({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(color: color, child: const SizedBox(height: 72));
+  }
 }

@@ -180,6 +180,27 @@ class CustomerAuthTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('error.code', 'pin_required');
 
+        $this->withToken($lockedLogin['token'])
+            ->getJson('http://auth.m5.test/api/v1/customer/auth/biometric/devices')
+            ->assertOk()
+            ->assertJsonPath('data', []);
+
+        $this->withToken($lockedLogin['token'])
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/biometric/challenge')
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.device_id.0', 'The device_id field is required.');
+
+        $this->withToken($lockedLogin['token'])
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/biometric/verify')
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->withToken($lockedLogin['token'])
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/biometric/devices')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'pin_required');
+
         DB::table('customer_auth_sessions')
             ->where('access_token_hash', hash('sha256', $lockedLogin['token']))
             ->update([
@@ -263,12 +284,135 @@ class CustomerAuthTest extends TestCase
             ->assertJsonPath('id', $registered['user']['id']);
 
         $this->withToken($refreshed['token'])
+            ->getJson('http://auth.m5.test/api/v1/customer/auth/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'customer_session_replaced')
+            ->assertJsonPath('error.details.replacement_session_id', $refreshedLockedLogin['session_id']);
+
+        $this->assertNotNull(DB::table('customer_auth_sessions')->where('access_token_hash', hash('sha256', $refreshed['token']))->value('revoked_at'));
+
+        $this->withToken($pinLockedToken)
             ->postJson('http://auth.m5.test/api/v1/customer/auth/logout', [], [
                 'Idempotency-Key' => 'logout-auth-m5',
             ])
             ->assertNoContent();
+    }
 
-        $this->assertNotNull(DB::table('customer_auth_sessions')->where('access_token_hash', hash('sha256', $refreshed['token']))->value('revoked_at'));
+    public function test_CustomerAuth_new_login_replaces_the_old_device_only_after_successful_pin_verification(): void
+    {
+        $this->insertActivePartnerTenantWithDomain(
+            'par_auth_single_device',
+            'ten_auth_single_device',
+            'auth-single-device.test',
+        );
+
+        $registered = $this->postJson('http://auth-single-device.test/api/v1/customer/auth/register', [
+            'name' => 'Single Device Customer',
+            'phone' => '0801002444',
+            'password' => 'customer-secret',
+            'password_confirmation' => 'customer-secret',
+        ], [
+            'Idempotency-Key' => 'register-auth-single-device',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('session_activation_required', true)
+            ->json();
+
+        $oldSessionId = $registered['session_id'];
+        $oldToken = $registered['token'];
+        $oldRefreshToken = $registered['refresh_token'];
+
+        $this->withToken($oldToken)
+            ->postJson('http://auth-single-device.test/api/v1/customer/auth/pin/setup', [
+                'pin' => '123456',
+                'pin_confirmation' => '123456',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('customer_auth_sessions', [
+            'id' => $oldSessionId,
+            'activation_required' => false,
+            'revoked_at' => null,
+        ]);
+
+        $newLogin = $this->postJson('http://auth-single-device.test/api/v1/customer/auth/login', [
+            'username' => '0801002444',
+            'password' => 'customer-secret',
+        ])
+            ->assertOk()
+            ->assertJsonPath('pin_required', true)
+            ->assertJsonPath('session_activation_required', true)
+            ->json();
+
+        $this->withToken($oldToken)
+            ->getJson('http://auth-single-device.test/api/v1/customer/profile')
+            ->assertOk();
+
+        $this->withToken($newLogin['token'])
+            ->postJson('http://auth-single-device.test/api/v1/customer/auth/pin/verify', [
+                'pin' => '000000',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'pin_invalid');
+
+        $this->withToken($oldToken)
+            ->getJson('http://auth-single-device.test/api/v1/customer/profile')
+            ->assertOk();
+
+        $this->withToken($newLogin['token'])
+            ->postJson('http://auth-single-device.test/api/v1/customer/auth/pin/verify', [
+                'pin' => '123456',
+            ])
+            ->assertOk()
+            ->assertJsonPath('pin_verified', true);
+
+        $this->assertDatabaseHas('customer_auth_sessions', [
+            'id' => $oldSessionId,
+            'revoked_reason' => 'replaced_by_new_login',
+            'replaced_by_session_id' => $newLogin['session_id'],
+        ]);
+        $this->assertDatabaseHas('customer_auth_sessions', [
+            'id' => $newLogin['session_id'],
+            'activation_required' => false,
+            'revoked_at' => null,
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_auth_single_device',
+            'event_key' => 'account.session.replaced',
+        ]);
+        $this->assertSame(
+            $newLogin['session_id'],
+            DB::table('customer_notifications')
+                ->where('tenant_id', 'ten_auth_single_device')
+                ->where('event_key', 'account.session.replaced')
+                ->value('metadata_json->replacement_session_id'),
+        );
+        $this->assertSame(
+            1,
+            DB::table('customer_auth_sessions')
+                ->where('tenant_id', 'ten_auth_single_device')
+                ->where('customer_id', $registered['user']['id'])
+                ->whereNull('revoked_at')
+                ->count(),
+        );
+
+        $this->withToken($oldToken)
+            ->getJson('http://auth-single-device.test/api/v1/customer/auth/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'customer_session_replaced')
+            ->assertJsonPath('error.details.replacement_session_id', $newLogin['session_id']);
+
+        $this->postJson('http://auth-single-device.test/api/v1/customer/auth/refresh', [
+            'refresh_token' => $oldRefreshToken,
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'customer_session_replaced')
+            ->assertJsonPath('error.details.replacement_session_id', $newLogin['session_id']);
+
+        $this->withToken($newLogin['token'])
+            ->getJson('http://auth-single-device.test/api/v1/customer/profile')
+            ->assertOk()
+            ->assertJsonPath('id', $registered['user']['id']);
     }
 
     public function test_CustomerAuth_blocks_suspended_customers_with_reason_and_auto_reactivates_expired_suspensions(): void

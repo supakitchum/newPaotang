@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -8,9 +10,14 @@ import 'core/config/app_config.dart';
 import 'core/navigation/web_runtime.dart';
 import 'core/notifications/customer_push_platform.dart';
 import 'core/tenant/customer_tenant_host.dart';
+import 'shared/widgets/app_splash.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
+  await precacheAppSplashBackground();
   await initializeDateFormatting('th_TH');
   await initializeDateFormatting('en_US');
   final appConfig = AppConfig.fromEnvironment();

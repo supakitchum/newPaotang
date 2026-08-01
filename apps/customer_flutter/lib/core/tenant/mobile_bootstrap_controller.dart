@@ -42,6 +42,7 @@ class MobileBootstrap {
     required this.ticketImageWatermark,
     this.payment = const MobilePaymentConfig.defaults(),
     required this.biometric,
+    required this.passkeys,
     required this.screenSecurity,
     required this.featureFlags,
     required this.termsContent,
@@ -79,8 +80,11 @@ class MobileBootstrap {
     final resolvedContentLocale = contentLocale?.trim().isNotEmpty == true
         ? contentLocale!.trim()
         : _stringFrom([site['locale'], mobile['locale'], defaultLocale]);
-    final fallbackContentLocale =
-        _stringFrom([site['locale'], mobile['locale'], defaultLocale]);
+    final fallbackContentLocale = _stringFrom([
+      site['locale'],
+      mobile['locale'],
+      defaultLocale,
+    ]);
     final rootAppearance = _runtimeAppearanceConfig(json);
     final mobileAppearance = _runtimeAppearanceConfig(mobile);
     final storeReadiness = _mergeConfigMaps([
@@ -174,42 +178,36 @@ class MobileBootstrap {
       legal['dataDeletion'],
       legal['deletion'],
     ]);
-    final legalPrivacyPolicyLink = _runtimeLinkForAliases(
-      [
-        legalPrivacy,
-        legal['privacy_policy_link'],
-        legal['privacyPolicyLink'],
-        legal['privacy_link'],
-        legal['privacyLink'],
-        legal['links'],
-        legal['link'],
-        legal['urls'],
-        legal['url'],
-        legal['actions'],
-        legal['items'],
-        legal,
-      ],
-      _privacyPolicyLinkAliases,
-    );
-    final legalAccountDeletionLink = _runtimeLinkForAliases(
-      [
-        legalAccountDeletion,
-        legal['account_deletion_link'],
-        legal['accountDeletionLink'],
-        legal['delete_account_link'],
-        legal['deleteAccountLink'],
-        legal['data_deletion_link'],
-        legal['dataDeletionLink'],
-        legal['links'],
-        legal['link'],
-        legal['urls'],
-        legal['url'],
-        legal['actions'],
-        legal['items'],
-        legal,
-      ],
-      _accountDeletionLinkAliases,
-    );
+    final legalPrivacyPolicyLink = _runtimeLinkForAliases([
+      legalPrivacy,
+      legal['privacy_policy_link'],
+      legal['privacyPolicyLink'],
+      legal['privacy_link'],
+      legal['privacyLink'],
+      legal['links'],
+      legal['link'],
+      legal['urls'],
+      legal['url'],
+      legal['actions'],
+      legal['items'],
+      legal,
+    ], _privacyPolicyLinkAliases);
+    final legalAccountDeletionLink = _runtimeLinkForAliases([
+      legalAccountDeletion,
+      legal['account_deletion_link'],
+      legal['accountDeletionLink'],
+      legal['delete_account_link'],
+      legal['deleteAccountLink'],
+      legal['data_deletion_link'],
+      legal['dataDeletionLink'],
+      legal['links'],
+      legal['link'],
+      legal['urls'],
+      legal['url'],
+      legal['actions'],
+      legal['items'],
+      legal,
+    ], _accountDeletionLinkAliases);
     final brand = _mergeConfigMaps([
       rootAppearance,
       rootAppearance['brand'],
@@ -357,6 +355,16 @@ class MobileBootstrap {
       mobile['nativeBiometric'],
       mobile['nativeBiometricConfig'],
     ]);
+    final passkeys = _mergeConfigMaps([
+      auth['passkeys'],
+      auth['passkey'],
+      security['passkeys'],
+      security['passkey'],
+      json['passkeys'],
+      json['passkey'],
+      mobile['passkeys'],
+      mobile['passkey'],
+    ]);
     final screenSecurity = _mergeMaps([
       _screenSecurityFlatConfig(json),
       _screenSecurityFlatConfig(mobile),
@@ -443,27 +451,24 @@ class MobileBootstrap {
       compliance['customer_support'],
       compliance['customerSupport'],
     ]);
-    final contactSupportLink = _runtimeLinkForAliases(
-      [
-        contact['support_link'],
-        contact['supportLink'],
-        contact['support_url'],
-        contact['supportUrl'],
-        contact['help_url'],
-        contact['helpUrl'],
-        contact['contact_url'],
-        contact['contactUrl'],
-        contact['links'],
-        contact['link'],
-        contact['urls'],
-        contact['url'],
-        contact['actions'],
-        contact['items'],
-        contact['channels'],
-        contact,
-      ],
-      _supportLinkAliases,
-    );
+    final contactSupportLink = _runtimeLinkForAliases([
+      contact['support_link'],
+      contact['supportLink'],
+      contact['support_url'],
+      contact['supportUrl'],
+      contact['help_url'],
+      contact['helpUrl'],
+      contact['contact_url'],
+      contact['contactUrl'],
+      contact['links'],
+      contact['link'],
+      contact['urls'],
+      contact['url'],
+      contact['actions'],
+      contact['items'],
+      contact['channels'],
+      contact,
+    ], _supportLinkAliases);
     final line = _mergeConfigMaps([
       _lineConfigMap(json['line']),
       _lineConfigMap(json['lineConfig']),
@@ -561,28 +566,30 @@ class MobileBootstrap {
       localizedMaintenance['message'] = localizedMaintenanceMessage;
     }
 
-    final lotteryProductLabel = (mobile['lottery_product_label'] ??
-            mobile['product_marker'] ??
-            site['lottery_product_label'] ??
-            site['lotteryProductLabel'] ??
-            site['product_marker'] ??
-            site['productMarker'] ??
-            json['lottery_product_label'] ??
-            json['product_marker'] ??
-            '')
-        .toString()
-        .trim();
-    final ticketImageWatermark = (mobile['ticket_image_watermark'] ??
-            mobile['lottery_ticket_image_watermark'] ??
-            site['ticket_image_watermark'] ??
-            site['ticketImageWatermark'] ??
-            site['lottery_ticket_image_watermark'] ??
-            site['lotteryTicketImageWatermark'] ??
-            json['ticket_image_watermark'] ??
-            json['lottery_ticket_image_watermark'] ??
-            lotteryProductLabel)
-        .toString()
-        .trim();
+    final lotteryProductLabel =
+        (mobile['lottery_product_label'] ??
+                mobile['product_marker'] ??
+                site['lottery_product_label'] ??
+                site['lotteryProductLabel'] ??
+                site['product_marker'] ??
+                site['productMarker'] ??
+                json['lottery_product_label'] ??
+                json['product_marker'] ??
+                '')
+            .toString()
+            .trim();
+    final ticketImageWatermark =
+        (mobile['ticket_image_watermark'] ??
+                mobile['lottery_ticket_image_watermark'] ??
+                site['ticket_image_watermark'] ??
+                site['ticketImageWatermark'] ??
+                site['lottery_ticket_image_watermark'] ??
+                site['lotteryTicketImageWatermark'] ??
+                json['ticket_image_watermark'] ??
+                json['lottery_ticket_image_watermark'] ??
+                lotteryProductLabel)
+            .toString()
+            .trim();
 
     return MobileBootstrap(
       siteName: _runtimeLocalizedText(
@@ -648,49 +655,43 @@ class MobileBootstrap {
         site['locale']?.toString() ?? mobile['locale']?.toString(),
         fallback: parseCustomerLocale(defaultLocale),
       ),
-      supportPhone: _runtimeContactValueFrom(
-        [
-          site['support_phone'],
-          site['supportPhone'],
-          json['support_phone'],
-          json['supportPhone'],
-          mobile['support_phone'],
-          mobile['supportPhone'],
-          contact['support_phone'],
-          contact['supportPhone'],
-          contact['phone'],
-          contact['phoneNumber'],
-          contact['tel'],
-          contact['telephone'],
-          contact['channels'],
-          contact['contacts'],
-          contact['items'],
-          contact['rows'],
-          contact,
-        ],
-        _supportPhoneContactAliases,
-      ),
-      supportEmail: _runtimeContactValueFrom(
-        [
-          site['support_email'],
-          site['supportEmail'],
-          json['support_email'],
-          json['supportEmail'],
-          mobile['support_email'],
-          mobile['supportEmail'],
-          contact['support_email'],
-          contact['supportEmail'],
-          contact['email'],
-          contact['emailAddress'],
-          contact['mail'],
-          contact['channels'],
-          contact['contacts'],
-          contact['items'],
-          contact['rows'],
-          contact,
-        ],
-        _supportEmailContactAliases,
-      ),
+      supportPhone: _runtimeContactValueFrom([
+        site['support_phone'],
+        site['supportPhone'],
+        json['support_phone'],
+        json['supportPhone'],
+        mobile['support_phone'],
+        mobile['supportPhone'],
+        contact['support_phone'],
+        contact['supportPhone'],
+        contact['phone'],
+        contact['phoneNumber'],
+        contact['tel'],
+        contact['telephone'],
+        contact['channels'],
+        contact['contacts'],
+        contact['items'],
+        contact['rows'],
+        contact,
+      ], _supportPhoneContactAliases),
+      supportEmail: _runtimeContactValueFrom([
+        site['support_email'],
+        site['supportEmail'],
+        json['support_email'],
+        json['supportEmail'],
+        mobile['support_email'],
+        mobile['supportEmail'],
+        contact['support_email'],
+        contact['supportEmail'],
+        contact['email'],
+        contact['emailAddress'],
+        contact['mail'],
+        contact['channels'],
+        contact['contacts'],
+        contact['items'],
+        contact['rows'],
+        contact,
+      ], _supportEmailContactAliases),
       supportUrl: _runtimeUrlFrom([
         site['support_url'],
         site['supportUrl'],
@@ -753,6 +754,7 @@ class MobileBootstrap {
       ticketImageWatermark: ticketImageWatermark,
       payment: MobilePaymentConfig.fromJson(payment),
       biometric: MobileBiometricConfig.fromJson(biometric),
+      passkeys: MobilePasskeyConfig.fromJson(passkeys),
       screenSecurity: MobileScreenSecurityConfig.fromJson(screenSecurity),
       featureFlags: MobileFeatureFlags.fromJson(featureFlags),
       termsContent: _runtimeLocalizedText(
@@ -864,6 +866,7 @@ class MobileBootstrap {
   final String ticketImageWatermark;
   final MobilePaymentConfig payment;
   final MobileBiometricConfig biometric;
+  final MobilePasskeyConfig passkeys;
   final MobileScreenSecurityConfig screenSecurity;
   final MobileFeatureFlags featureFlags;
   final String termsContent;
@@ -881,29 +884,27 @@ class MobilePaymentConfig {
   });
 
   const MobilePaymentConfig.defaults()
-      : checkoutPaymentMethod = checkoutPaymentMethodWallet,
-        checkoutPaymentMethods = const [checkoutPaymentMethodWallet],
-        checkoutPaymentMethodLabels = const {};
+    : checkoutPaymentMethod = checkoutPaymentMethodWallet,
+      checkoutPaymentMethods = const [checkoutPaymentMethodWallet],
+      checkoutPaymentMethodLabels = const {};
 
   factory MobilePaymentConfig.fromJson(Map<String, dynamic> json) {
-    var methods = normalizeCheckoutPaymentMethods(
-      [
-        json['checkout_payment_methods'],
-        json['checkoutPaymentMethods'],
-        json['checkout_methods'],
-        json['checkoutMethods'],
-        json['enabled_checkout_payment_methods'],
-        json['enabledCheckoutPaymentMethods'],
-        json['payment_methods'],
-        json['paymentMethods'],
-        json['enabled_payment_methods'],
-        json['enabledPaymentMethods'],
-        json['enabled_methods'],
-        json['enabledMethods'],
-        json['methods'],
-        json['items'],
-      ],
-    );
+    var methods = normalizeCheckoutPaymentMethods([
+      json['checkout_payment_methods'],
+      json['checkoutPaymentMethods'],
+      json['checkout_methods'],
+      json['checkoutMethods'],
+      json['enabled_checkout_payment_methods'],
+      json['enabledCheckoutPaymentMethods'],
+      json['payment_methods'],
+      json['paymentMethods'],
+      json['enabled_payment_methods'],
+      json['enabledPaymentMethods'],
+      json['enabled_methods'],
+      json['enabledMethods'],
+      json['methods'],
+      json['items'],
+    ]);
     final method = normalizeCheckoutPaymentMethod(
       json['checkout_payment_method'] ??
           json['checkoutPaymentMethod'] ??
@@ -991,15 +992,12 @@ class MobileLiveConfig {
         json['embed_url'],
         json['embedUrl'],
       ]),
-      source: _stringFrom(
-        [
-          json['source'],
-          json['provider'],
-          json['sourceName'],
-          json['source_name'],
-        ],
-        fallback: 'not_configured',
-      ),
+      source: _stringFrom([
+        json['source'],
+        json['provider'],
+        json['sourceName'],
+        json['source_name'],
+      ], fallback: 'not_configured'),
     );
   }
 
@@ -1068,21 +1066,18 @@ class MobileRealtimeConfig {
       enabled: _boolFrom(json['enabled']) && url.isNotEmpty && key.isNotEmpty,
       url: url,
       key: key,
-      authEndpoint: _stringFrom(
-        [
-          json['auth_endpoint'],
-          json['authEndpoint'],
-          json['auth_url'],
-          json['authUrl'],
-          json['auth_path'],
-          json['authPath'],
-          json['authorization_endpoint'],
-          json['authorizationEndpoint'],
-          json['channel_auth_endpoint'],
-          json['channelAuthEndpoint'],
-        ],
-        fallback: '/customer/realtime/auth',
-      ),
+      authEndpoint: _stringFrom([
+        json['auth_endpoint'],
+        json['authEndpoint'],
+        json['auth_url'],
+        json['authUrl'],
+        json['auth_path'],
+        json['authPath'],
+        json['authorization_endpoint'],
+        json['authorizationEndpoint'],
+        json['channel_auth_endpoint'],
+        json['channelAuthEndpoint'],
+      ], fallback: '/customer/realtime/auth'),
       protocol: _intFrom(json['protocol']) ?? 7,
       client: client.isEmpty ? 'customer-flutter' : client,
     );
@@ -1411,12 +1406,7 @@ class SocialAuthProvider {
       json['colors'],
     ]);
     final provider = _normalizeSocialProvider(
-      _stringFrom([
-        json['provider'],
-        json['key'],
-        json['code'],
-        json['slug'],
-      ]),
+      _stringFrom([json['provider'], json['key'], json['code'], json['slug']]),
     );
     final label = _stringFrom([
       json['label'],
@@ -1587,37 +1577,35 @@ class MobileBiometricConfig {
         json['requires_pin_setup'] ?? json['requiresPinSetup'],
         fallback: true,
       ),
-      assertionTokenTtlSeconds: _intFrom(
+      assertionTokenTtlSeconds:
+          _intFrom(
             json['assertion_token_ttl_seconds'] ??
                 json['assertionTokenTtlSeconds'],
           ) ??
           180,
       promptReason: promptReason,
-      setupPromptReason: _stringFrom(
-        [
-          prompt['setup_reason'],
-          prompt['setupReason'],
-          prompt['register_reason'],
-          prompt['registerReason'],
-          prompt['registration_reason'],
-          prompt['registrationReason'],
-          prompt['device_setup_reason'],
-          prompt['deviceSetupReason'],
-          prompt['device_registration_reason'],
-          prompt['deviceRegistrationReason'],
-          json['setup_reason'],
-          json['setupReason'],
-          json['biometric_setup_reason'],
-          json['biometricSetupReason'],
-          json['device_registration_reason'],
-          json['deviceRegistrationReason'],
-          json['register_reason'],
-          json['registerReason'],
-          json['registration_reason'],
-          json['registrationReason'],
-        ],
-        fallback: promptReason,
-      ),
+      setupPromptReason: _stringFrom([
+        prompt['setup_reason'],
+        prompt['setupReason'],
+        prompt['register_reason'],
+        prompt['registerReason'],
+        prompt['registration_reason'],
+        prompt['registrationReason'],
+        prompt['device_setup_reason'],
+        prompt['deviceSetupReason'],
+        prompt['device_registration_reason'],
+        prompt['deviceRegistrationReason'],
+        json['setup_reason'],
+        json['setupReason'],
+        json['biometric_setup_reason'],
+        json['biometricSetupReason'],
+        json['device_registration_reason'],
+        json['deviceRegistrationReason'],
+        json['register_reason'],
+        json['registerReason'],
+        json['registration_reason'],
+        json['registrationReason'],
+      ], fallback: promptReason),
       promptReasons: promptReasons,
       platforms: _mergePlatformMaps([
         json['platforms'],
@@ -1672,6 +1660,55 @@ class MobileBiometricConfig {
   }
 }
 
+class MobilePasskeyConfig {
+  const MobilePasskeyConfig({
+    required this.enabled,
+    required this.relyingPartyId,
+    required this.relyingPartyName,
+    required this.timeoutMilliseconds,
+    required this.maxPasskeys,
+    required this.platforms,
+  });
+
+  factory MobilePasskeyConfig.fromJson(Map<String, dynamic> json) {
+    final platforms = _stringList(
+      json['platforms'] ?? json['supported_platforms'],
+    ).map((value) => value.toLowerCase()).toSet();
+
+    return MobilePasskeyConfig(
+      enabled: _boolFrom(json['enabled'], fallback: false),
+      relyingPartyId: _stringFrom([
+        json['rp_id'],
+        json['rpId'],
+        json['relying_party_id'],
+        json['relyingPartyId'],
+      ]),
+      relyingPartyName: _stringFrom([
+        json['rp_name'],
+        json['rpName'],
+        json['relying_party_name'],
+        json['relyingPartyName'],
+      ]),
+      timeoutMilliseconds:
+          _intFrom(json['timeout_ms'] ?? json['timeoutMilliseconds']) ?? 60000,
+      maxPasskeys: _intFrom(json['max_passkeys'] ?? json['maxPasskeys']) ?? 10,
+      platforms: platforms,
+    );
+  }
+
+  final bool enabled;
+  final String relyingPartyId;
+  final String relyingPartyName;
+  final int timeoutMilliseconds;
+  final int maxPasskeys;
+  final Set<String> platforms;
+
+  bool supportsPlatform(String platform) {
+    return platforms.isEmpty ||
+        platforms.contains(platform.trim().toLowerCase());
+  }
+}
+
 class MobileScreenSecurityConfig {
   const MobileScreenSecurityConfig({
     required this.androidFlagSecure,
@@ -1709,17 +1746,14 @@ class MobileScreenSecurityConfig {
             json['protectRecentAppPreview'],
         fallback: true,
       ),
-      iosScreenshotPolicy: _stringFrom(
-        [
-          ios['screenshot_policy'],
-          ios['screenshotPolicy'],
-          json['ios_screenshot_policy'],
-          json['iosScreenshotPolicy'],
-          json['screenshot_policy'],
-          json['screenshotPolicy'],
-        ],
-        fallback: 'lock_and_blank',
-      ),
+      iosScreenshotPolicy: _stringFrom([
+        ios['screenshot_policy'],
+        ios['screenshotPolicy'],
+        json['ios_screenshot_policy'],
+        json['iosScreenshotPolicy'],
+        json['screenshot_policy'],
+        json['screenshotPolicy'],
+      ], fallback: 'lock_and_blank'),
       iosScreenCaptureOverlay: _boolFrom(
         ios['screen_capture_overlay'] ??
             ios['screenCaptureOverlay'] ??
@@ -1739,19 +1773,16 @@ class MobileScreenSecurityConfig {
         fallback: true,
       ),
       webSensitiveScreenMode: normalizeWebPrivacyMode(
-        _stringFrom(
-          [
-            web['sensitive_screen_mode'],
-            web['sensitiveScreenMode'],
-            web['mode'],
-            json['web_sensitive_screen_mode'],
-            json['webSensitiveScreenMode'],
-            json['sensitive_screen_mode'],
-            json['sensitiveScreenMode'],
-            json['mode'],
-          ],
-          fallback: webPrivacyModeLimited,
-        ),
+        _stringFrom([
+          web['sensitive_screen_mode'],
+          web['sensitiveScreenMode'],
+          web['mode'],
+          json['web_sensitive_screen_mode'],
+          json['webSensitiveScreenMode'],
+          json['sensitive_screen_mode'],
+          json['sensitiveScreenMode'],
+          json['mode'],
+        ], fallback: webPrivacyModeLimited),
       ),
       webWatermarkEnabled: _boolFrom(
         web['watermark_enabled'] ??
@@ -1837,14 +1868,20 @@ bool _routePatternMatches(String pattern, String path) {
   if (normalizedPattern.isEmpty || normalizedPath.isEmpty) return false;
   if (normalizedPattern == normalizedPath) return true;
 
-  final patternParts =
-      normalizedPattern.split('/').where((part) => part.isNotEmpty).toList();
-  final pathParts =
-      normalizedPath.split('/').where((part) => part.isNotEmpty).toList();
+  final patternParts = normalizedPattern
+      .split('/')
+      .where((part) => part.isNotEmpty)
+      .toList();
+  final pathParts = normalizedPath
+      .split('/')
+      .where((part) => part.isNotEmpty)
+      .toList();
   var pathIndex = 0;
-  for (var patternIndex = 0;
-      patternIndex < patternParts.length;
-      patternIndex++) {
+  for (
+    var patternIndex = 0;
+    patternIndex < patternParts.length;
+    patternIndex++
+  ) {
     final patternPart = patternParts[patternIndex];
     final lastPatternPart = patternIndex == patternParts.length - 1;
     if (patternPart == '*') {
@@ -1917,7 +1954,8 @@ class MaintenanceConfig {
         json['notice'],
         json['body'],
       ]),
-      expectedEndAt: json['expected_end_at'] ??
+      expectedEndAt:
+          json['expected_end_at'] ??
           json['expectedEndAt'] ??
           json['expected_end'] ??
           json['expectedEnd'] ??
@@ -2559,9 +2597,8 @@ Map<String, dynamic> _featureFlagMap(Object? value) {
   if (value == null) return const <String, dynamic>{};
   if (value is String) {
     final flags = _stringList(value);
-    return {
-      for (final flag in flags) _featureFlagKey(flag): true,
-    }..removeWhere((key, _) => key.isEmpty);
+    return {for (final flag in flags) _featureFlagKey(flag): true}
+      ..removeWhere((key, _) => key.isEmpty);
   }
   if (value is Iterable) {
     final merged = <String, dynamic>{};
@@ -2690,7 +2727,8 @@ bool _featureFlagEnabled(Map<String, dynamic> row) {
   )) {
     return false;
   }
-  final supported = row['supported'] ??
+  final supported =
+      row['supported'] ??
       row['is_supported'] ??
       row['isSupported'] ??
       row['allowed'] ??
@@ -3252,15 +3290,14 @@ String _normalizeScreenSecurityPolicyRoute(String value) {
 
   final parsed = Uri.tryParse(trimmed);
   if (parsed != null) {
-    final fragmentPath = _screenSecurityPolicyPathFromFragment(
-      parsed.fragment,
-    );
+    final fragmentPath = _screenSecurityPolicyPathFromFragment(parsed.fragment);
     if (fragmentPath.isNotEmpty) return fragmentPath;
 
     final parsedQueryPath = _screenSecurityPolicyPathFromQuery(parsed.query);
     if (parsedQueryPath.isNotEmpty) return parsedQueryPath;
 
-    final hasUrlShape = parsed.hasScheme ||
+    final hasUrlShape =
+        parsed.hasScheme ||
         trimmed.startsWith('//') ||
         trimmed.startsWith('/') ||
         trimmed.startsWith('?');
@@ -3291,8 +3328,9 @@ String _screenSecurityPolicyPathFromQuery(String query) {
 
 String _screenSecurityPolicyPathFromFragment(String fragment) {
   final decoded = _decodeScreenSecurityPolicyRoute(fragment.trim());
-  final trimmed =
-      decoded.startsWith('!') ? decoded.substring(1).trim() : decoded;
+  final trimmed = decoded.startsWith('!')
+      ? decoded.substring(1).trim()
+      : decoded;
   if (trimmed.isEmpty) return '';
 
   final queryPath = _screenSecurityPolicyPathFromQuery(trimmed);
@@ -3512,10 +3550,7 @@ String _runtimeLocalizedValue(Object? value, String localeCandidate) {
     'items',
     'rows',
   ]) {
-    final localized = _runtimeLocalizedValue(
-      json[nestedKey],
-      localeCandidate,
-    );
+    final localized = _runtimeLocalizedValue(json[nestedKey], localeCandidate);
     if (localized.isNotEmpty) return localized;
   }
 
@@ -3820,7 +3855,7 @@ List<String> _stringList(Object? value) {
       .toList(growable: false);
 }
 
-const _supportedSocialProviders = {'line', 'google', 'apple'};
+const _supportedSocialProviders = {'line', 'google', 'apple', 'facebook'};
 
 const _privacyPolicyLinkAliases = {
   'privacy',
@@ -3961,6 +3996,11 @@ String _normalizeSocialProvider(String value) {
   return switch (token) {
     'gmail' || 'google_login' || 'google_oauth' || 'google_oauth2' => 'google',
     'apple_id' || 'apple_login' || 'sign_in_with_apple' => 'apple',
+    'fb' ||
+    'facebook_login' ||
+    'facebook_oauth' ||
+    'meta' ||
+    'meta_login' => 'facebook',
     'line_login' || 'line_oa' || 'line_oauth' => 'line',
     final provider => provider,
   };
@@ -3970,6 +4010,7 @@ String _defaultSocialProviderLabel(String provider) {
   return switch (provider) {
     'google' => 'Google',
     'apple' => 'Apple ID',
+    'facebook' => 'Facebook',
     'line' => 'LINE',
     _ => provider,
   };

@@ -4,6 +4,7 @@ import 'package:customer_flutter/app/customer_routes.dart';
 import 'package:customer_flutter/core/auth/auth_controller.dart';
 import 'package:customer_flutter/core/auth/auth_repository.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
+import 'package:customer_flutter/core/auth/customer_session_replacement_controller.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/notifications/customer_push_installation_store.dart';
@@ -112,6 +113,8 @@ void main() {
     () {
       final message = CustomerPushMessage.fromMap({
         'notification_id': 'cnt_push_1',
+        'event_key': 'reward_claim.approved',
+        'replacement_session_id': 'caus_replacement_1',
         'action_key': 'reward_claim',
         'action_entity_id': 'rcl_push_1',
         'title': 'Reward approved',
@@ -119,6 +122,8 @@ void main() {
       });
 
       expect(message.notificationId, 'cnt_push_1');
+      expect(message.eventKey, 'reward_claim.approved');
+      expect(message.replacementSessionId, 'caus_replacement_1');
       expect(message.actionKey, 'reward_claim');
       expect(message.actionEntityId, 'rcl_push_1');
       expect(message.title, 'Reward approved');
@@ -155,6 +160,16 @@ void main() {
         ),
       ),
       isFalse,
+    );
+    expect(
+      isCustomerSessionReplacementRealtimeEvent(
+        const CustomerRealtimeEvent(
+          name: 'customer.auth.session-replaced',
+          channel: 'private-customer.tenant.ten_1.customer.cus_1.notifications',
+          payload: {'replacement_session_id': 'cas_new'},
+        ),
+      ),
+      isTrue,
     );
   });
 
@@ -305,6 +320,7 @@ void main() {
             permissionRequests += 1;
             return _authorizedNotificationSettings;
           },
+          notificationSettings: () async => _authorizedNotificationSettings,
           token: () async => 'fcm-token-initial-1234567890',
           deleteToken: () async {
             deletedTokens += 1;
@@ -443,6 +459,30 @@ void main() {
         );
         await tester.pump();
 
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(CustomerPushLifecycleMonitor)),
+        );
+        foreground.add(
+          const CustomerPushMessage(
+            notificationId: 'cnt_session_replaced',
+            eventKey: 'account.session.replaced',
+            replacementSessionId: 'caus_new_device',
+            actionKey: 'none',
+            actionEntityId: '',
+            title: 'New device signed in',
+            body: 'The previous device was signed out.',
+          ),
+        );
+        await tester.pump();
+        final replacement = container.read(
+          customerSessionReplacementControllerProvider,
+        );
+        expect(replacement.pending, isTrue);
+        expect(replacement.replacementSessionId, 'caus_new_device');
+        container
+            .read(customerSessionReplacementControllerProvider.notifier)
+            .acknowledge();
+
         taps.add(
           const CustomerPushMessage(
             notificationId: 'cnt_wallet',
@@ -471,6 +511,22 @@ void main() {
         logoutGate.complete();
         await logout;
         await tester.pumpAndSettle();
+
+        auth.applySession(
+          const CustomerSession(
+            accessToken: 'replacement-login-access-token',
+            refreshToken: 'replacement-login-refresh-token',
+            pinRequired: false,
+            pinSetupRequired: false,
+            customerId: 'cus_push_relogin',
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(repository.registeredTokens, [
+          'fcm-token-initial-1234567890',
+          'fcm-token-refreshed-1234567890',
+          'fcm-token-initial-1234567890',
+        ]);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

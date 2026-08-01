@@ -1024,7 +1024,7 @@ void main() {
   );
 
   testWidgets(
-    'CustomerApp enables native screen security only on sensitive routes',
+    'CustomerApp keeps Android screen security on across every route',
     (tester) async {
       final router = GoRouter(
         routes: [
@@ -1077,7 +1077,19 @@ void main() {
         tester
             .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
             .enabled,
-        isFalse,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .androidFlagSecure,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .androidProtectRecentAppPreview,
+        isTrue,
       );
       expect(find.text('Root route'), findsOneWidget);
 
@@ -1947,7 +1959,7 @@ void main() {
     );
   });
 
-  testWidgets('CustomerApp honors runtime sensitive route patterns', (
+  testWidgets('CustomerApp keeps Android protection across route patterns', (
     tester,
   ) async {
     final router = GoRouter(
@@ -2031,7 +2043,7 @@ void main() {
       tester
           .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
           .enabled,
-      isFalse,
+      isTrue,
     );
   });
 
@@ -2199,7 +2211,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Use Face ID / Biometric'), findsNothing);
+      expect(find.byKey(const ValueKey('pin-biometric-button')), findsNothing);
       expect(find.text('Forgot PIN?'), findsOneWidget);
     },
   );
@@ -2243,7 +2255,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Use Face ID / Biometric'), findsNothing);
+    expect(find.byKey(const ValueKey('pin-biometric-button')), findsNothing);
     expect(find.text('Forgot PIN?'), findsOneWidget);
   });
 
@@ -2292,7 +2304,10 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      expect(find.text('Use Face ID / Biometric'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('pin-biometric-button')),
+        findsOneWidget,
+      );
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
@@ -2359,7 +2374,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Set 6-digit PIN'), findsOneWidget);
-    expect(find.text('Use Face ID / Biometric'), findsNothing);
+    expect(find.byKey(const ValueKey('pin-biometric-button')), findsNothing);
     expect(find.text('Forgot PIN?'), findsNothing);
   });
 

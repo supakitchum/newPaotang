@@ -5,8 +5,10 @@ namespace App\Modules\Auth\Services;
 use App\Models\Customer;
 use App\Models\CustomerAuthSession;
 use App\Models\CustomerPinAssertion;
+use App\Models\CustomerPushDevice;
 use App\Models\PartnerTenant;
 use App\Models\Wallet;
+use App\Modules\Auth\Events\CustomerSessionReplaced;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Modules\SmsOtp\Services\SmsOtpService;
 use App\Shared\Auth\CustomerSessionContext;
@@ -18,11 +20,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CustomerAuthService
 {
+    public const REVOKED_REASON_REPLACED_BY_NEW_LOGIN = 'replaced_by_new_login';
+
+    private const REVOKED_REASON_LOGOUT = 'logout';
+    private const REVOKED_REASON_REFRESHED = 'refreshed';
+    private const REVOKED_REASON_SESSION_ROTATED = 'session_rotated';
     private const ACCESS_TOKEN_TTL_SECONDS = 3600;
     private const REFRESH_TOKEN_TTL_SECONDS = 2592000;
     private const LOGIN_OTP_CHALLENGE_TTL_SECONDS = 600;
@@ -64,8 +72,25 @@ class CustomerAuthService
             return ['error' => $replay];
         }
 
-        if (Customer::where('tenant_id', $tenant['tenant_id'])->where('phone', $normalized['phone'])->exists()) {
+        if (Customer::where('tenant_id', $tenant['tenant_id'])
+            ->where('phone', $normalized['phone'])
+            ->where('status', '<>', 'deleted')
+            ->exists()) {
             return ['error' => 'resource_conflict'];
+        }
+        $latestDeleted = Customer::query()
+            ->where('tenant_id', $tenant['tenant_id'])
+            ->where('phone', $normalized['phone'])
+            ->where('status', 'deleted')
+            ->latest('deleted_at')
+            ->first();
+        if ($latestDeleted instanceof Customer
+            && $latestDeleted->phone_reuse_after !== null
+            && $latestDeleted->phone_reuse_after->isFuture()) {
+            return [
+                'error' => 'account_reuse_cooldown',
+                'details' => ['phone_reuse_after' => $latestDeleted->phone_reuse_after->toISOString()],
+            ];
         }
 
         if ($this->smsOtp->providerRequiredForRegister((string) $tenant['tenant_id'])) {
@@ -109,7 +134,11 @@ class CustomerAuthService
             ]);
 
             $this->ensurePrimaryWallet((string) $tenant['tenant_id'], $customerId);
-            $response = $this->issueSession((string) $tenant['tenant_id'], $customerId);
+            $response = $this->issueSession(
+                (string) $tenant['tenant_id'],
+                $customerId,
+                activationRequired: true,
+            );
 
             $this->idempotency->storeResponse(
                 $tenant['tenant_id'],
@@ -142,6 +171,7 @@ class CustomerAuthService
 
         $customer = Customer::query()
             ->where('tenant_id', $tenant['tenant_id'])
+            ->where('status', '<>', 'deleted')
             ->where(function ($query) use ($username): void {
                 $query->where('phone', $username)
                     ->orWhere('email', strtolower($username));
@@ -347,6 +377,20 @@ class CustomerAuthService
                 ->first();
 
             if ($oldSession === null) {
+                $replacedSession = CustomerAuthSession::query()
+                    ->where('refresh_token_hash', hash('sha256', $refreshToken))
+                    ->where('tenant_id', $tenant['tenant_id'])
+                    ->where('revoked_reason', self::REVOKED_REASON_REPLACED_BY_NEW_LOGIN)
+                    ->first();
+
+                if ($replacedSession instanceof CustomerAuthSession) {
+                    return [
+                        'error' => 'customer_session_replaced',
+                        'replacement_session_id' => $replacedSession->replaced_by_session_id,
+                        'replaced_at' => $replacedSession->revoked_at?->toISOString(),
+                    ];
+                }
+
                 return null;
             }
 
@@ -357,6 +401,7 @@ class CustomerAuthService
             if ($customer === null) {
                 CustomerAuthSession::query()->where('id', $oldSession->id)->update([
                     'revoked_at' => now(),
+                    'revoked_reason' => self::REVOKED_REASON_REFRESHED,
                     'updated_at' => now(),
                 ]);
 
@@ -366,6 +411,7 @@ class CustomerAuthService
             if ($this->customerSuspensions->isSuspended($customer)) {
                 CustomerAuthSession::query()->where('id', $oldSession->id)->update([
                     'revoked_at' => now(),
+                    'revoked_reason' => self::REVOKED_REASON_REFRESHED,
                     'updated_at' => now(),
                 ]);
 
@@ -378,6 +424,7 @@ class CustomerAuthService
             if ((string) $customer->status !== 'active') {
                 CustomerAuthSession::query()->where('id', $oldSession->id)->update([
                     'revoked_at' => now(),
+                    'revoked_reason' => self::REVOKED_REASON_REFRESHED,
                     'updated_at' => now(),
                 ]);
 
@@ -386,6 +433,7 @@ class CustomerAuthService
 
             CustomerAuthSession::query()->where('id', $oldSession->id)->update([
                 'revoked_at' => now(),
+                'revoked_reason' => self::REVOKED_REASON_REFRESHED,
                 'updated_at' => now(),
             ]);
 
@@ -394,6 +442,7 @@ class CustomerAuthService
                 (string) $customer->id,
                 (string) $oldSession->id,
                 $oldSession->pin_verified_at === null ? null : (string) $oldSession->pin_verified_at,
+                (bool) ($oldSession->activation_required ?? false),
             );
         });
     }
@@ -405,6 +454,7 @@ class CustomerAuthService
             ->whereNull('revoked_at')
             ->update([
                 'revoked_at' => now(),
+                'revoked_reason' => self::REVOKED_REASON_LOGOUT,
                 'updated_at' => now(),
             ]);
     }
@@ -545,6 +595,10 @@ class CustomerAuthService
             }
 
             $now = now();
+            if (! $this->markSessionPinVerified((string) $context->session['id'], $now)) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             Customer::query()->where('id', $customer->id)->update([
                 'pin_hash' => Hash::make($pin),
                 'pin_set_at' => $now,
@@ -555,7 +609,6 @@ class CustomerAuthService
                 'updated_at' => $now,
             ]);
 
-            $this->markSessionPinVerified((string) $context->session['id'], $now);
             DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
                 $context->tenantId(),
                 $context->customerId(),
@@ -628,6 +681,10 @@ class CustomerAuthService
             }
 
             $now = now();
+            if (! $this->markSessionPinVerified((string) $context->session['id'], $now)) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             Customer::query()->where('id', $customer->id)->update([
                 'pin_hash' => Hash::make($newPin),
                 'pin_changed_at' => $now,
@@ -637,7 +694,6 @@ class CustomerAuthService
                 'updated_at' => $now,
             ]);
 
-            $this->markSessionPinVerified((string) $context->session['id'], $now);
             DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
                 $context->tenantId(),
                 $context->customerId(),
@@ -717,6 +773,10 @@ class CustomerAuthService
             }
 
             $now = now();
+            if (! $this->markSessionPinVerified((string) $context->session['id'], $now)) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             Customer::query()->where('id', $customer->id)->update([
                 'pin_hash' => Hash::make($pin),
                 'pin_set_at' => $customer->pin_set_at ?? $now,
@@ -728,7 +788,6 @@ class CustomerAuthService
             ]);
 
             Cache::forget($this->pinResetCacheKey($context));
-            $this->markSessionPinVerified((string) $context->session['id'], $now);
             DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
                 $context->tenantId(),
                 $context->customerId(),
@@ -761,6 +820,10 @@ class CustomerAuthService
             }
 
             $now = now();
+            if (! $this->markSessionPinVerified((string) $context->session['id'], $now)) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             Customer::query()->where('id', $customer->id)->update([
                 'pin_hash' => Hash::make($pin),
                 'pin_set_at' => $customer->pin_set_at ?? $now,
@@ -772,7 +835,6 @@ class CustomerAuthService
             ]);
 
             Cache::forget($this->pinResetCacheKey($context));
-            $this->markSessionPinVerified((string) $context->session['id'], $now);
             DB::afterCommit(fn () => $this->customerNotificationEvents->pinChanged(
                 $context->tenantId(),
                 $context->customerId(),
@@ -787,8 +849,13 @@ class CustomerAuthService
     /**
      * @return array<string, mixed>
      */
-    public function issueSession(string $tenantId, string $customerId, ?string $refreshedFromId = null, ?string $pinVerifiedAt = null): array
-    {
+    public function issueSession(
+        string $tenantId,
+        string $customerId,
+        ?string $refreshedFromId = null,
+        ?string $pinVerifiedAt = null,
+        bool $activationRequired = false,
+    ): array {
         $accessToken = $this->newToken('npa_ct');
         $refreshToken = $this->newToken('npa_crt');
         $sessionId = 'cas_'.Str::ulid()->toBase32();
@@ -806,6 +873,10 @@ class CustomerAuthService
             'refreshed_from_id' => $refreshedFromId,
             'last_used_at' => null,
             'pin_verified_at' => $pinVerifiedAt,
+            'activation_required' => $activationRequired,
+            'activated_at' => $activationRequired ? null : $now,
+            'revoked_reason' => null,
+            'replaced_by_session_id' => null,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -814,14 +885,54 @@ class CustomerAuthService
         $pinVerified = $pinVerifiedAt !== null;
 
         return [
+            'session_id' => $sessionId,
             'token' => $accessToken,
             'refresh_token' => $refreshToken,
             'expires_in' => self::ACCESS_TOKEN_TTL_SECONDS,
             'pin_verified' => $pinVerified,
+            'session_activation_required' => $activationRequired,
             'pin_setup_required' => $customer === null ? false : ! $this->customerHasPin($customer),
             'pin_required' => $customer !== null && $this->customerHasPin($customer) && ! $pinVerified,
             'user' => $this->customerProfile($customer, $pinVerified),
         ];
+    }
+
+    /**
+     * Rotate an already verified session without treating it as a login from a
+     * second device. Social-account linking uses this path.
+     *
+     * @return array<string, mixed>
+     */
+    public function rotateVerifiedSession(CustomerSessionContext $context): array
+    {
+        return DB::transaction(function () use ($context): array {
+            $oldSession = CustomerAuthSession::query()
+                ->where('id', (string) $context->session['id'])
+                ->where('tenant_id', $context->tenantId())
+                ->where('customer_id', $context->customerId())
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $oldSession instanceof CustomerAuthSession) {
+                return ['error' => 'authentication_required'];
+            }
+
+            $now = now();
+            CustomerAuthSession::query()->where('id', $oldSession->id)->update([
+                'revoked_at' => $now,
+                'revoked_reason' => self::REVOKED_REASON_SESSION_ROTATED,
+                'updated_at' => $now,
+            ]);
+
+            return $this->issueSession(
+                $context->tenantId(),
+                $context->customerId(),
+                (string) $oldSession->id,
+                $context->pinVerified() ? $now->toISOString() : null,
+                (bool) ($oldSession->activation_required ?? false),
+            );
+        });
     }
 
     /**
@@ -928,7 +1039,11 @@ class CustomerAuthService
         ]);
         $this->ensurePrimaryWallet($tenantId, $customerId);
 
-        return $this->issueSession($tenantId, $customerId);
+        return $this->issueSession(
+            $tenantId,
+            $customerId,
+            activationRequired: true,
+        );
     }
 
     public function ensurePrimaryWallet(string $tenantId, string $customerId): string
@@ -1055,6 +1170,11 @@ class CustomerAuthService
             }
 
             $now = now();
+            if ($markSessionVerified
+                && ! $this->markSessionPinVerified((string) $context->session['id'], $now)) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             Customer::query()->where('id', $customer->id)->update([
                 'pin_failed_attempts' => 0,
                 'pin_locked_until' => null,
@@ -1062,27 +1182,133 @@ class CustomerAuthService
                 'updated_at' => $now,
             ]);
 
-            if ($markSessionVerified) {
-                $this->markSessionPinVerified((string) $context->session['id'], $now);
-            }
-
             $fresh = Customer::whereKey($customer->id)->first();
 
             return ['resource' => $this->pinResponse($fresh, true)];
         });
     }
 
-    private function markSessionPinVerified(string $sessionId, mixed $verifiedAt): void
+    private function markSessionPinVerified(string $sessionId, mixed $verifiedAt): bool
     {
+        $snapshot = CustomerAuthSession::query()->where('id', $sessionId)->first();
+
+        if (! $snapshot instanceof CustomerAuthSession || $snapshot->revoked_at !== null) {
+            return false;
+        }
+
+        // Locking the customer first serializes PIN and biometric completions
+        // across concurrent login attempts without relying on request timing.
+        $customer = Customer::query()
+            ->where('tenant_id', $snapshot->tenant_id)
+            ->where('id', $snapshot->customer_id)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $customer instanceof Customer) {
+            return false;
+        }
+
+        $sessions = CustomerAuthSession::query()
+            ->where('tenant_id', $snapshot->tenant_id)
+            ->where('customer_id', $snapshot->customer_id)
+            ->whereNull('revoked_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+        $session = $sessions->firstWhere('id', $sessionId);
+
+        if (! $session instanceof CustomerAuthSession) {
+            return false;
+        }
+
+        $now = now();
+
+        if (! (bool) $session->activation_required) {
+            CustomerAuthSession::query()->where('id', $sessionId)->update([
+                'pin_verified_at' => $verifiedAt,
+                'updated_at' => $now,
+            ]);
+
+            return true;
+        }
+
+        $otherSessions = $sessions->where('id', '!=', $sessionId);
+        $otherSessionIds = $otherSessions
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+        $replacedActiveSessionCount = $otherSessions
+            ->filter(static fn (CustomerAuthSession $item): bool => ! (bool) $item->activation_required)
+            ->count();
+
+        if ($otherSessionIds !== []) {
+            CustomerAuthSession::query()
+                ->whereIn('id', $otherSessionIds)
+                ->whereNull('revoked_at')
+                ->update([
+                    'revoked_at' => $now,
+                    'revoked_reason' => self::REVOKED_REASON_REPLACED_BY_NEW_LOGIN,
+                    'replaced_by_session_id' => $sessionId,
+                    'updated_at' => $now,
+                ]);
+        }
+
         CustomerAuthSession::query()->where('id', $sessionId)->update([
             'pin_verified_at' => $verifiedAt,
-            'updated_at' => now(),
+            'activation_required' => false,
+            'activated_at' => $now,
+            'updated_at' => $now,
         ]);
+
+        if ($replacedActiveSessionCount > 0) {
+            // Create the final security delivery while the previous push
+            // registrations are still addressable. The delivery worker has a
+            // narrow exception for this event after the registrations revoke.
+            $this->customerNotificationEvents->sessionReplaced(
+                (string) $session->tenant_id,
+                (string) $session->customer_id,
+                $sessionId,
+            );
+
+            if (Schema::hasTable('customer_push_devices')) {
+                CustomerPushDevice::query()
+                    ->where('tenant_id', (string) $session->tenant_id)
+                    ->where('customer_id', (string) $session->customer_id)
+                    ->whereNull('revoked_at')
+                    ->update([
+                        'revoked_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+            }
+
+            $tenantId = (string) $session->tenant_id;
+            $customerId = (string) $session->customer_id;
+            $replacedAt = $now->toISOString();
+            DB::afterCommit(function () use ($tenantId, $customerId, $sessionId, $replacedAt): void {
+                try {
+                    CustomerSessionReplaced::dispatch(
+                        $tenantId,
+                        $customerId,
+                        $sessionId,
+                        $replacedAt,
+                    );
+                } catch (\Throwable $exception) {
+                    Log::warning('Customer session replacement realtime broadcast failed.', [
+                        'tenant_id' => $tenantId,
+                        'customer_id' => $customerId,
+                        'replacement_session_id' => $sessionId,
+                        'exception' => $exception::class,
+                    ]);
+                }
+            });
+        }
+
+        return true;
     }
 
-    public function markSessionPinVerifiedForAssertion(string $sessionId): void
+    public function markSessionPinVerifiedForAssertion(string $sessionId): bool
     {
-        $this->markSessionPinVerified($sessionId, now());
+        return $this->markSessionPinVerified($sessionId, now());
     }
 
     /**
@@ -1105,15 +1331,16 @@ class CustomerAuthService
                 return ['error' => 'pin_assertion_invalid'];
             }
 
+            if ($markSessionVerified
+                && ! $this->markSessionPinVerified((string) $context->session['id'], now())) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             CustomerPinAssertion::query()->where('id', $assertion->id)->update([
                 'status' => 'consumed',
                 'consumed_at' => now(),
                 'updated_at' => now(),
             ]);
-
-            if ($markSessionVerified) {
-                $this->markSessionPinVerified((string) $context->session['id'], now());
-            }
 
             return [
                 'resource' => [

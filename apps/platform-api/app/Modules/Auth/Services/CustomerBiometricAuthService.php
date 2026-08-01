@@ -337,15 +337,16 @@ class CustomerBiometricAuthService
                 return ['error' => 'pin_assertion_invalid'];
             }
 
+            if ($markSessionVerified
+                && ! $this->customerAuth->markSessionPinVerifiedForAssertion((string) $context->session['id'])) {
+                return ['error' => 'customer_session_replaced'];
+            }
+
             CustomerPinAssertion::query()->where('id', $assertion->id)->update([
                 'status' => 'consumed',
                 'consumed_at' => now(),
                 'updated_at' => now(),
             ]);
-
-            if ($markSessionVerified) {
-                $this->customerAuth->markSessionPinVerifiedForAssertion((string) $context->session['id']);
-            }
 
             return [
                 'resource' => [

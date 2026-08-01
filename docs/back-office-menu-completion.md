@@ -37,7 +37,7 @@ Status legend:
 | central:settlement | /admin/central/settlements | /admin/central/settlements | Complete | Catalog uses settlement list/detail/approve action. |
 | central:webhook_logs | /admin/central/audit-logs | /admin/central/webhook-logs | Complete | Catalog now calls registered list/detail with `audit.view`; backend redacts payload/response secret material. |
 | central:audit_logs | /admin/central/audit-logs | /admin/central/audit-logs | Complete | Catalog uses central audit log list API. |
-| central:admin_users | /admin/central/dashboard | /admin/central/admin-users | Complete | Dedicated BO route backed by central admin user list/detail API. |
+| central:admin_users | /admin/central/dashboard | /admin/central/admin-users | Complete | Username-based admin issuance returns a one-time copy/share invitation link; no invite email or temporary password is generated in BO. |
 | central:roles_permissions | /admin/central/dashboard | /admin/central/roles | Complete | Dedicated BO route backed by central role list API. |
 | central:menu_management | /admin/central/dashboard | /admin/central/menu-management | Complete | Dedicated settings-style route uses GET/PUT menu management API. |
 | central:system_settings | /admin/central/dashboard | /admin/central/system-settings | Complete | Settings-style route now uses registered GET/PATCH system settings API with idempotency validation on writes. |
@@ -75,7 +75,7 @@ Status legend:
 | tenant:usage | /admin/tenant/reports | /admin/tenant/usage | Complete | Summary route now calls registered tenant usage read API with `usage.view`, active tenant isolation, and date filters. |
 | tenant:sync_logs | /admin/tenant/sync-logs | /admin/tenant/sync-logs | Complete | Catalog uses tenant sync log list API. |
 | tenant:audit_logs | /admin/tenant/audit-logs | /admin/tenant/audit-logs | Complete | Catalog uses tenant audit log list API. |
-| tenant:admin_users | /admin/tenant/settings | /admin/tenant/admin-users | Complete | Dedicated BO route backed by tenant admin user list/detail API. |
+| tenant:admin_users | /admin/tenant/settings | /admin/tenant/admin-users | Complete | Username-based admin issuance returns a one-time copy/share invitation link; no invite email or temporary password is generated in BO. |
 | tenant:roles_permissions | /admin/tenant/settings | /admin/tenant/roles | Complete | Dedicated BO route backed by tenant role list API. |
 | tenant:menu_management | /admin/tenant/settings | /admin/tenant/menu-management | Complete | Dedicated settings-style route uses GET/PUT menu management API. |
 | tenant:settings | /admin/tenant/settings | /admin/tenant/settings | Complete | Settings-style route uses tenant settings API. |

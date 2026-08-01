@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert' as convert;
 
 import 'package:flutter/material.dart';
@@ -123,7 +124,8 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
         provider: widget.provider,
         runtimeProvider: runtimeProvider,
         title: context.l10n.socialCallbackTitle,
-        status: _status ??
+        status:
+            _status ??
             context.l10n.socialCallbackWaiting(
               _ProviderBrand.label(widget.provider, runtimeProvider),
             ),
@@ -166,7 +168,9 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
     }
 
     try {
-      final result = await ref.read(authRepositoryProvider).socialCallback(
+      final result = await ref
+          .read(authRepositoryProvider)
+          .socialCallback(
             provider: widget.provider,
             query: Map<String, dynamic>.from(query),
           );
@@ -238,8 +242,9 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
       if (!mounted) return;
       final operational =
           ApiErrorInfo.fromObject(error).operationalRedirectPath != null;
-      final returnPathOverride =
-          operational ? await _callbackReturnPath(query, state) : null;
+      final returnPathOverride = operational
+          ? await _callbackReturnPath(query, state)
+          : null;
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(
         ref: ref,
@@ -270,8 +275,9 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
     }
 
     if (state.isEmpty) return null;
-    final callbackContext =
-        await ref.read(authTokenStoreProvider).readSocialCallbackContext(state);
+    final callbackContext = await ref
+        .read(authTokenStoreProvider)
+        .readSocialCallbackContext(state);
     final safeRedirect = safeCustomerRedirect(callbackContext?.redirect);
     return safeRedirect == '/' ? null : safeRedirect;
   }
@@ -296,9 +302,7 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
   }
 }
 
-Map<String, String> _normalizedSocialCallbackQuery(
-  Map<String, String> query,
-) {
+Map<String, String> _normalizedSocialCallbackQuery(Map<String, String> query) {
   final normalized = Map<String, String>.from(query);
   final wrapped = _wrappedSocialCallbackQuery(normalized);
   if (wrapped.isNotEmpty) normalized.addAll(wrapped);
@@ -380,18 +384,35 @@ class LineLinkPhoneScreen extends ConsumerStatefulWidget {
 
 class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
   final _phone = TextEditingController();
+  final _otp = TextEditingController();
+  final _firstName = TextEditingController();
+  final _lastName = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
   bool _showPassword = false;
+  bool _acceptedTerms = false;
   bool _saving = false;
+  int _step = 0;
+  int _resendAfter = 0;
+  String _maskedPhone = '';
+  String _otpVerificationToken = '';
   String _formError = '';
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _phone.addListener(_clearFormError);
-    _password.addListener(_clearFormError);
-    _confirmPassword.addListener(_clearFormError);
+    for (final controller in [
+      _phone,
+      _otp,
+      _firstName,
+      _lastName,
+      _password,
+      _confirmPassword,
+    ]) {
+      controller.addListener(_clearFormError);
+    }
+    _otp.addListener(_verifyCompletedOtp);
     if (widget.linkToken.trim().isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -402,12 +423,19 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
 
   @override
   void dispose() {
-    _phone.removeListener(_clearFormError);
-    _password.removeListener(_clearFormError);
-    _confirmPassword.removeListener(_clearFormError);
-    _phone.dispose();
-    _password.dispose();
-    _confirmPassword.dispose();
+    _timer?.cancel();
+    _otp.removeListener(_verifyCompletedOtp);
+    for (final controller in [
+      _phone,
+      _otp,
+      _firstName,
+      _lastName,
+      _password,
+      _confirmPassword,
+    ]) {
+      controller.removeListener(_clearFormError);
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -432,8 +460,9 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final sheetMinHeight =
-              constraints.maxHeight > 156 ? constraints.maxHeight - 156 : 0.0;
+          final sheetMinHeight = constraints.maxHeight > 156
+              ? constraints.maxHeight - 156
+              : 0.0;
           return SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -515,95 +544,261 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
               _SocialLinkErrorPanel(message: _formError),
             ],
             const SizedBox(height: 18),
-            _SocialLinkFieldLabel(label: l10n.registerPhoneLabel),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _phone,
-              style: authInputTextStyle(
-                context,
-                fontWeight: FontWeight.w800,
-              ),
-              keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.telephoneNumber],
-              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10),
-              ],
-              decoration: _socialInputDecoration(
-                hintText: l10n.registerPhoneHint,
-                icon: Icons.phone_android_outlined,
-              ),
-            ),
-            const SizedBox(height: 18),
-            _SocialLinkFieldLabel(label: l10n.registerPasswordLabel),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _password,
-              style: authInputTextStyle(
-                context,
-                fontWeight: FontWeight.w800,
-              ),
-              obscureText: !_showPassword,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.password],
-              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-              decoration: _socialInputDecoration(
-                hintText: l10n.socialLinkPasswordHint,
-                icon: Icons.lock_outline,
-                suffixIcon: authInputActionButton(
-                  context,
-                  onPressed: _saving
-                      ? null
-                      : () => setState(
-                            () => _showPassword = !_showPassword,
-                          ),
-                  tooltip: _showPassword
-                      ? l10n.registerHidePassword
-                      : l10n.registerShowPassword,
-                  icon: _showPassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            _SocialLinkFieldLabel(
-              label: l10n.registerConfirmPasswordLabel,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _confirmPassword,
-              style: authInputTextStyle(
-                context,
-                fontWeight: FontWeight.w800,
-              ),
-              obscureText: !_showPassword,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.newPassword],
-              onSubmitted: (_) {
-                if (!_saving) _submit();
-              },
-              decoration: _socialInputDecoration(
-                hintText: l10n.socialLinkConfirmPasswordHint,
-                icon: Icons.shield_outlined,
-              ),
-            ),
+            _SocialOnboardingProgress(currentStep: _step),
+            const SizedBox(height: 20),
+            if (_step == 0)
+              _buildPhoneStep(context)
+            else if (_step == 1)
+              _buildOtpStep(context)
+            else
+              _buildMemberStep(context),
             const SizedBox(height: 18),
             _SocialLinkNote(
-              text: l10n.socialLinkPhoneSubtitle(providerLabel),
+              text: _step == 0
+                  ? l10n.socialLinkPhoneSubtitle(providerLabel)
+                  : _step == 1
+                  ? l10n.socialOnboardingOtpNotice
+                  : l10n.socialOnboardingMemberNotice,
             ),
             const SizedBox(height: 18),
             authPrimaryActionButton(
-              onPressed: _saving ? null : _submit,
+              onPressed: _saving
+                  ? null
+                  : _step == 0
+                  ? _requestOtp
+                  : _step == 1
+                  ? _verifyOtp
+                  : _submit,
               height: 54,
               fontSize: 18,
-              label:
-                  _saving ? l10n.socialLinkSubmitting : l10n.socialLinkSubmit,
+              label: _saving
+                  ? l10n.socialLinkSubmitting
+                  : _step == 0
+                  ? l10n.socialOnboardingSendOtp
+                  : _step == 1
+                  ? l10n.socialOnboardingVerifyOtp
+                  : l10n.socialLinkSubmit,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneStep(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.socialOnboardingPhoneTitle,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.socialOnboardingPhoneDescription,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _SocialLinkFieldLabel(label: l10n.registerPhoneLabel),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _phone,
+          style: authInputTextStyle(context, fontWeight: FontWeight.w800),
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          onSubmitted: (_) {
+            if (!_saving) _requestOtp();
+          },
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+          ],
+          decoration: _socialInputDecoration(
+            hintText: l10n.registerPhoneHint,
+            icon: Icons.phone_android_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtpStep(BuildContext context) {
+    final l10n = context.l10n;
+    final destination = _maskedPhone.isEmpty
+        ? _phone.text.trim()
+        : _maskedPhone;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.socialOnboardingOtpTitle,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          context.l10n.authOtpSentTo(destination),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 18),
+        TextField(
+          controller: _otp,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          textAlign: TextAlign.center,
+          style: authInputTextStyle(
+            context,
+            fontWeight: FontWeight.w800,
+          )?.copyWith(fontSize: 24, letterSpacing: 8),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
+          onSubmitted: (_) {
+            if (!_saving) _verifyOtp();
+          },
+          decoration: _socialInputDecoration(
+            hintText: l10n.registerOtpHint,
+            icon: Icons.sms_outlined,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: TextButton(
+            onPressed: _saving || _resendAfter > 0 ? null : _requestOtp,
+            child: Text(
+              _resendAfter > 0
+                  ? l10n.authOtpResendIn(_resendAfter)
+                  : l10n.authOtpResend,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMemberStep(BuildContext context) {
+    final l10n = context.l10n;
+    return AutofillGroup(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.socialOnboardingMemberTitle,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.socialOnboardingMemberDescription,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _SocialLinkFieldLabel(label: l10n.registerFirstNameLabel),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _firstName,
+            autofillHints: const [AutofillHints.givenName],
+            textInputAction: TextInputAction.next,
+            decoration: _socialInputDecoration(
+              hintText: l10n.registerFirstNameHint,
+              icon: Icons.person_outline,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SocialLinkFieldLabel(label: l10n.registerLastNameLabel),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _lastName,
+            autofillHints: const [AutofillHints.familyName],
+            textInputAction: TextInputAction.next,
+            decoration: _socialInputDecoration(
+              hintText: l10n.registerLastNameHint,
+              icon: Icons.badge_outlined,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SocialLinkFieldLabel(label: l10n.registerPasswordLabel),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _password,
+            obscureText: !_showPassword,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.newPassword],
+            decoration: _socialInputDecoration(
+              hintText: l10n.socialLinkPasswordHint,
+              icon: Icons.lock_outline,
+              suffixIcon: authInputActionButton(
+                context,
+                onPressed: _saving
+                    ? null
+                    : () => setState(() => _showPassword = !_showPassword),
+                tooltip: _showPassword
+                    ? l10n.registerHidePassword
+                    : l10n.registerShowPassword,
+                icon: _showPassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SocialLinkFieldLabel(label: l10n.registerConfirmPasswordLabel),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _confirmPassword,
+            obscureText: !_showPassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.newPassword],
+            onSubmitted: (_) {
+              if (!_saving) _submit();
+            },
+            decoration: _socialInputDecoration(
+              hintText: l10n.socialLinkConfirmPasswordHint,
+              icon: Icons.shield_outlined,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Material(
+            color: Colors.transparent,
+            child: CheckboxListTile(
+              value: _acceptedTerms,
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() {
+                      _acceptedTerms = value ?? false;
+                      _formError = '';
+                    }),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(
+                l10n.registerTerms,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -629,15 +824,107 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     );
   }
 
+  Future<void> _requestOtp() async {
+    final phone = _phone.text.replaceAll(RegExp(r'\D'), '');
+    if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
+      _showFormError(context.l10n.authPhoneInvalid);
+      return;
+    }
+
+    setState(() {
+      _formError = '';
+      _saving = true;
+    });
+    try {
+      final result = await ref
+          .read(authRepositoryProvider)
+          .requestOtp(phone: phone, purpose: 'register');
+      if (!mounted) return;
+      _otp.clear();
+      _otpVerificationToken = '';
+      setState(() {
+        _step = 1;
+        _maskedPhone = result.phoneMasked;
+        _resendAfter = result.resendAfterSeconds > 0
+            ? result.resendAfterSeconds
+            : 60;
+      });
+      _startResendTimer();
+    } catch (error) {
+      if (!mounted) return;
+      _showFormError(
+        authErrorMessage(error, context.l10n.socialOnboardingOtpRequestFailed),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    if (_saving) return;
+    if (!RegExp(r'^\d{6}$').hasMatch(_otp.text)) {
+      _showFormError(context.l10n.authOtpInvalid);
+      return;
+    }
+
+    setState(() {
+      _formError = '';
+      _saving = true;
+    });
+    try {
+      final result = await ref
+          .read(authRepositoryProvider)
+          .verifyOtp(phone: _phone.text, purpose: 'register', otp: _otp.text);
+      final token = result.verificationToken.trim();
+      if (!mounted) return;
+      if (token.isEmpty) {
+        _showFormError(context.l10n.authOtpVerificationFailed);
+        return;
+      }
+      TextInput.finishAutofillContext();
+      setState(() {
+        _otpVerificationToken = token;
+        _step = 2;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      _showFormError(
+        authErrorMessage(error, context.l10n.authOtpVerificationFailed),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _verifyCompletedOtp() {
+    if (_step == 1 && !_saving && _otp.text.length == 6) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_saving && _step == 1 && _otp.text.length == 6) {
+          _verifyOtp();
+        }
+      });
+    }
+  }
+
+  void _startResendTimer() {
+    _timer?.cancel();
+    if (_resendAfter <= 0) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _resendAfter <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendAfter = 0);
+        return;
+      }
+      setState(() => _resendAfter -= 1);
+    });
+  }
+
   Future<void> _submit() async {
     final phone = _phone.text.replaceAll(RegExp(r'\D'), '');
     final provider = normalizeSocialAuthProvider(widget.provider);
     final providerLabel = _ProviderBrand.label(
       provider,
-      _runtimeSocialProvider(
-        ref.read(mobileBootstrapProvider),
-        provider,
-      ),
+      _runtimeSocialProvider(ref.read(mobileBootstrapProvider), provider),
     );
     if (widget.linkToken.trim().isEmpty) {
       _showFormError(context.l10n.socialLinkMissing(providerLabel));
@@ -645,6 +932,23 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     }
     if (_password.text != _confirmPassword.text) {
       _showFormError(context.l10n.authPasswordMismatch);
+      return;
+    }
+    if (_firstName.text.trim().isEmpty || _lastName.text.trim().isEmpty) {
+      _showFormError(context.l10n.authFieldRequired);
+      return;
+    }
+    if (_password.text.length < 6) {
+      _showFormError(context.l10n.socialOnboardingPasswordTooShort);
+      return;
+    }
+    if (_otpVerificationToken.isEmpty) {
+      setState(() => _step = 1);
+      _showFormError(context.l10n.authOtpVerificationFailed);
+      return;
+    }
+    if (!_acceptedTerms) {
+      _showFormError(context.l10n.registerTermsRequired);
       return;
     }
 
@@ -655,12 +959,18 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       _saving = true;
     });
     try {
-      final session = await ref.read(authRepositoryProvider).socialLinkPhone(
+      final session = await ref
+          .read(authRepositoryProvider)
+          .socialLinkPhone(
             provider: provider,
             linkToken: widget.linkToken,
             phone: phone,
+            firstName: _firstName.text.trim(),
+            lastName: _lastName.text.trim(),
             password: _password.text,
             passwordConfirmation: _confirmPassword.text,
+            otpVerificationToken: _otpVerificationToken,
+            acceptedTerms: _acceptedTerms,
             redirect: redirect,
           );
       ref.read(authControllerProvider).applySession(session);
@@ -701,6 +1011,59 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
   }
 }
 
+class _SocialOnboardingProgress extends StatelessWidget {
+  const _SocialOnboardingProgress({required this.currentStep});
+
+  final int currentStep;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = [
+      context.l10n.socialOnboardingStepPhone,
+      context.l10n.socialOnboardingStepOtp,
+      context.l10n.socialOnboardingStepMember,
+    ];
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: index <= currentStep
+                        ? colorScheme.primary
+                        : colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  labels[index],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: index == currentStep
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: index == currentStep
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (index < labels.length - 1) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
 class _SocialLinkErrorPanel extends StatelessWidget {
   const _SocialLinkErrorPanel({required this.message});
 
@@ -715,9 +1078,7 @@ class _SocialLinkErrorPanel extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.errorContainer.withValues(alpha: 0.62),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: colorScheme.error.withValues(alpha: 0.14),
-          ),
+          border: Border.all(color: colorScheme.error.withValues(alpha: 0.14)),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -730,10 +1091,10 @@ class _SocialLinkErrorPanel extends StatelessWidget {
                 child: Text(
                   message,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.error,
-                        fontWeight: FontWeight.w800,
-                        height: 1.35,
-                      ),
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],
@@ -799,22 +1160,22 @@ class _SocialCallbackHero extends StatelessWidget {
             title,
             textAlign: TextAlign.start,
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: colorScheme.onPrimary,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
+              color: colorScheme.onPrimary,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
             status,
             textAlign: TextAlign.start,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.9),
-                  fontSize: 17,
-                  fontWeight: FontWeight.w400,
-                  height: 1.45,
-                ),
+              color: colorScheme.onPrimary.withValues(alpha: 0.9),
+              fontSize: 17,
+              fontWeight: FontWeight.w400,
+              height: 1.45,
+            ),
           ),
         ],
       ),
@@ -834,10 +1195,7 @@ class _SocialCallbackHero extends StatelessWidget {
             constraints: BoxConstraints(
               maxWidth: customerContentMaxWidthFor(context),
             ),
-            child: Align(
-              alignment: AlignmentDirectional.topStart,
-              child: copy,
-            ),
+            child: Align(alignment: AlignmentDirectional.topStart, child: copy),
           ),
         ),
       ),
@@ -869,12 +1227,7 @@ class _SocialLinkHero extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 268),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            authHeroTopPadding(context),
-            20,
-            24,
-          ),
+          padding: EdgeInsets.fromLTRB(20, authHeroTopPadding(context), 20, 24),
           child: Stack(
             children: [
               PositionedDirectional(
@@ -897,12 +1250,14 @@ class _SocialLinkHero extends StatelessWidget {
                       children: [
                         DecoratedBox(
                           decoration: BoxDecoration(
-                            color:
-                                colorScheme.onPrimary.withValues(alpha: 0.18),
+                            color: colorScheme.onPrimary.withValues(
+                              alpha: 0.18,
+                            ),
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color:
-                                  colorScheme.onPrimary.withValues(alpha: 0.2),
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.2,
+                              ),
                             ),
                           ),
                           child: SizedBox.square(
@@ -922,9 +1277,7 @@ class _SocialLinkHero extends StatelessWidget {
                         Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
+                          style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 color: colorScheme.onPrimary,
                                 fontWeight: FontWeight.w900,
@@ -935,13 +1288,14 @@ class _SocialLinkHero extends StatelessWidget {
                         Text(
                           subtitle,
                           textAlign: TextAlign.center,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onPrimary
-                                        .withValues(alpha: 0.9),
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.45,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: colorScheme.onPrimary.withValues(
+                                  alpha: 0.9,
+                                ),
+                                fontWeight: FontWeight.w700,
+                                height: 1.45,
+                              ),
                         ),
                       ],
                     ),
@@ -969,8 +1323,9 @@ class _SocialLinkSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topPadding =
-        viewportWidth >= 768 ? 32.0 : (viewportWidth * 0.05).clamp(18.0, 28.0);
+    final topPadding = viewportWidth >= 768
+        ? 32.0
+        : (viewportWidth * 0.05).clamp(18.0, 28.0);
     final horizontalPadding = viewportWidth <= 380 ? 12.0 : 16.0;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final colorScheme = Theme.of(context).colorScheme;
@@ -1014,9 +1369,9 @@ class _SocialLinkFieldLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
+        color: Theme.of(context).colorScheme.onSurface,
+        fontWeight: FontWeight.w900,
+      ),
     );
   }
 }
@@ -1033,19 +1388,17 @@ class _SocialLinkNote extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.tertiaryContainer.withValues(alpha: 0.54),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.tertiary.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: colorScheme.tertiary.withValues(alpha: 0.22)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Text(
           text,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onTertiaryContainer,
-                fontWeight: FontWeight.w800,
-                height: 1.45,
-              ),
+            color: colorScheme.onTertiaryContainer,
+            fontWeight: FontWeight.w800,
+            height: 1.45,
+          ),
         ),
       ),
     );
@@ -1222,8 +1575,9 @@ class _LineProfileCopy extends StatelessWidget {
         ? context.l10n.socialProfileFallbackName(providerLabel)
         : name;
     return Column(
-      crossAxisAlignment:
-          centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      crossAxisAlignment: centered
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: [
         Text(
           context.l10n.socialProfileAccount(providerLabel),
@@ -1241,18 +1595,18 @@ class _LineProfileCopy extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w900,
-              ),
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         Text(
           context.l10n.socialProfileReady,
           textAlign: centered ? TextAlign.center : TextAlign.start,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
-              ),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
         ),
       ],
     );
@@ -1312,15 +1666,13 @@ SocialAuthProvider? _runtimeSocialProvider(
 class _ProviderBrand {
   const _ProviderBrand._();
 
-  static String label(
-    String provider, [
-    SocialAuthProvider? runtimeProvider,
-  ]) {
+  static String label(String provider, [SocialAuthProvider? runtimeProvider]) {
     final runtimeLabel = runtimeProvider?.label.trim() ?? '';
     if (runtimeLabel.isNotEmpty) return runtimeLabel;
     return switch (normalizeSocialAuthProvider(provider)) {
       'google' => 'Google',
       'apple' => 'Apple ID',
+      'facebook' => 'Facebook',
       'line' => 'LINE',
       final provider => provider,
     };
@@ -1330,6 +1682,7 @@ class _ProviderBrand {
     return switch (normalizeSocialAuthProvider(provider)) {
       'google' => Icons.mail_outline,
       'apple' => Icons.apple,
+      'facebook' => Icons.facebook,
       _ => Icons.chat_bubble_outline,
     };
   }
@@ -1347,8 +1700,10 @@ class _ProviderBrand {
     return switch (normalizeSocialAuthProvider(provider)) {
       'apple' => colorScheme.onSurface,
       'google' => colorScheme.primary,
-      _ => Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.24) ??
-          colorScheme.primary,
+      'facebook' => colorScheme.primary,
+      _ =>
+        Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.24) ??
+            colorScheme.primary,
     };
   }
 }

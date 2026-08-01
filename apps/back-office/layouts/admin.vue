@@ -21,6 +21,7 @@
 const navigation = useAdminNavigation()
 const { navigationMenus, loading, error, loadMenus } = navigation
 const session = useAdminSession()
+const adminBranding = useAdminBranding()
 const route = useRoute()
 const { t } = useAdminLocale()
 const { ready, markReady } = useAdminClientReady()
@@ -213,6 +214,7 @@ onMounted(async () => {
   }, adminSessionRedirectTimeoutMs)
 
   session.restore()
+  await adminBranding.load()
   markReady()
   session.applyPreferredLocale()
 

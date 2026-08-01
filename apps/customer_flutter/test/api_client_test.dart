@@ -8,44 +8,46 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('postWithHeaders sends write request with auth and custom headers',
-      () async {
-    final tokenStore = _MemoryTokenStore();
-    await tokenStore.save(
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      customerId: 'cus_1',
-    );
-    final adapter = _RecordingAdapter();
-    final dio = Dio()..httpClientAdapter = adapter;
-    final api = ApiClient(
-      const AppConfig(
-        apiBaseUrl: 'https://partner.example.com/api/v1',
-        defaultLocale: 'th-TH',
-      ),
-      tokenStore,
-      localeTag: 'th-TH',
-      dio: dio,
-    );
+  test(
+    'postWithHeaders sends write request with auth and custom headers',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      await tokenStore.save(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        customerId: 'cus_1',
+      );
+      final adapter = _RecordingAdapter();
+      final dio = Dio()..httpClientAdapter = adapter;
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        tokenStore,
+        localeTag: 'th-TH',
+        dio: dio,
+      );
 
-    final response = await api.postWithHeaders<Map<String, dynamic>>(
-      '/customer/reservations',
-      data: const {
-        'game_id': 'game_1',
-        'local_stock_item_ids': ['stock_1'],
-      },
-      headers: const {'Idempotency-Key': 'reserve-key'},
-    );
+      final response = await api.postWithHeaders<Map<String, dynamic>>(
+        '/customer/reservations',
+        data: const {
+          'game_id': 'game_1',
+          'local_stock_item_ids': ['stock_1'],
+        },
+        headers: const {'Idempotency-Key': 'reserve-key'},
+      );
 
-    expect(response.data?['ok'], isTrue);
-    expect(adapter.methods, ['POST']);
-    expect(adapter.paths, ['customer/reservations']);
-    expect(adapter.authorizationHeaders, ['Bearer access-token']);
-    expect(adapter.idempotencyHeaders, ['reserve-key']);
-    expect(adapter.requestIds.single, startsWith('req_'));
-    expect(adapter.bodies.single, contains('"game_id":"game_1"'));
-    expect(adapter.bodies.single, contains('"local_stock_item_ids"'));
-  });
+      expect(response.data?['ok'], isTrue);
+      expect(adapter.methods, ['POST']);
+      expect(adapter.paths, ['customer/reservations']);
+      expect(adapter.authorizationHeaders, ['Bearer access-token']);
+      expect(adapter.idempotencyHeaders, ['reserve-key']);
+      expect(adapter.requestIds.single, startsWith('req_'));
+      expect(adapter.bodies.single, contains('"game_id":"game_1"'));
+      expect(adapter.bodies.single, contains('"local_stock_item_ids"'));
+    },
+  );
 
   test('auth requests refresh expired access token and retry once', () async {
     final tokenStore = _MemoryTokenStore();
@@ -91,150 +93,196 @@ void main() {
     expect(tokenStore.customerId, 'cus_1');
   });
 
-  test('token refresh keeps the previous refresh token when rotation omits it',
-      () async {
-    final tokenStore = _MemoryTokenStore();
-    await tokenStore.save(
-      accessToken: 'expired-access',
-      refreshToken: 'refresh-token',
-      customerId: 'cus_1',
-    );
-    final adapter = _RefreshingAuthAdapter(omitRefreshToken: true);
-    final dio = Dio()..httpClientAdapter = adapter;
-    final api = ApiClient(
-      const AppConfig(
-        apiBaseUrl: 'https://partner.example.com/api/v1',
-        defaultLocale: 'th-TH',
-      ),
-      tokenStore,
-      localeTag: 'th-TH',
-      dio: dio,
-    );
-
-    await api.post<Map<String, dynamic>>(
-      '/customer/auth/pin/verify',
-      data: {'pin': '123456'},
-    );
-
-    expect(tokenStore.accessToken, 'fresh-access');
-    expect(tokenStore.refreshToken, 'refresh-token');
-    expect(tokenStore.customerId, 'cus_1');
-  });
-
-  test('temporary refresh failures preserve the long-lived customer session',
-      () async {
-    final tokenStore = _MemoryTokenStore();
-    await tokenStore.save(
-      accessToken: 'expired-access',
-      refreshToken: 'refresh-token',
-      customerId: 'cus_1',
-    );
-    final adapter = _RefreshFailureAdapter(
-      refreshStatus: 503,
-      refreshBody: const {
-        'error': {
-          'code': 'service_unavailable',
-          'message': 'Please try again.',
-        },
-      },
-    );
-    final dio = Dio()..httpClientAdapter = adapter;
-    final api = ApiClient(
-      const AppConfig(
-        apiBaseUrl: 'https://partner.example.com/api/v1',
-        defaultLocale: 'th-TH',
-      ),
-      tokenStore,
-      localeTag: 'th-TH',
-      dio: dio,
-    );
-
-    await expectLater(
-      api.get<Map<String, dynamic>>('/customer/wallet'),
-      throwsA(
-        isA<DioException>().having(
-          (error) => error.response?.statusCode,
-          'refresh status',
-          503,
+  test(
+    'token refresh keeps the previous refresh token when rotation omits it',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      await tokenStore.save(
+        accessToken: 'expired-access',
+        refreshToken: 'refresh-token',
+        customerId: 'cus_1',
+      );
+      final adapter = _RefreshingAuthAdapter(omitRefreshToken: true);
+      final dio = Dio()..httpClientAdapter = adapter;
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
         ),
-      ),
-    );
+        tokenStore,
+        localeTag: 'th-TH',
+        dio: dio,
+      );
 
-    expect(adapter.paths, [
-      'customer/wallet',
-      'customer/auth/refresh',
-    ]);
-    expect(tokenStore.accessToken, 'expired-access');
-    expect(tokenStore.refreshToken, 'refresh-token');
-    expect(tokenStore.customerId, 'cus_1');
-  });
+      await api.post<Map<String, dynamic>>(
+        '/customer/auth/pin/verify',
+        data: {'pin': '123456'},
+      );
 
-  test('refresh suspension errors remain visible to operational routing',
-      () async {
-    final tokenStore = _MemoryTokenStore();
-    await tokenStore.save(
-      accessToken: 'expired-access',
-      refreshToken: 'refresh-token',
-      customerId: 'cus_1',
-    );
-    final adapter = _RefreshFailureAdapter(
-      refreshStatus: 403,
-      refreshBody: const {
-        'error': {
-          'code': 'customer_suspended',
-          'message': 'Customer account is suspended.',
-          'details': {
-            'suspension': {'reason': 'Risk review'},
+      expect(tokenStore.accessToken, 'fresh-access');
+      expect(tokenStore.refreshToken, 'refresh-token');
+      expect(tokenStore.customerId, 'cus_1');
+    },
+  );
+
+  test(
+    'temporary refresh failures preserve the long-lived customer session',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      await tokenStore.save(
+        accessToken: 'expired-access',
+        refreshToken: 'refresh-token',
+        customerId: 'cus_1',
+      );
+      final adapter = _RefreshFailureAdapter(
+        refreshStatus: 503,
+        refreshBody: const {
+          'error': {
+            'code': 'service_unavailable',
+            'message': 'Please try again.',
           },
         },
-      },
-    );
-    final dio = Dio()..httpClientAdapter = adapter;
-    final api = ApiClient(
-      const AppConfig(
-        apiBaseUrl: 'https://partner.example.com/api/v1',
-        defaultLocale: 'th-TH',
-      ),
-      tokenStore,
-      localeTag: 'th-TH',
-      dio: dio,
-    );
+      );
+      final dio = Dio()..httpClientAdapter = adapter;
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        tokenStore,
+        localeTag: 'th-TH',
+        dio: dio,
+      );
 
-    DioException? thrown;
-    try {
-      await api.get<Map<String, dynamic>>('/customer/wallet');
-    } on DioException catch (error) {
-      thrown = error;
-    }
+      await expectLater(
+        api.get<Map<String, dynamic>>('/customer/wallet'),
+        throwsA(
+          isA<DioException>().having(
+            (error) => error.response?.statusCode,
+            'refresh status',
+            503,
+          ),
+        ),
+      );
 
-    expect(thrown?.response?.statusCode, 403);
-    expect(
-      (thrown?.response?.data as Map?)?['error']?['code'],
-      'customer_suspended',
-    );
-    expect(tokenStore.accessToken, 'expired-access');
-    expect(tokenStore.refreshToken, 'refresh-token');
-  });
+      expect(adapter.paths, ['customer/wallet', 'customer/auth/refresh']);
+      expect(tokenStore.accessToken, 'expired-access');
+      expect(tokenStore.refreshToken, 'refresh-token');
+      expect(tokenStore.customerId, 'cus_1');
+    },
+  );
 
-  test('rejected refresh token returns the original protected-route 401',
-      () async {
+  test(
+    'refresh suspension errors remain visible to operational routing',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      await tokenStore.save(
+        accessToken: 'expired-access',
+        refreshToken: 'refresh-token',
+        customerId: 'cus_1',
+      );
+      final adapter = _RefreshFailureAdapter(
+        refreshStatus: 403,
+        refreshBody: const {
+          'error': {
+            'code': 'customer_suspended',
+            'message': 'Customer account is suspended.',
+            'details': {
+              'suspension': {'reason': 'Risk review'},
+            },
+          },
+        },
+      );
+      final dio = Dio()..httpClientAdapter = adapter;
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        tokenStore,
+        localeTag: 'th-TH',
+        dio: dio,
+      );
+
+      DioException? thrown;
+      try {
+        await api.get<Map<String, dynamic>>('/customer/wallet');
+      } on DioException catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown?.response?.statusCode, 403);
+      expect(
+        (thrown?.response?.data as Map?)?['error']?['code'],
+        'customer_suspended',
+      );
+      expect(tokenStore.accessToken, 'expired-access');
+      expect(tokenStore.refreshToken, 'refresh-token');
+    },
+  );
+
+  test(
+    'rejected refresh token returns the original protected-route 401',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      await tokenStore.save(
+        accessToken: 'expired-access',
+        refreshToken: 'rejected-refresh',
+        customerId: 'cus_1',
+      );
+      final adapter = _RefreshFailureAdapter(
+        refreshStatus: 401,
+        refreshBody: const {
+          'error': {
+            'code': 'authentication_required',
+            'message':
+                'Authentication token is missing, invalid, expired, or revoked.',
+          },
+        },
+      );
+      final dio = Dio()..httpClientAdapter = adapter;
+      final api = ApiClient(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        tokenStore,
+        localeTag: 'th-TH',
+        dio: dio,
+      );
+
+      DioException? thrown;
+      try {
+        await api.get<Map<String, dynamic>>('/customer/wallet');
+      } on DioException catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown?.response?.statusCode, 401);
+      expect(thrown?.requestOptions.path, 'customer/wallet');
+      expect(tokenStore.refreshToken, 'rejected-refresh');
+    },
+  );
+
+  test('replacement refresh response emits forced sign-out event', () async {
     final tokenStore = _MemoryTokenStore();
     await tokenStore.save(
-      accessToken: 'expired-access',
-      refreshToken: 'rejected-refresh',
+      accessToken: 'replaced-access',
+      refreshToken: 'replaced-refresh',
       customerId: 'cus_1',
     );
     final adapter = _RefreshFailureAdapter(
       refreshStatus: 401,
       refreshBody: const {
         'error': {
-          'code': 'authentication_required',
-          'message':
-              'Authentication token is missing, invalid, expired, or revoked.',
+          'code': 'customer_session_replaced',
+          'message': 'This account signed in on a new device.',
+          'details': {'replacement_session_id': 'cas_new_device'},
         },
       },
     );
     final dio = Dio()..httpClientAdapter = adapter;
+    String replacementSessionId = '';
     final api = ApiClient(
       const AppConfig(
         apiBaseUrl: 'https://partner.example.com/api/v1',
@@ -243,6 +291,9 @@ void main() {
       tokenStore,
       localeTag: 'th-TH',
       dio: dio,
+      onSessionReplaced: (info) {
+        replacementSessionId = info.replacementSessionId;
+      },
     );
 
     DioException? thrown;
@@ -253,8 +304,13 @@ void main() {
     }
 
     expect(thrown?.response?.statusCode, 401);
-    expect(thrown?.requestOptions.path, 'customer/wallet');
-    expect(tokenStore.refreshToken, 'rejected-refresh');
+    expect(thrown?.requestOptions.path, 'customer/auth/refresh');
+    expect(
+      (thrown?.response?.data as Map?)?['error']?['code'],
+      'customer_session_replaced',
+    );
+    expect(replacementSessionId, 'cas_new_device');
+    expect(adapter.paths, ['customer/wallet', 'customer/auth/refresh']);
   });
 }
 
@@ -314,29 +370,23 @@ class _RefreshingAuthAdapter implements HttpClientAdapter {
     if (path == 'customer/auth/pin/verify') {
       _pinAttempts += 1;
       if (_pinAttempts == 1) {
-        return _json(
-          401,
-          const {
-            'code': 'authentication_required',
-            'message':
-                'Authentication token is missing, invalid, expired, or revoked.',
-          },
-        );
+        return _json(401, const {
+          'code': 'authentication_required',
+          'message':
+              'Authentication token is missing, invalid, expired, or revoked.',
+        });
       }
       return _json(200, const {'ok': true});
     }
 
     if (path == 'customer/auth/refresh') {
-      return _json(
-        200,
-        {
-          'resource': {
-            'token': 'fresh-access',
-            if (!omitRefreshToken) 'refresh_token': 'fresh-refresh',
-            'user': const {'id': 'cus_1'},
-          },
+      return _json(200, {
+        'resource': {
+          'token': 'fresh-access',
+          if (!omitRefreshToken) 'refresh_token': 'fresh-refresh',
+          'user': const {'id': 'cus_1'},
         },
-      );
+      });
     }
 
     return _json(404, {'message': 'Unexpected path $path'});
@@ -369,16 +419,13 @@ class _RefreshFailureAdapter implements HttpClientAdapter {
       return _json(refreshStatus, refreshBody);
     }
 
-    return _json(
-      401,
-      const {
-        'error': {
-          'code': 'authentication_required',
-          'message':
-              'Authentication token is missing, invalid, expired, or revoked.',
-        },
+    return _json(401, const {
+      'error': {
+        'code': 'authentication_required',
+        'message':
+            'Authentication token is missing, invalid, expired, or revoked.',
       },
-    );
+    });
   }
 
   @override

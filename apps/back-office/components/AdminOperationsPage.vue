@@ -776,6 +776,13 @@
       @confirm="runConfirmedAction"
     />
 
+    <AdminInvitationLinkModal
+      v-model="invitationResult.open"
+      :url="invitationResult.url"
+      :username="invitationResult.username"
+      :expires-at="invitationResult.expiresAt"
+    />
+
     <AdminModal v-model="relatedDetail.open" :title="relatedDetail.title">
       <AdminApiState :error="relatedDetail.error" />
       <AdminTopupDetail
@@ -911,6 +918,12 @@ const confirm = reactive<{
   action: null,
   row: null,
   related: null,
+})
+const invitationResult = reactive({
+  open: false,
+  url: '',
+  username: '',
+  expiresAt: '',
 })
 const relatedDetail = reactive<{
   open: boolean
@@ -3250,6 +3263,9 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
       upsertAllocationQueueProcess({ ...response, kind: 'allocation' })
       void loadAllocationQueueProcesses({ silent: true })
     }
+    if (action.resultMode === 'admin-invitation') {
+      openInvitationResult(response)
+    }
     confirm.open = false
     await load()
     if (showAllocationSummaryWidgets.value) {
@@ -3261,6 +3277,21 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
   } finally {
     saving.value = false
   }
+}
+
+const openInvitationResult = (response: any) => {
+  const payload = extractData(response) || response || {}
+  const invitation = payload.invitation || {}
+  const owner = payload.owner_admin || payload.owner || {}
+  const path = String(invitation.path || '').trim()
+  const apiUrl = String(invitation.url || '').trim()
+
+  invitationResult.url = import.meta.client && path.startsWith('/')
+    ? `${window.location.origin}${path}`
+    : apiUrl || path
+  invitationResult.username = String(payload.username || owner.username || '').trim()
+  invitationResult.expiresAt = String(invitation.expires_at || '').trim()
+  invitationResult.open = Boolean(invitationResult.url)
 }
 
 const handleStockGenerationActiveChange = (active: boolean) => {

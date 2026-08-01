@@ -182,6 +182,8 @@ List<String> _customerRouteFallbacks(String path) {
     '/profile/line-notifications',
     '/profile/reward-bank',
     '/profile/biometrics',
+    '/profile/passkeys',
+    '/profile/social-accounts',
     '/profile/account-deletion',
     '/purchase-history',
   ])) {
@@ -465,6 +467,10 @@ const _customerRouteFeaturePolicies = [
       'profile_biometrics',
       'native_biometric_unlock',
     ],
+  ),
+  _CustomerRouteFeaturePolicy(
+    prefixes: ['/profile/passkeys'],
+    featureKeys: ['passkey_login', 'passkeys', 'profile_passkeys'],
   ),
   _CustomerRouteFeaturePolicy(
     prefixes: ['/profile/account-deletion'],

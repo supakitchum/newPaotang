@@ -22,96 +22,104 @@ import 'package:go_router/go_router.dart';
 
 void main() {
   testWidgets(
-      'login renders every enabled store-compliant social provider from runtime config',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson({
-              'mobile': {
-                'auth_providers': [
-                  {'provider': 'line_oauth', 'enabled': true},
-                  {'provider': 'google_oauth2', 'enabled': true},
-                  {'provider': 'apple_login', 'enabled': true},
-                  {'provider': 'discord', 'enabled': true},
-                  {'provider': 'gmail', 'enabled': false},
-                ],
-              },
-            }),
-          ),
-        ],
-        child: const _LoginTestApp(),
-      ),
-    );
+    'login renders every enabled store-compliant social provider from runtime config',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'mobile': {
+                  'auth_providers': [
+                    {'provider': 'line_oauth', 'enabled': true},
+                    {'provider': 'google_oauth2', 'enabled': true},
+                    {'provider': 'apple_login', 'enabled': true},
+                    {'provider': 'facebook_oauth', 'enabled': true},
+                    {'provider': 'discord', 'enabled': true},
+                    {'provider': 'gmail', 'enabled': false},
+                  ],
+                },
+              }),
+            ),
+          ],
+          child: const _LoginTestApp(),
+        ),
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Continue with LINE'), findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.text('Continue with Apple ID'), findsOneWidget);
-    expect(find.text('Continue with discord'), findsNothing);
-    expect(find.text('Remember me'), findsOneWidget);
-    expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.text('Continue with LINE'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Continue with Apple ID'), findsOneWidget);
+      expect(find.text('Continue with Facebook'), findsOneWidget);
+      expect(find.text('Continue with discord'), findsNothing);
+      expect(find.text('Remember me'), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
 
-    await tester.tap(find.text('Remember me'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Remember me'));
+      await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.check), findsNothing);
-  });
+      expect(find.byIcon(Icons.check), findsNothing);
+    },
+  );
 
   testWidgets(
-      'login social launch shows provider loading without changing password submit copy',
-      (tester) async {
-    final socialLoginUrl = Completer<String>();
-    final repository = _SocialAuthRepository(
-      callbackResult: _emptyCallback('line'),
-      socialLoginUrlFuture: socialLoginUrl.future,
-    );
+    'login social launch shows provider loading without changing password submit copy',
+    (tester) async {
+      final socialLoginUrl = Completer<String>();
+      final repository = _SocialAuthRepository(
+        callbackResult: _emptyCallback('line'),
+        socialLoginUrlFuture: socialLoginUrl.future,
+      );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-          customerLinkLauncherProvider
-              .overrideWithValue(const _SuccessfulLinkLauncher()),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson({
-              'mobile': {
-                'auth_providers': [
-                  {'provider': 'line', 'label': 'LINE', 'enabled': true},
-                  {'provider': 'google', 'label': 'Google', 'enabled': true},
-                ],
-              },
-            }),
-          ),
-        ],
-        child: const _LoginTestApp(),
-      ),
-    );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(repository),
+            customerLinkLauncherProvider.overrideWithValue(
+              const _SuccessfulLinkLauncher(),
+            ),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'mobile': {
+                  'auth_providers': [
+                    {'provider': 'line', 'label': 'LINE', 'enabled': true},
+                    {'provider': 'google', 'label': 'Google', 'enabled': true},
+                  ],
+                },
+              }),
+            ),
+          ],
+          child: const _LoginTestApp(),
+        ),
+      );
 
-    await tester.pumpAndSettle();
-    final lineButton =
-        find.widgetWithText(OutlinedButton, 'Continue with LINE');
-    await tester.ensureVisible(lineButton);
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
+      final lineButton = find.widgetWithText(
+        OutlinedButton,
+        'Continue with LINE',
+      );
+      await tester.ensureVisible(lineButton);
+      await tester.pumpAndSettle();
 
-    await tester.tap(lineButton);
-    await tester.pump();
+      await tester.tap(lineButton);
+      await tester.pump();
 
-    expect(find.text('Connecting to LINE'), findsOneWidget);
-    expect(find.text('Signing in'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
-    expect(repository.lastSocialLoginProvider, 'line');
+      expect(find.text('Connecting to LINE'), findsOneWidget);
+      expect(find.text('Signing in'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+      expect(repository.lastSocialLoginProvider, 'line');
 
-    socialLoginUrl.complete('https://social.example.com/oauth');
-    await tester.pumpAndSettle();
+      socialLoginUrl.complete('https://social.example.com/oauth');
+      await tester.pumpAndSettle();
 
-    expect(find.text('Continue with LINE'), findsOneWidget);
-  });
+      expect(find.text('Continue with LINE'), findsOneWidget);
+    },
+  );
 
-  testWidgets('login social launch shows API payload errors like Nuxt',
-      (tester) async {
+  testWidgets('login social launch shows API payload errors like Nuxt', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('line'),
       socialLoginUrlError: _apiException(
@@ -139,8 +147,10 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final lineButton =
-        find.widgetWithText(OutlinedButton, 'Continue with LINE');
+    final lineButton = find.widgetWithText(
+      OutlinedButton,
+      'Continue with LINE',
+    );
     await tester.ensureVisible(lineButton);
     await tester.pumpAndSettle();
     await tester.tap(lineButton);
@@ -175,8 +185,10 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final lineButton =
-        find.widgetWithText(OutlinedButton, 'Continue with LINE');
+    final lineButton = find.widgetWithText(
+      OutlinedButton,
+      'Continue with LINE',
+    );
     await tester.ensureVisible(lineButton);
     await tester.pumpAndSettle();
     await tester.tap(lineButton);
@@ -187,112 +199,121 @@ void main() {
   });
 
   testWidgets(
-      'generic social callback routes unlinked Google users to phone link',
-      (tester) async {
-    final repository = _SocialAuthRepository(
-      callbackResult: const SocialCallbackResult(
-        provider: 'google',
-        code: 0,
-        lineLinkRequired: true,
-        linkToken: 'google-link-token',
-        displayName: 'Ada Google',
-        pictureUrl: '',
-        passwordResetReady: false,
-        passwordResetToken: '',
-        orderId: '',
-        message: '',
-        redirectPath: '/reward-claims',
-      ),
-    );
+    'generic social callback routes unlinked Google users to phone link',
+    (tester) async {
+      final repository = _SocialAuthRepository(
+        callbackResult: const SocialCallbackResult(
+          provider: 'google',
+          code: 0,
+          lineLinkRequired: true,
+          linkToken: 'google-link-token',
+          displayName: 'Ada Google',
+          pictureUrl: '',
+          passwordResetReady: false,
+          passwordResetToken: '',
+          orderId: '',
+          message: '',
+          redirectPath: '/reward-claims',
+        ),
+      );
 
-    final router = _router(
-      initialLocation: '/social/google/callback?code=abc&state=oauth_state',
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
-          ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
+      final router = _router(
+        initialLocation: '/social/google/callback?code=abc&state=oauth_state',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
 
-    await _pumpCallbackWork(tester);
+      await _pumpCallbackWork(tester);
 
-    expect(repository.lastCallbackProvider, 'google');
-    expect(repository.lastCallbackQuery?['code'], 'abc');
-    expect(repository.lastCallbackQuery?['state'], 'oauth_state');
-    expect(
-      find.text('link:google:google-link-token:Ada Google'),
-      findsOneWidget,
-    );
-    expect(
-      router
-          .routerDelegate.currentConfiguration.uri.queryParameters['redirect'],
-      '/reward-claims',
-    );
-  });
+      expect(repository.lastCallbackProvider, 'google');
+      expect(repository.lastCallbackQuery?['code'], 'abc');
+      expect(repository.lastCallbackQuery?['state'], 'oauth_state');
+      expect(
+        find.text('link:google:google-link-token:Ada Google'),
+        findsOneWidget,
+      );
+      expect(
+        router
+            .routerDelegate
+            .currentConfiguration
+            .uri
+            .queryParameters['redirect'],
+        '/reward-claims',
+      );
+    },
+  );
 
   testWidgets(
-      'generic social callback applies Apple session and enters PIN flow',
-      (tester) async {
-    final repository = _SocialAuthRepository(
-      callbackResult: const SocialCallbackResult(
-        provider: 'apple',
-        code: 0,
-        lineLinkRequired: false,
-        linkToken: '',
-        displayName: '',
-        pictureUrl: '',
-        passwordResetReady: false,
-        passwordResetToken: '',
-        orderId: '',
-        message: '',
-        redirectPath: '/checkout',
-        session: CustomerSession(
-          accessToken: 'access-token',
-          refreshToken: 'refresh-token',
-          pinRequired: true,
-          pinSetupRequired: false,
-          customerId: 'cus_apple',
+    'generic social callback applies Apple session and enters PIN flow',
+    (tester) async {
+      final repository = _SocialAuthRepository(
+        callbackResult: const SocialCallbackResult(
+          provider: 'apple',
+          code: 0,
+          lineLinkRequired: false,
+          linkToken: '',
+          displayName: '',
+          pictureUrl: '',
+          passwordResetReady: false,
+          passwordResetToken: '',
+          orderId: '',
+          message: '',
+          redirectPath: '/checkout',
+          session: CustomerSession(
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            pinRequired: true,
+            pinSetupRequired: false,
+            customerId: 'cus_apple',
+          ),
         ),
-      ),
-    );
-    final affiliate = _NoopAffiliateReferralService();
+      );
+      final affiliate = _NoopAffiliateReferralService();
 
-    final router = _router(
-      initialLocation: '/social/apple/callback?code=abc&state=oauth_state',
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          affiliateReferralServiceProvider.overrideWithValue(affiliate),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
+      final router = _router(
+        initialLocation: '/social/apple/callback?code=abc&state=oauth_state',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            affiliateReferralServiceProvider.overrideWithValue(affiliate),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
 
-    await _pumpCallbackWork(tester);
+      await _pumpCallbackWork(tester);
 
-    expect(repository.lastCallbackProvider, 'apple');
-    expect(affiliate.applied, isTrue);
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/pin');
-    expect(
-      router
-          .routerDelegate.currentConfiguration.uri.queryParameters['redirect'],
-      '/checkout',
-    );
-    expect(find.text('pin-flow'), findsOneWidget);
-  });
+      expect(repository.lastCallbackProvider, 'apple');
+      expect(affiliate.applied, isTrue);
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/pin');
+      expect(
+        router
+            .routerDelegate
+            .currentConfiguration
+            .uri
+            .queryParameters['redirect'],
+        '/checkout',
+      );
+      expect(find.text('pin-flow'), findsOneWidget);
+    },
+  );
 
-  testWidgets('generic social callback resumes pending payment order',
-      (tester) async {
+  testWidgets('generic social callback resumes pending payment order', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: const SocialCallbackResult(
         provider: 'line',
@@ -341,101 +362,103 @@ void main() {
   });
 
   testWidgets(
-      'generic social callback requires OAuth state and uses runtime provider copy',
-      (tester) async {
-    final repository = _SocialAuthRepository(
-      callbackResult: _emptyCallback('google'),
-    );
+    'generic social callback requires OAuth state and uses runtime provider copy',
+    (tester) async {
+      final repository = _SocialAuthRepository(
+        callbackResult: _emptyCallback('google'),
+      );
 
-    final router = _router(
-      initialLocation: '/social/google/callback?code=abc&redirect=%2Fcheckout',
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson({
-              'mobile': {
-                'auth_providers': [
-                  {
-                    'provider': 'google',
-                    'label': 'Google Workspace',
-                    'enabled': true,
-                    'buttonBackgroundColor': '#4285F4',
-                  },
-                ],
-              },
-            }),
-          ),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
-          ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
+      final router = _router(
+        initialLocation:
+            '/social/google/callback?code=abc&redirect=%2Fcheckout',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'mobile': {
+                  'auth_providers': [
+                    {
+                      'provider': 'google',
+                      'label': 'Google Workspace',
+                      'enabled': true,
+                      'buttonBackgroundColor': '#4285F4',
+                    },
+                  ],
+                },
+              }),
+            ),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
 
-    await _pumpCallbackWork(tester);
+      await _pumpCallbackWork(tester);
 
-    expect(repository.lastCallbackProvider, isNull);
-    expect(
-      find.text(
-        'No verification data from Google Workspace. Please try connecting again.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Google Workspace Login'), findsOneWidget);
-    expect(
-      find.widgetWithText(FilledButton, 'Back to sign in'),
-      findsNothing,
-    );
-    expect(
-      router.routerDelegate.currentConfiguration.uri.path,
-      '/social/google/callback',
-    );
-  });
+      expect(repository.lastCallbackProvider, isNull);
+      expect(
+        find.text(
+          'No verification data from Google Workspace. Please try connecting again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Google Workspace Login'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Back to sign in'),
+        findsNothing,
+      );
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/social/google/callback',
+      );
+    },
+  );
 
   testWidgets(
-      'generic social callback never falls back to LINE for another provider',
-      (tester) async {
-    final repository = _SocialAuthRepository(
-      callbackResult: _emptyCallback('discord'),
-    );
-    final router = _router(
-      initialLocation: '/social/discord/callback',
-    );
+    'generic social callback never falls back to LINE for another provider',
+    (tester) async {
+      final repository = _SocialAuthRepository(
+        callbackResult: _emptyCallback('discord'),
+      );
+      final router = _router(initialLocation: '/social/discord/callback');
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(const {
-              'mobile': {'auth_providers': []},
-            }),
-          ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson(const {
+                'mobile': {'auth_providers': []},
+              }),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text(
-        'No verification data from discord. Please try connecting again.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('discord Login'), findsOneWidget);
-    expect(find.textContaining('LINE'), findsNothing);
-  });
+      expect(
+        find.text(
+          'No verification data from discord. Please try connecting again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('discord Login'), findsOneWidget);
+      expect(find.textContaining('LINE'), findsNothing);
+    },
+  );
 
-  testWidgets('generic social callback normalizes code and state aliases',
-      (tester) async {
+  testWidgets('generic social callback normalizes code and state aliases', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('google'),
     );
@@ -466,8 +489,9 @@ void main() {
     expect(repository.lastCallbackQuery?['callbackState'], 'oauth_state');
   });
 
-  testWidgets('generic social callback accepts OAuth values from URL fragment',
-      (tester) async {
+  testWidgets('generic social callback accepts OAuth values from URL fragment', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('google'),
     );
@@ -498,8 +522,9 @@ void main() {
     expect(repository.lastCallbackQuery?['callbackState'], 'fragment-state');
   });
 
-  testWidgets('generic social callback accepts JSON-string wrapper aliases',
-      (tester) async {
+  testWidgets('generic social callback accepts JSON-string wrapper aliases', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('google'),
     );
@@ -532,107 +557,108 @@ void main() {
   });
 
   testWidgets(
-      'generic social callback preserves wrapped redirect for phone linking',
-      (tester) async {
-    final repository = _SocialAuthRepository(
-      callbackResult: const SocialCallbackResult(
-        provider: 'google',
-        code: 0,
-        lineLinkRequired: true,
-        linkToken: 'wrapped-link-token',
-        displayName: 'Wrapped User',
-        pictureUrl: '',
-        passwordResetReady: false,
-        passwordResetToken: '',
-        orderId: '',
-        message: '',
-      ),
-    );
-    final payload = Uri.encodeComponent(
-      '{"authorizationCode":"wrapped-code",'
-      '"callbackState":"wrapped-state",'
-      '"redirect":"/affiliate"}',
-    );
-
-    final router = _router(
-      initialLocation: '/social/google/callback?payload=$payload',
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
-          ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
-
-    await _pumpCallbackWork(tester);
-
-    final uri = router.routerDelegate.currentConfiguration.uri;
-    expect(uri.path, '/social/google/link-phone');
-    expect(uri.queryParameters['redirect'], '/affiliate');
-    expect(uri.queryParameters['token'], 'wrapped-link-token');
-  });
-
-  testWidgets('generic social callback preserves wrapped redirect after login',
-      (tester) async {
-    final repository = _SocialAuthRepository(
-      callbackResult: const SocialCallbackResult(
-        provider: 'google',
-        code: 0,
-        lineLinkRequired: false,
-        linkToken: '',
-        displayName: '',
-        pictureUrl: '',
-        passwordResetReady: false,
-        passwordResetToken: '',
-        orderId: '',
-        message: '',
-        session: CustomerSession(
-          accessToken: 'access-token',
-          refreshToken: 'refresh-token',
-          pinRequired: false,
-          pinSetupRequired: false,
-          customerId: 'cus_wrapped',
+    'generic social callback preserves wrapped redirect for phone linking',
+    (tester) async {
+      final repository = _SocialAuthRepository(
+        callbackResult: const SocialCallbackResult(
+          provider: 'google',
+          code: 0,
+          lineLinkRequired: true,
+          linkToken: 'wrapped-link-token',
+          displayName: 'Wrapped User',
+          pictureUrl: '',
+          passwordResetReady: false,
+          passwordResetToken: '',
+          orderId: '',
+          message: '',
         ),
-      ),
-    );
-    final payload = Uri.encodeComponent(
-      '{"authorizationCode":"wrapped-code",'
-      '"callbackState":"wrapped-state",'
-      '"redirect":"/affiliate"}',
-    );
+      );
+      final payload = Uri.encodeComponent(
+        '{"authorizationCode":"wrapped-code",'
+        '"callbackState":"wrapped-state",'
+        '"redirect":"/affiliate"}',
+      );
 
-    final router = _router(
-      initialLocation: '/social/google/callback?payload=$payload',
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
+      final router = _router(
+        initialLocation: '/social/google/callback?payload=$payload',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
+
+      await _pumpCallbackWork(tester);
+
+      final uri = router.routerDelegate.currentConfiguration.uri;
+      expect(uri.path, '/social/google/link-phone');
+      expect(uri.queryParameters['redirect'], '/affiliate');
+      expect(uri.queryParameters['token'], 'wrapped-link-token');
+    },
+  );
+
+  testWidgets(
+    'generic social callback preserves wrapped redirect after login',
+    (tester) async {
+      final repository = _SocialAuthRepository(
+        callbackResult: const SocialCallbackResult(
+          provider: 'google',
+          code: 0,
+          lineLinkRequired: false,
+          linkToken: '',
+          displayName: '',
+          pictureUrl: '',
+          passwordResetReady: false,
+          passwordResetToken: '',
+          orderId: '',
+          message: '',
+          session: CustomerSession(
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            pinRequired: false,
+            pinSetupRequired: false,
+            customerId: 'cus_wrapped',
           ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
+        ),
+      );
+      final payload = Uri.encodeComponent(
+        '{"authorizationCode":"wrapped-code",'
+        '"callbackState":"wrapped-state",'
+        '"redirect":"/affiliate"}',
+      );
 
-    await _pumpCallbackWork(tester);
+      final router = _router(
+        initialLocation: '/social/google/callback?payload=$payload',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.path,
-      '/affiliate',
-    );
-  });
+      await _pumpCallbackWork(tester);
 
-  testWidgets('generic social callback accepts metadata OAuth wrapper aliases',
-      (tester) async {
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/affiliate');
+    },
+  );
+
+  testWidgets('generic social callback accepts metadata OAuth wrapper aliases', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('google'),
     );
@@ -664,8 +690,9 @@ void main() {
     expect(repository.lastCallbackQuery?['oauth'], contains('providerCode'));
   });
 
-  testWidgets('generic social callback shows API payload errors like Nuxt',
-      (tester) async {
+  testWidgets('generic social callback shows API payload errors like Nuxt', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('google'),
       callbackError: _apiException(
@@ -730,49 +757,50 @@ void main() {
     expect(find.textContaining('internal callback failed'), findsNothing);
   });
 
-  testWidgets('social callback PIN errors restore the saved OAuth return path',
-      (
+  testWidgets(
+    'social callback PIN errors restore the saved OAuth return path',
+    (tester) async {
+      final tokenStore = _SocialCallbackTokenStore('/affiliate');
+      final repository = _SocialAuthRepository(
+        callbackResult: _emptyCallback('google'),
+        callbackError: const {
+          'error': {
+            'code': 'pin_required',
+            'message': 'Please confirm your PIN.',
+          },
+        },
+      );
+
+      final router = _router(
+        initialLocation: '/social/google/callback?code=abc&state=oauth_state',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authTokenStoreProvider.overrideWithValue(tokenStore),
+            authRepositoryProvider.overrideWithValue(repository),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
+
+      await _pumpCallbackWork(tester);
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/pin?redirect=%2Faffiliate',
+      );
+      expect(find.text('pin-flow'), findsOneWidget);
+    },
+  );
+
+  testWidgets('generic social link-phone submits Google provider and signs in', (
     tester,
   ) async {
-    final tokenStore = _SocialCallbackTokenStore('/affiliate');
-    final repository = _SocialAuthRepository(
-      callbackResult: _emptyCallback('google'),
-      callbackError: const {
-        'error': {
-          'code': 'pin_required',
-          'message': 'Please confirm your PIN.',
-        },
-      },
-    );
-
-    final router = _router(
-      initialLocation: '/social/google/callback?code=abc&state=oauth_state',
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authTokenStoreProvider.overrideWithValue(tokenStore),
-          authRepositoryProvider.overrideWithValue(repository),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
-          ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
-
-    await _pumpCallbackWork(tester);
-
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/pin?redirect=%2Faffiliate',
-    );
-    expect(find.text('pin-flow'), findsOneWidget);
-  });
-
-  testWidgets('generic social link-phone submits Google provider and signs in',
-      (tester) async {
     final repository = _SocialAuthRepository(
       callbackResult: const SocialCallbackResult(
         provider: 'google',
@@ -819,31 +847,33 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.enterText(find.byType(TextField).at(0), '0812345678');
-    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.enterText(find.byType(TextField).at(2), 'secret1234');
-    await tester.ensureVisible(find.byType(FilledButton));
-    await tester.pump();
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
+    await _completeSocialOnboarding(tester);
 
     expect(repository.lastLinkProvider, 'google');
     expect(repository.lastLinkToken, 'google-link-token');
     expect(repository.lastLinkPhone, '0812345678');
+    expect(repository.lastLinkFirstName, 'Ada');
+    expect(repository.lastLinkLastName, 'Lovelace');
     expect(repository.lastLinkPassword, 'secret1234');
+    expect(repository.lastLinkOtpVerificationToken, 'otp-social-verified');
+    expect(repository.lastLinkAcceptedTerms, isTrue);
     expect(repository.lastLinkRedirect, '/checkout');
     expect(affiliate.applied, isTrue);
     expect(router.routerDelegate.currentConfiguration.uri.path, '/pin');
     expect(
       router
-          .routerDelegate.currentConfiguration.uri.queryParameters['redirect'],
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .queryParameters['redirect'],
       '/checkout',
     );
     expect(find.text('pin-flow'), findsOneWidget);
   });
 
-  testWidgets('social link-phone redirects missing token back to login',
-      (tester) async {
+  testWidgets('social link-phone redirects missing token back to login', (
+    tester,
+  ) async {
     final router = _router(
       initialLocation: '/social/line/link-phone?redirect=%2Fcheckout',
       useRealLinkPhoneScreen: true,
@@ -866,24 +896,26 @@ void main() {
     expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
     expect(
       router
-          .routerDelegate.currentConfiguration.uri.queryParameters['redirect'],
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .queryParameters['redirect'],
       '/checkout',
     );
     expect(find.text('login:/checkout'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('social link-phone accepts handoff data from URL fragment',
-      (tester) async {
+  testWidgets('social link-phone accepts handoff data from URL fragment', (
+    tester,
+  ) async {
     final router = _router(
       initialLocation:
           '/social/google/link-phone#token=fragment-link-token&name=Ada%20Fragment&redirect=%2Fcheckout',
     );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-        ],
+        overrides: [appConfigProvider.overrideWithValue(_testConfig)],
         child: _TestApp(router: router),
       ),
     );
@@ -895,8 +927,9 @@ void main() {
     );
   });
 
-  testWidgets('social link-phone sends affiliate redirects through global PIN',
-      (tester) async {
+  testWidgets('social link-phone sends affiliate redirects through global PIN', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('line'),
       linkSession: const CustomerSession(
@@ -926,12 +959,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '0812345678');
-    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.enterText(find.byType(TextField).at(2), 'secret1234');
-    await tester.ensureVisible(find.byType(FilledButton));
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
+    await _completeSocialOnboarding(tester);
 
     expect(repository.lastLinkRedirect, '/affiliate');
     expect(affiliate.applied, isTrue);
@@ -942,8 +970,9 @@ void main() {
     expect(find.text('pin-flow'), findsOneWidget);
   });
 
-  testWidgets('social link-phone shows API payload errors like Nuxt',
-      (tester) async {
+  testWidgets('social link-phone shows API payload errors like Nuxt', (
+    tester,
+  ) async {
     final repository = _SocialAuthRepository(
       callbackResult: _emptyCallback('google'),
       linkError: _apiException(
@@ -971,14 +1000,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '123');
-    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.enterText(find.byType(TextField).at(2), 'secret1234');
-    await tester.ensureVisible(find.byType(FilledButton));
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
+    await _completeSocialOnboarding(tester);
 
-    expect(repository.lastLinkPhone, '123');
+    expect(repository.lastLinkPhone, '0812345678');
     expect(find.text('เบอร์โทรศัพท์นี้ถูกผูกกับบัญชีอื่น'), findsOneWidget);
     expect(find.text('Could not link Google account.'), findsNothing);
     expect(
@@ -1012,70 +1036,90 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '0812345678');
-    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await tester.enterText(find.byType(TextField).at(2), 'secret1234');
-    await tester.ensureVisible(find.byType(FilledButton));
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
+    await _completeSocialOnboarding(tester);
 
     expect(find.text('Could not link Google account.'), findsOneWidget);
     expect(find.textContaining('internal link failed'), findsNothing);
   });
 
-  testWidgets('social link-phone keeps content usable on narrow mobile screens',
-      (tester) async {
-    tester.view.physicalSize = const Size(360, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'social link-phone keeps content usable on narrow mobile screens',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 760);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final repository = _SocialAuthRepository(
-      callbackResult: const SocialCallbackResult(
-        provider: 'line',
-        code: 0,
-        lineLinkRequired: false,
-        linkToken: '',
-        displayName: '',
-        pictureUrl: '',
-        passwordResetReady: false,
-        passwordResetToken: '',
-        orderId: '',
-        message: '',
-      ),
-    );
-    final router = _router(
-      initialLocation: Uri(
-        path: '/social/line/link-phone',
-        queryParameters: {
-          'token': 'line-link-token',
-          'name': 'สมาชิกชื่อยาวมากสำหรับทดสอบการตัดคำในหน้าผูกบัญชีไลน์',
-        },
-      ).toString(),
-      useRealLinkPhoneScreen: true,
-    );
+      final repository = _SocialAuthRepository(
+        callbackResult: const SocialCallbackResult(
+          provider: 'line',
+          code: 0,
+          lineLinkRequired: false,
+          linkToken: '',
+          displayName: '',
+          pictureUrl: '',
+          passwordResetReady: false,
+          passwordResetToken: '',
+          orderId: '',
+          message: '',
+        ),
+      );
+      final router = _router(
+        initialLocation: Uri(
+          path: '/social/line/link-phone',
+          queryParameters: {
+            'token': 'line-link-token',
+            'name': 'สมาชิกชื่อยาวมากสำหรับทดสอบการตัดคำในหน้าผูกบัญชีไลน์',
+          },
+        ).toString(),
+        useRealLinkPhoneScreen: true,
+      );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          authRepositoryProvider.overrideWithValue(repository),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
-          ),
-        ],
-        child: _TestApp(router: router),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authRepositoryProvider.overrideWithValue(repository),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+          ],
+          child: _TestApp(router: router),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('LINE account'), findsOneWidget);
-    expect(find.byType(TextField), findsNWidgets(3));
-    await tester.ensureVisible(find.byType(FilledButton));
-    await tester.pumpAndSettle();
-    expect(find.byType(FilledButton), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('LINE account'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.ensureVisible(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+Future<void> _completeSocialOnboarding(WidgetTester tester) async {
+  expect(find.byType(TextField), findsOneWidget);
+  await tester.enterText(find.byType(TextField), '0812345678');
+  await tester.ensureVisible(find.byType(FilledButton));
+  await tester.tap(find.byType(FilledButton));
+  await tester.pumpAndSettle();
+
+  expect(find.byType(TextField), findsOneWidget);
+  await tester.enterText(find.byType(TextField), '123456');
+  await tester.pumpAndSettle();
+
+  expect(find.byType(TextField), findsNWidgets(4));
+  await tester.enterText(find.byType(TextField).at(0), 'Ada');
+  await tester.enterText(find.byType(TextField).at(1), 'Lovelace');
+  await tester.enterText(find.byType(TextField).at(2), 'secret1234');
+  await tester.enterText(find.byType(TextField).at(3), 'secret1234');
+  await tester.ensureVisible(find.byType(CheckboxListTile));
+  await tester.tap(find.byType(CheckboxListTile));
+  await tester.ensureVisible(find.byType(FilledButton));
+  await tester.tap(find.byType(FilledButton));
+  await tester.pumpAndSettle();
 }
 
 class _LoginTestApp extends StatelessWidget {
@@ -1149,10 +1193,8 @@ GoRouter _router({
       ),
       GoRoute(
         path: '/pin',
-        builder: (context, state) => const Text(
-          'pin-flow',
-          textDirection: TextDirection.ltr,
-        ),
+        builder: (context, state) =>
+            const Text('pin-flow', textDirection: TextDirection.ltr),
       ),
       GoRoute(
         path: '/checkout/pending',
@@ -1163,10 +1205,8 @@ GoRouter _router({
       ),
       GoRoute(
         path: '/affiliate',
-        builder: (context, state) => const Text(
-          'affiliate-flow',
-          textDirection: TextDirection.ltr,
-        ),
+        builder: (context, state) =>
+            const Text('affiliate-flow', textDirection: TextDirection.ltr),
       ),
     ],
   );
@@ -1213,16 +1253,16 @@ class _SocialAuthRepository extends AuthRepository {
       customerId: 'cus_linked',
     ),
   }) : super(
-          api: ApiClient(
-            const AppConfig(
-              apiBaseUrl: 'https://partner.example.com/api/v1',
-              defaultLocale: 'en-US',
-            ),
-            AuthTokenStore(),
-            localeTag: 'en-US',
-          ),
-          tokenStore: AuthTokenStore(),
-        );
+         api: ApiClient(
+           const AppConfig(
+             apiBaseUrl: 'https://partner.example.com/api/v1',
+             defaultLocale: 'en-US',
+           ),
+           AuthTokenStore(),
+           localeTag: 'en-US',
+         ),
+         tokenStore: AuthTokenStore(),
+       );
 
   final SocialCallbackResult callbackResult;
   final Object? socialLoginUrlError;
@@ -1236,9 +1276,18 @@ class _SocialAuthRepository extends AuthRepository {
   String? lastLinkProvider;
   String? lastLinkToken;
   String? lastLinkPhone;
+  String? lastLinkFirstName;
+  String? lastLinkLastName;
   String? lastLinkPassword;
   String? lastLinkPasswordConfirmation;
+  String? lastLinkOtpVerificationToken;
+  bool? lastLinkAcceptedTerms;
   String? lastLinkRedirect;
+  String? lastOtpRequestPhone;
+  String? lastOtpRequestPurpose;
+  String? lastOtpVerifyPhone;
+  String? lastOtpVerifyPurpose;
+  String? lastOtp;
 
   @override
   Future<String> socialLoginUrl(
@@ -1253,6 +1302,31 @@ class _SocialAuthRepository extends AuthRepository {
     final future = socialLoginUrlFuture;
     if (future != null) return future;
     return Future.value('https://social.example.com/oauth');
+  }
+
+  @override
+  Future<OtpRequestResult> requestOtp({
+    required String phone,
+    required String purpose,
+  }) async {
+    lastOtpRequestPhone = phone;
+    lastOtpRequestPurpose = purpose;
+    return const OtpRequestResult(
+      phoneMasked: '08xxxxx678',
+      resendAfterSeconds: 60,
+    );
+  }
+
+  @override
+  Future<OtpVerifyResult> verifyOtp({
+    required String phone,
+    required String purpose,
+    required String otp,
+  }) async {
+    lastOtpVerifyPhone = phone;
+    lastOtpVerifyPurpose = purpose;
+    lastOtp = otp;
+    return const OtpVerifyResult(verificationToken: 'otp-social-verified');
   }
 
   @override
@@ -1273,15 +1347,23 @@ class _SocialAuthRepository extends AuthRepository {
     required String provider,
     required String linkToken,
     required String phone,
+    required String firstName,
+    required String lastName,
     required String password,
     required String passwordConfirmation,
+    required String otpVerificationToken,
+    required bool acceptedTerms,
     String? redirect,
   }) async {
     lastLinkProvider = provider;
     lastLinkToken = linkToken;
     lastLinkPhone = phone;
+    lastLinkFirstName = firstName;
+    lastLinkLastName = lastName;
     lastLinkPassword = password;
     lastLinkPasswordConfirmation = passwordConfirmation;
+    lastLinkOtpVerificationToken = otpVerificationToken;
+    lastLinkAcceptedTerms = acceptedTerms;
     lastLinkRedirect = redirect;
     final error = linkError;
     if (error != null) throw error;
@@ -1296,11 +1378,7 @@ class _SocialCallbackTokenStore extends AuthTokenStore {
 
   @override
   Future<SocialCallbackContext?> readSocialCallbackContext(String state) async {
-    return SocialCallbackContext(
-      state: state,
-      auth: false,
-      redirect: redirect,
-    );
+    return SocialCallbackContext(state: state, auth: false, redirect: redirect);
   }
 }
 
@@ -1342,24 +1420,24 @@ DioException _apiException(String message, {required String path}) {
 
 class _NoopAffiliateReferralService extends AffiliateReferralService {
   _NoopAffiliateReferralService()
-      : super(
-          config: const AppConfig(
-            apiBaseUrl: 'https://partner.example.com/api/v1',
-            defaultLocale: 'en-US',
-          ),
-          repository: AffiliateReferralRepository(
-            ApiClient(
-              const AppConfig(
-                apiBaseUrl: 'https://partner.example.com/api/v1',
-                defaultLocale: 'en-US',
-              ),
-              AuthTokenStore(),
-              localeTag: 'en-US',
+    : super(
+        config: const AppConfig(
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          defaultLocale: 'en-US',
+        ),
+        repository: AffiliateReferralRepository(
+          ApiClient(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'en-US',
             ),
+            AuthTokenStore(),
+            localeTag: 'en-US',
           ),
-          store: AffiliateReferralStore(),
-          visitIdStore: PublicVisitIdStore(idFactory: (_) => 'visitor'),
-        );
+        ),
+        store: AffiliateReferralStore(),
+        visitIdStore: PublicVisitIdStore(idFactory: (_) => 'visitor'),
+      );
 
   bool applied = false;
 

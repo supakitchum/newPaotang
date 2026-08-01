@@ -100,6 +100,7 @@ export const useAdminSiteConfig = () => {
     || ''
   ))
   const logoUrl = computed(() => cleanText(config.value?.brand?.logo_url))
+  const faviconUrl = computed(() => cleanText(config.value?.brand?.favicon_url))
   const maintenance = computed(() => config.value?.maintenance || null)
   const maintenanceActive = computed(() => Boolean(maintenance.value?.active))
   const maintenanceMessage = computed(() => (
@@ -115,6 +116,7 @@ export const useAdminSiteConfig = () => {
     error,
     displayName,
     logoUrl,
+    faviconUrl,
     maintenance,
     maintenanceActive,
     maintenanceMessage,

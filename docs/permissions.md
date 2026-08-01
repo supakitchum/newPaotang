@@ -90,6 +90,8 @@ auditor
 | reward.publish | Publish rewards |
 | reward.correct | Correct published rewards through correction flow |
 | reward.audit | View reward audit |
+| reward_risk.view | View reward risk assessments; API also requires `super_admin` |
+| reward_risk.manage | Manage reward risk settings; reserved for restricted owner roles |
 | stock.view | View master stock |
 | stock.generate | Generate/import master stock |
 | stock.allocate | Allocate stock to partners |
@@ -130,6 +132,7 @@ auditor
 | games | game.view |
 | rewards | reward.view |
 | prize_checking | reward.view |
+| reward_risk | reward_risk.view; menu granted only to `super_admin` |
 | master_stock | stock.view |
 | stock_generation | stock.generate |
 | partners | partner.view |
@@ -192,6 +195,8 @@ auditor
 | reward_claim.approve | Approve reward cashout claims |
 | reward_claim.reject | Reject reward cashout claims |
 | reward_claim.pay | Pay reward cashout claims |
+| reward_risk.view | View reward risk assessments; API also requires `owner` or `owner_partner` |
+| reward_risk.manage | Manage reward risk settings; API also requires `owner` or `owner_partner` |
 | agent.view | View agents |
 | agent.create | Create agents |
 | agent.update | Update agents |
@@ -253,6 +258,7 @@ auditor
 | wallets | wallet.view |
 | topups | topup.view |
 | tickets | ticket.view |
+| reward_risk | reward_risk.view; menu granted only to `owner` and `owner_partner` |
 | agents | agent.view |
 | agent_quotas | agent.quota.manage |
 | payment_settings | payment_settings.view |
@@ -289,6 +295,7 @@ auditor
 | `POST /admin/central/admin-users` | central | admin_user.manage |
 | `GET /admin/central/admin-users/{admin_user_id}` | central | admin_user.manage |
 | `PATCH /admin/central/admin-users/{admin_user_id}` | central | admin_user.manage |
+| `POST /admin/central/admin-users/{admin_user_id}/invitation` | central | admin_user.manage |
 | `DELETE /admin/central/admin-users/{admin_user_id}` | central | admin_user.manage |
 | `GET /admin/central/roles` | central | role.manage |
 | `POST /admin/central/roles` | central | role.manage |
@@ -347,6 +354,10 @@ auditor
 | `POST /admin/central/rewards/{reward_result_id}/verify` | central | reward.verify |
 | `POST /admin/central/rewards/{reward_result_id}/publish` | central | reward.publish |
 | `POST /admin/central/rewards/{reward_result_id}/correct` | central | reward.correct |
+| `GET /admin/central/reward-risk/overview` | central | reward_risk.view + `super_admin` role |
+| `GET /admin/central/reward-risk/runs` | central | reward_risk.view + `super_admin` role |
+| `GET /admin/central/reward-risk/findings` | central | reward_risk.view + `super_admin` role; customer data masked |
+| `GET /admin/central/reward-risk/findings/{finding_id}` | central | reward_risk.view + `super_admin` role; customer data masked |
 | `GET /admin/central/settlements` | central | settlement.view |
 | `GET /admin/central/settlements/{settlement_id}` | central | settlement.view |
 | `POST /admin/central/settlements/{settlement_id}/approve` | central | settlement.approve |
@@ -390,6 +401,7 @@ auditor
 | `POST /admin/tenant/admin-users` | tenant | admin_user.manage |
 | `GET /admin/tenant/admin-users/{admin_user_id}` | tenant | admin_user.manage |
 | `PATCH /admin/tenant/admin-users/{admin_user_id}` | tenant | admin_user.manage |
+| `POST /admin/tenant/admin-users/{admin_user_id}/invitation` | tenant | admin_user.manage |
 | `DELETE /admin/tenant/admin-users/{admin_user_id}` | tenant | admin_user.manage |
 | `GET /admin/tenant/roles` | tenant | role.manage |
 | `POST /admin/tenant/roles` | tenant | role.manage |
@@ -437,6 +449,12 @@ auditor
 | `POST /admin/tenant/reward-claims/{claim_id}/approve` | tenant | reward_claim.approve |
 | `POST /admin/tenant/reward-claims/{claim_id}/reject` | tenant | reward_claim.reject |
 | `POST /admin/tenant/reward-claims/{claim_id}/pay` | tenant | reward_claim.pay |
+| `GET /admin/tenant/reward-risk/settings` | tenant | reward_risk.view + `owner`/`owner_partner` role |
+| `PUT /admin/tenant/reward-risk/settings` | tenant | reward_risk.manage + `owner`/`owner_partner` role + Idempotency-Key |
+| `GET /admin/tenant/reward-risk/overview` | tenant | reward_risk.view + `owner`/`owner_partner` role |
+| `GET /admin/tenant/reward-risk/runs` | tenant | reward_risk.view + `owner`/`owner_partner` role |
+| `GET /admin/tenant/reward-risk/findings` | tenant | reward_risk.view + `owner`/`owner_partner` role |
+| `GET /admin/tenant/reward-risk/findings/{finding_id}` | tenant | reward_risk.view + `owner`/`owner_partner` role |
 | `GET /admin/tenant/reservations` | tenant | reservation.view |
 | `POST /admin/tenant/reservations/{reservation_id}/cancel` | tenant | reservation.cancel |
 | `GET /admin/tenant/wallets` | tenant | wallet.view |

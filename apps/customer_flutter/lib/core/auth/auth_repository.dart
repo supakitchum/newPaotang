@@ -217,6 +217,7 @@ class AuthRepository {
       throw StateError('Customer refresh response has no access token.');
     }
     final session = CustomerSession(
+      sessionId: parsed.sessionId,
       accessToken: parsed.accessToken,
       refreshToken: parsed.refreshToken.isEmpty
           ? refreshToken
@@ -353,16 +354,24 @@ class AuthRepository {
   Future<CustomerSession> lineLinkPhone({
     required String linkToken,
     required String phone,
+    required String firstName,
+    required String lastName,
     required String password,
     required String passwordConfirmation,
+    required String otpVerificationToken,
+    required bool acceptedTerms,
     String? redirect,
   }) async {
     return socialLinkPhone(
       provider: 'line',
       linkToken: linkToken,
       phone: phone,
+      firstName: firstName,
+      lastName: lastName,
       password: password,
       passwordConfirmation: passwordConfirmation,
+      otpVerificationToken: otpVerificationToken,
+      acceptedTerms: acceptedTerms,
       redirect: redirect,
     );
   }
@@ -399,8 +408,12 @@ class AuthRepository {
     required String provider,
     required String linkToken,
     required String phone,
+    required String firstName,
+    required String lastName,
     required String password,
     required String passwordConfirmation,
+    required String otpVerificationToken,
+    required bool acceptedTerms,
     String? redirect,
   }) async {
     final normalizedProvider = normalizeSocialAuthProvider(provider);
@@ -414,8 +427,13 @@ class AuthRepository {
       data: {
         'link_token': linkToken,
         'phone': phone,
+        'first_name': firstName,
+        'last_name': lastName,
+        'name': '$firstName $lastName'.trim(),
         'password': password,
         'password_confirmation': passwordConfirmation,
+        'otp_verification_token': otpVerificationToken,
+        'accepted_terms': acceptedTerms,
         if (redirectPath.isNotEmpty) 'redirect': redirectPath,
       },
     );
@@ -430,6 +448,7 @@ class AuthRepository {
       refreshToken: session.refreshToken,
       customerId: session.customerId,
     );
+    await _tokenStore.saveSessionId(session.sessionId);
   }
 
   Future<PinStatus> verifyPin(String pin) async {
@@ -472,12 +491,15 @@ class AuthRepository {
     bool callbackUsesAuth = false,
   }) async {
     final normalizedProvider = normalizeSocialAuthProvider(provider);
+    final effectivePurpose = callbackUsesAuth && purpose == 'login'
+        ? 'link'
+        : purpose;
     final redirectPath = redirect?.trim() ?? '';
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/login',
-      auth: false,
+      auth: callbackUsesAuth,
       data: {
-        'purpose': purpose,
+        'purpose': effectivePurpose,
         'client': 'customer_flutter',
         'callback_path': '/social/$normalizedProvider/callback',
         if (redirectPath.isNotEmpty) 'redirect': redirectPath,
@@ -539,6 +561,11 @@ String normalizeSocialAuthProvider(String provider) {
   return switch (normalized) {
     'gmail' || 'google_login' || 'google_oauth' || 'google_oauth2' => 'google',
     'apple_id' || 'apple_login' || 'sign_in_with_apple' => 'apple',
+    'fb' ||
+    'facebook_login' ||
+    'facebook_oauth' ||
+    'meta' ||
+    'meta_login' => 'facebook',
     'line_login' || 'line_oa' || 'line_oauth' => 'line',
     final value => value,
   };
@@ -563,6 +590,7 @@ String _oauthStateFromUrl(String url) {
 
 class CustomerSession {
   const CustomerSession({
+    this.sessionId = '',
     required this.accessToken,
     required this.refreshToken,
     required this.pinRequired,
@@ -571,6 +599,7 @@ class CustomerSession {
     this.preferredLocale = '',
   });
 
+  final String sessionId;
   final String accessToken;
   final String refreshToken;
   final bool pinRequired;
@@ -599,6 +628,7 @@ class CustomerSession {
         _truthy(customer['pin_setup_required']) ||
         _truthy(customer['pinSetupRequired']);
     return CustomerSession(
+      sessionId: _firstString([payload['session_id'], payload['sessionId']]),
       accessToken: _firstString([
         payload['access_token'],
         payload['accessToken'],

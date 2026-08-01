@@ -8,10 +8,12 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/navigation/customer_back_navigation.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/affiliate/data/affiliate_referral_repository.dart';
+import 'package:customer_flutter/features/auth/presentation/login_otp_screen.dart';
 import 'package:customer_flutter/features/auth/presentation/login_screen.dart';
 import 'package:customer_flutter/features/auth/presentation/register_screen.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
@@ -122,6 +124,34 @@ void main() {
     expect(find.text('checkout-flow'), findsOneWidget);
   });
 
+  testWidgets('login keyboard done submits once and releases field focus', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    final passwordField = find.byType(TextField).at(1);
+    await tester.enterText(passwordField, 'secret1234');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(repo.loginCalls, 1);
+    expect(repo.lastLoginUsername, '0812345678');
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(
+      FocusManager.instance.primaryFocus?.context?.widget,
+      isNot(isA<EditableText>()),
+    );
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+  });
+
   testWidgets('login phone input keeps Nuxt numeric 10-digit behavior', (
     tester,
   ) async {
@@ -208,20 +238,36 @@ void main() {
     await _tapLoginSubmit(tester);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('login-otp-panel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('login-otp-screen')), findsOneWidget);
+    final otpEditable = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const ValueKey('login-otp-input')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(otpEditable.focusNode.hasFocus, isTrue);
+    final otpField = tester.widget<TextField>(
+      find.byKey(const ValueKey('login-otp-input')),
+    );
+    expect(otpField.autofillHints, contains(AutofillHints.oneTimeCode));
+    expect(
+      otpField.keyboardType,
+      const TextInputType.numberWithOptions(signed: false, decimal: false),
+    );
+    expect(otpField.obscureText, isFalse);
+    for (var index = 0; index < 6; index += 1) {
+      expect(find.byKey(ValueKey('login-otp-box-$index')), findsOneWidget);
+    }
     expect(repo.verifyLoginOtpCalls, 0);
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
-      '/login?redirect=%2Fcheckout',
+      '/login/otp?redirect=%2Fcheckout',
     );
 
     await tester.enterText(
       find.byKey(const ValueKey('login-otp-input')),
       '123456',
     );
-    final verifyButton = find.widgetWithText(FilledButton, 'Verify OTP');
-    await _scrollUntilVisible(tester, verifyButton);
-    await tester.tap(verifyButton);
     await tester.pumpAndSettle();
 
     expect(repo.lastLoginOtp, '123456');
@@ -549,6 +595,65 @@ void main() {
   });
 
   testWidgets(
+    'external PIN redirect back uses the destination fallback instead of PIN',
+    (tester) async {
+      final repo = _AuthRedirectRepository();
+      final router = GoRouter(
+        initialLocation: '/pin?redirect=%2Fnews%2Fdetail',
+        routes: [
+          GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+          GoRoute(
+            path: '/news/detail',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: IconButton(
+                  key: const ValueKey('news-detail-back'),
+                  onPressed: () =>
+                      navigateCustomerBack(context, fallbackPath: '/news'),
+                  icon: const Icon(Icons.arrow_back),
+                ),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/news',
+            builder: (context, state) =>
+                const Text('news-main', textDirection: TextDirection.ltr),
+          ),
+        ],
+      );
+      customerBackNavigationHistory.attach(router);
+      addTearDown(() {
+        customerBackNavigationHistory.detach(router);
+        router.dispose();
+      });
+
+      await tester.pumpWidget(
+        _testApp(
+          router: router,
+          repo: repo,
+          authenticated: true,
+          pinRequired: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tapPinDigits(tester, '123456');
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/news/detail',
+      );
+      await tester.tap(find.byKey(const ValueKey('news-detail-back')));
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/news');
+      expect(find.text('news-main'), findsOneWidget);
+      expect(find.byType(PinScreen), findsNothing);
+    },
+  );
+
+  testWidgets(
     'PIN waits one second before automatically using an enabled biometric credential',
     (tester) async {
       final repo = _AuthRedirectRepository();
@@ -601,6 +706,55 @@ void main() {
       expect(find.text('checkout-flow'), findsOneWidget);
     },
   );
+
+  testWidgets('PIN renders biometric unlock as an icon-only action', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final biometric = _AutoBiometricAuthService(
+      assertionToken: 'unused-assertion',
+      canUnlock: false,
+    );
+    final router = GoRouter(
+      initialLocation: '/pin?redirect=%2Fcheckout',
+      routes: [
+        GoRoute(path: '/pin', builder: (context, state) => const PinScreen()),
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) =>
+              const Text('checkout-flow', textDirection: TextDirection.ltr),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        router: router,
+        repo: repo,
+        authenticated: true,
+        pinRequired: true,
+        biometricAuth: biometric,
+        biometricEnabled: true,
+        platformKey: 'ios',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final action = find.byKey(const ValueKey('pin-biometric-button'));
+    expect(action, findsOneWidget);
+    expect(
+      find.descendant(of: action, matching: find.byType(Text)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: action,
+        matching: find.byIcon(Icons.face_retouching_natural),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<IconButton>(action).tooltip, isNotEmpty);
+  });
 
   testWidgets(
     'PIN does not auto-prompt when this device has no biometric credential',
@@ -994,6 +1148,10 @@ GoRouter _authRouter(String initialLocation) {
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
+        path: '/login/otp',
+        builder: (context, state) => const LoginOtpScreen(),
+      ),
+      GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
@@ -1057,6 +1215,7 @@ class _AuthRedirectRepository extends AuthRepository {
   String? lastRegisterOtpToken;
   int requestOtpCalls = 0;
   int registerCalls = 0;
+  int loginCalls = 0;
   int verifyLoginOtpCalls = 0;
   String lastLoginOtp = '';
 
@@ -1065,6 +1224,7 @@ class _AuthRedirectRepository extends AuthRepository {
     required String username,
     required String password,
   }) async {
+    loginCalls++;
     lastLoginUsername = username;
     final error = loginError;
     if (error != null) throw error;

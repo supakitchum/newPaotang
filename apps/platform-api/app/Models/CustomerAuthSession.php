@@ -25,6 +25,10 @@ class CustomerAuthSession extends BaseModel
         'refresh_expires_at',
         'refreshed_from_id',
         'pin_verified_at',
+        'activation_required',
+        'activated_at',
+        'revoked_reason',
+        'replaced_by_session_id',
     ];
 
     protected $hidden = [
@@ -38,6 +42,8 @@ class CustomerAuthSession extends BaseModel
         'revoked_at' => 'datetime',
         'last_used_at' => 'datetime',
         'pin_verified_at' => 'datetime',
+        'activation_required' => 'boolean',
+        'activated_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo

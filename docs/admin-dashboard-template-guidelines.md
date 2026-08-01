@@ -224,7 +224,7 @@ Back-office API ที่ frontend ต้องผูกกับ OpenAPI ปั
 | Page Area | API |
 | --- | --- |
 | Admin auth | `POST /api/v1/auth/admin/login`, `POST /api/v1/auth/admin/refresh`, `POST /api/v1/auth/admin/logout`, `GET /api/v1/auth/admin/me`, password endpoints, and `/api/v1/auth/admin/2fa*` |
-| Tenant admin users | `GET/POST /api/v1/admin/tenant/admin-users`, `GET/PATCH/DELETE /api/v1/admin/tenant/admin-users/{admin_user_id}` |
+| Tenant admin users | `GET/POST /api/v1/admin/tenant/admin-users`, `GET/PATCH/DELETE /api/v1/admin/tenant/admin-users/{admin_user_id}`, and `POST .../{admin_user_id}/invitation`; create uses username and returns a copy/share link instead of sending email |
 | Tenant roles/permissions | `GET/POST /api/v1/admin/tenant/roles`, `PATCH/DELETE /api/v1/admin/tenant/roles/{role_id}` |
 | Tenant members/customers | `GET/POST /api/v1/admin/tenant/members`, `GET/PATCH /api/v1/admin/tenant/members/{member_id}`, `POST /api/v1/admin/tenant/members/{member_id}/status` |
 | Tenant orders | `GET /api/v1/admin/tenant/orders`, `GET/PATCH /api/v1/admin/tenant/orders/{order_id}`, `POST /api/v1/admin/tenant/orders/{order_id}/cancel`, `POST /api/v1/admin/tenant/orders/{order_id}/refund` |

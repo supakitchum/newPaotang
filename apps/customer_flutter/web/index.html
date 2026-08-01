@@ -49,6 +49,134 @@
     flutter-view {
       background: #fff;
     }
+
+    #customer-bootstrap-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483646;
+      display: flex;
+      box-sizing: border-box;
+      align-items: flex-end;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding:
+        16px
+        max(28px, env(safe-area-inset-right))
+        max(24px, env(safe-area-inset-bottom))
+        max(28px, env(safe-area-inset-left));
+      overflow: hidden;
+      background-color: #0b96dc;
+      background-image:
+        linear-gradient(
+          to bottom,
+          transparent 0%,
+          transparent 72%,
+          rgba(3, 78, 145, 0.10) 100%
+        ),
+        url("splash/siamblend_splash.jpg");
+      background-position: center, center;
+      background-repeat: no-repeat;
+      background-size: 100% 100%, cover;
+      opacity: 1;
+      transition: opacity 260ms ease-out;
+    }
+
+    #customer-bootstrap-splash.is-leaving {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .customer-bootstrap-loader {
+      box-sizing: border-box;
+      width: min(190px, 54vw);
+      padding: 10px 18px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.30);
+      border-radius: 18px;
+      background: rgba(7, 90, 156, 0.65);
+      box-shadow: 0 8px 20px rgba(0, 49, 94, 0.20);
+      color: #fff;
+      font-family: Kanit, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .customer-bootstrap-loader-track {
+      position: relative;
+      width: 142px;
+      max-width: 100%;
+      height: 4px;
+      margin: 8px auto 0;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    .customer-bootstrap-loader-bar {
+      position: absolute;
+      inset-block: 0;
+      left: -42%;
+      width: 42%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #fff2b8, #e7b64c, #ffeba0);
+      box-shadow: 0 0 5px rgba(243, 204, 105, 0.60);
+      animation: customer-bootstrap-loading 1350ms ease-in-out infinite;
+    }
+
+    @keyframes customer-bootstrap-loading {
+      from {
+        transform: translateX(0);
+      }
+      to {
+        transform: translateX(338%);
+      }
+    }
+
+    @media (min-aspect-ratio: 3 / 4) {
+      #customer-bootstrap-splash {
+        background-size: 100% 100%, auto 100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #customer-bootstrap-splash {
+        transition: none;
+      }
+
+      .customer-bootstrap-loader-bar {
+        left: 29%;
+        animation: none;
+      }
+    }
+
+    #customer-portrait-orientation-guard {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      display: none;
+      box-sizing: border-box;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      background: #fff;
+      color: #202633;
+      font-family: sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    @media (orientation: landscape) and (pointer: coarse) {
+      #customer-portrait-orientation-guard {
+        display: flex;
+      }
+
+      flutter-view {
+        visibility: hidden;
+      }
+    }
   </style>
 
   <!-- iOS meta tags & icons -->
@@ -65,6 +193,98 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div
+    id="customer-bootstrap-splash"
+    role="status"
+    aria-label="กำลังเตรียมแอป"
+  >
+    <div class="customer-bootstrap-loader" aria-hidden="true">
+      <span>กำลังเตรียมแอป</span>
+      <div class="customer-bootstrap-loader-track">
+        <div class="customer-bootstrap-loader-bar"></div>
+      </div>
+    </div>
+  </div>
+  <div
+    id="customer-portrait-orientation-guard"
+    role="alert"
+    aria-live="assertive"
+  >
+    กรุณาหมุนอุปกรณ์เป็นแนวตั้ง
+  </div>
+  <script>
+    (function () {
+      const splash = document.getElementById("customer-bootstrap-splash");
+      if (!splash) return;
+
+      window.addEventListener(
+        "flutter-first-frame",
+        function () {
+          splash.classList.add("is-leaving");
+          window.setTimeout(function () {
+            splash.remove();
+          }, 280);
+        },
+        { once: true }
+      );
+    })();
+  </script>
+  <script>
+    (function () {
+      let portraitOrientationLocked = false;
+
+      function lockOrientation(orientation, value) {
+        try {
+          return Promise.resolve(orientation.lock(value))
+            .then(function () {
+              return true;
+            })
+            .catch(function () {
+              return false;
+            });
+        } catch (_) {
+          return Promise.resolve(false);
+        }
+      }
+
+      window.customerRequestPortraitOrientation = function () {
+        if (portraitOrientationLocked) {
+          return Promise.resolve(true);
+        }
+        const orientation = window.screen && window.screen.orientation;
+        if (!orientation || typeof orientation.lock !== "function") {
+          return Promise.resolve(false);
+        }
+        return lockOrientation(orientation, "portrait-primary")
+          .then(function (locked) {
+            if (locked) {
+              portraitOrientationLocked = true;
+              return true;
+            }
+            return lockOrientation(orientation, "portrait");
+          })
+          .then(function (locked) {
+            portraitOrientationLocked = locked;
+            return locked;
+          });
+      };
+
+      window.addEventListener(
+        "load",
+        window.customerRequestPortraitOrientation
+      );
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) {
+          window.customerRequestPortraitOrientation();
+        }
+      });
+      document.addEventListener(
+        "pointerdown",
+        window.customerRequestPortraitOrientation,
+        { passive: true }
+      );
+    })();
+  </script>
   <script src="customer-runtime-config.js"></script>
   <script>
     (function () {
@@ -215,7 +435,7 @@
       const manifestId = firstConfigValue(["manifestId", "webAppId", "appId", "manifest_id", "web_app_id", "app_id"], canonicalUrl);
       const manifestScope = firstConfigValue(["scope", "webScope", "manifestScope", "web_scope", "manifest_scope"], startUrl || ".");
       const manifestDisplay = firstConfigValue(["display", "displayMode", "webDisplay", "manifestDisplay", "display_mode", "web_display", "manifest_display"], "standalone");
-      const manifestOrientation = firstConfigValue(["orientation", "webOrientation", "manifestOrientation", "screenOrientation", "web_orientation", "manifest_orientation", "screen_orientation"], "portrait-primary");
+      const manifestOrientation = "portrait-primary";
       const htmlLang = firstConfigValue(["lang", "language", "locale", "defaultLocale", "default_locale"], "");
       const htmlDir = firstConfigValue(["dir", "direction", "textDirection", "text_direction"], "");
 
@@ -357,6 +577,10 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script
+    src="passkeys.bundle.js"
+    type="application/javascript"
+  ></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

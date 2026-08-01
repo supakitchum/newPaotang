@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
+use App\Models\CustomerPasskey;
 use App\Modules\CustomerNotifications\Listeners\CustomerNotificationDomainEventSubscriber;
 use App\Shared\Safety\RuntimeDatabaseCommandGuard;
 use App\Shared\Tenancy\TenantContext;
@@ -12,11 +14,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passkeys\Passkeys;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        Passkeys::ignoreRoutes();
+        Passkeys::useUserModel(Customer::class);
+        Passkeys::usePasskeyModel(CustomerPasskey::class);
+
         $this->app->scoped(TenantContext::class, fn () => new TenantContext);
     }
 
@@ -45,6 +52,22 @@ class AppServiceProvider extends ServiceProvider
             $scope = strtolower((string) $request->route('provider')).'|'.(string) $request->ip();
 
             return Limit::perMinute(300)->by(hash('sha256', $scope));
+        });
+        RateLimiter::for('admin-invitation', function (Request $request): Limit {
+            return Limit::perMinute(30)->by(hash('sha256', (string) $request->ip()));
+        });
+        RateLimiter::for('customer-passkey-public', function (Request $request): Limit {
+            $scope = strtolower((string) $request->getHost()).'|'.(string) $request->ip();
+
+            return Limit::perMinute(12)->by(hash('sha256', $scope));
+        });
+        RateLimiter::for('customer-passkey-management', function (Request $request): Limit {
+            $customer = $request->attributes->get('customer_session');
+            $scope = $customer instanceof \App\Shared\Auth\CustomerSessionContext
+                ? $customer->tenantId().'|'.$customer->customerId()
+                : strtolower((string) $request->getHost()).'|'.(string) $request->ip();
+
+            return Limit::perMinute(20)->by(hash('sha256', $scope));
         });
 
         if ($this->app->runningInConsole()) {

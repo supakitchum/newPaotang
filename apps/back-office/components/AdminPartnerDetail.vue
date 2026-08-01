@@ -339,21 +339,21 @@
             </div>
             <div v-if="sectionErrors.owner" class="alert alert-danger py-2">{{ errorMessage(sectionErrors.owner) }}</div>
             <div class="row g-3">
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-3">
+                <label class="form-label">Owner username</label>
+                <input v-model="ownerForm.owner_username" class="form-control" type="text" autocomplete="username" :disabled="!primaryTenant">
+              </div>
+              <div class="col-12 col-md-3">
                 <label class="form-label">Owner email</label>
                 <input v-model="ownerForm.owner_email" class="form-control" type="email" :disabled="!primaryTenant">
               </div>
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-3">
                 <label class="form-label">Owner name</label>
                 <input v-model="ownerForm.owner_name" class="form-control" type="text" :disabled="!primaryTenant">
               </div>
-              <div class="col-12 col-md-2">
+              <div class="col-12 col-md-3">
                 <label class="form-label">Owner phone</label>
                 <input v-model="ownerForm.owner_phone" class="form-control" type="text" :disabled="!primaryTenant">
-              </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label">Password</label>
-                <input v-model="ownerForm.owner_password" class="form-control" type="password" autocomplete="new-password" :disabled="!primaryTenant">
               </div>
             </div>
           </div>
@@ -544,6 +544,7 @@ const sections = computed(() => {
         item('site_name', 'Site name', settings?.site?.site_name),
         item('display_name', 'Display name', settings?.site?.display_name),
         item('logo_url', 'Logo URL', theme?.brand?.logo_url, true),
+        item('owner_username', 'Owner username', owner.username, true),
         item('owner_email', 'Owner email', owner.email, true),
         item('owner_status', 'Owner status', owner.status, false, 'status'),
       ]),
@@ -686,10 +687,10 @@ function buildSectionPayload(section: SectionKey) {
       },
     },
     owner: compactPayload({
+      owner_username: ownerForm.owner_username,
       owner_email: ownerForm.owner_email,
       owner_name: ownerForm.owner_name,
       owner_phone: nullable(ownerForm.owner_phone),
-      owner_password: nullable(ownerForm.owner_password),
     }),
   }
 
@@ -771,10 +772,10 @@ function resetForms() {
     font_family: valueOrDefault(theme?.theme?.font_family, 'Kanit'),
   })
   assignForm(ownerForm, {
+    owner_username: valueOrEmpty(owner.username),
     owner_email: valueOrEmpty(owner.email),
     owner_name: valueOrEmpty(owner.name),
     owner_phone: valueOrEmpty(owner.phone),
-    owner_password: '',
   })
 }
 

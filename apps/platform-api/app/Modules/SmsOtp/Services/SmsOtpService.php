@@ -20,6 +20,7 @@ class SmsOtpService
     public const PURPOSE_LOGIN = 'login';
     public const PURPOSE_PASSWORD_RESET = 'password_reset';
     public const PURPOSE_PIN_RESET = 'pin_reset';
+    public const PURPOSE_ACCOUNT_DELETION = 'account_deletion';
 
     private const OTP_TTL_SECONDS = 300;
     private const OTP_COOLDOWN_SECONDS = 60;
@@ -583,7 +584,7 @@ class SmsOtpService
     {
         $purpose = trim((string) $value);
 
-        return in_array($purpose, [self::PURPOSE_REGISTER, self::PURPOSE_LOGIN, self::PURPOSE_PASSWORD_RESET, self::PURPOSE_PIN_RESET], true)
+        return in_array($purpose, [self::PURPOSE_REGISTER, self::PURPOSE_LOGIN, self::PURPOSE_PASSWORD_RESET, self::PURPOSE_PIN_RESET, self::PURPOSE_ACCOUNT_DELETION], true)
             ? $purpose
             : null;
     }

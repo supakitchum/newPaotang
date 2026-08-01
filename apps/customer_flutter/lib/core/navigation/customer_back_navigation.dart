@@ -47,6 +47,12 @@ class CustomerBackNavigationHistory {
     _suppressNextTransition = true;
   }
 
+  void completeAuthenticationTransition(GoRouter router) {
+    if (!identical(_router, router)) return;
+    _previousLocations.removeWhere(_isAuthenticationGateLocation);
+    _suppressNextTransition = true;
+  }
+
   void _handleRouterChange() {
     final router = _router;
     if (router == null) return;
@@ -79,6 +85,14 @@ class CustomerBackNavigationHistory {
 
   String _locationOf(GoRouter router) {
     return router.routeInformationProvider.value.uri.toString();
+  }
+
+  bool _isAuthenticationGateLocation(String location) {
+    final path = Uri.tryParse(location)?.path ?? '';
+    return path == '/login' ||
+        path == '/login/otp' ||
+        path == '/pin' ||
+        path == '/security-lock';
   }
 }
 

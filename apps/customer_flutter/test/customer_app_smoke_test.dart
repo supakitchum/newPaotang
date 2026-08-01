@@ -94,4 +94,25 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'CustomerApp keeps Android screenshot protection on for public routes',
+    (tester) async {
+      await runCustomerAppSmokeHarness(
+        tester,
+        platformKey: 'android',
+        bootstrapPayload: const {
+          'tenant_id': 'tenant_android_security',
+          'mobile': {
+            'screen_security': {
+              'android': {
+                'flag_secure': false,
+                'protect_recent_app_preview': false,
+              },
+            },
+          },
+        },
+      );
+    },
+  );
 }

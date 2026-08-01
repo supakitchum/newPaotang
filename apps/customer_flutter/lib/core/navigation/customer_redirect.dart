@@ -1,5 +1,6 @@
 const _guestOnlyRedirectPaths = {
   '/login',
+  '/login/otp',
   '/register',
   '/forgot-password',
   '/reset-password',
@@ -59,6 +60,10 @@ String customerLoginRouteForRedirect(String? redirect) {
   return customerRouteWithRedirect('/login', redirect);
 }
 
+String customerLoginOtpRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/login/otp', redirect);
+}
+
 String customerRegisterRouteForRedirect(String? redirect) {
   return customerRouteWithRedirect('/register', redirect);
 }
@@ -71,8 +76,6 @@ String customerCheckoutPendingRouteForOrder(String? orderId) {
   final id = orderId?.trim() ?? '';
   return Uri(
     path: '/checkout/pending',
-    queryParameters: {
-      if (id.isNotEmpty) 'order_id': id,
-    },
+    queryParameters: {if (id.isNotEmpty) 'order_id': id},
   ).toString();
 }

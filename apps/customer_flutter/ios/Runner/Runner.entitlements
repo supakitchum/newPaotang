@@ -7,6 +7,7 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>$(CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN)</string>
+		<string>$(CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN)</string>
 	</array>
 </dict>
 </plist>

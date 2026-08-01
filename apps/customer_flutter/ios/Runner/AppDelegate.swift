@@ -7,6 +7,14 @@ private final class SecureCaptureTextField: UITextField {
   var onLayout: (() -> Void)?
   weak var interactionView: UIView?
 
+  override var canBecomeFirstResponder: Bool {
+    false
+  }
+
+  override func becomeFirstResponder() -> Bool {
+    false
+  }
+
   override func layoutSubviews() {
     super.layoutSubviews()
     onLayout?()
@@ -36,7 +44,7 @@ private final class IOSSecureCaptureProtector {
     secureTextField.tintColor = .clear
     secureTextField.backgroundColor = .clear
     secureTextField.borderStyle = .none
-    secureTextField.isUserInteractionEnabled = true
+    secureTextField.isUserInteractionEnabled = false
     secureTextField.isAccessibilityElement = false
     secureTextField.accessibilityElementsHidden = false
     secureTextField.clipsToBounds = true

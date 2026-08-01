@@ -827,7 +827,16 @@ class CustomerNotificationService
         $recipient = $delivery->recipient;
         $device = $delivery->device;
         $notification = $recipient?->notification;
-        if ($recipient === null || $device === null || $notification === null || $device->revoked_at !== null) {
+        $isFinalSessionReplacementDelivery = $device !== null
+            && $notification !== null
+            && $device->revoked_at !== null
+            && (string) $notification->event_key === 'account.session.replaced'
+            && $delivery->created_at !== null
+            && $delivery->created_at->lessThanOrEqualTo($device->revoked_at);
+        if ($recipient === null
+            || $device === null
+            || $notification === null
+            || ($device->revoked_at !== null && ! $isFinalSessionReplacementDelivery)) {
             $delivery->forceFill([
                 'status' => 'skipped',
                 'last_error_code' => 'device_unavailable',
@@ -840,11 +849,16 @@ class CustomerNotificationService
         $attempts = (int) $delivery->attempts;
         $locale = $device->locale ?: 'th-TH';
         $pushPreview = $this->pushPreview($notification, $locale);
+        $notificationMetadata = is_array($notification->metadata_json)
+            ? $notification->metadata_json
+            : [];
         $result = $this->fcm->send([
             'token' => (string) $device->fcm_token_encrypted,
             'notification' => $pushPreview,
             'data' => [
                 'notification_id' => (string) $notification->id,
+                'event_key' => (string) $notification->event_key,
+                'replacement_session_id' => (string) ($notificationMetadata['replacement_session_id'] ?? ''),
                 'action_key' => (string) $notification->action_key,
                 'action_entity_id' => (string) ($notification->action_entity_id ?? ''),
             ],

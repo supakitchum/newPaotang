@@ -204,7 +204,7 @@ class CentralTelegramNotificationService
         }
 
         if ($message === '') {
-            $message = "ทดสอบแจ้งเตือน Telegram จาก newPaotang\nเวลา: ".$this->occurredAt();
+            $message = "ทดสอบแจ้งเตือน Telegram จาก Siamblend\nเวลา: ".$this->occurredAt();
         }
 
         if (mb_strlen($message) > 3500) {

@@ -8,6 +8,7 @@ use App\Models\CustomerLineIdentity;
 use App\Models\CustomerLineLinkToken;
 use App\Modules\LineNotifications\Services\LineMessagingClient;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\SmsOtp\Services\SmsOtpService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class CustomerLineAuthService
         private readonly TenantLineNotificationService $lineNotifications,
         private readonly TenantSocialAuthService $socialAuth,
         private readonly CustomerSuspensionService $customerSuspensions,
+        private readonly SmsOtpService $smsOtp,
     ) {
     }
 
@@ -34,7 +36,12 @@ class CustomerLineAuthService
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
      */
-    public function redirect(array $tenant, array $payload, Request $request): array
+    public function redirect(
+        array $tenant,
+        array $payload,
+        Request $request,
+        ?CustomerSessionContext $currentCustomer = null,
+    ): array
     {
         $channel = $this->lineNotifications->activeChannelForTenant((string) $tenant['tenant_id']);
 
@@ -51,6 +58,15 @@ class CustomerLineAuthService
         $stateId = 'les_'.Str::ulid()->toBase32();
         $loginChannelId = $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted');
         $purpose = $this->linePurpose($payload['purpose'] ?? null);
+        if ($purpose === 'link' && ! $currentCustomer instanceof CustomerSessionContext) {
+            return ['error' => 'authentication_required'];
+        }
+        if ($purpose === 'link' && ! $currentCustomer->hasPin()) {
+            return ['error' => 'pin_setup_required'];
+        }
+        if ($purpose === 'link' && ! $currentCustomer->pinVerified()) {
+            return ['error' => 'pin_required'];
+        }
 
         CustomerExternalAuthState::query()->insert([
             'id' => $stateId,
@@ -67,6 +83,9 @@ class CustomerLineAuthService
                 'redirect_uri' => $redirectUri,
                 'line_channel_id' => $loginChannelId,
                 'purpose' => $purpose,
+                'link_customer_id' => $purpose === 'link'
+                    ? $currentCustomer?->customerId()
+                    : null,
                 'redirect' => $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null),
                 'provider_readiness' => 'production_ready',
                 'production_line_ready' => true,
@@ -185,6 +204,23 @@ class CustomerLineAuthService
         $friend = $accessToken === '' ? ['ok' => false] : $this->line->friendshipStatus($accessToken);
         $friendFlag = (bool) (($friend['data'] ?? [])['friendFlag'] ?? false);
 
+        if ($purpose === 'link') {
+            $expectedCustomerId = trim((string) ($metadata['link_customer_id'] ?? ''));
+            if (! $currentCustomer instanceof CustomerSessionContext
+                || $expectedCustomerId === ''
+                || ! hash_equals($expectedCustomerId, $currentCustomer->customerId())) {
+                return ['error' => 'authentication_required'];
+            }
+            if (! $currentCustomer->hasPin()) {
+                return ['error' => 'pin_setup_required'];
+            }
+            if (! $currentCustomer->pinVerified()) {
+                return ['error' => 'pin_required'];
+            }
+
+            return $this->linkCurrentCustomer($tenant, $currentCustomer, $lineProfile, $lineUserId, $friendFlag, $redirectPath);
+        }
+
         if ($currentCustomer instanceof CustomerSessionContext) {
             if ($purpose === 'password_reset') {
                 return [
@@ -199,6 +235,7 @@ class CustomerLineAuthService
         $identity = CustomerLineIdentity::query()
             ->where('tenant_id', $tenant['tenant_id'])
             ->where('line_user_id', $lineUserId)
+            ->whereNull('revoked_at')
             ->first();
 
         if ($identity instanceof CustomerLineIdentity) {
@@ -236,7 +273,11 @@ class CustomerLineAuthService
 
             return [
                 'resource' => array_merge(
-                    $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id),
+                    $this->customerAuth->issueSession(
+                        (string) $tenant['tenant_id'],
+                        (string) $customer->id,
+                        activationRequired: true,
+                    ),
                     ['redirect' => $redirectPath],
                 ),
                 'status' => 200,
@@ -255,6 +296,9 @@ class CustomerLineAuthService
         return [
             'resource' => [
                 'line_link_required' => true,
+                'social_onboarding_required' => true,
+                'phone_verification_required' => true,
+                'member_profile_required' => true,
                 'link_token' => $linkToken,
                 'redirect' => $redirectPath,
                 'line_profile' => [
@@ -317,15 +361,15 @@ class CustomerLineAuthService
         ]);
         $this->customerAuth->ensurePrimaryWallet($tenantId, $customerId);
 
-        $pinVerifiedAt = null;
+        $session = $this->customerAuth->rotateVerifiedSession($currentCustomer);
 
-        if ($currentCustomer->pinVerified()) {
-            $pinVerifiedAt = (string) ($currentCustomer->session['pin_verified_at'] ?? now()->toDateTimeString());
+        if (isset($session['error'])) {
+            return ['error' => (string) $session['error']];
         }
 
         return [
             'resource' => array_merge(
-                $this->customerAuth->issueSession($tenantId, $customerId, null, $pinVerifiedAt),
+                $session,
                 ['line_linked' => true, 'redirect' => $redirectPath],
             ),
             'status' => 200,
@@ -340,9 +384,16 @@ class CustomerLineAuthService
     public function linkPhone(array $tenant, array $payload): array
     {
         $token = trim((string) ($payload['link_token'] ?? ''));
-        $phone = preg_replace('/\D+/', '', (string) ($payload['phone'] ?? ''));
+        $phone = $this->smsOtp->normalizePhone($payload['phone'] ?? null);
+        $firstName = trim((string) ($payload['first_name'] ?? ''));
+        $lastName = trim((string) ($payload['last_name'] ?? ''));
         $password = (string) ($payload['password'] ?? '');
         $passwordConfirmation = (string) ($payload['password_confirmation'] ?? $password);
+        $otpVerificationToken = trim((string) ($payload['otp_verification_token'] ?? ''));
+        $acceptedTerms = filter_var(
+            $payload['accepted_terms'] ?? false,
+            FILTER_VALIDATE_BOOL,
+        );
         $errors = [];
 
         if ($token === '') {
@@ -353,19 +404,43 @@ class CustomerLineAuthService
             $errors['phone'][] = 'The phone field must contain a valid phone number.';
         }
 
-        if ($password === '') {
-            $errors['password'][] = 'The password field is required.';
+        if ($firstName === '') {
+            $errors['first_name'][] = 'The first_name field is required.';
+        }
+
+        if ($lastName === '') {
+            $errors['last_name'][] = 'The last_name field is required.';
+        }
+
+        if (strlen($password) < 6) {
+            $errors['password'][] = 'The password field must be at least 6 characters.';
         }
 
         if ($password !== $passwordConfirmation) {
             $errors['password_confirmation'][] = 'The password confirmation does not match.';
         }
 
+        if ($otpVerificationToken === '') {
+            $errors['otp_verification_token'][] = 'Phone OTP verification is required.';
+        }
+
+        if (! $acceptedTerms) {
+            $errors['accepted_terms'][] = 'The terms must be accepted.';
+        }
+
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'details' => ['fields' => $errors]];
         }
 
-        return DB::transaction(function () use ($tenant, $token, $phone, $password, $payload): array {
+        return DB::transaction(function () use (
+            $tenant,
+            $token,
+            $phone,
+            $firstName,
+            $lastName,
+            $password,
+            $otpVerificationToken,
+        ): array {
             $link = CustomerLineLinkToken::query()
                 ->where('tenant_id', $tenant['tenant_id'])
                 ->where('token_hash', hash('sha256', $token))
@@ -412,17 +487,28 @@ class CustomerLineAuthService
                     return ['error' => 'resource_conflict'];
                 }
             } else {
-                if (strlen($password) < 6) {
-                    return [
-                        'error' => 'validation_failed',
-                        'details' => ['fields' => ['password' => ['The password field must be at least 6 characters.']]],
-                    ];
+                if ($lineOwner instanceof CustomerLineIdentity) {
+                    return ['error' => 'resource_conflict'];
                 }
+            }
 
+            $otp = $this->smsOtp->consumeVerifiedToken(
+                (string) $tenant['tenant_id'],
+                (string) $phone,
+                SmsOtpService::PURPOSE_REGISTER,
+                $otpVerificationToken,
+            );
+            if (($otp['ok'] ?? false) !== true) {
+                return ['error' => (string) ($otp['error'] ?? 'otp_invalid')];
+            }
+
+            if (! $customer instanceof Customer) {
                 $customer = $this->customerAuth->createLineCustomer($tenant, [
                     'phone' => $phone,
                     'password' => $password,
-                    'name' => $link->display_name ?: 'LINE Customer',
+                    'name' => trim($firstName.' '.$lastName),
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
                     'avatar_url' => $link->picture_url,
                 ]);
             }
@@ -450,7 +536,11 @@ class CustomerLineAuthService
             ]);
 
             return [
-                'resource' => $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id),
+                'resource' => $this->customerAuth->issueSession(
+                    (string) $tenant['tenant_id'],
+                    (string) $customer->id,
+                    activationRequired: true,
+                ),
                 'status' => 200,
             ];
         });
@@ -624,7 +714,7 @@ class CustomerLineAuthService
     {
         $purpose = trim((string) $value);
 
-        return in_array($purpose, ['login', 'password_reset'], true) ? $purpose : 'login';
+        return in_array($purpose, ['login', 'password_reset', 'link'], true) ? $purpose : 'login';
     }
 
     private function redirectPath(mixed $value): string

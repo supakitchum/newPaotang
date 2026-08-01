@@ -72,6 +72,8 @@ Back-office support that is now part of the OpenAPI skeleton:
 ```text
 admin auth login/logout/refresh/me/password reset/password change/2FA setup/enable/disable/recovery/verify
 realtime auth: /customer/realtime/auth, /admin/central/realtime/auth, /admin/tenant/realtime/auth
+central and tenant admin user management: username-based account issuance returns a one-time shareable invitation link; list/detail never expose invitation tokens
+public admin invitation acceptance: /auth/admin/invitations/{token}
 tenant admin user management: /admin/tenant/admin-users
 tenant role management: /admin/tenant/roles
 tenant customer member management: /admin/tenant/members

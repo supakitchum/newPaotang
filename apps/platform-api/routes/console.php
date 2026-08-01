@@ -58,6 +58,12 @@ Schedule::command('customer-notifications:recover-deliveries --limit=100')
     ->withoutOverlapping()
     ->description('Redispatch customer push deliveries missed by the queue or abandoned by a worker.');
 
+Schedule::command('customer-accounts:process-deletions --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Remind and automatically close customer accounts after their deletion grace period.');
+
 Schedule::command('platform:alerts:check --dry-run --format=json')
     ->everyFiveMinutes()
     ->withoutOverlapping()

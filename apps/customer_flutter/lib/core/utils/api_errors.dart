@@ -12,8 +12,9 @@ class ApiErrorInfo {
   });
 
   factory ApiErrorInfo.fromObject(Object? error) {
-    final statusCode =
-        error is DioException ? error.response?.statusCode : null;
+    final statusCode = error is DioException
+        ? error.response?.statusCode
+        : null;
     final requestPath = error is DioException ? error.requestOptions.path : '';
     final data = error is DioException ? error.response?.data : error;
     final payload = asMap(data);
@@ -35,9 +36,8 @@ class ApiErrorInfo {
       payload['details'],
       payload['errors'],
     ]);
-    final validationMessage = _validationMessage(
-          errorPayload['errors'],
-        ) ??
+    final validationMessage =
+        _validationMessage(errorPayload['errors']) ??
         _validationMessage(payload['errors']);
 
     final message = _firstText([
@@ -80,6 +80,7 @@ class ApiErrorInfo {
       isSmsOtpProviderNotConfigured && !providerRequired;
 
   bool get isCustomerSuspended => code == 'customer_suspended';
+  bool get isCustomerSessionReplaced => code == 'customer_session_replaced';
   bool get isMaintenanceActive => code == 'maintenance_active';
   bool get isPinRequired =>
       code == 'pin_required' || code == 'pin_setup_required';
@@ -106,6 +107,11 @@ class ApiErrorInfo {
         normalizedMessage.contains('session has expired');
   }
 
+  String get replacementSessionId => _firstText([
+    details['replacement_session_id'],
+    details['replacementSessionId'],
+  ]);
+
   bool get _isPasswordLoginRequest {
     final normalized = requestPath.trim().toLowerCase();
     return normalized.endsWith('/customer/auth/login') ||
@@ -124,7 +130,7 @@ class ApiErrorInfo {
   }
 
   String? get operationalRedirectPath {
-    if (isAuthenticationExpired) return '/login';
+    if (isAuthenticationExpired || isCustomerSessionReplaced) return '/login';
     if (isMaintenanceActive) return '/maintenance';
     if (isPinRequired) return '/pin';
     if (isCustomerSuspended) return customerSuspendedPath;

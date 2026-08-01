@@ -25,6 +25,7 @@ const requiredFiles = [
   'composables/useAdminHostMode.ts',
   'composables/useAdminSuccessAlert.ts',
   'composables/useAdminClientReady.ts',
+  'composables/useAdminBranding.ts',
   'composables/useAdminSession.ts',
   'composables/useAdminSiteConfig.ts',
   'composables/useAdminRealtime.ts',
@@ -101,6 +102,11 @@ const requiredStaticAssets = [
   'public/admin-template/assets/js/custom.js',
   'public/admin-template/assets/js/sticky.js',
   'public/admin-template/NOTICE.md',
+  'public/brand/siamblend-bo-logo.png',
+  'public/brand/siamblend-bo-mark.png',
+  'public/brand/siamblend-favicon.ico',
+  'public/brand/favicon-32x32.png',
+  'public/brand/apple-touch-icon.png',
 ]
 
 for (const asset of requiredStaticAssets) {
@@ -117,6 +123,9 @@ const adminHostMode = existsSync(join(root, 'composables/useAdminHostMode.ts'))
   : ''
 const adminSiteConfig = existsSync(join(root, 'composables/useAdminSiteConfig.ts'))
   ? readFileSync(join(root, 'composables/useAdminSiteConfig.ts'), 'utf8')
+  : ''
+const adminBranding = existsSync(join(root, 'composables/useAdminBranding.ts'))
+  ? readFileSync(join(root, 'composables/useAdminBranding.ts'), 'utf8')
   : ''
 const adminMiddleware = existsSync(join(root, 'middleware/admin.global.ts'))
   ? readFileSync(join(root, 'middleware/admin.global.ts'), 'utf8')
@@ -298,6 +307,7 @@ for (const evidence of [
   ['partner BO redirect blocks central', loginPage.includes('if (isPartnerBoMode.value)') && loginPage.includes("return isScopePath(target, 'tenant') ? target : ''") && adminSession.includes('hostMode.isPartnerBoHost.value') && adminSession.includes("path.startsWith('/admin/central')") && adminMiddleware.includes("to.path.startsWith('/admin/central')")],
   ['central BO login scope remains without tenant id field', (loginPage.includes('<label class="form-label">Scope</label>') || loginPage.includes("t('common.scope')")) && (loginPage.includes('<option value="central">Central</option>') || loginPage.includes("t('common.central')")) && !loginPage.includes('<label class="form-label">Tenant ID</label>')],
   ['partner BO brand render evidence', loginPage.includes('data-partner-login-brand-name') && loginPage.includes('data-partner-login-brand-logo') && loginPage.includes('adminSiteConfig.displayName') && loginPage.includes('adminSiteConfig.logoUrl')],
+  ['central BO Siamblend branding', nuxtConfig.includes('Siamblend Back Office') && nuxtConfig.includes('/brand/siamblend-favicon.ico') && adminBranding.includes("const siamblendSystemName = 'Siamblend'") && adminBranding.includes('/brand/siamblend-bo-logo.png') && adminBranding.includes('/brand/siamblend-bo-mark.png') && loginPage.includes('adminBranding.centralLogoUrl')],
   ['operations client-only load', operationsPage.includes('if (!import.meta.client)') && operationsPage.includes('onMounted(() =>') && operationsPage.includes('!session.isAuthenticated.value')],
   ['successful write alert rule', (!adminFoundationDoc || (adminFoundationDoc.includes('Successful admin API write calls') && adminFoundationDoc.includes('top-level `message`') && adminFoundationDoc.includes('preview rendering must not show a success alert'))) && apiClient.includes('useAdminSuccessAlert') && apiClient.includes('isWriteMethod(method)') && apiClient.includes('options.successMessage !== false') && apiClient.includes('responseSuccessMessage(response)') && !apiClient.includes('successMessageFor(method)') && adminSuccessAlert.includes("import('sweetalert2')") && adminSuccessAlert.includes('Swal.fire') && packageJson.includes('"sweetalert2"') && nuxtConfig.includes('sweetalert2/dist/sweetalert2.min.css') && !adminLayout.includes('AdminAlert v-if="successAlert"')],
 ]) {

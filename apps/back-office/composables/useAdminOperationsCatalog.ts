@@ -118,6 +118,7 @@ export type OperationAction = {
   payloadTemplate?: Record<string, any>
   formFields?: OperationFormField[]
   contextFields?: string[]
+  resultMode?: 'admin-invitation'
 }
 
 export type OperationRelatedList = {
@@ -321,6 +322,7 @@ const syncColumns: OperationColumn[] = [
 const adminUserColumns: OperationColumn[] = [
   { key: 'id', label: 'Admin user' },
   { key: 'name', label: 'Name' },
+  { key: 'username', label: 'Username' },
   { key: 'email', label: 'Email' },
   { key: 'roles.0.name', label: 'Primary role' },
   { key: 'status', label: 'Status', type: 'status' },
@@ -615,7 +617,7 @@ const commissionTransactionActionContext = ['id', 'tenant_id', 'receiver_custome
 const seoPageActionContext = ['id', 'tenant_id', 'path', 'title', 'status', 'robots', 'canonical_url', 'og_image_url', 'metadata', 'updated_at']
 const redirectActionContext = ['id', 'tenant_id', 'source_path', 'target_url', 'status_code', 'status', 'metadata', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'game_id', 'date_from', 'date_to', 'group_by', 'filters']
-const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
+const adminUserActionContext = ['id', 'tenant_id', 'name', 'username', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
 const domainActionContext = ['id', 'tenant_id', 'host', 'type', 'status', 'is_primary', 'readiness.local_only']
 const winnerDetailFields: OperationColumn[] = [
@@ -802,24 +804,17 @@ const permissionsField = (scope: AdminScope, required = false): OperationFormFie
 })
 const adminUserCreateFields = (scope: AdminScope): OperationFormField[] => [
   { key: 'name', label: 'Name', required: true },
+  { key: 'username', label: 'Username', required: true, placeholder: 'admin.username', help: '3-50 lowercase letters, numbers, dots, underscores, or hyphens.' },
   { key: 'email', label: 'Email', required: true, placeholder: 'admin@example.test' },
   { key: 'phone', label: 'Phone' },
-  ...(scope === 'central'
-    ? [
-        { key: 'password', label: 'Temporary password', type: 'password', placeholder: 'Leave blank for backend-generated secret' } as OperationFormField,
-        { key: 'status', label: 'Status', type: 'select', options: adminUserStatusOptions, defaultValue: 'active' } as OperationFormField,
-      ]
-    : [
-        { key: 'send_invitation', label: 'Send invitation', type: 'checkbox', defaultValue: true } as OperationFormField,
-      ]),
   roleIdsField(scope, true),
 ]
 const adminUserUpdateFields = (scope: AdminScope): OperationFormField[] => [
   { key: 'name', label: 'Name' },
+  { key: 'username', label: 'Username', placeholder: 'admin.username', help: '3-50 lowercase letters, numbers, dots, underscores, or hyphens.' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'status', label: 'Status', type: 'select', options: adminUserStatusOptions },
-  { key: 'password', label: 'Temporary password', type: 'password', placeholder: 'Leave blank to keep current credential' },
   roleIdsField(scope, false),
 ]
 const roleCreateFields = (scope: AdminScope): OperationFormField[] => [
@@ -838,6 +833,7 @@ const adminUserDetailFields: OperationColumn[] = [
   { key: 'id', label: 'Admin user' },
   { key: 'tenant_id', label: 'Tenant' },
   { key: 'name', label: 'Name' },
+  { key: 'username', label: 'Username' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'roles', label: 'Roles', type: 'array' },
@@ -1329,7 +1325,7 @@ const commissionRuleUpdateFields = updateFields(commissionRuleCreateFields, {
 const tenantSeoSettingsFields: OperationFormField[] = [
   { key: 'status', label: 'Status', type: 'select', options: seoStatusOptions, defaultValue: 'active' },
   { key: 'default_title', label: 'Default title', required: true, placeholder: 'Tenant SEO title' },
-  { key: 'title_template', label: 'Title template', placeholder: '{{title}} | NewPaotang' },
+  { key: 'title_template', label: 'Title template', placeholder: '{{title}} | Siamblend' },
   { key: 'default_description', label: 'Default description', type: 'textarea' },
   { key: 'default_keywords', label: 'Default keywords', type: 'lines', emptyValue: 'array', placeholder: 'lottery\ntenant', help: 'One keyword per line. Submitted as an array.' },
   { key: 'robots_default', label: 'Robots default', defaultValue: 'index,follow' },
@@ -1373,9 +1369,9 @@ const partnerProvisionFields: OperationFormField[] = [
   { key: 'tenant_status', label: 'Tenant status', type: 'select', options: tenantStatusOptions, defaultValue: 'active' },
   { key: 'domain_host', label: 'Domain host', placeholder: 'acme.example.test' },
   { key: 'domain_type', label: 'Domain type', type: 'select', options: domainTypeOptions, defaultValue: 'subdomain' },
+  { key: 'owner_username', label: 'Owner username', required: true, placeholder: 'tenant.owner', help: 'The owner uses this username to sign in after accepting the invitation.' },
   { key: 'owner_email', label: 'Owner email', required: true, placeholder: 'owner@example.test' },
   { key: 'owner_name', label: 'Owner name', placeholder: 'Tenant owner' },
-  { key: 'owner_password', label: 'Owner password', type: 'password', placeholder: 'Leave blank to keep generated/default handling' },
   { key: 'site_name', label: 'Site name', placeholder: 'Public shop name' },
   { key: 'billing_plan_code', label: 'Billing plan', type: 'select', optionSource: 'central-billing-plans', options: [{ value: 'starter', label: 'Starter' }], defaultValue: 'starter', hideEmptyOption: true, emptyOptionLabel: 'No billing plans available' },
   { key: 'deployment_mode', label: 'Deployment mode', type: 'select', options: deploymentModeOptions, defaultValue: 'shared' },
@@ -2971,6 +2967,7 @@ const central: OperationResource[] = [
         label: 'Provision tenant',
         endpoint: '/admin/central/partners/{partner_id}/provision',
         variant: 'success',
+        resultMode: 'admin-invitation',
         contextFields: partnerActionContext,
         formFields: partnerProvisionFields,
       },
@@ -3845,6 +3842,7 @@ function adminUserResource(scope: AdminScope, filters: OperationFilter[]): Opera
       reason: true,
       optionalReason: true,
       formFields: adminUserCreateFields(scope),
+      resultMode: 'admin-invitation',
     }],
     actions: [
       {
@@ -3857,6 +3855,16 @@ function adminUserResource(scope: AdminScope, filters: OperationFilter[]): Opera
         optionalReason: true,
         contextFields: adminUserActionContext,
         formFields: adminUserUpdateFields(scope),
+      },
+      {
+        key: 'invitation',
+        label: 'Generate invitation link',
+        endpoint: `${detailEndpoint}/invitation`,
+        variant: 'info',
+        enabledStatuses: ['invited'],
+        hideWhenDisabled: true,
+        contextFields: adminUserActionContext,
+        resultMode: 'admin-invitation',
       },
       {
         key: 'delete',

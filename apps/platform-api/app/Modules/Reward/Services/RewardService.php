@@ -17,9 +17,12 @@ use App\Models\Ticket;
 use App\Models\Wallet;
 use App\Models\WinningTicket;
 use App\Jobs\FanoutRewardResultCustomerNotificationsJob;
+use App\Jobs\FanoutRewardRiskAssessmentJob;
 use App\Jobs\ProcessTenantActivitiesForGameJob;
 use App\Modules\Reward\Events\RewardClaimUpdated;
 use App\Modules\Reward\Events\RewardLiveResultUpdated;
+use App\Modules\RewardRisk\Services\LotteryPrizeMatcher;
+use App\Modules\RewardRisk\Services\RewardRiskAssessmentService;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
@@ -66,6 +69,8 @@ class RewardService
         private readonly TenantRewardPriceRuleService $tenantRewardPriceRules,
         private readonly TenantLineNotificationService $lineNotifications,
         private readonly CentralTelegramNotificationService $telegramNotifications,
+        private readonly LotteryPrizeMatcher $lotteryPrizeMatcher,
+        private readonly RewardRiskAssessmentService $rewardRisk,
     ) {
     }
 
@@ -1393,6 +1398,15 @@ class RewardService
                 'event_type' => 'reward.result.live.updated',
                 'changed' => true,
             ]);
+            try {
+                FanoutRewardRiskAssessmentJob::dispatch(
+                    (string) $result->id,
+                    'provisional',
+                    (string) $normalized['payload_hash'],
+                )->afterCommit();
+            } catch (\Throwable) {
+                // Live result ingestion must remain independent from risk assessment infrastructure.
+            }
 
             return ['resource' => $resource + ['changed' => true]];
         });
@@ -1855,6 +1869,7 @@ class RewardService
                 'corrected_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->rewardRisk->supersedeRewardResult($rewardResultId);
             $this->setGameStatus((string) $result->game_id, 'reward_recorded');
             $this->broadcastRewardLiveUpdate($rewardResultId);
 
@@ -1880,6 +1895,7 @@ class RewardService
                 'corrected_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->rewardRisk->supersedeRewardResult($rewardResultId);
 
             return $this->rewardResult($rewardResultId) ?? [];
         }, 'reward.corrected', 202);
@@ -1949,6 +1965,15 @@ class RewardService
             FanoutRewardResultCustomerNotificationsJob::dispatch($rewardResultId)->afterCommit();
         } catch (\Throwable) {
             // Publishing the official result must not depend on notification infrastructure.
+        }
+        try {
+            FanoutRewardRiskAssessmentJob::dispatch(
+                $rewardResultId,
+                'final',
+                hash('sha256', $rewardResultId.'|'.$version.'|'.$publishedAt->toISOString()),
+            )->afterCommit();
+        } catch (\Throwable) {
+            // Publishing the official result must not depend on risk assessment infrastructure.
         }
         $activityResultAt = $this->tenantActivityResultAt((string) $fresh->game_id) ?? $publishedAt;
         ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'lucky')->delay($activityResultAt);
@@ -3600,22 +3625,11 @@ class RewardService
 
     private function ticketMatchesPrize(string $fullNumber, object $prize): bool
     {
-        $type = strtolower((string) $prize->prize_type);
-        $number = (string) $prize->prize_number;
-
-        if (str_contains($type, 'front3')) {
-            return substr($fullNumber, 0, 3) === $number;
-        }
-
-        if (str_contains($type, 'back3')) {
-            return substr($fullNumber, -3) === $number;
-        }
-
-        if (str_contains($type, 'back2')) {
-            return substr($fullNumber, -2) === $number;
-        }
-
-        return $fullNumber === $number;
+        return $this->lotteryPrizeMatcher->matches(
+            $fullNumber,
+            (string) $prize->prize_type,
+            (string) $prize->prize_number,
+        );
     }
 
     private function setGameStatus(string $gameId, string $status): void

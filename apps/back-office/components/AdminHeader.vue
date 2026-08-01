@@ -5,10 +5,10 @@
         <div class="header-element">
           <div class="horizontal-logo">
             <NuxtLink to="/admin" class="header-logo">
-              <img src="/admin-template/assets/images/brand-logos/desktop-logo.png" alt="NewPaotang" class="desktop-logo" />
-              <img src="/admin-template/assets/images/brand-logos/desktop-dark.png" alt="NewPaotang" class="desktop-dark" />
-              <img src="/admin-template/assets/images/brand-logos/toggle-logo.png" alt="NewPaotang" class="toggle-logo" />
-              <img src="/admin-template/assets/images/brand-logos/toggle-dark.png" alt="NewPaotang" class="toggle-dark" />
+              <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" />
+              <img :src="logoUrl" :alt="displayName" class="desktop-dark np-admin-brand-logo" />
+              <img :src="compactLogoUrl" :alt="displayName" class="toggle-logo np-admin-brand-mark" />
+              <img :src="compactLogoUrl" :alt="displayName" class="toggle-dark np-admin-brand-mark" />
             </NuxtLink>
           </div>
         </div>
@@ -154,6 +154,7 @@ const props = withDefaults(defineProps<{
 })
 
 const adminSession = useAdminSession()
+const { logoUrl, compactLogoUrl, displayName } = useAdminBranding()
 const { session } = adminSession
 const api = useAdminApi()
 const { locale, setLocale, t } = useAdminLocale()
