@@ -62,6 +62,7 @@ class CustomerAuthTest extends TestCase
         $login = $this->postJson('http://auth.m5.test/api/v1/customer/auth/login', [
             'username' => '0801002000',
             'password' => 'customer-secret',
+            'login_method' => 'password',
         ])
             ->assertOk()
             ->assertJsonPath('user.id', $registered['user']['id'])

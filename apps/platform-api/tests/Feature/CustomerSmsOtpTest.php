@@ -127,8 +127,8 @@ class CustomerSmsOtpTest extends TestCase
             ->where('tenant_id', 'ten_sms_login')
             ->count();
         $challenge = $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/login', [
-            'username' => '0802223333',
-            'password' => 'customer-secret',
+            'phone' => '0802223333',
+            'login_method' => 'otp',
         ])->assertAccepted()
             ->assertJsonPath('otp_required', true)
             ->assertJsonPath('next_step', 'otp')
@@ -160,6 +160,13 @@ class CustomerSmsOtpTest extends TestCase
             'otp' => '222222',
         ])->assertUnprocessable()
             ->assertJsonPath('error.code', 'login_otp_challenge_invalid');
+
+        $this->postJson('http://sms-login.m5.test/api/v1/customer/auth/login', [
+            'username' => '0802223333',
+            'password' => 'customer-secret',
+            'login_method' => 'password',
+        ])->assertOk()
+            ->assertJsonPath('user.id', $registered['user']['id']);
     }
 
     public function test_CustomerSmsOtp_resets_password_and_pin_with_verified_otp(): void

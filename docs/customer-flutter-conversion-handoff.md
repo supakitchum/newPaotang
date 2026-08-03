@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-08-01
+Last updated: 2026-08-02
 
 ## Objective
 
@@ -123,6 +123,20 @@ Important Flutter primitives:
 
 Recent verified work:
 
+- Customer Login is now phone-first and passwordless by default. Flutter shows
+  only the tenant account phone field, requests a one-time login challenge with
+  `login_method=otp`, opens the dedicated six-cell OTP screen, and keeps the
+  safe redirect through OTP and the existing PIN gate. The OTP screen provides
+  a localized password fallback that returns to Login with the phone preserved
+  in Riverpod state rather than exposing it in the URL; the initial phone page
+  exposes the same fallback when SMS fails before a challenge can be created.
+  Password fallback sends explicit `login_method=password` and can complete
+  login without SMS, while requests from older clients that omit the method
+  keep the legacy behavior. OTP remains tenant/customer scoped, one-time, and
+  creates no auth session before verification. Flutter analyze passed, focused
+  Flutter Auth tests passed 43 cases, and Platform Auth/SMS OTP tests passed 12
+  cases with 234 assertions against `newpaotang_test`. No runtime DB, commit,
+  push, or clear-worktree process was used.
 - Customer authentication now enforces one fully active device session per
   tenant account without cutting off the previous device during an unfinished
   login. Password/social login and registration issue a pending session; the

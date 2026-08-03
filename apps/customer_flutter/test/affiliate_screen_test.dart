@@ -16,6 +16,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets(
+    'affiliate home closes to profile and child pages follow route history',
+    (tester) async {
+      final router = await _pumpAffiliate(
+        tester,
+        repository: _AffiliateRepository(),
+      );
+
+      expect(find.text('Home'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('affiliate-overview-close')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Back'), findsNothing);
+
+      await tester.tap(find.text('Ranking'));
+      await tester.pumpAndSettle();
+      expect(find.text('Affiliate rankings'), findsOneWidget);
+
+      await tester.tap(find.text('Referral'));
+      await tester.pumpAndSettle();
+      expect(find.text('Referral link'), findsWidgets);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Affiliate rankings'), findsOneWidget);
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/affiliate');
+
+      await tester.tap(find.byKey(const ValueKey('affiliate-overview-close')));
+      await tester.pumpAndSettle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('direct affiliate child page falls back to affiliate home', (
+    tester,
+  ) async {
+    final router = await _pumpAffiliate(
+      tester,
+      initialLocation: '/affiliate/referral',
+      repository: _AffiliateRepository(),
+    );
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/affiliate');
+    expect(
+      find.byKey(const ValueKey('affiliate-overview-close')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('affiliate overview follows backend maintenance redirect', (
     tester,
   ) async {
@@ -79,7 +138,7 @@ void main() {
       tester.view.viewPadding = const FakeViewPadding(bottom: 34);
       addTearDown(tester.view.resetViewPadding);
       final shareService = _RecordingAffiliateReferralShareService();
-      final router = await _pumpAffiliate(
+      await _pumpAffiliate(
         tester,
         shareService: shareService,
         repository: _AffiliateRepository(
@@ -169,7 +228,7 @@ void main() {
         find.byKey(const ValueKey('affiliate-navigation-bar')),
         findsOneWidget,
       );
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text('Home'), findsOneWidget);
       expect(find.text('Ranking'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('affiliate-member-card')),
@@ -203,7 +262,7 @@ void main() {
       expect(find.byKey(const ValueKey('affiliate-referral-qr')), findsNothing);
       expect(find.text('Referral link'), findsNothing);
       expect(find.text('Payout account'), findsNothing);
-      expect(find.text('Home'), findsNothing);
+      expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
       expect(find.text('My Tickets'), findsNothing);
       expect(find.text('More'), findsNothing);
       final navigationRect = tester.getRect(
@@ -212,7 +271,7 @@ void main() {
       expect(navigationRect.height, 82);
       expect(navigationRect.bottom, 1400);
       final navigationLabels = [
-        'Overview',
+        'Home',
         'Ranking',
         'Referral',
         'Commissions',
@@ -237,10 +296,7 @@ void main() {
       await tester.tap(find.text('Ranking'));
       await tester.pumpAndSettle();
 
-      expect(
-        router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/rankings',
-      );
+      expect(find.text('Affiliate rankings'), findsOneWidget);
       expect(find.text('Fixed sales target'), findsOneWidget);
       expect(find.text('Active tier campaign'), findsOneWidget);
       expect(find.text('Top 3 affiliates'), findsOneWidget);
@@ -271,10 +327,7 @@ void main() {
       await tester.tap(find.text('Referral'));
       await tester.pumpAndSettle();
 
-      expect(
-        router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/referral',
-      );
+      expect(find.text('Referral link'), findsWidgets);
       expect(find.text('Referral link'), findsWidgets);
       expect(
         find.byKey(const ValueKey('affiliate-referral-qr')),
@@ -301,10 +354,6 @@ void main() {
       await tester.tap(find.text('Commissions'));
       await tester.pumpAndSettle();
 
-      expect(
-        router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/commissions',
-      );
       expect(find.text('Latest commissions'), findsWidgets);
       expect(find.byKey(const ValueKey('affiliate-member-card')), findsNothing);
       expect(find.text('Referral link'), findsNothing);
@@ -313,10 +362,6 @@ void main() {
       await tester.tap(find.text('Withdraw'));
       await tester.pumpAndSettle();
 
-      expect(
-        router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/withdraw',
-      );
       expect(find.text('Request withdrawal'), findsWidgets);
       expect(find.text('Payout account'), findsOneWidget);
       expect(
@@ -338,10 +383,6 @@ void main() {
       await tester.tap(find.text('History'));
       await tester.pumpAndSettle();
 
-      expect(
-        router.routerDelegate.currentConfiguration.uri.path,
-        '/affiliate/withdraw',
-      );
       expect(find.text('Withdrawal history'), findsWidgets);
       expect(
         find.byKey(const ValueKey('affiliate-withdraw-history-content')),
@@ -516,6 +557,7 @@ Future<GoRouter> _pumpAffiliate(
   required AffiliateRepository repository,
   AffiliateReferralShareService? shareService,
   Size viewport = const Size(900, 1400),
+  String initialLocation = '/affiliate',
 }) async {
   tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1;
@@ -523,8 +565,13 @@ Future<GoRouter> _pumpAffiliate(
   addTearDown(tester.view.resetDevicePixelRatio);
 
   final router = GoRouter(
-    initialLocation: '/affiliate',
+    initialLocation: initialLocation,
     routes: [
+      GoRoute(
+        path: '/profile',
+        builder: (_, __) =>
+            const Scaffold(body: Center(child: Text('Profile route'))),
+      ),
       GoRoute(
         path: '/affiliate',
         builder: (_, __) => const AffiliateScreen(tab: AffiliateTab.overview),

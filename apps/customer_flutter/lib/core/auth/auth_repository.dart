@@ -135,7 +135,11 @@ class AuthRepository {
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/login',
       auth: false,
-      data: {'username': username, 'password': password},
+      data: {
+        'username': username,
+        'password': password,
+        'login_method': 'password',
+      },
     );
     final payload = asMap(response.data);
     final challenge = LoginOtpChallenge.fromJson(payload);
@@ -145,6 +149,19 @@ class AuthRepository {
     final session = CustomerSession.fromJson(payload);
     await _saveSession(session);
     return session;
+  }
+
+  Future<LoginOtpChallenge> requestLoginOtp({required String phone}) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/login',
+      auth: false,
+      data: {'phone': phone, 'login_method': 'otp'},
+    );
+    final challenge = LoginOtpChallenge.fromJson(asMap(response.data));
+    if (!challenge.isRequired) {
+      throw StateError('Login OTP challenge was not returned.');
+    }
+    return challenge;
   }
 
   Future<LoginOtpChallenge> resendLoginOtp({

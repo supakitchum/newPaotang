@@ -111,6 +111,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await _tapLoginSubmit(tester);
@@ -133,6 +134,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     final passwordField = find.byType(TextField).at(1);
     await tester.enterText(passwordField, 'secret1234');
@@ -168,17 +170,17 @@ void main() {
       loginFields[0].autofillHints,
       contains(AutofillHints.telephoneNumber),
     );
-    expect(loginFields[1].autofillHints, contains(AutofillHints.password));
+    expect(loginFields, hasLength(1));
+    expect(loginFields[0].textInputAction, TextInputAction.done);
 
     await tester.enterText(find.byType(TextField).at(0), '08a12345678999');
-    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await _tapLoginSubmit(tester);
+    await _tapLoginOtpSubmit(tester);
     await tester.pumpAndSettle();
 
-    expect(repo.lastLoginUsername, '0812345678');
+    expect(repo.lastLoginOtpPhone, '0812345678');
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
-      '/checkout',
+      '/login/otp?redirect=%2Fcheckout',
     );
   });
 
@@ -199,6 +201,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await _tapLoginSubmit(tester);
@@ -234,8 +237,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
-    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
-    await _tapLoginSubmit(tester);
+    await _tapLoginOtpSubmit(tester);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('login-otp-screen')), findsOneWidget);
@@ -278,6 +280,34 @@ void main() {
     );
   });
 
+  testWidgets('OTP screen switches to password fallback with phone preserved', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await _tapLoginOtpSubmit(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('login-otp-screen')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('login-otp-use-password')));
+    await tester.pumpAndSettle();
+
+    final fields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
+    expect(fields, hasLength(2));
+    expect(fields.first.controller?.text, '0812345678');
+    expect(find.text('Sign in with password'), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/login?redirect=%2Fcheckout',
+    );
+  });
+
   testWidgets('login PIN operational errors preserve checkout redirect', (
     tester,
   ) async {
@@ -294,6 +324,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await _tapLoginSubmit(tester);
@@ -323,6 +354,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await _tapLoginSubmit(tester);
@@ -347,6 +379,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'wrong-password');
     await _tapLoginSubmit(tester);
@@ -371,6 +404,7 @@ void main() {
     await tester.pumpWidget(_testApp(router: router, repo: repo));
     await tester.pumpAndSettle();
 
+    await _switchLoginToPassword(tester);
     await tester.enterText(find.byType(TextField).at(0), '0812345678');
     await tester.enterText(find.byType(TextField).at(1), 'secret1234');
     await _tapLoginSubmit(tester);
@@ -1060,6 +1094,19 @@ Future<void> _tapLoginSubmit(WidgetTester tester) async {
   await tester.tap(submitButton);
 }
 
+Future<void> _tapLoginOtpSubmit(WidgetTester tester) async {
+  final submitButton = find.widgetWithText(FilledButton, 'Send OTP');
+  await _scrollUntilVisible(tester, submitButton);
+  await tester.tap(submitButton);
+}
+
+Future<void> _switchLoginToPassword(WidgetTester tester) async {
+  final switchButton = find.byKey(const ValueKey('login-use-password'));
+  await _scrollUntilVisible(tester, switchButton);
+  await tester.tap(switchButton);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _enterRegisterOtp(WidgetTester tester, String otp) async {
   final otpField = find.byType(TextField).at(5);
   await tester.ensureVisible(otpField);
@@ -1216,8 +1263,10 @@ class _AuthRedirectRepository extends AuthRepository {
   int requestOtpCalls = 0;
   int registerCalls = 0;
   int loginCalls = 0;
+  int requestLoginOtpCalls = 0;
   int verifyLoginOtpCalls = 0;
   String lastLoginOtp = '';
+  String lastLoginOtpPhone = '';
 
   @override
   Future<CustomerSession> login({
@@ -1231,6 +1280,21 @@ class _AuthRedirectRepository extends AuthRepository {
     final challenge = loginOtpChallenge;
     if (challenge != null) throw LoginOtpChallengeRequired(challenge);
     return loginSession;
+  }
+
+  @override
+  Future<LoginOtpChallenge> requestLoginOtp({required String phone}) async {
+    requestLoginOtpCalls++;
+    lastLoginOtpPhone = phone;
+    final error = loginError;
+    if (error != null) throw error;
+    return loginOtpChallenge ??
+        const LoginOtpChallenge(
+          challengeToken: 'lotp_default',
+          phoneMasked: '081xxxx678',
+          resendAfterSeconds: 0,
+          expiresInSeconds: 600,
+        );
   }
 
   @override

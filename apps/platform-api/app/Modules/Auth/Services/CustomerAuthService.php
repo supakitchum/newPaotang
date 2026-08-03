@@ -162,23 +162,41 @@ class CustomerAuthService
      */
     public function login(array $tenant, array $payload, Request $request): ?array
     {
-        $username = trim((string) ($payload['username'] ?? ''));
+        $loginMethod = strtolower(trim((string) ($payload['login_method'] ?? 'legacy')));
+        if (! in_array($loginMethod, ['legacy', 'otp', 'password'], true)) {
+            return null;
+        }
+
+        $username = trim((string) ($payload['phone'] ?? $payload['username'] ?? ''));
         $password = (string) ($payload['password'] ?? '');
 
-        if ($username === '' || $password === '') {
+        if ($username === '' || ($loginMethod !== 'otp' && $password === '')) {
             return null;
+        }
+
+        if ($loginMethod === 'otp') {
+            $username = $this->smsOtp->normalizePhone($username) ?? '';
+            if ($username === '') {
+                return null;
+            }
         }
 
         $customer = Customer::query()
             ->where('tenant_id', $tenant['tenant_id'])
             ->where('status', '<>', 'deleted')
-            ->where(function ($query) use ($username): void {
-                $query->where('phone', $username)
-                    ->orWhere('email', strtolower($username));
-            })
+            ->when(
+                $loginMethod === 'otp',
+                fn ($query) => $query->where('phone', $username),
+                fn ($query) => $query->where(function ($query) use ($username): void {
+                    $query->where('phone', $username)
+                        ->orWhere('email', strtolower($username));
+                }),
+            )
             ->first();
 
-        if ($customer === null || $customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
+        if ($customer === null
+            || ($loginMethod !== 'otp'
+                && ($customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)))) {
             return null;
         }
 
@@ -193,7 +211,16 @@ class CustomerAuthService
             return null;
         }
 
-        if ($this->smsOtp->providerRequiredForLogin((string) $tenant['tenant_id'])) {
+        if ($loginMethod === 'otp') {
+            return $this->beginLoginOtpChallenge(
+                (string) $tenant['tenant_id'],
+                (string) $customer->id,
+                (string) $customer->phone,
+                $request,
+            );
+        }
+
+        if ($loginMethod === 'legacy' && $this->smsOtp->providerRequiredForLogin((string) $tenant['tenant_id'])) {
             return $this->beginLoginOtpChallenge(
                 (string) $tenant['tenant_id'],
                 (string) $customer->id,

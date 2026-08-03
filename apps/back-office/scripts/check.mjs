@@ -856,6 +856,7 @@ for (const evidence of [
   ['hydration-stable header labels', adminHeader.includes('displayScopeLabel') && adminHeader.includes('visibleScopes')],
   ['Vue submenu state', adminSidebar.includes('openKeys') && adminSidebar.includes('@click.prevent="toggle(item.key)"')],
   ['hydration-stable sidebar labels', adminSidebar.includes('displayScopeTitle') && adminSidebar.includes('Restoring menu')],
+  ['sidebar horizontal brand variants', adminSidebar.includes('data-admin-sidebar-logo="horizontal"') && adminSidebar.includes('data-admin-sidebar-logo="horizontal-dark"') && adminSidebar.includes('desktop-dark np-admin-brand-logo') && adminSidebar.includes('toggle-dark np-admin-brand-mark')],
   ['SimpleBar hook', adminSidebar.includes('data-simplebar')],
   ['sticky sidebar class', adminSidebar.includes('app-sidebar sticky')],
 ]) {

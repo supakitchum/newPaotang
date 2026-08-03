@@ -21,6 +21,7 @@ void main() {
     expect(api.payloads.single, {
       'username': '0812345678',
       'password': 'secret',
+      'login_method': 'password',
     });
     expect(session.accessToken, 'access-recursive-login');
     expect(session.refreshToken, 'refresh-recursive-login');
@@ -39,21 +40,20 @@ void main() {
       final api = _AuthApiClient(tokenStore)..loginOtpRequired = true;
       final repository = AuthRepository(api: api, tokenStore: tokenStore);
 
-      LoginOtpChallenge? challenge;
-      try {
-        await repository.login(username: '0812345678', password: 'secret');
-      } on LoginOtpChallengeRequired catch (required) {
-        challenge = required.challenge;
-      }
+      final challenge = await repository.requestLoginOtp(phone: '0812345678');
 
-      expect(challenge?.challengeToken, 'lotp-test-challenge');
-      expect(challenge?.phoneMasked, '081xxxx678');
-      expect(challenge?.resendAfterSeconds, 25);
+      expect(challenge.challengeToken, 'lotp-test-challenge');
+      expect(challenge.phoneMasked, '081xxxx678');
+      expect(challenge.resendAfterSeconds, 25);
+      expect(api.payloads.first, {
+        'phone': '0812345678',
+        'login_method': 'otp',
+      });
       expect(tokenStore.hasAccessToken, isFalse);
       expect(tokenStore.refreshToken, isNull);
 
       final resent = await repository.resendLoginOtp(
-        challengeToken: challenge!.challengeToken,
+        challengeToken: challenge.challengeToken,
       );
       expect(resent.challengeToken, challenge.challengeToken);
 

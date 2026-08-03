@@ -18,6 +18,9 @@ void main() {
     expect(customerDefaultBackPathFor('/results/full'), '/results');
     expect(customerDefaultBackPathFor('/topup'), '/my-wallet');
     expect(customerDefaultBackPathFor('/topup/demo'), '/my-wallet');
+    expect(customerDefaultBackPathFor('/affiliate'), '/profile');
+    expect(customerDefaultBackPathFor('/affiliate/rankings'), '/affiliate');
+    expect(customerDefaultBackPathFor('/affiliate/referral'), '/affiliate');
     expect(customerDefaultBackPathFor('/term-reward'), '/');
   });
 

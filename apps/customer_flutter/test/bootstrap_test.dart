@@ -697,6 +697,8 @@ void main() {
     expect(english.affiliatePinTitle, 'Enter 6-digit PIN');
     expect(thai.affiliateStatTitle('available'), 'ยอดถอนได้');
     expect(english.affiliateStatTitle('available'), 'Available');
+    expect(thai.affiliateTabLabel('overview'), 'หน้าแรก');
+    expect(english.affiliateTabLabel('overview'), 'Home');
     expect(thai.affiliateTabLabel('withdraw'), 'ถอน');
     expect(english.affiliateTabLabel('withdraw'), 'Withdraw');
     expect(

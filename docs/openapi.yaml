@@ -917,7 +917,7 @@ paths:
     post:
       tags: [Customer Auth]
       security: []
-      summary: Customer login by phone/username and password
+      summary: Start customer login by phone OTP or use password fallback
       parameters:
         - $ref: "#/components/parameters/TenantHostHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -929,13 +929,73 @@ paths:
               $ref: "#/components/schemas/CustomerLoginRequest"
       responses:
         "200":
+          description: Customer auth token for password fallback or legacy direct login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAuthResponse"
+        "202":
+          description: Phone OTP challenge accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerLoginOtpChallenge"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /customer/auth/login/otp/resend:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Resend the OTP for an active customer login challenge
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerLoginOtpChallengeRequest"
+      responses:
+        "202":
+          description: Replacement OTP sent for the same login challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerLoginOtpChallenge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /customer/auth/login/otp/verify:
+    post:
+      tags: [Customer Auth]
+      security: []
+      summary: Verify a one-time customer login OTP and issue the session
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerLoginOtpVerifyRequest"
+      responses:
+        "200":
           description: Customer auth token
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/CustomerAuthResponse"
-        "401":
-          $ref: "#/components/responses/AuthenticationRequired"
         "422":
           $ref: "#/components/responses/ValidationFailed"
   /customer/auth/otp/request:
@@ -13235,14 +13295,72 @@ components:
           type: string
     CustomerLoginRequest:
       type: object
-      required: [username, password]
       properties:
+        login_method:
+          type: string
+          enum: [otp, password]
+          description: OTP is the primary Flutter flow. Password is the explicit SMS fallback. Omit only for legacy client behavior.
+        phone:
+          type: string
+          description: Customer phone number required when login_method is otp.
         username:
           type: string
-          description: Customer phone number or username from existing customer login flow.
+          description: Customer phone number or email required when login_method is password or omitted by a legacy client.
         password:
           type: string
           format: password
+          description: Required when login_method is password or omitted by a legacy client.
+      oneOf:
+        - required: [login_method, phone]
+          properties:
+            login_method:
+              const: otp
+        - required: [login_method, username, password]
+          properties:
+            login_method:
+              const: password
+        - required: [username, password]
+    CustomerLoginOtpChallengeRequest:
+      type: object
+      required: [login_challenge_token]
+      properties:
+        login_challenge_token:
+          type: string
+    CustomerLoginOtpVerifyRequest:
+      type: object
+      required: [login_challenge_token, otp]
+      properties:
+        login_challenge_token:
+          type: string
+        otp:
+          type: string
+          pattern: "^[0-9]{6}$"
+    CustomerLoginOtpChallenge:
+      type: object
+      required:
+        - otp_required
+        - next_step
+        - login_challenge_token
+        - phone_masked
+        - expires_in_seconds
+        - resend_after_seconds
+      properties:
+        otp_required:
+          type: boolean
+          const: true
+        next_step:
+          type: string
+          const: otp
+        login_challenge_token:
+          type: string
+        phone_masked:
+          type: string
+        expires_in_seconds:
+          type: integer
+          minimum: 1
+        resend_after_seconds:
+          type: integer
+          minimum: 0
     CustomerRegisterRequest:
       type: object
       required: [name, phone, password, password_confirmation]

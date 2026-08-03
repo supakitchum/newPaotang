@@ -304,7 +304,8 @@ String customerDefaultBackPathFor(String path) {
   if (normalized.startsWith('/activities/history')) return '/activities';
   if (normalized.startsWith('/activities/')) return '/activities';
   if (normalized.startsWith('/activities')) return '/';
-  if (normalized.startsWith('/affiliate')) return '/profile';
+  if (normalized == '/affiliate') return '/profile';
+  if (normalized.startsWith('/affiliate')) return '/affiliate';
   if (normalized.startsWith('/news/')) return '/news';
   if (normalized.startsWith('/news')) return '/profile';
   if (normalized.startsWith('/result/full')) return '/result';

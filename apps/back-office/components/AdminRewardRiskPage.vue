@@ -1,23 +1,23 @@
 <template>
   <div>
-    <AdminPageHeader :title="pageTitle" :breadcrumbs="['Admin', scopeLabel, pageTitle]">
+    <AdminPageHeader :title="pageTitle" :breadcrumbs="[adminLabel, scopeLabel, pageTitle]">
       <template #actions>
         <div class="d-flex align-items-center gap-2">
           <AdminStatusBadge :status="realtimeStatus" :label="realtimeLabel" />
           <button class="btn btn-primary btn-wave" type="button" :disabled="loading" @click="loadAll()">
             <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
             <i v-else class="ri-refresh-line me-1" />
-            Refresh
+            {{ common('refresh') }}
           </button>
         </div>
       </template>
     </AdminPageHeader>
 
-    <AdminAlert v-if="scope === 'tenant' && !tenantId" type="warning" message="Select a tenant scope before viewing reward risk assessments." />
+    <AdminAlert v-if="scope === 'tenant' && !tenantId" type="warning" :message="rr('scopeMissing')" />
     <AdminApiState :error="error" />
     <AdminAlert v-if="successMessage" type="success" :message="successMessage" dismissible @dismiss="successMessage = ''" />
 
-    <div class="np-risk-tabs" role="tablist" aria-label="Reward risk views">
+    <div class="np-risk-tabs" role="tablist" :aria-label="rr('tabsAria')">
       <button
         v-for="tab in tabs"
         :key="tab.key"
@@ -37,18 +37,18 @@
       <div v-if="scope === 'tenant'" class="card custom-card">
         <div class="card-header">
           <div>
-            <div class="card-title">Assessment settings</div>
-            <div class="text-muted fs-12">Read-only analysis. These settings never alter tickets, winners, claims, or payouts.</div>
+            <div class="card-title">{{ rr('settingsTitle') }}</div>
+            <div class="text-muted fs-12">{{ rr('readOnlyDescription') }}</div>
           </div>
           <div class="form-check form-switch ms-auto">
             <input id="risk-enabled" v-model="settingsForm.enabled" class="form-check-input" type="checkbox">
-            <label class="form-check-label" for="risk-enabled">{{ settingsForm.enabled ? 'Enabled' : 'Disabled' }}</label>
+            <label class="form-check-label" for="risk-enabled">{{ settingsForm.enabled ? rr('enabled') : rr('disabled') }}</label>
           </div>
         </div>
         <div class="card-body">
           <div class="row g-4">
             <div class="col-xl-9">
-              <label class="form-label">Prize types to monitor</label>
+              <label class="form-label">{{ rr('prizeTypesToMonitor') }}</label>
               <div class="np-risk-prize-grid">
                 <label v-for="prize in prizeTypes" :key="prize.key" class="np-risk-prize-option">
                   <input v-model="settingsForm.monitored_prize_types" class="form-check-input" type="checkbox" :value="prize.key">
@@ -60,16 +60,16 @@
               </div>
             </div>
             <div class="col-xl-3">
-              <label class="form-label" for="risk-multiplier">Threshold multiplier</label>
+              <label class="form-label" for="risk-multiplier">{{ rr('thresholdMultiplier') }}</label>
               <div class="input-group">
                 <input id="risk-multiplier" v-model="settingsForm.threshold_multiplier" class="form-control" type="number" min="0.01" max="1000" step="0.01">
                 <span class="input-group-text">x</span>
               </div>
-              <div class="form-text">Allowed range 0.01–1,000.00</div>
+              <div class="form-text">{{ rr('allowedRange') }}</div>
               <button class="btn btn-primary btn-wave w-100 mt-3" type="button" :disabled="savingSettings || !tenantId" @click="saveSettings">
                 <span v-if="savingSettings" class="spinner-border spinner-border-sm me-1" />
                 <i v-else class="ri-save-line me-1" />
-                Save settings
+                {{ rr('saveSettings') }}
               </button>
             </div>
           </div>
@@ -80,25 +80,25 @@
         <div class="card-body">
           <div class="row g-3 align-items-end">
             <div v-if="scope === 'central'" class="col-lg-4">
-              <label class="form-label" for="risk-tenant-filter">Tenant ID</label>
-              <input id="risk-tenant-filter" v-model.trim="filters.tenant_id" class="form-control" placeholder="All tenants">
+              <label class="form-label" for="risk-tenant-filter">{{ rr('tenantId') }}</label>
+              <input id="risk-tenant-filter" v-model.trim="filters.tenant_id" class="form-control" :placeholder="rr('allTenants')">
             </div>
             <div class="col-lg-4">
-              <label class="form-label" for="risk-game-filter">Game ID</label>
-              <input id="risk-game-filter" v-model.trim="filters.game_id" class="form-control" placeholder="Latest / all games">
+              <label class="form-label" for="risk-game-filter">{{ rr('gameId') }}</label>
+              <input id="risk-game-filter" v-model.trim="filters.game_id" class="form-control" :placeholder="rr('latestAllGames')">
             </div>
             <div :class="scope === 'central' ? 'col-lg-2' : 'col-lg-4'">
-              <label class="form-label" for="risk-phase-filter">Phase</label>
+              <label class="form-label" for="risk-phase-filter">{{ rr('phase') }}</label>
               <select id="risk-phase-filter" v-model="filters.phase" class="form-select">
-                <option value="">All phases</option>
-                <option value="provisional">Provisional</option>
-                <option value="final">Final</option>
+                <option value="">{{ rr('allPhases') }}</option>
+                <option value="provisional">{{ rr('provisional') }}</option>
+                <option value="final">{{ rr('final') }}</option>
               </select>
             </div>
             <div :class="scope === 'central' ? 'col-lg-2' : 'col-lg-4'">
               <button class="btn btn-outline-primary btn-wave w-100" type="button" :disabled="loading" @click="applyFilters">
                 <i class="ri-filter-3-line me-1" />
-                Apply
+                {{ rr('apply') }}
               </button>
             </div>
           </div>
@@ -119,18 +119,18 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">{{ phase.label }}</div>
-                  <div class="text-muted fs-12">{{ phase.run?.game_name || phase.run?.game_id || 'No assessment yet' }}</div>
+                  <div class="text-muted fs-12">{{ phase.run?.game_name || phase.run?.game_id || rr('noAssessmentYet') }}</div>
                 </div>
-                <AdminStatusBadge :status="phase.run?.status || 'inactive'" :label="phase.run ? titleize(phase.run.status) : 'Waiting'" />
+                <AdminStatusBadge :status="phase.run?.status || 'inactive'" :label="phase.run ? statusLabel(phase.run.status) : rr('waiting')" />
               </div>
               <div class="card-body">
                 <div v-if="phase.run" class="np-risk-phase-metrics">
-                  <div><span>Reward version</span><strong>{{ phase.run.reward_version }}</strong></div>
-                  <div><span>Groups evaluated</span><strong>{{ number(phase.run.evaluated_group_count) }}</strong></div>
-                  <div><span>Findings</span><strong>{{ number(phase.run.finding_count) }}</strong></div>
-                  <div><span>Prize exposure</span><strong>{{ money(phase.run.total_prize_amount) }}</strong></div>
+                  <div><span>{{ rr('rewardVersion') }}</span><strong>{{ phase.run.reward_version }}</strong></div>
+                  <div><span>{{ rr('groupsEvaluated') }}</span><strong>{{ number(phase.run.evaluated_group_count) }}</strong></div>
+                  <div><span>{{ rr('findings') }}</span><strong>{{ number(phase.run.finding_count) }}</strong></div>
+                  <div><span>{{ rr('prizeExposure') }}</span><strong>{{ money(phase.run.total_prize_amount) }}</strong></div>
                 </div>
-                <AdminEmptyState v-else title="No assessment" message="A run will appear after a changed live payload or final result publication." />
+                <AdminEmptyState v-else :title="rr('noAssessment')" :message="rr('noAssessmentMessage')" />
               </div>
             </div>
           </div>
@@ -143,24 +143,24 @@
         <div class="card-body">
           <div class="row g-3 align-items-end">
             <div v-if="scope === 'central'" class="col-lg-3">
-              <label class="form-label">Tenant ID</label>
-              <input v-model.trim="filters.tenant_id" class="form-control" placeholder="All tenants">
+              <label class="form-label">{{ rr('tenantId') }}</label>
+              <input v-model.trim="filters.tenant_id" class="form-control" :placeholder="rr('allTenants')">
             </div>
             <div class="col-lg-3">
-              <label class="form-label">Game ID</label>
-              <input v-model.trim="filters.game_id" class="form-control" placeholder="All games">
+              <label class="form-label">{{ rr('gameId') }}</label>
+              <input v-model.trim="filters.game_id" class="form-control" :placeholder="rr('allGames')">
             </div>
             <div class="col-lg-3">
-              <label class="form-label">Prize type</label>
+              <label class="form-label">{{ rr('prizeType') }}</label>
               <select v-model="filters.prize_type" class="form-select">
-                <option value="">All prize types</option>
+                <option value="">{{ rr('allPrizeTypes') }}</option>
                 <option v-for="prize in prizeTypes" :key="prize.key" :value="prize.key">{{ prize.label }}</option>
               </select>
             </div>
             <div class="col-lg-3">
               <button class="btn btn-outline-primary btn-wave w-100" type="button" :disabled="loadingFindings" @click="loadFindings(false)">
                 <i class="ri-search-line me-1" />
-                Filter findings
+                {{ rr('filterFindings') }}
               </button>
             </div>
           </div>
@@ -168,12 +168,12 @@
       </div>
 
       <AdminDataTable
-        title="Threshold findings"
+        :title="rr('thresholdFindings')"
         :columns="findingColumns"
         :rows="findings"
         :loading="loadingFindings && !findings.length"
-        empty-title="No threshold findings"
-        empty-message="No customer and lottery-number group exceeds the configured threshold."
+        :empty-title="rr('noThresholdFindings')"
+        :empty-message="rr('noThresholdFindingsMessage')"
       >
         <template #cell-tenant="{ row }">
           <div class="fw-semibold">{{ row.tenant_name || row.tenant_id }}</div>
@@ -190,16 +190,16 @@
         <template #cell-prize_amount="{ value }"><strong>{{ money(value) }}</strong></template>
         <template #cell-threshold_amount="{ value }">{{ money(value) }}</template>
         <template #cell-excess_amount="{ value }"><strong class="text-danger">{{ money(value) }}</strong></template>
-        <template #cell-phase="{ value }"><AdminStatusBadge :status="value" :label="titleize(value)" /></template>
+        <template #cell-phase="{ value }"><AdminStatusBadge :status="value" :label="statusLabel(value)" /></template>
         <template #rowActions="{ row }">
           <button class="btn btn-sm btn-primary-light btn-wave" type="button" @click="openFinding(row.id)">
-            <i class="ri-eye-line me-1" />Details
+            <i class="ri-eye-line me-1" />{{ rr('details') }}
           </button>
         </template>
         <template #footer>
           <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted fs-12">{{ number(findings.length) }} loaded</span>
-            <button v-if="findingMeta.has_more" class="btn btn-sm btn-outline-primary" type="button" :disabled="loadingFindings" @click="loadFindings(true)">Load more</button>
+            <span class="text-muted fs-12">{{ number(findings.length) }} {{ rr('loaded') }}</span>
+            <button v-if="findingMeta.has_more" class="btn btn-sm btn-outline-primary" type="button" :disabled="loadingFindings" @click="loadFindings(true)">{{ rr('loadMore') }}</button>
           </div>
         </template>
       </AdminDataTable>
@@ -207,27 +207,27 @@
 
     <template v-else>
       <AdminDataTable
-        title="Assessment history"
+        :title="rr('assessmentHistory')"
         :columns="runColumns"
         :rows="runs"
         :loading="loadingRuns && !runs.length"
-        empty-title="No assessment history"
-        empty-message="Runs will appear after live reward updates or final publication."
+        :empty-title="rr('noAssessmentHistory')"
+        :empty-message="rr('noAssessmentHistoryMessage')"
       >
         <template #cell-tenant="{ row }">
           <div class="fw-semibold">{{ row.tenant_name || row.tenant_id }}</div>
           <div v-if="row.partner_name" class="text-muted fs-12">{{ row.partner_name }}</div>
         </template>
-        <template #cell-phase="{ value }"><AdminStatusBadge :status="value" :label="titleize(value)" /></template>
+        <template #cell-phase="{ value }"><AdminStatusBadge :status="value" :label="statusLabel(value)" /></template>
         <template #cell-status="{ row }">
-          <AdminStatusBadge :status="row.status" :label="row.is_current ? titleize(row.status) : 'Superseded'" />
+          <AdminStatusBadge :status="row.status" :label="row.is_current ? statusLabel(row.status) : statusLabel('superseded')" />
         </template>
         <template #cell-total_purchase_amount="{ value }">{{ money(value) }}</template>
         <template #cell-total_prize_amount="{ value }">{{ money(value) }}</template>
         <template #footer>
           <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted fs-12">{{ number(runs.length) }} loaded</span>
-            <button v-if="runMeta.has_more" class="btn btn-sm btn-outline-primary" type="button" :disabled="loadingRuns" @click="loadRuns(true)">Load more</button>
+            <span class="text-muted fs-12">{{ number(runs.length) }} {{ rr('loaded') }}</span>
+            <button v-if="runMeta.has_more" class="btn btn-sm btn-outline-primary" type="button" :disabled="loadingRuns" @click="loadRuns(true)">{{ rr('loadMore') }}</button>
           </div>
         </template>
       </AdminDataTable>
@@ -238,8 +238,8 @@
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title">Finding detail</h5>
-              <div class="text-muted fs-12">{{ findingDetail?.id || 'Loading' }}</div>
+              <h5 class="modal-title">{{ rr('findingDetail') }}</h5>
+              <div class="text-muted fs-12">{{ findingDetail?.id || rr('loading') }}</div>
             </div>
             <button class="btn-close" type="button" @click="closeDetail" />
           </div>
@@ -248,16 +248,16 @@
             <AdminApiState v-else-if="detailError" :error="detailError" />
             <template v-else-if="findingDetail">
               <div class="np-risk-detail-grid">
-                <div><span>Customer</span><strong>{{ findingDetail.customer?.customer_no || '-' }}</strong></div>
-                <div><span>Full number</span><strong>{{ findingDetail.full_number }}</strong></div>
-                <div><span>Purchase amount</span><strong>{{ money(findingDetail.purchase_amount) }}</strong></div>
-                <div><span>Prize amount</span><strong>{{ money(findingDetail.prize_amount) }}</strong></div>
-                <div><span>Threshold</span><strong>{{ money(findingDetail.threshold_amount) }} ({{ findingDetail.threshold_multiplier }}x)</strong></div>
-                <div><span>Excess</span><strong class="text-danger">{{ money(findingDetail.excess_amount) }}</strong></div>
+                <div><span>{{ rr('customer') }}</span><strong>{{ findingDetail.customer?.customer_no || '-' }}</strong></div>
+                <div><span>{{ rr('fullNumber') }}</span><strong>{{ findingDetail.full_number }}</strong></div>
+                <div><span>{{ rr('purchaseAmount') }}</span><strong>{{ money(findingDetail.purchase_amount) }}</strong></div>
+                <div><span>{{ rr('prizeAmount') }}</span><strong>{{ money(findingDetail.prize_amount) }}</strong></div>
+                <div><span>{{ rr('threshold') }}</span><strong>{{ money(findingDetail.threshold_amount) }} ({{ findingDetail.threshold_multiplier }}x)</strong></div>
+                <div><span>{{ rr('excess') }}</span><strong class="text-danger">{{ money(findingDetail.excess_amount) }}</strong></div>
               </div>
               <div class="table-responsive mt-4">
                 <table class="table table-bordered align-middle mb-0">
-                  <thead><tr><th>Ticket</th><th>Prize</th><th>Prize number</th><th class="text-end">Amount</th></tr></thead>
+                  <thead><tr><th>{{ rr('ticket') }}</th><th>{{ rr('prize') }}</th><th>{{ rr('prizeNumber') }}</th><th class="text-end">{{ rr('amount') }}</th></tr></thead>
                   <tbody>
                     <tr v-for="ticket in findingDetail.tickets || []" :key="ticket.id">
                       <td><code>{{ ticket.ticket_id || '-' }}</code></td>
@@ -270,7 +270,7 @@
               </div>
             </template>
           </div>
-          <div class="modal-footer"><button class="btn btn-light" type="button" @click="closeDetail">Close</button></div>
+          <div class="modal-footer"><button class="btn btn-light" type="button" @click="closeDetail">{{ rr('close') }}</button></div>
         </div>
       </div>
       <div class="modal-backdrop fade show" @click="closeDetail" />
@@ -286,28 +286,32 @@ type Scope = 'central' | 'tenant'
 const props = defineProps<{ scope: Scope }>()
 const api = useAdminApi()
 const session = useAdminSession()
+const adminLocale = useAdminLocale()
+const rr = (key: string) => adminLocale.t(`rewardRisk.${key}`)
+const common = (key: string) => adminLocale.t(`common.${key}`)
 const scope = computed(() => props.scope)
 const tenantId = computed(() => session.currentTenantId.value)
-const scopeLabel = computed(() => scope.value === 'central' ? 'Central' : 'Tenant')
-const pageTitle = 'Reward Risk Assessment'
+const adminLabel = computed(() => common('admin'))
+const scopeLabel = computed(() => scope.value === 'central' ? common('central') : common('tenant'))
+const pageTitle = computed(() => rr('title'))
 const activeTab = ref<'overview' | 'findings' | 'history'>('overview')
-const tabs = [
-  { key: 'overview', label: 'Overview', icon: 'ri-dashboard-line' },
-  { key: 'findings', label: 'Findings', icon: 'ri-radar-line' },
-  { key: 'history', label: 'History', icon: 'ri-history-line' },
-] as const
+const tabs = computed(() => [
+  { key: 'overview', label: rr('overview'), icon: 'ri-dashboard-line' },
+  { key: 'findings', label: rr('findings'), icon: 'ri-radar-line' },
+  { key: 'history', label: rr('history'), icon: 'ri-history-line' },
+] as const)
 
-const prizeTypes = [
-  { key: 'first_prize', label: 'First prize' },
-  { key: 'near_first_prize', label: 'Adjacent first prize' },
-  { key: 'second_prize', label: 'Second prize' },
-  { key: 'third_prize', label: 'Third prize' },
-  { key: 'fourth_prize', label: 'Fourth prize' },
-  { key: 'fifth_prize', label: 'Fifth prize' },
-  { key: 'front3', label: 'Front 3 digits' },
-  { key: 'back3', label: 'Back 3 digits' },
-  { key: 'back2', label: 'Last 2 digits' },
-]
+const prizeTypes = computed(() => [
+  { key: 'first_prize', label: rr('prizes.first_prize') },
+  { key: 'near_first_prize', label: rr('prizes.near_first_prize') },
+  { key: 'second_prize', label: rr('prizes.second_prize') },
+  { key: 'third_prize', label: rr('prizes.third_prize') },
+  { key: 'fourth_prize', label: rr('prizes.fourth_prize') },
+  { key: 'fifth_prize', label: rr('prizes.fifth_prize') },
+  { key: 'front3', label: rr('prizes.front3') },
+  { key: 'back3', label: rr('prizes.back3') },
+  { key: 'back2', label: rr('prizes.back2') },
+])
 
 const settingsForm = reactive({ enabled: false, monitored_prize_types: [] as string[], threshold_multiplier: '1.00' })
 const overview = ref<any>(null)
@@ -349,58 +353,58 @@ const realtime = useAdminRealtimeSubscription({
   onReconnect: () => scheduleRefresh(),
 })
 const realtimeStatus = computed(() => realtime.status.value === 'connected' ? 'active' : (realtime.status.value === 'error' ? 'failed' : 'pending'))
-const realtimeLabel = computed(() => realtime.status.value === 'connected' ? 'Realtime' : 'Polling')
+const realtimeLabel = computed(() => realtime.status.value === 'connected' ? rr('realtime') : rr('polling'))
 const hasOverview = computed(() => overview.value !== null)
 
 const tenantPhaseRows = computed(() => [
-  { key: 'provisional', label: 'Live provisional assessment', run: overview.value?.provisional || null },
-  { key: 'final', label: 'Published final assessment', run: overview.value?.final || null },
+  { key: 'provisional', label: rr('liveProvisionalAssessment'), run: overview.value?.provisional || null },
+  { key: 'final', label: rr('publishedFinalAssessment'), run: overview.value?.final || null },
 ])
 
 const summaryCards = computed(() => {
   if (scope.value === 'central') {
     return [
-      { key: 'tenants', label: 'Enabled tenants', value: number(overview.value?.enabled_tenant_count || 0), hint: 'Tenant settings enabled', icon: 'ri-building-4-line', colorClass: 'bg-primary-transparent text-primary' },
-      { key: 'runs', label: 'Current runs', value: number(overview.value?.run_count || 0), hint: filters.phase ? titleize(filters.phase) : 'All phases', icon: 'ri-pulse-line', colorClass: 'bg-info-transparent text-info' },
-      { key: 'findings', label: 'Findings', value: number(overview.value?.finding_count || 0), hint: 'Threshold exceeded', icon: 'ri-radar-line', colorClass: 'bg-warning-transparent text-warning' },
-      { key: 'exposure', label: 'Prize exposure', value: money(overview.value?.total_prize_amount || 0), hint: 'Current matching reward amount', icon: 'ri-money-dollar-circle-line', colorClass: 'bg-danger-transparent text-danger' },
+      { key: 'tenants', label: rr('enabledTenants'), value: number(overview.value?.enabled_tenant_count || 0), hint: rr('tenantSettingsEnabled'), icon: 'ri-building-4-line', colorClass: 'bg-primary-transparent text-primary' },
+      { key: 'runs', label: rr('currentRuns'), value: number(overview.value?.run_count || 0), hint: filters.phase ? statusLabel(filters.phase) : rr('allPhases'), icon: 'ri-pulse-line', colorClass: 'bg-info-transparent text-info' },
+      { key: 'findings', label: rr('findings'), value: number(overview.value?.finding_count || 0), hint: rr('thresholdExceeded'), icon: 'ri-radar-line', colorClass: 'bg-warning-transparent text-warning' },
+      { key: 'exposure', label: rr('prizeExposure'), value: money(overview.value?.total_prize_amount || 0), hint: rr('currentMatchingRewardAmount'), icon: 'ri-money-dollar-circle-line', colorClass: 'bg-danger-transparent text-danger' },
     ]
   }
   const selected = filters.phase ? overview.value?.[filters.phase] : (overview.value?.final || overview.value?.provisional)
   return [
-    { key: 'status', label: 'Assessment status', value: selected ? titleize(selected.status) : 'Waiting', hint: selected ? titleize(selected.phase) : 'No run yet', icon: 'ri-pulse-line', colorClass: 'bg-primary-transparent text-primary' },
-    { key: 'groups', label: 'Groups evaluated', value: number(selected?.evaluated_group_count || 0), hint: 'Customer and full-number groups', icon: 'ri-group-line', colorClass: 'bg-info-transparent text-info' },
-    { key: 'findings', label: 'Findings', value: number(selected?.finding_count || 0), hint: 'Threshold exceeded', icon: 'ri-radar-line', colorClass: 'bg-warning-transparent text-warning' },
-    { key: 'exposure', label: 'Prize exposure', value: money(selected?.total_prize_amount || 0), hint: 'Selected prize types', icon: 'ri-money-dollar-circle-line', colorClass: 'bg-danger-transparent text-danger' },
+    { key: 'status', label: rr('assessmentStatus'), value: selected ? statusLabel(selected.status) : rr('waiting'), hint: selected ? statusLabel(selected.phase) : rr('noRunYet'), icon: 'ri-pulse-line', colorClass: 'bg-primary-transparent text-primary' },
+    { key: 'groups', label: rr('groupsEvaluated'), value: number(selected?.evaluated_group_count || 0), hint: rr('customerFullNumberGroups'), icon: 'ri-group-line', colorClass: 'bg-info-transparent text-info' },
+    { key: 'findings', label: rr('findings'), value: number(selected?.finding_count || 0), hint: rr('thresholdExceeded'), icon: 'ri-radar-line', colorClass: 'bg-warning-transparent text-warning' },
+    { key: 'exposure', label: rr('prizeExposure'), value: money(selected?.total_prize_amount || 0), hint: rr('selectedPrizeTypes'), icon: 'ri-money-dollar-circle-line', colorClass: 'bg-danger-transparent text-danger' },
   ]
 })
 
 const findingColumns = computed(() => [
-  ...(scope.value === 'central' ? [{ key: 'tenant', label: 'Tenant' }] : []),
-  { key: 'customer', label: 'Customer' },
-  { key: 'full_number', label: 'Full number' },
-  { key: 'prize_types', label: 'Prize types' },
-  { key: 'ticket_count', label: 'Tickets', type: 'number' },
-  { key: 'prize_amount', label: 'Prize amount' },
-  { key: 'threshold_amount', label: 'Threshold' },
-  { key: 'excess_amount', label: 'Excess' },
-  { key: 'phase', label: 'Phase' },
+  ...(scope.value === 'central' ? [{ key: 'tenant', label: rr('tenant') }] : []),
+  { key: 'customer', label: rr('customer') },
+  { key: 'full_number', label: rr('fullNumber') },
+  { key: 'prize_types', label: rr('prizeTypes') },
+  { key: 'ticket_count', label: rr('tickets'), type: 'number' },
+  { key: 'prize_amount', label: rr('prizeAmount') },
+  { key: 'threshold_amount', label: rr('threshold') },
+  { key: 'excess_amount', label: rr('excess') },
+  { key: 'phase', label: rr('phase') },
 ])
 const runColumns = computed(() => [
-  ...(scope.value === 'central' ? [{ key: 'tenant', label: 'Tenant' }] : []),
-  { key: 'game_name', label: 'Game' },
-  { key: 'phase', label: 'Phase' },
-  { key: 'reward_version', label: 'Version', type: 'number' },
-  { key: 'evaluated_group_count', label: 'Groups', type: 'number' },
-  { key: 'finding_count', label: 'Findings', type: 'number' },
-  { key: 'total_purchase_amount', label: 'Purchases' },
-  { key: 'total_prize_amount', label: 'Prize exposure' },
-  { key: 'status', label: 'Status' },
-  { key: 'created_at', label: 'Created', type: 'datetime' },
+  ...(scope.value === 'central' ? [{ key: 'tenant', label: rr('tenant') }] : []),
+  { key: 'game_name', label: rr('game') },
+  { key: 'phase', label: rr('phase') },
+  { key: 'reward_version', label: rr('version'), type: 'number' },
+  { key: 'evaluated_group_count', label: rr('groups'), type: 'number' },
+  { key: 'finding_count', label: rr('findings'), type: 'number' },
+  { key: 'total_purchase_amount', label: rr('purchases') },
+  { key: 'total_prize_amount', label: rr('prizeExposure') },
+  { key: 'status', label: rr('status') },
+  { key: 'created_at', label: rr('created'), type: 'datetime' },
 ])
 
 function number(value: any) {
-  return new Intl.NumberFormat('th-TH').format(Number(value || 0))
+  return new Intl.NumberFormat(adminLocale.locale.value).format(Number(value || 0))
 }
 
 function money(value: any) {
@@ -408,7 +412,15 @@ function money(value: any) {
 }
 
 function prizeLabel(type: string) {
-  return prizeTypes.find(prize => prize.key === type)?.label || titleize(type || '')
+  return prizeTypes.value.find(prize => prize.key === type)?.label || titleize(type || '')
+}
+
+function statusLabel(value: unknown) {
+  const status = String(value || '').trim().toLowerCase()
+  if (!status) return '-'
+  const key = `rewardRisk.statuses.${status}`
+  const translated = adminLocale.t(key)
+  return translated === key ? titleize(status) : translated
 }
 
 function applySettings(resource: any) {
@@ -494,7 +506,7 @@ async function saveSettings() {
       },
     })
     applySettings(resource)
-    successMessage.value = 'Reward risk assessment settings saved.'
+    successMessage.value = rr('settingsSaved')
     await loadAll(true)
   } catch (err) {
     error.value = err

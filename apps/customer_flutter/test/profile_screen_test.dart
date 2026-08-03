@@ -2,8 +2,6 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
-import 'package:customer_flutter/features/affiliate/data/affiliate_models.dart';
-import 'package:customer_flutter/features/affiliate/data/affiliate_repository.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_models.dart';
 import 'package:customer_flutter/features/profile/data/line_notification_repository.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
@@ -50,18 +48,6 @@ void main() {
               ),
             ),
           ),
-          affiliateOverviewProvider.overrideWith(
-            (_) async => AffiliateOverview.fromJson(const {
-              'is_affiliate': true,
-              'tier': {
-                'code': 'gold',
-                'name': 'Gold',
-                'rank': 3,
-                'commission_per_ticket': {'amount': 200, 'currency': 'THB'},
-                'minimum_payout': {'amount': 20000, 'currency': 'THB'},
-              },
-            }),
-          ),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -97,9 +83,9 @@ void main() {
     expect(find.text('คุณกิจ ชุ่มจันทร์จิรา'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('profile-affiliate-tier-gold')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Gold'), findsOneWidget);
+    expect(find.text('Gold'), findsNothing);
     expect(tester.getTopLeft(sheetFinder).dy, lessThan(initialSheetTop));
 
     final aboutTitle = find.text('เกี่ยวกับแอปฯ');
@@ -307,9 +293,6 @@ Future<void> _pumpProfileRouter(
           if (profileError != null) throw profileError;
           return _profileSettings;
         }),
-        affiliateOverviewProvider.overrideWith(
-          (_) async => AffiliateOverview.empty(),
-        ),
         lineNotificationSettingsProvider.overrideWith((_) async {
           if (lineError != null) throw lineError;
           return lineSettings;

@@ -14,8 +14,6 @@ import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../affiliate/data/affiliate_models.dart';
-import '../../affiliate/data/affiliate_repository.dart';
 import '../data/line_notification_repository.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
@@ -96,13 +94,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(customerProfileSettingsProvider);
-    final affiliateOverview = ref.watch(affiliateOverviewProvider).valueOrNull;
-    final affiliateTier =
-        affiliateOverview != null &&
-            affiliateOverview.isAffiliate &&
-            affiliateOverview.tier.code.isNotEmpty
-        ? affiliateOverview.tier
-        : null;
     ref.listen<AsyncValue<CustomerProfileSettings>>(
       customerProfileSettingsProvider,
       (previous, next) {
@@ -232,7 +223,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         contentBackdropColor: Theme.of(context).colorScheme.primary,
         header: _ProfileHero(
           profile: profile,
-          affiliateTier: affiliateTier,
           onRetry: () => ref.invalidate(customerProfileSettingsProvider),
         ),
         content: ListView(
@@ -286,14 +276,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({
-    required this.profile,
-    required this.affiliateTier,
-    required this.onRetry,
-  });
+  const _ProfileHero({required this.profile, required this.onRetry});
 
   final AsyncValue<CustomerProfileSettings> profile;
-  final AffiliateTier? affiliateTier;
   final VoidCallback onRetry;
 
   @override
@@ -327,10 +312,7 @@ class _ProfileHero extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     profile.when(
-                      data: (data) => _ProfileIdentityHeader(
-                        profile: data,
-                        affiliateTier: affiliateTier,
-                      ),
+                      data: (data) => _ProfileIdentityHeader(profile: data),
                       loading: () => const _ProfileHeroLoading(),
                       error: (_, __) => _ProfileHeroError(onRetry: onRetry),
                     ),
@@ -390,13 +372,9 @@ class _ProfileSectionTitle extends StatelessWidget {
 }
 
 class _ProfileIdentityHeader extends StatefulWidget {
-  const _ProfileIdentityHeader({
-    required this.profile,
-    required this.affiliateTier,
-  });
+  const _ProfileIdentityHeader({required this.profile});
 
   final CustomerProfileSettings profile;
-  final AffiliateTier? affiliateTier;
 
   @override
   State<_ProfileIdentityHeader> createState() => _ProfileIdentityHeaderState();
@@ -450,10 +428,6 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                           ),
                     ),
                   ),
-                  if (widget.affiliateTier case final tier?) ...[
-                    const SizedBox(width: 8),
-                    _ProfileAffiliateTierBadge(tier: tier),
-                  ],
                 ],
               ),
               const SizedBox(height: 4),
@@ -520,71 +494,6 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
       if (mounted) setState(() => _copied = false);
     });
   }
-}
-
-class _ProfileAffiliateTierBadge extends StatelessWidget {
-  const _ProfileAffiliateTierBadge({required this.tier});
-
-  final AffiliateTier tier;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalizedCode = tier.code.trim().toLowerCase();
-    final color = _profileAffiliateTierColor(context, normalizedCode);
-    final label = tier.name.trim().isNotEmpty
-        ? tier.name.trim()
-        : _profileAffiliateTierFallbackLabel(normalizedCode);
-    return Container(
-      key: ValueKey('profile-affiliate-tier-$normalizedCode'),
-      constraints: const BoxConstraints(maxWidth: 104),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Color _profileAffiliateTierColor(BuildContext context, String code) {
-  return switch (code) {
-    'bronze' => const Color(0xFFA85D33),
-    'silver' => const Color(0xFF637383),
-    'gold' => const Color(0xFF8A6200),
-    'platinum' => const Color(0xFF526E82),
-    'diamond' => const Color(0xFF087FF0),
-    _ => Theme.of(context).colorScheme.primary,
-  };
-}
-
-String _profileAffiliateTierFallbackLabel(String code) {
-  if (code.isEmpty) return '-';
-  return '${code[0].toUpperCase()}${code.substring(1)}';
 }
 
 class _ProfileHeroLoading extends StatelessWidget {

@@ -1,9 +1,11 @@
 <template>
   <aside class="app-sidebar sticky" id="sidebar">
     <div class="main-sidebar-header">
-      <NuxtLink to="/admin" class="header-logo">
-        <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" />
+      <NuxtLink to="/admin" class="header-logo np-sidebar-brand-link" :aria-label="displayName">
+        <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" data-admin-sidebar-logo="horizontal" />
+        <img :src="logoUrl" :alt="displayName" class="desktop-dark np-admin-brand-logo" data-admin-sidebar-logo="horizontal-dark" />
         <img :src="compactLogoUrl" :alt="displayName" class="toggle-logo np-admin-brand-mark" />
+        <img :src="compactLogoUrl" :alt="displayName" class="toggle-dark np-admin-brand-mark" />
       </NuxtLink>
     </div>
     <div class="main-sidebar" data-simplebar>
@@ -175,6 +177,14 @@ watch([visibleMenus, () => route.path], ([items]) => {
 </script>
 
 <style scoped>
+.np-sidebar-brand-link {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
 .side-menu__item {
   gap: 0.5rem;
 }

@@ -20,20 +20,27 @@ import 'auth_keyboard.dart';
 
 @immutable
 class LoginOtpFlowState {
-  const LoginOtpFlowState({required this.challenge, required this.redirect});
+  const LoginOtpFlowState({
+    required this.challenge,
+    required this.redirect,
+    this.phone = '',
+  });
 
   final LoginOtpChallenge challenge;
   final String redirect;
+  final String phone;
 
   LoginOtpFlowState copyWith({LoginOtpChallenge? challenge}) {
     return LoginOtpFlowState(
       challenge: challenge ?? this.challenge,
       redirect: redirect,
+      phone: phone,
     );
   }
 }
 
 final loginOtpFlowProvider = StateProvider<LoginOtpFlowState?>((_) => null);
+final loginPasswordFallbackPhoneProvider = StateProvider<String>((_) => '');
 
 class LoginOtpScreen extends ConsumerStatefulWidget {
   const LoginOtpScreen({super.key});
@@ -188,10 +195,18 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
                                       child: Text(l10n.authOtpResend),
                                     ),
                                   ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 4),
+                                TextButton.icon(
+                                  key: const ValueKey('login-otp-use-password'),
+                                  onPressed: _submitting
+                                      ? null
+                                      : _switchToPassword,
+                                  icon: const Icon(Icons.lock_outline),
+                                  label: Text(l10n.loginUsePassword),
+                                ),
                                 TextButton(
                                   onPressed: _submitting ? null : _backToLogin,
-                                  child: Text(l10n.loginOtpChangeAccount),
+                                  child: Text(l10n.loginOtpChangePhone),
                                 ),
                               ],
                             ),
@@ -368,6 +383,22 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
       context,
       fallbackPath: customerLoginRouteForRedirect(redirect),
     );
+  }
+
+  Future<void> _switchToPassword() async {
+    if (_submitting) return;
+    await dismissAuthKeyboard(
+      context,
+      waitForAnimation: true,
+      finishAutofillContext: true,
+    );
+    if (!mounted) return;
+    final flow = ref.read(loginOtpFlowProvider);
+    final redirect = flow?.redirect ?? '/';
+    ref.read(loginPasswordFallbackPhoneProvider.notifier).state =
+        flow?.phone.trim() ?? '';
+    ref.read(loginOtpFlowProvider.notifier).state = null;
+    context.go(customerLoginRouteForRedirect(redirect));
   }
 
   void _handleOtpChanged() {

@@ -29,14 +29,17 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  bool _otpSubmitting = false;
   bool _passwordSubmitting = false;
   bool _passkeySubmitting = false;
+  bool _passwordMode = false;
   bool _rememberMe = true;
   bool _showPassword = false;
   String? _socialSubmittingProvider;
   String _formError = '';
 
   bool get _busy =>
+      _otpSubmitting ||
       _passwordSubmitting ||
       _passkeySubmitting ||
       _socialSubmittingProvider != null;
@@ -46,6 +49,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
     _username.addListener(_clearFormError);
     _password.addListener(_clearFormError);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final fallbackPhone = ref.read(loginPasswordFallbackPhoneProvider).trim();
+      if (!mounted || fallbackPhone.isEmpty) return;
+      ref.read(loginPasswordFallbackPhoneProvider.notifier).state = '';
+      setState(() {
+        _username.text = fallbackPhone;
+        _passwordMode = true;
+      });
+    });
   }
 
   @override
@@ -96,7 +108,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: _LoginFormCard(
                               username: _username,
                               password: _password,
+                              passwordMode: _passwordMode,
                               busy: _busy,
+                              otpSubmitting: _otpSubmitting,
                               passwordSubmitting: _passwordSubmitting,
                               passkeySubmitting: _passkeySubmitting,
                               passkeyAvailable: passkeyAvailable,
@@ -111,7 +125,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               socialProviders: socialProviders,
                               socialSubmittingProvider:
                                   _socialSubmittingProvider,
-                              onLogin: _login,
+                              onLogin: _passwordMode
+                                  ? _loginWithPassword
+                                  : _requestLoginOtp,
+                              onUsePassword: _usePasswordLogin,
+                              onUseOtp: _useOtpLogin,
                               onPasskeyLogin: _passkeyLogin,
                               onSocialLogin: _socialLogin,
                               onRegister: () => context.go(
@@ -136,7 +154,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Future<void> _login() async {
+  Future<void> _requestLoginOtp() async {
+    if (_busy) return;
+    final phone = _username.text.trim();
+    if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
+      _showFormError(context.l10n.authPhoneInvalid);
+      return;
+    }
+
+    final keyboardDismissal = dismissAuthKeyboard(
+      context,
+      waitForAnimation: true,
+      finishAutofillContext: true,
+    );
+    ref.read(loginOtpFlowProvider.notifier).state = null;
+    setState(() {
+      _formError = '';
+      _otpSubmitting = true;
+    });
+    await keyboardDismissal;
+    if (!mounted) return;
+
+    try {
+      final challenge = await ref
+          .read(authControllerProvider)
+          .requestLoginOtp(phone);
+      if (!mounted) return;
+      final redirect = _currentRedirect();
+      ref.read(loginOtpFlowProvider.notifier).state = LoginOtpFlowState(
+        challenge: challenge,
+        redirect: redirect,
+        phone: phone,
+      );
+      context.go(customerLoginOtpRouteForRedirect(redirect));
+    } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
+      _showFormError(
+        authOtpErrorMessage(
+          error: error,
+          fallback: context.l10n.loginOtpRequestFailed,
+          otpProviderUnavailable: context.l10n.loginOtpProviderUnavailable,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _otpSubmitting = false);
+    }
+  }
+
+  Future<void> _loginWithPassword() async {
     if (_busy) return;
     final username = _username.text.trim();
     final password = _password.text;
@@ -174,6 +246,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(loginOtpFlowProvider.notifier).state = LoginOtpFlowState(
         challenge: required.challenge,
         redirect: redirect,
+        phone: username,
       );
       context.go(customerLoginOtpRouteForRedirect(redirect));
     } catch (error) {
@@ -189,6 +262,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } finally {
       if (mounted) setState(() => _passwordSubmitting = false);
     }
+  }
+
+  void _usePasswordLogin() {
+    if (_busy || _passwordMode) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _formError = '';
+      _passwordMode = true;
+    });
+  }
+
+  void _useOtpLogin() {
+    if (_busy || !_passwordMode) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _formError = '';
+      _passwordMode = false;
+      _password.clear();
+    });
   }
 
   Future<void> _socialLogin(String provider) async {
@@ -527,7 +619,9 @@ class _LoginFormCard extends StatelessWidget {
   const _LoginFormCard({
     required this.username,
     required this.password,
+    required this.passwordMode,
     required this.busy,
+    required this.otpSubmitting,
     required this.passwordSubmitting,
     required this.passkeySubmitting,
     required this.passkeyAvailable,
@@ -539,6 +633,8 @@ class _LoginFormCard extends StatelessWidget {
     required this.socialProviders,
     required this.socialSubmittingProvider,
     required this.onLogin,
+    required this.onUsePassword,
+    required this.onUseOtp,
     required this.onPasskeyLogin,
     required this.onSocialLogin,
     required this.onRegister,
@@ -547,7 +643,9 @@ class _LoginFormCard extends StatelessWidget {
 
   final TextEditingController username;
   final TextEditingController password;
+  final bool passwordMode;
   final bool busy;
+  final bool otpSubmitting;
   final bool passwordSubmitting;
   final bool passkeySubmitting;
   final bool passkeyAvailable;
@@ -559,6 +657,8 @@ class _LoginFormCard extends StatelessWidget {
   final List<SocialAuthProvider> socialProviders;
   final String? socialSubmittingProvider;
   final VoidCallback onLogin;
+  final VoidCallback onUsePassword;
+  final VoidCallback onUseOtp;
   final VoidCallback onPasskeyLogin;
   final ValueChanged<String> onSocialLogin;
   final VoidCallback onRegister;
@@ -586,7 +686,7 @@ class _LoginFormCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              l10n.loginFormTitle,
+              passwordMode ? l10n.loginPasswordFormTitle : l10n.loginFormTitle,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: colorScheme.onSurface,
                 fontSize: 23,
@@ -595,7 +695,9 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              l10n.loginFormDescription,
+              passwordMode
+                  ? l10n.loginPasswordFormDescription
+                  : l10n.loginFormDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 15,
@@ -615,7 +717,18 @@ class _LoginFormCard extends StatelessWidget {
               autofillHints: const [AutofillHints.telephoneNumber],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.next,
+              textInputAction: passwordMode
+                  ? TextInputAction.next
+                  : TextInputAction.done,
+              onSubmitted: passwordMode
+                  ? null
+                  : (_) {
+                      if (busy) return;
+                      FocusManager.instance.primaryFocus?.unfocus(
+                        disposition: UnfocusDisposition.scope,
+                      );
+                      onLogin();
+                    },
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(10),
@@ -626,54 +739,75 @@ class _LoginFormCard extends StatelessWidget {
                 prefixIcon: const Icon(Icons.phone_android_outlined),
               ),
             ),
-            const SizedBox(height: 16),
-            _LoginFieldLabel(label: l10n.loginPasswordLabel),
-            const SizedBox(height: 8),
-            TextField(
-              controller: password,
-              enabled: !busy,
-              autofillHints: const [AutofillHints.password],
-              style: authInputTextStyle(context),
-              obscureText: !showPassword,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (busy) return;
-                FocusManager.instance.primaryFocus?.unfocus(
-                  disposition: UnfocusDisposition.scope,
-                );
-                onLogin();
-              },
-              decoration: _loginInputDecoration(
-                context,
-                hintText: l10n.loginPasswordHint,
-                prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: authInputActionButton(
+            if (passwordMode) ...[
+              const SizedBox(height: 16),
+              _LoginFieldLabel(label: l10n.loginPasswordLabel),
+              const SizedBox(height: 8),
+              TextField(
+                controller: password,
+                enabled: !busy,
+                autofillHints: const [AutofillHints.password],
+                style: authInputTextStyle(context),
+                obscureText: !showPassword,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (busy) return;
+                  FocusManager.instance.primaryFocus?.unfocus(
+                    disposition: UnfocusDisposition.scope,
+                  );
+                  onLogin();
+                },
+                decoration: _loginInputDecoration(
                   context,
-                  onPressed: busy ? null : onTogglePassword,
-                  icon: showPassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  tooltip: showPassword
-                      ? l10n.loginHidePassword
-                      : l10n.loginShowPassword,
+                  hintText: l10n.loginPasswordHint,
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: authInputActionButton(
+                    context,
+                    onPressed: busy ? null : onTogglePassword,
+                    icon: showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    tooltip: showPassword
+                        ? l10n.loginHidePassword
+                        : l10n.loginShowPassword,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _LoginOptionsRow(
-              rememberMe: rememberMe,
-              enabled: !busy,
-              onRememberMeChanged: onRememberMeChanged,
-              onForgotPassword: onForgotPassword,
-            ),
+              const SizedBox(height: 8),
+              _LoginOptionsRow(
+                rememberMe: rememberMe,
+                enabled: !busy,
+                onRememberMeChanged: onRememberMeChanged,
+                onForgotPassword: onForgotPassword,
+              ),
+            ],
             const SizedBox(height: 12),
             authPrimaryActionButton(
               onPressed: busy ? null : onLogin,
               height: 54,
               fontSize: 18,
-              label: passwordSubmitting
-                  ? l10n.loginSubmitting
-                  : l10n.loginSubmit,
+              label: passwordMode
+                  ? (passwordSubmitting
+                        ? l10n.loginSubmitting
+                        : l10n.loginSubmit)
+                  : (otpSubmitting
+                        ? l10n.loginPhoneSubmitting
+                        : l10n.loginPhoneSubmit),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              key: ValueKey(
+                passwordMode ? 'login-use-otp' : 'login-use-password',
+              ),
+              onPressed: busy
+                  ? null
+                  : (passwordMode ? onUseOtp : onUsePassword),
+              icon: Icon(
+                passwordMode ? Icons.sms_outlined : Icons.lock_outline,
+              ),
+              label: Text(
+                passwordMode ? l10n.loginUseOtp : l10n.loginUsePassword,
+              ),
             ),
             if (passkeyAvailable) ...[
               const SizedBox(height: 10),

@@ -3543,30 +3543,32 @@ Acceptance evidence for every screen group:
   automation.
 - Current Login input behavior note: `/login` now matches Nuxt's phone input
   filtering by accepting digits only and limiting the identifier field to 10
-  digits before password login submit. This preserves the converted hero/sheet
-  UI while removing a subtle Flutter-only paste/typing drift.
+  digits before starting the phone-first OTP login. This preserves the
+  converted hero/sheet UI while removing a subtle Flutter-only paste/typing
+  drift.
 - Current Login options note: `/login` now restores the Nuxt inline
-  "remember me" checkbox next to the forgot-password link, defaulting on like
-  the Nuxt page. The checkbox is kept as UI-state parity because the Nuxt
-  customer login submit does not send the remember flag in its API payload.
-  One focused widget assertion was added; no screenshot tests were added.
+  "remember me" checkbox next to the forgot-password link only inside the
+  password fallback mode, defaulting on like the Nuxt page. The phone-first
+  OTP mode does not show password-only controls.
 - Current Login error-surface note: password login and social-provider launch
   failures now render inside the converted login card as a persistent
   Nuxt-toned inline error panel instead of a transient Flutter SnackBar. API
   payload copy and localized internal-error fallbacks remain unchanged, and
   password auth, redirect, PIN handoff, social provider filtering, and OAuth
   launch behavior were not changed.
-- Current Login/Register OTP enforcement note: when the tenant has an active
-  SMS OTP provider, password Login now closes the credential keyboard and
-  navigates to a dedicated `/login/otp` page instead of replacing the Login
-  form inline. The challenge stays in application memory rather than the URL,
-  direct/refresh access without a challenge returns to Login, and the existing
-  safe redirect and PIN handoff run only after OTP verification. Register
-  likewise cannot submit the account creation request until its phone OTP has
-  returned a non-empty verification token, and Platform API independently
-  enforces the same requirement before writing the customer. Tenants without
-  active SMS keep the compatible direct path; refresh, restored-session PIN
-  unlock, and biometric unlock do not ask for login OTP again.
+- Current Login/Register OTP enforcement note: Flutter Login is now phone-first
+  and passwordless by default. Submitting the phone requests a tenant/customer
+  login challenge and navigates to `/login/otp`; the challenge and unmasked
+  phone stay in application memory rather than the URL, direct/refresh access
+  without a challenge returns to Login, and the existing safe redirect and PIN
+  handoff run only after OTP verification. The OTP screen offers a password
+  fallback that preserves the phone, and the initial phone screen exposes the
+  same fallback for provider failures before a challenge exists. Explicit
+  password fallback bypasses SMS while legacy requests that omit
+  `login_method` retain their prior behavior. Register still cannot create an
+  account until phone OTP returns a non-empty verification token. Refresh,
+  restored-session PIN unlock, and biometric unlock do not ask for login OTP
+  again.
 - Current Login OTP iOS keyboard/UI note: Login and OTP route transitions close
   the active iOS credential text-input and Autofill context and wait for the
   bottom inset to settle before the Login request starts. `/login/otp`

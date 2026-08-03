@@ -128,6 +128,10 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<LoginOtpChallenge> requestLoginOtp(String phone) {
+    return _authRepository.requestLoginOtp(phone: phone);
+  }
+
   Future<void> loginWithPasskey() async {
     final passkeys = _passkeys;
     if (passkeys == null) {

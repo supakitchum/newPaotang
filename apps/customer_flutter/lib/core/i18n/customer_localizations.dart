@@ -80,11 +80,22 @@ class CustomerLocalizations {
   String get loginPasswordHint => _text('auth.login.password_hint');
   String get loginSubmit => _text('auth.login.submit');
   String get loginSubmitting => _text('auth.login.submitting');
+  String get loginPhoneSubmit => _text('auth.login.phone_submit');
+  String get loginPhoneSubmitting => _text('auth.login.phone_submitting');
+  String get loginPasswordFormTitle => _text('auth.login.password_form_title');
+  String get loginPasswordFormDescription =>
+      _text('auth.login.password_form_description');
+  String get loginUsePassword => _text('auth.login.use_password');
+  String get loginUseOtp => _text('auth.login.use_otp');
   String get loginOtpTitle => _text('auth.login.otp_title');
   String get loginOtpHint => _text('auth.login.otp_hint');
   String get loginOtpSubmit => _text('auth.login.otp_submit');
   String get loginOtpSubmitting => _text('auth.login.otp_submitting');
   String get loginOtpChangeAccount => _text('auth.login.otp_change_account');
+  String get loginOtpChangePhone => _text('auth.login.otp_change_phone');
+  String get loginOtpRequestFailed => _text('auth.login.otp_request_failed');
+  String get loginOtpProviderUnavailable =>
+      _text('auth.login.otp_provider_unavailable');
   String get loginRegister => _text('auth.login.register');
   String get loginRegisterPrompt => _text('auth.login.register_prompt');
   String get loginForgotPassword => _text('auth.login.forgot_password');
@@ -3089,11 +3100,22 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.password_hint': 'กรอกรหัสผ่าน',
     'auth.login.submit': 'เข้าสู่ระบบ',
     'auth.login.submitting': 'กำลังเข้าสู่ระบบ',
+    'auth.login.phone_submit': 'รับรหัส OTP',
+    'auth.login.phone_submitting': 'กำลังส่งรหัส OTP',
+    'auth.login.password_form_title': 'เข้าสู่ระบบด้วยรหัสผ่าน',
+    'auth.login.password_form_description':
+        'ใช้เบอร์โทรศัพท์และรหัสผ่านเมื่อไม่สามารถรับ SMS ได้',
+    'auth.login.use_password': 'เปลี่ยนวิธีเข้าสู่ระบบเป็นรหัสผ่าน',
+    'auth.login.use_otp': 'เข้าสู่ระบบด้วย OTP',
     'auth.login.otp_title': 'ยืนยันการเข้าสู่ระบบด้วย OTP',
     'auth.login.otp_hint': 'กรอกรหัส OTP',
     'auth.login.otp_submit': 'ยืนยัน OTP',
     'auth.login.otp_submitting': 'กำลังยืนยัน OTP',
     'auth.login.otp_change_account': 'กลับไปแก้ไขข้อมูลเข้าสู่ระบบ',
+    'auth.login.otp_change_phone': 'เปลี่ยนเบอร์โทรศัพท์',
+    'auth.login.otp_request_failed': 'ไม่สามารถส่งรหัส OTP ได้ กรุณาลองใหม่',
+    'auth.login.otp_provider_unavailable':
+        'ระบบ SMS ไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
     'auth.login.register': 'สมัครใช้งาน',
     'auth.login.register_prompt': 'ยังไม่มีบัญชี?',
     'auth.login.forgot_password': 'ลืมรหัสผ่าน?',
@@ -4633,7 +4655,7 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.stats.visitors.subtitle': 'ผู้เข้าชม',
     'affiliate.stats.registered.title': 'สมัครผ่านลิงก์',
     'affiliate.stats.registered.subtitle': 'บัญชี',
-    'affiliate.tab.overview': 'ภาพรวม',
+    'affiliate.tab.overview': 'หน้าแรก',
     'affiliate.tab.rankings': 'อันดับ',
     'affiliate.tab.referral': 'ลิงก์แนะนำ',
     'affiliate.tab.withdraw': 'ถอน',
@@ -5061,11 +5083,23 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.password_hint': 'Enter your password',
     'auth.login.submit': 'Sign in',
     'auth.login.submitting': 'Signing in',
+    'auth.login.phone_submit': 'Send OTP',
+    'auth.login.phone_submitting': 'Sending OTP',
+    'auth.login.password_form_title': 'Sign in with password',
+    'auth.login.password_form_description':
+        'Use your phone number and password when SMS is unavailable.',
+    'auth.login.use_password': 'Use password instead',
+    'auth.login.use_otp': 'Sign in with OTP',
     'auth.login.otp_title': 'Verify sign-in with OTP',
     'auth.login.otp_hint': 'Enter OTP',
     'auth.login.otp_submit': 'Verify OTP',
     'auth.login.otp_submitting': 'Verifying OTP',
     'auth.login.otp_change_account': 'Edit sign-in details',
+    'auth.login.otp_change_phone': 'Change phone number',
+    'auth.login.otp_request_failed':
+        'Could not send the OTP. Please try again.',
+    'auth.login.otp_provider_unavailable':
+        'SMS is unavailable. Please sign in with your password.',
     'auth.login.register': 'Create account',
     'auth.login.register_prompt': 'No account yet?',
     'auth.login.forgot_password': 'Forgot password?',
@@ -6659,7 +6693,7 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.stats.visitors.subtitle': 'Visitors',
     'affiliate.stats.registered.title': 'Registered',
     'affiliate.stats.registered.subtitle': 'Accounts',
-    'affiliate.tab.overview': 'Overview',
+    'affiliate.tab.overview': 'Home',
     'affiliate.tab.rankings': 'Ranking',
     'affiliate.tab.referral': 'Referral',
     'affiliate.tab.withdraw': 'Withdraw',
