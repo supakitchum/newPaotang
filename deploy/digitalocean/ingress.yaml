@@ -42,6 +42,23 @@ spec:
                 name: back-office
                 port:
                   number: 3100
+    - host: bo.siamblend.com
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-api
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: back-office
+                port:
+                  number: 3100
     - host: realtime.siamblend.com
       http:
         paths:
