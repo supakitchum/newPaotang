@@ -519,6 +519,17 @@ before upgrading Flutter to a version that turns the warning into an error.
 - Configure LINE, Google, and Apple Sign-In credentials per partner in BO plugin
   settings.
 - Confirm production `API_BASE_URL` and tenant resolution/deep link policy.
+- Build the SiamBlend iOS release with the checked-in runtime definition so
+  tenant bootstrap, authenticated APIs, biometric challenges, and deep links
+  all use the same production storefront host:
+
+  ```bash
+  flutter build ios --release \
+    --dart-define-from-file=release/siamblend.runtime.json
+  ```
+
+  Do not replace this with `https://api.siamblend.com/api/v1` unless Platform
+  API tenant resolution on the central API host has been verified end to end.
 - Run the verification commands above on a clean CI runner. The
   `.github/workflows/customer-flutter.yml` workflow runs the same quality gates
   for pull requests that touch `apps/customer_flutter`.

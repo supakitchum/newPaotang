@@ -1325,6 +1325,7 @@ class CustomerAuthService
                     ->whereNull('revoked_at')
                     ->update([
                         'revoked_at' => $now,
+                        'revoked_reason' => 'session_replaced',
                         'updated_at' => $now,
                     ]);
             }

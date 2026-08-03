@@ -551,7 +551,7 @@ class SystemTranslationService
             'surface' => $normalizedSurface,
             'messages' => $messages,
             'phrases' => $phrases,
-            'available_locales' => $this->languageRows(activeOnly: true),
+            'available_locales' => $this->availableLanguageRowsForSurface($normalizedSurface),
             'preview' => $preview ? [
                 'request_id' => $preview['request_id'],
                 'category' => $preview['category'],
@@ -846,6 +846,30 @@ class SystemTranslationService
 
             return $query->get()->map(fn (SystemLanguage $language): array => $this->serializeLanguage($language))->all();
         });
+    }
+
+    /**
+     * Only advertise languages that have published content for this runtime surface.
+     * Translation Center can keep languages used by other surfaces without exposing
+     * unfinished choices to customer and back-office clients.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function availableLanguageRowsForSurface(string $surface): array
+    {
+        return SystemLanguage::query()
+            ->where('status', 'active')
+            ->whereHas('values', fn ($valueQuery) => $valueQuery
+                ->whereNotNull('value')
+                ->where('value', '!=', '')
+                ->whereHas('key', fn ($keyQuery) => $keyQuery
+                    ->where('surface', $surface)
+                    ->where('status', 'active')))
+            ->orderBy('sort_order')
+            ->orderBy('locale')
+            ->get()
+            ->map(fn (SystemLanguage $language): array => $this->serializeLanguage($language))
+            ->all();
     }
 
     private function languageByLocale(string $locale): SystemLanguage

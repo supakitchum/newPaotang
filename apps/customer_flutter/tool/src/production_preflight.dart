@@ -180,6 +180,10 @@ void _checkFlutterNativePushBinding(
       'await _syncQueue;',
       'registerBeforeLogoutHook',
       'customerPushDeviceContextLoaderProvider',
+      '.deviceStatus(installationId)',
+      'needsTokenRotation',
+      '_rotateToken(platform)',
+      '_scheduleRetry(stage, error)',
       '.registerDevice(',
       '.revokeDevice(installationId)',
       "widget.router.go('/notifications')",
@@ -198,7 +202,7 @@ void _checkFlutterNativePushBinding(
       ProductionPreflightIssue(
         code: 'flutter_native_push_binding_missing',
         message:
-            'Native customer releases must initialize FCM, present foreground notifications, register refreshed tokens, preserve notification taps through auth/PIN, and revoke the installation on logout. Missing: ${missingCommon.join(', ')}',
+            'Native customer releases must initialize FCM, present foreground notifications, reconcile server-revoked installations, rotate invalid tokens with bounded retry, preserve notification taps through auth/PIN, and revoke the installation on logout. Missing: ${missingCommon.join(', ')}',
       ),
     );
   }
@@ -3140,7 +3144,8 @@ void _checkAndroidLaunchIdentity(
   final colorSource = colors.readAsStringSync();
   final launchSource = launch.readAsStringSync();
   final launchV21Source = launchV21.readAsStringSync();
-  final missingIdentity = !colorSource.contains('customer_launch_background') ||
+  final missingIdentity =
+      !colorSource.contains('customer_launch_background') ||
       !colorSource.contains('#0B96DC') ||
       !launchSource.contains('@color/customer_launch_background') ||
       !launchV21Source.contains('@color/customer_launch_background') ||
@@ -3643,7 +3648,8 @@ void _checkIosLaunchIdentity(
 
   final source = storyboard.readAsStringSync();
   final contentsSource = contents.readAsStringSync();
-  final hasSplashArtwork = source.contains('image="SplashBackground"') &&
+  final hasSplashArtwork =
+      source.contains('image="SplashBackground"') &&
       source.contains('contentMode="scaleAspectFill"') &&
       source.contains('firstAttribute="leading"') &&
       source.contains('firstAttribute="top"') &&
@@ -4379,8 +4385,7 @@ String _normalizeSocialProvider(String provider) {
     'facebook_login' ||
     'facebook_oauth' ||
     'meta' ||
-    'meta_login' =>
-      'facebook',
+    'meta_login' => 'facebook',
     'line_login' || 'line_oa' || 'line_oauth' => 'line',
     final value => value,
   };

@@ -28,6 +28,12 @@ class CustomerNotificationService
 
     private const DELIVERY_LEASE_MINUTES = 10;
 
+    private const DEVICE_REVOKED_LOGOUT = 'customer_logout';
+
+    private const DEVICE_REVOKED_REASSIGNED = 'registration_reassigned';
+
+    private const DEVICE_REVOKED_STALE = 'stale_registration';
+
     public const CATEGORIES = [
         'order',
         'lottery',
@@ -59,6 +65,9 @@ class CustomerNotificationService
         'activity_claims',
         'activity_claim',
         'affiliate',
+        'affiliate_rankings',
+        'affiliate_commissions',
+        'affiliate_withdraw',
         'news',
         'support',
         'support_ticket',
@@ -91,6 +100,9 @@ class CustomerNotificationService
         'activity_claims',
         'activity_claim',
         'affiliate',
+        'affiliate_rankings',
+        'affiliate_commissions',
+        'affiliate_withdraw',
         'news',
         'support',
         'support_ticket',
@@ -246,7 +258,7 @@ class CustomerNotificationService
         $token = trim((string) $payload['fcm_token']);
         $tokenHash = hash_hmac('sha256', $token, (string) config('app.key'));
         $metadata = $this->normalizedDeviceMetadata($payload['metadata'] ?? null);
-        $device = DB::transaction(function () use ($tenantId, $customerId, $installationId, $token, $tokenHash, $payload, $metadata): CustomerPushDevice {
+        $device = DB::transaction(function () use ($tenantId, $customerId, $installationId, $token, $tokenHash, $payload, $metadata): ?CustomerPushDevice {
             $this->lockPushRegistrationIdentity($installationId, $tokenHash);
             $now = now();
             $device = CustomerPushDevice::query()
@@ -255,6 +267,21 @@ class CustomerNotificationService
                 ->where('installation_id', $installationId)
                 ->lockForUpdate()
                 ->first();
+
+            $terminallyRevokedTokenExists = CustomerPushDevice::query()
+                ->where('token_hash', $tokenHash)
+                ->whereNotNull('revoked_at')
+                ->where(function (Builder $query): void {
+                    $query->whereNull('revoked_reason')
+                        ->orWhere('revoked_reason', 'like', 'fcm_%');
+                })
+                ->exists();
+            $sameRevokedInstallation = $device !== null
+                && $device->revoked_at !== null
+                && hash_equals((string) $device->token_hash, $tokenHash);
+            if ($terminallyRevokedTokenExists || $sameRevokedInstallation) {
+                return null;
+            }
 
             if ($device === null) {
                 $device = new CustomerPushDevice([
@@ -275,7 +302,11 @@ class CustomerNotificationService
                 })
                 ->whereNull('revoked_at')
                 ->when($device->exists, fn (Builder $query) => $query->where('id', '!=', $device->id))
-                ->update(['revoked_at' => $now, 'updated_at' => $now]);
+                ->update([
+                    'revoked_at' => $now,
+                    'revoked_reason' => self::DEVICE_REVOKED_REASSIGNED,
+                    'updated_at' => $now,
+                ]);
 
             $device->fill([
                 'platform' => strtolower(trim((string) $payload['platform'])),
@@ -287,11 +318,16 @@ class CustomerNotificationService
                 'metadata_json' => $metadata,
                 'last_seen_at' => $now,
                 'revoked_at' => null,
+                'revoked_reason' => null,
                 'updated_at' => $now,
             ])->save();
 
             return $device;
         });
+
+        if ($device === null) {
+            return ['error' => 'token_rotation_required'];
+        }
 
         return ['resource' => $this->deviceResource($device->refresh())];
     }
@@ -325,10 +361,53 @@ class CustomerNotificationService
         }
 
         if ($device->revoked_at === null) {
-            $device->forceFill(['revoked_at' => now(), 'updated_at' => now()])->save();
+            $device->forceFill([
+                'revoked_at' => now(),
+                'revoked_reason' => self::DEVICE_REVOKED_LOGOUT,
+                'updated_at' => now(),
+            ])->save();
         }
 
         return true;
+    }
+
+    /** @return array<string, mixed> */
+    public function deviceStatus(string $tenantId, string $customerId, string $installationId): array
+    {
+        $installationId = trim($installationId);
+        $device = $installationId === ''
+            ? null
+            : CustomerPushDevice::query()
+                ->forTenant($tenantId)
+                ->where('customer_id', $customerId)
+                ->where('installation_id', $installationId)
+                ->first();
+
+        if ($device === null) {
+            return [
+                'installation_id' => $installationId,
+                'state' => 'missing',
+                'registered' => false,
+                'needs_token_rotation' => false,
+                'revoked_reason' => null,
+                'revoked_at' => null,
+                'last_seen_at' => null,
+            ];
+        }
+
+        $registered = $device->revoked_at === null;
+
+        return [
+            'installation_id' => (string) $device->installation_id,
+            'state' => $registered ? 'active' : 'revoked',
+            'registered' => $registered,
+            // A revoked row may predate revoked_reason. Rotating is the safe
+            // recovery because the server never exposes or accepts token hashes.
+            'needs_token_rotation' => ! $registered,
+            'revoked_reason' => $registered ? null : $device->revoked_reason,
+            'revoked_at' => $device->revoked_at?->toISOString(),
+            'last_seen_at' => $device->last_seen_at?->toISOString(),
+        ];
     }
 
     public function revokeStaleDevices(int $limit = 100, ?int $staleDays = null): int
@@ -361,6 +440,7 @@ class CustomerNotificationService
             ->where('last_seen_at', '<=', $cutoff)
             ->update([
                 'revoked_at' => $now,
+                'revoked_reason' => self::DEVICE_REVOKED_STALE,
                 'updated_at' => $now,
             ]);
     }
@@ -760,6 +840,9 @@ class CustomerNotificationService
             'activity_claims' => 'Activity claims',
             'activity_claim' => 'Activity claim detail',
             'affiliate' => 'Affiliate',
+            'affiliate_rankings' => 'Affiliate rankings',
+            'affiliate_commissions' => 'Affiliate commissions',
+            'affiliate_withdraw' => 'Affiliate withdrawal',
             'news' => 'News detail',
         ];
 
@@ -887,7 +970,11 @@ class CustomerNotificationService
         $errorCode = trim((string) ($result['error_code'] ?? 'provider_error')) ?: 'provider_error';
         $terminalToken = ($result['revoke_device'] ?? false) === true;
         if ($terminalToken) {
-            $device->forceFill(['revoked_at' => now(), 'updated_at' => now()])->save();
+            $device->forceFill([
+                'revoked_at' => now(),
+                'revoked_reason' => 'fcm_'.Str::limit($errorCode, 60, ''),
+                'updated_at' => now(),
+            ])->save();
         }
 
         $retryable = ($result['retryable'] ?? false) === true && $attempts < self::DELIVERY_MAX_ATTEMPTS;
@@ -1249,6 +1336,7 @@ class CustomerNotificationService
             'device_name' => $device->device_name,
             'last_seen_at' => $device->last_seen_at?->toISOString(),
             'registered' => $device->revoked_at === null,
+            'revoked_reason' => $device->revoked_at === null ? null : $device->revoked_reason,
         ];
     }
 

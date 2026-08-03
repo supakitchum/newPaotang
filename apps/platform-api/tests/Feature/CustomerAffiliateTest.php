@@ -77,6 +77,16 @@ class CustomerAffiliateTest extends TestCase
             ->json();
 
         $affiliateId = $registered['affiliate']['id'];
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $tenantId,
+            'event_key' => 'affiliate.registration.completed',
+            'action_key' => 'affiliate',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $tenantId,
+            'event_key' => 'affiliate.store_name.submitted',
+            'action_key' => 'affiliate',
+        ]);
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{6}$/', $registered['affiliate']['code']);
         $this->assertNotSame('lucky_customer', $registered['affiliate']['code']);
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{6}$/', $registered['links'][0]['code'] ?? '');
@@ -239,6 +249,11 @@ class CustomerAffiliateTest extends TestCase
             ->assertJsonPath('bank_account.bank_name', 'Example Bank')
             ->assertJsonPath('bank_account.account_number', '******7890')
             ->assertJsonPath('bank_account.account_number_last_four', '7890');
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $tenantId,
+            'event_key' => 'affiliate.payout.submitted',
+            'action_key' => 'affiliate_withdraw',
+        ]);
         $storedPayoutBank = DB::table('affiliate_payouts')
             ->where('tenant_id', $tenantId)
             ->where('affiliate_account_id', $affiliateId)

@@ -11468,3 +11468,45 @@ Native LINE Login for iOS and Android (2026-08-03):
   fingerprint in LINE Developers. Real LINE account login must be checked on
   physical iOS and Android devices after those external settings are present.
   No commit, push, or clear-worktree action was performed.
+
+Affiliate customer notifications (2026-08-03):
+
+- Affiliate events now cover registration, store-name submission and review,
+  account activation/restriction, tier campaign start/ending/final result,
+  tier changes, commission approval/reversal, and payout status transitions.
+  The campaign finalizer also notifies participants whose tier remains
+  unchanged, rather than notifying only promoted or demoted accounts.
+- Affiliate notifications use the existing customer inbox, realtime unread
+  badge, and native FCM pipeline. They do not introduce a second notification
+  store or a new migration. Transition-specific dedupe keys keep retries,
+  repeated webhooks, and repeated campaign finalization idempotent.
+- Flutter deep links open the relevant Affiliate page: ranking events open
+  `/affiliate/rankings`, commission events open `/affiliate/commissions`, and
+  payout events open `/affiliate/withdraw`; registration, store-name, and
+  account-status events open the Affiliate overview.
+- Verification passed 41 Platform tests/577 assertions across Customer
+  Notifications, Affiliate campaigns, Customer Affiliate, commission, and
+  admin Affiliate flows, plus 14 Flutter notification tests. Only
+  `newpaotang_test` was used. The pre-existing
+  Customer Flutter README/release worktree changes were left untouched; no
+  runtime database, commit, push, or clear-worktree action was performed.
+
+Production push installation self-recovery (2026-08-03):
+
+- Added an authenticated, customer-scoped push installation status endpoint.
+  It returns only `missing`, `active`, or `revoked` state, rotation guidance,
+  safe revoke reason, and timestamps; FCM tokens and hashes are never returned.
+- Flutter now reconciles the current installation once per unlocked session and
+  every 15 minutes on resume. A revoked installation deletes the rejected FCM
+  token, waits for a different token, and re-registers it. A missing row is
+  registered without unnecessary rotation, and unchanged active rows still
+  refresh daily.
+- Registration, status, APNs/FCM token, and API failures use bounded retry and
+  stage/error-type diagnostics without token values. The durable inbox and
+  realtime read state continue working when native push is unavailable.
+- Push device rows now record safe revoke reasons for terminal FCM failures,
+  explicit logout, stale cleanup, ownership reassignment, and session
+  replacement. The release preflight requires status reconciliation, token
+  rotation, and retry wiring.
+- The migration is non-destructive and has not been run against a runtime DB.
+  Focused verification details are recorded in the production incident report.

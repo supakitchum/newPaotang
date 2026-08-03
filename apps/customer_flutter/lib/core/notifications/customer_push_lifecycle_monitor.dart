@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -21,6 +22,21 @@ import 'customer_push_platform.dart';
 final customerPushRegistrationClockProvider = Provider<DateTime Function()>(
   (_) => DateTime.now,
 );
+
+final customerPushDiagnosticsProvider = Provider<CustomerPushDiagnostics>(
+  (_) => const CustomerPushDiagnostics(),
+);
+
+class CustomerPushDiagnostics {
+  const CustomerPushDiagnostics();
+
+  void registrationFailure(String stage, Object error) {
+    developer.log(
+      'stage=$stage error_type=${error.runtimeType}',
+      name: 'customer_push.registration',
+    );
+  }
+}
 
 class CustomerPushLifecycleMonitor extends ConsumerStatefulWidget {
   const CustomerPushLifecycleMonitor({
@@ -46,6 +62,9 @@ class _CustomerPushLifecycleMonitorState
   CustomerPushMessage? _pendingTap;
   String _registeredSignature = '';
   DateTime? _registeredAt;
+  DateTime? _lastReconciledAt;
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
   bool _syncing = false;
   bool _flushingTap = false;
   bool _loggingOut = false;
@@ -73,6 +92,7 @@ class _CustomerPushLifecycleMonitorState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _retryTimer?.cancel();
     _removeLogoutHook?.call();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
@@ -98,6 +118,8 @@ class _CustomerPushLifecycleMonitorState
         _loggingOut = false;
         _registeredSignature = '';
         _registeredAt = null;
+        _lastReconciledAt = null;
+        _clearRetry();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleSync());
     });
@@ -122,6 +144,7 @@ class _CustomerPushLifecycleMonitorState
     if (!platform.available || !_isUnlocked(auth)) return;
 
     _syncing = true;
+    var stage = 'permission';
     try {
       await _flushPendingTap();
       final store = ref.read(customerPushInstallationStoreProvider);
@@ -132,24 +155,63 @@ class _CustomerPushLifecycleMonitorState
       } else {
         settings = await platform.notificationSettings();
       }
-      if (!_pushAuthorized(settings)) return;
+      if (!_pushAuthorized(settings)) {
+        _clearRetry();
+        return;
+      }
 
-      final token = (await platform.token())?.trim() ?? '';
-      if (token.isNotEmpty) await _registerToken(token);
-    } catch (_) {
+      final installationId = await store.installationId();
+      final now = ref.read(customerPushRegistrationClockProvider)().toUtc();
+      CustomerPushDeviceStatus? serverStatus;
+      if (_shouldReconcile(now)) {
+        stage = 'status';
+        serverStatus = await ref
+            .read(customerNotificationRepositoryProvider)
+            .deviceStatus(installationId);
+      }
+
+      String token;
+      if (serverStatus?.needsTokenRotation ?? false) {
+        stage = 'token_rotation';
+        token = await _rotateToken(platform);
+        _registeredSignature = '';
+        _registeredAt = null;
+      } else {
+        stage = 'token';
+        token = (await platform.token())?.trim() ?? '';
+        if (token.isEmpty) {
+          throw const _CustomerPushRegistrationFailure('token_unavailable');
+        }
+      }
+
+      stage = 'registration';
+      await _registerToken(
+        token,
+        force: serverStatus != null && !serverStatus.registered,
+        installationId: installationId,
+      );
+      if (serverStatus != null) _lastReconciledAt = now;
+      _clearRetry();
+    } catch (error) {
       // Inbox and realtime remain usable when native registration is unavailable.
+      _scheduleRetry(stage, error);
     } finally {
       _syncing = false;
     }
   }
 
-  Future<void> _registerToken(String token) async {
+  Future<void> _registerToken(
+    String token, {
+    bool force = false,
+    String? installationId,
+  }) async {
     if (_loggingOut || token.trim().isEmpty) return;
     final auth = ref.read(authControllerProvider);
     if (!_isUnlocked(auth)) return;
 
     final store = ref.read(customerPushInstallationStoreProvider);
-    final installationId = await store.installationId();
+    final resolvedInstallationId =
+        installationId ?? await store.installationId();
     final locale = localeTag(ref.read(customerLocaleProvider));
     final platform = switch (defaultTargetPlatform) {
       TargetPlatform.iOS => 'ios',
@@ -162,22 +224,23 @@ class _CustomerPushLifecycleMonitorState
         .read(customerPushDeviceContextLoaderProvider)
         .load();
     final signature =
-        '$installationId|$platform|$locale|${deviceContext.registrationSignature}|${token.trim()}';
+        '$resolvedInstallationId|$platform|$locale|${deviceContext.registrationSignature}|${token.trim()}';
     final now = ref.read(customerPushRegistrationClockProvider)().toUtc();
     final registeredAt = _registeredAt;
     final registrationAge = registeredAt == null
         ? null
         : now.difference(registeredAt);
-    if (_registeredSignature == signature &&
+    if (!force &&
+        _registeredSignature == signature &&
         registrationAge != null &&
         !registrationAge.isNegative &&
-        registrationAge < const Duration(days: 30)) {
+        registrationAge < const Duration(days: 1)) {
       return;
     }
     await ref
         .read(customerNotificationRepositoryProvider)
         .registerDevice(
-          installationId: installationId,
+          installationId: resolvedInstallationId,
           platform: platform,
           fcmToken: token.trim(),
           locale: locale,
@@ -198,9 +261,67 @@ class _CustomerPushLifecycleMonitorState
   Future<void> _registerTokenSafely(String token) async {
     try {
       await _registerToken(token);
-    } catch (_) {
+      _clearRetry();
+    } catch (error) {
       // A resume/auth sync retries the current token without crashing the app.
+      _scheduleRetry('token_refresh_registration', error);
     }
+  }
+
+  bool _shouldReconcile(DateTime now) {
+    final checkedAt = _lastReconciledAt;
+    if (checkedAt == null) return true;
+    final age = now.difference(checkedAt);
+    return age.isNegative || age >= const Duration(minutes: 15);
+  }
+
+  Future<String> _rotateToken(CustomerPushPlatform platform) async {
+    String previousToken = '';
+    try {
+      previousToken = (await platform.token())?.trim() ?? '';
+    } catch (_) {
+      // Deleting the invalid installation token does not require reading it first.
+    }
+
+    await platform.deleteToken();
+    for (final delay in const [
+      Duration.zero,
+      Duration(milliseconds: 250),
+      Duration(milliseconds: 750),
+      Duration(milliseconds: 1500),
+    ]) {
+      if (delay > Duration.zero) await Future<void>.delayed(delay);
+      final refreshed = (await platform.token())?.trim() ?? '';
+      if (refreshed.isNotEmpty && refreshed != previousToken) return refreshed;
+    }
+
+    throw const _CustomerPushRegistrationFailure('token_rotation_pending');
+  }
+
+  void _scheduleRetry(String stage, Object error) {
+    ref.read(customerPushDiagnosticsProvider).registrationFailure(stage, error);
+    if (!mounted || _loggingOut || _retryTimer?.isActive == true) return;
+    const delays = [
+      Duration(seconds: 15),
+      Duration(minutes: 1),
+      Duration(minutes: 5),
+      Duration(minutes: 15),
+    ];
+    final index = _retryAttempt < delays.length
+        ? _retryAttempt
+        : delays.length - 1;
+    final delay = delays[index];
+    if (_retryAttempt < delays.length - 1) _retryAttempt++;
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      if (mounted && !_loggingOut) _scheduleSync();
+    });
+  }
+
+  void _clearRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryAttempt = 0;
   }
 
   void _handleForegroundMessage(CustomerPushMessage message) {
@@ -287,6 +408,8 @@ class _CustomerPushLifecycleMonitorState
     _pendingTap = null;
     _registeredSignature = '';
     _registeredAt = null;
+    _lastReconciledAt = null;
+    _clearRetry();
     try {
       await _syncQueue;
     } catch (_) {
@@ -309,6 +432,12 @@ class _CustomerPushLifecycleMonitorState
       // Local token cleanup is best effort and must not block explicit logout.
     }
   }
+}
+
+class _CustomerPushRegistrationFailure implements Exception {
+  const _CustomerPushRegistrationFailure(this.code);
+
+  final String code;
 }
 
 bool _isSessionReplacementPush(CustomerPushMessage message) {

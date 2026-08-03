@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\SystemTranslationKey;
+use App\Models\SystemLanguage;
+use App\Models\SystemTranslationValue;
 use App\Modules\Translations\Services\SystemTranslationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -68,6 +70,44 @@ class SystemTranslationWorkflowTest extends TestCase
 
         $runtimeBundle = $service->runtimeBundle('en-US', 'customer');
         $this->assertSame('Member code: {code}', $runtimeBundle['messages']['profile.memberCode']);
+    }
+
+    public function test_runtime_bundle_only_advertises_languages_published_for_the_requested_surface(): void
+    {
+        $service = app(SystemTranslationService::class);
+        $service->syncCatalog();
+        $service->upsertLanguage([
+            'locale' => 'ja-JP',
+            'name' => 'Japanese',
+            'native_name' => 'Japanese',
+            'status' => 'active',
+            'sort_order' => 30,
+        ]);
+
+        $customerLocales = array_column(
+            $service->runtimeBundle('th-TH', 'customer')['available_locales'],
+            'locale',
+        );
+        $this->assertNotContains('ja-JP', $customerLocales);
+
+        $language = SystemLanguage::query()->where('locale', 'ja-JP')->firstOrFail();
+        $key = SystemTranslationKey::query()
+            ->where('surface', 'customer')
+            ->where('status', 'active')
+            ->firstOrFail();
+        SystemTranslationValue::query()->create([
+            'id' => 'tvl_customer_ja_test',
+            'language_id' => $language->id,
+            'translation_key_id' => $key->id,
+            'value' => 'Customer translation',
+            'published_at' => now(),
+        ]);
+
+        $customerLocales = array_column(
+            $service->runtimeBundle('th-TH', 'customer')['available_locales'],
+            'locale',
+        );
+        $this->assertContains('ja-JP', $customerLocales);
     }
 
     public function test_placeholder_validation_blocks_submit(): void

@@ -177,6 +177,7 @@ Route::get('/customer/notifications/unread-count', [CustomerNotificationControll
 Route::patch('/customer/notifications/{notification_id}/read', [CustomerNotificationController::class, 'markRead'])->middleware('customer.auth');
 Route::post('/customer/notifications/read-all', [CustomerNotificationController::class, 'markAllRead'])->middleware('customer.auth');
 Route::post('/customer/notification-devices', [CustomerNotificationController::class, 'registerDevice'])->middleware('customer.auth');
+Route::get('/customer/notification-devices/{installation_id}/status', [CustomerNotificationController::class, 'deviceStatus'])->middleware('customer.auth');
 Route::delete('/customer/notification-devices/{installation_id}', [CustomerNotificationController::class, 'revokeDevice'])->middleware('customer.auth');
 Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');
 Route::post('/customer/support-session', [CustomerSupportSessionController::class, 'store'])->middleware('customer.auth');

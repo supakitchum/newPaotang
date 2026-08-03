@@ -174,6 +174,11 @@ class AffiliateTierCampaignTest extends TestCase
             ->where('event_key', 'affiliate.tier.changed')
             ->where('subject_id', $campaignId)
             ->count());
+        $this->assertSame(2, DB::table('customer_notifications')
+            ->where('tenant_id', $tenantId)
+            ->where('event_key', 'affiliate.tier_campaign.completed')
+            ->where('subject_id', $campaignId)
+            ->count());
     }
 
     public function test_ranking_campaign_uses_reached_time_then_code_and_never_reduces_tier(): void

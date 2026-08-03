@@ -105,6 +105,24 @@ void main() {
       ),
       '/support',
     );
+    expect(
+      customerNotificationRoute(
+        const CustomerNotificationAction(key: 'affiliate_rankings'),
+      ),
+      '/affiliate/rankings',
+    );
+    expect(
+      customerNotificationRoute(
+        const CustomerNotificationAction(key: 'affiliate_commissions'),
+      ),
+      '/affiliate/commissions',
+    );
+    expect(
+      customerNotificationRoute(
+        const CustomerNotificationAction(key: 'affiliate_withdraw'),
+      ),
+      '/affiliate/withdraw',
+    );
     expect(isSensitiveCustomerPath('/notifications'), isTrue);
   });
 
@@ -216,6 +234,29 @@ void main() {
     expect(context.metadata['os_sdk'], 36);
     expect(context.metadata['is_physical_device'], isTrue);
     expect(context.metadata, isNot(contains('identifier_for_vendor')));
+  });
+
+  test('push device status parses safe server recovery state', () {
+    final revoked = CustomerPushDeviceStatus.fromJson({
+      'data': {
+        'state': 'revoked',
+        'registered': false,
+        'needs_token_rotation': true,
+        'revoked_reason': 'fcm_unregistered',
+      },
+    });
+    final active = CustomerPushDeviceStatus.fromJson({
+      'state': 'active',
+      'registered': true,
+      'needsTokenRotation': false,
+    });
+
+    expect(revoked.state, 'revoked');
+    expect(revoked.registered, isFalse);
+    expect(revoked.needsTokenRotation, isTrue);
+    expect(revoked.revokedReason, 'fcm_unregistered');
+    expect(active.registered, isTrue);
+    expect(active.needsTokenRotation, isFalse);
   });
 
   test(
@@ -684,6 +725,7 @@ void main() {
               ..pinRequired = false
               ..pinSetupRequired = false;
         final repository = _PushNotificationRepository(api);
+        final diagnostics = _RecordingPushDiagnostics();
         final router = GoRouter(
           routes: [GoRoute(path: '/', builder: (_, __) => const Text('home'))],
         );
@@ -712,6 +754,7 @@ void main() {
               customerNotificationRepositoryProvider.overrideWithValue(
                 repository,
               ),
+              customerPushDiagnosticsProvider.overrideWithValue(diagnostics),
             ],
             child: MaterialApp.router(
               routerConfig: router,
@@ -727,6 +770,7 @@ void main() {
         expect(permissionRequests, 1);
         expect(tokenReads, 1);
         expect(repository.registeredTokens, isEmpty);
+        expect(diagnostics.failures, ['token:StateError']);
         final container = ProviderScope.containerOf(
           tester.element(find.byType(CustomerPushLifecycleMonitor)),
         );
@@ -758,6 +802,107 @@ void main() {
         expect(repository.registeredTokens, [
           'fcm-token-after-resume-1234567890',
           'fcm-token-after-resume-1234567890',
+        ]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'server-revoked installation rotates FCM token and registers replacement',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        var tokenReads = 0;
+        var deletedTokens = 0;
+        final platform = CustomerPushPlatform.test(
+          requestPermission: () async => _authorizedNotificationSettings,
+          notificationSettings: () async => _authorizedNotificationSettings,
+          token: () async {
+            tokenReads += 1;
+            return tokenReads == 1
+                ? 'fcm-token-revoked-1234567890'
+                : 'fcm-token-replacement-1234567890';
+          },
+          deleteToken: () async {
+            deletedTokens += 1;
+          },
+        );
+        addTearDown(platform.dispose);
+
+        final tokenStore = AuthTokenStore();
+        final api = ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          tokenStore,
+          localeTag: 'th-TH',
+        );
+        final auth =
+            AuthController(
+                authRepository: _PushAuthRepository(
+                  api: api,
+                  tokenStore: tokenStore,
+                ),
+                tokenStore: tokenStore,
+                biometricAuth: BiometricAuthService(api),
+              )
+              ..isAuthenticated = true
+              ..pinRequired = false
+              ..pinSetupRequired = false;
+        final repository = _PushNotificationRepository(
+          api,
+          pushDeviceStatus: const CustomerPushDeviceStatus(
+            state: 'revoked',
+            registered: false,
+            needsTokenRotation: true,
+            revokedReason: 'fcm_unregistered',
+          ),
+        );
+        final router = GoRouter(
+          routes: [GoRoute(path: '/', builder: (_, __) => const Text('home'))],
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWithValue(
+                const AppConfig(
+                  apiBaseUrl: 'https://partner.example.test/api/v1',
+                  defaultLocale: 'th-TH',
+                ),
+              ),
+              authControllerProvider.overrideWith((_) => auth),
+              customerPushPlatformProvider.overrideWithValue(platform),
+              customerPushInstallationStoreProvider.overrideWithValue(
+                _PushInstallationStore(),
+              ),
+              customerPushDeviceContextLoaderProvider.overrideWithValue(
+                _emptyPushDeviceContextLoader(),
+              ),
+              customerNotificationRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              builder: (context, child) => CustomerPushLifecycleMonitor(
+                router: router,
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(repository.statusInstallationIds, ['install_push_test_001']);
+        expect(deletedTokens, 1);
+        expect(tokenReads, 2);
+        expect(repository.registeredTokens, [
+          'fcm-token-replacement-1234567890',
         ]);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -1046,15 +1191,26 @@ class _PushInstallationStore extends CustomerPushInstallationStore {
   }
 }
 
+class _RecordingPushDiagnostics extends CustomerPushDiagnostics {
+  final List<String> failures = [];
+
+  @override
+  void registrationFailure(String stage, Object error) {
+    failures.add('$stage:${error.runtimeType}');
+  }
+}
+
 class _PushNotificationRepository extends CustomerNotificationRepository {
   _PushNotificationRepository(
     super.api, {
     this.failRevoke = false,
     Set<String> failRegistrationTokensOnce = const {},
+    this.pushDeviceStatus = const CustomerPushDeviceStatus.missing(),
   }) : failRegistrationTokensOnce = {...failRegistrationTokensOnce};
 
   final bool failRevoke;
   final Set<String> failRegistrationTokensOnce;
+  CustomerPushDeviceStatus pushDeviceStatus;
 
   final List<String> registeredTokens = [];
   final List<String> registrationAttempts = [];
@@ -1065,6 +1221,13 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
   final List<Map<String, dynamic>> registeredMetadata = [];
   final List<String> readNotificationIds = [];
   final List<String> revokedInstallationIds = [];
+  final List<String> statusInstallationIds = [];
+
+  @override
+  Future<CustomerPushDeviceStatus> deviceStatus(String installationId) async {
+    statusInstallationIds.add(installationId);
+    return pushDeviceStatus;
+  }
 
   @override
   Future<void> registerDevice({

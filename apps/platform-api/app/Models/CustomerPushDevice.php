@@ -24,6 +24,7 @@ class CustomerPushDevice extends BaseModel
         'metadata_json',
         'last_seen_at',
         'revoked_at',
+        'revoked_reason',
         'created_at',
         'updated_at',
     ];

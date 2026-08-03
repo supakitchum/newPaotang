@@ -419,6 +419,11 @@ class GrowthService
                     return ['error' => 'validation_failed', 'errors' => ['name' => ['The store name has already been taken.']]];
                 }
                 $this->ensureCustomerAffiliateLink($tenantId, $affiliate->fresh());
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateRegistered(
+                    $tenantId,
+                    (string) $normalized['customer_id'],
+                    $affiliateId,
+                ));
 
                 $this->auditAdmin($actor, $request, 'affiliate.created', 'affiliate_account', $affiliateId, $normalizedForWrite, $tenantId);
 
@@ -483,7 +488,21 @@ class GrowthService
                 }
 
                 $updates['updated_at'] = now();
+                $previousStatus = (string) $row->status;
+                $nextStatus = array_key_exists('status', $updates) ? (string) $updates['status'] : $previousStatus;
                 AffiliateAccount::query()->where('tenant_id', $tenantId)->where('id', $affiliateId)->update($updates);
+                if ($nextStatus !== $previousStatus) {
+                    $transitionId = trim((string) $request->header('Idempotency-Key'));
+                    if ($transitionId === '') {
+                        $transitionId = hash('sha256', $affiliateId.':'.$previousStatus.':'.$nextStatus.':'.now()->format('U.u'));
+                    }
+                    DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateAccountStatusChanged(
+                        $tenantId,
+                        $affiliateId,
+                        $nextStatus,
+                        $transitionId,
+                    ));
+                }
                 $this->auditAdmin($actor, $request, 'affiliate.updated', 'affiliate_account', $affiliateId, $normalized, $tenantId);
 
                 return ['resource' => $this->affiliateAccount($tenantId, $affiliateId) ?? [], 'status' => 200];
@@ -1844,6 +1863,11 @@ class GrowthService
                 ]);
 
                 $resource = $this->commissionTransaction($tenantId, $commissionId) ?? [];
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateCommissionAvailable(
+                    $tenantId,
+                    (string) $row->affiliate_account_id,
+                    $commissionId,
+                ));
                 $this->auditAdmin($actor, $request, 'commission.approved', 'commission_transaction', $commissionId, $payload, $tenantId);
 
                 return ['resource' => $resource, 'status' => 200];
@@ -2722,6 +2746,11 @@ class GrowthService
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
+                DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateCommissionReversed(
+                    (string) $commission->tenant_id,
+                    (string) $commission->affiliate_account_id,
+                    $reversalId,
+                ));
 
                 return 1;
             });

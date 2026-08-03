@@ -166,6 +166,11 @@ class CommissionTest extends TestCase
             'id' => $commission->id,
             'transaction_type' => 'commission',
         ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $world['tenant_id'],
+            'event_key' => 'affiliate.commission.reversed',
+            'action_key' => 'affiliate_commissions',
+        ]);
     }
 
     public function test_Commission_calculation_ignores_archived_rules(): void

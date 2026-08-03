@@ -1,0 +1,5 @@
+{
+  "API_BASE_URL": "https://siamblend.com/api/v1",
+  "TENANT_HOST": "siamblend.com",
+  "APP_DISPLAY_NAME": "SiamBlend"
+}

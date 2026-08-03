@@ -2442,6 +2442,12 @@ paths:
                 $ref: "#/components/schemas/CustomerPushDevice"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
+        "409":
+          description: The installation is revoked and Firebase must issue a different token before registration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "422":
           $ref: "#/components/responses/ValidationFailed"
   /customer/notification-devices/{installation_id}:
@@ -2465,6 +2471,29 @@ paths:
           $ref: "#/components/responses/AuthenticationRequired"
         "404":
           $ref: "#/components/responses/NotFound"
+  /customer/notification-devices/{installation_id}/status:
+    get:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Reconcile the current customer's native push installation without exposing its token
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: installation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current installation state, including missing and revoked states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPushDeviceStatus"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
   /customer/wallet:
     get:
       tags: [Customer]
@@ -11549,6 +11578,34 @@ components:
           format: date-time
         registered:
           type: boolean
+        revoked_reason:
+          type: string
+          nullable: true
+    CustomerPushDeviceStatus:
+      type: object
+      required:
+        [installation_id, state, registered, needs_token_rotation, revoked_reason, revoked_at, last_seen_at]
+      properties:
+        installation_id:
+          type: string
+        state:
+          type: string
+          enum: [missing, active, revoked]
+        registered:
+          type: boolean
+        needs_token_rotation:
+          type: boolean
+        revoked_reason:
+          type: string
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
     CustomerNotificationLocalizedText:
       type: object
       additionalProperties:

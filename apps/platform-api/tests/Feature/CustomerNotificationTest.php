@@ -301,7 +301,17 @@ class CustomerNotificationTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('installation_id', 'install_notify_device_001')
-            ->assertJsonPath('registered', true);
+            ->assertJsonPath('registered', true)
+            ->assertJsonPath('revoked_reason', null);
+
+        $this->withToken($token)
+            ->getJson('http://notify-device.test/api/v1/customer/notification-devices/install_notify_device_001/status')
+            ->assertOk()
+            ->assertJsonPath('state', 'active')
+            ->assertJsonPath('registered', true)
+            ->assertJsonPath('needs_token_rotation', false)
+            ->assertJsonMissingPath('fcm_token')
+            ->assertJsonMissingPath('token_hash');
 
         $rawToken = (string) DB::table('customer_push_devices')->value('fcm_token_encrypted');
         $this->assertNotSame($fcmToken, $rawToken);
@@ -354,11 +364,88 @@ class CustomerNotificationTest extends TestCase
             'attempts' => 1,
             'last_error_code' => 'unregistered',
         ]);
-        $this->assertNotNull(CustomerPushDevice::query()->firstOrFail()->revoked_at);
+        $revokedDevice = CustomerPushDevice::query()->firstOrFail();
+        $this->assertNotNull($revokedDevice->revoked_at);
+        $this->assertSame('fcm_unregistered', $revokedDevice->revoked_reason);
+
+        $this->withToken($token)
+            ->getJson('http://notify-device.test/api/v1/customer/notification-devices/install_notify_device_001/status')
+            ->assertOk()
+            ->assertJsonPath('state', 'revoked')
+            ->assertJsonPath('registered', false)
+            ->assertJsonPath('needs_token_rotation', true)
+            ->assertJsonPath('revoked_reason', 'fcm_unregistered');
+
+        $this->withToken($token)
+            ->postJson('http://notify-device.test/api/v1/customer/notification-devices', [
+                'installation_id' => 'install_notify_device_001',
+                'platform' => 'android',
+                'fcm_token' => $fcmToken,
+                'locale' => 'th-TH',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'push_token_rotation_required');
+        $this->assertNotNull($revokedDevice->refresh()->revoked_at);
+
+        $this->seedCustomer('ten_notify_device', 'cus_notify_device_b', 'CUS-NOTIFY-DEVICE-B');
+        $this->withToken($this->customerToken('ten_notify_device', 'cus_notify_device_b'))
+            ->postJson('http://notify-device.test/api/v1/customer/notification-devices', [
+                'installation_id' => 'install_notify_device_002',
+                'platform' => 'android',
+                'fcm_token' => $fcmToken,
+                'locale' => 'th-TH',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'push_token_rotation_required');
+
+        $replacementToken = str_repeat('replacement-fcm-token-', 10);
+        $this->withToken($token)
+            ->postJson('http://notify-device.test/api/v1/customer/notification-devices', [
+                'installation_id' => 'install_notify_device_001',
+                'platform' => 'android',
+                'fcm_token' => $replacementToken,
+                'locale' => 'th-TH',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('registered', true)
+            ->assertJsonPath('revoked_reason', null);
+        $this->assertSame($replacementToken, $revokedDevice->refresh()->fcm_token_encrypted);
+        $this->assertNull($revokedDevice->revoked_at);
+        $this->assertNull($revokedDevice->revoked_reason);
 
         $this->withToken($token)
             ->deleteJson('http://notify-device.test/api/v1/customer/notification-devices/install_notify_device_001')
             ->assertNoContent();
+        $this->assertSame('customer_logout', $revokedDevice->refresh()->revoked_reason);
+    }
+
+    public function test_device_status_returns_missing_without_leaking_another_customer_installation(): void
+    {
+        $this->seedTenant('par_notify_status', 'ten_notify_status', 'notify-status.test');
+        $this->seedCustomer('ten_notify_status', 'cus_notify_status_a', 'CUS-NOTIFY-STATUS-A');
+        $this->seedCustomer('ten_notify_status', 'cus_notify_status_b', 'CUS-NOTIFY-STATUS-B');
+        $installationId = 'install_notify_status_private';
+        $this->withToken($this->customerToken('ten_notify_status', 'cus_notify_status_a'))
+            ->postJson('http://notify-status.test/api/v1/customer/notification-devices', [
+                'installation_id' => $installationId,
+                'platform' => 'ios',
+                'fcm_token' => str_repeat('private-fcm-token-', 10),
+                'locale' => 'th-TH',
+            ])
+            ->assertCreated();
+
+        $this->withToken($this->customerToken('ten_notify_status', 'cus_notify_status_b'))
+            ->getJson('http://notify-status.test/api/v1/customer/notification-devices/'.$installationId.'/status')
+            ->assertOk()
+            ->assertExactJson([
+                'installation_id' => $installationId,
+                'state' => 'missing',
+                'registered' => false,
+                'needs_token_rotation' => false,
+                'revoked_reason' => null,
+                'revoked_at' => null,
+                'last_seen_at' => null,
+            ]);
     }
 
     public function test_device_registration_rejects_identifying_or_unbounded_metadata(): void
@@ -792,7 +879,7 @@ class CustomerNotificationTest extends TestCase
         $service->registerDevice('ten_notify_stale', 'cus_notify_stale', [
             'installation_id' => 'install_notify_disabled',
             'platform' => 'android',
-            'fcm_token' => str_repeat('disabled-fcm-token-', 10),
+            'fcm_token' => str_repeat('disabled-replacement-fcm-token-', 8),
             'locale' => 'th-TH',
         ]);
         CustomerPushDevice::query()
@@ -1442,7 +1529,21 @@ class CustomerNotificationTest extends TestCase
             'updated_at' => $now,
         ]);
         $events->affiliateRegistered('ten_notify_full_catalog', 'cus_notify_full_catalog', 'aff_notify_catalog');
+        $events->affiliateStoreNameSubmitted('ten_notify_full_catalog', 'aff_notify_catalog', 'asr_notify_catalog', 'change');
+        $events->affiliateTierCampaignCompleted(
+            'ten_notify_full_catalog',
+            'aff_notify_catalog',
+            'atc_notify_catalog',
+            'August campaign',
+            'Bronze',
+            150,
+            12,
+            'unchanged',
+        );
         $events->affiliateCommissionAvailable('ten_notify_full_catalog', 'aff_notify_catalog', 'ctx_notify_catalog');
+        $events->affiliateCommissionReversed('ten_notify_full_catalog', 'aff_notify_catalog', 'ctx_notify_reversed');
+        $events->affiliateAccountStatusChanged('ten_notify_full_catalog', 'aff_notify_catalog', 'suspended', 'affiliate-suspended-transition');
+        $events->affiliateAccountStatusChanged('ten_notify_full_catalog', 'aff_notify_catalog', 'active', 'affiliate-active-transition');
         foreach (['pending', 'approved', 'rejected', 'cancelled', 'paid'] as $status) {
             DB::table('affiliate_payouts')->where('id', 'pyo_notify_catalog')->update([
                 'status' => $status,
@@ -1496,7 +1597,12 @@ class CustomerNotificationTest extends TestCase
             'activity.entry.submitted',
             'activity.award.granted',
             'affiliate.registration.completed',
+            'affiliate.store_name.submitted',
+            'affiliate.tier_campaign.completed',
             'affiliate.commission.available',
+            'affiliate.commission.reversed',
+            'affiliate.account.restricted',
+            'affiliate.account.activated',
             'affiliate.payout.submitted',
             'affiliate.payout.approved',
             'affiliate.payout.rejected',
@@ -1521,7 +1627,15 @@ class CustomerNotificationTest extends TestCase
         ]);
         $this->assertDatabaseHas('customer_notifications', [
             'event_key' => 'affiliate.payout.paid',
-            'action_key' => 'affiliate',
+            'action_key' => 'affiliate_withdraw',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'affiliate.tier_campaign.completed',
+            'action_key' => 'affiliate_rankings',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'event_key' => 'affiliate.commission.available',
+            'action_key' => 'affiliate_commissions',
         ]);
         $this->assertDatabaseHas('customer_notifications', [
             'event_key' => 'account.password.changed',

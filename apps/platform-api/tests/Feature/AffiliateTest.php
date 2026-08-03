@@ -80,6 +80,41 @@ class AffiliateTest extends TestCase
         $this->assertSame('https://newpaotang.local/?ref='.$link['code'], $link['url']);
         $this->assertSame($link['url'], $link['canonical_url']);
 
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $world['tenant_id'],
+            'event_key' => 'affiliate.registration.completed',
+            'action_key' => 'affiliate',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $world['tenant_id'],
+            'event_key' => 'affiliate.store_name.submitted',
+            'action_key' => 'affiliate',
+        ]);
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/tenant/affiliates/'.$affiliate['id'], [
+                'status' => 'suspended',
+            ], $headers + ['Idempotency-Key' => 'affiliate-suspend-main'])
+            ->assertOk()
+            ->assertJsonPath('status', 'suspended');
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $world['tenant_id'],
+            'event_key' => 'affiliate.account.restricted',
+            'action_key' => 'affiliate',
+        ]);
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/tenant/affiliates/'.$affiliate['id'], [
+                'status' => 'active',
+            ], $headers + ['Idempotency-Key' => 'affiliate-activate-main'])
+            ->assertOk()
+            ->assertJsonPath('status', 'active');
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => $world['tenant_id'],
+            'event_key' => 'affiliate.account.activated',
+            'action_key' => 'affiliate',
+        ]);
+
         DB::table('affiliate_attributions')->insert([
             'id' => 'aat_affiliate_api_main',
             'tenant_id' => $world['tenant_id'],

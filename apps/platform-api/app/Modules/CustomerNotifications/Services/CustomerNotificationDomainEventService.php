@@ -354,13 +354,43 @@ class CustomerNotificationDomainEventService
             [
                 'category' => 'affiliate',
                 'title' => ['th-TH' => 'สมัครตัวแทนจำหน่ายสำเร็จ', 'en-US' => 'Affiliate registration complete'],
-                'body' => ['th-TH' => 'บัญชีตัวแทนจำหน่ายของคุณพร้อมใช้งานแล้ว', 'en-US' => 'Your affiliate account is ready to use.'],
+                'body' => ['th-TH' => 'บัญชีพร้อมรับค่าคอมมิชชันแล้ว และชื่อร้านกำลังรอการตรวจสอบ', 'en-US' => 'Your account can now earn commission, and the store name is awaiting review.'],
                 'icon_key' => 'affiliate',
                 'action_key' => 'affiliate',
                 'subject_type' => 'affiliate_account',
                 'subject_id' => $affiliateId,
             ],
             'affiliate:'.$affiliateId.':registered',
+        );
+    }
+
+    public function affiliateStoreNameSubmitted(
+        string $tenantId,
+        string $affiliateId,
+        string $requestId,
+        string $requestType,
+    ): void {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $isChange = $requestType === 'change';
+        $this->notify(
+            $tenantId,
+            $customerId,
+            'affiliate.store_name.submitted',
+            [
+                'category' => 'affiliate',
+                'title' => $isChange
+                    ? ['th-TH' => 'ส่งคำขอแก้ไขชื่อร้านแล้ว', 'en-US' => 'Store name change submitted']
+                    : ['th-TH' => 'ส่งชื่อร้านให้ตรวจสอบแล้ว', 'en-US' => 'Store name submitted for review'],
+                'body' => $isChange
+                    ? ['th-TH' => 'ชื่อร้านเดิมยังแสดงอยู่ระหว่างรอตรวจสอบชื่อใหม่', 'en-US' => 'Your current store name remains visible while the new name is reviewed.']
+                    : ['th-TH' => 'ระบบจะแจ้งให้ทราบอีกครั้งเมื่อการตรวจสอบเสร็จสิ้น', 'en-US' => 'You will be notified again when the review is complete.'],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate',
+                'subject_type' => 'affiliate_store_name_request',
+                'subject_id' => $requestId,
+            ],
+            'affiliate-store-name:'.$requestId.':submitted',
+            ['request_type' => $requestType],
         );
     }
 
@@ -388,6 +418,50 @@ class CustomerNotificationDomainEventService
         );
     }
 
+    public function affiliateTierCampaignCompleted(
+        string $tenantId,
+        string $affiliateId,
+        string $campaignId,
+        string $campaignName,
+        string $tierName,
+        int $ticketCount,
+        ?int $rank,
+        string $resultStatus,
+    ): void {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $resultDetail = $rank === null
+            ? $ticketCount.' ใบ'
+            : $ticketCount.' ใบ อันดับ '.$rank;
+        $resultDetailEn = $rank === null
+            ? $ticketCount.' tickets'
+            : $ticketCount.' tickets, rank '.$rank;
+        $this->notify(
+            $tenantId,
+            $customerId,
+            'affiliate.tier_campaign.completed',
+            [
+                'category' => 'affiliate',
+                'title' => ['th-TH' => 'ประกาศผลกิจกรรมตัวแทนแล้ว', 'en-US' => 'Affiliate campaign results announced'],
+                'body' => [
+                    'th-TH' => $campaignName.' สิ้นสุดแล้ว คุณคงอยู่ระดับ '.$tierName.' ด้วยยอด '.$resultDetail,
+                    'en-US' => $campaignName.' has ended. You remain '.$tierName.' with '.$resultDetailEn.'.',
+                ],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate_rankings',
+                'subject_type' => 'affiliate_tier_campaign',
+                'subject_id' => $campaignId,
+            ],
+            'affiliate-tier-result:'.$campaignId.':'.$affiliateId.':'.$resultStatus,
+            [
+                'campaign_name' => $campaignName,
+                'tier_name' => $tierName,
+                'ticket_count' => $ticketCount,
+                'rank' => $rank,
+                'result_status' => $resultStatus,
+            ],
+        );
+    }
+
     public function affiliateTierChanged(
         string $tenantId,
         string $affiliateId,
@@ -408,11 +482,61 @@ class CustomerNotificationDomainEventService
                     'en-US' => 'Your tier changed from '.$previousTier.' to '.$newTier.' and now applies to new orders.',
                 ],
                 'icon_key' => 'affiliate',
-                'action_key' => 'affiliate',
+                'action_key' => 'affiliate_rankings',
                 'subject_type' => 'affiliate_tier_campaign',
                 'subject_id' => $campaignId,
             ],
             'affiliate-tier:'.$campaignId.':'.$affiliateId.':'.$newTier,
+        );
+    }
+
+    public function affiliateCommissionReversed(string $tenantId, string $affiliateId, string $commissionId): void
+    {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $this->notify(
+            $tenantId,
+            $customerId,
+            'affiliate.commission.reversed',
+            [
+                'category' => 'affiliate',
+                'title' => ['th-TH' => 'ปรับคืนค่าคอมมิชชันแล้ว', 'en-US' => 'Commission reversed'],
+                'body' => ['th-TH' => 'ค่าคอมมิชชันถูกปรับคืนเนื่องจากรายการซื้อที่เกี่ยวข้องถูกยกเลิกหรือคืนเงิน', 'en-US' => 'Commission was reversed because the related purchase was cancelled or refunded.'],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate_commissions',
+                'subject_type' => 'commission_transaction',
+                'subject_id' => $commissionId,
+            ],
+            'affiliate-commission:'.$commissionId.':reversed',
+        );
+    }
+
+    public function affiliateAccountStatusChanged(
+        string $tenantId,
+        string $affiliateId,
+        string $status,
+        string $transitionId,
+    ): void {
+        $customerId = $this->affiliateCustomerId($tenantId, $affiliateId);
+        $active = strtolower($status) === 'active';
+        $this->notify(
+            $tenantId,
+            $customerId,
+            $active ? 'affiliate.account.activated' : 'affiliate.account.restricted',
+            [
+                'category' => 'affiliate',
+                'title' => $active
+                    ? ['th-TH' => 'เปิดใช้งานบัญชีตัวแทนแล้ว', 'en-US' => 'Affiliate account activated']
+                    : ['th-TH' => 'บัญชีตัวแทนถูกจำกัดการใช้งาน', 'en-US' => 'Affiliate account restricted'],
+                'body' => $active
+                    ? ['th-TH' => 'บัญชีตัวแทนจำหน่ายของคุณกลับมาใช้งานได้แล้ว', 'en-US' => 'Your affiliate account is active again.']
+                    : ['th-TH' => 'กรุณาติดต่อผู้ดูแลหากต้องการรายละเอียดเพิ่มเติม', 'en-US' => 'Contact support if you need more information.'],
+                'icon_key' => 'affiliate',
+                'action_key' => 'affiliate',
+                'subject_type' => 'affiliate_account',
+                'subject_id' => $affiliateId,
+            ],
+            'affiliate-account:'.$affiliateId.':'.$status.':'.$transitionId,
+            ['status' => $status],
         );
     }
 
@@ -438,7 +562,7 @@ class CustomerNotificationDomainEventService
                     ? ['th-TH' => $campaignName.' จะสิ้นสุดภายใน 24 ชั่วโมง ตรวจสอบยอดขายล่าสุดได้แล้ว', 'en-US' => $campaignName.' ends within 24 hours. Review your latest progress.']
                     : ['th-TH' => $campaignName.' เริ่มแล้ว ยอดสลากที่ขายได้ในช่วงกิจกรรมจะถูกนำมาประเมินระดับ', 'en-US' => $campaignName.' has started. Tickets sold during the campaign count toward your tier result.'],
                 'icon_key' => 'affiliate',
-                'action_key' => 'affiliate',
+                'action_key' => 'affiliate_rankings',
                 'subject_type' => 'affiliate_tier_campaign',
                 'subject_id' => $campaignId,
             ],
@@ -459,7 +583,7 @@ class CustomerNotificationDomainEventService
                 'title' => ['th-TH' => 'ได้รับค่าคอมมิชชันใหม่', 'en-US' => 'New commission available'],
                 'body' => ['th-TH' => 'มีค่าคอมมิชชันใหม่ในบัญชีตัวแทนจำหน่ายของคุณ', 'en-US' => 'A new commission is available in your affiliate account.'],
                 'icon_key' => 'affiliate',
-                'action_key' => 'affiliate',
+                'action_key' => 'affiliate_commissions',
                 'subject_type' => 'commission_transaction',
                 'subject_id' => $commissionId,
             ],
@@ -522,7 +646,7 @@ class CustomerNotificationDomainEventService
                     'title' => $template['title'],
                     'body' => $template['body'],
                     'icon_key' => 'affiliate',
-                    'action_key' => 'affiliate',
+                    'action_key' => 'affiliate_withdraw',
                     'subject_type' => 'affiliate_payout',
                     'subject_id' => $payoutId,
                 ],

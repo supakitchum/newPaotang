@@ -67,6 +67,14 @@ class CustomerNotificationController extends Controller
         if (($result['error'] ?? null) === 'validation_failed') {
             return ApiErrorResponse::validationFailed($request, $result['errors'] ?? []);
         }
+        if (($result['error'] ?? null) === 'token_rotation_required') {
+            return ApiErrorResponse::make(
+                $request,
+                409,
+                'push_token_rotation_required',
+                'The revoked push token must be replaced before this installation can register again.',
+            );
+        }
         return response()->json($result['resource'] ?? [], 201);
     }
 
@@ -78,6 +86,18 @@ class CustomerNotificationController extends Controller
         return $this->notifications->revokeDevice($context->tenantId(), $context->customerId(), $installation_id)
             ? response()->json([], 204)
             : ApiErrorResponse::notFound($request);
+    }
+
+    public function deviceStatus(Request $request, string $installation_id): JsonResponse
+    {
+        $context = $this->context($request);
+        if (! $context instanceof CustomerSessionContext) return $context;
+
+        return response()->json($this->notifications->deviceStatus(
+            $context->tenantId(),
+            $context->customerId(),
+            $installation_id,
+        ));
     }
 
     private function context(Request $request): CustomerSessionContext|JsonResponse

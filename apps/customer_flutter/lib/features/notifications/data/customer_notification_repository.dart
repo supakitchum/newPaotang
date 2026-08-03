@@ -96,10 +96,55 @@ class CustomerNotificationRepository {
     );
   }
 
+  Future<CustomerPushDeviceStatus> deviceStatus(String installationId) async {
+    final encodedId = Uri.encodeComponent(installationId.trim());
+    final response = await _api.get<Map<String, dynamic>>(
+      '/customer/notification-devices/$encodedId/status',
+    );
+    return CustomerPushDeviceStatus.fromJson(
+      response.data ?? const <String, dynamic>{},
+    );
+  }
+
   Future<void> revokeDevice(String installationId) async {
     final encodedId = Uri.encodeComponent(installationId.trim());
     await _api.deleteWithHeaders<void>(
       '/customer/notification-devices/$encodedId',
+    );
+  }
+}
+
+class CustomerPushDeviceStatus {
+  const CustomerPushDeviceStatus({
+    required this.state,
+    required this.registered,
+    required this.needsTokenRotation,
+    this.revokedReason = '',
+  });
+
+  const CustomerPushDeviceStatus.missing()
+    : state = 'missing',
+      registered = false,
+      needsTokenRotation = false,
+      revokedReason = '';
+
+  final String state;
+  final bool registered;
+  final bool needsTokenRotation;
+  final String revokedReason;
+
+  factory CustomerPushDeviceStatus.fromJson(Map<String, dynamic> json) {
+    final payload = unwrapPayload(json);
+    return CustomerPushDeviceStatus(
+      state: (payload['state'] ?? '').toString().trim().toLowerCase(),
+      registered: payload['registered'] == true,
+      needsTokenRotation:
+          payload['needs_token_rotation'] == true ||
+          payload['needsTokenRotation'] == true,
+      revokedReason:
+          (payload['revoked_reason'] ?? payload['revokedReason'] ?? '')
+              .toString()
+              .trim(),
     );
   }
 }

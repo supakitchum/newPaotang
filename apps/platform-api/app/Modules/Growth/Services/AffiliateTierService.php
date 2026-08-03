@@ -176,6 +176,13 @@ class AffiliateTierService
         ]);
 
         if ($claimed === 1) {
+            DB::afterCommit(fn () => $this->notifications->affiliateStoreNameSubmitted(
+                $tenantId,
+                (string) $affiliate->id,
+                $requestId,
+                'initial',
+            ));
+
             return true;
         }
 
@@ -291,6 +298,13 @@ class AffiliateTierService
         if ($isInitial) {
             $affiliate->forceFill(['name' => $name, 'store_name_status' => 'pending'])->save();
         }
+
+        DB::afterCommit(fn () => $this->notifications->affiliateStoreNameSubmitted(
+            $tenantId,
+            (string) $affiliate->id,
+            $requestId,
+            $isInitial ? 'initial' : 'change',
+        ));
 
         return ['resource' => $this->storeNameRequestResource(AffiliateStoreNameRequest::query()->findOrFail($requestId)), 'status' => 201];
     }
@@ -664,6 +678,7 @@ class AffiliateTierService
                     ));
                 }
 
+                $resultStatus = $changed ? 'applied' : ($calculated === null ? 'not_qualified' : 'unchanged');
                 AffiliateTierCampaignResult::query()->updateOrCreate(
                     ['campaign_id' => $campaign->id, 'affiliate_account_id' => $account->id],
                     [
@@ -678,11 +693,24 @@ class AffiliateTierService
                         'previous_program_id' => $previous->id,
                         'calculated_program_id' => $calculated?->id,
                         'applied_program_id' => $applied->id,
-                        'result_status' => $changed ? 'applied' : ($calculated === null ? 'not_qualified' : 'unchanged'),
+                        'result_status' => $resultStatus,
                         'metadata_json' => ['campaign_type' => $campaign->campaign_type],
                         'finalized_at' => $now,
                     ],
                 );
+
+                if (! $changed) {
+                    DB::afterCommit(fn () => $this->notifications->affiliateTierCampaignCompleted(
+                        $tenantId,
+                        (string) $account->id,
+                        (string) $campaign->id,
+                        (string) $campaign->name,
+                        (string) $applied->name,
+                        (int) $entry['ticket_count'],
+                        $campaign->campaign_type === 'ranking' ? (int) $entry['rank'] : null,
+                        $resultStatus,
+                    ));
+                }
             }
 
             $campaign->forceFill([
