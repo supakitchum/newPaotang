@@ -4,8 +4,8 @@
       <div class="header-content-left">
         <div class="header-element">
           <div class="horizontal-logo">
-            <NuxtLink to="/admin" class="header-logo">
-              <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" />
+            <NuxtLink to="/admin" class="header-logo np-header-brand-link" :aria-label="displayName">
+              <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" data-admin-header-logo="horizontal" />
               <img :src="logoUrl" :alt="displayName" class="desktop-dark np-admin-brand-logo" />
               <img :src="compactLogoUrl" :alt="displayName" class="toggle-logo np-admin-brand-mark" />
               <img :src="compactLogoUrl" :alt="displayName" class="toggle-dark np-admin-brand-mark" />

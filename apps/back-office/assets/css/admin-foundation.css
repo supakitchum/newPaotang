@@ -79,6 +79,12 @@ body {
   object-fit: contain;
 }
 
+.app-header .np-header-brand-link {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
 .np-kpi-icon {
   width: 2.75rem;
   height: 2.75rem;
@@ -257,6 +263,40 @@ body {
     transform: none;
   }
 
+  .app-sidebar,
+  .app-sidebar .main-sidebar,
+  .app-sidebar .main-menu-container,
+  .app-sidebar .main-menu,
+  .app-sidebar .simplebar-content,
+  .app-sidebar .simplebar-content-wrapper {
+    max-width: 100%;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none;
+  }
+
+  .app-sidebar .simplebar-content-wrapper {
+    touch-action: pan-y;
+  }
+
+  .app-sidebar .main-menu {
+    width: 100%;
+    margin-inline: 0 !important;
+    transform: none !important;
+  }
+
+  .app-sidebar .main-menu-container .slide-left,
+  .app-sidebar .main-menu-container .slide-right,
+  .app-sidebar .simplebar-track.simplebar-horizontal {
+    display: none !important;
+  }
+
+  .app-sidebar .slide,
+  .app-sidebar .side-menu__item,
+  .app-sidebar .side-menu__label {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   [data-toggled='close'] .app-sidebar {
     transform: translateX(-100%) !important;
   }
@@ -314,21 +354,47 @@ body {
 
 @media (max-width: 575.98px) {
   .app-header .header-logo {
-    max-width: 9.5rem;
+    max-width: 6.75rem;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .app-header .horizontal-logo {
-    display: none;
+    display: flex !important;
+    flex: 0 0 auto;
+    align-items: center;
+  }
+
+  .app-header .horizontal-logo .header-logo .np-admin-brand-logo.desktop-logo {
+    display: block !important;
+    width: auto;
+    max-width: 6.75rem;
+    height: 2rem;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .app-header .horizontal-logo .header-logo .desktop-dark,
+  .app-header .horizontal-logo .header-logo .np-admin-brand-mark {
+    display: none !important;
   }
 
   .main-header-container .header-content-left {
     flex: 0 0 auto;
+    gap: 0;
   }
 
   .main-header-container .header-content-right {
     flex: 1 1 auto;
+    gap: 0;
+  }
+
+  .main-header-container .np-header-text {
+    display: none;
+  }
+
+  .main-header-container .header-link {
+    padding-inline: 0.5rem;
   }
 
   .main-header-container .header-content-right .dropdown-toggle {
@@ -337,5 +403,20 @@ body {
 
   .main-header-container .header-content-right > .dropdown:last-child .dropdown-toggle {
     padding-inline: 0.5rem;
+  }
+}
+
+@media (max-width: 359.98px) {
+  .app-header .header-logo,
+  .app-header .horizontal-logo .header-logo .np-admin-brand-logo.desktop-logo {
+    max-width: 5.5rem;
+  }
+
+  .main-header-container {
+    padding-inline: 0.5rem;
+  }
+
+  .main-header-container .header-link {
+    padding-inline: 0.375rem;
   }
 }
