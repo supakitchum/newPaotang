@@ -11,6 +11,10 @@ metadata:
 spec:
   tls:
     - hosts:
+        - siamblend.com
+        - "*.siamblend.com"
+      secretName: siamblend-public-tls
+    - hosts:
         - api.lottery80.online
         - admin.lottery80.online
         - realtime.lottery80.online
@@ -18,6 +22,56 @@ spec:
         - "*.lottery80.online"
       secretName: newpaotang-public-tls
   rules:
+    - host: api.siamblend.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-api
+                port:
+                  number: 8000
+    - host: admin.siamblend.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: back-office
+                port:
+                  number: 3100
+    - host: realtime.siamblend.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-api-reverb
+                port:
+                  number: 8080
+    - host: siamblend.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer
+                port:
+                  number: 3000
+    - host: "*.siamblend.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer
+                port:
+                  number: 3000
     - host: api.lottery80.online
       http:
         paths:

@@ -177,9 +177,9 @@ Use this flow for normal releases:
    kubectl -n newpaotang-prod get pods
    kubectl -n newpaotang-prod rollout status deployment/platform-api
    kubectl -n newpaotang-prod rollout status deployment/support-api
-   curl -fsS https://api.lottery80.online/api/v1/health/ready
-   curl -fsS https://api.lottery80.online/support-api/health/ready
-   curl -fsS https://api.lottery80.online/api/v1/health/live
+   curl -fsS https://api.siamblend.com/api/v1/health/ready
+   curl -fsS https://api.siamblend.com/support-api/health/ready
+   curl -fsS https://api.siamblend.com/api/v1/health/live
    ```
 
 ## Rollback

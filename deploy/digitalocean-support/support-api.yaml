@@ -323,9 +323,22 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
+        - api.siamblend.com
+      secretName: siamblend-public-tls
+    - hosts:
         - api.lottery80.online
       secretName: newpaotang-public-tls
   rules:
+    - host: api.siamblend.com
+      http:
+        paths:
+          - path: /support-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: support-api
+                port:
+                  number: 8100
     - host: api.lottery80.online
       http:
         paths:
@@ -350,9 +363,22 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
+        - support-realtime.siamblend.com
+      secretName: siamblend-public-tls
+    - hosts:
         - support-realtime.lottery80.online
       secretName: newpaotang-public-tls
   rules:
+    - host: support-realtime.siamblend.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: support-api-reverb
+                port:
+                  number: 8081
     - host: support-realtime.lottery80.online
       http:
         paths:

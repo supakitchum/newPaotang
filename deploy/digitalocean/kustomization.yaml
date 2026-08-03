@@ -8,6 +8,7 @@ resources:
   - customer.yaml
   - back-office.yaml
   - lotto-scraper.yaml
+  - siamblend-certificate.yaml
   - ingress.yaml
   - partner-xn--80-bsia4ej0dc7e8e3d-online-ingress.yaml
   - hpa.yaml

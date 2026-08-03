@@ -341,16 +341,16 @@ jobs:
 
       - name: Smoke production endpoints
         run: |
-          curl -fsS https://api.lottery80.online/api/v1/health/ready
-          curl -fsS https://api.lottery80.online/api/v1/health/live
-          curl -fsSI https://lottery80.online/
-          curl -fsSI https://admin.lottery80.online/
+          curl -fsS https://api.siamblend.com/api/v1/health/ready
+          curl -fsS https://api.siamblend.com/api/v1/health/live
+          curl -fsSI https://siamblend.com/
+          curl -fsSI https://admin.siamblend.com/
 
       - name: Smoke isolated Support endpoints
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}
         run: |
-          curl -fsS https://api.lottery80.online/support-api/health/ready
-          curl -fsS https://api.lottery80.online/support-api/health/live
+          curl -fsS https://api.siamblend.com/support-api/health/ready
+          curl -fsS https://api.siamblend.com/support-api/health/live
 
       - name: Show rollout diagnostics
         if: failure()
