@@ -368,6 +368,32 @@ class AuthRepository {
     return socialCallback(provider: 'line', query: query);
   }
 
+  Future<SocialCallbackResult> nativeLineLogin({
+    required String accessToken,
+    String purpose = 'login',
+    String? redirect,
+    bool auth = false,
+  }) async {
+    final redirectPath = redirect?.trim() ?? '';
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/line/native',
+      auth: auth,
+      data: {
+        'access_token': accessToken,
+        'purpose': purpose,
+        'client': 'customer_flutter_native',
+        if (redirectPath.isNotEmpty)
+          'redirect': safeCustomerRedirect(redirectPath),
+      },
+    );
+    final result = SocialCallbackResult.fromJson(
+      asMap(response.data),
+      fallbackProvider: 'line',
+    );
+    if (result.session != null) await _saveSession(result.session!);
+    return result;
+  }
+
   Future<CustomerSession> lineLinkPhone({
     required String linkToken,
     required String phone,

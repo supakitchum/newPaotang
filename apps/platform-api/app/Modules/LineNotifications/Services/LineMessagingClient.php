@@ -77,6 +77,28 @@ class LineMessagingClient
         ];
     }
 
+    public function verifyLoginAccessToken(string $accessToken): array
+    {
+        $response = Http::acceptJson()
+            ->timeout(10)
+            ->get('https://api.line.me/oauth2/v2.1/verify', [
+                'access_token' => $accessToken,
+            ]);
+
+        if (! $response->successful()) {
+            return [
+                'ok' => false,
+                'status' => $response->status(),
+                'message' => $response->body(),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'data' => $response->json() ?: [],
+        ];
+    }
+
     public function profile(string $accessToken): array
     {
         $response = Http::acceptJson()

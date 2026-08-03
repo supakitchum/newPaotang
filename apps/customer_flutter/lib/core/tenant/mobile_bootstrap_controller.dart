@@ -1099,6 +1099,9 @@ class MobileLineConfig {
     required this.liffEnabled,
     required this.botBasicId,
     required this.addFriendUrl,
+    this.nativeLoginEnabled = false,
+    this.nativeChannelId = '',
+    this.nativeUniversalLink = '',
   });
 
   factory MobileLineConfig.fromJson(Map<String, dynamic> json) {
@@ -1181,6 +1184,28 @@ class MobileLineConfig {
         bot['friend_url'],
         bot['friendUrl'],
       ]),
+      nativeLoginEnabled: _boolFrom(
+        json['native_login_enabled'] ??
+            json['nativeLoginEnabled'] ??
+            json['mobile_login_enabled'] ??
+            json['mobileLoginEnabled'],
+      ),
+      nativeChannelId: _stringFrom([
+        json['native_channel_id'],
+        json['nativeChannelId'],
+        json['login_channel_id'],
+        json['loginChannelId'],
+        json['channel_id'],
+        json['channelId'],
+      ]),
+      nativeUniversalLink: _runtimeUrlFrom([
+        json['native_universal_link'],
+        json['nativeUniversalLink'],
+        json['ios_universal_link'],
+        json['iosUniversalLink'],
+        json['universal_link'],
+        json['universalLink'],
+      ]),
     );
   }
 
@@ -1188,8 +1213,13 @@ class MobileLineConfig {
   final bool liffEnabled;
   final String botBasicId;
   final String addFriendUrl;
+  final bool nativeLoginEnabled;
+  final String nativeChannelId;
+  final String nativeUniversalLink;
 
   bool get configured => liffEnabled && liffId.isNotEmpty;
+  bool get nativeLoginConfigured =>
+      nativeLoginEnabled && nativeChannelId.isNotEmpty;
 }
 
 class MobileBrandConfig {

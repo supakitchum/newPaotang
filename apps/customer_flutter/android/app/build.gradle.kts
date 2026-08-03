@@ -118,7 +118,7 @@ android {
     defaultConfig {
         applicationId = customerFlutterApplicationId
             ?: "com.newpaotang.customer_flutter"
-        minSdk = flutter.minSdkVersion
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

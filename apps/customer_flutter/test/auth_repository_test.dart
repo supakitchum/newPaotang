@@ -227,6 +227,33 @@ void main() {
     },
   );
 
+  test(
+    'native LINE login exchanges provider token for platform session',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      final api = _AuthApiClient(tokenStore);
+      final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+      final result = await repository.nativeLineLogin(
+        accessToken: 'line-native-provider-token',
+        redirect: '/tickets',
+      );
+
+      expect(api.paths, ['/customer/auth/line/native']);
+      expect(api.authFlags, [false]);
+      expect(api.payloads.single, {
+        'access_token': 'line-native-provider-token',
+        'purpose': 'login',
+        'client': 'customer_flutter_native',
+        'redirect': '/tickets',
+      });
+      expect(result.session?.accessToken, 'access-line-native');
+      expect(result.redirectPath, '/tickets');
+      expect(tokenStore.accessToken, 'access-line-native');
+      expect(tokenStore.accessToken, isNot('line-native-provider-token'));
+    },
+  );
+
   test('requestOtp and verifyOtp preserve recursive OTP wrappers', () async {
     final tokenStore = _MemoryTokenStore();
     final api = _AuthApiClient(tokenStore);
@@ -718,6 +745,20 @@ class _AuthApiClient extends ApiClient {
                 },
               },
             },
+          },
+        },
+      },
+      '/customer/auth/line/native' => {
+        'data': {
+          'resource': {
+            'customerSession': {
+              'accessToken': 'access-line-native',
+              'refreshToken': 'refresh-line-native',
+              'pinRequired': true,
+              'customer': {'customerId': 'cus_line_native'},
+            },
+            'redirect': '/tickets',
+            'provider': 'line',
           },
         },
       },

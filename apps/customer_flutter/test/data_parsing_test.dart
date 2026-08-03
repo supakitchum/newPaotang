@@ -634,6 +634,9 @@ void main() {
           'liff_enabled': true,
           'bot_basic_id': '@demo',
           'add_friend_url': 'https://line.me/R/ti/p/@demo',
+          'native_login_enabled': true,
+          'native_channel_id': '1234567890',
+          'native_universal_link': 'https://partner.example.com/line/native',
         },
         'realtime': {
           'enabled': true,
@@ -698,6 +701,12 @@ void main() {
     expect(bootstrap.line.configured, isTrue);
     expect(bootstrap.line.liffId, '1234567890-AbCdEf');
     expect(bootstrap.line.addFriendUrl, 'https://line.me/R/ti/p/@demo');
+    expect(bootstrap.line.nativeLoginConfigured, isTrue);
+    expect(bootstrap.line.nativeChannelId, '1234567890');
+    expect(
+      bootstrap.line.nativeUniversalLink,
+      'https://partner.example.com/line/native',
+    );
     expect(bootstrap.realtime.configured, isTrue);
     expect(bootstrap.realtime.url, 'https://realtime.example.com');
     expect(bootstrap.realtime.key, 'customer-key');

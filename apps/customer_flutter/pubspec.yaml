@@ -36,6 +36,10 @@ dependencies:
   device_info_plus: ^13.2.0
   package_info_plus: ^10.2.1
   passkeys: ^2.22.0
+  flutter_line_sdk:
+    git:
+      url: https://github.com/line/flutter_line_sdk.git
+      ref: 1cdddadc533d895c85f4992460820390b1a80812
 dev_dependencies:
   build_runner: ^2.4.13
   flutter_lints: ^5.0.0

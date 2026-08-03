@@ -154,6 +154,25 @@ class TenantSocialAuthService
             ->first();
     }
 
+    /**
+     * LINE Login channel IDs are public identifiers used to initialize the
+     * native SDK. Channel secrets remain encrypted and server-only.
+     *
+     * @return array{enabled: bool, channel_id: ?string}
+     */
+    public function lineNativeLoginConfig(string $tenantId): array
+    {
+        $channel = $this->lineNotifications->activeChannelForTenant($tenantId);
+        $channelId = $channel instanceof TenantLineChannel
+            ? $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted')
+            : '';
+
+        return [
+            'enabled' => $channelId !== '' && $this->lineNotifications->channelReadyForLogin($channel),
+            'channel_id' => $channelId !== '' ? $channelId : null,
+        ];
+    }
+
     public function customerCallbackUrl(string $tenantId, string $provider): string
     {
         $provider = $this->normalizeProvider($provider);

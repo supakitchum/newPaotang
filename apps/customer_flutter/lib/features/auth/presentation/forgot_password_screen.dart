@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/auth/native_line_auth_service.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -14,6 +15,7 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import 'auth_visual_tokens.dart';
+import 'line_auth_screens.dart';
 
 enum _ForgotStep { phone, otp, password }
 
@@ -394,6 +396,27 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final linkMissing = context.l10n.socialLoginLinkMissing;
     final failed = context.l10n.forgotPasswordLineFailed;
     try {
+      final nativeResult = await ref
+          .read(nativeLineAuthServiceProvider)
+          .authenticate(
+            purpose: 'password_reset',
+            redirect: '/forgot-password',
+          );
+      if (!mounted) return;
+      if (nativeResult != null) {
+        final completed = await completeSocialAuthentication(
+          context: context,
+          ref: ref,
+          result: nativeResult,
+          fallbackRedirect: '/forgot-password',
+        );
+        if (!mounted || completed) return;
+        _showLineError(
+          nativeResult.message.isEmpty ? failed : nativeResult.message,
+        );
+        return;
+      }
+
       final url = await ref.read(authRepositoryProvider).socialLoginUrl(
             'line',
             purpose: 'password_reset',
@@ -410,6 +433,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 uri!,
               );
       if (!opened) _showLineError(linkMissing);
+    } on NativeLineLoginCancelled {
+      return;
     } catch (error) {
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(

@@ -8,6 +8,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/auth/customer_passkey_repository.dart';
+import '../../../core/auth/native_line_auth_service.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/navigation/customer_redirect.dart';
@@ -18,6 +19,7 @@ import '../../affiliate/data/affiliate_referral_repository.dart';
 import 'auth_keyboard.dart';
 import 'auth_visual_tokens.dart';
 import 'login_otp_screen.dart';
+import 'line_auth_screens.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -293,6 +295,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final socialLinkMissing = context.l10n.socialLoginLinkMissing;
     final socialFailed = context.l10n.socialLoginFailed;
     try {
+      if (normalizedProvider == 'line') {
+        final nativeResult = await ref
+            .read(nativeLineAuthServiceProvider)
+            .authenticate(redirect: _currentRedirect());
+        if (!mounted) return;
+        if (nativeResult != null) {
+          final completed = await completeSocialAuthentication(
+            context: context,
+            ref: ref,
+            result: nativeResult,
+            fallbackRedirect: _currentRedirect(),
+          );
+          if (!mounted || completed) return;
+          _showFormError(
+            nativeResult.message.isEmpty ? socialFailed : nativeResult.message,
+          );
+          return;
+        }
+      }
+
       final url = await ref
           .read(authRepositoryProvider)
           .socialLoginUrl(normalizedProvider, redirect: _currentRedirect());
@@ -307,6 +329,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!opened) {
         _showFormError(socialFailed);
       }
+    } on NativeLineLoginCancelled {
+      return;
     } catch (error) {
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(

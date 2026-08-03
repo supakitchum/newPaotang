@@ -212,6 +212,66 @@ class LineNotificationServiceTest extends TestCase
         ]);
     }
 
+    public function test_native_line_login_verifies_channel_and_issues_customer_session(): void
+    {
+        $this->seedTenant();
+        $this->seedLineChannelAndCustomer();
+
+        Http::fake([
+            'api.line.me/oauth2/v2.1/verify*' => Http::response([
+                'client_id' => 'login-channel',
+                'expires_in' => 3600,
+                'scope' => 'profile openid',
+            ], 200),
+            'api.line.me/v2/profile' => Http::response([
+                'userId' => 'Uline123',
+                'displayName' => 'สมชาย LINE Native',
+                'pictureUrl' => 'https://line.test/native.jpg',
+            ], 200),
+            'api.line.me/friendship/v1/status' => Http::response(['friendFlag' => true], 200),
+        ]);
+
+        $request = Request::create('/api/v1/customer/auth/line/native', 'POST', [
+            'access_token' => 'native-line-access-token',
+            'purpose' => 'login',
+            'redirect' => '/tickets',
+        ], [], [], ['HTTP_HOST' => 'line-store.test']);
+        $response = app(CustomerLineAuthController::class)->native($request);
+
+        $this->assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('cus_line', $payload['user']['id'] ?? null);
+        $this->assertSame('/tickets', $payload['redirect'] ?? null);
+        $this->assertNotEmpty($payload['token'] ?? null);
+        Http::assertSent(fn ($lineRequest): bool =>
+            $lineRequest->url() === 'https://api.line.me/oauth2/v2.1/verify?access_token=native-line-access-token'
+        );
+    }
+
+    public function test_native_line_login_rejects_token_from_another_channel(): void
+    {
+        $this->seedTenant();
+        $this->seedLineChannel();
+
+        Http::fake([
+            'api.line.me/oauth2/v2.1/verify*' => Http::response([
+                'client_id' => 'another-line-channel',
+                'expires_in' => 3600,
+            ], 200),
+            'api.line.me/*' => Http::response([], 500),
+        ]);
+
+        $request = Request::create('/api/v1/customer/auth/line/native', 'POST', [
+            'access_token' => 'wrong-audience-token',
+        ], [], [], ['HTTP_HOST' => 'line-store.test']);
+        $response = app(CustomerLineAuthController::class)->native($request);
+
+        $this->assertSame(422, $response->getStatusCode(), (string) $response->getContent());
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('provider_exchange_failed', $payload['error']['code'] ?? null);
+        Http::assertNotSent(fn ($lineRequest): bool => str_contains($lineRequest->url(), '/v2/profile'));
+    }
+
     public function test_line_login_uses_https_callback_for_production_storefront_hosts(): void
     {
         $this->seedTenant();

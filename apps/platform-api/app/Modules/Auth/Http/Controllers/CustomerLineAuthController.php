@@ -48,6 +48,20 @@ class CustomerLineAuthController extends Controller
         return $this->result($request, $result);
     }
 
+    public function native(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        $currentCustomer = $this->optionalCustomerContext($request, (string) $tenant['tenant_id']);
+        $result = $this->lineAuth->native($tenant, $request->all(), $request, $currentCustomer);
+
+        return $this->result($request, $result);
+    }
+
     public function linkPhone(Request $request): JsonResponse
     {
         $tenant = $this->tenantContext($request);

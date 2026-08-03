@@ -443,6 +443,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.14.4"
+  flutter_line_sdk:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: "1cdddadc533d895c85f4992460820390b1a80812"
+      resolved-ref: "1cdddadc533d895c85f4992460820390b1a80812"
+      url: "https://github.com/line/flutter_line_sdk.git"
+    source: git
+    version: "3.0.0"
   flutter_lints:
     dependency: "direct dev"
     description:

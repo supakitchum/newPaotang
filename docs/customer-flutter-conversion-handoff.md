@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-08-02
+Last updated: 2026-08-03
 
 ## Objective
 
@@ -11441,3 +11441,30 @@ Automated customer account deletion (2026-07-30):
   focused analysis and 3 account-deletion widget tests passed. Only
   `newpaotang_test` was used; runtime DB was not
   migrated and no commit, push, or worktree clearing was performed.
+
+Native LINE Login for iOS and Android (2026-08-03):
+
+- iOS and Android now use the official LINE Flutter SDK for login, password
+  recovery, and authenticated account linking. Web/PWA keeps the existing
+  browser OAuth callback, and native falls back to that callback when the
+  tenant has no native LINE configuration.
+- Public mobile bootstrap exposes only the tenant's LINE Login Channel ID and
+  native-enabled flag. The Channel Secret remains encrypted and server-only.
+  Flutter sends the SDK access token to `POST /customer/auth/line/native`;
+  Platform verifies it with LINE, enforces that the verified client ID matches
+  the tenant channel, fetches profile/friendship data server-side, and reuses
+  the existing OTP/member onboarding, PIN, redirect, and one-device session
+  flow.
+- Android minimum SDK is 24. iOS includes the LINE callback scheme and query
+  scheme. The official Flutter SDK is pinned to commit
+  `1cdddadc533d895c85f4992460820390b1a80812` (package version 3.0.0), with
+  LINE iOS SDK 5.17.0 resolved by Swift Package Manager.
+- Verification passed 14 Platform LINE tests/56 assertions, 150 focused
+  Flutter repository/bootstrap tests, Flutter analysis, Android debug APK,
+  iOS Simulator app, and Flutter Web release build. No runtime database was
+  accessed.
+- Production activation still requires each tenant/app to register its exact
+  iOS Bundle ID and Android package name plus release/Play-signing certificate
+  fingerprint in LINE Developers. Real LINE account login must be checked on
+  physical iOS and Android devices after those external settings are present.
+  No commit, push, or clear-worktree action was performed.

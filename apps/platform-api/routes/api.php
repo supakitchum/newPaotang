@@ -122,6 +122,7 @@ Route::post('/customer/auth/password/reset', [CustomerPasswordResetController::c
 Route::post('/customer/auth/password/reset/otp', [CustomerSmsOtpController::class, 'resetPassword']);
 Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'login']);
 Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
+Route::post('/customer/auth/line/native', [CustomerLineAuthController::class, 'native']);
 Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class, 'linkPhone']);
 Route::post('/customer/auth/social/{provider}/login', [CustomerSocialAuthController::class, 'login']);
 Route::match(['get', 'post'], '/customer/auth/social/{provider}/callback', [CustomerSocialAuthController::class, 'callback']);

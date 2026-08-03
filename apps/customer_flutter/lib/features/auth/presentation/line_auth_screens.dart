@@ -90,6 +90,67 @@ const _socialCallbackStateKeys = [
   'socialState',
 ];
 
+Future<bool> completeSocialAuthentication({
+  required BuildContext context,
+  required WidgetRef ref,
+  required SocialCallbackResult result,
+  String fallbackRedirect = '/',
+}) async {
+  if (result.passwordResetReady && result.passwordResetToken.isNotEmpty) {
+    context.go(
+      Uri(
+        path: '/reset-password',
+        queryParameters: {
+          'token': result.passwordResetToken,
+          'source': result.provider,
+        },
+      ).toString(),
+    );
+    return true;
+  }
+
+  if (result.lineLinkRequired && result.linkToken.isNotEmpty) {
+    final redirect = safeCustomerRedirect(
+      result.redirectPath.isNotEmpty
+          ? result.redirectPath
+          : fallbackRedirect,
+    );
+    context.go(
+      Uri(
+        path: '/social/${result.provider}/link-phone',
+        queryParameters: {
+          'token': result.linkToken,
+          'name': result.displayName,
+          'picture_url': result.pictureUrl,
+          'redirect': redirect,
+        },
+      ).toString(),
+    );
+    return true;
+  }
+
+  final session = result.session;
+  if (session == null) return false;
+
+  ref.read(authControllerProvider).applySession(session);
+  await ref.read(affiliateReferralServiceProvider).applyStored();
+  if (!context.mounted) return true;
+  final redirect = safeCustomerRedirect(
+    result.redirectPath.isNotEmpty ? result.redirectPath : fallbackRedirect,
+  );
+  final postAuthRoute = result.orderId.trim().isEmpty
+      ? redirect
+      : customerCheckoutPendingRouteForOrder(result.orderId);
+  context.go(
+    customerPostAuthRouteForRedirect(
+      redirect: postAuthRoute,
+      pinRequired: session.pinRequired,
+      pinSetupRequired: session.pinSetupRequired,
+    ),
+  );
+  return true;
+}
+
 class LineCallbackScreen extends ConsumerStatefulWidget {
   const LineCallbackScreen({
     super.key,
@@ -176,60 +237,13 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
           );
       if (!mounted) return;
 
-      if (result.passwordResetReady && result.passwordResetToken.isNotEmpty) {
-        context.go(
-          Uri(
-            path: '/reset-password',
-            queryParameters: {
-              'token': result.passwordResetToken,
-              'source': result.provider,
-            },
-          ).toString(),
-        );
-        return;
-      }
-
-      if (result.lineLinkRequired && result.linkToken.isNotEmpty) {
-        final redirect = safeCustomerRedirect(
-          result.redirectPath.isNotEmpty
-              ? result.redirectPath
-              : query['redirect'],
-        );
-        context.go(
-          Uri(
-            path: '/social/${result.provider}/link-phone',
-            queryParameters: {
-              'token': result.linkToken,
-              'name': result.displayName,
-              'picture_url': result.pictureUrl,
-              'redirect': redirect,
-            },
-          ).toString(),
-        );
-        return;
-      }
-
-      if (result.session != null) {
-        ref.read(authControllerProvider).applySession(result.session!);
-        await ref.read(affiliateReferralServiceProvider).applyStored();
-        if (!mounted) return;
-        final redirect = safeCustomerRedirect(
-          result.redirectPath.isNotEmpty
-              ? result.redirectPath
-              : query['redirect'],
-        );
-        final postAuthRoute = result.orderId.trim().isEmpty
-            ? redirect
-            : customerCheckoutPendingRouteForOrder(result.orderId);
-        context.go(
-          customerPostAuthRouteForRedirect(
-            redirect: postAuthRoute,
-            pinRequired: result.session!.pinRequired,
-            pinSetupRequired: result.session!.pinSetupRequired,
-          ),
-        );
-        return;
-      }
+      final completed = await completeSocialAuthentication(
+        context: context,
+        ref: ref,
+        result: result,
+        fallbackRedirect: query['redirect'] ?? '/',
+      );
+      if (!mounted || completed) return;
 
       final providerLabel = await _runtimeProviderLabel(provider);
       if (!mounted) return;

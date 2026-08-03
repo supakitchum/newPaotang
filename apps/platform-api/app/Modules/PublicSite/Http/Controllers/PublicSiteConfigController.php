@@ -81,6 +81,9 @@ class PublicSiteConfigController extends Controller
         $realtimeAuthEndpoint = trim((string) config('platform.realtime.customer_auth_endpoint', '/customer/realtime/auth')) ?: '/customer/realtime/auth';
         $realtimeProtocol = max(1, (int) config('platform.realtime.customer_protocol', 7));
         $authProviders = $tenantId !== '' ? $this->socialAuth->enabledProviders($tenantId) : [];
+        $nativeLineLogin = $tenantId !== ''
+            ? $this->socialAuth->lineNativeLoginConfig($tenantId)
+            : ['enabled' => false, 'channel_id' => null];
         $enabledAuthProviders = collect($authProviders)
             ->pluck('provider')
             ->map(fn ($provider): string => strtolower((string) $provider))
@@ -104,6 +107,8 @@ class PublicSiteConfigController extends Controller
                 'liff_enabled' => (bool) ($line['liff_enabled'] ?? false),
                 'bot_basic_id' => $line['bot_basic_id'] ?? null,
                 'add_friend_url' => $line['add_friend_url'] ?? null,
+                'native_login_enabled' => (bool) ($nativeLineLogin['enabled'] ?? false),
+                'native_channel_id' => $nativeLineLogin['channel_id'] ?? null,
             ],
             'realtime' => [
                 'enabled' => $realtimeUrl !== '' && $realtimeKey !== '',
@@ -178,6 +183,7 @@ class PublicSiteConfigController extends Controller
                     'social_login_google' => in_array('google', $enabledAuthProviders, true),
                     'social_login_apple' => in_array('apple', $enabledAuthProviders, true),
                     'social_login_facebook' => in_array('facebook', $enabledAuthProviders, true),
+                    'social_login_line_native' => (bool) ($nativeLineLogin['enabled'] ?? false),
                     'passkey_login' => $passkeys['enabled'],
                     'screen_security_native' => (bool) ($features['screen_security_native'] ?? true),
                 ],

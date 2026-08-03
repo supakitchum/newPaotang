@@ -203,12 +203,130 @@ class CustomerLineAuthService
 
         $friend = $accessToken === '' ? ['ok' => false] : $this->line->friendshipStatus($accessToken);
         $friendFlag = (bool) (($friend['data'] ?? [])['friendFlag'] ?? false);
+        $expectedLinkCustomerId = trim((string) ($metadata['link_customer_id'] ?? ''));
+        if ($purpose === 'link' && $expectedLinkCustomerId === '') {
+            return ['error' => 'authentication_required'];
+        }
 
+        return $this->completeAuthentication(
+            $tenant,
+            $request,
+            $currentCustomer,
+            $lineProfile,
+            $lineUserId,
+            $friendFlag,
+            $purpose,
+            $redirectPath,
+            $expectedLinkCustomerId ?: null,
+        );
+    }
+
+    /**
+     * Complete LINE Login initiated by the native iOS or Android SDK.
+     *
+     * @param array<string, mixed> $tenant
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
+     */
+    public function native(
+        array $tenant,
+        array $payload,
+        Request $request,
+        ?CustomerSessionContext $currentCustomer = null,
+    ): array {
+        $accessToken = trim((string) ($payload['access_token'] ?? ''));
+        if ($accessToken === '' || strlen($accessToken) > 4096) {
+            return [
+                'error' => 'validation_failed',
+                'details' => [
+                    'fields' => ['access_token' => ['A valid LINE access token is required.']],
+                ],
+            ];
+        }
+
+        $purpose = $this->linePurpose($payload['purpose'] ?? null);
+        $redirectPath = $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null);
         if ($purpose === 'link') {
-            $expectedCustomerId = trim((string) ($metadata['link_customer_id'] ?? ''));
+            if (! $currentCustomer instanceof CustomerSessionContext) {
+                return ['error' => 'authentication_required'];
+            }
+            if (! $currentCustomer->hasPin()) {
+                return ['error' => 'pin_setup_required'];
+            }
+            if (! $currentCustomer->pinVerified()) {
+                return ['error' => 'pin_required'];
+            }
+        }
+
+        $channel = $this->lineNotifications->activeChannelForTenant((string) $tenant['tenant_id']);
+        if (! $this->lineNotifications->channelReadyForLogin($channel)) {
+            return $this->providerBlocked('provider_not_configured');
+        }
+
+        $configuredChannelId = $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted');
+        $verification = $this->line->verifyLoginAccessToken($accessToken);
+        $verified = is_array($verification['data'] ?? null) ? $verification['data'] : [];
+        $verifiedChannelId = trim((string) ($verified['client_id'] ?? ''));
+        if (($verification['ok'] ?? false) !== true
+            || $verifiedChannelId === ''
+            || ! hash_equals($configuredChannelId, $verifiedChannelId)) {
+            return [
+                'error' => 'provider_exchange_failed',
+                'details' => ['reason' => 'LINE access token verification failed.'],
+            ];
+        }
+
+        $profile = $this->line->profile($accessToken);
+        if (($profile['ok'] ?? false) !== true) {
+            return [
+                'error' => 'provider_exchange_failed',
+                'details' => ['reason' => 'LINE profile fetch failed.'],
+            ];
+        }
+
+        $lineProfile = is_array($profile['data'] ?? null) ? $profile['data'] : [];
+        $lineUserId = $this->nullableString($lineProfile['userId'] ?? null);
+        if ($lineUserId === null) {
+            return [
+                'error' => 'provider_exchange_failed',
+                'details' => ['reason' => 'LINE profile did not include a userId.'],
+            ];
+        }
+
+        $friend = $this->line->friendshipStatus($accessToken);
+        $friendFlag = (bool) (($friend['data'] ?? [])['friendFlag'] ?? false);
+
+        return $this->completeAuthentication(
+            $tenant,
+            $request,
+            $currentCustomer,
+            $lineProfile,
+            $lineUserId,
+            $friendFlag,
+            $purpose,
+            $redirectPath,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $tenant
+     * @param array<string, mixed> $lineProfile
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
+     */
+    private function completeAuthentication(
+        array $tenant,
+        Request $request,
+        ?CustomerSessionContext $currentCustomer,
+        array $lineProfile,
+        string $lineUserId,
+        bool $friendFlag,
+        string $purpose,
+        string $redirectPath,
+        ?string $expectedCustomerId = null,
+    ): array {
+        if ($purpose === 'link') {
             if (! $currentCustomer instanceof CustomerSessionContext
-                || $expectedCustomerId === ''
-                || ! hash_equals($expectedCustomerId, $currentCustomer->customerId())) {
+                || ($expectedCustomerId !== null && ! hash_equals($expectedCustomerId, $currentCustomer->customerId()))) {
                 return ['error' => 'authentication_required'];
             }
             if (! $currentCustomer->hasPin()) {
