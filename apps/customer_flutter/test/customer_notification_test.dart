@@ -678,6 +678,98 @@ void main() {
   );
 
   testWidgets(
+    'native push requests permission again when persisted state is not determined',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        var settingsReads = 0;
+        var permissionRequests = 0;
+        final platform = CustomerPushPlatform.test(
+          notificationSettings: () async {
+            settingsReads += 1;
+            return _notDeterminedNotificationSettings;
+          },
+          requestPermission: () async {
+            permissionRequests += 1;
+            return _authorizedNotificationSettings;
+          },
+          token: () async => 'fcm-token-permission-recovery-1234567890',
+        );
+        addTearDown(platform.dispose);
+
+        final tokenStore = AuthTokenStore();
+        final api = ApiClient(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          tokenStore,
+          localeTag: 'th-TH',
+        );
+        final auth =
+            AuthController(
+                authRepository: _PushAuthRepository(
+                  api: api,
+                  tokenStore: tokenStore,
+                ),
+                tokenStore: tokenStore,
+                biometricAuth: BiometricAuthService(api),
+              )
+              ..isAuthenticated = true
+              ..pinRequired = false
+              ..pinSetupRequired = false;
+        final repository = _PushNotificationRepository(api);
+        final installationStore = _PushInstallationStore()
+          ..markedPermissionRequested = true;
+        final router = GoRouter(
+          routes: [GoRoute(path: '/', builder: (_, __) => const Text('home'))],
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWithValue(
+                const AppConfig(
+                  apiBaseUrl: 'https://partner.example.test/api/v1',
+                  defaultLocale: 'th-TH',
+                ),
+              ),
+              authControllerProvider.overrideWith((_) => auth),
+              customerPushPlatformProvider.overrideWithValue(platform),
+              customerPushInstallationStoreProvider.overrideWithValue(
+                installationStore,
+              ),
+              customerPushDeviceContextLoaderProvider.overrideWithValue(
+                _emptyPushDeviceContextLoader(),
+              ),
+              customerNotificationRepositoryProvider.overrideWithValue(
+                repository,
+              ),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              builder: (context, child) => CustomerPushLifecycleMonitor(
+                router: router,
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(settingsReads, 1);
+        expect(permissionRequests, 1);
+        expect(repository.registeredTokens, [
+          'fcm-token-permission-recovery-1234567890',
+        ]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'native push retries and refreshes registration when the app resumes',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -1166,6 +1258,21 @@ const _deniedNotificationSettings = NotificationSettings(
   criticalAlert: AppleNotificationSetting.disabled,
   sound: AppleNotificationSetting.disabled,
   providesAppNotificationSettings: AppleNotificationSetting.disabled,
+);
+
+const _notDeterminedNotificationSettings = NotificationSettings(
+  alert: AppleNotificationSetting.notSupported,
+  announcement: AppleNotificationSetting.notSupported,
+  authorizationStatus: AuthorizationStatus.notDetermined,
+  badge: AppleNotificationSetting.notSupported,
+  carPlay: AppleNotificationSetting.notSupported,
+  lockScreen: AppleNotificationSetting.notSupported,
+  notificationCenter: AppleNotificationSetting.notSupported,
+  showPreviews: AppleShowPreviewSetting.never,
+  timeSensitive: AppleNotificationSetting.notSupported,
+  criticalAlert: AppleNotificationSetting.notSupported,
+  sound: AppleNotificationSetting.notSupported,
+  providesAppNotificationSettings: AppleNotificationSetting.notSupported,
 );
 
 CustomerPushDeviceContextLoader _emptyPushDeviceContextLoader() {

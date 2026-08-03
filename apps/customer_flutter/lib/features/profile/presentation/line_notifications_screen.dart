@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_error_message.dart';
+import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/auth/native_line_auth_service.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
@@ -206,6 +208,30 @@ class _LineNotificationsScreenState
       _noticeMessage = '';
     });
     try {
+      final nativeResult = await ref
+          .read(nativeLineAuthServiceProvider)
+          .authenticate(
+            purpose: 'link',
+            redirect: '/profile/line-notifications',
+            auth: true,
+            promptToAddOfficialAccount: true,
+          );
+      if (!mounted) return;
+      if (nativeResult != null) {
+        final session = nativeResult.session;
+        if (session == null) {
+          throw StateError(
+            nativeResult.message.isEmpty
+                ? 'LINE account could not be connected.'
+                : nativeResult.message,
+          );
+        }
+        ref.read(authControllerProvider).applySession(session);
+        ref.invalidate(lineNotificationSettingsProvider);
+        _setNotice(context.l10n.profileLineConnectedTitle, isError: false);
+        return;
+      }
+
       final url = await ref.read(authRepositoryProvider).socialLoginUrl(
             'line',
             redirect: '/profile/line-notifications',
@@ -222,6 +248,8 @@ class _LineNotificationsScreenState
                 uri!,
               );
       if (!opened) _setNotice(missingUrlMessage);
+    } on NativeLineLoginCancelled {
+      return;
     } catch (error) {
       if (!mounted) return;
       if (await _handleOperationalError(error)) return;

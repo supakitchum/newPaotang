@@ -39,6 +39,7 @@ class NativeLineAuthService {
     String purpose = 'login',
     String redirect = '/',
     bool auth = false,
+    bool promptToAddOfficialAccount = false,
   }) async {
     if (!platformSupported) return null;
 
@@ -54,6 +55,9 @@ class NativeLineAuthService {
     try {
       final result = await LineSDK.instance.login(
         scopes: const ['profile', 'openid'],
+        option: promptToAddOfficialAccount
+            ? LoginOption(false, 'aggressive')
+            : null,
       );
       final accessToken = result.accessToken.value.trim();
       if (accessToken.isEmpty) {

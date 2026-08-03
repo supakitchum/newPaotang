@@ -149,11 +149,14 @@ class _CustomerPushLifecycleMonitorState
       await _flushPendingTap();
       final store = ref.read(customerPushInstallationStoreProvider);
       NotificationSettings? settings;
-      if (!await store.permissionRequested()) {
+      final permissionRequested = await store.permissionRequested();
+      if (permissionRequested) {
+        settings = await platform.notificationSettings();
+      }
+      if (!permissionRequested ||
+          settings?.authorizationStatus == AuthorizationStatus.notDetermined) {
         settings = await platform.requestPermission();
         await store.markPermissionRequested();
-      } else {
-        settings = await platform.notificationSettings();
       }
       if (!_pushAuthorized(settings)) {
         _clearRetry();

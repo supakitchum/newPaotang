@@ -1,5 +1,6 @@
 import 'package:customer_flutter/core/auth/auth_repository.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
+import 'package:customer_flutter/core/auth/native_line_auth_service.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
@@ -202,6 +203,48 @@ void main() {
     );
   });
 
+  testWidgets('LINE connect prefers the native SDK on mobile', (tester) async {
+    final authRepository = _LineAuthRepository();
+    final nativeLine = _LineNativeAuthService(
+      result: const SocialCallbackResult(
+        provider: 'line',
+        code: 200,
+        lineLinkRequired: false,
+        linkToken: '',
+        displayName: 'Native LINE',
+        pictureUrl: '',
+        passwordResetReady: false,
+        passwordResetToken: '',
+        orderId: '',
+        message: '',
+        redirectPath: '/profile/line-notifications',
+        session: CustomerSession(
+          accessToken: 'native-line-access-token',
+          refreshToken: 'native-line-refresh-token',
+          pinRequired: false,
+          pinSetupRequired: false,
+          customerId: 'customer-native-line',
+        ),
+      ),
+    );
+    await _pumpScreen(
+      tester,
+      authRepository: authRepository,
+      nativeLineAuth: nativeLine,
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect LINE'));
+    await tester.pumpAndSettle();
+
+    expect(nativeLine.lastPurpose, 'link');
+    expect(nativeLine.lastRedirect, '/profile/line-notifications');
+    expect(nativeLine.lastAuth, isTrue);
+    expect(nativeLine.lastPromptToAddOfficialAccount, isTrue);
+    expect(authRepository.lastProvider, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('LINE connect hides internal errors', (tester) async {
     await _pumpScreen(
       tester,
@@ -354,6 +397,7 @@ Future<void> _pumpScreen(
   WidgetTester tester, {
   _LineNotificationRepository? lineRepository,
   _LineAuthRepository? authRepository,
+  NativeLineAuthService? nativeLineAuth,
   CustomerLinkLauncher? linkLauncher,
 }) {
   tester.view.physicalSize = const Size(900, 1200);
@@ -369,6 +413,9 @@ Future<void> _pumpScreen(
         ),
         authRepositoryProvider.overrideWithValue(
           authRepository ?? _LineAuthRepository(),
+        ),
+        nativeLineAuthServiceProvider.overrideWithValue(
+          nativeLineAuth ?? _LineNativeAuthService(),
         ),
         if (linkLauncher != null)
           customerLinkLauncherProvider.overrideWithValue(linkLauncher),
@@ -472,6 +519,37 @@ class _LineAuthRepository extends AuthRepository {
     final error = socialLoginUrlError;
     if (error != null) throw error;
     return Future.value('https://line.example.com/oauth');
+  }
+}
+
+class _LineNativeAuthService extends NativeLineAuthService {
+  _LineNativeAuthService({this.result})
+    : super(
+        loadBootstrap: () async => MobileBootstrap.fromJson(const {}),
+        repository: _LineAuthRepository(),
+      );
+
+  final SocialCallbackResult? result;
+  String? lastPurpose;
+  String? lastRedirect;
+  bool? lastAuth;
+  bool? lastPromptToAddOfficialAccount;
+
+  @override
+  bool get platformSupported => true;
+
+  @override
+  Future<SocialCallbackResult?> authenticate({
+    String purpose = 'login',
+    String redirect = '/',
+    bool auth = false,
+    bool promptToAddOfficialAccount = false,
+  }) async {
+    lastPurpose = purpose;
+    lastRedirect = redirect;
+    lastAuth = auth;
+    lastPromptToAddOfficialAccount = promptToAddOfficialAccount;
+    return result;
   }
 }
 
