@@ -1,11 +1,11 @@
 <template>
   <aside class="app-sidebar sticky" id="sidebar">
-    <div class="main-sidebar-header">
+    <div class="main-sidebar-header np-sidebar-brand-header">
       <NuxtLink to="/admin" class="header-logo np-sidebar-brand-link" :aria-label="displayName">
-        <img :src="logoUrl" :alt="displayName" class="desktop-logo np-admin-brand-logo" data-admin-sidebar-logo="horizontal" />
-        <img :src="logoUrl" :alt="displayName" class="desktop-dark np-admin-brand-logo" data-admin-sidebar-logo="horizontal-dark" />
-        <img :src="compactLogoUrl" :alt="displayName" class="toggle-logo np-admin-brand-mark" />
-        <img :src="compactLogoUrl" :alt="displayName" class="toggle-dark np-admin-brand-mark" />
+        <img :src="centralLogoUrl" alt="Siamblend" class="desktop-logo np-admin-brand-logo" data-admin-sidebar-logo="horizontal" />
+        <img :src="centralLogoUrl" alt="Siamblend" class="desktop-dark np-admin-brand-logo" data-admin-sidebar-logo="horizontal-dark" />
+        <img :src="centralMarkUrl" alt="Siamblend" class="toggle-logo np-admin-brand-mark" />
+        <img :src="centralMarkUrl" alt="Siamblend" class="toggle-dark np-admin-brand-mark" />
       </NuxtLink>
     </div>
     <div class="main-sidebar" data-simplebar>
@@ -72,7 +72,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { currentScope } = useAdminSession()
-const { logoUrl, compactLogoUrl, displayName } = useAdminBranding()
+const { centralLogoUrl, centralMarkUrl, displayName } = useAdminBranding()
 const { mapRoute, iconFor } = useAdminNavigation()
 const { t } = useAdminLocale()
 const route = useRoute()

@@ -3,15 +3,17 @@
     <AdminHeader :client-ready="clientReady" />
     <AdminSidebar :menus="visibleMenus" :loading="visibleMenuLoading" :client-ready="clientReady" />
     <button class="np-sidebar-backdrop border-0" type="button" aria-label="Close sidebar" @click="closeSidebar" />
-    <main class="main-content app-content">
-      <div class="container-fluid">
-        <AdminProtectedContent :show="canRenderAdminContent">
-          <AdminAlert v-if="error" type="warning" :message="error.message || t('menus.sidebar.loadError')" dismissible @dismiss="error = null" />
-          <slot />
-        </AdminProtectedContent>
-      </div>
-    </main>
-    <AdminFooter />
+    <div class="np-admin-content-scroll">
+      <main class="main-content app-content">
+        <div class="container-fluid">
+          <AdminProtectedContent :show="canRenderAdminContent">
+            <AdminAlert v-if="error" type="warning" :message="error.message || t('menus.sidebar.loadError')" dismissible @dismiss="error = null" />
+            <slot />
+          </AdminProtectedContent>
+        </div>
+      </main>
+      <AdminFooter />
+    </div>
     <AdminSearchModal :menus="visibleMenus" />
     <AdminToast />
   </div>

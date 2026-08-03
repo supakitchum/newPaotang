@@ -9,13 +9,44 @@ body {
 }
 
 .page {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   min-width: 0;
   width: 100%;
+  overflow: hidden;
+  justify-content: flex-start;
 }
 
-.app-content {
-  min-height: calc(100vh - 8rem);
+.np-admin-content-scroll {
+  display: flex;
+  min-width: 0;
+  height: calc(100dvh - 4.25rem);
+  margin-block-start: 4.25rem;
+  margin-inline-start: 15rem;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--default-body-bg-color);
+  -webkit-overflow-scrolling: touch;
+}
+
+.np-admin-content-scroll .main-content.app-content {
+  width: 100%;
+  min-height: 0;
+  margin: 0 !important;
+  flex: 1 0 auto;
+}
+
+.np-admin-content-scroll .footer {
+  width: 100%;
+  margin: 0 !important;
+  padding-inline-start: 0 !important;
+  flex: 0 0 auto;
+}
+
+[data-vertical-style='closed'][data-toggled='close-menu-close'] .np-admin-content-scroll {
+  margin-inline-start: 0;
 }
 
 .main-content.app-content,
@@ -57,11 +88,35 @@ body {
   object-position: left center;
 }
 
+.app-sidebar .np-sidebar-brand-header {
+  display: flex !important;
+  width: 100%;
+}
+
 .app-sidebar .main-sidebar-header .header-logo img.np-admin-brand-logo {
   width: auto;
-  max-width: 10rem;
-  height: 2.5rem;
+  max-width: 11.5rem;
+  height: 2.75rem;
   object-fit: contain;
+}
+
+html:not([data-toggled='close-menu-close']) .app-sidebar .main-sidebar-header .header-logo .np-admin-brand-logo.desktop-logo {
+  display: block !important;
+}
+
+html:not([data-toggled='close-menu-close']) .app-sidebar .main-sidebar-header .header-logo .desktop-dark,
+html:not([data-toggled='close-menu-close']) .app-sidebar .main-sidebar-header .header-logo .np-admin-brand-mark {
+  display: none !important;
+}
+
+@media (min-width: 992px) {
+  [data-vertical-style='closed'][data-toggled='close-menu-close'] .app-sidebar .main-sidebar-header .header-logo .np-admin-brand-logo {
+    display: none !important;
+  }
+
+  [data-vertical-style='closed'][data-toggled='close-menu-close'] .app-sidebar .main-sidebar-header .header-logo .np-admin-brand-mark.toggle-logo {
+    display: block !important;
+  }
 }
 
 .app-sidebar .main-sidebar-header .header-logo img.np-admin-brand-mark,
@@ -176,6 +231,13 @@ body {
   z-index: 1040;
 }
 
+.app-sidebar .main-sidebar {
+  height: calc(100dvh - 4.25rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .app-header {
   z-index: 1030;
 }
@@ -209,10 +271,16 @@ body {
 
 @media (max-width: 991.98px) {
   .app-header,
-  .main-content.app-content,
+  .np-admin-content-scroll,
   .footer {
     width: 100%;
     max-width: 100vw;
+  }
+
+  .np-admin-content-scroll {
+    height: calc(100dvh - 4.25rem);
+    margin-block-start: 4.25rem;
+    margin-inline-start: 0;
   }
 
   .app-header {
@@ -260,6 +328,7 @@ body {
 
   .main-sidebar {
     width: 100%;
+    margin-block-start: 4.25rem;
     transform: none;
   }
 
@@ -334,7 +403,9 @@ body {
   }
 
   .main-content.app-content {
+    min-height: 0;
     padding-inline: 0;
+    padding-block-start: 0 !important;
   }
 
   .main-content.app-content > .container-fluid {
@@ -350,33 +421,21 @@ body {
   .row > * {
     min-width: 0;
   }
+
+  [data-toggled='open'] .np-admin-content-scroll {
+    overflow-y: hidden;
+  }
 }
 
 @media (max-width: 575.98px) {
   .app-header .header-logo {
-    max-width: 6.75rem;
+    max-width: 9.5rem;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .app-header .horizontal-logo {
-    display: flex !important;
-    flex: 0 0 auto;
-    align-items: center;
-  }
-
-  .app-header .horizontal-logo .header-logo .np-admin-brand-logo.desktop-logo {
-    display: block !important;
-    width: auto;
-    max-width: 6.75rem;
-    height: 2rem;
-    object-fit: contain;
-    object-position: left center;
-  }
-
-  .app-header .horizontal-logo .header-logo .desktop-dark,
-  .app-header .horizontal-logo .header-logo .np-admin-brand-mark {
-    display: none !important;
+    display: none;
   }
 
   .main-header-container .header-content-left {
@@ -407,11 +466,6 @@ body {
 }
 
 @media (max-width: 359.98px) {
-  .app-header .header-logo,
-  .app-header .horizontal-logo .header-logo .np-admin-brand-logo.desktop-logo {
-    max-width: 5.5rem;
-  }
-
   .main-header-container {
     padding-inline: 0.5rem;
   }
