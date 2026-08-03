@@ -96,6 +96,19 @@ class CustomerLocalizations {
   String get loginOtpRequestFailed => _text('auth.login.otp_request_failed');
   String get loginOtpProviderUnavailable =>
       _text('auth.login.otp_provider_unavailable');
+  String get loginAccountNotFound => _text('auth.login.account_not_found');
+  String get loginInvalidCredentials => _text('auth.login.invalid_credentials');
+  String get loginAccountInactive => _text('auth.login.account_inactive');
+  String get loginSessionEnded => _text('auth.login.session_ended');
+  String get loginOtpExpired => _text('auth.login.otp_expired');
+  String get loginOtpPhoneMissing => _text('auth.login.otp_phone_missing');
+  String get loginOtpIncorrect => _text('auth.login.otp_incorrect');
+  String get loginOtpAttemptsExceeded =>
+      _text('auth.login.otp_attempts_exceeded');
+  String get loginOtpCooldown => _text('auth.login.otp_cooldown');
+  String get loginOtpRateLimited => _text('auth.login.otp_rate_limited');
+  String get loginOtpSendFailed => _text('auth.login.otp_send_failed');
+  String get loginOtpVerifyFailed => _text('auth.login.otp_verify_failed');
   String get loginRegister => _text('auth.login.register');
   String get loginRegisterPrompt => _text('auth.login.register_prompt');
   String get loginForgotPassword => _text('auth.login.forgot_password');
@@ -178,6 +191,8 @@ class CustomerLocalizations {
   String get registerOtpTitle => _text('auth.register.otp_title');
   String get registerOtpLabel => _text('auth.register.otp_label');
   String get registerOtpHint => _text('auth.register.otp_hint');
+  String get registerOtpChangeDetails =>
+      _text('auth.register.otp_change_details');
   String get registerSubmit => _text('auth.register.submit');
   String get registerSubmitWithOtp => _text('auth.register.submit_with_otp');
   String get registerSubmitting => _text('auth.register.submitting');
@@ -1284,6 +1299,7 @@ class CustomerLocalizations {
   String get profilePrivacyPolicy => _text('profile.menu.privacy_policy');
   String get profileAccountDeletion => _text('profile.menu.account_deletion');
   String get profileLogout => _text('profile.logout');
+  String get profileLoggingOut => _text('profile.logging_out');
 
   String get accountDeletionTitle => _text('account_deletion.title');
   String get accountDeletionHeroTitle => _text('account_deletion.hero.title');
@@ -3116,6 +3132,27 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.otp_request_failed': 'ไม่สามารถส่งรหัส OTP ได้ กรุณาลองใหม่',
     'auth.login.otp_provider_unavailable':
         'ระบบ SMS ไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
+    'auth.login.account_not_found':
+        'ไม่พบบัญชีที่ใช้เบอร์โทรศัพท์นี้ กรุณาตรวจสอบเบอร์หรือสมัครใช้งาน',
+    'auth.login.invalid_credentials':
+        'เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่',
+    'auth.login.account_inactive':
+        'บัญชีนี้ยังไม่พร้อมใช้งาน กรุณาติดต่อศูนย์ช่วยเหลือ',
+    'auth.login.session_ended':
+        'เซสชันการใช้งานสิ้นสุดแล้ว กรุณาเข้าสู่ระบบอีกครั้ง',
+    'auth.login.otp_expired': 'คำขอยืนยัน OTP หมดอายุ กรุณาขอรหัส OTP ใหม่',
+    'auth.login.otp_phone_missing':
+        'บัญชีนี้ยังไม่มีเบอร์โทรศัพท์สำหรับรับ OTP กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
+    'auth.login.otp_incorrect':
+        'รหัส OTP ไม่ถูกต้องหรือหมดอายุ กรุณาตรวจสอบแล้วลองใหม่',
+    'auth.login.otp_attempts_exceeded':
+        'กรอกรหัส OTP ไม่ถูกต้องหลายครั้ง กรุณาขอรหัสใหม่',
+    'auth.login.otp_cooldown': 'กรุณารอสักครู่ก่อนขอรหัส OTP ใหม่',
+    'auth.login.otp_rate_limited': 'ขอรหัส OTP บ่อยเกินไป กรุณาลองใหม่ภายหลัง',
+    'auth.login.otp_send_failed':
+        'ไม่สามารถส่งรหัส OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+    'auth.login.otp_verify_failed':
+        'ไม่สามารถตรวจสอบรหัส OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
     'auth.login.register': 'สมัครใช้งาน',
     'auth.login.register_prompt': 'ยังไม่มีบัญชี?',
     'auth.login.forgot_password': 'ลืมรหัสผ่าน?',
@@ -3177,6 +3214,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.register.otp_title': 'ยืนยันเบอร์โทรศัพท์',
     'auth.register.otp_label': 'รหัส OTP',
     'auth.register.otp_hint': 'กรอกรหัส OTP',
+    'auth.register.otp_change_details': 'แก้ไขข้อมูลสมัครสมาชิก',
     'auth.register.submit': 'สมัครใช้งาน',
     'auth.register.submit_with_otp': 'ยืนยัน OTP และสมัครใช้งาน',
     'auth.register.submitting': 'กำลังสมัครใช้งาน',
@@ -3958,6 +3996,7 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.menu.privacy_policy': 'นโยบายความเป็นส่วนตัว',
     'profile.menu.account_deletion': 'ลบบัญชีผู้ใช้',
     'profile.logout': 'ออกจากระบบ',
+    'profile.logging_out': 'กำลังออกจากระบบ',
     'account_deletion.title': 'ลบบัญชีผู้ใช้',
     'account_deletion.hero.title': 'คำขอลบบัญชี',
     'account_deletion.hero.subtitle': 'ส่งคำขอลบบัญชีและข้อมูลส่วนบุคคลของคุณ',
@@ -5100,6 +5139,29 @@ const _localizedValues = <String, Map<String, String>>{
         'Could not send the OTP. Please try again.',
     'auth.login.otp_provider_unavailable':
         'SMS is unavailable. Please sign in with your password.',
+    'auth.login.account_not_found':
+        'No account was found for this phone number. Check the number or create an account.',
+    'auth.login.invalid_credentials':
+        'The phone number or password is incorrect. Please try again.',
+    'auth.login.account_inactive':
+        'This account is not available for sign-in. Please contact support.',
+    'auth.login.session_ended': 'Your session has ended. Please sign in again.',
+    'auth.login.otp_expired':
+        'The OTP request has expired. Please request a new code.',
+    'auth.login.otp_phone_missing':
+        'This account has no phone number for OTP. Please sign in with a password.',
+    'auth.login.otp_incorrect':
+        'The OTP is incorrect or has expired. Please check it and try again.',
+    'auth.login.otp_attempts_exceeded':
+        'The OTP was entered incorrectly too many times. Please request a new code.',
+    'auth.login.otp_cooldown':
+        'Please wait a moment before requesting another OTP.',
+    'auth.login.otp_rate_limited':
+        'Too many OTP requests. Please try again later.',
+    'auth.login.otp_send_failed':
+        'The OTP could not be sent right now. Please try again.',
+    'auth.login.otp_verify_failed':
+        'The OTP could not be verified right now. Please try again.',
     'auth.login.register': 'Create account',
     'auth.login.register_prompt': 'No account yet?',
     'auth.login.forgot_password': 'Forgot password?',
@@ -5163,6 +5225,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.register.otp_title': 'Verify phone number',
     'auth.register.otp_label': 'OTP code',
     'auth.register.otp_hint': 'Enter OTP',
+    'auth.register.otp_change_details': 'Edit registration details',
     'auth.register.submit': 'Create account',
     'auth.register.submit_with_otp': 'Verify OTP and create account',
     'auth.register.submitting': 'Creating account',
@@ -5972,6 +6035,7 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.menu.privacy_policy': 'Privacy policy',
     'profile.menu.account_deletion': 'Delete account',
     'profile.logout': 'Sign out',
+    'profile.logging_out': 'Signing out',
     'account_deletion.title': 'Delete account',
     'account_deletion.hero.title': 'Account deletion request',
     'account_deletion.hero.subtitle':

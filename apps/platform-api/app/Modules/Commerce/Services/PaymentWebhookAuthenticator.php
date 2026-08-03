@@ -3,6 +3,7 @@
 namespace App\Modules\Commerce\Services;
 
 use App\Models\TenantPaymentProviderConnection;
+use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 
@@ -26,13 +27,22 @@ class PaymentWebhookAuthenticator
             ->forTenant($tenantId)
             ->where('provider', $provider)
             ->where('status', 'active')
+            ->whereNotNull('api_key_encrypted')
             ->first();
-        $secret = $this->decryptSecret($connection?->webhook_secret_encrypted);
+        if ($connection === null) {
+            return false;
+        }
+
+        if ($provider === DeepayKbankPaymentProvider::PROVIDER) {
+            return $this->verifyTrustedDeepayCallback($payment, $topup, $request);
+        }
+
+        $secret = $this->decryptSecret($connection->webhook_secret_encrypted);
         if ($secret === '') {
             return false;
         }
 
-        $metadata = is_array($connection?->metadata_json) ? $connection->metadata_json : [];
+        $metadata = is_array($connection->metadata_json) ? $connection->metadata_json : [];
         $mode = strtolower(trim((string) ($metadata['webhook_auth_mode'] ?? 'hmac_sha256')));
 
         return match ($mode) {
@@ -40,6 +50,49 @@ class PaymentWebhookAuthenticator
             'hmac_sha256' => $this->verifyHmac($secret, $request),
             default => false,
         };
+    }
+
+    private function verifyTrustedDeepayCallback(?object $payment, ?object $topup, Request $request): bool
+    {
+        if ($payment === null || $topup === null) {
+            return false;
+        }
+
+        $payload = $request->all();
+        $providerReference = trim((string) (
+            $payload['partnerTxnUid']
+            ?? data_get($payload, 'payload.partnerTxnUid', '')
+        ));
+        $reference1 = trim((string) (
+            $payload['reference1']
+            ?? data_get($payload, 'payload.reference1', '')
+        ));
+        $reference2 = strtolower(trim((string) (
+            $payload['reference2']
+            ?? data_get($payload, 'payload.reference2', '')
+        )));
+        $reference3 = trim((string) (
+            $payload['reference3']
+            ?? data_get($payload, 'payload.reference3', '')
+        ));
+
+        if (
+            $providerReference === ''
+            || $reference1 === ''
+            || $reference2 !== 'wallet'
+            || ! hash_equals((string) $payment->provider_reference, $providerReference)
+            || ! hash_equals((string) $topup->id, $reference1)
+        ) {
+            return false;
+        }
+
+        $tenantId = (string) $payment->tenant_id;
+
+        return (string) $payment->provider === DeepayKbankPaymentProvider::PROVIDER
+            && (string) $payment->topup_request_id === (string) $topup->id
+            && (string) $topup->payment_id === (string) $payment->id
+            && (string) $topup->tenant_id === $tenantId
+            && ($reference3 === '' || hash_equals($tenantId, $reference3));
     }
 
     private function verifyToken(string $secret, Request $request): bool

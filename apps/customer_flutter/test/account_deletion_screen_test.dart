@@ -23,6 +23,14 @@ void main() {
     expect(find.textContaining('90 วัน'), findsOneWidget);
     expect(find.text('บัญชีพร้อมส่งคำขอลบ'), findsOneWidget);
     expect(find.text('ดำเนินการต่อ'), findsOneWidget);
+
+    final actionRect = tester.getRect(
+      find.byKey(const ValueKey('account-deletion-bottom-action')),
+    );
+    final buttonRect = tester.getRect(
+      find.byKey(const ValueKey('account-deletion-bottom-button')),
+    );
+    expect(actionRect.bottom - buttonRect.bottom, lessThanOrEqualTo(6));
   });
 
   testWidgets('account deletion lists outstanding blockers', (tester) async {

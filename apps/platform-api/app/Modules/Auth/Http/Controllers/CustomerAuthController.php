@@ -51,10 +51,6 @@ class CustomerAuthController extends Controller
 
         $response = $this->customerAuth->login($tenant, $request->all(), $request);
 
-        if ($response === null) {
-            return ApiErrorResponse::authenticationRequired($request);
-        }
-
         if (isset($response['error']) || isset($response['resource'])) {
             return $this->writeResult($request, $response);
         }
@@ -403,6 +399,24 @@ class CustomerAuthController extends Controller
     {
         return match ($result['error'] ?? null) {
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'customer_account_not_found' => ApiErrorResponse::make(
+                $request,
+                404,
+                'customer_account_not_found',
+                'No account was found for this phone number.',
+            ),
+            'invalid_login_credentials' => ApiErrorResponse::make(
+                $request,
+                401,
+                'invalid_login_credentials',
+                'The phone number or password is incorrect.',
+            ),
+            'customer_account_inactive' => ApiErrorResponse::make(
+                $request,
+                403,
+                'customer_account_inactive',
+                'This account is not available for sign-in. Please contact support.',
+            ),
             'customer_session_replaced' => ApiErrorResponse::make(
                 $request,
                 401,

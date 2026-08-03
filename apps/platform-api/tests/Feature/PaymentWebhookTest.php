@@ -185,18 +185,21 @@ class PaymentWebhookTest extends TestCase
             'reference2' => 'wallet',
         ];
 
-        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback)
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+            ...$callback,
+            'reference1' => 'top_mismatched',
+        ])
             ->assertUnauthorized();
         $this->assertDatabaseHas('topup_requests', [
             'id' => $topup['id'],
             'status' => 'processing',
         ]);
 
-        $this->postSignedWebhook('/api/v1/webhooks/topups/deepay_kbank', $callback)
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback)
             ->assertAccepted()
             ->assertJsonPath('duplicate', false);
 
-        $this->postSignedWebhook('/api/v1/webhooks/topups/deepay_kbank', $callback)
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback)
             ->assertAccepted()
             ->assertJsonPath('duplicate', true);
 
@@ -228,13 +231,13 @@ class PaymentWebhookTest extends TestCase
                 'id' => 'tpc_'.substr(hash('sha256', $tenantId), 0, 20),
                 'status' => 'active',
                 'api_key_encrypted' => Crypt::encryptString('test-deepay-key'),
-                'webhook_secret_encrypted' => Crypt::encryptString(self::WEBHOOK_SECRET),
+                'webhook_secret_encrypted' => null,
                 'verified_at' => now(),
                 'last_tested_at' => now(),
                 'last_test_status' => 'ok',
                 'last_error' => null,
                 'metadata_json' => json_encode([
-                    'webhook_auth_mode' => 'hmac_sha256',
+                    'webhook_auth_mode' => 'trusted_provider',
                 ], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
                 'updated_at' => now(),

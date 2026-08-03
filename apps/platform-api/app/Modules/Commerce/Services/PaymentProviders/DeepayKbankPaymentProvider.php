@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 class DeepayKbankPaymentProvider
 {
     public const PROVIDER = 'deepay_kbank';
+    public const WEBHOOK_AUTH_MODE = 'trusted_provider';
 
     /**
      * @return array{ok: bool, qr_code?: string|null, provider_reference?: string|null, payload?: array<string, mixed>, error_code?: string, message?: string|null, http_status?: int|null}

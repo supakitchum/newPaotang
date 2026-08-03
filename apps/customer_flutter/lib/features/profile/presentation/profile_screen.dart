@@ -37,6 +37,18 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _checkingLineAvailability = false;
+  bool _loggingOut = false;
+
+  Future<void> _logout() async {
+    if (_loggingOut) return;
+    setState(() => _loggingOut = true);
+    try {
+      await ref.read(authControllerProvider).logout();
+      if (mounted) context.go('/login');
+    } catch (_) {
+      if (mounted) setState(() => _loggingOut = false);
+    }
+  }
 
   Future<void> _openLineNotifications() async {
     if (_checkingLineAvailability) return;
@@ -258,12 +270,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       _ProfileMenuGroup(children: serviceItems),
                     ],
                     const SizedBox(height: 24),
-                    _ProfileLogoutButton(
-                      onPressed: () async {
-                        await ref.read(authControllerProvider).logout();
-                        if (context.mounted) context.go('/login');
-                      },
-                    ),
+                    _ProfileLogoutButton(busy: _loggingOut, onPressed: _logout),
                   ],
                 ),
               ),
@@ -707,28 +714,50 @@ class _ProfileMenuItem extends StatelessWidget {
 }
 
 class _ProfileLogoutButton extends StatelessWidget {
-  const _ProfileLogoutButton({required this.onPressed});
+  const _ProfileLogoutButton({required this.onPressed, required this.busy});
 
   final VoidCallback onPressed;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      style: _profileFlatButtonStyle(
-        OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          foregroundColor: colorScheme.error,
-          side: BorderSide(color: colorScheme.error.withValues(alpha: 0.32)),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        key: const ValueKey('profile-logout-button'),
+        onPressed: busy ? null : onPressed,
+        style: _profileFlatButtonStyle(
+          FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            backgroundColor: colorScheme.error,
+            disabledBackgroundColor: colorScheme.error.withValues(alpha: 0.72),
+            foregroundColor: colorScheme.onError,
+            disabledForegroundColor: colorScheme.onError,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: colorScheme.onError,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        icon: busy
+            ? SizedBox.square(
+                dimension: 19,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: colorScheme.onError,
+                ),
+              )
+            : const Icon(Icons.logout),
+        label: Text(
+          busy ? context.l10n.profileLoggingOut : context.l10n.profileLogout,
         ),
       ),
-      icon: const Icon(Icons.logout),
-      label: Text(context.l10n.profileLogout),
     );
   }
 }

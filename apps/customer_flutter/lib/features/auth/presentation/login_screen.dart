@@ -197,10 +197,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (!mounted || handled) return;
       _showFormError(
-        authOtpErrorMessage(
-          error: error,
+        loginErrorMessage(
+          error,
+          context.l10n,
           fallback: context.l10n.loginOtpRequestFailed,
-          otpProviderUnavailable: context.l10n.loginOtpProviderUnavailable,
         ),
       );
     } finally {
@@ -380,7 +380,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _errorMessage(Object error, String fallback) {
-    return authErrorMessage(error, fallback);
+    return loginErrorMessage(error, context.l10n, fallback: fallback);
   }
 
   String _currentRedirect() {

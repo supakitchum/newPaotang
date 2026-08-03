@@ -107,30 +107,10 @@
             <div class="form-text">{{ phrase('Leave blank to keep the existing API key.') }}</div>
           </div>
           <div class="np-provider-field">
-            <label class="form-label" for="admin-payment-provider-webhook-auth-mode">{{ phrase('Webhook authentication') }}</label>
-            <select
-              id="admin-payment-provider-webhook-auth-mode"
-              v-model="deepayWebhookAuthMode"
-              class="form-select"
-              :disabled="deepaySaving || deepayLoading"
-            >
-              <option value="hmac_sha256">{{ phrase('HMAC SHA-256 with timestamp') }}</option>
-              <option value="token">{{ phrase('Static webhook token') }}</option>
-            </select>
-          </div>
-          <div class="np-provider-field">
-            <label class="form-label" for="admin-payment-provider-webhook-secret">{{ phrase('Webhook secret') }}</label>
-            <input
-              id="admin-payment-provider-webhook-secret"
-              v-model="deepayWebhookSecret"
-              class="form-control"
-              type="password"
-              minlength="32"
-              autocomplete="new-password"
-              :placeholder="deepayConnection?.webhook_secret_masked || phrase('At least 32 characters')"
-              :disabled="deepaySaving || deepayLoading"
-            >
-            <div class="form-text">{{ phrase('Leave blank to keep the existing webhook secret.') }}</div>
+            <label class="form-label">{{ phrase('Webhook verification') }}</label>
+            <div class="alert alert-warning mb-0 py-2">
+              {{ phrase('DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.') }}
+            </div>
           </div>
           <div class="np-provider-callback">
             <span>{{ phrase('Callback URL') }}</span>
@@ -291,8 +271,6 @@ const api = useAdminApi()
 
 const deepayConnection = ref<Record<string, any> | null>(null)
 const deepayApiKey = ref('')
-const deepayWebhookSecret = ref('')
-const deepayWebhookAuthMode = ref('hmac_sha256')
 const deepayStatus = ref('active')
 const deepayLoading = ref(false)
 const deepaySaving = ref(false)
@@ -510,9 +488,7 @@ const loadDeepayConnection = async () => {
     })
     deepayConnection.value = response || null
     deepayStatus.value = String(response?.status || 'active')
-    deepayWebhookAuthMode.value = String(response?.webhook_auth_mode || 'hmac_sha256')
     deepayApiKey.value = ''
-    deepayWebhookSecret.value = ''
   } catch (error: any) {
     deepayError.value = error?.message || phrase('Failed to load provider connection.')
   } finally {
@@ -532,15 +508,11 @@ const saveDeepayConnection = async () => {
       body: {
         status: deepayStatus.value,
         api_key: deepayApiKey.value,
-        webhook_auth_mode: deepayWebhookAuthMode.value,
-        webhook_secret: deepayWebhookSecret.value,
       },
     })
     deepayConnection.value = response || null
     deepayStatus.value = String(response?.status || deepayStatus.value || 'active')
-    deepayWebhookAuthMode.value = String(response?.webhook_auth_mode || deepayWebhookAuthMode.value)
     deepayApiKey.value = ''
-    deepayWebhookSecret.value = ''
   } catch (error: any) {
     deepayError.value = error?.message || phrase('Failed to save provider connection.')
   } finally {

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Tests\Support\PartnerStoreFixtures;
@@ -312,6 +313,109 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             'status' => 'archived',
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'payment_channel.created', 'target_id' => $channel['id']]);
+    }
+
+    public function test_deepay_kbank_connection_stores_json_and_preserves_existing_api_key_on_update(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_deepay_m10', 'ten_deepay_m10', 'deepay.m10.test');
+        $tenant = $this->createTenantSession(
+            'ten_deepay_m10',
+            'par_deepay_m10',
+            ['payment_settings.view', 'payment_settings.manage'],
+            'adm_tenant_deepay',
+            'tenant-deepay@example.test',
+        );
+        $headers = ['X-Admin-Scope' => 'tenant', 'X-Tenant-Id' => 'ten_deepay_m10'];
+        $apiKey = 'deepay-api-key-value';
+
+        $created = $this->withToken($tenant['access_token'])
+            ->putJson('/api/v1/admin/tenant/payment-settings/deepay-kbank', [
+                'status' => 'active',
+                'api_key' => $apiKey,
+            ], $headers + ['Idempotency-Key' => 'deepay-create-m10'])
+            ->assertOk()
+            ->assertJsonPath('provider', 'deepay_kbank')
+            ->assertJsonPath('status', 'active')
+            ->assertJsonPath('configured', true)
+            ->assertJsonPath('ready', true)
+            ->assertJsonPath('webhook_auth_mode', 'trusted_provider')
+            ->assertJsonPath('callback_path', '/api/v1/webhooks/topups/deepay_kbank')
+            ->json();
+
+        $this->assertStringNotContainsString($apiKey, json_encode($created, JSON_THROW_ON_ERROR));
+
+        $stored = DB::table('tenant_payment_provider_connections')
+            ->where('tenant_id', 'ten_deepay_m10')
+            ->where('provider', 'deepay_kbank')
+            ->first();
+
+        $this->assertNotNull($stored);
+        $this->assertSame($apiKey, Crypt::decryptString((string) $stored->api_key_encrypted));
+        $this->assertNull($stored->webhook_secret_encrypted);
+        $this->assertSame([
+            'callback_path' => '/api/v1/webhooks/topups/deepay_kbank',
+            'webhook_auth_mode' => 'trusted_provider',
+        ], json_decode((string) $stored->metadata_json, true, 512, JSON_THROW_ON_ERROR));
+
+        $originalApiKeyEncrypted = (string) $stored->api_key_encrypted;
+
+        $this->withToken($tenant['access_token'])
+            ->putJson('/api/v1/admin/tenant/payment-settings/deepay-kbank', [
+                'status' => 'active',
+                'api_key' => '',
+            ], $headers + ['Idempotency-Key' => 'deepay-update-m10'])
+            ->assertOk()
+            ->assertJsonPath('configured', true)
+            ->assertJsonPath('ready', true)
+            ->assertJsonPath('webhook_auth_mode', 'trusted_provider');
+
+        $updated = DB::table('tenant_payment_provider_connections')
+            ->where('tenant_id', 'ten_deepay_m10')
+            ->where('provider', 'deepay_kbank')
+            ->first();
+
+        $this->assertNotNull($updated);
+        $this->assertSame(1, DB::table('tenant_payment_provider_connections')
+            ->where('tenant_id', 'ten_deepay_m10')
+            ->where('provider', 'deepay_kbank')
+            ->count());
+        $this->assertSame($originalApiKeyEncrypted, (string) $updated->api_key_encrypted);
+        $this->assertNull($updated->webhook_secret_encrypted);
+        $this->assertSame([
+            'callback_path' => '/api/v1/webhooks/topups/deepay_kbank',
+            'webhook_auth_mode' => 'trusted_provider',
+        ], json_decode((string) $updated->metadata_json, true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_deepay_kbank_active_connection_requires_api_key_without_writing_a_row(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_deepay_invalid_m10', 'ten_deepay_invalid_m10', 'deepay-invalid.m10.test');
+        $tenant = $this->createTenantSession(
+            'ten_deepay_invalid_m10',
+            'par_deepay_invalid_m10',
+            ['payment_settings.manage'],
+            'adm_tenant_deepay_invalid',
+            'tenant-deepay-invalid@example.test',
+        );
+
+        $this->withToken($tenant['access_token'])
+            ->putJson('/api/v1/admin/tenant/payment-settings/deepay-kbank', [
+                'status' => 'active',
+                'api_key' => '',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_deepay_invalid_m10',
+                'Idempotency-Key' => 'deepay-invalid-m10',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.api_key.0', 'The API key field is required.');
+
+        $this->assertDatabaseMissing('tenant_payment_provider_connections', [
+            'tenant_id' => 'ten_deepay_invalid_m10',
+            'provider' => 'deepay_kbank',
+        ]);
     }
 
     public function test_tenant_seo_redirects_and_public_content_use_tenant_sources(): void

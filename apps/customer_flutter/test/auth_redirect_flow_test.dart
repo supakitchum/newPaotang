@@ -15,6 +15,7 @@ import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/affiliate/data/affiliate_referral_repository.dart';
 import 'package:customer_flutter/features/auth/presentation/login_otp_screen.dart';
 import 'package:customer_flutter/features/auth/presentation/login_screen.dart';
+import 'package:customer_flutter/features/auth/presentation/register_otp_screen.dart';
 import 'package:customer_flutter/features/auth/presentation/register_screen.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
 import 'package:customer_flutter/features/pin/presentation/pin_screen.dart';
@@ -434,7 +435,7 @@ void main() {
     );
   });
 
-  testWidgets('register mirrors Nuxt OTP panel and autofill semantics', (
+  testWidgets('register opens a dedicated OTP screen with autofill semantics', (
     tester,
   ) async {
     final repo = _AuthRedirectRepository();
@@ -454,21 +455,49 @@ void main() {
     await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
 
-    const panelKey = ValueKey('register-otp-panel');
-    expect(find.byKey(panelKey), findsOneWidget);
-    expect(repo.registerCalls, 0);
-    expect(find.text('OTP code'), findsOneWidget);
-    expect(find.byIcon(Icons.sms_outlined), findsNothing);
     expect(
-      find.descendant(
-        of: find.byKey(panelKey),
-        matching: find.byType(TextButton),
-      ),
-      findsNothing,
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/register/otp',
     );
+    expect(find.byKey(const ValueKey('register-otp-screen')), findsOneWidget);
+    expect(repo.registerCalls, 0);
+    expect(find.text('Verify phone number'), findsWidgets);
+    expect(find.byIcon(Icons.sms_outlined), findsOneWidget);
+    expect(find.byKey(const ValueKey('register-otp-box-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('register-otp-box-5')), findsOneWidget);
 
-    fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
-    expect(fields[5].autofillHints, contains(AutofillHints.oneTimeCode));
+    final otpField = tester.widget<TextField>(
+      find.byKey(const ValueKey('register-otp-input')),
+    );
+    expect(otpField.autofillHints, contains(AutofillHints.oneTimeCode));
+  });
+
+  testWidgets('register OTP returns to the populated registration form', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final router = _authRouter('/register?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+    await _fillRegisterForm(tester);
+    await _tapRegisterSubmit(tester, 'Create account');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('register-otp-change-details')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/register?redirect=%2Fcheckout',
+    );
+    final fields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
+    expect(fields[0].controller?.text, 'Maneerat');
+    expect(fields[1].controller?.text, 'Demo');
+    expect(fields[2].controller?.text, '0812345678');
   });
 
   testWidgets('register PIN operational errors preserve checkout redirect', (
@@ -517,7 +546,6 @@ void main() {
     expect(find.textContaining('OTP'), findsWidgets);
 
     await _enterRegisterOtp(tester, '123456');
-    await _tapRegisterSubmit(tester, 'Verify OTP and create account');
     await tester.pumpAndSettle();
 
     expect(repo.lastVerifiedOtp, '123456');
@@ -530,7 +558,7 @@ void main() {
     );
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
-      '/register?redirect=%2Fcheckout',
+      '/register/otp?redirect=%2Fcheckout',
     );
   });
 
@@ -549,7 +577,6 @@ void main() {
     await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
     await _enterRegisterOtp(tester, '123456');
-    await _tapRegisterSubmit(tester, 'Verify OTP and create account');
     await tester.pumpAndSettle();
 
     expect(repo.lastVerifiedOtp, '123456');
@@ -560,7 +587,7 @@ void main() {
     );
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
-      '/register?redirect=%2Fcheckout',
+      '/register/otp?redirect=%2Fcheckout',
     );
   });
 
@@ -577,7 +604,6 @@ void main() {
     await _tapRegisterSubmit(tester, 'Create account');
     await tester.pumpAndSettle();
     await _enterRegisterOtp(tester, '123456');
-    await _tapRegisterSubmit(tester, 'Verify OTP and create account');
     await tester.pumpAndSettle();
 
     expect(
@@ -1092,6 +1118,7 @@ Future<void> _tapLoginSubmit(WidgetTester tester) async {
   final submitButton = find.widgetWithText(FilledButton, 'Sign in');
   await _scrollUntilVisible(tester, submitButton);
   await tester.tap(submitButton);
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> _tapLoginOtpSubmit(WidgetTester tester) async {
@@ -1108,15 +1135,17 @@ Future<void> _switchLoginToPassword(WidgetTester tester) async {
 }
 
 Future<void> _enterRegisterOtp(WidgetTester tester, String otp) async {
-  final otpField = find.byType(TextField).at(5);
+  final otpField = find.byKey(const ValueKey('register-otp-input'));
   await tester.ensureVisible(otpField);
   await tester.enterText(otpField, otp);
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> _tapRegisterSubmit(WidgetTester tester, String label) async {
   final submitButton = find.widgetWithText(FilledButton, label);
   await _scrollUntilVisible(tester, submitButton);
   await tester.tap(submitButton);
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
@@ -1201,6 +1230,10 @@ GoRouter _authRouter(String initialLocation) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/register/otp',
+        builder: (context, state) => const RegisterOtpScreen(),
       ),
       GoRoute(
         path: '/pin',

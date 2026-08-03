@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +13,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
+import 'auth_keyboard.dart';
 import 'auth_visual_tokens.dart';
+import 'register_otp_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -31,45 +31,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _phone = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
-  final _otp = TextEditingController();
 
   bool _acceptedTerms = false;
-  bool _otpSent = false;
   bool _submitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
-  String _otpToken = '';
-  String _maskedPhone = '';
   String _formError = '';
-  int _resendAfter = 0;
-  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    final draft = ref.read(registerOtpFlowProvider);
+    if (draft != null) {
+      _firstName.text = draft.firstName;
+      _lastName.text = draft.lastName;
+      _phone.text = draft.phone;
+      _password.text = draft.password;
+      _confirmPassword.text = draft.passwordConfirmation;
+      _acceptedTerms = true;
+    }
     _firstName.addListener(_clearFormError);
     _lastName.addListener(_clearFormError);
     _phone.addListener(_clearFormError);
     _password.addListener(_clearFormError);
     _confirmPassword.addListener(_clearFormError);
-    _otp.addListener(_clearFormError);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _firstName.removeListener(_clearFormError);
     _lastName.removeListener(_clearFormError);
     _phone.removeListener(_clearFormError);
     _password.removeListener(_clearFormError);
     _confirmPassword.removeListener(_clearFormError);
-    _otp.removeListener(_clearFormError);
     _firstName.dispose();
     _lastName.dispose();
     _phone.dispose();
     _password.dispose();
     _confirmPassword.dispose();
-    _otp.dispose();
     super.dispose();
   }
 
@@ -249,10 +248,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 16),
             _buildTermsTile(context),
-            if (_otpSent) ...[
-              const SizedBox(height: 14),
-              _buildOtpCard(context),
-            ],
             const SizedBox(height: 20),
             authPrimaryActionButton(
               onPressed: _submitting ? null : _submit,
@@ -260,8 +255,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               fontSize: 18,
               label: _submitting
                   ? l10n.registerSubmitting
-                  : _otpSent
-                  ? l10n.registerSubmitWithOtp
                   : l10n.registerSubmit,
             ),
             const SizedBox(height: 18),
@@ -282,9 +275,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextButton(
                   onPressed: _submitting
                       ? null
-                      : () => context.go(
-                          customerLoginRouteForRedirect(_currentRedirect()),
-                        ),
+                      : () {
+                          ref.read(registerOtpFlowProvider.notifier).state =
+                              null;
+                          context.go(
+                            customerLoginRouteForRedirect(_currentRedirect()),
+                          );
+                        },
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(0, 36),
@@ -352,79 +349,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  Widget _buildOtpCard(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final sentTo = _maskedPhone.isEmpty ? _phone.text : _maskedPhone;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          key: const ValueKey('register-otp-panel'),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l10n.registerOtpTitle,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.authOtpSentTo(sentTo),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _RegisterFieldLabel(label: l10n.registerOtpLabel),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _otp,
-              autofillHints: const [AutofillHints.oneTimeCode],
-              style: authInputTextStyle(context),
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
-              ],
-              decoration: _registerInputDecoration(
-                context,
-                hintText: l10n.registerOtpHint,
-                prefixIcon: const Icon(Icons.chat_bubble_outline),
-              ),
-              validator: _otpValidator,
-              onFieldSubmitted: (_) {
-                if (!_submitting) _submit();
-              },
-            ),
-            const SizedBox(height: 12),
-            _RegisterResendAction(
-              label: _resendAfter > 0
-                  ? l10n.authOtpResendIn(_resendAfter)
-                  : l10n.authOtpResend,
-              onPressed: _resendAfter > 0 || _submitting
-                  ? null
-                  : _requestOtpFromResend,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!_acceptedTerms) {
@@ -438,37 +362,36 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _submitting = true;
     });
     try {
-      if (!_otpSent) {
-        try {
-          await _requestOtp();
-        } catch (error) {
-          if (!_canRegisterWithoutOtp(error)) rethrow;
-          await _register();
-          await ref
-              .read(affiliateReferralServiceProvider)
-              .applyStored(registered: true);
-          if (mounted) _goAfterRegistration();
-        }
-        return;
-      }
-      if (_otpToken.isEmpty) {
-        final otpVerificationFailed = context.l10n.authOtpVerificationFailed;
-        final verified = await ref
+      try {
+        final result = await ref
             .read(authRepositoryProvider)
-            .verifyOtp(phone: _phone.text, purpose: 'register', otp: _otp.text);
-        final verificationToken = verified.verificationToken.trim();
-        if (verificationToken.isEmpty) {
-          _showFormError(otpVerificationFailed);
-          return;
-        }
-        _otpToken = verificationToken;
+            .requestOtp(phone: _phone.text, purpose: 'register');
+        if (!mounted) return;
+        final redirect = _currentRedirect();
+        ref.read(registerOtpFlowProvider.notifier).state = RegisterOtpFlowState(
+          firstName: _firstName.text.trim(),
+          lastName: _lastName.text.trim(),
+          phone: _phone.text,
+          password: _password.text,
+          passwordConfirmation: _confirmPassword.text,
+          redirect: redirect,
+          otpRequest: result,
+        );
+        await dismissAuthKeyboard(
+          context,
+          waitForAnimation: true,
+          finishAutofillContext: true,
+        );
+        if (!mounted) return;
+        context.go(customerRegisterOtpRouteForRedirect(redirect));
+      } catch (error) {
+        if (!_canRegisterWithoutOtp(error)) rethrow;
+        await _register();
+        await ref
+            .read(affiliateReferralServiceProvider)
+            .applyStored(registered: true);
+        if (mounted) _goAfterRegistration();
       }
-
-      await _register(otpVerificationToken: _otpToken);
-      await ref
-          .read(affiliateReferralServiceProvider)
-          .applyStored(registered: true);
-      if (mounted) _goAfterRegistration();
     } catch (error) {
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(
@@ -484,7 +407,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  Future<void> _register({String? otpVerificationToken}) {
+  Future<void> _register() {
     return ref
         .read(authControllerProvider)
         .register(
@@ -493,61 +416,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           phone: _phone.text,
           password: _password.text,
           passwordConfirmation: _confirmPassword.text,
-          otpVerificationToken: otpVerificationToken,
         );
-  }
-
-  Future<void> _requestOtp() async {
-    final result = await ref
-        .read(authRepositoryProvider)
-        .requestOtp(phone: _phone.text, purpose: 'register');
-    _otp.clear();
-    _otpToken = '';
-    if (!mounted) return;
-    setState(() {
-      _otpSent = true;
-      _maskedPhone = result.phoneMasked;
-      _resendAfter = result.resendAfterSeconds > 0
-          ? result.resendAfterSeconds
-          : 60;
-    });
-    _startTimer();
-  }
-
-  Future<void> _requestOtpFromResend() async {
-    final failedMessage = context.l10n.registerFailed;
-    setState(() {
-      _formError = '';
-      _submitting = true;
-    });
-    try {
-      await _requestOtp();
-    } catch (error) {
-      if (!mounted) return;
-      final handled = await handleCustomerOperationalError(
-        ref: ref,
-        context: context,
-        error: error,
-        returnPathOverride: _currentRedirect(),
-      );
-      if (!mounted || handled) return;
-      _showFormError(_registrationErrorMessage(error, failedMessage));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  void _startTimer() {
-    _timer?.cancel();
-    if (_resendAfter <= 0) return;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _resendAfter <= 1) {
-        timer.cancel();
-        if (mounted) setState(() => _resendAfter = 0);
-        return;
-      }
-      setState(() => _resendAfter -= 1);
-    });
   }
 
   String? _required(String? value) =>
@@ -557,14 +426,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final phone = value ?? '';
     if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
       return context.l10n.authPhoneInvalid;
-    }
-    return null;
-  }
-
-  String? _otpValidator(String? value) {
-    if (!_otpSent) return null;
-    if (!RegExp(r'^\d{6}$').hasMatch(value ?? '')) {
-      return context.l10n.authOtpInvalid;
     }
     return null;
   }
@@ -594,6 +455,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   void _goAfterRegistration() {
+    ref.read(registerOtpFlowProvider.notifier).state = null;
     final auth = ref.read(authControllerProvider);
     final redirect = _currentRedirect();
     context.go(
@@ -901,49 +763,6 @@ class _RegisterFieldLabel extends StatelessWidget {
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
         color: Theme.of(context).colorScheme.onSurface,
         fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _RegisterResendAction extends StatelessWidget {
-  const _RegisterResendAction({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onPressed != null;
-    final colorScheme = Theme.of(context).colorScheme;
-    final action = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: enabled
-              ? colorScheme.primary
-              : colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
-          height: 1.25,
-        ),
-      ),
-    );
-
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: Semantics(
-        button: true,
-        enabled: enabled,
-        child: MouseRegion(
-          cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPressed,
-            child: action,
-          ),
-        ),
       ),
     );
   }

@@ -27,7 +27,61 @@ class StaticTranslationCatalog
         return [
             ...self::localizedRows('back-office', self::backOfficeLocaleRoot()),
             ...self::localizedRows('customer', self::customerLocaleRoot()),
+            ...self::apiLocalizedValues(),
         ];
+    }
+
+    /**
+     * @return array<int, array{surface: string, locale: string, key: string, value: string}>
+     */
+    private static function apiLocalizedValues(): array
+    {
+        $values = [
+            'th-TH' => [
+                'api.errors.authentication_required' => 'เซสชันการใช้งานสิ้นสุดแล้ว กรุณาเข้าสู่ระบบอีกครั้ง',
+                'api.errors.customer_account_not_found' => 'ไม่พบบัญชีที่ใช้เบอร์โทรศัพท์นี้ กรุณาตรวจสอบเบอร์หรือสมัครใช้งาน',
+                'api.errors.invalid_login_credentials' => 'เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่',
+                'api.errors.customer_account_inactive' => 'บัญชีนี้ยังไม่พร้อมใช้งาน กรุณาติดต่อศูนย์ช่วยเหลือ',
+                'api.errors.login_otp_challenge_invalid' => 'คำขอยืนยัน OTP หมดอายุ กรุณาขอรหัส OTP ใหม่',
+                'api.errors.login_otp_phone_missing' => 'บัญชีนี้ยังไม่มีเบอร์โทรศัพท์สำหรับรับ OTP กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
+                'api.errors.otp_invalid' => 'รหัส OTP ไม่ถูกต้องหรือหมดอายุ กรุณาตรวจสอบแล้วลองใหม่',
+                'api.errors.otp_attempts_exceeded' => 'กรอกรหัส OTP ไม่ถูกต้องหลายครั้ง กรุณาขอรหัสใหม่',
+                'api.errors.otp_cooldown' => 'กรุณารอสักครู่ก่อนขอรหัส OTP ใหม่',
+                'api.errors.otp_rate_limited' => 'ขอรหัส OTP บ่อยเกินไป กรุณาลองใหม่ภายหลัง',
+                'api.errors.sms_otp_provider_not_configured' => 'ระบบ OTP ยังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
+                'api.errors.sms_send_failed' => 'ไม่สามารถส่งรหัส OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+                'api.errors.sms_verify_failed' => 'ไม่สามารถตรวจสอบรหัส OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+            ],
+            'en-US' => [
+                'api.errors.authentication_required' => 'Your session has ended. Please sign in again.',
+                'api.errors.customer_account_not_found' => 'No account was found for this phone number. Check the number or create an account.',
+                'api.errors.invalid_login_credentials' => 'The phone number or password is incorrect. Please try again.',
+                'api.errors.customer_account_inactive' => 'This account is not available for sign-in. Please contact support.',
+                'api.errors.login_otp_challenge_invalid' => 'The OTP request has expired. Please request a new code.',
+                'api.errors.login_otp_phone_missing' => 'This account has no phone number for OTP. Please sign in with a password.',
+                'api.errors.otp_invalid' => 'The OTP is incorrect or has expired. Please check it and try again.',
+                'api.errors.otp_attempts_exceeded' => 'The OTP was entered incorrectly too many times. Please request a new code.',
+                'api.errors.otp_cooldown' => 'Please wait a moment before requesting another OTP.',
+                'api.errors.otp_rate_limited' => 'Too many OTP requests. Please try again later.',
+                'api.errors.sms_otp_provider_not_configured' => 'OTP sign-in is not available. Please sign in with a password.',
+                'api.errors.sms_send_failed' => 'The OTP could not be sent right now. Please try again.',
+                'api.errors.sms_verify_failed' => 'The OTP could not be verified right now. Please try again.',
+            ],
+        ];
+
+        $rows = [];
+        foreach ($values as $locale => $messages) {
+            foreach ($messages as $key => $value) {
+                $rows[] = [
+                    'surface' => 'api',
+                    'locale' => $locale,
+                    'key' => $key,
+                    'value' => $value,
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -604,7 +658,19 @@ class StaticTranslationCatalog
     {
         return self::rows('api', [
             'errors' => [
-                'api.errors.authentication_required' => 'Authentication token is missing, invalid, expired, or revoked.',
+                'api.errors.authentication_required' => 'Your session has ended. Please sign in again.',
+                'api.errors.customer_account_not_found' => 'No account was found for this phone number. Check the number or create an account.',
+                'api.errors.invalid_login_credentials' => 'The phone number or password is incorrect. Please try again.',
+                'api.errors.customer_account_inactive' => 'This account is not available for sign-in. Please contact support.',
+                'api.errors.login_otp_challenge_invalid' => 'The OTP request has expired. Please request a new code.',
+                'api.errors.login_otp_phone_missing' => 'This account has no phone number for OTP. Please sign in with a password.',
+                'api.errors.otp_invalid' => 'The OTP is incorrect or has expired. Please check it and try again.',
+                'api.errors.otp_attempts_exceeded' => 'The OTP was entered incorrectly too many times. Please request a new code.',
+                'api.errors.otp_cooldown' => 'Please wait a moment before requesting another OTP.',
+                'api.errors.otp_rate_limited' => 'Too many OTP requests. Please try again later.',
+                'api.errors.sms_otp_provider_not_configured' => 'OTP sign-in is not available. Please sign in with a password.',
+                'api.errors.sms_send_failed' => 'The OTP could not be sent right now. Please try again.',
+                'api.errors.sms_verify_failed' => 'The OTP could not be verified right now. Please try again.',
                 'api.errors.customer_session_replaced' => 'This account signed in on a new device. The previous device was signed out.',
                 'api.errors.permission_denied' => 'You do not have permission to perform this action.',
                 'api.errors.resource_not_found' => 'The requested resource was not found.',

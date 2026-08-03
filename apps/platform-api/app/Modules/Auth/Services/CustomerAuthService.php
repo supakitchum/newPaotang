@@ -158,26 +158,41 @@ class CustomerAuthService
     /**
      * @param array<string, mixed> $tenant
      * @param array<string, mixed> $payload
-     * @return array<string, mixed>|null
+     * @return array<string, mixed>
      */
-    public function login(array $tenant, array $payload, Request $request): ?array
+    public function login(array $tenant, array $payload, Request $request): array
     {
         $loginMethod = strtolower(trim((string) ($payload['login_method'] ?? 'legacy')));
         if (! in_array($loginMethod, ['legacy', 'otp', 'password'], true)) {
-            return null;
+            return [
+                'error' => 'validation_failed',
+                'errors' => ['login_method' => ['The login method is invalid.']],
+            ];
         }
 
         $username = trim((string) ($payload['phone'] ?? $payload['username'] ?? ''));
         $password = (string) ($payload['password'] ?? '');
 
         if ($username === '' || ($loginMethod !== 'otp' && $password === '')) {
-            return null;
+            return [
+                'error' => 'validation_failed',
+                'errors' => [
+                    $username === '' ? 'phone' : 'password' => [
+                        $username === ''
+                            ? 'The phone field is required.'
+                            : 'The password field is required.',
+                    ],
+                ],
+            ];
         }
 
         if ($loginMethod === 'otp') {
             $username = $this->smsOtp->normalizePhone($username) ?? '';
             if ($username === '') {
-                return null;
+                return [
+                    'error' => 'validation_failed',
+                    'errors' => ['phone' => ['The phone field is invalid.']],
+                ];
             }
         }
 
@@ -194,10 +209,13 @@ class CustomerAuthService
             )
             ->first();
 
-        if ($customer === null
-            || ($loginMethod !== 'otp'
-                && ($customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)))) {
-            return null;
+        if ($customer === null) {
+            return ['error' => 'customer_account_not_found'];
+        }
+
+        if ($loginMethod !== 'otp'
+            && ($customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash))) {
+            return ['error' => 'invalid_login_credentials'];
         }
 
         if ($this->customerSuspensions->isSuspended($customer)) {
@@ -208,7 +226,7 @@ class CustomerAuthService
         }
 
         if ((string) $customer->status !== 'active') {
-            return null;
+            return ['error' => 'customer_account_inactive'];
         }
 
         if ($loginMethod === 'otp') {
@@ -328,8 +346,11 @@ class CustomerAuthService
             ->where('tenant_id', $tenantId)
             ->where('id', (string) $consumedChallenge['customer_id'])
             ->first();
-        if (! $customer instanceof Customer || (string) $customer->status !== 'active') {
-            return ['error' => 'authentication_required'];
+        if (! $customer instanceof Customer) {
+            return ['error' => 'customer_account_not_found'];
+        }
+        if ((string) $customer->status !== 'active') {
+            return ['error' => 'customer_account_inactive'];
         }
         if ($this->customerSuspensions->isSuspended($customer)) {
             return [

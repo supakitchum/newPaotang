@@ -845,6 +845,8 @@ export default {
 	    'DeePay KBank x-api-key': 'DeePay KBank x-api-key',
 	    'Paste x-api-key': 'วาง x-api-key',
 	    'Leave blank to keep the existing API key.': 'เว้นว่างไว้หากต้องการใช้ API key เดิม',
+	    'Webhook verification': 'การตรวจสอบ Webhook',
+	    'DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.': 'เชื่อถือ Callback จาก DeePay โดยไม่ใช้ Webhook secret และต้องตรงกับรายการชำระเงินที่มีอยู่ในระบบ',
 	    'Callback URL': 'Callback URL',
 	    'Deactivate': 'ปิดการเชื่อมต่อ',
 	    'Save DeePay connection': 'บันทึกการเชื่อมต่อ DeePay',

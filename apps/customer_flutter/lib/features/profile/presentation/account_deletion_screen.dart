@@ -608,13 +608,19 @@ class _BottomAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.surface,
-      elevation: 8,
+    return DecoratedBox(
+      key: const ValueKey('account-deletion-bottom-action'),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(
+          top: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.7)),
+        ),
+      ),
       child: SafeArea(
         top: false,
-        minimum: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+        minimum: const EdgeInsets.fromLTRB(18, 10, 18, 6),
         child: FilledButton(
+          key: const ValueKey('account-deletion-bottom-button'),
           onPressed: enabled ? onPressed : null,
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),

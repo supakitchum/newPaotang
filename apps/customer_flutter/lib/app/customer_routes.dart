@@ -391,6 +391,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     public: true,
   ),
   CustomerFeatureRoute(
+    path: '/register/otp',
+    key: 'register_otp',
+    group: CustomerFeatureGroup.system,
+    public: true,
+  ),
+  CustomerFeatureRoute(
     path: '/forgot-password',
     key: 'forgot_password',
     group: CustomerFeatureGroup.system,

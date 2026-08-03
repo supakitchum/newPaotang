@@ -3522,13 +3522,17 @@ class CommerceService
 
     private function tenantPaymentProviderConnection(string $tenantId, string $provider): ?TenantPaymentProviderConnection
     {
-        return TenantPaymentProviderConnection::query()
+        $query = TenantPaymentProviderConnection::query()
             ->forTenant($tenantId)
             ->where('provider', $provider)
             ->where('status', 'active')
-            ->whereNotNull('api_key_encrypted')
-            ->whereNotNull('webhook_secret_encrypted')
-            ->first();
+            ->whereNotNull('api_key_encrypted');
+
+        if ($provider !== DeepayKbankPaymentProvider::PROVIDER) {
+            $query->whereNotNull('webhook_secret_encrypted');
+        }
+
+        return $query->first();
     }
 
     /**

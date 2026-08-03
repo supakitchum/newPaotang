@@ -96,6 +96,20 @@ void main() {
       tester.getTopLeft(languageItem).dy,
       greaterThan(tester.getTopLeft(aboutTitle).dy),
     );
+
+    final logoutFinder = find.byKey(const ValueKey('profile-logout-button'));
+    await tester.ensureVisible(logoutFinder);
+    await tester.pumpAndSettle();
+    final logoutButton = tester.widget<FilledButton>(logoutFinder);
+    final logoutContext = tester.element(logoutFinder);
+    expect(
+      logoutButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+      Theme.of(logoutContext).colorScheme.error,
+    );
+    expect(
+      logoutButton.style?.textStyle?.resolve(<WidgetState>{})?.fontWeight,
+      FontWeight.w700,
+    );
     expect(tester.takeException(), isNull);
   });
 

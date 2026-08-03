@@ -570,6 +570,8 @@ export default {
 	    'DeePay KBank x-api-key': 'DeePay KBank x-api-key',
 	    'Paste x-api-key': 'Paste x-api-key',
 	    'Leave blank to keep the existing API key.': 'Leave blank to keep the existing API key.',
+	    'Webhook verification': 'Webhook verification',
+	    'DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.': 'DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.',
 	    'Callback URL': 'Callback URL',
 	    'Deactivate': 'Deactivate',
 	    'Save DeePay connection': 'Save DeePay connection',

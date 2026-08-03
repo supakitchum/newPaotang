@@ -2,6 +2,7 @@ const _guestOnlyRedirectPaths = {
   '/login',
   '/login/otp',
   '/register',
+  '/register/otp',
   '/forgot-password',
   '/reset-password',
 };
@@ -66,6 +67,10 @@ String customerLoginOtpRouteForRedirect(String? redirect) {
 
 String customerRegisterRouteForRedirect(String? redirect) {
   return customerRouteWithRedirect('/register', redirect);
+}
+
+String customerRegisterOtpRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/register/otp', redirect);
 }
 
 String customerPinRouteForRedirect(String? redirect) {

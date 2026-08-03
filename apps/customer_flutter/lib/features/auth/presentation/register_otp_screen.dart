@@ -1,16 +1,17 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
-import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/utils/api_errors.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
@@ -20,37 +21,50 @@ import 'auth_keyboard.dart';
 import 'auth_otp_widgets.dart';
 
 @immutable
-class LoginOtpFlowState {
-  const LoginOtpFlowState({
-    required this.challenge,
+class RegisterOtpFlowState {
+  const RegisterOtpFlowState({
+    required this.firstName,
+    required this.lastName,
+    required this.phone,
+    required this.password,
+    required this.passwordConfirmation,
     required this.redirect,
-    this.phone = '',
+    required this.otpRequest,
   });
 
-  final LoginOtpChallenge challenge;
-  final String redirect;
+  final String firstName;
+  final String lastName;
   final String phone;
+  final String password;
+  final String passwordConfirmation;
+  final String redirect;
+  final OtpRequestResult otpRequest;
 
-  LoginOtpFlowState copyWith({LoginOtpChallenge? challenge}) {
-    return LoginOtpFlowState(
-      challenge: challenge ?? this.challenge,
-      redirect: redirect,
+  RegisterOtpFlowState copyWith({OtpRequestResult? otpRequest}) {
+    return RegisterOtpFlowState(
+      firstName: firstName,
+      lastName: lastName,
       phone: phone,
+      password: password,
+      passwordConfirmation: passwordConfirmation,
+      redirect: redirect,
+      otpRequest: otpRequest ?? this.otpRequest,
     );
   }
 }
 
-final loginOtpFlowProvider = StateProvider<LoginOtpFlowState?>((_) => null);
-final loginPasswordFallbackPhoneProvider = StateProvider<String>((_) => '');
+final registerOtpFlowProvider = StateProvider<RegisterOtpFlowState?>(
+  (_) => null,
+);
 
-class LoginOtpScreen extends ConsumerStatefulWidget {
-  const LoginOtpScreen({super.key});
+class RegisterOtpScreen extends ConsumerStatefulWidget {
+  const RegisterOtpScreen({super.key});
 
   @override
-  ConsumerState<LoginOtpScreen> createState() => _LoginOtpScreenState();
+  ConsumerState<RegisterOtpScreen> createState() => _RegisterOtpScreenState();
 }
 
-class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
+class _RegisterOtpScreenState extends ConsumerState<RegisterOtpScreen> {
   final _otp = TextEditingController();
   final _otpFocusNode = FocusNode();
   Timer? _resendTimer;
@@ -64,9 +78,9 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
     super.initState();
     _otp.addListener(_handleOtpChanged);
     _otpFocusNode.addListener(_handleOtpFocusChanged);
-    final challenge = ref.read(loginOtpFlowProvider)?.challenge;
-    if (challenge != null) {
-      _setResendCountdown(challenge.resendAfterSeconds);
+    final flow = ref.read(registerOtpFlowProvider);
+    if (flow != null) {
+      _setResendCountdown(flow.otpRequest.resendAfterSeconds);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_activateOtpInput());
@@ -85,24 +99,25 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = ref.watch(loginOtpFlowProvider);
-    if (flow == null) {
-      return const SizedBox.shrink();
-    }
+    final flow = ref.watch(registerOtpFlowProvider);
+    if (flow == null) return const SizedBox.shrink();
 
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final sentTo = flow.otpRequest.phoneMasked.trim().isEmpty
+        ? flow.phone
+        : flow.otpRequest.phoneMasked;
     return AppShell(
-      title: l10n.loginOtpTitle,
-      currentPath: '/login/otp',
-      onBack: _backToLogin,
+      title: l10n.registerOtpTitle,
+      currentPath: '/register/otp',
+      onBack: _backToRegister,
       heroContent: const SizedBox.shrink(),
       heroMinHeight: customerReferenceCompactHeroHeight,
       heroSheetOverlap: 0,
       child: ColoredBox(
         color: colorScheme.surface,
         child: Column(
-          key: const ValueKey('login-otp-screen'),
+          key: const ValueKey('register-otp-screen'),
           children: [
             Expanded(
               child: LayoutBuilder(
@@ -145,7 +160,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 Text(
-                                  l10n.loginOtpTitle,
+                                  l10n.registerOtpTitle,
                                   textAlign: TextAlign.center,
                                   style: Theme.of(context).textTheme.titleLarge
                                       ?.copyWith(
@@ -155,9 +170,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  l10n.authOtpSentTo(
-                                    flow.challenge.phoneMasked,
-                                  ),
+                                  l10n.authOtpSentTo(sentTo),
                                   textAlign: TextAlign.center,
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
@@ -170,10 +183,12 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
                                   controller: _otp,
                                   focusNode: _otpFocusNode,
                                   enabled: !_submitting,
-                                  label: l10n.authOtpLabel,
+                                  label: l10n.registerOtpLabel,
                                   onSubmitted: _verify,
-                                  inputKey: const ValueKey('login-otp-input'),
-                                  boxKeyPrefix: 'login-otp-box',
+                                  inputKey: const ValueKey(
+                                    'register-otp-input',
+                                  ),
+                                  boxKeyPrefix: 'register-otp-box',
                                 ),
                                 if (_formError.isNotEmpty) ...[
                                   const SizedBox(height: 14),
@@ -199,17 +214,14 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
                                     ),
                                   ),
                                 const SizedBox(height: 4),
-                                TextButton.icon(
-                                  key: const ValueKey('login-otp-use-password'),
+                                TextButton(
+                                  key: const ValueKey(
+                                    'register-otp-change-details',
+                                  ),
                                   onPressed: _submitting
                                       ? null
-                                      : _switchToPassword,
-                                  icon: const Icon(Icons.lock_outline),
-                                  label: Text(l10n.loginUsePassword),
-                                ),
-                                TextButton(
-                                  onPressed: _submitting ? null : _backToLogin,
-                                  child: Text(l10n.loginOtpChangePhone),
+                                      : _backToRegister,
+                                  child: Text(l10n.registerOtpChangeDetails),
                                 ),
                               ],
                             ),
@@ -234,8 +246,8 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
                       height: 54,
                       fontSize: 18,
                       label: _submitting
-                          ? l10n.loginOtpSubmitting
-                          : l10n.loginOtpSubmit,
+                          ? l10n.registerSubmitting
+                          : l10n.registerSubmitWithOtp,
                     ),
                   ),
                 ),
@@ -248,7 +260,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
   }
 
   Future<void> _verify() async {
-    final flow = ref.read(loginOtpFlowProvider);
+    final flow = ref.read(registerOtpFlowProvider);
     if (_submitting || flow == null) return;
     final otp = _otp.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
@@ -269,13 +281,30 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
     if (!mounted) return;
     var restoreOtpFocus = false;
     try {
+      final verified = await ref
+          .read(authRepositoryProvider)
+          .verifyOtp(phone: flow.phone, purpose: 'register', otp: otp);
+      if (!mounted) return;
+      final verificationToken = verified.verificationToken.trim();
+      if (verificationToken.isEmpty) {
+        _showFormError(context.l10n.authOtpVerificationFailed);
+        restoreOtpFocus = true;
+        return;
+      }
+
       await ref
           .read(authControllerProvider)
-          .verifyLoginOtp(
-            challengeToken: flow.challenge.challengeToken,
-            otp: otp,
+          .register(
+            firstName: flow.firstName,
+            lastName: flow.lastName,
+            phone: flow.phone,
+            password: flow.password,
+            passwordConfirmation: flow.passwordConfirmation,
+            otpVerificationToken: verificationToken,
           );
-      await ref.read(affiliateReferralServiceProvider).applyStored();
+      await ref
+          .read(affiliateReferralServiceProvider)
+          .applyStored(registered: true);
       if (!mounted) return;
       await dismissAuthKeyboard(
         context,
@@ -284,7 +313,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
       );
       if (!mounted) return;
       final auth = ref.read(authControllerProvider);
-      final flowNotifier = ref.read(loginOtpFlowProvider.notifier);
+      final flowNotifier = ref.read(registerOtpFlowProvider.notifier);
       context.go(
         customerPostAuthRouteForRedirect(
           redirect: flow.redirect,
@@ -307,11 +336,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
       );
       if (!mounted || handled) return;
       _showFormError(
-        loginErrorMessage(
-          error,
-          context.l10n,
-          fallback: context.l10n.authOtpVerificationFailed,
-        ),
+        _registrationErrorMessage(error, context.l10n.registerFailed),
       );
       restoreOtpFocus = true;
     } finally {
@@ -327,7 +352,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
   }
 
   Future<void> _resend() async {
-    final flow = ref.read(loginOtpFlowProvider);
+    final flow = ref.read(registerOtpFlowProvider);
     if (_submitting || flow == null || _resendAfter > 0) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
@@ -335,24 +360,20 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
       _submitting = true;
     });
     try {
-      final challenge = await ref
+      final result = await ref
           .read(authRepositoryProvider)
-          .resendLoginOtp(challengeToken: flow.challenge.challengeToken);
+          .requestOtp(phone: flow.phone, purpose: 'register');
       if (!mounted) return;
-      ref.read(loginOtpFlowProvider.notifier).state = flow.copyWith(
-        challenge: challenge,
+      ref.read(registerOtpFlowProvider.notifier).state = flow.copyWith(
+        otpRequest: result,
       );
       _otp.clear();
-      _setResendCountdown(challenge.resendAfterSeconds);
+      _setResendCountdown(result.resendAfterSeconds);
       _otpFocusNode.requestFocus();
     } catch (error) {
       if (!mounted) return;
       _showFormError(
-        loginErrorMessage(
-          error,
-          context.l10n,
-          fallback: context.l10n.authOtpVerificationFailed,
-        ),
+        _registrationErrorMessage(error, context.l10n.registerFailed),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -372,7 +393,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
     });
   }
 
-  Future<void> _backToLogin() async {
+  Future<void> _backToRegister() async {
     if (_submitting) return;
     await dismissAuthKeyboard(
       context,
@@ -380,36 +401,17 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
       finishAutofillContext: true,
     );
     if (!mounted) return;
-    final redirect = ref.read(loginOtpFlowProvider)?.redirect ?? '/';
-    ref.read(loginOtpFlowProvider.notifier).state = null;
+    final redirect = ref.read(registerOtpFlowProvider)?.redirect ?? '/';
     navigateCustomerBack(
       context,
-      fallbackPath: customerLoginRouteForRedirect(redirect),
+      fallbackPath: customerRegisterRouteForRedirect(redirect),
     );
-  }
-
-  Future<void> _switchToPassword() async {
-    if (_submitting) return;
-    await dismissAuthKeyboard(
-      context,
-      waitForAnimation: true,
-      finishAutofillContext: true,
-    );
-    if (!mounted) return;
-    final flow = ref.read(loginOtpFlowProvider);
-    final redirect = flow?.redirect ?? '/';
-    ref.read(loginPasswordFallbackPhoneProvider.notifier).state =
-        flow?.phone.trim() ?? '';
-    ref.read(loginOtpFlowProvider.notifier).state = null;
-    context.go(customerLoginRouteForRedirect(redirect));
   }
 
   void _handleOtpChanged() {
     if (!mounted) return;
     final otp = _otp.text.trim();
-    if (otp.length < 6) {
-      _scheduledAutoVerifyOtp = null;
-    }
+    if (otp.length < 6) _scheduledAutoVerifyOtp = null;
     setState(() {
       if (!_submitting) _formError = '';
     });
@@ -424,7 +426,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
       if (!mounted ||
           _submitting ||
           _otp.text.trim() != otp ||
-          ref.read(loginOtpFlowProvider) == null) {
+          ref.read(registerOtpFlowProvider) == null) {
         return;
       }
       unawaited(_verify());
@@ -441,7 +443,7 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
     }
     if (!mounted ||
         _submitting ||
-        ref.read(loginOtpFlowProvider) == null ||
+        ref.read(registerOtpFlowProvider) == null ||
         !_otpFocusNode.canRequestFocus) {
       return;
     }
@@ -452,8 +454,15 @@ class _LoginOtpScreenState extends ConsumerState<LoginOtpScreen> {
     } on MissingPluginException {
       // Widget tests do not install the native text input plugin.
     } on PlatformException {
-      // Requesting focus remains sufficient when the platform is transitioning.
+      // Requesting focus remains sufficient while the platform is transitioning.
     }
+  }
+
+  String _registrationErrorMessage(Object error, String fallback) {
+    final message = ApiErrorInfo.fromObject(error).message.trim();
+    if (message.isEmpty) return fallback;
+    if (error is DioException || error is Map) return message;
+    return fallback;
   }
 
   void _showFormError(String message) {

@@ -137,8 +137,6 @@ class TenantPaymentSettingsService
 
         $status = trim((string) ($payload['status'] ?? 'active'));
         $apiKey = trim((string) ($payload['api_key'] ?? ''));
-        $webhookSecret = trim((string) ($payload['webhook_secret'] ?? ''));
-        $webhookAuthMode = strtolower(trim((string) ($payload['webhook_auth_mode'] ?? 'hmac_sha256')));
         $errors = [];
 
         if (! in_array($status, self::PROVIDER_CONNECTION_STATUSES, true)) {
@@ -148,21 +146,12 @@ class TenantPaymentSettingsService
         if ($status === 'active' && $apiKey === '' && $existing?->api_key_encrypted === null) {
             $errors['api_key'][] = 'The API key field is required.';
         }
-        if (! in_array($webhookAuthMode, ['hmac_sha256', 'token'], true)) {
-            $errors['webhook_auth_mode'][] = 'The webhook_auth_mode field is invalid.';
-        }
-        if ($status === 'active' && $webhookSecret === '' && $existing?->webhook_secret_encrypted === null) {
-            $errors['webhook_secret'][] = 'The webhook secret field is required.';
-        }
-        if ($webhookSecret !== '' && strlen($webhookSecret) < 32) {
-            $errors['webhook_secret'][] = 'The webhook secret field must be at least 32 characters.';
-        }
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        return DB::transaction(function () use ($tenantId, $provider, $existing, $status, $apiKey, $webhookSecret, $webhookAuthMode, $actor, $request, $payload, $tenant): array {
+        return DB::transaction(function () use ($tenantId, $provider, $existing, $status, $apiKey, $actor, $request, $payload, $tenant): array {
             $metadata = is_array($existing?->metadata_json) ? $existing->metadata_json : [];
             TenantPaymentProviderConnection::query()->updateOrInsert(
                 [
@@ -175,16 +164,13 @@ class TenantPaymentSettingsService
                     'api_key_encrypted' => $apiKey !== ''
                         ? Crypt::encryptString($apiKey)
                         : $existing?->api_key_encrypted,
-                    'webhook_secret_encrypted' => $webhookSecret !== ''
-                        ? Crypt::encryptString($webhookSecret)
-                        : $existing?->webhook_secret_encrypted,
                     'last_test_status' => null,
                     'last_error' => null,
-                    'metadata_json' => [
+                    'metadata_json' => json_encode([
                         ...$metadata,
                         'callback_path' => $this->providerCallbackPath($provider),
-                        'webhook_auth_mode' => $webhookAuthMode,
-                    ],
+                        'webhook_auth_mode' => DeepayKbankPaymentProvider::WEBHOOK_AUTH_MODE,
+                    ], JSON_THROW_ON_ERROR),
                     'updated_at' => now(),
                     'created_at' => $existing?->created_at ?? now(),
                 ],
@@ -193,7 +179,7 @@ class TenantPaymentSettingsService
             $this->audit($actor, $request, 'payment_provider_connection.updated', 'tenant_payment_provider_connection', $existing?->id ?? $provider, [
                 ...$payload,
                 'api_key' => $apiKey === '' ? null : '[CONFIGURED]',
-                'webhook_secret' => $webhookSecret === '' ? null : '[CONFIGURED]',
+                'webhook_secret' => array_key_exists('webhook_secret', $payload) ? '[IGNORED]' : null,
             ], $tenantId, (string) $tenant->partner_id);
 
             return ['resource' => $this->providerConnectionResource($tenantId, $provider)];
@@ -760,13 +746,13 @@ class TenantPaymentSettingsService
             'provider' => $provider,
             'label' => self::PAYMENT_PROVIDER_OPTIONS[$provider]['label'] ?? $provider,
             'status' => $status,
-            'configured' => $apiKeyConfigured && $webhookSecretConfigured,
-            'ready' => $status === 'active' && $apiKeyConfigured && $webhookSecretConfigured,
+            'configured' => $apiKeyConfigured,
+            'ready' => $status === 'active' && $apiKeyConfigured,
             'api_key_configured' => $apiKeyConfigured,
             'api_key_masked' => $this->maskedSecret($connection?->api_key_encrypted),
             'webhook_secret_configured' => $webhookSecretConfigured,
             'webhook_secret_masked' => $this->maskedSecret($connection?->webhook_secret_encrypted),
-            'webhook_auth_mode' => (string) ($metadata['webhook_auth_mode'] ?? 'hmac_sha256'),
+            'webhook_auth_mode' => (string) ($metadata['webhook_auth_mode'] ?? DeepayKbankPaymentProvider::WEBHOOK_AUTH_MODE),
             'verified_at' => $connection?->verified_at?->toISOString(),
             'last_tested_at' => $connection?->last_tested_at?->toISOString(),
             'last_test_status' => $connection?->last_test_status,

@@ -13,6 +13,54 @@ class CustomerAuthTest extends TestCase
     use PartnerStoreFixtures;
     use RefreshDatabase;
 
+    public function test_customer_login_returns_human_readable_errors_for_each_failure_reason(): void
+    {
+        $this->insertActivePartnerTenantWithDomain('par_auth_errors', 'ten_auth_errors', 'auth-errors.test');
+
+        $this->postJson('http://auth-errors.test/api/v1/customer/auth/login', [
+            'phone' => '0899999999',
+            'login_method' => 'otp',
+        ], [
+            'Accept-Language' => 'th-TH',
+        ])->assertNotFound()
+            ->assertJsonPath('error.code', 'customer_account_not_found')
+            ->assertJsonPath('error.message', 'ไม่พบบัญชีที่ใช้เบอร์โทรศัพท์นี้ กรุณาตรวจสอบเบอร์หรือสมัครใช้งาน');
+
+        $registered = $this->postJson('http://auth-errors.test/api/v1/customer/auth/register', [
+            'name' => 'Login Error Customer',
+            'phone' => '0801112222',
+            'password' => 'customer-secret',
+            'password_confirmation' => 'customer-secret',
+        ], [
+            'Idempotency-Key' => 'register-auth-errors',
+        ])->assertCreated()->json();
+
+        $this->postJson('http://auth-errors.test/api/v1/customer/auth/login', [
+            'username' => '0801112222',
+            'password' => 'wrong-password',
+            'login_method' => 'password',
+        ], [
+            'Accept-Language' => 'th-TH',
+        ])->assertUnauthorized()
+            ->assertJsonPath('error.code', 'invalid_login_credentials')
+            ->assertJsonPath('error.message', 'เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
+
+        DB::table('customers')->where('id', $registered['user']['id'])->update([
+            'status' => 'inactive',
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('http://auth-errors.test/api/v1/customer/auth/login', [
+            'username' => '0801112222',
+            'password' => 'customer-secret',
+            'login_method' => 'password',
+        ], [
+            'Accept-Language' => 'th-TH',
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'customer_account_inactive')
+            ->assertJsonPath('error.message', 'บัญชีนี้ยังไม่พร้อมใช้งาน กรุณาติดต่อศูนย์ช่วยเหลือ');
+    }
+
     public function test_CustomerAuth_register_login_refresh_profile_and_logout_are_tenant_scoped_and_secret_safe(): void
     {
         $this->insertActivePartnerTenantWithDomain('par_auth_m5', 'ten_auth_m5', 'auth.m5.test');

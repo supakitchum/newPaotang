@@ -16,6 +16,7 @@ import '../features/auth/presentation/line_auth_screens.dart';
 import '../features/auth/presentation/login_otp_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
+import '../features/auth/presentation/register_otp_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/content/presentation/info_pages.dart';
 import '../features/home/presentation/home_screen.dart';
@@ -89,6 +90,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           state.uri.queryParameters['redirect'],
         );
       }
+      if (state.uri.path == '/register/otp' &&
+          !auth.isAuthenticated &&
+          ref.read(registerOtpFlowProvider) == null) {
+        return customerRegisterRouteForRedirect(
+          state.uri.queryParameters['redirect'],
+        );
+      }
       return customerRedirectPath(
         path: state.uri.path,
         requestedLocation: state.uri.toString(),
@@ -112,6 +120,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/register/otp',
+        builder: (context, state) => const RegisterOtpScreen(),
       ),
       GoRoute(
         path: '/forgot-password',
@@ -610,6 +622,7 @@ bool _isGuestOnlyPath(String path) {
   return path == '/login' ||
       path == '/login/otp' ||
       path == '/register' ||
+      path == '/register/otp' ||
       path == '/forgot-password' ||
       path == '/reset-password';
 }

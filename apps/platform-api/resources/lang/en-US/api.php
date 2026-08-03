@@ -2,7 +2,19 @@
 
 return [
     'errors' => [
-        'authentication_required' => 'Authentication token is missing, invalid, expired, or revoked.',
+        'authentication_required' => 'Your session has ended. Please sign in again.',
+        'customer_account_not_found' => 'No account was found for this phone number. Check the number or create an account.',
+        'invalid_login_credentials' => 'The phone number or password is incorrect. Please try again.',
+        'customer_account_inactive' => 'This account is not available for sign-in. Please contact support.',
+        'login_otp_challenge_invalid' => 'The OTP request has expired. Please request a new code.',
+        'login_otp_phone_missing' => 'This account has no phone number for OTP. Please sign in with a password.',
+        'otp_invalid' => 'The OTP is incorrect or has expired. Please check it and try again.',
+        'otp_attempts_exceeded' => 'The OTP was entered incorrectly too many times. Please request a new code.',
+        'otp_cooldown' => 'Please wait a moment before requesting another OTP.',
+        'otp_rate_limited' => 'Too many OTP requests. Please try again later.',
+        'sms_otp_provider_not_configured' => 'OTP sign-in is not available. Please sign in with a password.',
+        'sms_send_failed' => 'The OTP could not be sent right now. Please try again.',
+        'sms_verify_failed' => 'The OTP could not be verified right now. Please try again.',
         'permission_denied' => 'You do not have permission to perform this action.',
         'pin_setup_required' => 'A 6-digit customer PIN must be set before continuing.',
         'pin_required' => 'Customer PIN verification is required before continuing.',
