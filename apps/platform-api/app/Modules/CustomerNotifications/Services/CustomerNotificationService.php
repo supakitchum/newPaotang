@@ -783,6 +783,10 @@ class CustomerNotificationService
     public function adminCustomerOptions(string $tenantId, array $query): array
     {
         $limit = max(1, min(50, (int) ($query['limit'] ?? 20)));
+        $activeCustomerCount = Customer::query()
+            ->forTenant($tenantId)
+            ->where('status', 'active')
+            ->count();
         $builder = Customer::query()
             ->forTenant($tenantId)
             ->where('status', 'active');
@@ -818,7 +822,10 @@ class CustomerNotificationService
                 ])
                 ->values()
                 ->all(),
-            'meta' => ['action_options' => $this->adminActionOptions()],
+            'meta' => [
+                'action_options' => $this->adminActionOptions(),
+                'active_customer_count' => $activeCustomerCount,
+            ],
         ];
     }
 
@@ -935,6 +942,18 @@ class CustomerNotificationService
         $notificationMetadata = is_array($notification->metadata_json)
             ? $notification->metadata_json
             : [];
+        $imageUrl = trim((string) ($notificationMetadata['image_url'] ?? ''));
+        if ($imageUrl !== '') {
+            $pushPreview['image'] = $imageUrl;
+        }
+        $androidNotification = ['channel_id' => 'customer_updates'];
+        $apnsPayload = ['aps' => ['sound' => 'default']];
+        $apnsOptions = [];
+        if ($imageUrl !== '') {
+            $androidNotification['image'] = $imageUrl;
+            $apnsPayload['aps']['mutable-content'] = 1;
+            $apnsOptions['image'] = $imageUrl;
+        }
         $result = $this->fcm->send([
             'token' => (string) $device->fcm_token_encrypted,
             'notification' => $pushPreview,
@@ -944,13 +963,16 @@ class CustomerNotificationService
                 'replacement_session_id' => (string) ($notificationMetadata['replacement_session_id'] ?? ''),
                 'action_key' => (string) $notification->action_key,
                 'action_entity_id' => (string) ($notification->action_entity_id ?? ''),
+                'image_url' => $imageUrl,
+                'image_thumb_url' => trim((string) ($notificationMetadata['image_thumb_url'] ?? $imageUrl)),
             ],
             'android' => [
                 'priority' => 'high',
-                'notification' => ['channel_id' => 'customer_updates'],
+                'notification' => $androidNotification,
             ],
             'apns' => [
-                'payload' => ['aps' => ['sound' => 'default']],
+                'payload' => $apnsPayload,
+                ...($apnsOptions === [] ? [] : ['fcm_options' => $apnsOptions]),
             ],
         ]);
 
@@ -1234,6 +1256,7 @@ class CustomerNotificationService
     /** @return array<string, mixed> */
     private function recipientResource(CustomerNotificationRecipient $recipient, CustomerNotification $notification, string $locale): array
     {
+        $metadata = is_array($notification->metadata_json) ? $notification->metadata_json : [];
         return [
             'id' => (string) $notification->id,
             'recipient_id' => (string) $recipient->id,
@@ -1241,6 +1264,8 @@ class CustomerNotificationService
             'event_key' => (string) $notification->event_key,
             'title' => $this->localizedText($notification->title_json, $locale),
             'body' => $this->localizedText($notification->body_json, $locale),
+            'image_url' => trim((string) ($metadata['image_url'] ?? '')),
+            'image_thumb_url' => trim((string) ($metadata['image_thumb_url'] ?? $metadata['image_url'] ?? '')),
             'icon_key' => (string) $notification->icon_key,
             'action' => [
                 'key' => (string) $notification->action_key,
@@ -1259,12 +1284,15 @@ class CustomerNotificationService
     /** @return array<string, mixed> */
     private function adminResource(CustomerNotification $notification, ?AdminUser $creator = null): array
     {
+        $metadata = is_array($notification->metadata_json) ? $notification->metadata_json : [];
         return [
             'id' => (string) $notification->id,
             'event_key' => (string) $notification->event_key,
             'category' => (string) $notification->category,
             'title' => $notification->title_json,
             'body' => $notification->body_json,
+            'image_url' => trim((string) ($metadata['image_url'] ?? '')),
+            'image_thumb_url' => trim((string) ($metadata['image_thumb_url'] ?? $metadata['image_url'] ?? '')),
             'icon_key' => (string) $notification->icon_key,
             'action' => ['key' => $notification->action_key, 'entity_id' => $notification->action_entity_id],
             'subject' => ['type' => $notification->subject_type, 'id' => $notification->subject_id],

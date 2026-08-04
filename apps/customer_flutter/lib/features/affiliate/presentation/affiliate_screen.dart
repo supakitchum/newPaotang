@@ -6,7 +6,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
-import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
@@ -95,15 +94,11 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
         : '';
     final showAffiliateNavigation =
         !_loading && _loadError.isEmpty && _overview.isAffiliate;
-    final isOverview = activeTab == AffiliateTab.overview;
 
     return AppShell(
       title: _affiliatePageTitle(l10n, activeTab),
       currentPath: affiliatePathForTab(activeTab),
-      onBack: isOverview
-          ? null
-          : () => navigateCustomerBack(context, fallbackPath: '/affiliate'),
-      automaticallyImplyBack: !isOverview,
+      automaticallyImplyBack: false,
       sensitive: true,
       showBottomNavigation: false,
       bottomNavigation: showAffiliateNavigation
@@ -117,29 +112,27 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       heroSheetOverlap: 0,
       heroContentTopGap: 0,
       heroContent: const SizedBox.shrink(),
-      actions: isOverview
-          ? [
-              IconButton(
-                key: const ValueKey('affiliate-overview-close'),
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => context.go('/profile'),
-                icon: const Icon(Icons.close, size: 28),
-                style:
-                    IconButton.styleFrom(
-                      fixedSize: const Size.square(40),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      shape: const CircleBorder(),
-                    ).copyWith(
-                      overlayColor: const WidgetStatePropertyAll(
-                        Colors.transparent,
-                      ),
-                    ),
+      actions: [
+        IconButton(
+          key: const ValueKey('affiliate-close'),
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: () => context.go('/profile'),
+          icon: const Icon(Icons.close, size: 28),
+          style:
+              IconButton.styleFrom(
+                fixedSize: const Size.square(40),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: Colors.transparent,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                shape: const CircleBorder(),
+              ).copyWith(
+                overlayColor: const WidgetStatePropertyAll(
+                  Colors.transparent,
+                ),
               ),
-            ]
-          : const [],
+        ),
+      ],
       child: _AffiliateSheet(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -212,12 +205,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   }
 
   void _openAffiliateTab(BuildContext context, AffiliateTab tab) {
-    final path = affiliatePathForTab(tab);
-    if (tab == AffiliateTab.overview) {
-      context.go(path);
-      return;
-    }
-    context.push(path);
+    context.go(affiliatePathForTab(tab));
   }
 
   void _handlePayoutAmountChanged() {

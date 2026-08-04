@@ -58,6 +58,12 @@ Schedule::command('customer-notifications:recover-deliveries --limit=100')
     ->withoutOverlapping()
     ->description('Redispatch customer push deliveries missed by the queue or abandoned by a worker.');
 
+Schedule::command('customer-communications:publish-due --limit=25')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Publish scheduled customer public-relations campaigns when they become due.');
+
 Schedule::command('customer-accounts:process-deletions --limit=100')
     ->everyMinute()
     ->withoutOverlapping()

@@ -155,7 +155,7 @@ export default {
         commission_transactions: 'Commission Transactions',
         payouts: 'Payouts',
         announcements: 'Announcements',
-        customer_notifications: 'Customer Notifications',
+        customer_notifications: 'Public Relations',
         line_notifications: 'LINE Notifications',
         social_login: 'Social Login',
         sms_otp: 'SMS OTP',
@@ -422,6 +422,10 @@ export default {
       announcement_images: {
         label: 'Announcement images',
         description: 'Partner news and modal announcement images.',
+      },
+      customer_communication_images: {
+        label: 'Public relations images',
+        description: 'Images attached to customer public-relations campaigns and push notifications.',
       },
       activity_images: {
         label: 'Activity images',

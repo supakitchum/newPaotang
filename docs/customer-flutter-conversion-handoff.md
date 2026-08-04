@@ -11510,3 +11510,35 @@ Production push installation self-recovery (2026-08-03):
   rotation, and retry wiring.
 - The migration is non-destructive and has not been run against a runtime DB.
   Focused verification details are recorded in the production incident report.
+
+Customer Public Relations campaigns (2026-08-04):
+
+- The tenant BO customer-notification workspace is now named “ระบบประชาสัมพันธ์”
+  / “Public Relations” and uses a guided campaign composer instead of the old
+  single-customer form. Admins can target one active customer or every active
+  customer, choose an allowlisted in-app destination, send immediately, or
+  schedule delivery up to one year ahead.
+- Campaigns support validated JPEG, PNG, and WebP media up to 8 MB. Platform
+  stores full and thumbnail assets through the runtime storage route, exposes
+  them in the authoritative customer inbox, and includes the full image in
+  Android/APNs FCM payloads. Android foreground banners render a rich big-image
+  notification, while an embedded iOS Notification Service Extension downloads
+  the same bounded image and attaches it to the native notification. Web shows
+  the durable inbox image.
+- The BO composer includes inbox and native-push previews, audience and
+  scheduling summaries, confirmation before submission, campaign status and
+  delivery metrics, plus publish-now and cancel controls for scheduled work.
+  Tenant-wide fan-out remains bounded and asynchronous so campaign publishing
+  does not block customer Order or Checkout flows.
+- Scheduled publishing runs every minute with overlap and single-server guards.
+  Campaign creation, publish, and cancel writes require idempotency keys;
+  campaign and notification dedupe prevent replayed requests or scheduler
+  retries from creating duplicate notifications.
+- Focused Platform verification passed 3 tests/54 assertions for scheduled
+  broadcast, active-customer filtering, idempotent replay, rich inbox/FCM
+  payloads, and invalid-image rejection. Flutter notification coverage passed
+  23 tests and focused analysis passed. The iOS notification extension compiled
+  successfully for Simulator. BO lint/guardrail tests and OpenAPI YAML
+  validation passed. Only `newpaotang_test` was used; the non-destructive
+  campaign migration has not been run on runtime DB, and no commit, push, or
+  clear-worktree action was performed.

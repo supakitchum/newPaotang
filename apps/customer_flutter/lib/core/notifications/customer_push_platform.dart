@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'customer_push_image_loader.dart';
+
 final customerPushPlatformProvider = Provider<CustomerPushPlatform>((_) {
   return CustomerPushPlatform.disabled();
 });
@@ -31,6 +33,7 @@ class CustomerPushMessage {
     required this.body,
     this.eventKey = '',
     this.replacementSessionId = '',
+    this.imageUrl = '',
   });
 
   final String notificationId;
@@ -40,12 +43,17 @@ class CustomerPushMessage {
   final String actionEntityId;
   final String title;
   final String body;
+  final String imageUrl;
 
   factory CustomerPushMessage.fromRemoteMessage(RemoteMessage message) {
     return CustomerPushMessage.fromMap(
       message.data,
       title: message.notification?.title ?? '',
       body: message.notification?.body ?? '',
+      imageUrl:
+          message.notification?.android?.imageUrl ??
+          message.notification?.apple?.imageUrl ??
+          '',
     );
   }
 
@@ -53,6 +61,7 @@ class CustomerPushMessage {
     Map<String, dynamic> value, {
     String title = '',
     String body = '',
+    String imageUrl = '',
   }) {
     return CustomerPushMessage(
       notificationId: _pushText(value, const [
@@ -75,6 +84,9 @@ class CustomerPushMessage {
       body: body.trim().isNotEmpty
           ? body.trim()
           : _pushText(value, const ['body', 'message']),
+      imageUrl: imageUrl.trim().isNotEmpty
+          ? imageUrl.trim()
+          : _pushText(value, const ['image_url', 'imageUrl']),
     );
   }
 
@@ -87,6 +99,7 @@ class CustomerPushMessage {
       'action_entity_id': actionEntityId,
       'title': title,
       'body': body,
+      'image_url': imageUrl,
     };
   }
 }
@@ -370,7 +383,11 @@ class CustomerPushPlatform {
       return;
     }
 
-    const details = NotificationDetails(
+    final imageBytes =
+        defaultTargetPlatform != TargetPlatform.android || push.imageUrl.isEmpty
+        ? null
+        : await loadCustomerPushImage(push.imageUrl);
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         channelId,
         'Customer updates',
@@ -378,8 +395,17 @@ class CustomerPushPlatform {
         importance: Importance.high,
         priority: Priority.high,
         icon: 'ic_stat_customer_notification',
+        styleInformation: imageBytes == null
+            ? null
+            : BigPictureStyleInformation(
+                ByteArrayAndroidBitmap(imageBytes),
+                contentTitle: push.title,
+                summaryText: push.body,
+                hideExpandedLargeIcon: true,
+                showBigPictureWhenCollapsed: true,
+              ),
       ),
-      iOS: DarwinNotificationDetails(
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,

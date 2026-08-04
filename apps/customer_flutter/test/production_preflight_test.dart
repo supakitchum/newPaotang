@@ -1544,6 +1544,57 @@ class MainActivity {
     }
   });
 
+  test('production preflight recognizes the iOS rich-image push extension', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_preflight_ios_rich_push_',
+    );
+    try {
+      for (final path in [
+        'pubspec.yaml',
+        'lib/main.dart',
+        'lib/app/customer_app.dart',
+        'lib/core/notifications/customer_push_platform.dart',
+        'lib/core/notifications/customer_push_lifecycle_monitor.dart',
+        'lib/core/notifications/customer_push_device_context.dart',
+        'ios/Runner/Runner.entitlements',
+        'ios/Runner/Info.plist',
+        'ios/scripts/copy_firebase_config.sh',
+        'ios/Runner.xcodeproj/project.pbxproj',
+        'ios/NotificationService/Info.plist',
+        'ios/NotificationService/NotificationService.swift',
+      ]) {
+        _writeFile(root, path, File(path).readAsStringSync());
+      }
+
+      final issues = runCustomerFlutterProductionPreflight(
+        ProductionPreflightInput(
+          target: CustomerFlutterTarget.ios,
+          production: true,
+          checkFiles: true,
+          androidRequireSigning: false,
+          projectRoot: root.path,
+          apiBaseUrl: 'https://partner.example.com/api/v1',
+          appDisplayName: 'Partner Lottery',
+          iosTeamId: 'ABCDE12345',
+          iosBundleId: 'com.partner.customer',
+          iosUrlScheme: 'partnerlottery',
+          iosAssociatedDomain: 'applinks:partner.example.com',
+        ),
+      );
+
+      expect(
+        issues.map((issue) => issue.code),
+        isNot(contains('flutter_native_push_binding_missing')),
+      );
+      expect(
+        issues.map((issue) => issue.code),
+        isNot(contains('ios_native_push_config_missing')),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
+  });
+
   test(
     'production preflight requires logout-safe push registration ordering',
     () {

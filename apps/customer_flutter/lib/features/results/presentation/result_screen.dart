@@ -12,10 +12,7 @@ import 'result_visual_tokens.dart';
 import 'result_widgets.dart';
 
 class ResultScreen extends ConsumerWidget {
-  const ResultScreen({
-    super.key,
-    this.routePath = '/result',
-  });
+  const ResultScreen({super.key, this.routePath = '/result'});
 
   final String routePath;
 
@@ -23,14 +20,17 @@ class ResultScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final indexPath = resultIndexPathFor(routePath);
-    final resultProvider =
-        indexPath == '/results' ? legacyResultProvider : currentResultProvider;
+    final resultProvider = indexPath == '/results'
+        ? legacyResultProvider
+        : currentResultProvider;
     listenForCustomerOperationalError<RewardResultBundle>(
       ref: ref,
       context: context,
       provider: resultProvider,
     );
     final result = ref.watch(resultProvider);
+    final showUnofficialDock =
+        result.valueOrNull?.selectedResult?.isUnofficial == true;
 
     return AppShell(
       title: l10n.resultTitle,
@@ -82,12 +82,13 @@ class ResultScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ResultPayoutDock(),
-          ),
+          if (showUnofficialDock)
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ResultUnofficialDock(),
+            ),
         ],
       ),
     );
@@ -109,78 +110,74 @@ class _ResultIndexHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
     final topPadding = topInset + 14 < 58 ? 58.0 : topInset + 14;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 386),
-      child: CustomerBlueHeroBackdrop(
-        primary: resultHeroPrimary(context),
-        secondary: resultHeroSecondary(context),
-        child: CustomerPageBody(
-          top: topPadding,
-          bottom: 24,
-          mobileHorizontal: 20,
-          wideHorizontal: 24,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 42,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      top: 2,
-                      left: -16,
-                      child: IconButton(
-                        key: const ValueKey('result-back-button'),
-                        tooltip: context.l10n.commonBack,
-                        onPressed: () => navigateCustomerBack(
-                          context,
-                          fallbackPath: '/',
-                        ),
-                        icon: const Icon(Icons.arrow_back_ios_new),
-                        iconSize: 31,
-                        color: resultNuxtSurface,
-                        style: IconButton.styleFrom(
-                          fixedSize: const Size.square(42),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: resultNuxtSurface,
-                          padding: EdgeInsets.zero,
-                          shape: const CircleBorder(),
-                        ).copyWith(
-                          overlayColor: const WidgetStatePropertyAll(
-                            Colors.transparent,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 54),
-                      child: Text(
-                        context.l10n.resultTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: resultNuxtSurface,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              height: 1.12,
+    return CustomerBlueHeroBackdrop(
+      primary: resultHeroPrimary(context),
+      secondary: resultHeroSecondary(context),
+      child: CustomerPageBody(
+        top: topPadding,
+        bottom: 12,
+        mobileHorizontal: 20,
+        wideHorizontal: 24,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 42,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    top: 2,
+                    left: -16,
+                    child: IconButton(
+                      key: const ValueKey('result-back-button'),
+                      tooltip: context.l10n.commonBack,
+                      onPressed: () =>
+                          navigateCustomerBack(context, fallbackPath: '/'),
+                      icon: const Icon(Icons.arrow_back_ios_new),
+                      iconSize: 31,
+                      color: resultNuxtSurface,
+                      style:
+                          IconButton.styleFrom(
+                            fixedSize: const Size.square(42),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: resultNuxtSurface,
+                            padding: EdgeInsets.zero,
+                            shape: const CircleBorder(),
+                          ).copyWith(
+                            overlayColor: const WidgetStatePropertyAll(
+                              Colors.transparent,
                             ),
+                          ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 54),
+                    child: Text(
+                      context.l10n.resultTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: resultNuxtSurface,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        height: 1.12,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              _ResultHeroContent(
-                result: result,
-                indexPath: indexPath,
-                onRetry: onRetry,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+            _ResultHeroContent(
+              result: result,
+              indexPath: indexPath,
+              onRetry: onRetry,
+            ),
+          ],
         ),
       ),
     );
@@ -216,6 +213,7 @@ class _ResultHeroContent extends StatelessWidget {
             result: selected,
             variant: ResultSummaryCardVariant.featured,
             link: resultFullPathFor(indexPath, selected.id),
+            showUnofficialBadge: false,
           );
         },
         loading: () => _ResultInlineState(
@@ -224,10 +222,7 @@ class _ResultHeroContent extends StatelessWidget {
         ),
         error: (error, __) => _ResultInlineState(
           icon: Icons.error_outline,
-          title: customerErrorMessage(
-            error,
-            context.l10n.commonLoadFailed,
-          ),
+          title: customerErrorMessage(error, context.l10n.commonLoadFailed),
           error: true,
           onRetry: onRetry,
         ),
@@ -237,16 +232,15 @@ class _ResultHeroContent extends StatelessWidget {
 }
 
 class _ResultsHistorySheet extends StatelessWidget {
-  const _ResultsHistorySheet({
-    required this.result,
-    required this.indexPath,
-  });
+  const _ResultsHistorySheet({required this.result, required this.indexPath});
 
   final AsyncValue<RewardResultBundle> result;
   final String indexPath;
 
   @override
   Widget build(BuildContext context) {
+    final showUnofficialDock =
+        result.valueOrNull?.selectedResult?.isUnofficial == true;
     return DecoratedBox(
       key: const ValueKey('result-history-sheet'),
       decoration: BoxDecoration(
@@ -257,59 +251,59 @@ class _ResultsHistorySheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CustomerPageBody(
-            top: 18,
-            bottom: 138,
+            top: 14,
+            bottom: showUnofficialDock ? 104 : 36,
             mobileHorizontal: 24,
             wideHorizontal: 24,
             minViewportHeight: true,
             child: result.when(
-                data: (bundle) {
-                  final history = bundle.history
-                      .where((item) => item.hasResolvedResult)
-                      .toList(growable: false);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ResultHistoryTitle(
-                        label: context.l10n.resultHistoryTitle,
-                      ),
-                      const SizedBox(height: 24),
-                      if (history.isEmpty)
-                        const _EmptyHistoryCard()
-                      else
-                        for (final item in history)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 24),
-                            child: ResultSummaryCard(
-                              result: item,
-                              variant: ResultSummaryCardVariant.history,
-                              link: resultFullPathFor(indexPath, item.id),
-                            ),
+              data: (bundle) {
+                final history = bundle.history
+                    .where((item) => item.hasResolvedResult)
+                    .take(3)
+                    .toList(growable: false);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ResultHistoryTitle(label: context.l10n.resultHistoryTitle),
+                    const SizedBox(height: 16),
+                    if (history.isEmpty)
+                      const _EmptyHistoryCard()
+                    else
+                      for (final item in history)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: ResultSummaryCard(
+                            result: item,
+                            variant: ResultSummaryCardVariant.history,
+                            link: resultFullPathFor(indexPath, item.id),
+                            showUnofficialBadge: false,
                           ),
-                    ],
-                  );
-                },
-                loading: () => Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _ResultHistoryTitle(label: context.l10n.resultHistoryTitle),
-                    const SizedBox(height: 24),
-                    _ResultMutedMessage(message: context.l10n.resultLoading),
+                        ),
                   ],
-                ),
-                error: (error, __) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _ResultHistoryTitle(label: context.l10n.resultHistoryTitle),
-                    const SizedBox(height: 24),
-                    _ResultMutedMessage(
-                      message: customerErrorMessage(
-                        error,
-                        context.l10n.commonLoadFailed,
-                      ),
+                );
+              },
+              loading: () => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ResultHistoryTitle(label: context.l10n.resultHistoryTitle),
+                  const SizedBox(height: 16),
+                  _ResultMutedMessage(message: context.l10n.resultLoading),
+                ],
+              ),
+              error: (error, __) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ResultHistoryTitle(label: context.l10n.resultHistoryTitle),
+                  const SizedBox(height: 16),
+                  _ResultMutedMessage(
+                    message: customerErrorMessage(
+                      error,
+                      context.l10n.commonLoadFailed,
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -340,11 +334,11 @@ class _ResultHistoryTitle extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: resultNuxtSectionTitle,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
+        color: resultNuxtSectionTitle,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        height: 1.25,
+      ),
     );
   }
 }
@@ -380,11 +374,7 @@ class _ResultInlineState extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (loading)
-                CustomerLoadingMark(
-                  width: 32,
-                  height: 22,
-                  semanticLabel: title,
-                )
+                CustomerLoadingMark(width: 32, height: 22, semanticLabel: title)
               else
                 Icon(icon ?? Icons.info_outline, color: foreground, size: 32),
               const SizedBox(height: 10),
@@ -392,11 +382,11 @@ class _ResultInlineState extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      height: 1.4,
-                    ),
+                  color: foreground,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: 14),
@@ -423,9 +413,9 @@ class _ResultMutedMessage extends StatelessWidget {
         message,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: resultNuxtMuted,
-              fontWeight: FontWeight.w400,
-            ),
+          color: resultNuxtMuted,
+          fontWeight: FontWeight.w400,
+        ),
       ),
     );
   }
@@ -462,11 +452,11 @@ class _ResultRetryPill extends StatelessWidget {
             child: Text(
               context.l10n.commonRetry,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: resultOutlineText(context),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
+                color: resultOutlineText(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1.15,
+              ),
             ),
           ),
         ),

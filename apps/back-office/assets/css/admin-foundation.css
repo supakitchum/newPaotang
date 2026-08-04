@@ -90,7 +90,8 @@ body {
 
 .app-sidebar .np-sidebar-brand-header {
   display: flex !important;
-  width: 100%;
+  width: 15rem;
+  max-width: 100%;
 }
 
 .app-sidebar .main-sidebar-header .header-logo img.np-admin-brand-logo {

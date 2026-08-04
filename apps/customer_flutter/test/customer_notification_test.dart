@@ -34,6 +34,8 @@ void main() {
           'event_key': 'topup.approved',
           'title': 'เติมเงินสำเร็จ',
           'body': 'ยอดเงินเข้ากระเป๋าแล้ว',
+          'image_url': 'https://cdn.example.test/campaign/full.webp',
+          'image_thumb_url': 'https://cdn.example.test/campaign/thumb.webp',
           'icon_key': 'topup',
           'action': {'key': 'topup', 'entity_id': 'top_01'},
           'subject': {'type': 'topup', 'id': 'top_01'},
@@ -48,6 +50,10 @@ void main() {
     expect(page.items.single.id, 'cnt_01');
     expect(page.items.single.isRead, isFalse);
     expect(page.items.single.action.entityId, 'top_01');
+    expect(
+      page.items.single.imageThumbUrl,
+      'https://cdn.example.test/campaign/thumb.webp',
+    );
     expect(page.nextCursor, 'cnr_01');
     expect(page.hasMore, isTrue);
     expect(page.unreadCount, 7);
@@ -137,6 +143,7 @@ void main() {
         'action_entity_id': 'rcl_push_1',
         'title': 'Reward approved',
         'body': 'Open your claim.',
+        'image_url': 'https://cdn.example.test/push.webp',
       });
 
       expect(message.notificationId, 'cnt_push_1');
@@ -146,6 +153,7 @@ void main() {
       expect(message.actionEntityId, 'rcl_push_1');
       expect(message.title, 'Reward approved');
       expect(message.body, 'Open your claim.');
+      expect(message.imageUrl, 'https://cdn.example.test/push.webp');
       expect(
         customerNotificationRoute(
           CustomerNotificationAction(

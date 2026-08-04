@@ -39,6 +39,8 @@ class ResultDetailScreen extends ConsumerWidget {
       result.valueOrNull,
       legacyDatedHeader: legacyDatedHeader,
     );
+    final showUnofficialDock =
+        result.valueOrNull?.selectedResult?.isUnofficial == true;
 
     return AppShell(
       title: title,
@@ -66,12 +68,12 @@ class ResultDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
-          if (result.hasValue)
+          if (showUnofficialDock)
             const Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: ResultPayoutDock(),
+              child: ResultUnofficialDock(),
             ),
         ],
       ),
@@ -129,18 +131,13 @@ class _ResultFullSheet extends StatelessWidget {
               children: [
                 CustomerPageBody(
                   top: 22,
-                  bottom: 138,
+                  bottom: selected.isUnofficial ? 104 : 36,
                   mobileHorizontal: 0,
                   wideHorizontal: 0,
                   minViewportHeight: true,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (selected.isUnofficial)
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(24, 0, 24, 14),
-                          child: _ResultUnofficialNotice(),
-                        ),
                       if (showDrawDate)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
@@ -350,49 +347,6 @@ class _ResultDrawDate extends StatelessWidget {
         fontSize: 18,
         fontWeight: FontWeight.w800,
         height: 1.3,
-      ),
-    );
-  }
-}
-
-class _ResultUnofficialNotice extends StatelessWidget {
-  const _ResultUnofficialNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final background =
-        Color.lerp(colorScheme.tertiary, colorScheme.surface, 0.82) ??
-        colorScheme.surface;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        border: Border.all(color: colorScheme.tertiary.withValues(alpha: 0.34)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: colorScheme.tertiary,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                context.l10n.resultUnofficial,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onTertiaryContainer,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

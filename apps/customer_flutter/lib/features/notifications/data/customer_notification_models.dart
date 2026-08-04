@@ -34,6 +34,8 @@ class CustomerNotificationItem {
     this.readAt,
     this.subjectType = '',
     this.subjectId = '',
+    this.imageUrl = '',
+    this.imageThumbUrl = '',
   });
 
   final String id;
@@ -48,6 +50,8 @@ class CustomerNotificationItem {
   final DateTime? createdAt;
   final String subjectType;
   final String subjectId;
+  final String imageUrl;
+  final String imageThumbUrl;
 
   CustomerNotificationItem copyWith({
     bool? isRead,
@@ -67,6 +71,8 @@ class CustomerNotificationItem {
       createdAt: createdAt,
       subjectType: subjectType,
       subjectId: subjectId,
+      imageUrl: imageUrl,
+      imageThumbUrl: imageThumbUrl,
     );
   }
 
@@ -110,6 +116,13 @@ class CustomerNotificationItem {
         'id',
         'subject_id',
         'subjectId',
+      ]),
+      imageUrl: _notificationText(json, const ['image_url', 'imageUrl']),
+      imageThumbUrl: _notificationText(json, const [
+        'image_thumb_url',
+        'imageThumbUrl',
+        'image_url',
+        'imageUrl',
       ]),
     );
   }

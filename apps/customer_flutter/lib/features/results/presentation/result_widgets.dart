@@ -27,11 +27,13 @@ class ResultSummaryCard extends StatelessWidget {
     super.key,
     this.variant = ResultSummaryCardVariant.standard,
     this.link,
+    this.showUnofficialBadge = true,
   });
 
   final RewardResultGame result;
   final ResultSummaryCardVariant variant;
   final String? link;
+  final bool showUnofficialBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +132,7 @@ class ResultSummaryCard extends StatelessWidget {
       child: content,
     );
 
-    if (!result.isUnofficial) return card;
+    if (!showUnofficialBadge || !result.isUnofficial) return card;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -412,16 +414,19 @@ class ResultDetailHighlight extends StatelessWidget {
   }
 }
 
-class ResultPayoutDock extends StatelessWidget {
-  const ResultPayoutDock({super.key});
+class ResultUnofficialDock extends StatelessWidget {
+  const ResultUnofficialDock({super.key});
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: resultNuxtSurface.withValues(alpha: 0.98),
+        color: resultNuxtUnofficialFill.withValues(alpha: 0.98),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        border: const Border(
+          top: BorderSide(color: resultNuxtUnofficialBorder),
+        ),
         boxShadow: [
           BoxShadow(
             color: resultNuxtPayoutShadow,
@@ -431,16 +436,29 @@ class ResultPayoutDock extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(18, 22, 18, 22 + bottomInset),
-        child: Text(
-          context.l10n.resultPayoutHint,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: resultNuxtMuted,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            height: 1.45,
-          ),
+        padding: EdgeInsets.fromLTRB(18, 14, 18, 14 + bottomInset),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              size: 20,
+              color: resultNuxtUnofficialIcon,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                context.l10n.resultUnofficial,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: resultNuxtUnofficialText,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -797,7 +815,7 @@ class _UnofficialBadge extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.warning_amber_rounded,
             size: 18,
             color: resultNuxtUnofficialIcon,
@@ -806,7 +824,7 @@ class _UnofficialBadge extends StatelessWidget {
           Expanded(
             child: Text(
               context.l10n.resultUnofficial,
-              style: TextStyle(
+              style: const TextStyle(
                 color: resultNuxtUnofficialText,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,

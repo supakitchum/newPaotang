@@ -2012,6 +2012,44 @@ class RewardService
     }
 
     /**
+     * @return array{body: array<string, mixed>, etag: string}
+     */
+    public function publicResultHistory(int $limit = 3, ?string $excludeGameId = null): array
+    {
+        $limit = min(10, max(1, $limit));
+        $normalizedExcludeGameId = trim((string) $excludeGameId);
+        $query = RewardResult::query()
+            ->join('games', 'games.id', '=', 'reward_results.game_id')
+            ->where('reward_results.status', 'published')
+            ->select('reward_results.*')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('reward_results.published_at')
+            ->orderByDesc('reward_results.id');
+
+        if ($normalizedExcludeGameId !== '') {
+            $query->where('reward_results.game_id', '!=', $normalizedExcludeGameId);
+        }
+
+        $results = $query->limit($limit)->get()->all();
+        $data = array_map(fn (object $result): array => $this->publicSummary($result), $results);
+        $versionFingerprint = array_map(
+            fn (array $result): string => (string) $result['game_id'].'@'.(string) $result['reward_version'],
+            $data,
+        );
+
+        return [
+            'body' => [
+                'data' => $data,
+                'meta' => [
+                    'limit' => $limit,
+                    'count' => count($data),
+                ],
+            ],
+            'etag' => '"reward-history-'.sha1(implode('|', $versionFingerprint)).'"',
+        ];
+    }
+
+    /**
      * @return array{body: array<string, mixed>|null, etag: string|null}
      */
     public function publicResultForGame(string $gameId): array

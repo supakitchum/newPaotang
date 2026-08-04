@@ -536,7 +536,7 @@ class DefaultRbacMenuSeeder extends Seeder
         }
 
         if ($code === 'customer_notifications') {
-            return 'Customer Notifications';
+            return 'Public Relations';
         }
 
         if ($code === 'customer_support') {

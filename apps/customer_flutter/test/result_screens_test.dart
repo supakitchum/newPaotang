@@ -79,11 +79,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      _hasTextColor(
-        tester,
-        'ผลรางวัลสลากฯ ย้อนหลัง',
-        const Color(0xFF15171C),
-      ),
+      _hasTextColor(tester, 'ผลรางวัลสลากฯ ย้อนหลัง', const Color(0xFF15171C)),
       isTrue,
     );
   });
@@ -120,7 +116,7 @@ void main() {
         find.byKey(const ValueKey('result-back-button')),
       );
 
-      expect(historySheet.top - featured.bottom, closeTo(24, 0.5));
+      expect(historySheet.top - featured.bottom, closeTo(12, 0.5));
       expect(backButton.left, greaterThanOrEqualTo(0));
       expect(backButton.right, lessThanOrEqualTo(size.width));
       expect(tester.takeException(), isNull);
@@ -131,6 +127,71 @@ void main() {
 
     await pumpAt(const Size(320, 700));
     await pumpAt(const Size(768, 900));
+    await pumpAt(const Size(1280, 900));
+  });
+
+  testWidgets('result index shows at most three previous draws', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith((_) async {
+            return RewardResultBundle(
+              currentGame: null,
+              selectedResult: _publishedResult(),
+              history: List.generate(
+                4,
+                (index) => _historyResult(
+                  id: 'game_history_$index',
+                  firstPrize: '65432$index',
+                ),
+              ),
+            );
+          }),
+        ],
+        child: _materialApp(const ResultScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ResultSummaryCard), findsNWidgets(4));
+    expect(_text('654323'), findsNothing);
+  });
+
+  testWidgets('unofficial result notice is shown only in the bottom dock', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith(
+            (_) async => RewardResultBundle(
+              currentGame: null,
+              selectedResult: _unofficialResult(),
+              history: const [],
+            ),
+          ),
+        ],
+        child: _materialApp(const ResultScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ResultUnofficialDock), findsOneWidget);
+    expect(_text('ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ'), findsOneWidget);
   });
 
   testWidgets('legacy result index uses the legacy latest-result provider', (
@@ -188,12 +249,7 @@ void main() {
     expect(_text('123456'), findsOneWidget);
     expect(_text('รางวัลที่ 2'), findsOneWidget);
     expect(_text('234567'), findsOneWidget);
-    expect(
-      _text(
-        'คุณสามารถขึ้นเงินรางวัลได้ที่ ธนาคารกรุงไทย ธ.ก.ส. ออมสิน ทุกสาขา หรือสำนักงานสลากกินแบ่งรัฐบาล',
-      ),
-      findsOneWidget,
-    );
+    expect(find.byType(ResultUnofficialDock), findsNothing);
   });
 
   testWidgets('legacy results detail keeps dated hero without content date', (
@@ -293,15 +349,11 @@ void main() {
     final router = GoRouter(
       initialLocation: '/result',
       routes: [
-        GoRoute(
-          path: '/result',
-          builder: (_, __) => const ResultScreen(),
-        ),
+        GoRoute(path: '/result', builder: (_, __) => const ResultScreen()),
         GoRoute(
           path: '/maintenance',
-          builder: (_, __) => const Scaffold(
-            body: Center(child: Text('Maintenance route')),
-          ),
+          builder: (_, __) =>
+              const Scaffold(body: Center(child: Text('Maintenance route'))),
         ),
       ],
     );
@@ -348,11 +400,7 @@ Widget _wrapResultDetail(
               'game_1',
             ).overrideWith((_) async => bundle),
           ]
-        : [
-            resultDetailProvider(
-              'game_1',
-            ).overrideWith((_) async => bundle),
-          ],
+        : [resultDetailProvider('game_1').overrideWith((_) async => bundle)],
     child: MaterialApp(
       locale: fallbackCustomerLocale,
       supportedLocales: supportedCustomerLocales,
@@ -376,10 +424,7 @@ DioException _resultApiException(String message) {
       requestOptions: request,
       statusCode: 503,
       data: {
-        'error': {
-          'code': 'result_unavailable',
-          'message': message,
-        },
+        'error': {'code': 'result_unavailable', 'message': message},
       },
     ),
   );
@@ -465,9 +510,12 @@ RewardResultGame _publishedResult() {
   );
 }
 
-RewardResultGame _historyResult() {
-  return const RewardResultGame(
-    id: 'game_history',
+RewardResultGame _historyResult({
+  String id = 'game_history',
+  String firstPrize = '654321',
+}) {
+  return RewardResultGame(
+    id: id,
     name: '16 มิ.ย. 2569',
     status: 'published',
     resultStatus: 'published',
@@ -479,7 +527,7 @@ RewardResultGame _historyResult() {
         slug: 'reward_1',
         title: 'รางวัลที่ 1',
         amount: 6000000,
-        numbers: ['654321'],
+        numbers: [firstPrize],
       ),
       RewardValue(
         slug: 'reward_two_digit',
@@ -488,6 +536,20 @@ RewardResultGame _historyResult() {
         numbers: ['21'],
       ),
     ],
+  );
+}
+
+RewardResultGame _unofficialResult() {
+  final published = _publishedResult();
+  return RewardResultGame(
+    id: 'game_live',
+    name: published.name,
+    status: 'live_draft',
+    resultStatus: 'live_draft',
+    officialStatus: 'draft',
+    completionPercent: 75,
+    drawAt: published.drawAt,
+    rewards: published.rewards,
   );
 }
 

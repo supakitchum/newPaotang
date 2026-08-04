@@ -3164,6 +3164,52 @@ paths:
                 $ref: "#/components/schemas/RewardSummary"
         "503":
           $ref: "#/components/responses/MaintenanceActive"
+  /public/results/history:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Load recent published reward result summaries
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 3
+        - name: exclude_game_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recent published reward result summaries ordered by draw date
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RewardSummary"
+                  meta:
+                    type: object
+                    required: [limit, count]
+                    properties:
+                      limit:
+                        type: integer
+                      count:
+                        type: integer
+        "503":
+          $ref: "#/components/responses/MaintenanceActive"
   /public/results/live/latest:
     get:
       tags: [Public Tenant]
@@ -6522,6 +6568,128 @@ paths:
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
           $ref: "#/components/responses/PermissionDenied"
+  /admin/tenant/customer-notifications/campaigns:
+    get:
+      tags: [Tenant Admin]
+      summary: List tenant public-relations campaigns and delivery performance
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CustomerCommunicationCampaignStatus"
+        - name: audience_type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CustomerCommunicationAudienceType"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Tenant campaign history with recipient, read, and push counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerCommunicationCampaignListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+    post:
+      tags: [Tenant Admin]
+      summary: Broadcast or schedule a public-relations campaign with an optional image
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CustomerCommunicationCampaignMultipartRequest"
+      responses:
+        "201":
+          description: Campaign scheduled or queued for immediate delivery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerCommunicationCampaign"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/tenant/customer-notifications/campaigns/{campaign_id}/publish:
+    post:
+      tags: [Tenant Admin]
+      summary: Publish a scheduled public-relations campaign immediately
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Published campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerCommunicationCampaign"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+  /admin/tenant/customer-notifications/campaigns/{campaign_id}/cancel:
+    post:
+      tags: [Tenant Admin]
+      summary: Cancel a scheduled or failed public-relations campaign
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerCommunicationCampaign"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
   /admin/tenant/dashboard/summary:
     get:
       tags: [Tenant Admin]
@@ -11352,7 +11520,7 @@ components:
       enum: [order, lottery, topup, wallet, reward, activity, affiliate, news, account, admin, support]
     CustomerNotificationActionKey:
       type: string
-      enum: [none, home, order, checkout_pending, wallet, tickets, ticket, topups, topup, reward_claims, reward_claim, activities, activity, activity_claims, activity_claim, affiliate, news, support, support_ticket]
+      enum: [none, home, order, checkout_pending, wallet, tickets, ticket, topups, topup, reward_claims, reward_claim, activities, activity, activity_claims, activity_claim, affiliate, affiliate_rankings, affiliate_commissions, affiliate_withdraw, news, support, support_ticket]
     SupportSession:
       type: object
       required: [token, token_type, expires_in, expires_at, api_url, realtime]
@@ -11454,6 +11622,12 @@ components:
           type: string
         body:
           type: string
+        image_url:
+          type: string
+          nullable: true
+        image_thumb_url:
+          type: string
+          nullable: true
         icon_key:
           type: string
         action:
@@ -11672,12 +11846,149 @@ components:
             $ref: "#/components/schemas/TenantCustomerNotificationCustomerOption"
         meta:
           type: object
-          required: [action_options]
+          required: [action_options, active_customer_count]
           properties:
             action_options:
               type: array
               items:
                 $ref: "#/components/schemas/TenantCustomerNotificationActionOption"
+            active_customer_count:
+              type: integer
+              minimum: 0
+    CustomerCommunicationAudienceType:
+      type: string
+      enum: [all_customers, customer]
+    CustomerCommunicationCampaignStatus:
+      type: string
+      enum: [scheduled, publishing, published, failed, cancelled]
+    CustomerCommunicationCampaignPayload:
+      type: object
+      required: [audience_type, title, body, action_key, delivery_mode]
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        audience_type:
+          $ref: "#/components/schemas/CustomerCommunicationAudienceType"
+        customer_id:
+          type: string
+          nullable: true
+          description: Required when audience_type is customer.
+        title:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        body:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        action_key:
+          type: string
+        action_entity_id:
+          type: string
+          maxLength: 100
+          nullable: true
+        delivery_mode:
+          type: string
+          enum: [now, scheduled]
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Required for scheduled delivery and normalized to UTC by the API.
+    CustomerCommunicationCampaignMultipartRequest:
+      type: object
+      required: [payload]
+      properties:
+        payload:
+          type: string
+          description: JSON-encoded CustomerCommunicationCampaignPayload.
+        file:
+          type: string
+          format: binary
+          description: Optional valid JPEG, PNG, or WebP image up to 8 MB.
+    CustomerCommunicationCampaign:
+      type: object
+      required: [id, name, audience_type, status, title, body, action, image, stats, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        audience_type:
+          $ref: "#/components/schemas/CustomerCommunicationAudienceType"
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/TenantCustomerNotificationCustomerOption"
+            - type: "null"
+        status:
+          $ref: "#/components/schemas/CustomerCommunicationCampaignStatus"
+        title:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        body:
+          $ref: "#/components/schemas/CustomerNotificationLocalizedText"
+        action:
+          $ref: "#/components/schemas/CustomerNotificationAction"
+        image:
+          type: object
+          required: [url, thumb_url]
+          properties:
+            url:
+              type: string
+              nullable: true
+            thumb_url:
+              type: string
+              nullable: true
+        notification_id:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error_code:
+          type: string
+          nullable: true
+        creator:
+          type: object
+          additionalProperties: true
+        stats:
+          type: object
+          required: [recipient_count, read_count, sent_count, pending_count, failed_count]
+          properties:
+            recipient_count: { type: integer, minimum: 0 }
+            read_count: { type: integer, minimum: 0 }
+            sent_count: { type: integer, minimum: 0 }
+            pending_count: { type: integer, minimum: 0 }
+            failed_count: { type: integer, minimum: 0 }
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CustomerCommunicationCampaignListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerCommunicationCampaign"
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/CursorMeta"
+            - type: object
+              required: [action_options]
+              properties:
+                action_options:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/TenantCustomerNotificationActionOption"
     TenantCustomerNotificationRecipientHistory:
       type: object
       required: [customer, is_read, push]

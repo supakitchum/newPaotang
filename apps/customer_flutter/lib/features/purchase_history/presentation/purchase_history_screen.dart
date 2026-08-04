@@ -96,7 +96,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
                             ?.copyWith(
                               color: const Color(0xFF242833),
                               fontSize: 28,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w700,
                               height: 1.2,
                             ),
                       ),
@@ -306,7 +306,7 @@ class _PurchaseHistoryTile extends StatelessWidget {
                                     style: textTheme.titleMedium?.copyWith(
                                       color: const Color(0xFF252A31),
                                       fontSize: compact ? 18 : 20,
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w700,
                                       height: 1.2,
                                     ),
                                   ),
@@ -327,7 +327,7 @@ class _PurchaseHistoryTile extends StatelessWidget {
                               style: textTheme.titleSmall?.copyWith(
                                 color: const Color(0xFF626A73),
                                 fontSize: compact ? 18 : 20,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 height: 1.3,
                               ),
                             ),
@@ -337,7 +337,7 @@ class _PurchaseHistoryTile extends StatelessWidget {
                               style: textTheme.bodyMedium?.copyWith(
                                 color: const Color(0xFF8A929B),
                                 fontSize: compact ? 15 : 17,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 height: 1.25,
                               ),
                             ),
@@ -402,7 +402,7 @@ class _PurchaseHistoryPill extends StatelessWidget {
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: const Color(0xFF8762D6),
               fontSize: compact ? 13 : 15,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1,
             ),
           ),
@@ -427,7 +427,7 @@ class _PurchaseHistoryAmount extends StatelessWidget {
             text: localizedPurchaseMoneyAmount(context, value),
             style: TextStyle(
               fontSize: compact ? 19 : 22,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const TextSpan(text: ' '),
@@ -435,7 +435,7 @@ class _PurchaseHistoryAmount extends StatelessWidget {
             text: context.l10n.commonBahtSuffix,
             style: TextStyle(
               fontSize: compact ? 16 : 19,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -459,7 +459,7 @@ class _PurchaseHistoryLoading extends StatelessWidget {
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           color: const Color(0xFF8A8F98),
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -508,7 +508,7 @@ class _PurchaseHistoryState extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: const Color(0xFF242833),
               fontSize: 20,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 12),
@@ -518,7 +518,7 @@ class _PurchaseHistoryState extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: const Color(0xFF596474),
               fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 20),

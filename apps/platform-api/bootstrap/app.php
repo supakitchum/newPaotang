@@ -19,6 +19,7 @@ use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Console\Commands\ProcessCustomerAccountDeletionsCommand;
+use App\Console\Commands\PublishCustomerCommunicationCampaignsCommand;
 use App\Console\Commands\RecoverCustomerNotificationDeliveriesCommand;
 use App\Console\Commands\RecoverStaleLotteryBackgroundZipImportsCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
@@ -63,6 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
         SeedCustomerContentFixturesCommand::class,
         ProcessSoldSyncCommand::class,
         ProcessCustomerAccountDeletionsCommand::class,
+        PublishCustomerCommunicationCampaignsCommand::class,
         ProcessRewardCheckCommand::class,
         CalculateCommissionsCommand::class,
         PrepareK6BaselineCommand::class,

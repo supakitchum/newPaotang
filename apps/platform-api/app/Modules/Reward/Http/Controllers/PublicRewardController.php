@@ -28,6 +28,26 @@ class PublicRewardController extends Controller
         return $this->publicResult($request, $this->rewards->publicLatestResult());
     }
 
+    public function history(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        $limit = min(10, max(1, (int) $request->query('limit', 3)));
+        $excludeGameId = trim((string) $request->query('exclude_game_id', ''));
+
+        return $this->publicResult(
+            $request,
+            $this->rewards->publicResultHistory(
+                $limit,
+                $excludeGameId !== '' ? $excludeGameId : null,
+            ),
+        );
+    }
+
     public function liveLatest(Request $request): JsonResponse
     {
         $tenant = $this->tenantContext($request);

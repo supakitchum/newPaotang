@@ -254,6 +254,17 @@ void _checkFlutterNativePushBinding(
       'ios/Runner.xcodeproj/project.pbxproj': const [
         'Copy Firebase Config',
         'scripts/copy_firebase_config.sh',
+        'NotificationService.appex in Embed App Extensions',
+        r'PRODUCT_BUNDLE_IDENTIFIER = "$(CUSTOMER_FLUTTER_IOS_BUNDLE_ID).NotificationService"',
+      ],
+      'ios/NotificationService/Info.plist': const [
+        'com.apple.usernotifications.service',
+        r'$(PRODUCT_MODULE_NAME).NotificationService',
+      ],
+      'ios/NotificationService/NotificationService.swift': const [
+        'UNNotificationServiceExtension',
+        'image_url',
+        'UNNotificationAttachment',
       ],
     });
     if (missingIos.isNotEmpty) {
@@ -261,7 +272,7 @@ void _checkFlutterNativePushBinding(
         ProductionPreflightIssue(
           code: 'ios_native_push_config_missing',
           message:
-              'iOS native push requires the APNs entitlement, remote-notification background mode, and secret-injected Firebase plist validation against the release bundle ID. Missing: ${missingIos.join(', ')}',
+              'iOS native push requires the APNs entitlement, remote-notification background mode, secret-injected Firebase plist validation against the release bundle ID, and an embedded rich-image notification service. Missing: ${missingIos.join(', ')}',
         ),
       );
     }

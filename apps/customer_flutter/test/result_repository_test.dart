@@ -8,95 +8,115 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('current result uses current-game live source and published history',
-      () async {
-    final api = _ResultApiClient({
-      '/public/games/current': [_gamePayload('game_current')],
-      '/public/results/live/game_current': [
-        _resultPayload('game_current', '123456'),
-      ],
-      '/public/results/latest': [
-        _resultPayload('game_previous', '654321'),
-      ],
-    });
+  test(
+    'current result uses current-game live source and published history',
+    () async {
+      final api = _ResultApiClient({
+        '/public/games/current': [_gamePayload('game_current')],
+        '/public/results/live/game_current': [
+          _resultPayload('game_current', '123456'),
+        ],
+        '/public/results/history': [
+          _historyPayload([
+            _resultPayload('game_previous_1', '654321'),
+            _resultPayload('game_previous_2', '654322'),
+            _resultPayload('game_previous_3', '654323'),
+          ]),
+        ],
+      });
 
-    final bundle = await ResultRepository(api).current();
+      final bundle = await ResultRepository(api).current();
 
-    expect(bundle.currentGame?.id, 'game_current');
-    expect(bundle.selectedResult?.id, 'game_current');
-    expect(bundle.selectedResult?.summary.first, '123456');
-    expect(bundle.history.single.id, 'game_previous');
-    expect(api.paths, [
-      '/public/games/current',
-      '/public/results/live/game_current',
-      '/public/results/latest',
-    ]);
-  });
+      expect(bundle.currentGame?.id, 'game_current');
+      expect(bundle.selectedResult?.id, 'game_current');
+      expect(bundle.selectedResult?.summary.first, '123456');
+      expect(bundle.history.map((result) => result.id), [
+        'game_previous_1',
+        'game_previous_2',
+        'game_previous_3',
+      ]);
+      expect(api.paths, [
+        '/public/games/current',
+        '/public/results/live/game_current',
+        '/public/results/history',
+      ]);
+      expect(api.queries.last, {'limit': 3, 'exclude_game_id': 'game_current'});
+    },
+  );
 
-  test('current result falls back from missing live data to published game',
-      () async {
-    final api = _ResultApiClient({
-      '/public/games/current': [_gamePayload('game_current')],
-      '/public/results/live/game_current': [
-        _apiException(
-          '/public/results/live/game_current',
-          statusCode: 404,
-          code: 'result_not_found',
-        ),
-      ],
-      '/public/results/game_current': [
-        _resultPayload('game_current', '287184'),
-      ],
-      '/public/results/latest': [
-        _resultPayload('game_current', '287184'),
-      ],
-    });
+  test(
+    'current result falls back from missing live data to published game',
+    () async {
+      final api = _ResultApiClient({
+        '/public/games/current': [_gamePayload('game_current')],
+        '/public/results/live/game_current': [
+          _apiException(
+            '/public/results/live/game_current',
+            statusCode: 404,
+            code: 'result_not_found',
+          ),
+        ],
+        '/public/results/game_current': [
+          _resultPayload('game_current', '287184'),
+        ],
+        '/public/results/history': [_historyPayload(const [])],
+      });
 
-    final bundle = await ResultRepository(api).current();
+      final bundle = await ResultRepository(api).current();
 
-    expect(bundle.selectedResult?.summary.first, '287184');
-    expect(bundle.history, isEmpty);
-    expect(api.paths, [
-      '/public/games/current',
-      '/public/results/live/game_current',
-      '/public/results/game_current',
-      '/public/results/latest',
-    ]);
-  });
+      expect(bundle.selectedResult?.summary.first, '287184');
+      expect(bundle.history, isEmpty);
+      expect(api.paths, [
+        '/public/games/current',
+        '/public/results/live/game_current',
+        '/public/results/game_current',
+        '/public/results/history',
+      ]);
+    },
+  );
 
-  test('current result keeps pending current game when both sources are 404',
-      () async {
-    final api = _ResultApiClient({
-      '/public/games/current': [_gamePayload('game_pending')],
-      '/public/results/live/game_pending': [
-        _apiException(
-          '/public/results/live/game_pending',
-          statusCode: 404,
-          code: 'result_not_found',
-        ),
-      ],
-      '/public/results/game_pending': [
-        _apiException(
-          '/public/results/game_pending',
-          statusCode: 404,
-          code: 'result_not_found',
-        ),
-      ],
-      '/public/results/latest': [
-        _apiException(
-          '/public/results/latest',
-          statusCode: 404,
-          code: 'result_not_found',
-        ),
-      ],
-    });
+  test(
+    'current result keeps pending current game when both sources are 404',
+    () async {
+      final api = _ResultApiClient({
+        '/public/games/current': [_gamePayload('game_pending')],
+        '/public/results/live/game_pending': [
+          _apiException(
+            '/public/results/live/game_pending',
+            statusCode: 404,
+            code: 'result_not_found',
+          ),
+        ],
+        '/public/results/game_pending': [
+          _apiException(
+            '/public/results/game_pending',
+            statusCode: 404,
+            code: 'result_not_found',
+          ),
+        ],
+        '/public/results/history': [
+          _apiException(
+            '/public/results/history',
+            statusCode: 404,
+            code: 'result_not_found',
+          ),
+        ],
+        '/public/results/latest': [
+          _apiException(
+            '/public/results/latest',
+            statusCode: 404,
+            code: 'result_not_found',
+          ),
+        ],
+      });
 
-    final bundle = await ResultRepository(api).current();
+      final bundle = await ResultRepository(api).current();
 
-    expect(bundle.selectedResult?.id, 'game_pending');
-    expect(bundle.selectedResult?.hasResolvedResult, isFalse);
-    expect(bundle.history, isEmpty);
-  });
+      expect(bundle.selectedResult?.id, 'game_pending');
+      expect(bundle.selectedResult?.hasResolvedResult, isFalse);
+      expect(bundle.history, isEmpty);
+    },
+  );
 
   test('current result propagates operational result errors', () async {
     final maintenance = _apiException(
@@ -115,53 +135,65 @@ void main() {
     );
   });
 
-  test('current result preserves ordinary backend error after fallbacks fail',
-      () async {
-    final publishedError = _apiException(
-      '/public/results/game_current',
-      statusCode: 503,
-      code: 'result_unavailable',
-      message: 'ระบบผลรางวัลยังไม่พร้อมใช้งาน',
-    );
-    final api = _ResultApiClient({
-      '/public/games/current': [_gamePayload('game_current')],
-      '/public/results/live/game_current': [
-        _apiException(
-          '/public/results/live/game_current',
-          statusCode: 502,
-          code: 'live_result_unavailable',
-        ),
-      ],
-      '/public/results/game_current': [publishedError],
-    });
+  test(
+    'current result preserves ordinary backend error after fallbacks fail',
+    () async {
+      final publishedError = _apiException(
+        '/public/results/game_current',
+        statusCode: 503,
+        code: 'result_unavailable',
+        message: 'ระบบผลรางวัลยังไม่พร้อมใช้งาน',
+      );
+      final api = _ResultApiClient({
+        '/public/games/current': [_gamePayload('game_current')],
+        '/public/results/live/game_current': [
+          _apiException(
+            '/public/results/live/game_current',
+            statusCode: 502,
+            code: 'live_result_unavailable',
+          ),
+        ],
+        '/public/results/game_current': [publishedError],
+      });
 
-    await expectLater(
-      ResultRepository(api).current(),
-      throwsA(same(publishedError)),
-    );
-  });
+      await expectLater(
+        ResultRepository(api).current(),
+        throwsA(same(publishedError)),
+      );
+    },
+  );
 
-  test('legacy index uses latest live source without current-game lookup',
-      () async {
-    final api = _ResultApiClient({
-      '/public/results/live/latest': [
-        _resultPayload('game_legacy', '111222'),
-      ],
-    });
+  test(
+    'legacy index uses latest live source without current-game lookup',
+    () async {
+      final api = _ResultApiClient({
+        '/public/results/live/latest': [
+          _resultPayload('game_legacy', '111222'),
+        ],
+        '/public/results/history': [
+          _historyPayload([
+            _resultPayload('game_previous_1', '654321'),
+            _resultPayload('game_previous_2', '654322'),
+            _resultPayload('game_previous_3', '654323'),
+          ]),
+        ],
+      });
 
-    final bundle = await ResultRepository(api).legacy();
+      final bundle = await ResultRepository(api).legacy();
 
-    expect(bundle.currentGame, isNull);
-    expect(bundle.selectedResult?.id, 'game_legacy');
-    expect(bundle.history.single.id, 'game_legacy');
-    expect(api.paths, ['/public/results/live/latest']);
-  });
+      expect(bundle.currentGame, isNull);
+      expect(bundle.selectedResult?.id, 'game_legacy');
+      expect(bundle.history, hasLength(3));
+      expect(api.paths, [
+        '/public/results/live/latest',
+        '/public/results/history',
+      ]);
+    },
+  );
 
   test('legacy detail uses published-only encoded game source', () async {
     final api = _ResultApiClient({
-      '/public/results/game%20%2F%201': [
-        _resultPayload('game / 1', '999888'),
-      ],
+      '/public/results/game%20%2F%201': [_resultPayload('game / 1', '999888')],
     });
 
     final bundle = await ResultRepository(api).published(gameId: 'game / 1');
@@ -202,6 +234,12 @@ Map<String, dynamic> _resultPayload(String id, String firstPrize) {
   };
 }
 
+Map<String, dynamic> _historyPayload(List<Map<String, dynamic>> results) {
+  return {
+    'data': results.map((result) => result['data']).toList(growable: false),
+  };
+}
+
 DioException _apiException(
   String path, {
   required int statusCode,
@@ -215,10 +253,7 @@ DioException _apiException(
       requestOptions: request,
       statusCode: statusCode,
       data: {
-        'error': {
-          'code': code,
-          'message': message,
-        },
+        'error': {'code': code, 'message': message},
       },
     ),
   );
@@ -226,20 +261,21 @@ DioException _apiException(
 
 class _ResultApiClient extends ApiClient {
   _ResultApiClient(Map<String, List<Object>> responses)
-      : responses = responses.map(
-          (path, values) => MapEntry(path, Queue<Object>.from(values)),
+    : responses = responses.map(
+        (path, values) => MapEntry(path, Queue<Object>.from(values)),
+      ),
+      super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.test/api/v1',
+          defaultLocale: 'th-TH',
         ),
-        super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.test/api/v1',
-            defaultLocale: 'th-TH',
-          ),
-          AuthTokenStore(),
-          localeTag: 'th-TH',
-        );
+        AuthTokenStore(),
+        localeTag: 'th-TH',
+      );
 
   final Map<String, Queue<Object>> responses;
   final paths = <String>[];
+  final queries = <Map<String, dynamic>?>[];
 
   @override
   Future<Response<T>> get<T>(
@@ -248,6 +284,7 @@ class _ResultApiClient extends ApiClient {
     bool auth = true,
   }) async {
     paths.add(path);
+    queries.add(query);
     final queue = responses[path];
     if (queue == null || queue.isEmpty) {
       throw StateError('Unexpected GET $path');

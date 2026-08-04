@@ -898,6 +898,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         _cart = cart;
         _noticeMessage = '';
       });
+      ref.read(cartRealtimeTickProvider.notifier).state++;
       if (dialogContext.mounted) {
         Navigator.of(dialogContext).pop();
       }
@@ -1005,6 +1006,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       _busy = false;
       _releasingExpiredCart = false;
     });
+    ref.read(cartRealtimeTickProvider.notifier).state++;
     context.go('/buy');
   }
 }
@@ -2441,6 +2443,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
   int _refreshCooldownSeconds = 0;
   bool _loading = true;
   bool _loadingMore = false;
+  bool _refreshingCart = false;
   bool _hasMore = false;
   bool _canReserve = true;
   String _error = '';
@@ -2494,6 +2497,23 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_loading && !_loadingMore && _busyStockId.isEmpty) {
           _load(reset: true);
+        }
+      });
+    });
+    ref.listen<int>(cartRealtimeTickProvider, (previous, next) {
+      if (previous == null ||
+          previous == next ||
+          _busyStockId.isNotEmpty ||
+          _refreshingCart) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            !_loading &&
+            !_loadingMore &&
+            _busyStockId.isEmpty &&
+            !_refreshingCart) {
+          unawaited(_refreshCartQuietly());
         }
       });
     });
@@ -2945,6 +2965,8 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
   }
 
   Future<bool> _refreshCartQuietly() async {
+    if (_refreshingCart) return false;
+    _refreshingCart = true;
     try {
       final cart = await ref.read(lotteryRepositoryProvider).cart();
       _syncReservedCart(cart);
@@ -2961,6 +2983,8 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       // Nuxt refreshes cart after booking races, but keeps the customer in flow
       // even when that refresh cannot complete.
       return false;
+    } finally {
+      _refreshingCart = false;
     }
   }
 
@@ -5764,6 +5788,11 @@ BoxDecoration _lotterySmallGradientPillDecoration(
 }
 
 ButtonStyle _lotterySmallGradientPillButtonStyle(BuildContext context) {
+  final textStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
+    fontWeight: FontWeight.w700,
+    height: 1.1,
+    letterSpacing: 0,
+  );
   return FilledButton.styleFrom(
     backgroundColor: Colors.transparent,
     disabledBackgroundColor: Colors.transparent,
@@ -5775,7 +5804,7 @@ ButtonStyle _lotterySmallGradientPillButtonStyle(BuildContext context) {
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.compact,
     shape: const StadiumBorder(),
-    textStyle: const TextStyle(fontWeight: FontWeight.w700, height: 1.1),
+    textStyle: textStyle,
   ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
 }
 

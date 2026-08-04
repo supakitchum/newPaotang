@@ -107,6 +107,7 @@ Route::get('/public/assets/{path}', [PublicAssetController::class, 'show'])->whe
 Route::post('/public/affiliate/referrals/click', [CustomerAffiliateController::class, 'trackReferralVisit'])
     ->middleware('throttle:affiliate-public-referral');
 Route::get('/public/results/latest', [PublicRewardController::class, 'latest']);
+Route::get('/public/results/history', [PublicRewardController::class, 'history']);
 Route::get('/public/results/live/latest', [PublicRewardController::class, 'liveLatest']);
 Route::get('/public/results/live/{game_id}', [PublicRewardController::class, 'liveShow']);
 Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show']);
@@ -756,6 +757,14 @@ Route::get('/admin/tenant/customer-notifications', [TenantCustomerNotificationCo
 Route::get('/admin/tenant/customer-notifications/customers', [TenantCustomerNotificationController::class, 'customers'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/customer-notifications', [TenantCustomerNotificationController::class, 'store'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/customer-notifications/campaigns', [TenantCustomerNotificationController::class, 'campaigns'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/customer-notifications/campaigns', [TenantCustomerNotificationController::class, 'storeCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/customer-notifications/campaigns/{campaign_id}/publish', [TenantCustomerNotificationController::class, 'publishCampaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/customer-notifications/campaigns/{campaign_id}/cancel', [TenantCustomerNotificationController::class, 'cancelCampaign'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/line-notifications', [TenantLineNotificationController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

@@ -12,6 +12,7 @@ import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
+import 'package:customer_flutter/features/lottery/presentation/customer_revenue_realtime_monitor.dart';
 import 'package:customer_flutter/features/lottery/presentation/lottery_screens.dart';
 import 'package:customer_flutter/features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
@@ -289,6 +290,17 @@ void main() {
     expect(find.text('เลือก'), findsNothing);
     expect(find.text('เอาออก'), findsOneWidget);
 
+    final themedRemoveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'เอาออก'),
+    );
+    final removeTextStyle = themedRemoveButton.style?.textStyle?.resolve({});
+    final appLabelStyle = Theme.of(
+      tester.element(find.widgetWithText(FilledButton, 'เอาออก')),
+    ).textTheme.labelLarge;
+    expect(removeTextStyle?.fontFamily, appLabelStyle?.fontFamily);
+    expect(removeTextStyle?.fontSize, appLabelStyle?.fontSize);
+    expect(removeTextStyle?.letterSpacing, 0);
+
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
@@ -307,6 +319,37 @@ void main() {
     expect(lottery.releaseCount, 1);
     expect(find.text('เลือก'), findsOneWidget);
     expect(find.text('เอาออก'), findsNothing);
+  });
+
+  testWidgets('buy refreshes selected tickets after cart changes elsewhere', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+    await tester.pumpAndSettle();
+    expect(find.text('เอาออก'), findsOneWidget);
+
+    final cartLoadsBeforeSync = lottery.cartCount;
+    lottery.releaseExternally();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(BuySearchScreen)),
+    );
+    container.read(cartRealtimeTickProvider.notifier).state++;
+    await tester.pumpAndSettle();
+
+    expect(lottery.cartCount, cartLoadsBeforeSync + 1);
+    expect(find.text('เอาออก'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'เลือก'), findsOneWidget);
   });
 
   testWidgets('stock card stays selected after backend materializes stock id', (
@@ -1308,6 +1351,10 @@ class _FakeLotteryRepository extends LotteryRepository {
     releaseCount++;
     _reserved = false;
     return LotteryCart.empty();
+  }
+
+  void releaseExternally() {
+    _reserved = false;
   }
 
   LotteryCart _reservedCart() {

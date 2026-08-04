@@ -206,6 +206,18 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('game_id', $world['game_id'])
             ->assertJsonPath('reward_version', $published['version']);
 
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/history?limit=3')
+            ->assertOk()
+            ->assertHeader('ETag')
+            ->assertJsonPath('data.0.game_id', $world['game_id'])
+            ->assertJsonPath('meta.limit', 3)
+            ->assertJsonPath('meta.count', 1);
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/history?limit=3&exclude_game_id='.$world['game_id'])
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.count', 0);
+
         $this->getJson('http://'.$world['host'].'/api/v1/public/results/'.$world['game_id'])
             ->assertOk()
             ->assertHeader('ETag')

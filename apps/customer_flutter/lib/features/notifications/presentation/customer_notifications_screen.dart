@@ -495,6 +495,15 @@ class _NotificationTile extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (item.imageUrl.isNotEmpty ||
+                        item.imageThumbUrl.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _NotificationImage(
+                        url: item.imageThumbUrl.isNotEmpty
+                            ? item.imageThumbUrl
+                            : item.imageUrl,
+                      ),
+                    ],
                     const SizedBox(height: 7),
                     Text(
                       _notificationTime(context, item.createdAt),
@@ -516,6 +525,35 @@ class _NotificationTile extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationImage extends StatelessWidget {
+  const _NotificationImage({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: AspectRatio(
+        aspectRatio: 16 / 7,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => ColoredBox(
+            color: const Color(0xFFF1F5F9),
+            child: const Center(
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
           ),
         ),
       ),

@@ -17,7 +17,7 @@ import 'package:go_router/go_router.dart';
 
 void main() {
   testWidgets(
-    'affiliate home closes to profile and child pages follow route history',
+    'every affiliate page uses close and navbar replaces route history',
     (tester) async {
       final router = await _pumpAffiliate(
         tester,
@@ -25,10 +25,7 @@ void main() {
       );
 
       expect(find.text('Home'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('affiliate-overview-close')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('affiliate-close')), findsOneWidget);
       expect(find.byTooltip('Back'), findsNothing);
 
       await tester.tap(find.text('Ranking'));
@@ -38,40 +35,45 @@ void main() {
       await tester.tap(find.text('Referral'));
       await tester.pumpAndSettle();
       expect(find.text('Referral link'), findsWidgets);
+      expect(find.byTooltip('Back'), findsNothing);
+      expect(find.byKey(const ValueKey('affiliate-close')), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Back'));
+      await tester.tap(find.text('Commissions'));
       await tester.pumpAndSettle();
-      expect(find.text('Affiliate rankings'), findsOneWidget);
+      expect(find.text('Latest commissions'), findsWidgets);
+      expect(find.byTooltip('Back'), findsNothing);
+      expect(find.byKey(const ValueKey('affiliate-close')), findsOneWidget);
+
+      await tester.tap(find.text('Withdraw'));
+      await tester.pumpAndSettle();
+      expect(find.text('Request withdrawal'), findsWidgets);
+      expect(find.byTooltip('Back'), findsNothing);
+      expect(find.byKey(const ValueKey('affiliate-close')), findsOneWidget);
 
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
       expect(router.routerDelegate.currentConfiguration.uri.path, '/affiliate');
 
-      await tester.tap(find.byKey(const ValueKey('affiliate-overview-close')));
+      await tester.tap(find.byKey(const ValueKey('affiliate-close')));
       await tester.pumpAndSettle();
       expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('direct affiliate child page falls back to affiliate home', (
-    tester,
-  ) async {
+  testWidgets('direct affiliate child page closes to profile', (tester) async {
     final router = await _pumpAffiliate(
       tester,
       initialLocation: '/affiliate/referral',
       repository: _AffiliateRepository(),
     );
 
-    expect(find.byTooltip('Back'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back'));
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.byKey(const ValueKey('affiliate-close')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('affiliate-close')));
     await tester.pumpAndSettle();
 
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/affiliate');
-    expect(
-      find.byKey(const ValueKey('affiliate-overview-close')),
-      findsOneWidget,
-    );
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
     expect(tester.takeException(), isNull);
   });
 

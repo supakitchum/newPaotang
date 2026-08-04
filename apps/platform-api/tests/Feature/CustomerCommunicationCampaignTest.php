@@ -1,0 +1,271 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Jobs\FanoutCustomerNotificationRecipientsJob;
+use App\Models\CustomerNotificationDelivery;
+use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
+use App\Modules\CustomerNotifications\Services\FirebaseCloudMessagingClient;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Mockery\MockInterface;
+use Tests\Support\PartnerStoreFixtures;
+use Tests\TestCase;
+
+class CustomerCommunicationCampaignTest extends TestCase
+{
+    use PartnerStoreFixtures;
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'app.key' => 'base64:'.base64_encode(str_repeat('c', 32)),
+            'services.firebase_cloud_messaging.project_id' => '',
+        ]);
+        $this->app->forgetInstance('encrypter');
+        Queue::fake();
+        Storage::fake('lottery_images');
+    }
+
+    public function test_scheduled_broadcast_is_idempotent_and_only_fans_out_to_active_customers(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain(
+            'par_customer_comms',
+            'ten_customer_comms',
+            'customer-comms.example.test',
+        );
+        $this->issueCustomerToken('ten_customer_comms', 'cus_customer_comms_1');
+        $this->issueCustomerToken('ten_customer_comms', 'cus_customer_comms_2');
+        $this->issueCustomerToken('ten_customer_comms', 'cus_customer_comms_suspended');
+        DB::table('customers')->where('id', 'cus_customer_comms_suspended')->update(['status' => 'suspended']);
+        $admin = $this->createTenantSession(
+            'ten_customer_comms',
+            'par_customer_comms',
+            ['customer_notification.view', 'customer_notification.send'],
+            'adm_customer_comms',
+            'customer-comms@example.test',
+        );
+        $headers = [
+            'X-Admin-Scope' => 'tenant',
+            'X-Tenant-Id' => 'ten_customer_comms',
+            'Idempotency-Key' => 'customer-comms-scheduled-broadcast',
+        ];
+        $request = [
+            'payload' => json_encode([
+                'name' => 'August public relations',
+                'audience_type' => 'all_customers',
+                'title' => ['th-TH' => 'ข่าวประชาสัมพันธ์', 'en-US' => 'Public relations update'],
+                'body' => ['th-TH' => 'ติดตามข่าวล่าสุดได้แล้ววันนี้', 'en-US' => 'See the latest update today.'],
+                'action_key' => 'home',
+                'delivery_mode' => 'scheduled',
+                'scheduled_at' => now()->addMinutes(10)->toISOString(),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ];
+
+        $created = $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', $request, $headers)
+            ->assertCreated()
+            ->assertJsonPath('status', 'scheduled')
+            ->assertJsonPath('audience_type', 'all_customers')
+            ->json();
+
+        $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', $request, $headers)
+            ->assertCreated()
+            ->assertJsonPath('id', $created['id']);
+
+        $this->assertDatabaseCount('customer_communication_campaigns', 1);
+        $this->assertDatabaseCount('customer_notifications', 0);
+        Queue::assertNotPushed(FanoutCustomerNotificationRecipientsJob::class);
+
+        DB::table('customer_communication_campaigns')->where('id', $created['id'])->update([
+            'scheduled_at' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $this->artisan('customer-communications:publish-due --limit=25')
+            ->expectsOutput('Customer communication campaigns: selected=1 published=1 failed=0')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('customer_communication_campaigns', [
+            'id' => $created['id'],
+            'status' => 'published',
+        ]);
+        $this->assertDatabaseHas('customer_notifications', [
+            'tenant_id' => 'ten_customer_comms',
+            'event_key' => 'admin.communication_campaign',
+            'subject_type' => 'customer_communication_campaign',
+            'subject_id' => $created['id'],
+        ]);
+        Queue::assertPushed(FanoutCustomerNotificationRecipientsJob::class, 1);
+
+        $notificationId = (string) DB::table('customer_notifications')->value('id');
+        $notifications = app(CustomerNotificationService::class);
+        $notifications->fanOutTenantChunk($notificationId);
+        $notifications->fanOutTenantChunk($notificationId);
+
+        $this->assertDatabaseCount('customer_notification_recipients', 2);
+        $this->assertDatabaseMissing('customer_notification_recipients', [
+            'customer_id' => 'cus_customer_comms_suspended',
+        ]);
+
+        $this->artisan('customer-communications:publish-due --limit=25')
+            ->expectsOutput('Customer communication campaigns: selected=0 published=0 failed=0')
+            ->assertSuccessful();
+        $this->assertDatabaseCount('customer_notifications', 1);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $created['id'])
+            ->assertJsonPath('data.0.stats.recipient_count', 2);
+    }
+
+    public function test_image_campaign_reaches_inbox_and_native_push_with_the_exact_content(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain(
+            'par_customer_comms_image',
+            'ten_customer_comms_image',
+            'customer-comms-image.example.test',
+        );
+        $customerToken = $this->issueCustomerToken('ten_customer_comms_image', 'cus_customer_comms_image');
+        app(CustomerNotificationService::class)->registerDevice(
+            'ten_customer_comms_image',
+            'cus_customer_comms_image',
+            [
+                'installation_id' => 'install_customer_comms_image',
+                'platform' => 'android',
+                'fcm_token' => str_repeat('customer-comms-image-token-', 8),
+                'locale' => 'th-TH',
+            ],
+        );
+        $admin = $this->createTenantSession(
+            'ten_customer_comms_image',
+            'par_customer_comms_image',
+            ['customer_notification.view', 'customer_notification.send'],
+            'adm_customer_comms_image',
+            'customer-comms-image@example.test',
+        );
+        $payload = json_encode([
+            'name' => 'Rich image message',
+            'audience_type' => 'customer',
+            'customer_id' => 'cus_customer_comms_image',
+            'title' => ['th-TH' => 'โปรโมชั่นพิเศษ'],
+            'body' => ['th-TH' => 'รับสิทธิ์ได้ถึงเที่ยงคืนนี้'],
+            'action_key' => 'wallet',
+            'delivery_mode' => 'now',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2n3cAAAAASUVORK5CYII=',
+            true,
+        );
+
+        $created = $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'payload' => $payload,
+                'file' => UploadedFile::fake()->createWithContent('campaign.png', (string) $png),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms_image',
+                'Idempotency-Key' => 'customer-comms-image-now',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'published')
+            ->json();
+
+        $this->assertNotEmpty($created['image']['url'] ?? null);
+        $this->assertNotEmpty($created['image']['thumb_url'] ?? null);
+        $this->assertDatabaseCount('platform_assets', 2);
+        $this->assertDatabaseHas('platform_assets', [
+            'tenant_id' => 'ten_customer_comms_image',
+            'purpose' => 'customer_communication_image',
+            'status' => 'committed',
+        ]);
+        $imagePath = (string) parse_url((string) $created['image']['url'], PHP_URL_PATH);
+        $imageResponse = $this->get($imagePath)->assertOk();
+        $this->assertStringStartsWith('image/', (string) $imageResponse->headers->get('Content-Type'));
+
+        $this->withToken($customerToken)
+            ->getJson('http://customer-comms-image.example.test/api/v1/customer/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'โปรโมชั่นพิเศษ')
+            ->assertJsonPath('data.0.body', 'รับสิทธิ์ได้ถึงเที่ยงคืนนี้')
+            ->assertJsonPath('data.0.image_url', $created['image']['url'])
+            ->assertJsonPath('data.0.image_thumb_url', $created['image']['thumb_url']);
+
+        $sentMessage = null;
+        $this->mock(FirebaseCloudMessagingClient::class, function (MockInterface $mock) use (&$sentMessage): void {
+            $mock->shouldReceive('send')
+                ->once()
+                ->with(\Mockery::on(function (array $message) use (&$sentMessage): bool {
+                    $sentMessage = $message;
+
+                    return true;
+                }))
+                ->andReturn(['ok' => true, 'message_id' => 'projects/test/messages/customer-comms-image']);
+        });
+        $this->app->forgetInstance(CustomerNotificationService::class);
+        app(CustomerNotificationService::class)->processDelivery(
+            (string) CustomerNotificationDelivery::query()->value('id'),
+        );
+
+        $this->assertIsArray($sentMessage);
+        $this->assertSame('โปรโมชั่นพิเศษ', $sentMessage['notification']['title'] ?? null);
+        $this->assertSame('รับสิทธิ์ได้ถึงเที่ยงคืนนี้', $sentMessage['notification']['body'] ?? null);
+        $this->assertSame($created['image']['url'], $sentMessage['notification']['image'] ?? null);
+        $this->assertSame($created['image']['url'], $sentMessage['android']['notification']['image'] ?? null);
+        $this->assertSame($created['image']['url'], $sentMessage['apns']['fcm_options']['image'] ?? null);
+        $this->assertSame($created['image']['url'], $sentMessage['data']['image_url'] ?? null);
+    }
+
+    public function test_campaign_rejects_a_file_that_only_claims_to_be_an_image(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain(
+            'par_customer_comms_invalid',
+            'ten_customer_comms_invalid',
+            'customer-comms-invalid.example.test',
+        );
+        $admin = $this->createTenantSession(
+            'ten_customer_comms_invalid',
+            'par_customer_comms_invalid',
+            ['customer_notification.view', 'customer_notification.send'],
+            'adm_customer_comms_invalid',
+            'customer-comms-invalid@example.test',
+        );
+
+        $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'payload' => json_encode([
+                    'audience_type' => 'all_customers',
+                    'title' => ['th-TH' => 'ข่าวประชาสัมพันธ์'],
+                    'body' => ['th-TH' => 'รายละเอียดข่าวประชาสัมพันธ์'],
+                    'action_key' => 'home',
+                    'delivery_mode' => 'now',
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'file' => UploadedFile::fake()->createWithContent('not-an-image.png', '<script>alert(1)</script>'),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms_invalid',
+                'Idempotency-Key' => 'customer-comms-invalid-image',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.file.0', 'The image must be a valid JPG, PNG, or WebP file.');
+
+        $this->assertDatabaseCount('customer_communication_campaigns', 0);
+        $this->assertDatabaseCount('platform_assets', 0);
+        $this->assertDatabaseCount('customer_notifications', 0);
+    }
+}

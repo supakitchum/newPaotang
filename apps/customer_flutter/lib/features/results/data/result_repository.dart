@@ -73,19 +73,15 @@ class ResultRepository {
     final primaryError = published.error ?? live.error;
     if (selected == null && primaryError != null) throw primaryError;
 
-    final latestPublished = await _attemptResult(live: false);
     final effectiveSelected = selected ?? game?.toPendingRewardGame();
+    final history = await _publishedHistory(
+      excludeGameId: effectiveSelected?.id ?? targetGameId,
+    );
 
     return RewardResultBundle(
       currentGame: game,
       selectedResult: effectiveSelected,
-      history: [
-        if (latestPublished.value != null &&
-            latestPublished.value!.id.isNotEmpty &&
-            latestPublished.value!.id !=
-                (effectiveSelected?.id ?? targetGameId ?? ''))
-          latestPublished.value!,
-      ],
+      history: history,
     );
   }
 
@@ -98,10 +94,12 @@ class ResultRepository {
     final error = published.error ?? live.error;
     if (selected == null && error != null) throw error;
 
+    final history = await _publishedHistory(excludeGameId: selected?.id);
+
     return RewardResultBundle(
       currentGame: null,
       selectedResult: selected,
-      history: [if (selected != null) selected],
+      history: history,
     );
   }
 
@@ -149,6 +147,38 @@ class ResultRepository {
       auth: false,
     );
     return RewardResultGame.fromPublicSummary(unwrapPayload(response.data));
+  }
+
+  Future<List<RewardResultGame>> _publishedHistory({
+    String? excludeGameId,
+    int limit = 3,
+  }) async {
+    final normalizedExcludeGameId = excludeGameId?.trim() ?? '';
+    try {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/public/results/history',
+        query: {
+          'limit': limit,
+          if (normalizedExcludeGameId.isNotEmpty)
+            'exclude_game_id': normalizedExcludeGameId,
+        },
+        auth: false,
+      );
+      return unwrapDataList(response.data)
+          .map(RewardResultGame.fromPublicSummary)
+          .where((result) => result.id != normalizedExcludeGameId)
+          .take(limit)
+          .toList(growable: false);
+    } catch (error) {
+      if (_isOperationalResultError(error)) rethrow;
+    }
+
+    final fallback = await _attemptResult(live: false);
+    final result = fallback.value;
+    if (result == null || result.id == normalizedExcludeGameId) {
+      return const [];
+    }
+    return [result];
   }
 
   Future<_ResultAttempt> _attemptResult({

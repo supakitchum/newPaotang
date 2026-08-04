@@ -19,6 +19,7 @@ class RuntimeStorageService
     public const ROUTE_BACKGROUND_ASSETS = 'background_assets';
     public const ROUTE_PAYMENT_SLIPS = 'payment_slips';
     public const ROUTE_ANNOUNCEMENT_IMAGES = 'announcement_images';
+    public const ROUTE_CUSTOMER_COMMUNICATION_IMAGES = 'customer_communication_images';
     public const ROUTE_ACTIVITY_IMAGES = 'activity_images';
     public const ROUTE_PARTNER_ASSETS = 'partner_assets';
     public const ROUTE_CENTRAL_ASSETS = 'central_assets';
@@ -65,6 +66,14 @@ class RuntimeStorageService
                 'tenant_scoped' => true,
                 'sort_order' => 40,
                 'path_hint' => 'tenants/{tenant}/announcements',
+            ],
+            self::ROUTE_CUSTOMER_COMMUNICATION_IMAGES => [
+                'label' => 'Customer communication images',
+                'description' => 'Images attached to customer public-relations campaigns and push notifications.',
+                'root_prefix' => '',
+                'tenant_scoped' => true,
+                'sort_order' => 45,
+                'path_hint' => 'tenants/{tenant}/customer-communications',
             ],
             self::ROUTE_ACTIVITY_IMAGES => [
                 'label' => 'Activity images',
@@ -467,6 +476,7 @@ class RuntimeStorageService
             'ticket_image' => self::ROUTE_LOTTERY_IMAGES,
             'partner_lottery_branding' => self::ROUTE_PARTNER_ASSETS,
             'tenant_announcement_image' => self::ROUTE_ANNOUNCEMENT_IMAGES,
+            'customer_communication_image' => self::ROUTE_CUSTOMER_COMMUNICATION_IMAGES,
             'tenant_activity_image' => self::ROUTE_ACTIVITY_IMAGES,
             default => $scopeType === 'central' ? self::ROUTE_CENTRAL_ASSETS : self::ROUTE_PARTNER_ASSETS,
         };
@@ -482,6 +492,10 @@ class RuntimeStorageService
 
         if (str_contains($key, '/announcements/') || str_starts_with($key, 'announcements/')) {
             return self::ROUTE_ANNOUNCEMENT_IMAGES;
+        }
+
+        if (str_contains($key, '/customer-communications/') || str_starts_with($key, 'customer-communications/')) {
+            return self::ROUTE_CUSTOMER_COMMUNICATION_IMAGES;
         }
 
         if (str_contains($key, '/activities/') || str_starts_with($key, 'activities/')) {

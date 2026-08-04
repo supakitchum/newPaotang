@@ -13,6 +13,7 @@ import 'package:customer_flutter/features/affiliate/data/affiliate_referral_repo
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
 import 'package:customer_flutter/features/lottery/presentation/checkout_payment_method_provider.dart';
+import 'package:customer_flutter/features/lottery/presentation/customer_revenue_realtime_monitor.dart';
 import 'package:customer_flutter/features/lottery/presentation/lottery_screens.dart';
 import 'package:customer_flutter/features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
@@ -2699,10 +2700,20 @@ void main() {
     );
     expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
 
+    final providerContainer = ProviderScope.containerOf(
+      tester.element(find.byType(CartScreen)),
+    );
+    final cartRevisionBeforeRemove = providerContainer.read(
+      cartRealtimeTickProvider,
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
     await tester.pumpAndSettle();
 
     expect(lottery.releasedReservationIds, ['res_1', 'res_2']);
+    expect(
+      providerContainer.read(cartRealtimeTickProvider),
+      cartRevisionBeforeRemove + 1,
+    );
   });
 
   testWidgets('cart remove confirmation stays within compact mobile viewport', (

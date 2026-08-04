@@ -253,13 +253,16 @@ following customer-facing events.
 
 ## Back Office Experience
 
-- Add a dedicated tenant page named `Customer Notifications` rather than
-  forcing the workflow into the generic operations form.
-- Provide tenant-scoped customer search, selected-customer summary,
-  Thai/English title and body fields, destination selector, send confirmation,
-  and clear API errors.
-- Show send history with creator, recipient, created time, read state, push
-  delivery status, and safe failure reason.
+- Use the dedicated tenant page named `Public Relations` / `ระบบประชาสัมพันธ์`
+  rather than forcing the workflow into the generic operations form.
+- Provide tenant-scoped audience selection for one active customer or all active
+  customers, Thai/English title and body fields, optional campaign image,
+  allowlisted destination, send confirmation, and clear API errors.
+- Support send-now and scheduled campaigns with idempotent publish/cancel and a
+  bounded queue fan-out for tenant-wide broadcast.
+- Preview both the customer inbox card and native push appearance before send.
+- Show campaign history with creator, audience, timing, recipient/read counts,
+  push sent/pending/failed counts, and safe failure state.
 - Add a `Send notification` action to the existing customer detail view with
   that customer preselected.
 - Add `Notify customers` controls to the existing news and activity publishing
