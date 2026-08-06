@@ -1,14 +1,14 @@
 <template>
   <dl class="row mb-0">
     <template v-for="item in items" :key="item.key">
-      <dt class="col-md-4 text-muted fw-semibold">{{ item.label }}</dt>
+      <dt class="col-md-4 text-muted fw-semibold">{{ phrase(item.label) }}</dt>
       <dd class="col-md-8">
         <slot :name="`value-${item.key}`" :item="item">
           <AdminImagePreview v-if="item.type === 'image'" :image="item.value" :label="item.label" />
           <div v-else-if="item.type === 'permission-list'" class="np-permission-checklist">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-              <span class="badge bg-primary-transparent text-primary">{{ assignedPermissionCount(item) }} selected</span>
-              <span class="text-muted small">{{ permissionRows(item).length }} available</span>
+              <span class="badge bg-primary-transparent text-primary">{{ assignedPermissionCount(item) }} {{ phrase('selected') }}</span>
+              <span class="text-muted small">{{ permissionRows(item).length }} {{ phrase('available') }}</span>
             </div>
             <div class="np-permission-checklist__grid">
               <label
@@ -24,7 +24,7 @@
                   disabled
                 >
                 <span class="np-permission-checklist__body">
-                  <span class="np-permission-checklist__label">{{ permission.label }}</span>
+                  <span class="np-permission-checklist__label">{{ permissionLabel(permission) }}</span>
                   <code class="np-admin-code">{{ permission.code }}</code>
                 </span>
               </label>
@@ -60,6 +60,9 @@ type PermissionRow = {
 defineProps<{
   items: DefinitionItem[]
 }>()
+
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
 
 const isIdOrCodeKey = (key: string) => /(^id$|_id$|Id$|(^|_)(code|ref|uuid|token|slug)$)/.test(key)
 const isMonoItem = (item: DefinitionItem) => Boolean(item.mono ?? (isIdOrCodeKey(item.key) && typeof item.value !== 'object'))
@@ -108,6 +111,10 @@ const permissionRows = (item: DefinitionItem): PermissionRow[] => {
       }
     })
     .filter((permission) => permission.code)
+}
+const permissionLabel = (permission: PermissionRow) => {
+  const translatedCode = phrase(permission.code)
+  return translatedCode !== permission.code ? translatedCode : phrase(permission.label)
 }
 const assignedPermissionCount = (item: DefinitionItem) => permissionRows(item)
   .filter((permission) => permission.checked)

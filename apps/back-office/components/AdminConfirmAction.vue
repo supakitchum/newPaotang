@@ -16,12 +16,12 @@
       <div v-for="field in visibleFormFields" :key="field.key" :class="fieldColumnClass(field)">
         <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
           <input :id="fieldId(field.key)" v-model="formState[field.key]" class="form-check-input" type="checkbox">
-          <label class="form-check-label" :for="fieldId(field.key)">{{ field.label }}</label>
-          <div v-if="field.help" class="form-text">{{ field.help }}</div>
+          <label class="form-check-label" :for="fieldId(field.key)">{{ phrase(field.label) }}</label>
+          <div v-if="field.help" class="form-text">{{ phrase(field.help) }}</div>
         </div>
         <template v-else>
           <label class="form-label" :for="fieldId(field.key)">
-            {{ field.label }}
+            {{ phrase(field.label) }}
             <span v-if="field.required" class="text-danger">*</span>
           </label>
           <select
@@ -32,8 +32,8 @@
             :class="{ 'is-invalid': fieldValidationMessages(field).length }"
             :disabled="fieldDisabled(field)"
           >
-            <option v-if="!field.hideEmptyOption" value="">{{ field.emptyOptionLabel || translateReportText('Select', locale) }}</option>
-            <option v-else-if="!visibleOptions(field).length" value="" disabled>{{ field.emptyOptionLabel || translateReportText('No options available', locale) }}</option>
+            <option v-if="!field.hideEmptyOption" value="">{{ field.emptyOptionLabel ? phrase(field.emptyOptionLabel) : translateReportText('Select', locale) }}</option>
+            <option v-else-if="!visibleOptions(field).length" value="" disabled>{{ field.emptyOptionLabel ? phrase(field.emptyOptionLabel) : translateReportText('No options available', locale) }}</option>
             <option
               v-for="option in visibleOptions(field)"
               :key="optionValue(option)"
@@ -49,7 +49,7 @@
             :class="{ 'is-invalid': fieldValidationMessages(field).length }"
           >
             <div v-if="!visibleOptions(field).length" class="text-muted small">
-              {{ field.emptyOptionLabel || translateReportText('No options available', locale) }}
+              {{ field.emptyOptionLabel ? phrase(field.emptyOptionLabel) : translateReportText('No options available', locale) }}
             </div>
             <div v-else class="np-checkbox-grid">
               <label
@@ -259,7 +259,7 @@
             v-model="formState[field.key]"
             class="form-control"
             rows="4"
-            :placeholder="field.placeholder"
+            :placeholder="phrase(field.placeholder)"
           />
           <input
             v-else
@@ -271,11 +271,11 @@
             :min="field.min"
             :max="field.max"
             :step="field.step"
-            :placeholder="field.placeholder"
+            :placeholder="phrase(field.placeholder)"
             :disabled="fieldDisabled(field)"
             @input="handleFieldInput(field, $event)"
           >
-          <div v-if="field.help" class="form-text">{{ field.help }}</div>
+          <div v-if="field.help" class="form-text">{{ phrase(field.help) }}</div>
           <div v-for="message in fieldValidationMessages(field)" :key="message" class="invalid-feedback d-block">
             {{ message }}
           </div>
@@ -361,7 +361,9 @@ const reason = ref('')
 const payloadJson = ref('')
 const formState = reactive<Record<string, any>>({})
 const api = useAdminApi()
-const { locale } = useAdminLocale()
+const adminLocale = useAdminLocale()
+const { locale } = adminLocale
+const phrase = (source: unknown) => adminLocale.phrase(source)
 const allocationPartnerOptions = ref<OperationOption[]>([])
 const allocationTenantOptions = ref<OperationOption[]>([])
 const allocationOptionLoading = ref(false)
@@ -1035,7 +1037,15 @@ const labelize = (key: string) => key
   .replace(/\b\w/g, (char) => char.toUpperCase()) || key
 
 const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
-const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : String(option)
+const optionLabel = (option: any) => {
+  if (typeof option !== 'object' || option === null) {
+    return phrase(String(option))
+  }
+
+  const code = String(option.code || '')
+  const translatedCode = code ? phrase(code) : ''
+  return code && translatedCode !== code ? translatedCode : phrase(option.label)
+}
 const optionDisabled = (option: any) => Boolean(typeof option === 'object' && option !== null && option.disabled)
 const optionPartnerId = (option: any) => String(typeof option === 'object' && option !== null ? option.partnerId || option.partner_id || '' : '')
 const optionString = (option: any, key: string) => {

@@ -635,6 +635,8 @@ Route::delete('/admin/central/admin-users/{admin_user_id}', [AdminUserController
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/roles', [AdminRoleController::class, 'centralIndex'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/role-permissions', [AdminRoleController::class, 'centralPermissions'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/roles', [AdminRoleController::class, 'centralStore'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/roles/{role_id}', [AdminRoleController::class, 'centralUpdate'])
@@ -921,6 +923,8 @@ Route::post('/admin/tenant/admin-users/{admin_user_id}/invitation', [AdminUserCo
 Route::delete('/admin/tenant/admin-users/{admin_user_id}', [AdminUserController::class, 'tenantDestroy'])
     ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:delete_user']);
 Route::get('/admin/tenant/roles', [AdminRoleController::class, 'tenantIndex'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/role-permissions', [AdminRoleController::class, 'tenantPermissions'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/roles', [AdminRoleController::class, 'tenantStore'])
     ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:role_change']);

@@ -43,6 +43,11 @@ class AdminRoleController extends Controller
         return $this->store($request, 'central');
     }
 
+    public function centralPermissions(Request $request): JsonResponse
+    {
+        return $this->permissionIndex($request, 'central');
+    }
+
     public function centralUpdate(Request $request, string $roleId): JsonResponse
     {
         return $this->update($request, 'central', $roleId);
@@ -69,6 +74,11 @@ class AdminRoleController extends Controller
     public function tenantStore(Request $request): JsonResponse
     {
         return $this->store($request, 'tenant');
+    }
+
+    public function tenantPermissions(Request $request): JsonResponse
+    {
+        return $this->permissionIndex($request, 'tenant');
     }
 
     public function tenantUpdate(Request $request, string $roleId): JsonResponse
@@ -109,6 +119,23 @@ class AdminRoleController extends Controller
         $role = $this->roles->createRole($scopeType, $context->activeTenantId(), $payload, $context, $request);
 
         return response()->json($role, 201);
+    }
+
+    private function permissionIndex(Request $request, string $scopeType): JsonResponse
+    {
+        $context = $this->authorizedContext($request, $scopeType);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json([
+            'data' => $this->roles->listAvailablePermissions($scopeType),
+            'meta' => [
+                'next_cursor' => null,
+                'has_more' => false,
+            ],
+        ]);
     }
 
     private function update(Request $request, string $scopeType, string $roleId): JsonResponse

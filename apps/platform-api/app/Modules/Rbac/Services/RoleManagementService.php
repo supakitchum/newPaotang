@@ -37,6 +37,23 @@ class RoleManagementService
     }
 
     /**
+     * @return array<int, array{code: string, name: string}>
+     */
+    public function listAvailablePermissions(string $scopeType): array
+    {
+        return Permission::query()
+            ->where('scope_type', $scopeType)
+            ->where('status', 'active')
+            ->orderBy('code')
+            ->get(['code', 'name'])
+            ->map(fn (Permission $permission): array => [
+                'code' => (string) $permission->code,
+                'name' => (string) $permission->name,
+            ])
+            ->all();
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */

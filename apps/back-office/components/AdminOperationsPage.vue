@@ -302,7 +302,7 @@
     <template v-else-if="mode === 'summary'">
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState :error="error" />
-      <AdminDetailSection :title="resource.title" :record="detail" :loading="loading" />
+      <AdminDetailSection :title="phrase(resource.title)" :record="detail" :loading="loading" />
     </template>
 
     <template v-else-if="mode === 'detail'">
@@ -351,9 +351,9 @@
       />
       <AdminDetailSection
         v-else
-        :title="`${resource.title} detail`"
+        :title="`${phrase(resource.title)} ${phrase('detail')}`"
         :record="detailSectionRecord"
-        :fields="resource.detailFields || []"
+        :fields="detailFields"
         :loading="loading && !detailGap"
       />
       <AdminRewardPrizes
@@ -1001,6 +1001,8 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'central-billing-plans': [],
   'central-admin-roles': [],
   'tenant-admin-roles': [],
+  'central-role-permissions': [],
+  'tenant-role-permissions': [],
   'allocation-partners': [],
   'allocation-tenants': [],
   'allocation-games': [],
@@ -1020,6 +1022,8 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-billing-plans': false,
   'central-admin-roles': false,
   'tenant-admin-roles': false,
+  'central-role-permissions': false,
+  'tenant-role-permissions': false,
   'allocation-partners': false,
   'allocation-tenants': false,
   'allocation-games': false,
@@ -1517,8 +1521,29 @@ const detailDisplayRecord = computed(() => {
   return record
 })
 const detailSectionRecord = computed(() => {
-  return detailDisplayRecord.value
+  if (resource.value?.slug !== 'roles' || !detailDisplayRecord.value) {
+    return detailDisplayRecord.value
+  }
+
+  return {
+    ...detailDisplayRecord.value,
+    name: phrase(detailDisplayRecord.value.name),
+  }
 })
+const detailFields = computed(() => (resource.value?.detailFields || []).map((field) => {
+  if (resource.value?.slug !== 'roles' || field.type !== 'permission-list') {
+    return field
+  }
+
+  const source: OperationOptionSource = props.scope === 'tenant'
+    ? 'tenant-role-permissions'
+    : 'central-role-permissions'
+
+  return {
+    ...field,
+    options: hydratedOptions(source, field.options),
+  }
+}))
 const relatedDetailSectionRecord = computed(() => {
   return relatedDetail.record
 })
@@ -2125,6 +2150,17 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         query: { limit: 500 },
       })
       optionSourceOptions[source] = normalizeRoleOptions(extractItems(response))
+    } else if (source === 'central-role-permissions') {
+      const response = await api.apiFetch('/admin/central/role-permissions', {
+        scope: 'central',
+      })
+      optionSourceOptions[source] = normalizePermissionOptions(extractItems(response))
+    } else if (source === 'tenant-role-permissions') {
+      const response = await api.apiFetch('/admin/tenant/role-permissions', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+      })
+      optionSourceOptions[source] = normalizePermissionOptions(extractItems(response))
     } else if (source === 'allocation-partners') {
       const response = await api.apiFetch('/admin/central/allocation-options/partners', {
         scope: 'central',
@@ -2250,7 +2286,7 @@ const normalizeBillingPlanOptions = (items: any[]) => items
 const roleOption = (role: any): OperationOption => {
   const id = role?.id || role?.role_id || role?.uuid || role?.code
   const code = role?.code || ''
-  const name = role?.name || code || id
+  const name = phrase(role?.name || code || id)
   const status = String(role?.status || '').toLowerCase()
   const suffix = code && code !== name ? ` (${code})` : ''
 
@@ -2266,6 +2302,14 @@ const roleOption = (role: any): OperationOption => {
 
 const normalizeRoleOptions = (items: any[]) => items
   .map(roleOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const normalizePermissionOptions = (items: any[]): OperationOption[] => items
+  .map((permission) => ({
+    value: String(permission?.code || ''),
+    code: String(permission?.code || ''),
+    label: String(permission?.name || permission?.code || ''),
+  }))
   .filter((option) => !isBlank(optionValue(option)))
 
 const customerOption = (customer: any): OperationOption => {
@@ -4454,7 +4498,9 @@ const formatValue = (value: any, type?: string) => {
 
 const formattedCellValue = (row: Record<string, any>, column: OperationColumn) => {
   const value = row[column.key]
-  return value === undefined || value === null || value === '' ? '-' : String(value)
+  if (value === undefined || value === null || value === '') return '-'
+  if (resource.value?.slug === 'roles' && column.key === 'name') return phrase(value)
+  return String(value)
 }
 
 const isActionDisabled = (action: OperationAction, row: any) => {

@@ -129,6 +129,33 @@ class AdminRoleTest extends TestCase
         ]);
     }
 
+    public function test_tenant_role_manager_can_list_every_active_tenant_permission(): void
+    {
+        $login = $this->createTenantAdminSession(['role.manage']);
+
+        DB::table('permissions')->insert([
+            'id' => 'per_tenant_new_capability',
+            'scope_type' => 'tenant',
+            'code' => 'new_capability.manage',
+            'name' => 'Manage new capability',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $permissions = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/tenant/role-permissions', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.has_more', false)
+            ->json('data');
+
+        $this->assertContains('new_capability.manage', array_column($permissions, 'code'));
+        $this->assertSame('Manage new capability', collect($permissions)->firstWhere('code', 'new_capability.manage')['name']);
+    }
+
     public function test_role_management_defaults_to_deny_without_role_manage_permission(): void
     {
         $login = $this->createCentralAdminSession(['dashboard.view']);

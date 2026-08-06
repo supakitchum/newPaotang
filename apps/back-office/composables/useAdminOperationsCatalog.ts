@@ -38,7 +38,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-winner-games' | 'central-sale-price-games' | 'central-reward-payout-rule-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
+export type OperationOptionSource = 'central-games' | 'central-winner-games' | 'central-sale-price-games' | 'central-reward-payout-rule-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'central-role-permissions' | 'tenant-role-permissions' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
 
 export type OperationColumn = {
   key: string
@@ -798,6 +798,7 @@ const permissionsField = (scope: AdminScope, required = false): OperationFormFie
   label: 'Permissions',
   type: 'checkbox-group',
   options: permissionOptionsForScope(scope),
+  optionSource: scope === 'central' ? 'central-role-permissions' : 'tenant-role-permissions',
   required,
   emptyValue: 'array',
   help: 'Choose permissions by readable name. The API receives permission codes.',
