@@ -48,8 +48,8 @@
             <div class="text-muted fs-12">{{ connection.bot_basic_id || 'Enter credentials below and save.' }}</div>
           </div>
           <div class="ms-auto text-end">
-            <div class="text-muted fs-12">Customer callback URL</div>
-            <code>{{ callbackUrl }}</code>
+            <div class="text-muted fs-12">Messaging API Webhook URL</div>
+            <code>{{ connection.webhook_url || '/api/v1/public/line/webhook' }}</code>
           </div>
         </div>
 
@@ -61,19 +61,6 @@
           <div class="col-md-6">
             <label class="form-label">Messaging API Channel Secret</label>
             <input v-model="connectionForm.messaging_channel_secret" class="form-control" type="password" autocomplete="off" :placeholder="connection.messaging_channel_secret_masked || 'Paste secret'">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">LINE Login Channel ID</label>
-            <input v-model="connectionForm.login_channel_id" class="form-control" autocomplete="off" :placeholder="connection.login_channel_id_masked || 'Channel ID'">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">LINE Login Channel Secret</label>
-            <input v-model="connectionForm.login_channel_secret" class="form-control" type="password" autocomplete="off" :placeholder="connection.login_channel_secret_masked || 'Channel secret'">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">LINE LIFF ID</label>
-            <input v-model="connectionForm.liff_id" class="form-control" autocomplete="off" placeholder="1234567890-AbCdEfGh">
-            <div class="form-text">Used when customers open the storefront from LINE LIFF.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Status</label>
@@ -221,8 +208,8 @@
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title">วิธีเชื่อมต่อ LINE OA และ LINE Login</h5>
-              <div class="text-muted fs-12">ใช้ LINE Messaging API สำหรับส่งแจ้งเตือน และใช้ LINE Login เพื่อผูก LINE user กับบัญชีลูกค้า</div>
+              <h5 class="modal-title">วิธีเชื่อมต่อ LINE Messaging API</h5>
+              <div class="text-muted fs-12">ตั้งค่า LINE OA สำหรับส่งข้อความแจ้งเตือนถึงลูกค้า</div>
             </div>
             <button class="btn-close" type="button" @click="guideModalOpen = false" />
           </div>
@@ -238,33 +225,19 @@
               <section class="np-line-guide-step">
                 <div class="np-line-guide-number">2</div>
                 <div>
-                  <h6>ตั้งค่า LINE Login</h6>
-                  <p>สร้าง LINE Login channel ใน Provider เดียวกัน แล้วนำ <strong>Channel ID</strong> และ <strong>Channel secret</strong> มากรอก พร้อมตั้ง Callback URL ใน LINE Developers เป็น <code>{{ callbackUrl }}</code></p>
-                </div>
-              </section>
-              <section class="np-line-guide-step">
-                <div class="np-line-guide-number">3</div>
-                <div>
-                  <h6>ตั้งค่า LIFF ถ้ามี</h6>
-                  <p>ถ้าต้องการให้ลูกค้าเปิดเว็บผ่าน LINE LIFF ให้สร้าง LIFF app แล้วใส่ LIFF ID ในช่อง LINE LIFF ID ระบบจะใช้ค่านี้กับ customer storefront ของ partner นี้</p>
-                </div>
-              </section>
-              <section class="np-line-guide-step">
-                <div class="np-line-guide-number">4</div>
-                <div>
                   <h6>Verify and save</h6>
                   <p>กรอกข้อมูลให้ครบ เลือก Active แล้วกด <strong>Verify and save</strong> ระบบจะตรวจสอบ token กับ LINE ก่อนบันทึก หาก API ตอบ error ให้แก้ข้อมูลแล้วกด Save ใหม่ได้</p>
                 </div>
               </section>
               <section class="np-line-guide-step">
-                <div class="np-line-guide-number">5</div>
+                <div class="np-line-guide-number">3</div>
                 <div>
                   <h6>ให้ลูกค้าเชื่อมต่อ LINE</h6>
                   <p>ลูกค้าไปที่หน้า Profile แล้วเลือกเมนูแจ้งเตือนผ่าน LINE จากนั้นกดเชื่อมต่อ LINE หรือ login ด้วย LINE ถ้ายังไม่เคยผูกบัญชี ระบบจะให้ยืนยันเบอร์ก่อน</p>
                 </div>
               </section>
               <section class="np-line-guide-step">
-                <div class="np-line-guide-number">6</div>
+                <div class="np-line-guide-number">4</div>
                 <div>
                   <h6>แก้ Template และดู Delivery Logs</h6>
                   <p>แท็บ Templates ใช้แก้ข้อความแบบ Text หรือ Flex bubble พร้อม placeholder เช่น <code>{{ placeholderLabel('customer.name') }}</code> และ <code>{{ placeholderLabel('order.amount_baht') }}</code> ส่วน Delivery logs ใช้ตรวจ sent/failed</p>
@@ -419,19 +392,12 @@ const templateForm = reactive<AnyRecord>({
 const connectionForm = reactive({
   messaging_access_token: '',
   messaging_channel_secret: '',
-  login_channel_id: '',
-  login_channel_secret: '',
-  liff_id: '',
   status: 'active',
 })
 const lineTestForm = reactive({
   customer_id: '',
   line_user_id: '',
   message: 'ทดสอบแจ้งเตือน LINE จากร้านค้า',
-})
-
-const callbackUrl = computed(() => {
-  return connection.value.callback_url || '/line/callback'
 })
 
 const previewText = computed(() => JSON.stringify(previewPayload.value?.messages || [], null, 2))
@@ -463,7 +429,6 @@ async function loadSettings() {
     connection.value = response.connection || {}
     templates.value = Array.isArray(response.templates) ? response.templates : []
     connectionForm.status = connection.value.status === 'active' ? 'active' : 'inactive'
-    connectionForm.liff_id = connection.value.liff_id || ''
   } catch (err: any) {
     error.value = err
   } finally {
@@ -488,9 +453,6 @@ async function saveConnection() {
     Object.assign(connectionForm, {
       messaging_access_token: '',
       messaging_channel_secret: '',
-      login_channel_id: '',
-      login_channel_secret: '',
-      liff_id: connection.value.liff_id || '',
       status: connection.value.status === 'active' ? 'active' : 'inactive',
     })
     successMessage.value = 'LINE connection verified and saved.'
@@ -522,9 +484,6 @@ async function disconnectConnection() {
     Object.assign(connectionForm, {
       messaging_access_token: '',
       messaging_channel_secret: '',
-      login_channel_id: '',
-      login_channel_secret: '',
-      liff_id: '',
       status: 'inactive',
     })
     successMessage.value = 'ยกเลิกการเชื่อมต่อ LINE แล้ว'

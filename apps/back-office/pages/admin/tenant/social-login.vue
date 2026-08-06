@@ -32,43 +32,79 @@
         </div>
 
         <div class="card-body">
-          <div v-if="provider.provider === 'line'" class="np-managed-provider">
-            <p class="mb-3 text-muted">
-              LINE Login uses the same LINE OA connection already configured in LINE Notifications.
-            </p>
-            <div class="np-callback-box">
-              <div class="text-muted fs-12 text-uppercase fw-semibold">Callback URL</div>
-              <code>{{ callbackUrls.line || '-' }}</code>
-            </div>
-            <button class="btn btn-success-light btn-wave mt-3" type="button" @click="goLineSettings">
-              <i class="ri-line-line me-1" />
-              Open LINE Notifications
-            </button>
-
-            <form class="np-appearance-form" @submit.prevent="saveProvider(provider.provider)">
-              <div class="np-appearance-heading">
-                <div>
-                  <div class="fw-semibold">Customer button appearance</div>
-                  <div class="text-muted fs-12">Optional runtime values used by Customer Web, iOS, and Android.</div>
-                </div>
-              </div>
+          <div v-if="provider.provider === 'line'" class="np-provider-form">
+            <form @submit.prevent="saveProvider(provider.provider)">
               <div class="row g-3">
-                <div class="col-12">
-                  <label class="form-label">Display label</label>
-                  <input v-model.trim="forms.line.display_label" class="form-control" maxlength="80" :placeholder="provider.label || 'LINE'">
+                <div class="col-md-6">
+                  <label class="form-label">LINE Login Channel ID</label>
+                  <input
+                    v-model.trim="forms.line.login_channel_id"
+                    class="form-control"
+                    autocomplete="off"
+                    :placeholder="provider.login_channel_id_masked || 'Channel ID'"
+                  >
+                  <div v-if="provider.login_channel_id_masked" class="form-text">Saved: {{ provider.login_channel_id_masked }}</div>
                 </div>
-                <div v-for="field in appearanceColorFields" :key="field.key" class="col-md-4">
-                  <label class="form-label">{{ field.label }}</label>
-                  <div class="input-group np-color-control">
-                    <input class="form-control form-control-color" type="color" :aria-label="`${field.label} swatch`" :value="pickerColor(forms.line[field.key])" @input="setProviderColor('line', field.key, $event)">
-                    <input v-model.trim="forms.line[field.key]" class="form-control" inputmode="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#RRGGBB">
+                <div class="col-md-6">
+                  <label class="form-label">LINE Login Channel Secret</label>
+                  <input
+                    v-model="forms.line.login_channel_secret"
+                    class="form-control"
+                    type="password"
+                    autocomplete="new-password"
+                    :placeholder="provider.login_channel_secret_configured ? 'Leave blank to keep existing secret' : 'Channel secret'"
+                  >
+                  <div v-if="provider.login_channel_secret_configured" class="form-text">Saved and encrypted.</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">LINE LIFF ID</label>
+                  <input v-model.trim="forms.line.liff_id" class="form-control" autocomplete="off" placeholder="1234567890-AbCdEfGh">
+                  <div class="form-text">Optional. Used when customers open the storefront from LINE LIFF.</div>
+                </div>
+                <div class="col-12">
+                  <div class="np-callback-box">
+                    <div class="text-muted fs-12 text-uppercase fw-semibold">Callback URL</div>
+                    <code>{{ provider.redirect_uri || callbackUrls.line || '-' }}</code>
                   </div>
                 </div>
               </div>
-              <div class="np-card-actions is-appearance-only">
-                <button class="btn btn-primary btn-wave" type="submit" :disabled="saving.line || !tenantId">
+
+              <div class="np-appearance-form">
+                <div class="np-appearance-heading">
+                  <div>
+                    <div class="fw-semibold">Customer button appearance</div>
+                    <div class="text-muted fs-12">Optional runtime values used by Customer Web, iOS, and Android.</div>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label">Display label</label>
+                    <input v-model.trim="forms.line.display_label" class="form-control" maxlength="80" :placeholder="provider.label || 'LINE'">
+                  </div>
+                  <div v-for="field in appearanceColorFields" :key="field.key" class="col-md-4">
+                    <label class="form-label">{{ field.label }}</label>
+                    <div class="input-group np-color-control">
+                      <input class="form-control form-control-color" type="color" :aria-label="`${field.label} swatch`" :value="pickerColor(forms.line[field.key])" @input="setProviderColor('line', field.key, $event)">
+                      <input v-model.trim="forms.line[field.key]" class="form-control" inputmode="text" maxlength="7" pattern="#[0-9A-Fa-f]{6}" placeholder="#RRGGBB">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="np-card-actions">
+                <button
+                  v-if="provider.configured"
+                  class="btn btn-outline-danger btn-wave"
+                  type="button"
+                  :disabled="saving.line || disconnecting.line"
+                  @click="disconnectProvider('line')"
+                >
+                  <span v-if="disconnecting.line" class="spinner-border spinner-border-sm me-2" />
+                  Disconnect LINE Login
+                </button>
+                <div v-else />
+                <button class="btn btn-primary btn-wave" type="submit" :disabled="saving.line || disconnecting.line || !tenantId">
                   <span v-if="saving.line" class="spinner-border spinner-border-sm me-2" />
-                  Save customer appearance
+                  Save LINE Login
                 </button>
               </div>
             </form>
@@ -200,6 +236,9 @@ const appearanceColorFields = [
 ]
 const forms = reactive<Record<string, any>>({
   line: {
+    login_channel_id: '',
+    login_channel_secret: '',
+    liff_id: '',
     display_label: '',
     brand_color: '',
     button_background_color: '',
@@ -314,7 +353,12 @@ const applyProviderToForm = (provider: any) => {
   form.brand_color = provider.brand_color || ''
   form.button_background_color = provider.button_background_color || ''
   form.button_foreground_color = provider.button_foreground_color || ''
-  if (provider.provider === 'line') return
+  if (provider.provider === 'line') {
+    form.login_channel_id = ''
+    form.login_channel_secret = ''
+    form.liff_id = provider.liff_id || ''
+    return
+  }
 
   form.status = provider.status || 'inactive'
   form.client_id = ''
@@ -336,8 +380,6 @@ const setProviderColor = (provider: string, field: string, event: Event) => {
   forms[provider][field] = value.toUpperCase()
 }
 
-const goLineSettings = () => navigateTo('/admin/tenant/line-notifications')
-
 const providerLabel = (provider: string) => {
   if (provider === 'google') return 'Google / Gmail'
   if (provider === 'apple') return 'Apple ID'
@@ -346,7 +388,7 @@ const providerLabel = (provider: string) => {
 }
 
 const providerSubtitle = (provider: any) => {
-  if (provider.provider === 'line') return 'Uses LINE Login settings from LINE Notifications.'
+  if (provider.provider === 'line') return 'Tenant-owned LINE Login credentials for Customer login.'
   if (provider.provider === 'google') return 'Tenant-owned Google OAuth credentials for Customer login.'
   if (provider.provider === 'facebook') return 'Tenant-owned Meta app credentials for Facebook Login.'
   return 'Tenant-owned Sign in with Apple credentials for Customer login.'

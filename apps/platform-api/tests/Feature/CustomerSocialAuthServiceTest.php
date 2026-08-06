@@ -6,6 +6,7 @@ use App\Modules\Auth\Http\Controllers\CustomerSocialAuthController;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Auth\Services\CustomerRealtimeAuthService;
 use App\Modules\Auth\Services\TenantSocialAuthService;
+use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Modules\Partner\Services\PartnerProvisioningService;
 use App\Modules\Tenancy\Services\TenantConfigurationService;
 use App\Shared\Auth\CustomerSessionContext;
@@ -714,6 +715,59 @@ class CustomerSocialAuthServiceTest extends TestCase
             'provider' => 'line',
             'status' => 'inactive',
         ]);
+    }
+
+    public function test_line_login_credentials_are_managed_from_social_login_without_configuring_messaging(): void
+    {
+        $this->seedTenant('social-store.test');
+
+        $result = app(TenantSocialAuthService::class)->update('ten_social', 'line', [
+            'login_channel_id' => 'tenant-line-login-id',
+            'login_channel_secret' => 'tenant-line-login-secret',
+            'liff_id' => '1234567890-AbCdEf',
+            'display_label' => 'Continue with LINE',
+        ]);
+
+        $this->assertArrayNotHasKey('error', $result);
+        $channel = DB::table('tenant_line_channels')->where('tenant_id', 'ten_social')->first();
+        $provider = collect($result['resource']['data']['providers'] ?? [])->firstWhere('provider', 'line');
+        $notificationSettings = app(TenantLineNotificationService::class)->showSettings('ten_social');
+
+        $this->assertNotSame('tenant-line-login-id', $channel?->login_channel_id_encrypted);
+        $this->assertSame('tenant-line-login-id', Crypt::decryptString((string) $channel?->login_channel_id_encrypted));
+        $this->assertSame('1234567890-AbCdEf', $provider['liff_id'] ?? null);
+        $this->assertTrue((bool) ($provider['configured'] ?? false));
+        $this->assertTrue((bool) ($provider['ready'] ?? false));
+        $this->assertFalse((bool) ($notificationSettings['connection']['configured'] ?? true));
+        $this->assertArrayNotHasKey('login_channel_id_masked', $notificationSettings['connection']);
+    }
+
+    public function test_disconnecting_line_login_preserves_messaging_credentials(): void
+    {
+        $this->seedTenant('social-store.test');
+        Http::fake([
+            'api.line.me/v2/oauth/verify' => Http::response(['client_id' => 'messaging-channel'], 200),
+            'api.line.me/v2/bot/info' => Http::response(['userId' => 'Ubot123', 'basicId' => '@socialstore'], 200),
+        ]);
+
+        app(TenantLineNotificationService::class)->updateConnection('ten_social', [
+            'messaging_access_token' => 'messaging-token',
+            'messaging_channel_secret' => 'messaging-secret',
+            'status' => 'active',
+        ]);
+        app(TenantSocialAuthService::class)->update('ten_social', 'line', [
+            'login_channel_id' => 'tenant-line-login-id',
+            'login_channel_secret' => 'tenant-line-login-secret',
+        ]);
+
+        $result = app(TenantSocialAuthService::class)->disconnect('ten_social', 'line');
+        $channel = DB::table('tenant_line_channels')->where('tenant_id', 'ten_social')->first();
+
+        $this->assertArrayNotHasKey('error', $result);
+        $this->assertNull($channel?->login_channel_id_encrypted);
+        $this->assertNull($channel?->login_channel_secret_encrypted);
+        $this->assertNotNull($channel?->messaging_access_token_encrypted);
+        $this->assertTrue((bool) (app(TenantLineNotificationService::class)->showSettings('ten_social')['connection']['configured'] ?? false));
     }
 
     /**

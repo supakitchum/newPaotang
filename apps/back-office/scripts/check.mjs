@@ -212,6 +212,9 @@ const adminOperationsCatalog = existsSync(join(root, 'composables/useAdminOperat
 const tenantLineNotificationsPage = existsSync(join(root, 'pages/admin/tenant/line-notifications.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/line-notifications.vue'), 'utf8')
   : ''
+const tenantSocialLoginPage = existsSync(join(root, 'pages/admin/tenant/social-login.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/social-login.vue'), 'utf8')
+  : ''
 const centralDashboardPage = existsSync(join(root, 'pages/admin/central/dashboard/index.vue'))
   ? readFileSync(join(root, 'pages/admin/central/dashboard/index.vue'), 'utf8')
   : ''
@@ -336,9 +339,10 @@ for (const evidence of [
   ['LINE notification edit modal stays above its backdrop', tenantLineNotificationsPage.includes('.np-line-modal {\n  z-index: 12010;') && tenantLineNotificationsPage.includes('.np-line-modal-backdrop {\n  z-index: 12000;')],
   ['LINE notification connection save error stays retryable', tenantLineNotificationsPage.includes('lineConnectionSaveError') && tenantLineNotificationsPage.includes('กด Save ใหม่อีกครั้ง') && tenantLineNotificationsPage.includes('savingConnection.value = false')],
   ['LINE notification 422 errors render alerts instead of breaking save state', tenantLineNotificationsPage.includes('const alertType') && tenantLineNotificationsPage.includes('422') && tenantLineNotificationsPage.includes(':message="error.message"')],
-  ['LINE notification connection lets tenant configure LIFF ID', tenantLineNotificationsPage.includes('LINE LIFF ID') && tenantLineNotificationsPage.includes('connectionForm.liff_id') && tenantLineNotificationsPage.includes('Used when customers open the storefront from LINE LIFF')],
+  ['LINE Login credentials are managed from Social Login', tenantSocialLoginPage.includes('LINE Login Channel ID') && tenantSocialLoginPage.includes('forms.line.login_channel_secret') && tenantSocialLoginPage.includes('forms.line.liff_id') && tenantSocialLoginPage.includes('provider.redirect_uri')],
+  ['LINE notification connection contains Messaging API credentials only', tenantLineNotificationsPage.includes('Messaging API Channel Access Token') && tenantLineNotificationsPage.includes('connectionForm.messaging_channel_secret') && !tenantLineNotificationsPage.includes('login_channel_id') && !tenantLineNotificationsPage.includes('liff_id')],
   ['LINE notification connection can be disconnected from tenant BO', tenantLineNotificationsPage.includes('ยกเลิกการเชื่อมต่อ') && tenantLineNotificationsPage.includes('disconnectConnection') && tenantLineNotificationsPage.includes("method: 'DELETE'") && tenantLineNotificationsPage.includes("'/admin/tenant/line-notifications/connection'")],
-  ['LINE notification callback URL uses backend storefront value instead of BO origin', tenantLineNotificationsPage.includes('Customer callback URL') && tenantLineNotificationsPage.includes('connection.value.callback_url') && !tenantLineNotificationsPage.includes('window.location.origin')],
+  ['LINE Login callback URL uses backend storefront value instead of BO origin', tenantSocialLoginPage.includes('provider.redirect_uri || callbackUrls.line') && !tenantSocialLoginPage.includes('window.location.origin')],
   ['customer public-relations composer is tenant scoped and idempotent', tenantCustomerNotificationsPage.includes("'/admin/tenant/customer-notifications/customers'") && tenantCustomerNotificationsPage.includes("'/admin/tenant/customer-notifications/campaigns'") && tenantCustomerNotificationsPage.includes('scope: \'tenant\'') && tenantCustomerNotificationsPage.includes('idempotencyKey: api.idempotencyKey()') && tenantCustomerNotificationsPage.includes('new FormData()')],
   ['customer public-relations composer confirms delivery and previews inbox and push', tenantCustomerNotificationsPage.includes('confirmationOpen') && tenantCustomerNotificationsPage.includes('Confirm campaign delivery') && tenantCustomerNotificationsPage.includes("previewMode === 'inbox'") && tenantCustomerNotificationsPage.includes("previewMode === 'push'") && tenantCustomerNotificationsPage.includes('imagePreviewUrl')],
   ['customer campaign history exposes recipient read and push delivery counts', tenantCustomerNotificationsPage.includes('recipient_count') && tenantCustomerNotificationsPage.includes('read_count') && tenantCustomerNotificationsPage.includes('sent_count') && tenantCustomerNotificationsPage.includes('pending_count') && tenantCustomerNotificationsPage.includes('failed_count')],

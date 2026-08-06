@@ -51,6 +51,14 @@ class TenantSocialAuthService
                 return ['error' => 'validation_failed', 'errors' => $errors];
             }
 
+            if (array_key_exists('login_channel_id', $payload) || array_key_exists('login_channel_secret', $payload)) {
+                $lineResult = $this->lineNotifications->updateLoginConnection($tenantId, $payload);
+
+                if (isset($lineResult['error'])) {
+                    return $lineResult;
+                }
+            }
+
             $existing = TenantSocialAuthProvider::query()
                 ->where('tenant_id', $tenantId)
                 ->where('provider', $provider)
@@ -121,6 +129,14 @@ class TenantSocialAuthService
     public function disconnect(string $tenantId, string $provider): array
     {
         $provider = $this->normalizeProvider($provider);
+
+        if ($provider === 'line') {
+            $result = $this->lineNotifications->disconnectLoginConnection($tenantId);
+
+            return isset($result['error'])
+                ? $result
+                : ['resource' => $this->settings($tenantId)];
+        }
 
         if (! in_array($provider, ['google', 'apple', 'facebook'], true)) {
             return ['error' => 'provider_managed_elsewhere'];
@@ -211,7 +227,7 @@ class TenantSocialAuthService
         $appearance = $this->providerAppearance($record);
 
         if ($provider === 'line') {
-            $line = $this->lineNotifications->channelForTenant($tenantId);
+            $login = $this->lineNotifications->lineLoginSettings($tenantId);
 
             return [
                 'provider' => 'line',
@@ -220,11 +236,14 @@ class TenantSocialAuthService
                 'brand_color' => $appearance['brand_color'],
                 'button_background_color' => $appearance['button_background_color'],
                 'button_foreground_color' => $appearance['button_foreground_color'],
-                'status' => $line instanceof TenantLineChannel ? (string) $line->status : 'inactive',
-                'configured' => $line instanceof TenantLineChannel,
-                'ready' => $this->lineNotifications->channelReadyForLogin($line),
-                'managed_elsewhere' => true,
-                'settings_route' => '/admin/tenant/line-notifications',
+                'status' => ($login['ready'] ?? false) ? 'active' : 'inactive',
+                'configured' => (bool) ($login['configured'] ?? false),
+                'ready' => (bool) ($login['ready'] ?? false),
+                'managed_elsewhere' => false,
+                'login_channel_id_masked' => $login['login_channel_id_masked'] ?? null,
+                'login_channel_secret_configured' => (bool) ($login['login_channel_secret_configured'] ?? false),
+                'liff_id' => $login['liff_id'] ?? null,
+                'redirect_uri' => $this->customerCallbackUrl($tenantId, 'line'),
             ];
         }
 

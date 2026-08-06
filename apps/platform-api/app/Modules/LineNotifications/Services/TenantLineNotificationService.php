@@ -7,10 +7,8 @@ use App\Models\Customer;
 use App\Models\CustomerLineIdentity;
 use App\Models\LineNotificationDelivery;
 use App\Models\PartnerTenant;
-use App\Models\PartnerTenantDomain;
 use App\Models\TenantLineChannel;
 use App\Models\TenantLineMessageTemplate;
-use App\Shared\Tenancy\TenantHostNormalizer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -69,7 +67,7 @@ class TenantLineNotificationService
         $this->ensureDefaultTemplates($tenantId);
 
         return [
-            'connection' => $this->serializeChannel($channel, $tenantId),
+            'connection' => $this->serializeChannel($channel),
             'templates' => $this->templates($tenantId),
             'events' => array_map(fn (string $event): array => $this->eventDefinition($event), self::EVENT_KEYS),
         ];
@@ -81,9 +79,6 @@ class TenantLineNotificationService
         $existing = $this->channelForTenant($tenantId);
         $accessToken = $this->connectionSecret($existing, $payload, 'messaging_access_token', 'messaging_access_token_encrypted');
         $messagingSecret = $this->connectionSecret($existing, $payload, 'messaging_channel_secret', 'messaging_channel_secret_encrypted');
-        $loginChannelId = $this->connectionSecret($existing, $payload, 'login_channel_id', 'login_channel_id_encrypted');
-        $loginChannelSecret = $this->connectionSecret($existing, $payload, 'login_channel_secret', 'login_channel_secret_encrypted');
-        $liffId = $this->cleanString($payload['liff_id'] ?? null);
         $status = in_array(($payload['status'] ?? 'active'), ['active', 'inactive'], true) ? (string) $payload['status'] : 'active';
 
         if ($accessToken === '') {
@@ -92,30 +87,6 @@ class TenantLineNotificationService
 
         if ($messagingSecret === '') {
             $errors['messaging_channel_secret'][] = 'The Messaging API channel secret is required.';
-        }
-
-        if ($loginChannelId === '') {
-            $errors['login_channel_id'][] = 'The LINE Login channel ID is required.';
-        }
-
-        if ($loginChannelSecret === '') {
-            $errors['login_channel_secret'][] = 'The LINE Login channel secret is required.';
-        }
-
-        if ($liffId !== '' && ! preg_match('/^[0-9A-Za-z_-]{4,80}$/', $liffId)) {
-            $errors['liff_id'][] = 'The LINE LIFF ID format is invalid.';
-        }
-
-        if ($liffId !== '' && ! $this->supportsLiffId()) {
-            return [
-                'error' => 'line_schema_not_ready',
-                'message' => 'เกิดข้อผิดพลาดในการบันทึก LINE LIFF กรุณารัน database migration แล้วกด Save ใหม่อีกครั้ง',
-                'details' => [
-                    'fields' => [
-                        'liff_id' => ['The tenant_line_channels.liff_id column is missing.'],
-                    ],
-                ],
-            ];
         }
 
         if ($errors !== []) {
@@ -151,13 +122,13 @@ class TenantLineNotificationService
         $bot = $botInfo['data'] ?? [];
         $now = now();
         $channelId = (string) (TenantLineChannel::query()->where('tenant_id', $tenantId)->value('id') ?: 'tlc_'.Str::ulid()->toBase32());
+        $metadata = $this->metadataWithStatus($existing, 'messaging', $status);
+        $loginStatus = $existing instanceof TenantLineChannel ? $this->featureStatus($existing, 'login') : 'inactive';
 
         try {
             $encryptedCredentials = [
                 'messaging_access_token_encrypted' => Crypt::encryptString($accessToken),
                 'messaging_channel_secret_encrypted' => Crypt::encryptString($messagingSecret),
-                'login_channel_id_encrypted' => Crypt::encryptString($loginChannelId),
-                'login_channel_secret_encrypted' => Crypt::encryptString($loginChannelSecret),
             ];
         } catch (\Throwable) {
             return [
@@ -173,7 +144,8 @@ class TenantLineNotificationService
 
         $channelPayload = [
             'id' => $channelId,
-            'status' => $status,
+            'status' => $status === 'active' || $loginStatus === 'active' ? 'active' : 'inactive',
+            'metadata_json' => $metadata,
             ...$encryptedCredentials,
             'bot_user_id' => $this->cleanString($bot['userId'] ?? null) ?: null,
             'bot_basic_id' => $this->cleanString($bot['basicId'] ?? null) ?: null,
@@ -188,10 +160,6 @@ class TenantLineNotificationService
             'updated_at' => $now,
         ];
 
-        if ($this->supportsLiffId()) {
-            $channelPayload['liff_id'] = $liffId ?: null;
-        }
-
         TenantLineChannel::query()->updateOrCreate(
             ['tenant_id' => $tenantId],
             $channelPayload,
@@ -205,11 +173,155 @@ class TenantLineNotificationService
 
     public function disconnectConnection(string $tenantId): array
     {
-        TenantLineChannel::query()
-            ->where('tenant_id', $tenantId)
-            ->delete();
+        $channel = $this->channelForTenant($tenantId);
+
+        if ($channel instanceof TenantLineChannel && $this->loginConfigured($channel)) {
+            $metadata = $this->metadataWithStatus($channel, 'messaging', 'inactive');
+            $channel->fill([
+                'status' => $this->featureStatus($channel, 'login'),
+                'metadata_json' => $metadata,
+                'messaging_access_token_encrypted' => null,
+                'messaging_channel_secret_encrypted' => null,
+                'bot_user_id' => null,
+                'bot_basic_id' => null,
+                'bot_premium_id' => null,
+                'bot_display_name' => null,
+                'bot_picture_url' => null,
+                'chat_mode' => null,
+                'mark_as_read_mode' => null,
+                'verified_at' => null,
+                'last_tested_at' => null,
+                'last_test_status' => null,
+                'last_test_message' => null,
+                'updated_at' => now(),
+            ])->save();
+        } else {
+            TenantLineChannel::query()
+                ->where('tenant_id', $tenantId)
+                ->delete();
+        }
 
         return ['resource' => $this->showSettings($tenantId)];
+    }
+
+    public function updateLoginConnection(string $tenantId, array $payload): array
+    {
+        $existing = $this->channelForTenant($tenantId);
+        $channelId = $this->connectionSecret($existing, $payload, 'login_channel_id', 'login_channel_id_encrypted');
+        $channelSecret = $this->connectionSecret($existing, $payload, 'login_channel_secret', 'login_channel_secret_encrypted');
+        $liffId = $this->cleanString($payload['liff_id'] ?? ($existing?->liff_id ?? null));
+        $errors = [];
+
+        if ($channelId === '') {
+            $errors['login_channel_id'][] = 'The LINE Login channel ID is required.';
+        }
+
+        if ($channelSecret === '') {
+            $errors['login_channel_secret'][] = 'The LINE Login channel secret is required.';
+        }
+
+        if ($liffId !== '' && ! preg_match('/^[0-9A-Za-z_-]{4,80}$/', $liffId)) {
+            $errors['liff_id'][] = 'The LINE LIFF ID format is invalid.';
+        }
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        if ($liffId !== '' && ! $this->supportsLiffId()) {
+            return [
+                'error' => 'line_schema_not_ready',
+                'message' => 'เกิดข้อผิดพลาดในการบันทึก LINE LIFF กรุณารัน database migration แล้วกด Save ใหม่อีกครั้ง',
+                'details' => [
+                    'fields' => [
+                        'liff_id' => ['The tenant_line_channels.liff_id column is missing.'],
+                    ],
+                ],
+            ];
+        }
+
+        if (! $this->encryptionKeyConfigured()) {
+            return [
+                'error' => 'line_encryption_not_configured',
+                'message' => 'ไม่สามารถบันทึก LINE Login ได้ เนื่องจากระบบเข้ารหัสยังไม่พร้อม',
+            ];
+        }
+
+        try {
+            $encrypted = [
+                'login_channel_id_encrypted' => Crypt::encryptString($channelId),
+                'login_channel_secret_encrypted' => Crypt::encryptString($channelSecret),
+            ];
+        } catch (\Throwable) {
+            return [
+                'error' => 'line_encryption_failed',
+                'message' => 'ไม่สามารถเข้ารหัสข้อมูล LINE Login ได้ กรุณาลองใหม่อีกครั้ง',
+            ];
+        }
+
+        $metadata = $this->metadataWithStatus($existing, 'login', 'active');
+        $values = [
+            'id' => (string) ($existing?->id ?: 'tlc_'.Str::ulid()->toBase32()),
+            'status' => 'active',
+            'metadata_json' => $metadata,
+            ...$encrypted,
+            'updated_at' => now(),
+        ];
+
+        if ($this->supportsLiffId()) {
+            $values['liff_id'] = $liffId ?: null;
+        }
+
+        TenantLineChannel::query()->updateOrCreate(['tenant_id' => $tenantId], $values);
+
+        return ['resource' => $this->lineLoginSettings($tenantId)];
+    }
+
+    public function disconnectLoginConnection(string $tenantId): array
+    {
+        $channel = $this->channelForTenant($tenantId);
+
+        if (! $channel instanceof TenantLineChannel) {
+            return ['resource' => $this->lineLoginSettings($tenantId)];
+        }
+
+        if ($this->messagingConfigured($channel)) {
+            $metadata = $this->metadataWithStatus($channel, 'login', 'inactive');
+            $values = [
+                'status' => $this->featureStatus($channel, 'messaging'),
+                'metadata_json' => $metadata,
+                'login_channel_id_encrypted' => null,
+                'login_channel_secret_encrypted' => null,
+                'updated_at' => now(),
+            ];
+            if ($this->supportsLiffId()) {
+                $values['liff_id'] = null;
+            }
+            $channel->fill($values)->save();
+        } else {
+            $channel->delete();
+        }
+
+        return ['resource' => $this->lineLoginSettings($tenantId)];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function lineLoginSettings(string $tenantId): array
+    {
+        $channel = $this->channelForTenant($tenantId);
+
+        return [
+            'configured' => $channel instanceof TenantLineChannel && $this->loginConfigured($channel),
+            'ready' => $this->channelReadyForLogin($channel),
+            'login_channel_id_masked' => $channel instanceof TenantLineChannel
+                ? $this->masked($this->decrypted($channel, 'login_channel_id_encrypted'))
+                : null,
+            'login_channel_secret_configured' => $channel instanceof TenantLineChannel
+                && $this->decrypted($channel, 'login_channel_secret_encrypted') !== '',
+            'liff_id' => $channel instanceof TenantLineChannel && $this->supportsLiffId() ? $channel->liff_id : null,
+        ];
     }
 
     public function templates(string $tenantId): array
@@ -359,7 +471,7 @@ class TenantLineNotificationService
 
         $channel = $this->channelForTenant($tenantId);
 
-        if (! $channel instanceof TenantLineChannel || $channel->status !== 'active') {
+        if (! $channel instanceof TenantLineChannel || $this->featureStatus($channel, 'messaging') !== 'active') {
             return [
                 'error' => 'line_channel_not_ready',
                 'message' => 'LINE channel is not active or has not been configured.',
@@ -410,7 +522,7 @@ class TenantLineNotificationService
                 'status' => 'sent',
                 'line_user_id' => $lineUserId,
                 'sent_at' => $now,
-                'connection' => $this->serializeChannel($channel->refresh(), $tenantId),
+                'connection' => $this->serializeChannel($channel->refresh()),
             ],
         ];
     }
@@ -504,7 +616,7 @@ class TenantLineNotificationService
 
     public function channelReadyForLogin(?TenantLineChannel $channel): bool
     {
-        if (! $channel instanceof TenantLineChannel || $channel->status !== 'active') {
+        if (! $channel instanceof TenantLineChannel || $this->featureStatus($channel, 'login') !== 'active') {
             return false;
         }
 
@@ -528,7 +640,7 @@ class TenantLineNotificationService
                 ->first();
             $template = $this->templateForEvent($tenantId, $eventKey);
 
-            if (! $channel instanceof TenantLineChannel || ! $identity instanceof CustomerLineIdentity || ! $template instanceof TenantLineMessageTemplate || ! $template->enabled) {
+            if (! $channel instanceof TenantLineChannel || $this->featureStatus($channel, 'messaging') !== 'active' || ! $this->messagingConfigured($channel) || ! $identity instanceof CustomerLineIdentity || ! $template instanceof TenantLineMessageTemplate || ! $template->enabled) {
                 return;
             }
 
@@ -589,7 +701,7 @@ class TenantLineNotificationService
             return;
         }
 
-        if ($channel->status !== 'active') {
+        if ($this->featureStatus($channel, 'messaging') !== 'active') {
             $this->failDelivery($delivery, 'line_channel_inactive', 'LINE channel is not active.');
             return;
         }
@@ -892,27 +1004,21 @@ class TenantLineNotificationService
         );
     }
 
-    private function serializeChannel(?TenantLineChannel $channel, string $tenantId): array
+    private function serializeChannel(?TenantLineChannel $channel): array
     {
-        $callbackUrl = $this->customerCallbackUrl($tenantId);
-
         if (! $channel instanceof TenantLineChannel) {
             return [
                 'configured' => false,
                 'status' => 'inactive',
-                'callback_url' => $callbackUrl,
                 'webhook_url' => '/api/v1/public/line/webhook',
             ];
         }
 
         return [
-            'configured' => true,
-            'status' => $channel->status,
+            'configured' => $this->messagingConfigured($channel),
+            'status' => $this->messagingConfigured($channel) ? $this->featureStatus($channel, 'messaging') : 'inactive',
             'messaging_access_token_masked' => $this->masked($this->decrypted($channel, 'messaging_access_token_encrypted')),
             'messaging_channel_secret_masked' => $this->masked($this->decrypted($channel, 'messaging_channel_secret_encrypted')),
-            'login_channel_id_masked' => $this->masked($this->decrypted($channel, 'login_channel_id_encrypted')),
-            'login_channel_secret_masked' => $this->masked($this->decrypted($channel, 'login_channel_secret_encrypted')),
-            'liff_id' => $this->supportsLiffId() ? $channel->liff_id : null,
             'bot_user_id' => $channel->bot_user_id,
             'bot_basic_id' => $channel->bot_basic_id,
             'bot_display_name' => $channel->bot_display_name,
@@ -922,7 +1028,6 @@ class TenantLineNotificationService
             'last_tested_at' => $channel->last_tested_at,
             'last_test_status' => $channel->last_test_status,
             'last_test_message' => $channel->last_test_message,
-            'callback_url' => $callbackUrl,
             'webhook_url' => '/api/v1/public/line/webhook',
         ];
     }
@@ -1131,6 +1236,39 @@ class TenantLineNotificationService
         return $this->decrypted($channel, $encryptedField);
     }
 
+    private function messagingConfigured(TenantLineChannel $channel): bool
+    {
+        return $this->decrypted($channel, 'messaging_access_token_encrypted') !== ''
+            && $this->decrypted($channel, 'messaging_channel_secret_encrypted') !== '';
+    }
+
+    private function loginConfigured(TenantLineChannel $channel): bool
+    {
+        return $this->decrypted($channel, 'login_channel_id_encrypted') !== ''
+            && $this->decrypted($channel, 'login_channel_secret_encrypted') !== '';
+    }
+
+    private function featureStatus(TenantLineChannel $channel, string $feature): string
+    {
+        $metadata = is_array($channel->metadata_json) ? $channel->metadata_json : [];
+        $status = (string) ($metadata[$feature.'_status'] ?? $channel->status ?? 'inactive');
+
+        return in_array($status, ['active', 'inactive'], true) ? $status : 'inactive';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function metadataWithStatus(?TenantLineChannel $channel, string $feature, string $status): array
+    {
+        $metadata = $channel instanceof TenantLineChannel && is_array($channel->metadata_json)
+            ? $channel->metadata_json
+            : [];
+        $metadata[$feature.'_status'] = $status;
+
+        return $metadata;
+    }
+
     private function encryptionKeyConfigured(): bool
     {
         return $this->cleanString(config('app.key')) !== '';
@@ -1142,34 +1280,4 @@ class TenantLineNotificationService
             && Schema::hasColumn('tenant_line_channels', 'liff_id');
     }
 
-    private function customerCallbackUrl(string $tenantId): string
-    {
-        $configured = $this->cleanString(config('platform.line.callback_url', ''));
-
-        if ($configured !== '' && ! str_contains($configured, '/api/v1/customer/auth/line/callback')) {
-            return $configured;
-        }
-
-        $host = $this->primaryStorefrontHost($tenantId);
-        $scheme = preg_match('/(^localhost$|\.localhost$|\.test$)/i', $host) ? 'http' : 'https';
-
-        return $scheme.'://'.$host.'/line/callback';
-    }
-
-    private function primaryStorefrontHost(string $tenantId): string
-    {
-        $host = PartnerTenantDomain::query()
-            ->forTenant($tenantId)
-            ->orderByDesc('is_primary')
-            ->orderBy('host')
-            ->value('host');
-
-        if ($host !== null) {
-            return TenantHostNormalizer::normalize((string) $host);
-        }
-
-        $tenantCode = PartnerTenant::whereKey($tenantId)->value('code');
-
-        return TenantHostNormalizer::normalize(($tenantCode ?: $tenantId).'.newpaotang.test');
-    }
 }

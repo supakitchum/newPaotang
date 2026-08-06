@@ -29,7 +29,7 @@ class LineNotificationServiceTest extends TestCase
         $this->app->forgetInstance('encrypter');
     }
 
-    public function test_connection_verification_encrypts_credentials_and_seeds_templates(): void
+    public function test_messaging_and_login_credentials_are_saved_independently(): void
     {
         $this->seedTenant();
         Http::fake([
@@ -44,10 +44,13 @@ class LineNotificationServiceTest extends TestCase
         $result = $this->lineService()->updateConnection('ten_line', [
             'messaging_access_token' => 'messaging-token-secret',
             'messaging_channel_secret' => 'messaging-secret',
+            'status' => 'active',
+        ]);
+
+        $loginResult = $this->lineService()->updateLoginConnection('ten_line', [
             'login_channel_id' => 'login-channel',
             'login_channel_secret' => 'login-secret',
             'liff_id' => '1234567890-AbCdEf',
-            'status' => 'active',
         ]);
 
         $this->assertArrayHasKey('resource', $result);
@@ -56,8 +59,9 @@ class LineNotificationServiceTest extends TestCase
         $this->assertSame('1234567890-AbCdEf', $channel->liff_id);
         $this->assertNotSame('messaging-token-secret', $channel->messaging_access_token_encrypted);
         $this->assertSame('@luckyshop', $channel->bot_basic_id);
-        $this->assertSame('1234567890-AbCdEf', $result['resource']['connection']['liff_id'] ?? null);
-        $this->assertSame('http://line-store.test/line/callback', $result['resource']['connection']['callback_url'] ?? null);
+        $this->assertSame('1234567890-AbCdEf', $loginResult['resource']['liff_id'] ?? null);
+        $this->assertArrayNotHasKey('login_channel_id_masked', $result['resource']['connection']);
+        $this->assertArrayNotHasKey('callback_url', $result['resource']['connection']);
         $this->assertStringNotContainsString(
             'messaging-token-secret',
             (string) json_encode($result['resource']['connection'], JSON_THROW_ON_ERROR),
@@ -67,19 +71,18 @@ class LineNotificationServiceTest extends TestCase
         $updated = $this->lineService()->updateConnection('ten_line', [
             'messaging_access_token' => '',
             'messaging_channel_secret' => '',
-            'login_channel_id' => '',
-            'login_channel_secret' => '',
-            'liff_id' => '',
             'status' => 'inactive',
         ]);
 
         $this->assertArrayHasKey('resource', $updated);
+        $this->assertSame('inactive', $updated['resource']['connection']['status'] ?? null);
         $this->assertDatabaseHas('tenant_line_channels', [
             'tenant_id' => 'ten_line',
-            'status' => 'inactive',
+            'status' => 'active',
             'bot_basic_id' => '@luckyshop',
-            'liff_id' => null,
+            'liff_id' => '1234567890-AbCdEf',
         ]);
+        $this->assertTrue((bool) ($this->lineService()->lineLoginSettings('ten_line')['ready'] ?? false));
     }
 
     public function test_connection_update_returns_retryable_error_when_app_key_is_missing(): void
@@ -91,17 +94,14 @@ class LineNotificationServiceTest extends TestCase
             'api.line.me/*' => Http::response([], 500),
         ]);
 
-        $result = $this->lineService()->updateConnection('ten_line', [
-            'messaging_access_token' => 'messaging-token-secret',
-            'messaging_channel_secret' => 'messaging-secret',
+        $result = $this->lineService()->updateLoginConnection('ten_line', [
             'login_channel_id' => 'login-channel',
             'login_channel_secret' => 'login-secret',
             'liff_id' => '1234567890-AbCdEf',
-            'status' => 'active',
         ]);
 
         $this->assertSame('line_encryption_not_configured', $result['error'] ?? null);
-        $this->assertStringContainsString('กด Save ใหม่อีกครั้ง', (string) ($result['message'] ?? ''));
+        $this->assertStringContainsString('ระบบเข้ารหัส', (string) ($result['message'] ?? ''));
         $this->assertDatabaseMissing('tenant_line_channels', [
             'tenant_id' => 'ten_line',
         ]);
@@ -119,13 +119,10 @@ class LineNotificationServiceTest extends TestCase
             'api.line.me/*' => Http::response([], 500),
         ]);
 
-        $result = $this->lineService()->updateConnection('ten_line', [
-            'messaging_access_token' => 'messaging-token-secret',
-            'messaging_channel_secret' => 'messaging-secret',
+        $result = $this->lineService()->updateLoginConnection('ten_line', [
             'login_channel_id' => 'login-channel',
             'login_channel_secret' => 'login-secret',
             'liff_id' => '1234567890-AbCdEf',
-            'status' => 'active',
         ]);
 
         $this->assertSame('line_schema_not_ready', $result['error'] ?? null);
@@ -323,7 +320,7 @@ class LineNotificationServiceTest extends TestCase
         ]);
     }
 
-    public function test_connection_disconnect_removes_channel_without_wiping_templates_or_customer_links(): void
+    public function test_messaging_disconnect_preserves_login_templates_and_customer_links(): void
     {
         $this->seedTenant();
         $this->seedLineChannelAndCustomer();
@@ -331,9 +328,10 @@ class LineNotificationServiceTest extends TestCase
         $result = $this->lineService()->disconnectConnection('ten_line');
 
         $this->assertFalse((bool) ($result['resource']['connection']['configured'] ?? true));
-        $this->assertDatabaseMissing('tenant_line_channels', [
+        $this->assertDatabaseHas('tenant_line_channels', [
             'tenant_id' => 'ten_line',
         ]);
+        $this->assertTrue((bool) ($this->lineService()->lineLoginSettings('ten_line')['configured'] ?? false));
         $this->assertDatabaseHas('customer_line_identities', [
             'tenant_id' => 'ten_line',
             'customer_id' => 'cus_line',
@@ -575,9 +573,11 @@ class LineNotificationServiceTest extends TestCase
         $this->lineService()->updateConnection('ten_line', [
             'messaging_access_token' => 'messaging-token-secret',
             'messaging_channel_secret' => 'messaging-secret',
+            'status' => 'active',
+        ]);
+        $this->lineService()->updateLoginConnection('ten_line', [
             'login_channel_id' => 'login-channel',
             'login_channel_secret' => 'login-secret',
-            'status' => 'active',
         ]);
     }
 }

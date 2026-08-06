@@ -78,6 +78,13 @@ class TenantSocialAuthController extends Controller
         return match ($result['error'] ?? null) {
             'validation_failed' => ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['payload' => ['The request payload is invalid.']]),
             'provider_managed_elsewhere' => ApiErrorResponse::make($request, 409, 'provider_managed_elsewhere', 'This provider is managed from another settings page.'),
+            'line_encryption_not_configured', 'line_encryption_failed', 'line_schema_not_ready' => ApiErrorResponse::make(
+                $request,
+                503,
+                (string) $result['error'],
+                (string) ($result['message'] ?? 'Unable to save LINE Login settings.'),
+                $result['details'] ?? [],
+            ),
             default => response()->json($result['resource'] ?? []),
         };
     }
