@@ -237,43 +237,13 @@ jobs:
             exit 1
           fi
 
-      - name: Apply base manifests
-        run: kubectl apply -f /tmp/newpaotang-rendered.yaml
-
-      - name: Set production images
-        env:
-          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+      - name: Apply pre-rollout namespace and configuration
         run: |
           set -euo pipefail
-          PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
-          CUSTOMER_IMAGE="${REGISTRY}/newpaotang-customer:${IMAGE_TAG}"
-          BACK_OFFICE_IMAGE="${REGISTRY}/newpaotang-back-office:${IMAGE_TAG}"
-          LOTTO_SCRAPER_IMAGE="${REGISTRY}/newpaotang-lotto-scraper:${IMAGE_TAG}"
+          kubectl apply -f deploy/digitalocean/namespace.yaml
+          kubectl apply -f deploy/digitalocean/configmap.yaml
 
-          kubectl -n "$NAMESPACE" set image deployment/platform-api platform-api="$PLATFORM_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-critical worker="$PLATFORM_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-default worker="$PLATFORM_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-image worker="$PLATFORM_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-scheduler scheduler="$PLATFORM_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-reverb reverb="$PLATFORM_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/customer customer="$CUSTOMER_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/back-office back-office="$BACK_OFFICE_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-sanook lotto-scraper="$LOTTO_SCRAPER_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-thairath lotto-scraper="$LOTTO_SCRAPER_IMAGE"
-
-      - name: Set isolated Support images
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}
-        env:
-          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
-        run: |
-          set -euo pipefail
-          SUPPORT_API_IMAGE="${REGISTRY}/newpaotang-support-api:${IMAGE_TAG}"
-          kubectl -n "$NAMESPACE" set image deployment/support-api support-api="$SUPPORT_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/support-api-worker worker="$SUPPORT_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/support-api-scheduler scheduler="$SUPPORT_API_IMAGE"
-          kubectl -n "$NAMESPACE" set image deployment/support-api-reverb reverb="$SUPPORT_API_IMAGE"
-
-      - name: Run database migrations
+      - name: Run database migrations before Platform rollout
         env:
           MIGRATION_JOB_NAME: newpaotang-migrate-${{ github.run_id }}-${{ github.run_attempt }}
           IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
@@ -318,6 +288,9 @@ jobs:
           export PLATFORM_API_IMAGE
           envsubst < deploy/digitalocean/jobs/rbac-seed.yaml | kubectl apply -f -
           kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${RBAC_SEED_JOB_NAME}" --timeout=600s
+
+      - name: Apply production manifests after pre-rollout jobs
+        run: kubectl apply -f /tmp/newpaotang-rendered.yaml
 
       - name: Wait for rollout
         run: |

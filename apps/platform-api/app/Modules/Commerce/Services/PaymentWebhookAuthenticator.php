@@ -34,28 +34,42 @@ class PaymentWebhookAuthenticator
             return false;
         }
 
-        if ($provider === DeepayKbankPaymentProvider::PROVIDER) {
-            return $this->verifyTrustedDeepayCallback($payment, $topup, $request);
-        }
-
         $secret = $this->decryptSecret($connection->webhook_secret_encrypted);
+        $metadata = is_array($connection->metadata_json) ? $connection->metadata_json : [];
+        $mode = strtolower(trim((string) ($metadata['webhook_auth_mode'] ?? 'hmac_sha256')));
+
         if ($secret === '') {
             return false;
         }
 
-        $metadata = is_array($connection->metadata_json) ? $connection->metadata_json : [];
-        $mode = strtolower(trim((string) ($metadata['webhook_auth_mode'] ?? 'hmac_sha256')));
-
-        return match ($mode) {
+        $authenticated = match ($mode) {
             'token' => $this->verifyToken($secret, $request),
             'hmac_sha256' => $this->verifyHmac($secret, $request),
             default => false,
         };
+
+        if (! $authenticated) {
+            return false;
+        }
+
+        if ($provider === DeepayKbankPaymentProvider::PROVIDER) {
+            return $this->verifyAuthenticatedDeepayCallback($payment, $topup, $request);
+        }
+
+        return true;
     }
 
-    private function verifyTrustedDeepayCallback(?object $payment, ?object $topup, Request $request): bool
+    private function verifyAuthenticatedDeepayCallback(?object $payment, ?object $topup, Request $request): bool
     {
         if ($payment === null || $topup === null) {
+            return false;
+        }
+        $paymentStatus = (string) $payment->status;
+        $topupStatus = (string) $topup->status;
+        $active = in_array($paymentStatus, ['pending', 'processing'], true)
+            && in_array($topupStatus, ['pending', 'processing'], true);
+        $alreadySucceeded = $paymentStatus === 'succeeded' && $topupStatus === 'succeeded';
+        if (! $active && ! $alreadySucceeded) {
             return false;
         }
 
@@ -76,25 +90,57 @@ class PaymentWebhookAuthenticator
             $payload['reference3']
             ?? data_get($payload, 'payload.reference3', '')
         ));
+        $reference4 = trim((string) (
+            $payload['reference4']
+            ?? data_get($payload, 'payload.reference4', '')
+        ));
+        $currency = strtoupper(trim((string) (
+            $payload['txnCurrencyCode']
+            ?? $payload['currency']
+            ?? data_get($payload, 'payload.txnCurrencyCode')
+            ?? data_get($payload, 'payload.currency')
+            ?? ''
+        )));
+        $amountMinor = $this->amountMinor(
+            $payload['txnAmount']
+            ?? $payload['amount']
+            ?? data_get($payload, 'payload.txnAmount')
+            ?? data_get($payload, 'payload.amount'),
+        );
 
         $attempt = PaymentProviderAttempt::query()
             ->where('provider', DeepayKbankPaymentProvider::PROVIDER)
             ->where('payment_id', $payment->id)
+            ->whereIn('operation', ['bill', 'billCredit'])
             ->latest('attempted_at')
             ->first();
-        $expectedReference1 = trim((string) ($attempt?->provider_reference1 ?? $topup->id));
-        $expectedReference3 = trim((string) ($attempt?->provider_reference3 ?? $payment->tenant_id));
-        $expectedProviderReference = trim((string) ($payment->provider_reference ?? $attempt?->provider_transaction_reference ?? ''));
+        if ($attempt === null) {
+            return false;
+        }
+
+        $expectedReference1 = trim((string) $attempt->provider_reference1);
+        $expectedReference2 = strtolower(trim((string) $attempt->provider_reference2));
+        $expectedReference3 = trim((string) $attempt->provider_reference3);
+        $expectedReference4 = trim((string) $attempt->provider_reference4);
+        $expectedProviderReference = trim((string) ($payment->provider_reference ?? $attempt->provider_transaction_reference ?? ''));
         $providerReferenceMatches = $expectedProviderReference !== ''
             ? hash_equals($expectedProviderReference, $providerReference)
-            : $attempt !== null && in_array((string) $attempt->status, ['initiated', 'invalid_response', 'transport_failed', 'outcome_unknown'], true);
+            : in_array((string) $attempt->status, ['initiated', 'invalid_response', 'transport_failed', 'outcome_unknown'], true);
 
         if (
             $providerReference === ''
             || $reference1 === ''
-            || $reference2 !== 'wallet'
+            || $reference3 === ''
+            || $reference4 === ''
+            || $currency !== 'THB'
+            || $amountMinor === null
+            || $amountMinor !== (int) $payment->amount
+            || ! $this->deepayCallbackDeclaresSuccess($payload)
+            || $reference2 !== $expectedReference2
             || ! $providerReferenceMatches
             || ! hash_equals($expectedReference1, $reference1)
+            || ! hash_equals($expectedReference3, $reference3)
+            || ! hash_equals($expectedReference4, $reference4)
         ) {
             return false;
         }
@@ -105,7 +151,49 @@ class PaymentWebhookAuthenticator
             && (string) $payment->topup_request_id === (string) $topup->id
             && (string) $topup->payment_id === (string) $payment->id
             && (string) $topup->tenant_id === $tenantId
-            && ($reference3 === '' || hash_equals($expectedReference3, $reference3));
+            && (string) $topup->customer_id === (string) $payment->customer_id
+            && (string) $topup->currency === $currency
+            && (int) $topup->amount === $amountMinor;
+    }
+
+    /**
+     * DeePay does not currently provide an authenticated callback contract in
+     * this repository. This check is used only after HMAC/token authentication
+     * and deliberately rejects callbacks that merely contain a transaction ID.
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function deepayCallbackDeclaresSuccess(array $payload): bool
+    {
+        $status = strtolower(trim((string) (
+            $payload['status']
+            ?? $payload['event']
+            ?? $payload['txnStatus']
+            ?? data_get($payload, 'payload.status')
+            ?? data_get($payload, 'payload.txnStatus')
+            ?? ''
+        )));
+        $statusCode = strtoupper(trim((string) (
+            $payload['statusCode']
+            ?? data_get($payload, 'payload.statusCode')
+            ?? ''
+        )));
+
+        return in_array($status, ['success', 'succeeded', 'paid', 'payment.succeeded', 'topup.succeeded'], true)
+            || $statusCode === '00';
+    }
+
+    private function amountMinor(mixed $value): ?int
+    {
+        $value = trim((string) $value);
+        if (preg_match('/\A(\d+)(?:\.(\d{1,2}))?\z/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        $whole = (int) $matches[1];
+        $fraction = str_pad((string) ($matches[2] ?? ''), 2, '0');
+
+        return ($whole * 100) + (int) $fraction;
     }
 
     private function verifyToken(string $secret, Request $request): bool

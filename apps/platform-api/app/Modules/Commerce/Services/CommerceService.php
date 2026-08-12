@@ -1107,6 +1107,7 @@ class CommerceService
             ) {
                 $attemptStatus = (string) (PaymentProviderAttempt::query()
                     ->where('payment_id', $payment->id)
+                    ->whereIn('operation', ['bill', 'billCredit'])
                     ->latest('attempted_at')
                     ->value('status') ?? '');
 
@@ -1242,6 +1243,22 @@ class CommerceService
                 'response_classification' => $classification,
                 'latency_ms' => max(0, (int) ($cancelResult['latency_ms'] ?? 0)),
             ];
+
+            if ((string) $topup->status === 'succeeded' || (string) $payment->status === 'succeeded') {
+                PaymentProviderAttempt::query()->where('id', $attempt->id)->update([
+                    'status' => 'superseded',
+                    'application_error_code' => 'payment_already_succeeded',
+                    'response_classification' => 'superseded_by_payment_success',
+                    'updated_at' => $now,
+                ]);
+                Log::warning('payment_provider_cancel_superseded', $logContext + [
+                    'response_classification' => 'superseded_by_payment_success',
+                ]);
+                $conflict = ['error' => 'resource_conflict'];
+                $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, 409, $conflict);
+
+                return $conflict;
+            }
 
             if (($cancelResult['ok'] ?? false) !== true) {
                 Log::warning('payment_provider_attempt_completed', $logContext);
@@ -2411,10 +2428,22 @@ class CommerceService
         return DB::transaction(function () use ($domain, $provider, $payload, $request, $callbackKey, $payloadHash): array {
             $payment = $this->paymentForWebhook($domain, $provider, $payload);
             $topup = $this->topupForWebhook($domain, $payment);
+            if (
+                $domain === 'topups'
+                && $provider === DeepayKbankPaymentProvider::PROVIDER
+                && $payment !== null
+                && $topup !== null
+            ) {
+                // Match customer cancellation lock order so one terminal state wins cleanly.
+                $topup = TopupRequest::query()->where('id', $topup->id)->lockForUpdate()->first();
+                $payment = $topup === null
+                    ? null
+                    : Payment::query()->where('id', $payment->id)->lockForUpdate()->first();
+            }
             if (! $this->webhookAuthenticator->verify($provider, $payment, $topup, $request)) {
                 return ['error' => 'webhook_authentication_failed'];
             }
-            $this->bindProviderReferenceFromTrustedCallback($provider, $payment, $payload);
+            $this->bindProviderReferenceFromAuthenticatedCallback($provider, $payment, $payload);
 
             $existing = WebhookCallback::query()
                 ->where('domain', $domain)
@@ -2459,7 +2488,7 @@ class CommerceService
                 'updated_at' => now(),
             ]);
 
-            if ($this->webhookIsSuccessful($payload)) {
+            if ($this->webhookIsSuccessful($provider, $payload)) {
                 if ($domain === 'payments' && $payment !== null && $payment->order_id !== null) {
                     $this->finalizeExternalPayment($payment, $request);
                 }
@@ -3247,6 +3276,7 @@ class CommerceService
         $attempt = PaymentProviderAttempt::query()
             ->where('provider', $provider)
             ->where('provider_reference1', $reference)
+            ->whereIn('operation', ['bill', 'billCredit'])
             ->first();
 
         if ($attempt !== null && $attempt->payment_id !== null) {
@@ -3261,7 +3291,7 @@ class CommerceService
         return Payment::where('provider', $provider)->where('reference', $reference)->first();
     }
 
-    private function bindProviderReferenceFromTrustedCallback(string $provider, ?object $payment, array $payload): void
+    private function bindProviderReferenceFromAuthenticatedCallback(string $provider, ?object $payment, array $payload): void
     {
         if (
             $provider !== DeepayKbankPaymentProvider::PROVIDER
@@ -3284,14 +3314,26 @@ class CommerceService
                 'provider_reference' => $providerReference,
                 'updated_at' => $now,
             ]);
-        PaymentProviderAttempt::query()
+        $attempt = PaymentProviderAttempt::query()
             ->where('payment_id', $payment->id)
+            ->where('provider', DeepayKbankPaymentProvider::PROVIDER)
+            ->whereIn('operation', ['bill', 'billCredit'])
+            ->where('provider_reference1', trim((string) ($payload['reference1'] ?? data_get($payload, 'payload.reference1', ''))))
             ->whereIn('status', ['initiated', 'invalid_response', 'transport_failed', 'outcome_unknown'])
+            ->latest('attempted_at')
+            ->lockForUpdate()
+            ->first();
+        if ($attempt === null) {
+            return;
+        }
+
+        PaymentProviderAttempt::query()
+            ->where('id', $attempt->id)
             ->update([
                 'status' => 'succeeded',
                 'provider_transaction_reference' => $providerReference,
                 'application_error_code' => null,
-                'response_classification' => 'succeeded_callback',
+                'response_classification' => 'succeeded_authenticated_callback',
                 'completed_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -3320,11 +3362,25 @@ class CommerceService
         return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
-    private function webhookIsSuccessful(array $payload): bool
+    private function webhookIsSuccessful(string $provider, array $payload): bool
     {
-        $status = strtolower((string) ($payload['status'] ?? $payload['event'] ?? data_get($payload, 'payload.status', '')));
-        if ($status === '' && trim((string) ($payload['partnerTxnUid'] ?? '')) !== '' && (string) ($payload['reference2'] ?? '') === 'wallet') {
-            return true;
+        $status = strtolower(trim((string) (
+            $payload['status']
+            ?? $payload['event']
+            ?? $payload['txnStatus']
+            ?? data_get($payload, 'payload.status')
+            ?? data_get($payload, 'payload.txnStatus')
+            ?? ''
+        )));
+        if ($provider === DeepayKbankPaymentProvider::PROVIDER) {
+            $statusCode = strtoupper(trim((string) (
+                $payload['statusCode']
+                ?? data_get($payload, 'payload.statusCode')
+                ?? ''
+            )));
+
+            return in_array($status, ['success', 'succeeded', 'paid', 'payment.succeeded', 'topup.succeeded'], true)
+                || $statusCode === '00';
         }
 
         return in_array($status, ['success', 'succeeded', 'paid', 'payment.succeeded', 'topup.succeeded'], true);

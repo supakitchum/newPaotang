@@ -576,7 +576,7 @@ export default {
 	    'Paste x-api-key': 'Paste x-api-key',
 	    'Leave blank to keep the existing API key.': 'Leave blank to keep the existing API key.',
 	    'Webhook verification': 'Webhook verification',
-	    'DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.': 'DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.',
+	    'Automatic DeePay callbacks are disabled until an authenticated provider contract is configured. Unknown outcomes require manual reconciliation.': 'Automatic DeePay callbacks are disabled until an authenticated provider contract is configured. Unknown outcomes require manual reconciliation.',
 	    'Callback URL': 'Callback URL',
 	    'Deactivate': 'Deactivate',
 	    'Save DeePay connection': 'Save DeePay connection',

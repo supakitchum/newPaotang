@@ -2,7 +2,7 @@
 
 Date: 2026-08-12
 
-Status: root cause confirmed from the DeePay request contract and remediation implemented locally. Production remains unchanged until the additive migration and API image are deployed and an explicitly approved controlled top-up is completed.
+Status: root cause confirmed from the DeePay request contract and remediation implemented locally. Security review follow-up keeps automatic DeePay callbacks fail-closed and requires manual reconciliation until DeePay supplies an authenticated callback or inquiry contract. Production remains unchanged until review, additive migration, API deployment, and an explicitly approved controlled top-up are completed.
 
 Owner: Coordinator / application development
 
@@ -27,13 +27,13 @@ The original provider response remains unrecoverable, so the exact body for the 
 - Added additive `payment_provider_attempts` storage with request ID, safe references, classification, provider status/code/message, and latency.
 - Reserved idempotency before the external request and persisted initiating Topup, Payment, and attempt rows in a short transaction.
 - Moved the DeePay HTTP request outside the database transaction and finalized the result in a second short transaction.
-- Added short DeePay references, callback mapping, and callback authentication support.
+- Added short DeePay references and durable callback mapping. Automatic DeePay callbacks are fail-closed by default; unresolved outcomes cannot bind a transaction reference or credit a wallet without cryptographic authentication or trusted server-to-server verification.
 - Classified rejected, invalid, transport, and unknown outcomes without blind retries; unresolved outcomes remain processing and cannot be cancelled into a duplicate flow.
 - Sanitized and bounded provider diagnostics; API keys, raw responses, and QR/base64 data are excluded from attempt records, logs, and admin diagnostics.
 - Added tenant BO lookup by `request_id` through the existing top-up API and a sanitized provider-attempt detail.
 - Added localized safe customer errors with the platform request ID.
 
-Local verification used `newpaotang_test` only: 14 focused tests passed with more than 330 assertions across customer top-ups, tenant top-up operations, provider rejection/invalid/unknown outcomes, idempotency, transaction boundaries, and successful webhook wallet crediting.
+Local verification used `newpaotang_test` only: the security remediation suite passed 23 focused tests with 535 assertions across customer top-ups, tenant top-up operations, forged/unsigned callback rejection, provider rejection/invalid/unknown outcomes, idempotency, transaction boundaries, bill/cancel correlation, terminal-state and cancellation race policy, and authenticated webhook wallet crediting.
 
 ## Affected Environment
 

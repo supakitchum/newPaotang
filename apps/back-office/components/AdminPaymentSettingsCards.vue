@@ -109,7 +109,7 @@
           <div class="np-provider-field">
             <label class="form-label">{{ phrase('Webhook verification') }}</label>
             <div class="alert alert-warning mb-0 py-2">
-              {{ phrase('DeePay callbacks are trusted without a webhook secret and must match an existing payment transaction.') }}
+              {{ phrase('Automatic DeePay callbacks are disabled until an authenticated provider contract is configured. Unknown outcomes require manual reconciliation.') }}
             </div>
           </div>
           <div class="np-provider-callback">

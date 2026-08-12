@@ -575,33 +575,103 @@ class CustomerTopupTest extends TestCase
             'reference1' => $attempt->provider_reference1,
             'reference2' => 'wallet',
             'reference3' => $attempt->provider_reference3,
+            'reference4' => $attempt->provider_reference4,
+            'txnAmount' => '170.00',
+            'txnCurrencyCode' => 'THB',
+            'statusCode' => '00',
         ])
-            ->assertAccepted()
-            ->assertJsonPath('duplicate', false);
+            ->assertUnauthorized();
 
         $this->assertDatabaseHas('payment_provider_attempts', [
             'id' => $attempt->id,
-            'status' => 'succeeded',
-            'provider_transaction_reference' => 'ptx-resolved-after-timeout',
-            'response_classification' => 'succeeded_callback',
+            'status' => 'outcome_unknown',
+            'provider_transaction_reference' => null,
+            'response_classification' => 'outcome_unknown',
         ]);
-        $this->assertDatabaseHas('topup_requests', ['id' => $attempt->topup_request_id, 'status' => 'succeeded']);
+        $this->assertDatabaseHas('topup_requests', ['id' => $attempt->topup_request_id, 'status' => 'processing']);
         $this->assertDatabaseHas('payments', [
             'id' => $attempt->payment_id,
-            'status' => 'succeeded',
-            'provider_reference' => 'ptx-resolved-after-timeout',
+            'status' => 'processing',
+            'provider_reference' => null,
         ]);
         $this->assertDatabaseHas('wallets', [
             'id' => $world['wallet_id'],
-            'balance_amount' => 117000,
+            'balance_amount' => 100000,
         ]);
+        $this->assertSame(0, DB::table('webhook_callbacks')->where('provider', 'deepay_kbank')->count());
 
         $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups', $payload, $headers)
-            ->assertCreated()
-            ->assertJsonPath('id', $attempt->topup_request_id)
-            ->assertJsonPath('status', 'approved');
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_outcome_unknown');
         Http::assertSentCount(1);
+    }
+
+    public function test_Deepay_payment_success_wins_when_it_arrives_during_cancellation(): void
+    {
+        $world = $this->prepareReservedCart('par_deepay_cancel_race', 'ten_deepay_cancel_race', 'deepay-cancel-race.m5.test', 'gam_deepay_cancel_race', '0804005666', 730601);
+        $this->configureDeepayProvider('ten_deepay_cancel_race', function ($request) {
+            if (str_ends_with($request->url(), '/cancel')) {
+                $providerReference = (string) data_get($request->data(), 'txn_id');
+                $payment = DB::table('payments')->where('provider_reference', $providerReference)->first();
+                DB::table('payments')->where('id', $payment->id)->update([
+                    'status' => 'succeeded',
+                    'paid_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                DB::table('topup_requests')->where('id', $payment->topup_request_id)->update([
+                    'status' => 'succeeded',
+                    'reviewed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return Http::response(['code' => 0], 200);
+            }
+
+            $reference1 = (string) data_get($request->data(), 'reference1');
+
+            return Http::response([
+                'result' => [
+                    'qr' => base64_encode('qr-'.$reference1),
+                    'txn' => ['response' => ['partnerTxnUid' => 'ptx_'.$reference1]],
+                ],
+            ], 200);
+        });
+
+        $topup = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
+                'amount' => 600,
+            ], [
+                'Idempotency-Key' => 'deepay-cancel-race-create',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->withToken($world['auth']['token'])
+            ->deleteJson('http://'.$world['host'].'/api/v1/customer/topups/'.$topup['id'], [
+                'reason' => 'cancel race',
+            ], [
+                'Idempotency-Key' => 'deepay-cancel-race-cancel',
+            ])
+            ->assertConflict();
+
+        $this->assertDatabaseHas('topup_requests', ['id' => $topup['id'], 'status' => 'succeeded']);
+        $this->assertDatabaseHas('payments', ['topup_request_id' => $topup['id'], 'status' => 'succeeded']);
+        $this->assertDatabaseHas('payment_provider_attempts', [
+            'topup_request_id' => $topup['id'],
+            'operation' => 'cancel',
+            'status' => 'superseded',
+            'application_error_code' => 'payment_already_succeeded',
+            'response_classification' => 'superseded_by_payment_success',
+        ]);
+
+        $this->withToken($world['auth']['token'])
+            ->deleteJson('http://'.$world['host'].'/api/v1/customer/topups/'.$topup['id'], [
+                'reason' => 'cancel race',
+            ], [
+                'Idempotency-Key' => 'deepay-cancel-race-cancel',
+            ])
+            ->assertConflict();
     }
 
     private function uploadedSlip(): UploadedFile

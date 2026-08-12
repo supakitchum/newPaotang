@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Http;
 class DeepayKbankPaymentProvider
 {
     public const PROVIDER = 'deepay_kbank';
-    public const WEBHOOK_AUTH_MODE = 'trusted_provider';
+    public const WEBHOOK_AUTH_MODE = 'manual_reconciliation';
 
     /**
      * @param array{reference1: string, reference2: string, reference3: string, reference4: string} $references

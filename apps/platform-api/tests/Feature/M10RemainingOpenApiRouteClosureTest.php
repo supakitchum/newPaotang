@@ -339,7 +339,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertJsonPath('status', 'active')
             ->assertJsonPath('configured', true)
             ->assertJsonPath('ready', true)
-            ->assertJsonPath('webhook_auth_mode', 'trusted_provider')
+            ->assertJsonPath('webhook_auth_mode', 'manual_reconciliation')
             ->assertJsonPath('callback_path', '/api/v1/webhooks/topups/deepay_kbank')
             ->json();
 
@@ -355,7 +355,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
         $this->assertNull($stored->webhook_secret_encrypted);
         $this->assertSame([
             'callback_path' => '/api/v1/webhooks/topups/deepay_kbank',
-            'webhook_auth_mode' => 'trusted_provider',
+            'webhook_auth_mode' => 'manual_reconciliation',
         ], json_decode((string) $stored->metadata_json, true, 512, JSON_THROW_ON_ERROR));
 
         $originalApiKeyEncrypted = (string) $stored->api_key_encrypted;
@@ -368,7 +368,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertOk()
             ->assertJsonPath('configured', true)
             ->assertJsonPath('ready', true)
-            ->assertJsonPath('webhook_auth_mode', 'trusted_provider');
+            ->assertJsonPath('webhook_auth_mode', 'manual_reconciliation');
 
         $updated = DB::table('tenant_payment_provider_connections')
             ->where('tenant_id', 'ten_deepay_m10')
@@ -384,7 +384,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
         $this->assertNull($updated->webhook_secret_encrypted);
         $this->assertSame([
             'callback_path' => '/api/v1/webhooks/topups/deepay_kbank',
-            'webhook_auth_mode' => 'trusted_provider',
+            'webhook_auth_mode' => 'manual_reconciliation',
         ], json_decode((string) $updated->metadata_json, true, 512, JSON_THROW_ON_ERROR));
     }
 
