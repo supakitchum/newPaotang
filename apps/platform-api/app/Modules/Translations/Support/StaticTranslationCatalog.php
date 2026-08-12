@@ -51,6 +51,11 @@ class StaticTranslationCatalog
                 'api.errors.sms_otp_provider_not_configured' => 'ระบบ OTP ยังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
                 'api.errors.sms_send_failed' => 'ไม่สามารถส่งรหัส OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
                 'api.errors.sms_verify_failed' => 'ไม่สามารถตรวจสอบรหัส OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+                'api.errors.payment_provider_failed' => 'ไม่สามารถสร้างรายการชำระเงินได้ในขณะนี้ กรุณาลองใหม่ภายหลัง',
+                'api.errors.payment_provider_cancel_failed' => 'ไม่สามารถยกเลิกรายการชำระเงินได้ในขณะนี้ กรุณาลองใหม่ภายหลัง',
+                'api.errors.payment_provider_unavailable' => 'ผู้ให้บริการชำระเงินไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง',
+                'api.errors.payment_provider_invalid_response' => 'ผู้ให้บริการชำระเงินส่งข้อมูลกลับมาไม่สมบูรณ์ กรุณาลองใหม่ภายหลัง',
+                'api.errors.payment_provider_outcome_unknown' => 'ผู้ให้บริการยังไม่ยืนยันผลรายการ กรุณาตรวจสอบรายการเติมเงินนี้ก่อนทำรายการใหม่',
             ],
             'en-US' => [
                 'api.errors.authentication_required' => 'Your session has ended. Please sign in again.',
@@ -66,6 +71,11 @@ class StaticTranslationCatalog
                 'api.errors.sms_otp_provider_not_configured' => 'OTP sign-in is not available. Please sign in with a password.',
                 'api.errors.sms_send_failed' => 'The OTP could not be sent right now. Please try again.',
                 'api.errors.sms_verify_failed' => 'The OTP could not be verified right now. Please try again.',
+                'api.errors.payment_provider_failed' => 'The payment request could not be created. Please try again later.',
+                'api.errors.payment_provider_cancel_failed' => 'The payment request could not be cancelled. Please try again later.',
+                'api.errors.payment_provider_unavailable' => 'The payment provider is temporarily unavailable. Please try again later.',
+                'api.errors.payment_provider_invalid_response' => 'The payment provider returned an incomplete response. Please try again later.',
+                'api.errors.payment_provider_outcome_unknown' => 'The payment provider has not confirmed this request. Check this top-up before trying again.',
             ],
         ];
 
@@ -683,6 +693,11 @@ class StaticTranslationCatalog
                 'api.errors.pin_required' => 'Customer PIN verification is required before continuing.',
                 'api.errors.pin_setup_required' => 'A 6-digit customer PIN must be set before continuing.',
                 'api.errors.pin_locked' => 'Customer PIN verification is temporarily locked. Please try again later.',
+                'api.errors.payment_provider_failed' => 'The payment request could not be created. Please try again later.',
+                'api.errors.payment_provider_cancel_failed' => 'The payment request could not be cancelled. Please try again later.',
+                'api.errors.payment_provider_unavailable' => 'The payment provider is temporarily unavailable. Please try again later.',
+                'api.errors.payment_provider_invalid_response' => 'The payment provider returned an incomplete response. Please try again later.',
+                'api.errors.payment_provider_outcome_unknown' => 'The payment provider has not confirmed this request. Check this top-up before trying again.',
             ],
         ]);
     }

@@ -64,9 +64,16 @@ class CustomerTopupTest extends TestCase
             'status' => 'pending',
         ]);
         Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/billCredit')
-            && data_get($request->data(), 'reference1') === $credit['id']
+            && str_starts_with((string) data_get($request->data(), 'reference1'), 'T')
+            && strlen((string) data_get($request->data(), 'reference1')) <= 20
             && data_get($request->data(), 'reference2') === 'wallet'
+            && str_starts_with((string) data_get($request->data(), 'reference3'), 'N')
+            && strlen((string) data_get($request->data(), 'reference3')) <= 20
             && data_get($request->data(), 'reference4') === 'credit_card');
+
+        $providerReference = (string) DB::table('payments')
+            ->where('topup_request_id', $credit['id'])
+            ->value('provider_reference');
 
         $overview = $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
@@ -104,7 +111,7 @@ class CustomerTopupTest extends TestCase
             'status' => 'cancelled',
         ]);
         Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/cancel')
-            && data_get($request->data(), 'txn_id') === 'ptx_'.$credit['id']);
+            && data_get($request->data(), 'txn_id') === $providerReference);
 
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/topups/'.$topup['id'])
@@ -366,8 +373,10 @@ class CustomerTopupTest extends TestCase
             ->assertJsonPath('slip', null)
             ->json();
         Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/bill')
-            && data_get($request->data(), 'reference1') === $qrTopup['id']
+            && str_starts_with((string) data_get($request->data(), 'reference1'), 'T')
+            && strlen((string) data_get($request->data(), 'reference1')) <= 20
             && data_get($request->data(), 'reference2') === 'wallet'
+            && strlen((string) data_get($request->data(), 'reference3')) <= 20
             && data_get($request->data(), 'reference4') === 'qr');
 
         $this->withToken($world['auth']['token'])
@@ -406,6 +415,195 @@ class CustomerTopupTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_Deepay_rejection_is_durable_safe_and_idempotent_outside_the_topup_transaction(): void
+    {
+        $world = $this->prepareReservedCart('par_deepay_reject', 'ten_deepay_reject', 'deepay-reject.m5.test', 'gam_deepay_reject', '0804005333', 730301);
+        $baselineTransactionLevel = DB::transactionLevel();
+        $providerTransactionLevel = null;
+
+        $this->configureDeepayProvider('ten_deepay_reject', function ($request) use (&$providerTransactionLevel) {
+            $providerTransactionLevel = DB::transactionLevel();
+
+            return Http::response([
+                'code' => 1000,
+                'reference1' => ['The reference1 may not be greater than 20 characters. <script>unsafe()</script>'],
+            ], 400);
+        });
+
+        $headers = [
+            'Idempotency-Key' => 'deepay-rejected-once',
+            'X-Request-Id' => 'req-deepay-rejected-once',
+        ];
+        $payload = ['channel' => 'qr', 'amount' => 15000];
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', $payload, $headers)
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_failed')
+            ->assertJsonPath('error.request_id', 'req-deepay-rejected-once')
+            ->assertJsonMissingPath('error.details.provider_message');
+
+        $this->assertSame($baselineTransactionLevel, $providerTransactionLevel);
+        Http::assertSentCount(1);
+
+        $attempt = DB::table('payment_provider_attempts')->where('request_id', 'req-deepay-rejected-once')->first();
+        $this->assertNotNull($attempt);
+        $this->assertSame('provider_rejected', $attempt->status);
+        $this->assertSame(400, $attempt->provider_http_status);
+        $this->assertSame('payment_provider_failed', $attempt->application_error_code);
+        $this->assertLessThanOrEqual(20, strlen((string) $attempt->provider_reference1));
+        $this->assertLessThanOrEqual(20, strlen((string) $attempt->provider_reference3));
+        $this->assertStringNotContainsString('<script>', (string) $attempt->provider_message);
+        $this->assertStringNotContainsString('test-deepay-key', json_encode((array) $attempt, JSON_THROW_ON_ERROR));
+
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $attempt->topup_request_id,
+            'status' => 'failed',
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'id' => $attempt->payment_id,
+            'status' => 'failed',
+        ]);
+
+        $viewer = $this->tenantAdmin($world, ['topup.view'], 'deepayrejectview');
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups?request_id=req-deepay-rejected-once', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_deepay_reject',
+            ])
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $attempt->topup_request_id);
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups/'.$attempt->topup_request_id, [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_deepay_reject',
+            ])
+            ->assertOk()
+            ->assertJsonPath('provider_attempt.request_id', 'req-deepay-rejected-once')
+            ->assertJsonPath('provider_attempt.provider_http_status', 400)
+            ->assertJsonMissingPath('provider_payload.qr_code')
+            ->assertJsonMissingPath('provider_payload.response');
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', $payload, $headers)
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_failed');
+
+        Http::assertSentCount(1);
+        $this->assertSame(1, DB::table('payment_provider_attempts')->where('tenant_id', 'ten_deepay_reject')->count());
+        $this->assertSame(1, DB::table('topup_requests')->where('tenant_id', 'ten_deepay_reject')->count());
+        $this->assertSame(1, DB::table('payments')->where('tenant_id', 'ten_deepay_reject')->count());
+    }
+
+    public function test_Deepay_invalid_success_response_is_preserved_as_unknown_without_a_second_bill(): void
+    {
+        $world = $this->prepareReservedCart('par_deepay_invalid', 'ten_deepay_invalid', 'deepay-invalid.m5.test', 'gam_deepay_invalid', '0804005444', 730401);
+        $this->configureDeepayProvider(
+            'ten_deepay_invalid',
+            fn () => Http::response(['code' => 0, 'result' => []], 200),
+        );
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'qr',
+                'amount' => 16000,
+            ], [
+                'Idempotency-Key' => 'deepay-invalid-response',
+                'X-Request-Id' => 'req-deepay-invalid-response',
+            ])
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_invalid_response');
+
+        $attempt = DB::table('payment_provider_attempts')->where('request_id', 'req-deepay-invalid-response')->first();
+        $this->assertNotNull($attempt);
+        $this->assertSame('invalid_response', $attempt->status);
+        $this->assertSame('invalid_response', $attempt->response_classification);
+        $this->assertDatabaseHas('topup_requests', ['id' => $attempt->topup_request_id, 'status' => 'processing']);
+        $this->assertDatabaseHas('payments', ['id' => $attempt->payment_id, 'status' => 'processing']);
+        Http::assertSentCount(1);
+
+        $this->withToken($world['auth']['token'])
+            ->deleteJson('http://'.$world['host'].'/api/v1/customer/topups/'.$attempt->topup_request_id, [
+                'reason' => 'try another payment',
+            ], [
+                'Idempotency-Key' => 'deepay-invalid-cancel',
+            ])
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_outcome_unknown');
+        $this->assertDatabaseHas('topup_requests', ['id' => $attempt->topup_request_id, 'status' => 'processing']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_Deepay_connection_failure_is_outcome_unknown_and_is_not_retried(): void
+    {
+        $world = $this->prepareReservedCart('par_deepay_timeout', 'ten_deepay_timeout', 'deepay-timeout.m5.test', 'gam_deepay_timeout', '0804005555', 730501);
+        $this->configureDeepayProvider(
+            'ten_deepay_timeout',
+            fn () => Http::failedConnection('simulated timeout containing test-deepay-key'),
+        );
+        $payload = ['channel' => 'qr', 'amount' => 17000];
+        $headers = [
+            'Idempotency-Key' => 'deepay-timeout-once',
+            'X-Request-Id' => 'req-deepay-timeout-once',
+        ];
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', $payload, $headers)
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_outcome_unknown')
+            ->assertJsonPath('error.request_id', 'req-deepay-timeout-once');
+
+        $attempt = DB::table('payment_provider_attempts')->where('request_id', 'req-deepay-timeout-once')->first();
+        $this->assertNotNull($attempt);
+        $this->assertSame('outcome_unknown', $attempt->status);
+        $this->assertSame('outcome_unknown', $attempt->response_classification);
+        $this->assertStringNotContainsString('test-deepay-key', json_encode((array) $attempt, JSON_THROW_ON_ERROR));
+        $this->assertDatabaseHas('topup_requests', ['id' => $attempt->topup_request_id, 'status' => 'processing']);
+        $this->assertDatabaseHas('payments', ['id' => $attempt->payment_id, 'status' => 'processing']);
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', $payload, $headers)
+            ->assertStatus(502)
+            ->assertJsonPath('error.code', 'payment_provider_outcome_unknown');
+
+        Http::assertSentCount(1);
+        $this->assertSame(1, DB::table('payment_provider_attempts')->where('tenant_id', 'ten_deepay_timeout')->count());
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+            'partnerTxnUid' => 'ptx-resolved-after-timeout',
+            'reference1' => $attempt->provider_reference1,
+            'reference2' => 'wallet',
+            'reference3' => $attempt->provider_reference3,
+        ])
+            ->assertAccepted()
+            ->assertJsonPath('duplicate', false);
+
+        $this->assertDatabaseHas('payment_provider_attempts', [
+            'id' => $attempt->id,
+            'status' => 'succeeded',
+            'provider_transaction_reference' => 'ptx-resolved-after-timeout',
+            'response_classification' => 'succeeded_callback',
+        ]);
+        $this->assertDatabaseHas('topup_requests', ['id' => $attempt->topup_request_id, 'status' => 'succeeded']);
+        $this->assertDatabaseHas('payments', [
+            'id' => $attempt->payment_id,
+            'status' => 'succeeded',
+            'provider_reference' => 'ptx-resolved-after-timeout',
+        ]);
+        $this->assertDatabaseHas('wallets', [
+            'id' => $world['wallet_id'],
+            'balance_amount' => 117000,
+        ]);
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', $payload, $headers)
+            ->assertCreated()
+            ->assertJsonPath('id', $attempt->topup_request_id)
+            ->assertJsonPath('status', 'approved');
+        Http::assertSentCount(1);
+    }
+
     private function uploadedSlip(): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'topup-slip-').'.webp';
@@ -414,7 +612,7 @@ class CustomerTopupTest extends TestCase
         return new UploadedFile($path, 'customer-slip.webp', 'image/webp', null, true);
     }
 
-    private function configureDeepayProvider(string $tenantId): void
+    private function configureDeepayProvider(string $tenantId, ?callable $responseFactory = null): void
     {
         DB::table('tenant_payment_provider_connections')->updateOrInsert(
             ['tenant_id' => $tenantId, 'provider' => 'deepay_kbank'],
@@ -435,7 +633,7 @@ class CustomerTopupTest extends TestCase
             ],
         );
 
-        Http::fake(function ($request) {
+        Http::fake($responseFactory ?? function ($request) {
             $reference1 = (string) data_get($request->data(), 'reference1', 'top_test');
 
             return Http::response([

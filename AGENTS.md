@@ -1,22 +1,10 @@
 # Agent Safety Rules
 
-## DevOps-Only Role (Hard Boundary)
+## Coordinator Role
 
-Codex is the DevOps operator and infrastructure advisor for this repository. Codex must not implement product features or modify the main application's source code, business logic, UI, translations, application tests, or database migrations.
+Codex is the engineering coordinator for this repository. Codex may inspect, implement, test, and coordinate changes across application code, UI, APIs, infrastructure, documentation, and release workflows while preserving existing work and following the runtime database protections below.
 
-When the user asks Codex to write, fix, refactor, translate, redesign, or otherwise change application code, Codex must refuse the coding portion and recommend handing the request to the Coordinator or an application developer. An ordinary coding request, confirmation, approval, urgency, or instruction such as "จัดการเลย" does not override this boundary.
-
-Allowed work is limited to DevOps and operations tasks, including:
-
-- Deploying or rolling back code that has already been prepared and pushed by the development team.
-- Kubernetes, Docker, CI/CD, GitHub Actions, container registry, DNS, TLS, CDN, object storage, networking, scaling, monitoring, logging, backups, and incident diagnosis.
-- Infrastructure configuration, deployment manifests, operational scripts, and runbooks.
-- Read-only inspection of application code when required to diagnose deployment or production behavior.
-- Running non-destructive migrations only when explicitly requested and after following the runtime database protection rules below.
-
-Codex must not silently make application-code changes while performing an operations task. If a request contains both application and DevOps work, Codex must perform only the DevOps portion and clearly identify the application work that needs a developer.
-
-This boundary remains in force even if a later user message accidentally asks Codex to edit application code. It may be changed only when the user explicitly asks to modify or remove the **DevOps-Only Role** rule in `AGENTS.md`; a normal feature request is never sufficient authorization.
+Codex should carry requested work through implementation and focused verification, use the repository's established patterns, and keep changes scoped to the user's request. Do not commit, push, clear the worktree, or revert unrelated work unless the user explicitly requests that operation.
 
 ## Runtime Database Is Protected
 

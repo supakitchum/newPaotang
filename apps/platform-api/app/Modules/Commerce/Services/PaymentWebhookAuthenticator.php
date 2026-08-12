@@ -3,6 +3,7 @@
 namespace App\Modules\Commerce\Services;
 
 use App\Models\TenantPaymentProviderConnection;
+use App\Models\PaymentProviderAttempt;
 use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -76,12 +77,24 @@ class PaymentWebhookAuthenticator
             ?? data_get($payload, 'payload.reference3', '')
         ));
 
+        $attempt = PaymentProviderAttempt::query()
+            ->where('provider', DeepayKbankPaymentProvider::PROVIDER)
+            ->where('payment_id', $payment->id)
+            ->latest('attempted_at')
+            ->first();
+        $expectedReference1 = trim((string) ($attempt?->provider_reference1 ?? $topup->id));
+        $expectedReference3 = trim((string) ($attempt?->provider_reference3 ?? $payment->tenant_id));
+        $expectedProviderReference = trim((string) ($payment->provider_reference ?? $attempt?->provider_transaction_reference ?? ''));
+        $providerReferenceMatches = $expectedProviderReference !== ''
+            ? hash_equals($expectedProviderReference, $providerReference)
+            : $attempt !== null && in_array((string) $attempt->status, ['initiated', 'invalid_response', 'transport_failed', 'outcome_unknown'], true);
+
         if (
             $providerReference === ''
             || $reference1 === ''
             || $reference2 !== 'wallet'
-            || ! hash_equals((string) $payment->provider_reference, $providerReference)
-            || ! hash_equals((string) $topup->id, $reference1)
+            || ! $providerReferenceMatches
+            || ! hash_equals($expectedReference1, $reference1)
         ) {
             return false;
         }
@@ -92,7 +105,7 @@ class PaymentWebhookAuthenticator
             && (string) $payment->topup_request_id === (string) $topup->id
             && (string) $topup->payment_id === (string) $payment->id
             && (string) $topup->tenant_id === $tenantId
-            && ($reference3 === '' || hash_equals($tenantId, $reference3));
+            && ($reference3 === '' || hash_equals($expectedReference3, $reference3));
     }
 
     private function verifyToken(string $secret, Request $request): bool

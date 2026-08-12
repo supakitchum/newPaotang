@@ -67,7 +67,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'image-upload' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits' | 'allocation-partner-percent-list'
+  type?: 'text' | 'email' | 'tel' | 'url' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'image-upload' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits' | 'allocation-partner-percent-list'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -93,12 +93,21 @@ export type OperationFormField = {
   maxSizeBytes?: number
   min?: number
   max?: number
+  maxLength?: number
   step?: number
   itemKey?: string
   emptyValue?: 'array' | 'string'
   submitAsArray?: boolean
   partial?: boolean
   visibleForGenerationModes?: string[]
+}
+
+export type OperationSettingsSection = {
+  key: string
+  title: string
+  description?: string
+  icon?: string
+  fieldKeys: string[]
 }
 
 export type OperationAction = {
@@ -144,6 +153,8 @@ export type OperationRelatedList = {
 export type OperationSettingsPanel = {
   key: string
   title: string
+  description?: string
+  icon?: string
   listEndpoint: string
   updateEndpoint: string
   updateMethod?: 'PATCH' | 'PUT' | 'POST'
@@ -170,6 +181,7 @@ export type OperationResource = {
   relatedLists?: OperationRelatedList[]
   secondarySettings?: OperationSettingsPanel[]
   settingsFields?: OperationFormField[]
+  settingsSections?: OperationSettingsSection[]
   confirmContextFields?: string[]
   detailFields?: OperationColumn[]
   reportKeys?: string[]
@@ -962,23 +974,29 @@ const defaultTermsContentPlaceholder = [
   '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
 ].join('\n')
 const tenantSettingsFields: OperationFormField[] = [
-  { key: 'site.site_name', label: 'Site name', required: true },
-  { key: 'site.site_name_i18n.th-TH', label: 'Site name (TH)', sourceKey: 'site.site_name_i18n.th-TH' },
-  { key: 'site.site_name_i18n.en-US', label: 'Site name (EN)', sourceKey: 'site.site_name_i18n.en-US' },
-  { key: 'site.display_name', label: 'Display name' },
-  { key: 'site.display_name_i18n.th-TH', label: 'Display name (TH)', sourceKey: 'site.display_name_i18n.th-TH' },
-  { key: 'site.display_name_i18n.en-US', label: 'Display name (EN)', sourceKey: 'site.display_name_i18n.en-US' },
-  { key: 'site.locale', label: 'Locale', defaultValue: 'th-TH' },
-  { key: 'site.timezone', label: 'Timezone', defaultValue: 'Asia/Bangkok' },
-  { key: 'site.support_email', label: 'Support email' },
-  { key: 'site.support_phone', label: 'Support phone' },
-  { key: 'site.support_url', label: 'Support URL', placeholder: 'https://support.example.com' },
-  { key: 'site.lottery_product_label', label: 'Lottery product label', placeholder: 'L6', help: 'Short runtime product marker shown across customer ticket and receipt surfaces.' },
-  { key: 'site.ticket_image_watermark', label: 'Ticket image watermark', help: 'Optional runtime watermark for generated ticket artwork.' },
+  { key: 'site.site_name', label: 'Site name', required: true, maxLength: 255 },
+  { key: 'site.site_name_i18n.th-TH', label: 'Site name (Thai)', sourceKey: 'site.site_name_i18n.th-TH', maxLength: 255 },
+  { key: 'site.site_name_i18n.en-US', label: 'Site name (English)', sourceKey: 'site.site_name_i18n.en-US', maxLength: 255 },
+  { key: 'site.display_name', label: 'Display name', maxLength: 255 },
+  { key: 'site.display_name_i18n.th-TH', label: 'Display name (Thai)', sourceKey: 'site.display_name_i18n.th-TH', maxLength: 255 },
+  { key: 'site.display_name_i18n.en-US', label: 'Display name (English)', sourceKey: 'site.display_name_i18n.en-US', maxLength: 255 },
+  { key: 'site.locale', label: 'Default language', defaultValue: 'th-TH', placeholder: 'th-TH', help: 'Locale code used when a customer has not selected a language.' },
+  { key: 'site.timezone', label: 'Timezone', defaultValue: 'Asia/Bangkok', placeholder: 'Asia/Bangkok', help: 'Use an IANA timezone, for example Asia/Bangkok.' },
+  { key: 'site.support_email', label: 'Support email', type: 'email', maxLength: 255 },
+  { key: 'site.support_phone', label: 'Support phone', type: 'tel', maxLength: 32 },
+  { key: 'site.support_url', label: 'Support URL', type: 'url', placeholder: 'https://support.example.com', help: 'Must be an HTTPS URL.' },
+  { key: 'site.lottery_product_label', label: 'Lottery product label', placeholder: 'L6', maxLength: 32, help: 'Short runtime product marker shown across customer ticket and receipt surfaces.' },
+  { key: 'site.ticket_image_watermark', label: 'Ticket image watermark', maxLength: 64, help: 'Optional runtime watermark for generated ticket artwork.' },
   { key: 'legal.terms_content', label: 'Terms and conditions', type: 'textarea', sourceKey: 'legal.terms_content', placeholder: defaultTermsContentPlaceholder, help: 'Shown on the customer Terms page. Leave blank to use the default text with the current site name.' },
-  { key: 'legal.terms_content_i18n.th-TH', label: 'Terms and conditions (TH)', type: 'textarea', sourceKey: 'legal.terms_content_i18n.th-TH', placeholder: defaultTermsContentPlaceholder },
-  { key: 'legal.terms_content_i18n.en-US', label: 'Terms and conditions (EN)', type: 'textarea', sourceKey: 'legal.terms_content_i18n.en-US', placeholder: 'Terms of use' },
+  { key: 'legal.terms_content_i18n.th-TH', label: 'Terms and conditions (Thai)', type: 'textarea', sourceKey: 'legal.terms_content_i18n.th-TH', placeholder: defaultTermsContentPlaceholder },
+  { key: 'legal.terms_content_i18n.en-US', label: 'Terms and conditions (English)', type: 'textarea', sourceKey: 'legal.terms_content_i18n.en-US', placeholder: 'Terms of use' },
+  { key: 'legal.privacy_content', label: 'Privacy policy content', type: 'textarea', sourceKey: 'legal.privacy_content', help: 'Shown on the customer Privacy page. Leave blank to use the default privacy text.' },
+  { key: 'legal.privacy_content_i18n.th-TH', label: 'Privacy policy content (Thai)', type: 'textarea', sourceKey: 'legal.privacy_content_i18n.th-TH' },
+  { key: 'legal.privacy_content_i18n.en-US', label: 'Privacy policy content (English)', type: 'textarea', sourceKey: 'legal.privacy_content_i18n.en-US' },
+  { key: 'legal.privacy_policy_url', label: 'External privacy policy URL', type: 'url', sourceKey: 'legal.privacy_policy_url', placeholder: 'https://example.com/privacy', help: 'Optional external privacy policy link. Leave blank to use the customer Privacy page.' },
+  { key: 'legal.account_deletion_url', label: 'Account deletion URL', type: 'url', sourceKey: 'legal.account_deletion_url', placeholder: 'https://example.com/account/delete', help: 'Optional public URL with account deletion instructions.' },
   { key: 'seo.default_title', label: 'SEO title' },
+  { key: 'seo.title_template', label: 'SEO title template', placeholder: '{{title}} | Example Store', help: 'Use {{title}} where the page title should appear.' },
   { key: 'seo.default_description', label: 'SEO description', type: 'textarea' },
   { key: 'seo.default_keywords', label: 'SEO keywords', type: 'lines', sourceKey: 'seo.default_keywords', placeholder: 'lottery\nlucky' },
   { key: 'seo.robots_default', label: 'Robots default', defaultValue: 'index,follow' },
@@ -987,14 +1005,105 @@ const tenantSettingsFields: OperationFormField[] = [
   { key: 'maintenance.active', label: 'Maintenance active', type: 'checkbox', sourceKey: 'maintenance.active', defaultValue: false },
   { key: 'maintenance.mode', label: 'Maintenance mode', type: 'select', options: maintenanceModeOptions, sourceKey: 'maintenance.mode' },
   { key: 'maintenance.message', label: 'Maintenance message', type: 'textarea', sourceKey: 'maintenance.message' },
-  { key: 'maintenance.message_i18n.th-TH', label: 'Maintenance message (TH)', type: 'textarea', sourceKey: 'maintenance.message_i18n.th-TH' },
-  { key: 'maintenance.message_i18n.en-US', label: 'Maintenance message (EN)', type: 'textarea', sourceKey: 'maintenance.message_i18n.en-US' },
+  { key: 'maintenance.message_i18n.th-TH', label: 'Maintenance message (Thai)', type: 'textarea', sourceKey: 'maintenance.message_i18n.th-TH' },
+  { key: 'maintenance.message_i18n.en-US', label: 'Maintenance message (English)', type: 'textarea', sourceKey: 'maintenance.message_i18n.en-US' },
+  { key: 'maintenance.expected_end_at', label: 'Expected end time', type: 'datetime-local', sourceKey: 'maintenance.expected_end_at' },
   { key: 'maintenance.retry_after_seconds', label: 'Retry after seconds', type: 'number', sourceKey: 'maintenance.retry_after_seconds', min: 0, step: 1 },
   { key: 'maintenance.allowed_routes', label: 'Allowed routes', type: 'lines', sourceKey: 'maintenance.allowed_routes', placeholder: '/\n/login' },
   { key: 'maintenance.blocked_route_patterns', label: 'Blocked route patterns', type: 'lines', sourceKey: 'maintenance.blocked_route_patterns', placeholder: '/checkout/*' },
-  { key: 'api.base_url', label: 'API base URL', sourceKey: 'api.base_url' },
-  { key: 'api.realtime_url', label: 'Realtime URL', sourceKey: 'api.realtime_url' },
-  { key: 'api.asset_cdn_base_url', label: 'Asset CDN base URL', sourceKey: 'api.asset_cdn_base_url' },
+  { key: 'live.waiting_result_youtube_url', label: 'Waiting result YouTube URL', type: 'url', sourceKey: 'live.tenant_override_youtube_url', placeholder: 'https://www.youtube.com/watch?v=...', help: 'Leave blank to use the Central default livestream.' },
+  { key: 'api.base_url', label: 'API base URL', type: 'url', sourceKey: 'api.base_url', help: 'Advanced setting. Changing this can prevent customer apps from connecting.' },
+  { key: 'api.realtime_url', label: 'Realtime URL', type: 'url', sourceKey: 'api.realtime_url', help: 'Supports HTTP, HTTPS, WS, or WSS URLs.' },
+  { key: 'api.asset_cdn_base_url', label: 'Asset CDN base URL', type: 'url', sourceKey: 'api.asset_cdn_base_url' },
+]
+const tenantSettingsSections: OperationSettingsSection[] = [
+  {
+    key: 'store',
+    title: 'Store information',
+    description: 'Names, language, timezone, and customer-facing lottery labels.',
+    icon: 'ri-store-2-line',
+    fieldKeys: [
+      'site.site_name',
+      'site.site_name_i18n.th-TH',
+      'site.site_name_i18n.en-US',
+      'site.display_name',
+      'site.display_name_i18n.th-TH',
+      'site.display_name_i18n.en-US',
+      'site.locale',
+      'site.timezone',
+      'site.lottery_product_label',
+      'site.ticket_image_watermark',
+    ],
+  },
+  {
+    key: 'contact',
+    title: 'Customer support contacts',
+    description: 'Contact details shown to customers when they need help.',
+    icon: 'ri-customer-service-2-line',
+    fieldKeys: ['site.support_email', 'site.support_phone', 'site.support_url'],
+  },
+  {
+    key: 'legal',
+    title: 'Terms and privacy',
+    description: 'Customer-facing terms, privacy content, and public legal links.',
+    icon: 'ri-file-shield-2-line',
+    fieldKeys: [
+      'legal.terms_content',
+      'legal.terms_content_i18n.th-TH',
+      'legal.terms_content_i18n.en-US',
+      'legal.privacy_content',
+      'legal.privacy_content_i18n.th-TH',
+      'legal.privacy_content_i18n.en-US',
+      'legal.privacy_policy_url',
+      'legal.account_deletion_url',
+    ],
+  },
+  {
+    key: 'seo',
+    title: 'Search engine settings',
+    description: 'Default page metadata and search engine visibility.',
+    icon: 'ri-search-eye-line',
+    fieldKeys: [
+      'seo.default_title',
+      'seo.title_template',
+      'seo.default_description',
+      'seo.default_keywords',
+      'seo.robots_default',
+      'seo.sitemap_enabled',
+      'seo.robots_enabled',
+    ],
+  },
+  {
+    key: 'maintenance',
+    title: 'Maintenance mode',
+    description: 'Control customer access and the message shown during maintenance.',
+    icon: 'ri-tools-line',
+    fieldKeys: [
+      'maintenance.active',
+      'maintenance.mode',
+      'maintenance.message',
+      'maintenance.message_i18n.th-TH',
+      'maintenance.message_i18n.en-US',
+      'maintenance.expected_end_at',
+      'maintenance.retry_after_seconds',
+      'maintenance.allowed_routes',
+      'maintenance.blocked_route_patterns',
+    ],
+  },
+  {
+    key: 'live',
+    title: 'Result livestream',
+    description: 'Video shown while customers wait for the current draw result.',
+    icon: 'ri-live-line',
+    fieldKeys: ['live.waiting_result_youtube_url'],
+  },
+  {
+    key: 'connections',
+    title: 'System connections',
+    description: 'Advanced runtime endpoints. Change these only when the service URLs have changed.',
+    icon: 'ri-links-line',
+    fieldKeys: ['api.base_url', 'api.realtime_url', 'api.asset_cdn_base_url'],
+  },
 ]
 const tenantThemeFields: OperationFormField[] = [
   {
@@ -1017,7 +1126,16 @@ const tenantThemeFields: OperationFormField[] = [
     maxSizeBytes: 5242880,
     help: 'Used when customers add the app to their home screen. A square image of at least 512 x 512 px is recommended.',
   },
-  { key: 'brand.og_image_url', label: 'Open graph image URL', sourceKey: 'brand.og_image_url' },
+  {
+    key: 'brand.og_image_url',
+    label: 'Social sharing image',
+    type: 'image-upload',
+    sourceKey: 'brand.og_image_url',
+    uploadPurpose: 'tenant_og_image',
+    accept: 'image/png,image/jpeg,image/webp',
+    maxSizeBytes: 5242880,
+    help: 'Used when a customer page is shared on social media. A 1200 x 630 px image is recommended.',
+  },
   { key: 'theme.primary_color', label: 'Primary color', type: 'color', sourceKey: 'theme.primary_color', defaultValue: '#087FF0' },
   { key: 'theme.secondary_color', label: 'Secondary color', type: 'color', sourceKey: 'theme.secondary_color', defaultValue: '#19B8EF' },
   { key: 'theme.accent_color', label: 'Accent color', type: 'color', sourceKey: 'theme.accent_color', defaultValue: '#FFD10B' },
@@ -2670,9 +2788,12 @@ const tenant: OperationResource[] = [
   {
     ...settingsResource('tenant', 'settings', 'Tenant Settings', '/admin/tenant/settings'),
     settingsFields: tenantSettingsFields,
+    settingsSections: tenantSettingsSections,
     secondarySettings: [{
       key: 'theme',
       title: 'Theme And Branding',
+      description: 'Customer logos, app icons, colors, and font settings.',
+      icon: 'ri-palette-line',
       listEndpoint: '/admin/tenant/theme',
       updateEndpoint: '/admin/tenant/theme',
       updateMethod: 'PATCH',

@@ -300,11 +300,21 @@ class CustomerCommerceController extends Controller
             'payment_provider_managed' => ApiErrorResponse::validationFailed($request, ['slip' => ['This payment method does not require a transfer slip.']]),
             'payment_provider_not_supported' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment provider is not supported.']]),
             'payment_provider_invalid_response',
+            'payment_provider_outcome_unknown',
             'payment_provider_unavailable',
             'payment_provider_failed',
-            'payment_provider_cancel_failed' => ApiErrorResponse::make($request, 502, $result['error'] ?? 'payment_provider_failed', (string) ($result['message'] ?? 'The payment provider is temporarily unavailable. Please try again later.')),
+            'payment_provider_cancel_failed' => ApiErrorResponse::make($request, 502, $result['error'] ?? 'payment_provider_failed', $this->safePaymentProviderMessage($result['error'] ?? null)),
             'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
+        };
+    }
+
+    private function safePaymentProviderMessage(?string $code): string
+    {
+        return match ($code) {
+            'payment_provider_outcome_unknown' => 'The payment provider did not confirm the request. Please check this top-up before trying again.',
+            'payment_provider_invalid_response' => 'The payment provider returned an invalid response. Please try again later.',
+            default => 'The payment provider could not process this request. Please try again later.',
         };
     }
 

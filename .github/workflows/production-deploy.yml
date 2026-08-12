@@ -328,8 +328,31 @@ jobs:
           kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-critical --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-default --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-image --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/platform-api-scheduler --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-sanook --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-thairath --timeout=600s
+
+      - name: Verify Platform image parity
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          EXPECTED_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+
+          while IFS=: read -r deployment container; do
+            ACTUAL_IMAGE="$(kubectl -n "$NAMESPACE" get deployment "$deployment" -o "jsonpath={.spec.template.spec.containers[?(@.name=='$container')].image}")"
+            if [ "$ACTUAL_IMAGE" != "$EXPECTED_IMAGE" ]; then
+              echo "::error::${deployment}/${container} uses ${ACTUAL_IMAGE}; expected ${EXPECTED_IMAGE}."
+              exit 1
+            fi
+          done <<'DEPLOYMENTS'
+          platform-api:platform-api
+          platform-api-worker-critical:worker
+          platform-api-worker-default:worker
+          platform-api-worker-image:worker
+          platform-api-scheduler:scheduler
+          platform-api-reverb:reverb
+          DEPLOYMENTS
 
       - name: Wait for isolated Support rollout
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_support }}

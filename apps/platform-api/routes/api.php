@@ -230,6 +230,7 @@ Route::post('/customer/reservations/{reservation_id}/release', [CustomerReservat
 Route::post('/auth/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/auth/admin/refresh', [AdminAuthController::class, 'refresh']);
 Route::post('/auth/admin/logout', [AdminAuthController::class, 'logout'])->middleware('admin.auth');
+Route::get('/auth/admin/server-time', [AdminAuthController::class, 'serverTime'])->middleware('admin.auth');
 Route::get('/auth/admin/me', [AdminAuthController::class, 'me'])->middleware('admin.auth');
 Route::patch('/auth/admin/me', [AdminAuthController::class, 'updateMe'])->middleware('admin.auth');
 Route::post('/auth/admin/password/forgot', [AdminAccountSecurityController::class, 'forgotPassword']);

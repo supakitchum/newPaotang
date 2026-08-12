@@ -28,6 +28,7 @@ export default {
     usernameEmail: 'Username / Email',
     password: 'Password',
     signIn: 'Sign in',
+    serverTime: 'Server time',
   },
   account: {
     changePassword: 'Change password',

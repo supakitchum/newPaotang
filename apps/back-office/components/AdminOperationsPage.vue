@@ -82,98 +82,168 @@
             />
           </template>
         </template>
-        <div v-else class="card custom-card">
-          <div class="card-header">
-            <div class="card-title">Configuration</div>
+        <div v-else class="np-settings-page">
+          <div v-if="isTenantSettingsRoute" class="np-settings-intro">
+            <div>
+              <h5 class="mb-1">{{ phrase('Store configuration') }}</h5>
+              <p class="text-muted mb-0">{{ phrase('Review each section before saving. Changes affect the customer website and app.') }}</p>
+            </div>
+            <span v-if="isSettingsDirty" class="badge bg-warning-transparent text-warning">
+              <i class="ri-edit-circle-line me-1" />{{ phrase('Unsaved changes') }}
+            </span>
           </div>
-          <div class="card-body">
-            <AdminLoader v-if="loading" />
-            <div v-else class="row g-3">
-              <div v-for="field in resource.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
-                <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
-                  <input :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-check-input" type="checkbox">
-                  <label class="form-check-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
-                  <div v-if="field.help" class="form-text">{{ field.help }}</div>
-                </div>
-                <template v-else>
-                  <label class="form-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
-                  <select v-if="field.type === 'select'" :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-select">
-                    <option value="">Select</option>
-                    <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
-                  </select>
-                  <div v-else-if="field.type === 'stock-set-distribution'" class="border rounded p-3">
-                    <div class="d-grid gap-2">
-                      <div class="d-none d-md-grid text-muted fw-semibold fs-12" style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;">
-                        <span>Set size</span>
-                        <span>Percent</span>
-                        <span />
-                      </div>
-                      <div
-                        v-for="(row, index) in settingsForm[field.key] || []"
-                        :key="row.__key || index"
-                        class="d-grid align-items-center"
-                        style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;"
-                      >
-                        <input
-                          v-model.number="row.set_size"
-                          class="form-control"
-                          type="number"
-                          min="1"
-                          max="99"
-                          step="1"
-                          placeholder="2"
-                        >
-                        <div class="input-group">
-                          <input
-                            v-model.number="row.percent"
-                            class="form-control"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            placeholder="10"
-                          >
-                          <span class="input-group-text">%</span>
-                        </div>
-                        <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeStockSetDistributionRow(field, index)">
-                          <i class="ri-delete-bin-line" />
-                        </button>
-                      </div>
+
+          <nav v-if="isTenantSettingsRoute && resource.settingsSections?.length" class="np-settings-nav" :aria-label="phrase('Settings sections')">
+            <button
+              v-for="section in resource.settingsSections"
+              :key="section.key"
+              class="np-settings-nav-button"
+              type="button"
+              @click="scrollToSettingsSection(section.key)"
+            >
+              <i :class="section.icon || 'ri-settings-3-line'" />
+              {{ phrase(section.title) }}
+            </button>
+            <button
+              v-for="panel in resource.secondarySettings || []"
+              :key="`secondary-${panel.key}`"
+              class="np-settings-nav-button"
+              type="button"
+              @click="scrollToSettingsSection(`secondary-${panel.key}`)"
+            >
+              <i :class="panel.icon || 'ri-palette-line'" />
+              {{ phrase(panel.title) }}
+            </button>
+            <button
+              v-if="resource.relatedLists?.some(related => related.key === 'domains')"
+              class="np-settings-nav-button"
+              type="button"
+              @click="scrollToSettingsSection('related-domains')"
+            >
+              <i class="ri-global-line" />
+              {{ phrase('Tenant Domains') }}
+            </button>
+          </nav>
+
+          <form class="card custom-card" @submit.prevent="saveSettingsForm">
+            <div class="card-header">
+              <div class="card-title">{{ phrase('Configuration') }}</div>
+            </div>
+            <div class="card-body np-settings-body">
+              <AdminLoader v-if="loading" />
+              <div v-else class="np-settings-sections">
+                <section
+                  v-for="group in settingsFieldGroups"
+                  :id="settingsSectionId(group.key)"
+                  :key="group.key"
+                  class="np-settings-section"
+                >
+                  <div v-if="isTenantSettingsRoute" class="np-settings-section-heading">
+                    <span class="np-settings-section-icon"><i :class="group.icon || 'ri-settings-3-line'" /></span>
+                    <div>
+                      <h6>{{ phrase(group.title) }}</h6>
+                      <p v-if="group.description">{{ phrase(group.description) }}</p>
                     </div>
-                    <button class="btn btn-outline-primary btn-sm btn-wave mt-3" type="button" @click="addStockSetDistributionRow(field)">
-                      <i class="ri-add-line me-1" /> Add set
-                    </button>
                   </div>
-                  <textarea
-                    v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
-                    :id="fieldId(`settings-${field.key}`)"
-                    v-model="settingsForm[field.key]"
-                    class="form-control"
-                    rows="4"
-                    :placeholder="field.placeholder"
-                  />
-                  <input
-                    v-else
-                    :id="fieldId(`settings-${field.key}`)"
-                    v-model="settingsForm[field.key]"
-                    class="form-control"
-                    :type="inputType(field)"
-                    :min="field.min"
-                    :step="field.step"
-                    :placeholder="field.placeholder"
-                  >
-                  <div v-if="field.help" class="form-text">{{ field.help }}</div>
-                </template>
+                  <div class="row g-3">
+                    <div v-for="field in group.fields" :key="field.key" :class="settingsFieldColumnClass(field)">
+                      <div v-if="field.type === 'checkbox'" class="form-check form-switch np-settings-switch">
+                        <input
+                          :id="fieldId(`settings-${field.key}`)"
+                          v-model="settingsForm[field.key]"
+                          class="form-check-input"
+                          type="checkbox"
+                          :disabled="field.readonly"
+                          :required="field.required"
+                        >
+                        <label class="form-check-label" :for="fieldId(`settings-${field.key}`)">{{ phrase(field.label) }}</label>
+                        <div v-if="field.help" class="form-text">{{ phrase(field.help) }}</div>
+                      </div>
+                      <template v-else>
+                        <label class="form-label" :for="fieldId(`settings-${field.key}`)">
+                          {{ phrase(field.label) }}<span v-if="field.required" class="text-danger ms-1">*</span>
+                        </label>
+                        <select
+                          v-if="field.type === 'select'"
+                          :id="fieldId(`settings-${field.key}`)"
+                          v-model="settingsForm[field.key]"
+                          class="form-select"
+                          :disabled="field.readonly"
+                          :required="field.required"
+                        >
+                          <option value="">{{ phrase('Select') }}</option>
+                          <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ phrase(optionLabel(option)) }}</option>
+                        </select>
+                        <div v-else-if="field.type === 'stock-set-distribution'" class="border rounded p-3">
+                          <div class="d-grid gap-2">
+                            <div class="d-none d-md-grid text-muted fw-semibold fs-12" style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;">
+                              <span>{{ phrase('Set size') }}</span>
+                              <span>{{ phrase('Percent') }}</span>
+                              <span />
+                            </div>
+                            <div
+                              v-for="(row, index) in settingsForm[field.key] || []"
+                              :key="row.__key || index"
+                              class="d-grid align-items-center"
+                              style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;"
+                            >
+                              <input v-model.number="row.set_size" class="form-control" type="number" min="1" max="99" step="1" placeholder="2">
+                              <div class="input-group">
+                                <input v-model.number="row.percent" class="form-control" type="number" min="0" max="100" step="0.01" placeholder="10">
+                                <span class="input-group-text">%</span>
+                              </div>
+                              <button class="btn btn-light btn-icon" type="button" :title="phrase('Remove set')" @click="removeStockSetDistributionRow(field, index)">
+                                <i class="ri-delete-bin-line" />
+                              </button>
+                            </div>
+                          </div>
+                          <button class="btn btn-outline-primary btn-sm btn-wave mt-3" type="button" @click="addStockSetDistributionRow(field)">
+                            <i class="ri-add-line me-1" />{{ phrase('Add set') }}
+                          </button>
+                        </div>
+                        <textarea
+                          v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
+                          :id="fieldId(`settings-${field.key}`)"
+                          v-model="settingsForm[field.key]"
+                          class="form-control"
+                          rows="5"
+                          :maxlength="field.maxLength"
+                          :placeholder="field.placeholder ? phrase(field.placeholder) : undefined"
+                          :readonly="field.readonly"
+                          :required="field.required"
+                        />
+                        <input
+                          v-else
+                          :id="fieldId(`settings-${field.key}`)"
+                          v-model="settingsForm[field.key]"
+                          class="form-control"
+                          :type="inputType(field)"
+                          :min="field.min"
+                          :max="field.max"
+                          :maxlength="field.maxLength"
+                          :step="field.step"
+                          :placeholder="field.placeholder ? phrase(field.placeholder) : undefined"
+                          :readonly="field.readonly"
+                          :required="field.required"
+                        >
+                        <div v-if="field.help" class="form-text">{{ phrase(field.help) }}</div>
+                      </template>
+                    </div>
+                  </div>
+                </section>
               </div>
             </div>
-          </div>
-          <div class="card-footer d-flex justify-content-end gap-2">
-            <button class="btn btn-light btn-wave" type="button" :disabled="loading" @click="resetSettingsForm">Reset</button>
-            <button class="btn btn-primary btn-wave" type="button" :disabled="saving" @click="saveSettingsForm">
-              <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
-              Save
-            </button>
-          </div>
+            <div class="card-footer np-settings-actions">
+              <span v-if="isSettingsDirty" class="text-warning fs-12 me-auto">
+                <i class="ri-information-line me-1" />{{ phrase('You have changes that have not been saved.') }}
+              </span>
+              <button class="btn btn-light btn-wave" type="button" :disabled="loading || saving || !isSettingsDirty" @click="resetSettingsForm">{{ phrase('Reset') }}</button>
+              <button class="btn btn-primary btn-wave" type="submit" :disabled="saving || loading || !isSettingsDirty">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
+                {{ saving ? phrase('Saving') : phrase('Save changes') }}
+              </button>
+            </div>
+          </form>
         </div>
       </template>
       <div v-else class="card custom-card">
@@ -193,13 +263,18 @@
         </div>
       </div>
 
-      <div
+      <form
         v-for="panel in resource.secondarySettings || []"
+        :id="settingsSectionId(`secondary-${panel.key}`)"
         :key="panel.key"
-        class="card custom-card"
+        class="card custom-card np-settings-anchor"
+        @submit.prevent="saveSecondarySettingsForm(panel)"
       >
         <div class="card-header">
-          <div class="card-title">{{ panel.title }}</div>
+          <div>
+            <div class="card-title">{{ phrase(panel.title) }}</div>
+            <div v-if="panel.description" class="text-muted fs-12 mt-1">{{ phrase(panel.description) }}</div>
+          </div>
         </div>
         <div class="card-body">
           <AdminApiState :error="secondaryErrors[panel.key]" />
@@ -207,19 +282,19 @@
           <div v-else-if="secondaryForms[panel.key]" class="row g-3">
             <div v-for="field in panel.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'image-upload' ? 'col-12' : 'col-md-6'">
               <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
-                <input :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-check-input" type="checkbox">
-                <label class="form-check-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
-                <div v-if="field.help" class="form-text">{{ field.help }}</div>
+                <input :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-check-input" type="checkbox" :disabled="field.readonly" :required="field.required">
+                <label class="form-check-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ phrase(field.label) }}</label>
+                <div v-if="field.help" class="form-text">{{ phrase(field.help) }}</div>
               </div>
               <template v-else>
-                <label class="form-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
-                <select v-if="field.type === 'select'" :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-select">
-                  <option value="">Select</option>
-                  <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
+                <label class="form-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ phrase(field.label) }}</label>
+                <select v-if="field.type === 'select'" :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-select" :disabled="field.readonly" :required="field.required">
+                  <option value="">{{ phrase('Select') }}</option>
+                  <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ phrase(optionLabel(option)) }}</option>
                 </select>
                 <div v-else-if="field.type === 'image-upload'" class="np-brand-asset-field">
                   <div v-if="secondaryForms[panel.key][field.key]" class="np-brand-asset-preview">
-                    <img :src="secondaryForms[panel.key][field.key]" :alt="field.label">
+                    <img :src="secondaryForms[panel.key][field.key]" :alt="phrase(field.label)">
                   </div>
                   <div class="input-group">
                     <input
@@ -238,7 +313,7 @@
                     >
                       <span v-if="secondaryAssetUploadState(panel.key, field.key).uploading" class="spinner-border spinner-border-sm me-1" />
                       <i v-else class="ri-upload-cloud-2-line me-1" />
-                      Upload
+                      {{ phrase('Upload') }}
                     </button>
                   </div>
                   <div v-if="secondaryAssetUploadState(panel.key, field.key).error" class="invalid-feedback d-block">
@@ -261,7 +336,10 @@
                   v-model="secondaryForms[panel.key][field.key]"
                   class="form-control"
                   rows="4"
-                  :placeholder="field.placeholder"
+                  :maxlength="field.maxLength"
+                  :placeholder="field.placeholder ? phrase(field.placeholder) : undefined"
+                  :readonly="field.readonly"
+                  :required="field.required"
                 />
                 <input
                   v-else
@@ -270,22 +348,26 @@
                   class="form-control"
                   :type="inputType(field)"
                   :min="field.min"
+                  :max="field.max"
+                  :maxlength="field.maxLength"
                   :step="field.step"
-                  :placeholder="field.placeholder"
+                  :placeholder="field.placeholder ? phrase(field.placeholder) : undefined"
+                  :readonly="field.readonly"
+                  :required="field.required"
                 >
-                <div v-if="field.help" class="form-text">{{ field.help }}</div>
+                <div v-if="field.help" class="form-text">{{ phrase(field.help) }}</div>
               </template>
             </div>
           </div>
         </div>
         <div class="card-footer d-flex justify-content-end gap-2">
-          <button class="btn btn-light btn-wave" type="button" :disabled="secondaryLoading[panel.key] || secondarySaving[panel.key]" @click="resetSecondarySettingsForm(panel)">Reset</button>
-          <button class="btn btn-primary btn-wave" type="button" :disabled="secondarySaving[panel.key]" @click="saveSecondarySettingsForm(panel)">
+          <button class="btn btn-light btn-wave" type="button" :disabled="secondaryLoading[panel.key] || secondarySaving[panel.key] || !isSecondarySettingsDirty(panel)" @click="resetSecondarySettingsForm(panel)">{{ phrase('Reset') }}</button>
+          <button class="btn btn-primary btn-wave" type="submit" :disabled="secondarySaving[panel.key] || !isSecondarySettingsDirty(panel)">
             <span v-if="secondarySaving[panel.key]" class="spinner-border spinner-border-sm me-2" />
-            Save
+            {{ secondarySaving[panel.key] ? phrase('Saving') : phrase('Save changes') }}
           </button>
         </div>
-      </div>
+      </form>
     </template>
 
     <template v-else-if="mode === 'report-detail'">
@@ -609,7 +691,12 @@
           </span>
         </button>
       </div>
-      <div v-for="related in visibleRelatedLists" :key="related.key" class="np-related-list-block">
+      <div
+        v-for="related in visibleRelatedLists"
+        :id="isTenantSettingsRoute ? settingsSectionId(`related-${related.key}`) : undefined"
+        :key="related.key"
+        :class="['np-related-list-block', { 'np-settings-anchor': isTenantSettingsRoute }]"
+      >
         <AdminFilterBar
           v-if="related.filters?.length"
           :filters="hydrateFilters(related.filters || [])"
@@ -810,7 +897,7 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationColumn, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationColumn, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel, OperationSettingsSection } from '~/composables/useAdminOperationsCatalog'
 import AdminCustomerDetail from '~/components/AdminCustomerDetail.vue'
 import AdminOrderDetail from '~/components/AdminOrderDetail.vue'
 import AdminPartnerDetail from '~/components/AdminPartnerDetail.vue'
@@ -1073,6 +1160,7 @@ const isStockSettingsRoute = computed(() => props.scope === 'central' && slugPar
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const isWinnersRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'winners')
+const isTenantSettingsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'settings')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
 const isCentralRevenueReportRoute = computed(() => Boolean(
   props.scope === 'central'
@@ -1089,6 +1177,71 @@ const isTenantExchangeRewardRoute = computed(() => props.scope === 'tenant' && r
 const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
 const isCentralRewardPayoutRulesRoute = computed(() => props.scope === 'central' && resource.value?.slug === 'reward-payout-rules')
 const isSalePriceRulesRoute = computed(() => resource.value?.slug === 'sale-price-rules')
+type SettingsFieldGroup = OperationSettingsSection & { fields: OperationFormField[] }
+const settingsFieldGroups = computed<SettingsFieldGroup[]>(() => {
+  const fields = resource.value?.settingsFields || []
+  const sections = resource.value?.settingsSections || []
+
+  if (!sections.length) {
+    return [{
+      key: 'configuration',
+      title: 'Configuration',
+      fieldKeys: fields.map(field => field.key),
+      fields,
+    }]
+  }
+
+  const fieldsByKey = new Map(fields.map(field => [field.key, field]))
+  const assignedKeys = new Set(sections.flatMap(section => section.fieldKeys))
+  const groups = sections.map(section => ({
+    ...section,
+    fields: section.fieldKeys
+      .map(key => fieldsByKey.get(key))
+      .filter((field): field is OperationFormField => Boolean(field)),
+  })).filter(group => group.fields.length > 0)
+  const remainingFields = fields.filter(field => !assignedKeys.has(field.key))
+
+  if (remainingFields.length) {
+    groups.push({
+      key: 'other',
+      title: 'Other settings',
+      description: 'Additional settings for this page.',
+      icon: 'ri-settings-4-line',
+      fieldKeys: remainingFields.map(field => field.key),
+      fields: remainingFields,
+    })
+  }
+
+  return groups
+})
+const initialFieldValue = (field: OperationFormField, source: any) => {
+  const value = getPath(source || {}, field.sourceKey || field.key)
+  return value !== undefined && value !== null
+    ? normalizeInitialFieldValue(field, value)
+    : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialFieldValue(field, value)
+}
+const fieldValuesEqual = (current: any, initial: any) => JSON.stringify(current) === JSON.stringify(initial)
+const isSettingsDirty = computed(() => {
+  if (loading.value || detail.value === null || !resource.value?.settingsFields?.length) return false
+  return resource.value.settingsFields.some(field => !fieldValuesEqual(settingsForm[field.key], initialFieldValue(field, detail.value)))
+})
+const isSecondarySettingsDirty = (panel: OperationSettingsPanel) => {
+  if (secondaryLoading[panel.key] || secondaryDetails[panel.key] === undefined || !secondaryForms[panel.key]) return false
+  return panel.settingsFields.some(field => !fieldValuesEqual(
+    secondaryForms[panel.key][field.key],
+    initialFieldValue(field, secondaryDetails[panel.key]),
+  ))
+}
+const settingsSectionId = (key: string) => fieldId(`settings-section-${key}`)
+const scrollToSettingsSection = (key: string) => {
+  if (!import.meta.client) return
+  document.getElementById(settingsSectionId(key))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+const settingsFieldColumnClass = (field: OperationFormField) => {
+  if (['textarea', 'json', 'lines', 'image-upload'].includes(field.type || '')) return 'col-12'
+  if (isTenantSettingsRoute.value && (field.key.startsWith('api.') || field.key.startsWith('live.'))) return 'col-12'
+  return 'col-md-6'
+}
 const showListSections = computed(() => Boolean(resource.value?.listSections?.length && mode.value === 'list'))
 const activeRelatedLists = computed(() => {
   if (isPaymentSettingsRoute.value) {
@@ -2996,14 +3149,14 @@ const uploadSecondaryAsset = async (panel: OperationSettingsPanel, field: Operat
     secondaryDetails[panel.key] = extractData(response)
     secondaryForms[panel.key][field.key] = getPath(secondaryDetails[panel.key], field.sourceKey || field.key) || assetUrl
     state.file = null
-    state.message = `${field.label} uploaded and applied.`
+    state.message = phrase('Image uploaded and applied.')
 
     if (import.meta.client) {
       const input = document.getElementById(fieldId(`secondary-${panel.key}-${field.key}`)) as HTMLInputElement | null
       if (input) input.value = ''
     }
   } catch (err: any) {
-    state.error = String(err?.message || err?.data?.error?.message || 'The image could not be uploaded. Please try again.')
+    state.error = String(err?.message || err?.data?.error?.message || phrase('The image could not be uploaded. Please try again.'))
   } finally {
     state.uploading = false
   }
@@ -4483,6 +4636,9 @@ const inputType = (field: OperationFormField) => {
   if (field.type === 'date') return 'date'
   if (field.type === 'password') return 'password'
   if (field.type === 'color') return 'color'
+  if (field.type === 'email') return 'email'
+  if (field.type === 'tel') return 'tel'
+  if (field.type === 'url') return 'url'
   return 'text'
 }
 
@@ -4700,6 +4856,139 @@ const formatLines = (value: any, valueKey?: string) => {
 </script>
 
 <style scoped>
+.np-settings-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.np-settings-anchor {
+  scroll-margin-top: 5.5rem;
+}
+
+.np-settings-intro {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+
+.np-settings-nav {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.65rem;
+  scrollbar-width: thin;
+}
+
+.np-settings-nav-button {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  color: #475569;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 600;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.8rem;
+}
+
+.np-settings-nav-button:hover,
+.np-settings-nav-button:focus-visible {
+  background: rgba(8, 127, 240, 0.08);
+  border-color: rgba(8, 127, 240, 0.24);
+  color: #087ff0;
+}
+
+.np-settings-body {
+  padding: 0;
+}
+
+.np-settings-sections {
+  display: grid;
+}
+
+.np-settings-section {
+  padding: 1.5rem;
+  scroll-margin-top: 5.5rem;
+}
+
+.np-settings-section + .np-settings-section {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.np-settings-section-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.np-settings-section-heading h6 {
+  font-size: 1rem;
+  margin: 0 0 0.2rem;
+}
+
+.np-settings-section-heading p {
+  color: #64748b;
+  margin: 0;
+}
+
+.np-settings-section-icon {
+  align-items: center;
+  background: rgba(8, 127, 240, 0.1);
+  border-radius: 0.45rem;
+  color: #087ff0;
+  display: inline-flex;
+  flex: 0 0 2.5rem;
+  font-size: 1.15rem;
+  height: 2.5rem;
+  justify-content: center;
+}
+
+.np-settings-switch {
+  margin-top: 2rem;
+}
+
+.np-settings-actions {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  bottom: 0;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  position: sticky;
+  z-index: 5;
+}
+
+@media (max-width: 575.98px) {
+  .np-settings-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .np-settings-section {
+    padding: 1.1rem;
+  }
+
+  .np-settings-actions {
+    flex-wrap: wrap;
+  }
+
+  .np-settings-actions .text-warning {
+    flex-basis: 100%;
+  }
+
+  .np-settings-actions .btn {
+    flex: 1 1 0;
+  }
+}
+
 .np-brand-asset-field {
   max-width: 42rem;
 }

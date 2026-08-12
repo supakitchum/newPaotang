@@ -10,6 +10,36 @@ class IdempotencyService
 {
     /**
      * @param array<string, mixed> $payload
+     */
+    public function reserve(
+        ?string $tenantId,
+        string $actorType,
+        string $actorId,
+        string $routeKey,
+        string $idempotencyKey,
+        array $payload,
+        ?string $permissionCode = null,
+    ): bool {
+        return IdempotencyKey::query()->insertOrIgnore([
+            'id' => 'idk_'.Str::ulid()->toBase32(),
+            'tenant_id' => $tenantId,
+            'actor_type' => $actorType,
+            'actor_id' => $actorId,
+            'route_key' => $routeKey,
+            'permission_code' => $permissionCode,
+            'idempotency_key' => $idempotencyKey,
+            'payload_hash' => $this->payloadHash($payload),
+            'response_status' => null,
+            'response_body_json' => null,
+            'completed_at' => null,
+            'expires_at' => now()->addDays(30),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]) === 1;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
      * @return array{status: int, body: array<string, mixed>|null}|string|null
      */
     public function replayOrConflict(

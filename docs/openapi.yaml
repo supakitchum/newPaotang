@@ -630,6 +630,21 @@ paths:
                 $ref: "#/components/schemas/AdminSessionProfile"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
+  /auth/admin/server-time:
+    get:
+      tags: [System Auth]
+      summary: Current application server time for Back Office clock synchronization
+      parameters:
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Current server time and configured application timezone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminServerTime"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
   /auth/admin/password/forgot:
     post:
       tags: [System Auth]
@@ -8149,6 +8164,12 @@ paths:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
+        - name: request_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by the platform request ID recorded for a payment provider attempt.
         - name: q
           in: query
           required: false
@@ -13585,6 +13606,20 @@ components:
         active_tenant_id:
           type: string
           nullable: true
+    AdminServerTime:
+      type: object
+      required: [server_time, timezone, utc_offset]
+      properties:
+        server_time:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          example: Asia/Bangkok
+        utc_offset:
+          type: string
+          pattern: "^[+-][0-9]{2}:[0-9]{2}$"
+          example: "+07:00"
     AdminProfile:
       type: object
       required: [id, name, email, status]
@@ -15998,7 +16033,10 @@ components:
               nullable: true
             provider_payload:
               type: object
+              description: Sanitized provider references only. QR and raw provider responses are excluded.
               additionalProperties: true
+            provider_attempt:
+              $ref: "#/components/schemas/PaymentProviderAttempt"
             admin_note:
               type: string
               nullable: true
@@ -16007,6 +16045,53 @@ components:
               items:
                 type: object
                 additionalProperties: true
+    PaymentProviderAttempt:
+      type: object
+      nullable: true
+      required: [id, provider, operation, status]
+      properties:
+        id:
+          type: string
+        request_id:
+          type: string
+          nullable: true
+        provider:
+          type: string
+        operation:
+          type: string
+        channel:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [initiated, succeeded, provider_rejected, invalid_response, transport_failed, outcome_unknown]
+        application_error_code:
+          type: string
+          nullable: true
+        provider_http_status:
+          type: integer
+          nullable: true
+        provider_code:
+          type: string
+          nullable: true
+        provider_message:
+          type: string
+          maxLength: 500
+          nullable: true
+        response_classification:
+          type: string
+          nullable: true
+        latency_ms:
+          type: integer
+          minimum: 0
+          nullable: true
+        attempted_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
     ApproveTopupRequest:
       type: object
       required: [reason]

@@ -81,6 +81,23 @@ class AdminAuthController extends Controller
         return response()->noContent();
     }
 
+    public function serverTime(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('admin_session');
+
+        if (! $context instanceof AdminSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $now = now();
+
+        return response()->json([
+            'server_time' => $now->toIso8601String(),
+            'timezone' => (string) config('app.timezone', 'UTC'),
+            'utc_offset' => $now->format('P'),
+        ]);
+    }
+
     public function me(Request $request): JsonResponse
     {
         $context = $request->attributes->get('admin_session');

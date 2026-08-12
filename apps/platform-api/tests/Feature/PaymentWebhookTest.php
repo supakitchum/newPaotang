@@ -178,11 +178,13 @@ class PaymentWebhookTest extends TestCase
             ->json();
 
         $partnerTxnUid = (string) DB::table('payments')->where('topup_request_id', $topup['id'])->value('provider_reference');
+        $attempt = DB::table('payment_provider_attempts')->where('topup_request_id', $topup['id'])->first();
 
         $callback = [
             'partnerTxnUid' => $partnerTxnUid,
-            'reference1' => $topup['id'],
+            'reference1' => $attempt->provider_reference1,
             'reference2' => 'wallet',
+            'reference3' => $attempt->provider_reference3,
         ];
 
         $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [

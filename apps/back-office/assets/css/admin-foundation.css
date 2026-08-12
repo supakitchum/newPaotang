@@ -92,6 +92,8 @@ body {
   display: flex !important;
   width: 15rem;
   max-width: 100%;
+  z-index: 1041 !important;
+  isolation: isolate;
 }
 
 .app-sidebar .main-sidebar-header .header-logo img.np-admin-brand-logo {
@@ -226,6 +228,10 @@ html:not([data-toggled='close-menu-close']) .app-sidebar .main-sidebar-header .h
 
 .main-header-container .header-link {
   color: var(--header-prime-color);
+}
+
+.app-sidebar {
+  z-index: 1040 !important;
 }
 
 .main-sidebar {

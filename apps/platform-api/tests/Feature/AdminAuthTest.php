@@ -287,6 +287,25 @@ class AdminAuthTest extends TestCase
             ->assertJsonPath('scopes.0.permissions.0', 'dashboard.view');
     }
 
+    public function test_server_time_requires_authentication_and_returns_application_clock(): void
+    {
+        $this->getJson('/api/v1/auth/admin/server-time')
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+
+        $login = $this->createCentralAdminSession();
+
+        $response = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/auth/admin/server-time')
+            ->assertOk()
+            ->assertJsonStructure(['server_time', 'timezone', 'utc_offset'])
+            ->assertJsonPath('timezone', (string) config('app.timezone'))
+            ->json();
+
+        $this->assertNotFalse(strtotime((string) $response['server_time']));
+        $this->assertMatchesRegularExpression('/^[+-]\d{2}:\d{2}$/', (string) $response['utc_offset']);
+    }
+
     public function test_central_admin_cannot_login_with_tenant_scope_without_tenant_access(): void
     {
         $this->seedDefaultRbac();
