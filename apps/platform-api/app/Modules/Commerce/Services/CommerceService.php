@@ -3772,6 +3772,7 @@ class CommerceService
 
         return [
             'id' => (string) $topup->id,
+            'reference' => (string) $topup->reference,
             'amount' => $this->money((int) $topup->amount, (string) $topup->currency),
             'bonus_amount' => $this->money((int) $topup->bonus_amount, (string) $topup->currency),
             'status' => $this->topupPresentationStatus($topup),

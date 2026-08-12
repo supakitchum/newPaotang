@@ -16034,9 +16034,11 @@ components:
           minimum: 400
     Topup:
       type: object
-      required: [id, amount, status]
+      required: [id, reference, amount, status]
       properties:
         id:
+          type: string
+        reference:
           type: string
         amount:
           $ref: "#/components/schemas/Money"

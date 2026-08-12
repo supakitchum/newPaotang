@@ -273,6 +273,7 @@ class TopupBankAccount {
 class TopupRequestItem {
   const TopupRequestItem({
     required this.id,
+    this.reference = '',
     required this.amount,
     required this.bonusAmount,
     required this.status,
@@ -320,6 +321,13 @@ class TopupRequestItem {
         payload['depositId'],
         payload['request_id'],
         payload['requestId'],
+      ]),
+      reference: _firstTopupText([
+        payload['reference'],
+        payload['topup_reference'],
+        payload['topupReference'],
+        payload['request_reference'],
+        payload['requestReference'],
       ]),
       amount: moneyToDisplayNumber(
         payload['amount'] ??
@@ -455,6 +463,7 @@ class TopupRequestItem {
   }
 
   final String id;
+  final String reference;
   final double amount;
   final double bonusAmount;
   final TopupStatus status;
@@ -471,6 +480,11 @@ class TopupRequestItem {
   final int? paymentExpiresInSeconds;
   final Object? serverTime;
   final DateTime? responseReceivedAt;
+
+  String get displayReference {
+    final value = reference.trim();
+    return value.isEmpty ? id : value;
+  }
 
   DateTime? get paymentExpiresAtDateTime {
     final value = DateTime.tryParse(paymentExpiresAt?.toString() ?? '');

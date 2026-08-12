@@ -21,6 +21,7 @@ void main() {
     expect(api.multipartPath, isEmpty);
     expect(api.postHeaders['Idempotency-Key'], startsWith('customer_topup_'));
     expect(item.id, 'topup_1');
+    expect(item.displayReference, 'TOP-TEST-001');
     expect(item.qrCode, 'data:image/png;base64,WRAPPED');
     expect(item.message, 'สแกน QR Code เพื่อชำระเงินรายการนี้');
   });
@@ -33,6 +34,7 @@ void main() {
 
     expect(api.getPath, '/customer/topups/topup_1');
     expect(item.id, 'topup_1');
+    expect(item.displayReference, 'TOP-TEST-001');
     expect(item.status, TopupStatus.pendingReview);
     expect(item.qrCode, 'data:image/png;base64,WRAPPED');
   });
@@ -202,6 +204,7 @@ class _TopupApiClient extends ApiClient {
       'data': {
         'result': {
           'id': 'topup_1',
+          'reference': 'TOP-TEST-001',
           'amount': {'amount': 80000, 'currency': 'THB'},
           'bonus_amount': {'amount': 0, 'currency': 'THB'},
           'status': 'pending_review',

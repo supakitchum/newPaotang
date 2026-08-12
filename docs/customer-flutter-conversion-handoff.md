@@ -11621,3 +11621,24 @@ Topup QR detail and export UX (2026-08-12):
   and actions, without repeating reference or amount details.
 - Focused Flutter analysis and 29 Topup model/widget tests passed. No runtime
   database, commit, push, or worktree-clearing operation was performed.
+
+Topup QR detail stability and completion flow (2026-08-12):
+
+- Removed the duplicate blue title header from the Topup transaction detail;
+  the page keeps only a compact standalone back control and a responsive white
+  content surface.
+- QR artwork now retains one decoded image provider while the countdown updates
+  in an isolated widget. Saving waits for that exact provider and a completed UI
+  frame before capturing, so the exported PNG includes the QR, Siamblend footer,
+  and the requested red diagonal watermark instead of a blank QR area.
+- The Topup API now returns the customer-visible request reference. Flutter uses
+  it at a reduced type size with the request ID retained as a compatibility
+  fallback.
+- Detail pages now include a Help Center entry. Successful provider callbacks
+  replace the pending QR screen with the completed transaction detail on the
+  same route, while confirmed cancellation returns to the Topup landing page.
+- Verification passed 40 focused Flutter Topup tests and focused analysis. The
+  Platform CustomerTopup suite passed 12 tests/268 assertions against
+  `newpaotang_test`; OpenAPI YAML validation and `git diff --check` passed. The
+  runtime database was not touched, and no commit, push, or worktree clearing
+  was performed.

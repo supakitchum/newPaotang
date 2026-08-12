@@ -49,6 +49,14 @@ void main() {
     );
   });
 
+  test('topup landing location keeps a safe return path after cancel', () {
+    expect(topupLocation(backPath: '/checkout'), '/topup?back=%2Fcheckout');
+    expect(
+      topupLocation(backPath: 'https://example.invalid'),
+      '/topup?back=%2Fmy-wallet',
+    );
+  });
+
   testWidgets('topup screen honors allowed Nuxt back query targets', (
     tester,
   ) async {
@@ -1143,7 +1151,14 @@ void main() {
 
     expect(repository.detailCalls, 1);
     expect(repository.detailIds, ['top_detail_1']);
-    expect(find.text('รายละเอียดเติมเงิน'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('topup-detail-headerless-page')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('topup-detail-fixed-header')),
+      findsNothing,
+    );
     expect(find.text('ข้อมูลรายการเติมเงิน'), findsOneWidget);
     expect(find.text('รายการ #top_detail_1'), findsOneWidget);
     expect(find.text('1,200 บาท'), findsOneWidget);
@@ -1169,7 +1184,7 @@ void main() {
         slipUrl: '',
         slipThumbUrl: '',
         qrCode:
-            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQAAAADsdIMmAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAAB3YoTpAAAAAd0SU1FB+oIDAwjImN+qdwAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjYtMDgtMTJUMTI6MzU6MzQrMDA6MDCPkhVfAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDI2LTA4LTEyVDEyOjM1OjM0KzAwOjAw/s+t4wAAACh0RVh0ZGF0ZTp0aW1lc3RhbXAAMjAyNi0wOC0xMlQxMjozNTozNCswMDowMKnajDwAAAAPSURBVAjXY+BngMAPEAgAEeAD/ReYei0AAAAASUVORK5CYII=',
         redirectUrl: '',
         message: '',
       ),
@@ -1181,6 +1196,7 @@ void main() {
           topupRepositoryProvider.overrideWithValue(repository),
           receiptImageExporterProvider.overrideWithValue(imageExporter),
           receiptShareServiceProvider.overrideWithValue(shareService),
+          topupQrImagePreloaderProvider.overrideWithValue((_, __) async {}),
           topupOverviewProvider.overrideWith(
             (_) async => _emptyTopupOverview(),
           ),
@@ -1206,6 +1222,11 @@ void main() {
     expect(find.text('THAI QR PAYMENT'), findsOneWidget);
     expect(find.text('บันทึก QR Code'), findsOneWidget);
     expect(find.text('สำหรับเติมเงิน Siamblend เท่านั้น'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topup-qr-red-watermark')),
+      findsOneWidget,
+    );
+    expect(find.text('แจ้งปัญหา'), findsOneWidget);
     expect(find.text('รายการเติมเงินของคุณ'), findsNothing);
     expect(find.text('500 บาท'), findsOneWidget);
     expect(tester.widget<Text>(find.text('500 บาท')).textAlign, TextAlign.end);
@@ -1220,28 +1241,87 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.drag(
-      find.byKey(const ValueKey('topup-detail-content-scroll')),
-      const Offset(0, -360),
-    );
+    final saveButton = find.widgetWithText(OutlinedButton, 'บันทึก QR Code');
+    await Scrollable.ensureVisible(tester.element(saveButton), alignment: 0.5);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('บันทึก QR Code'));
-    await tester.pumpAndSettle();
+    final saveAction = tester.widget<OutlinedButton>(saveButton).onPressed;
+    expect(saveAction, isNotNull);
+    saveAction!();
+    await tester.pump();
+    await tester.pump(Duration.zero);
+    await tester.pump(const Duration(milliseconds: 1));
 
     expect(imageExporter.captureCalls, 1);
+    expect(imageExporter.boundaryAttached, isTrue);
     expect(shareService.shareCalls, 1);
     expect(shareService.fileName, 'siamblend-topup-qr_detail_1.png');
     expect(shareService.imageBytes, orderedEquals([1, 2, 3]));
+  });
+
+  testWidgets('successful QR payment becomes transaction detail', (
+    tester,
+  ) async {
+    final repository = _DetailTopupRepository(
+      const TopupRequestItem(
+        id: 'topup_paid_1',
+        reference: 'TOP-PAID-001',
+        amount: 500,
+        bonusAmount: 0,
+        status: TopupStatus.approved,
+        channel: TopupChannel.qr,
+        provider: 'deepay_kbank',
+        transferAt: null,
+        createdAt: '2026-08-12T10:00:00+07:00',
+        slipUrl: '',
+        slipThumbUrl: '',
+        qrCode: '',
+        redirectUrl: '',
+        message: '',
+        paymentExpiresInSeconds: 0,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [topupRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const TopupScreen(
+            detailTopupId: 'topup_paid_1',
+            backPath: '/my-wallet',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('topup-completed-detail')),
+      findsOneWidget,
+    );
+    expect(find.text('อนุมัติแล้ว'), findsOneWidget);
+    expect(find.text('TOP-PAID-001'), findsOneWidget);
+    expect(find.text('QR Code นี้หมดอายุแล้ว'), findsNothing);
+    expect(find.text('แจ้งปัญหา'), findsOneWidget);
   });
 }
 
 class _RecordingTopupQrImageExporter implements ReceiptImageExporter {
   int captureCalls = 0;
+  bool boundaryAttached = false;
 
   @override
   Future<Uint8List> capturePng(GlobalKey boundaryKey) async {
     captureCalls += 1;
-    expect(boundaryKey.currentContext, isNotNull);
+    await Future<void>.delayed(Duration.zero);
+    boundaryAttached = boundaryKey.currentContext != null;
     return Uint8List.fromList([1, 2, 3]);
   }
 }

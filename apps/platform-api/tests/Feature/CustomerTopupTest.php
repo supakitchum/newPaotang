@@ -37,6 +37,7 @@ class CustomerTopupTest extends TestCase
                 'Idempotency-Key' => 'customer-topup-main',
             ])
             ->assertCreated()
+            ->assertJsonPath('reference', fn (string $value): bool => str_starts_with($value, 'TOP-'))
             ->assertJsonPath('status', 'pending_review')
             ->json();
 

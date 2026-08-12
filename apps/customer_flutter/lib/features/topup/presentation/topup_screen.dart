@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,26 @@ const _topupDetailBackPathAllowlist = {
   ..._topupBackPathAllowlist,
   '/topup/history',
 };
+
+typedef TopupQrImagePreloader =
+    Future<void> Function(BuildContext context, ImageProvider<Object> provider);
+
+typedef TopupQrSaveCallback = void Function(ImageProvider<Object> provider);
+
+final topupQrImagePreloaderProvider = Provider<TopupQrImagePreloader>((ref) {
+  return (context, provider) async {
+    await precacheImage(provider, context);
+  };
+});
+
+Future<void> _waitForTopupQrFrame() {
+  final completer = Completer<void>();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!completer.isCompleted) completer.complete();
+  });
+  WidgetsBinding.instance.ensureVisualUpdate();
+  return completer.future;
+}
 
 Color _topupPrimaryTint(ColorScheme colorScheme) =>
     Color.lerp(colorScheme.primary, colorScheme.surface, 0.88) ??
@@ -113,6 +134,13 @@ String topupDetailLocation(String id, {String? backPath}) {
   final safeBackPath = safeTopupDetailBackPath(backPath);
   final query = Uri(queryParameters: {'back': safeBackPath}).query;
   return '/topup/$encodedId?$query';
+}
+
+String topupLocation({String? backPath}) {
+  final query = Uri(
+    queryParameters: {'back': safeTopupBackPath(backPath)},
+  ).query;
+  return '/topup?$query';
 }
 
 String _safeTopupFileId(String value) {
@@ -237,10 +265,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       fullScreen: true,
       child: detail.when(
         data: (topup) => _TopupDetailPageShell(
-          hero: _TopupDetailHeroContent(
-            title: l10n.topupDetailTitle,
-            backPath: backPath,
-          ),
+          backPath: backPath,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -257,7 +282,9 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
                 simplifiedQrDetail: true,
                 qrExportBoundaryKey: _qrExportBoundaryKey,
                 savingQr: _savingQr,
-                onSaveQr: _savingQr ? null : () => _saveTopupQr(topup),
+                onSaveQr: _savingQr
+                    ? null
+                    : (provider) => _saveTopupQr(topup, provider),
                 uploadingSlip: _uploadingSlip,
                 waitingSlipTransferAt: _waitingSlipTransferAt,
                 onUploadSlip: _uploadingSlip
@@ -272,15 +299,13 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
                 onCancel: _submitting
                     ? null
                     : () => _confirmCancelWaitingTopup(topup),
+                onReportProblem: () => context.push('/support/new'),
               ),
             ],
           ),
         ),
         loading: () => _TopupDetailPageShell(
-          hero: _TopupDetailHeroContent(
-            title: l10n.topupDetailTitle,
-            backPath: backPath,
-          ),
+          backPath: backPath,
           child: _TopupOverviewStatePanel(
             state: _TopupOverviewState.loading,
             message: l10n.topupDetailLoadingMessage,
@@ -288,10 +313,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
           ),
         ),
         error: (error, _) => _TopupDetailPageShell(
-          hero: _TopupDetailHeroContent(
-            title: l10n.topupDetailTitle,
-            backPath: backPath,
-          ),
+          backPath: backPath,
           child: _TopupOverviewStatePanel(
             state: _TopupOverviewState.error,
             message: topupErrorMessage(error, l10n.topupDetailLoadFailed),
@@ -659,15 +681,24 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
   }
 
   Future<void> _confirmCancelWaitingTopup(TopupRequestItem topup) async {
-    await showDialog<void>(
+    final cancelled = await showDialog<bool>(
       context: context,
       builder: (context) => _TopupCancelConfirmDialog(
         onConfirm: () => _cancelWaitingTopup(topup.id, showErrorNotice: false),
       ),
     );
+    if (!mounted || cancelled != true) return;
+    try {
+      context.go(topupLocation(backPath: widget.backPath));
+    } catch (_) {
+      // Focused widget tests can mount TopupScreen without a GoRouter.
+    }
   }
 
-  Future<void> _saveTopupQr(TopupRequestItem topup) async {
+  Future<void> _saveTopupQr(
+    TopupRequestItem topup,
+    ImageProvider<Object> qrProvider,
+  ) async {
     if (_savingQr) return;
     final l10n = context.l10n;
     setState(() {
@@ -676,6 +707,8 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
     });
 
     try {
+      await ref.read(topupQrImagePreloaderProvider)(context, qrProvider);
+      await _waitForTopupQrFrame();
       final bytes = await ref
           .read(receiptImageExporterProvider)
           .capturePng(_qrExportBoundaryKey);
@@ -689,7 +722,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
           .shareReceipt(
             text: l10n.topupQrSaveShareText(
               formatTopupBaht(l10n, topup.amount),
-              topup.id,
+              topup.displayReference,
             ),
             subject: l10n.topupQrSaveSubject,
             imageBytes: bytes,
@@ -910,7 +943,7 @@ class _TopupCancelConfirmDialogState extends State<_TopupCancelConfirmDialog> {
     final message = await widget.onConfirm();
     if (!mounted) return;
     if (message == null || message.isEmpty) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       return;
     }
 
@@ -1138,47 +1171,56 @@ class _TopupPageShell extends StatelessWidget {
 }
 
 class _TopupDetailPageShell extends StatelessWidget {
-  const _TopupDetailPageShell({required this.hero, required this.child});
+  const _TopupDetailPageShell({required this.backPath, required this.child});
 
-  static const _detailHeroHeight = 148.0;
-  static const _narrowDetailHeroHeight = 158.0;
-  static const _detailOverlap = 18.0;
-
-  final Widget hero;
+  final String backPath;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 344;
-        final heroHeight = narrow ? _narrowDetailHeroHeight : _detailHeroHeight;
-        return CustomerFixedHeaderLayout(
-          headerKey: const ValueKey('topup-detail-fixed-header'),
-          contentRegionKey: const ValueKey('topup-detail-content-region'),
-          headerHeight: heroHeight,
-          contentOverlap: _detailOverlap,
-          contentTopRadius: customerContentSheetTopRadius,
-          contentBackdropColor: Theme.of(context).colorScheme.primary,
-          header: _TopupHeroBand(child: hero),
-          content: ListView(
-            key: const ValueKey('topup-detail-content-scroll'),
-            padding: EdgeInsets.zero,
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              CustomerPageBody(
-                maxWidth: 640,
-                top: 0,
-                bottom: 56,
-                mobileHorizontal: 16,
-                wideHorizontal: 0,
-                minViewportHeight: true,
-                child: child,
+    final colorScheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      key: const ValueKey('topup-detail-headerless-page'),
+      color: colorScheme.surface,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            ListView(
+              key: const ValueKey('topup-detail-content-scroll'),
+              padding: EdgeInsets.zero,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                CustomerPageBody(
+                  maxWidth: 640,
+                  top: 58,
+                  bottom: 56,
+                  mobileHorizontal: 16,
+                  wideHorizontal: 0,
+                  minViewportHeight: true,
+                  child: child,
+                ),
+              ],
+            ),
+            PositionedDirectional(
+              top: 4,
+              start: 8,
+              child: IconButton(
+                key: const ValueKey('topup-detail-back-button'),
+                tooltip: context.l10n.commonBack,
+                onPressed: () =>
+                    navigateCustomerBack(context, fallbackPath: backPath),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 24),
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.onSurface,
+                  fixedSize: const Size.square(44),
+                  minimumSize: const Size.square(44),
+                  padding: EdgeInsets.zero,
+                ),
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1428,6 +1470,23 @@ bool _isRenderableTopupImageSource(String value) {
   return uri.hasScheme || trimmed.startsWith('//');
 }
 
+ImageProvider<Object>? _topupQrImageProvider(String source) {
+  final trimmed = source.trim();
+  if (trimmed.startsWith('data:image/')) {
+    final commaIndex = trimmed.indexOf(',');
+    if (commaIndex < 0) return null;
+    try {
+      return MemoryImage(base64Decode(trimmed.substring(commaIndex + 1)));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null || !uri.hasScheme) return null;
+  return NetworkImage(trimmed);
+}
+
 class _WaitingTopupCard extends StatelessWidget {
   const _WaitingTopupCard({
     this.title,
@@ -1442,6 +1501,7 @@ class _WaitingTopupCard extends StatelessWidget {
     required this.onSelectSlipTransferAt,
     required this.onOpenPayment,
     required this.onCancel,
+    this.onReportProblem,
   });
 
   final String? title;
@@ -1449,13 +1509,14 @@ class _WaitingTopupCard extends StatelessWidget {
   final bool simplifiedQrDetail;
   final GlobalKey? qrExportBoundaryKey;
   final bool savingQr;
-  final VoidCallback? onSaveQr;
+  final TopupQrSaveCallback? onSaveQr;
   final bool uploadingSlip;
   final DateTime? waitingSlipTransferAt;
   final VoidCallback? onUploadSlip;
   final VoidCallback? onSelectSlipTransferAt;
   final VoidCallback? onOpenPayment;
   final VoidCallback? onCancel;
+  final VoidCallback? onReportProblem;
 
   @override
   Widget build(BuildContext context) {
@@ -1463,6 +1524,13 @@ class _WaitingTopupCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final waitingDate = topup.transferAt ?? topup.createdAt;
+
+    if (simplifiedQrDetail && topup.status == TopupStatus.approved) {
+      return _TopupCompletedDetailCard(
+        topup: topup,
+        onReportProblem: onReportProblem,
+      );
+    }
 
     if (simplifiedQrDetail &&
         (topup.channel == TopupChannel.qr ||
@@ -1476,6 +1544,7 @@ class _WaitingTopupCard extends StatelessWidget {
         onUploadSlip: onUploadSlip,
         onOpenPayment: onOpenPayment,
         onCancel: onCancel,
+        onReportProblem: onReportProblem,
       );
     }
 
@@ -1513,13 +1582,13 @@ class _WaitingTopupCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        l10n.topupReference(topup.id),
+                        l10n.topupReference(topup.displayReference),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w900,
-                          height: 1.18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
                         ),
                       ),
                     ],
@@ -1591,6 +1660,30 @@ class _WaitingTopupCard extends StatelessWidget {
                 onUploadSlip: onUploadSlip,
               ),
             ],
+            if (simplifiedQrDetail && onReportProblem != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('topup-report-problem-button'),
+                  style: _topupFlatButtonStyle(
+                    OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      foregroundColor: colorScheme.primary,
+                      backgroundColor: colorScheme.surface,
+                      side: BorderSide(color: _topupPrimaryBorder(colorScheme)),
+                      shape: const StadiumBorder(),
+                      textStyle: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  onPressed: onReportProblem,
+                  icon: const Icon(Icons.support_agent_outlined, size: 21),
+                  label: Text(l10n.support('home.new_ticket')),
+                ),
+              ),
+            ],
             if (!topup.status.isTerminal) ...[
               const SizedBox(height: 12),
               SizedBox(
@@ -1643,6 +1736,105 @@ class _WaitingTopupCard extends StatelessWidget {
   }
 }
 
+class _TopupCompletedDetailCard extends StatelessWidget {
+  const _TopupCompletedDetailCard({
+    required this.topup,
+    required this.onReportProblem,
+  });
+
+  final TopupRequestItem topup;
+  final VoidCallback? onReportProblem;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final successColor = _topupSuccessForeground(colorScheme);
+
+    return DecoratedBox(
+      key: const ValueKey('topup-completed-detail'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _topupPrimaryBorder(colorScheme)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _topupSuccessTint(colorScheme),
+                  shape: BoxShape.circle,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Icon(
+                    Icons.check_rounded,
+                    color: successColor,
+                    size: 36,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.topupStatusApproved,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 22),
+            _TopupQrArtworkRow(
+              label: l10n.topupWaitingAmountLabel,
+              value: formatTopupBaht(l10n, topup.amount),
+              emphasized: true,
+            ),
+            const SizedBox(height: 12),
+            _TopupQrArtworkRow(
+              label: l10n.topupQrReferenceLabel,
+              value: topup.displayReference,
+            ),
+            const SizedBox(height: 12),
+            _WaitingDateRow(
+              dateText: formatLocalizedDateTime(
+                topup.transferAt ?? topup.createdAt,
+                l10n.locale.toLanguageTag(),
+              ),
+            ),
+            if (onReportProblem != null) ...[
+              const SizedBox(height: 22),
+              OutlinedButton.icon(
+                key: const ValueKey('topup-report-problem-button'),
+                style: _topupFlatButtonStyle(
+                  OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    foregroundColor: colorScheme.primary,
+                    backgroundColor: colorScheme.surface,
+                    side: BorderSide(color: _topupPrimaryBorder(colorScheme)),
+                    shape: const StadiumBorder(),
+                    textStyle: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                onPressed: onReportProblem,
+                icon: const Icon(Icons.support_agent_outlined, size: 21),
+                label: Text(l10n.support('home.new_ticket')),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TopupQrDetailCard extends StatefulWidget {
   const _TopupQrDetailCard({
     required this.topup,
@@ -1653,30 +1845,32 @@ class _TopupQrDetailCard extends StatefulWidget {
     required this.onUploadSlip,
     required this.onOpenPayment,
     required this.onCancel,
+    required this.onReportProblem,
   });
 
   final TopupRequestItem topup;
   final GlobalKey? exportBoundaryKey;
   final bool savingQr;
   final bool uploadingSlip;
-  final VoidCallback? onSaveQr;
+  final TopupQrSaveCallback? onSaveQr;
   final VoidCallback? onUploadSlip;
   final VoidCallback? onOpenPayment;
   final VoidCallback? onCancel;
+  final VoidCallback? onReportProblem;
 
   @override
   State<_TopupQrDetailCard> createState() => _TopupQrDetailCardState();
 }
 
 class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
-  Timer? _timer;
-  DateTime? _deadline;
-  int? _remainingSeconds;
+  bool _expired = false;
+  ImageProvider<Object>? _qrProvider;
 
   @override
   void initState() {
     super.initState();
-    _resetCountdown();
+    _syncExpiry();
+    _qrProvider = _topupQrImageProvider(widget.topup.qrCode);
   }
 
   @override
@@ -1685,31 +1879,24 @@ class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
     if (oldWidget.topup.paymentExpiresAt != widget.topup.paymentExpiresAt ||
         oldWidget.topup.paymentExpiresInSeconds !=
             widget.topup.paymentExpiresInSeconds ||
-        oldWidget.topup.qrCode != widget.topup.qrCode) {
-      _resetCountdown();
+        oldWidget.topup.status != widget.topup.status) {
+      _syncExpiry();
+    }
+    if (oldWidget.topup.qrCode != widget.topup.qrCode) {
+      _qrProvider = _topupQrImageProvider(widget.topup.qrCode);
     }
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  void _syncExpiry() {
+    final remaining = widget.topup.paymentRemainingSeconds;
+    _expired =
+        widget.topup.status == TopupStatus.expired ||
+        (remaining != null && remaining <= 0);
   }
 
-  void _resetCountdown() {
-    _timer?.cancel();
-    _remainingSeconds = widget.topup.paymentRemainingSeconds;
-    _deadline = _remainingSeconds == null
-        ? null
-        : DateTime.now().add(Duration(seconds: _remainingSeconds!));
-    if ((_remainingSeconds ?? 0) <= 0) return;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _deadline == null) return;
-      final milliseconds = _deadline!.difference(DateTime.now()).inMilliseconds;
-      final next = milliseconds <= 0 ? 0 : (milliseconds + 999) ~/ 1000;
-      setState(() => _remainingSeconds = math.max(0, next));
-      if (next <= 0) timer.cancel();
-    });
+  void _markExpired() {
+    if (!mounted || _expired) return;
+    setState(() => _expired = true);
   }
 
   @override
@@ -1718,40 +1905,48 @@ class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final hasQr = widget.topup.qrCode.isNotEmpty;
-    final expired =
-        widget.topup.status == TopupStatus.expired ||
-        (_remainingSeconds != null && _remainingSeconds! <= 0);
+    final qrProvider = _qrProvider;
+    final remainingSeconds = widget.topup.paymentRemainingSeconds;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_remainingSeconds != null && !expired) ...[
+        if (remainingSeconds != null && !_expired) ...[
           Align(
             alignment: Alignment.center,
-            child: _TopupQrCountdown(seconds: _remainingSeconds!),
+            child: _TopupLiveCountdown(
+              key: ValueKey(
+                'topup-qr-countdown-${widget.topup.paymentExpiresAt}-$remainingSeconds',
+              ),
+              initialSeconds: remainingSeconds,
+              onExpired: _markExpired,
+            ),
           ),
           const SizedBox(height: 12),
         ],
-        if (!expired && hasQr)
+        if (!_expired && hasQr && qrProvider != null)
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 360),
               child: RepaintBoundary(
                 key: widget.exportBoundaryKey,
-                child: _TopupQrArtwork(topup: widget.topup),
+                child: _TopupQrArtwork(
+                  topup: widget.topup,
+                  qrProvider: qrProvider,
+                ),
               ),
             ),
           )
         else
           _WaitingNotePanel(
-            message: expired
+            message: _expired
                 ? l10n.topupQrExpired
                 : widget.topup.message.trim().isNotEmpty
                 ? widget.topup.message.trim()
                 : l10n.topupNeedsSlip,
-            status: expired ? TopupStatus.expired : widget.topup.status,
+            status: _expired ? TopupStatus.expired : widget.topup.status,
           ),
-        if (!expired && hasQr) ...[
+        if (!_expired && hasQr && qrProvider != null) ...[
           const SizedBox(height: 14),
           OutlinedButton.icon(
             style: _topupFlatButtonStyle(
@@ -1766,7 +1961,9 @@ class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
                 ),
               ),
             ),
-            onPressed: widget.savingQr ? null : widget.onSaveQr,
+            onPressed: widget.savingQr || widget.onSaveQr == null
+                ? null
+                : () => widget.onSaveQr!(qrProvider),
             icon: widget.savingQr
                 ? SizedBox.square(
                     dimension: 18,
@@ -1825,6 +2022,27 @@ class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
             ),
           ),
         ],
+        if (widget.onReportProblem != null) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const ValueKey('topup-report-problem-button'),
+            style: _topupFlatButtonStyle(
+              OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                foregroundColor: colorScheme.primary,
+                backgroundColor: colorScheme.surface,
+                side: BorderSide(color: _topupPrimaryBorder(colorScheme)),
+                shape: const StadiumBorder(),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            onPressed: widget.onReportProblem,
+            icon: const Icon(Icons.support_agent_outlined, size: 21),
+            label: Text(l10n.support('home.new_ticket')),
+          ),
+        ],
         if (!widget.topup.status.isTerminal) ...[
           const SizedBox(height: 10),
           OutlinedButton(
@@ -1854,11 +2072,12 @@ class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
 }
 
 class _TopupQrArtwork extends StatelessWidget {
-  const _TopupQrArtwork({required this.topup});
+  const _TopupQrArtwork({required this.topup, required this.qrProvider});
 
   static const _brandAsset = 'assets/images/topup/siamblend_qr_footer.png';
 
   final TopupRequestItem topup;
+  final ImageProvider<Object> qrProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -1918,18 +2137,59 @@ class _TopupQrArtwork extends StatelessWidget {
                         child: Column(
                           children: [
                             Center(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: ColoredBox(
-                                  color: Colors.white,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: FlexibleImage(
-                                      source: topup.qrCode,
-                                      width: 224,
-                                      height: 224,
-                                      fit: BoxFit.contain,
-                                      errorIcon: Icons.qr_code_2,
+                              child: SizedBox.square(
+                                dimension: 232,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: ColoredBox(
+                                    color: Colors.white,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: _StableTopupQrImage(
+                                            provider: qrProvider,
+                                            width: 224,
+                                            height: 224,
+                                          ),
+                                        ),
+                                        IgnorePointer(
+                                          child: Transform.rotate(
+                                            angle: -math.pi / 7,
+                                            child: Container(
+                                              key: const ValueKey(
+                                                'topup-qr-red-watermark',
+                                              ),
+                                              width: 278,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 4,
+                                                    horizontal: 8,
+                                                  ),
+                                              color: Colors.red.withValues(
+                                                alpha: 0.78,
+                                              ),
+                                              child: Text(
+                                                l10n.topupQrWatermark,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.fade,
+                                                softWrap: false,
+                                                textAlign: TextAlign.center,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color: Colors.white,
+                                                      fontSize: 9,
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -1944,17 +2204,7 @@ class _TopupQrArtwork extends StatelessWidget {
                             const SizedBox(height: 8),
                             _TopupQrArtworkRow(
                               label: l10n.topupQrReferenceLabel,
-                              value: topup.id,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              l10n.topupQrWatermark,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                              value: topup.displayReference,
                             ),
                           ],
                         ),
@@ -1970,6 +2220,55 @@ class _TopupQrArtwork extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StableTopupQrImage extends StatelessWidget {
+  const _StableTopupQrImage({
+    required this.provider,
+    required this.width,
+    required this.height,
+  });
+
+  final ImageProvider<Object> provider;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image(
+      key: ValueKey('stable-topup-qr-${provider.hashCode}'),
+      image: provider,
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      errorBuilder: (_, __, ___) =>
+          _TopupQrImageError(width: width, height: height),
+    );
+  }
+}
+
+class _TopupQrImageError extends StatelessWidget {
+  const _TopupQrImageError({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Icon(
+          Icons.qr_code_2,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          size: 52,
         ),
       ),
     );
@@ -2010,14 +2309,15 @@ class _TopupQrArtworkRow extends StatelessWidget {
             style:
                 (emphasized
                         ? Theme.of(context).textTheme.titleLarge
-                        : Theme.of(context).textTheme.bodyMedium)
+                        : Theme.of(context).textTheme.labelSmall)
                     ?.copyWith(
                       color: emphasized
                           ? colorScheme.primary
                           : colorScheme.onSurface,
                       fontWeight: emphasized
                           ? FontWeight.w900
-                          : FontWeight.w700,
+                          : FontWeight.w600,
+                      fontSize: emphasized ? null : 10.5,
                       height: 1.25,
                     ),
           ),
@@ -2492,6 +2792,73 @@ class _WaitingPaymentPanelState extends State<_WaitingPaymentPanel> {
   }
 }
 
+class _TopupLiveCountdown extends StatefulWidget {
+  const _TopupLiveCountdown({
+    required this.initialSeconds,
+    required this.onExpired,
+    super.key,
+  });
+
+  final int initialSeconds;
+  final VoidCallback onExpired;
+
+  @override
+  State<_TopupLiveCountdown> createState() => _TopupLiveCountdownState();
+}
+
+class _TopupLiveCountdownState extends State<_TopupLiveCountdown> {
+  Timer? _timer;
+  late DateTime _deadline;
+  late int _remainingSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TopupLiveCountdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSeconds != widget.initialSeconds) _start();
+  }
+
+  void _start() {
+    _timer?.cancel();
+    _remainingSeconds = math.max(0, widget.initialSeconds);
+    _deadline = DateTime.now().add(Duration(seconds: _remainingSeconds));
+    if (_remainingSeconds <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onExpired();
+      });
+      return;
+    }
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      final milliseconds = _deadline.difference(DateTime.now()).inMilliseconds;
+      final next = milliseconds <= 0 ? 0 : (milliseconds + 999) ~/ 1000;
+      if (next != _remainingSeconds) {
+        setState(() => _remainingSeconds = next);
+      }
+      if (next <= 0) {
+        timer.cancel();
+        widget.onExpired();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _TopupQrCountdown(seconds: _remainingSeconds);
+  }
+}
+
 class _TopupQrCountdown extends StatelessWidget {
   const _TopupQrCountdown({required this.seconds});
 
@@ -2696,47 +3063,6 @@ class _WaitingSlipPanel extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TopupDetailHeroContent extends StatelessWidget {
-  const _TopupDetailHeroContent({required this.title, required this.backPath});
-
-  final String title;
-  final String backPath;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return SizedBox(
-      height: 42,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: _TopupHeroBackButton(backPath: backPath),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 56),
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.onPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                height: 1.16,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
