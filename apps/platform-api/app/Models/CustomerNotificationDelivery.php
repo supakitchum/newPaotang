@@ -12,6 +12,7 @@ class CustomerNotificationDelivery extends BaseModel
     protected $fillable = [
         'id',
         'tenant_id',
+        'notification_id',
         'recipient_id',
         'device_id',
         'status',
@@ -35,6 +36,11 @@ class CustomerNotificationDelivery extends BaseModel
     public function recipient(): BelongsTo
     {
         return $this->belongsTo(CustomerNotificationRecipient::class, 'recipient_id');
+    }
+
+    public function notification(): BelongsTo
+    {
+        return $this->belongsTo(CustomerNotification::class, 'notification_id');
     }
 
     public function device(): BelongsTo

@@ -10,6 +10,7 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/services/receipt_export_service.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_fixed_header_layout.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
@@ -114,6 +115,11 @@ String topupDetailLocation(String id, {String? backPath}) {
   return '/topup/$encodedId?$query';
 }
 
+String _safeTopupFileId(String value) {
+  final normalized = value.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '-');
+  return normalized.isEmpty ? 'qr' : normalized;
+}
+
 TopupOverview _emptyTopupOverview() {
   return const TopupOverview(
     bank: TopupBankAccount(bankName: '', accountName: '', accountNumber: ''),
@@ -142,12 +148,14 @@ class TopupScreen extends ConsumerStatefulWidget {
 
 class _TopupScreenState extends ConsumerState<TopupScreen> {
   final _amount = TextEditingController(text: '500');
+  final _qrExportBoundaryKey = GlobalKey();
   TopupChannel _selectedChannel = TopupChannel.qr;
   TopupSlipUpload? _bankTransferSlip;
   DateTime? _bankTransferAt;
   DateTime? _waitingSlipTransferAt;
   bool _submitting = false;
   bool _uploadingSlip = false;
+  bool _savingQr = false;
   String _pageNoticeMessage = '';
   bool _pageNoticeIsError = true;
   String _sheetNoticeMessage = '';
@@ -233,23 +241,39 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
             title: l10n.topupDetailTitle,
             backPath: backPath,
           ),
-          child: _WaitingTopupCard(
-            title: l10n.topupDetailRequestTitle,
-            topup: topup,
-            uploadingSlip: _uploadingSlip,
-            waitingSlipTransferAt: _waitingSlipTransferAt,
-            onUploadSlip: _uploadingSlip
-                ? null
-                : () => _pickAndUploadSlip(topup.id),
-            onSelectSlipTransferAt: _uploadingSlip
-                ? null
-                : () => _selectWaitingSlipTransferAt(topup),
-            onOpenPayment: topup.redirectUri == null
-                ? null
-                : () => _openPayment(topup),
-            onCancel: _submitting
-                ? null
-                : () => _confirmCancelWaitingTopup(topup),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_pageNoticeMessage.isNotEmpty) ...[
+                _TopupNoticePanel(
+                  message: _pageNoticeMessage,
+                  isError: _pageNoticeIsError,
+                ),
+                const SizedBox(height: 12),
+              ],
+              _WaitingTopupCard(
+                title: l10n.topupDetailRequestTitle,
+                topup: topup,
+                simplifiedQrDetail: true,
+                qrExportBoundaryKey: _qrExportBoundaryKey,
+                savingQr: _savingQr,
+                onSaveQr: _savingQr ? null : () => _saveTopupQr(topup),
+                uploadingSlip: _uploadingSlip,
+                waitingSlipTransferAt: _waitingSlipTransferAt,
+                onUploadSlip: _uploadingSlip
+                    ? null
+                    : () => _pickAndUploadSlip(topup.id),
+                onSelectSlipTransferAt: _uploadingSlip
+                    ? null
+                    : () => _selectWaitingSlipTransferAt(topup),
+                onOpenPayment: topup.redirectUri == null
+                    ? null
+                    : () => _openPayment(topup),
+                onCancel: _submitting
+                    ? null
+                    : () => _confirmCancelWaitingTopup(topup),
+              ),
+            ],
           ),
         ),
         loading: () => _TopupDetailPageShell(
@@ -470,6 +494,9 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       _submitting = true;
       _sheetNoticeMessage = '';
     });
+    final loadingOverlay = channel == TopupChannel.bankTransfer
+        ? null
+        : _showTopupLoadingOverlay(l10n.topupCreatingQr);
     try {
       final repo = ref.read(topupRepositoryProvider);
       late final TopupRequestItem created;
@@ -514,8 +541,37 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       _setSheetNotice(message);
       return null;
     } finally {
+      _removeTopupLoadingOverlay(loadingOverlay);
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  OverlayEntry? _showTopupLoadingOverlay(String label) {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) return null;
+    final entry = OverlayEntry(
+      builder: (overlayContext) {
+        final colorScheme = Theme.of(overlayContext).colorScheme;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ModalBarrier(
+              dismissible: false,
+              color: colorScheme.scrim.withValues(alpha: 0.48),
+            ),
+            _TopupCreateLoadingDialog(label: label),
+          ],
+        );
+      },
+    );
+    overlay.insert(entry);
+    return entry;
+  }
+
+  void _removeTopupLoadingOverlay(OverlayEntry? entry) {
+    if (entry == null) return;
+    entry.remove();
+    entry.dispose();
   }
 
   bool _validateTopupAmount({
@@ -606,10 +662,48 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => _TopupCancelConfirmDialog(
-        topup: topup,
         onConfirm: () => _cancelWaitingTopup(topup.id, showErrorNotice: false),
       ),
     );
+  }
+
+  Future<void> _saveTopupQr(TopupRequestItem topup) async {
+    if (_savingQr) return;
+    final l10n = context.l10n;
+    setState(() {
+      _savingQr = true;
+      _pageNoticeMessage = '';
+    });
+
+    try {
+      final bytes = await ref
+          .read(receiptImageExporterProvider)
+          .capturePng(_qrExportBoundaryKey);
+      if (!mounted) return;
+      final renderBox = context.findRenderObject();
+      final shareOrigin = renderBox is RenderBox
+          ? renderBox.localToGlobal(Offset.zero) & renderBox.size
+          : null;
+      await ref
+          .read(receiptShareServiceProvider)
+          .shareReceipt(
+            text: l10n.topupQrSaveShareText(
+              formatTopupBaht(l10n, topup.amount),
+              topup.id,
+            ),
+            subject: l10n.topupQrSaveSubject,
+            imageBytes: bytes,
+            fileName: 'siamblend-topup-${_safeTopupFileId(topup.id)}.png',
+            sharePositionOrigin: shareOrigin,
+          );
+      if (mounted) {
+        _setPageNotice(l10n.topupQrSaveReady, isError: false);
+      }
+    } catch (_) {
+      if (mounted) _setPageNotice(l10n.topupQrSaveFailed);
+    } finally {
+      if (mounted) setState(() => _savingQr = false);
+    }
   }
 
   Future<void> _openPayment(TopupRequestItem topup) async {
@@ -747,13 +841,54 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
 
 enum _TopupOverviewState { ready, loading, error }
 
-class _TopupCancelConfirmDialog extends StatefulWidget {
-  const _TopupCancelConfirmDialog({
-    required this.topup,
-    required this.onConfirm,
-  });
+class _TopupCreateLoadingDialog extends StatelessWidget {
+  const _TopupCreateLoadingDialog({required this.label});
 
-  final TopupRequestItem topup;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return PopScope(
+      canPop: false,
+      child: Center(
+        child: Material(
+          key: const ValueKey('topup-create-loading-dialog'),
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 8,
+          shadowColor: colorScheme.shadow.withValues(alpha: 0.18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomerLoadingMark(
+                  color: colorScheme.primary,
+                  width: 44,
+                  height: 30,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopupCancelConfirmDialog extends StatefulWidget {
+  const _TopupCancelConfirmDialog({required this.onConfirm});
+
   final Future<String?> Function() onConfirm;
 
   @override
@@ -806,81 +941,14 @@ class _TopupCancelConfirmDialogState extends State<_TopupCancelConfirmDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Align(
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: colorScheme.errorContainer.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(
-                      Icons.warning_amber_rounded,
-                      color: colorScheme.error,
-                      size: 30,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
                 Text(
                   l10n.topupCancelConfirmTitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    height: 1.28,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  l10n.topupCancelConfirmMessage(widget.topup.id),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l10n.topupCancelConfirmAmountLabel,
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              formatTopupBaht(l10n, widget.topup.amount),
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    color: colorScheme.onSurface,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    height: 1.4,
                   ),
                 ),
                 if (_errorMessage.isNotEmpty) ...[
@@ -1072,9 +1140,9 @@ class _TopupPageShell extends StatelessWidget {
 class _TopupDetailPageShell extends StatelessWidget {
   const _TopupDetailPageShell({required this.hero, required this.child});
 
-  static const _detailHeroHeight = 252.0;
-  static const _narrowDetailHeroHeight = 286.0;
-  static const _detailOverlap = 24.0;
+  static const _detailHeroHeight = 148.0;
+  static const _narrowDetailHeroHeight = 158.0;
+  static const _detailOverlap = 18.0;
 
   final Widget hero;
   final Widget child;
@@ -1364,6 +1432,10 @@ class _WaitingTopupCard extends StatelessWidget {
   const _WaitingTopupCard({
     this.title,
     required this.topup,
+    this.simplifiedQrDetail = false,
+    this.qrExportBoundaryKey,
+    this.savingQr = false,
+    this.onSaveQr,
     required this.uploadingSlip,
     required this.waitingSlipTransferAt,
     required this.onUploadSlip,
@@ -1374,6 +1446,10 @@ class _WaitingTopupCard extends StatelessWidget {
 
   final String? title;
   final TopupRequestItem topup;
+  final bool simplifiedQrDetail;
+  final GlobalKey? qrExportBoundaryKey;
+  final bool savingQr;
+  final VoidCallback? onSaveQr;
   final bool uploadingSlip;
   final DateTime? waitingSlipTransferAt;
   final VoidCallback? onUploadSlip;
@@ -1387,6 +1463,21 @@ class _WaitingTopupCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final waitingDate = topup.transferAt ?? topup.createdAt;
+
+    if (simplifiedQrDetail &&
+        (topup.channel == TopupChannel.qr ||
+            topup.channel == TopupChannel.creditCard)) {
+      return _TopupQrDetailCard(
+        topup: topup,
+        exportBoundaryKey: qrExportBoundaryKey,
+        savingQr: savingQr,
+        uploadingSlip: uploadingSlip,
+        onSaveQr: onSaveQr,
+        onUploadSlip: onUploadSlip,
+        onOpenPayment: onOpenPayment,
+        onCancel: onCancel,
+      );
+    }
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1549,6 +1640,390 @@ class _WaitingTopupCard extends StatelessWidget {
       TopupStatus.expired => l10n.topupStatusExpired,
       TopupStatus.unknown => l10n.topupStatusUnknown,
     };
+  }
+}
+
+class _TopupQrDetailCard extends StatefulWidget {
+  const _TopupQrDetailCard({
+    required this.topup,
+    required this.exportBoundaryKey,
+    required this.savingQr,
+    required this.uploadingSlip,
+    required this.onSaveQr,
+    required this.onUploadSlip,
+    required this.onOpenPayment,
+    required this.onCancel,
+  });
+
+  final TopupRequestItem topup;
+  final GlobalKey? exportBoundaryKey;
+  final bool savingQr;
+  final bool uploadingSlip;
+  final VoidCallback? onSaveQr;
+  final VoidCallback? onUploadSlip;
+  final VoidCallback? onOpenPayment;
+  final VoidCallback? onCancel;
+
+  @override
+  State<_TopupQrDetailCard> createState() => _TopupQrDetailCardState();
+}
+
+class _TopupQrDetailCardState extends State<_TopupQrDetailCard> {
+  Timer? _timer;
+  DateTime? _deadline;
+  int? _remainingSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TopupQrDetailCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.topup.paymentExpiresAt != widget.topup.paymentExpiresAt ||
+        oldWidget.topup.paymentExpiresInSeconds !=
+            widget.topup.paymentExpiresInSeconds ||
+        oldWidget.topup.qrCode != widget.topup.qrCode) {
+      _resetCountdown();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _resetCountdown() {
+    _timer?.cancel();
+    _remainingSeconds = widget.topup.paymentRemainingSeconds;
+    _deadline = _remainingSeconds == null
+        ? null
+        : DateTime.now().add(Duration(seconds: _remainingSeconds!));
+    if ((_remainingSeconds ?? 0) <= 0) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _deadline == null) return;
+      final milliseconds = _deadline!.difference(DateTime.now()).inMilliseconds;
+      final next = milliseconds <= 0 ? 0 : (milliseconds + 999) ~/ 1000;
+      setState(() => _remainingSeconds = math.max(0, next));
+      if (next <= 0) timer.cancel();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hasQr = widget.topup.qrCode.isNotEmpty;
+    final expired =
+        widget.topup.status == TopupStatus.expired ||
+        (_remainingSeconds != null && _remainingSeconds! <= 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_remainingSeconds != null && !expired) ...[
+          Align(
+            alignment: Alignment.center,
+            child: _TopupQrCountdown(seconds: _remainingSeconds!),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (!expired && hasQr)
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: RepaintBoundary(
+                key: widget.exportBoundaryKey,
+                child: _TopupQrArtwork(topup: widget.topup),
+              ),
+            ),
+          )
+        else
+          _WaitingNotePanel(
+            message: expired
+                ? l10n.topupQrExpired
+                : widget.topup.message.trim().isNotEmpty
+                ? widget.topup.message.trim()
+                : l10n.topupNeedsSlip,
+            status: expired ? TopupStatus.expired : widget.topup.status,
+          ),
+        if (!expired && hasQr) ...[
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            style: _topupFlatButtonStyle(
+              OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: colorScheme.primary,
+                backgroundColor: colorScheme.surface,
+                side: BorderSide(color: colorScheme.primary, width: 1.4),
+                shape: const StadiumBorder(),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            onPressed: widget.savingQr ? null : widget.onSaveQr,
+            icon: widget.savingQr
+                ? SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                      strokeWidth: 2.2,
+                    ),
+                  )
+                : const Icon(Icons.download_outlined, size: 22),
+            label: Text(
+              widget.savingQr ? l10n.topupQrSaving : l10n.topupQrSave,
+            ),
+          ),
+        ],
+        if (widget.topup.redirectUri != null) ...[
+          const SizedBox(height: 10),
+          CustomerGradientButton.text(
+            onPressed: widget.onOpenPayment,
+            height: 48,
+            fontSize: 15,
+            shadow: false,
+            label: l10n.topupOpenPayment,
+          ),
+        ],
+        if (!widget.topup.status.isTerminal && widget.topup.needsSlip) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            style: _topupFlatButtonStyle(
+              OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                foregroundColor: colorScheme.primary,
+                backgroundColor: _topupPrimaryTint(colorScheme),
+                side: BorderSide(color: _topupPrimaryBorder(colorScheme)),
+                shape: const StadiumBorder(),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            onPressed: widget.uploadingSlip ? null : widget.onUploadSlip,
+            icon: widget.uploadingSlip
+                ? SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                      strokeWidth: 2.2,
+                    ),
+                  )
+                : const Icon(Icons.image_outlined, size: 21),
+            label: Text(
+              widget.uploadingSlip
+                  ? l10n.topupUploadingSlip
+                  : widget.topup.slipUrl.isEmpty
+                  ? l10n.topupUploadSlip
+                  : l10n.topupUploadNewSlip,
+            ),
+          ),
+        ],
+        if (!widget.topup.status.isTerminal) ...[
+          const SizedBox(height: 10),
+          OutlinedButton(
+            style: _topupFlatButtonStyle(
+              OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                foregroundColor: colorScheme.error,
+                backgroundColor: colorScheme.errorContainer.withValues(
+                  alpha: 0.34,
+                ),
+                side: BorderSide(
+                  color: colorScheme.error.withValues(alpha: 0.18),
+                ),
+                shape: const StadiumBorder(),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            onPressed: widget.onCancel,
+            child: Text(l10n.topupCancelWaiting),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TopupQrArtwork extends StatelessWidget {
+  const _TopupQrArtwork({required this.topup});
+
+  static const _brandAsset = 'assets/images/topup/siamblend_qr_footer.png';
+
+  final TopupRequestItem topup;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final darkPrimary =
+        Color.lerp(colorScheme.primary, Colors.black, 0.32) ??
+        colorScheme.primary;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: ColoredBox(
+        color: colorScheme.primary,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    children: [
+                      ColoredBox(
+                        color: darkPrimary,
+                        child: SizedBox(
+                          height: 46,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.qr_code_2,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  l10n.topupQrPaymentLabel,
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                        child: Column(
+                          children: [
+                            Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: ColoredBox(
+                                  color: Colors.white,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: FlexibleImage(
+                                      source: topup.qrCode,
+                                      width: 224,
+                                      height: 224,
+                                      fit: BoxFit.contain,
+                                      errorIcon: Icons.qr_code_2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _TopupQrArtworkRow(
+                              label: l10n.topupWaitingAmountLabel,
+                              value: formatTopupBaht(l10n, topup.amount),
+                              emphasized: true,
+                            ),
+                            const SizedBox(height: 8),
+                            _TopupQrArtworkRow(
+                              label: l10n.topupQrReferenceLabel,
+                              value: topup.id,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              l10n.topupQrWatermark,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 116,
+                child: Image.asset(_brandAsset, fit: BoxFit.contain),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopupQrArtworkRow extends StatelessWidget {
+  const _TopupQrArtworkRow({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style:
+                (emphasized
+                        ? Theme.of(context).textTheme.titleLarge
+                        : Theme.of(context).textTheme.bodyMedium)
+                    ?.copyWith(
+                      color: emphasized
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                      fontWeight: emphasized
+                          ? FontWeight.w900
+                          : FontWeight.w700,
+                      height: 1.25,
+                    ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -2234,87 +2709,35 @@ class _TopupDetailHeroContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          height: 42,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: _TopupHeroBackButton(backPath: backPath),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 56),
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.16,
-                  ),
-                ),
-              ),
-            ],
+    return SizedBox(
+      height: 42,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: _TopupHeroBackButton(backPath: backPath),
           ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                Icons.account_balance_wallet_outlined,
-                color: colorScheme.primary,
-                size: 26,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 56),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                height: 1.16,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.topupDetailHeaderTitle,
-                    style: textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      height: 1.16,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.topupDetailHeaderSubtitle,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.86),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.34,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2583,7 +3006,7 @@ class _TopupSheetContent extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (submitting)
+                if (submitting && selectedChannel == TopupChannel.bankTransfer)
                   Positioned.fill(
                     child: AbsorbPointer(
                       child: ColoredBox(

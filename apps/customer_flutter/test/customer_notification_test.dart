@@ -348,7 +348,7 @@ void main() {
   });
 
   testWidgets(
-    'native push lifecycle registers refreshes opens and cleans up logout token',
+    'native push lifecycle registers, detaches on logout, and keeps the token',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       try {
@@ -547,8 +547,8 @@ void main() {
 
         final logout = auth.logout();
         await tester.pump();
-        expect(repository.revokedInstallationIds, ['install_push_test_001']);
-        expect(deletedTokens, 1);
+        expect(repository.detachedInstallationIds, ['install_push_test_001']);
+        expect(deletedTokens, 0);
 
         tokenRefresh.add('fcm-token-during-logout-1234567890');
         await tester.pump();
@@ -560,6 +560,7 @@ void main() {
         logoutGate.complete();
         await logout;
         await tester.pumpAndSettle();
+        expect(repository.registeredOwnerStates.last, 'anonymous');
 
         auth.applySession(
           const CustomerSession(
@@ -575,7 +576,9 @@ void main() {
           'fcm-token-initial-1234567890',
           'fcm-token-refreshed-1234567890',
           'fcm-token-initial-1234567890',
+          'fcm-token-initial-1234567890',
         ]);
+        expect(repository.registeredOwnerStates.last, 'customer');
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -1120,7 +1123,7 @@ void main() {
   });
 
   testWidgets(
-    'logout waits for in-flight token refresh registration before revoking',
+    'logout waits for in-flight token refresh registration before detaching',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       try {
@@ -1217,7 +1220,7 @@ void main() {
 
         final logout = auth.logout();
         await tester.pump();
-        expect(repository.revokedInstallationIds, isEmpty);
+        expect(repository.detachedInstallationIds, isEmpty);
         expect(deletedTokens, 0);
 
         refreshGate.complete();
@@ -1227,10 +1230,10 @@ void main() {
         expect(repository.lifecycleOperations, [
           'register:fcm-token-before-logout-race-1234567890',
           'register:fcm-token-during-logout-race-1234567890',
-          'revoke:install_push_test_001',
+          'detach:install_push_test_001',
         ]);
-        expect(repository.revokedInstallationIds, ['install_push_test_001']);
-        expect(deletedTokens, 1);
+        expect(repository.detachedInstallationIds, ['install_push_test_001']);
+        expect(deletedTokens, 0);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -1298,6 +1301,10 @@ class _PushInstallationStore extends CustomerPushInstallationStore {
   Future<String> installationId() async => 'install_push_test_001';
 
   @override
+  Future<String> installationSecret() async =>
+      'push_secret_test_001_1234567890';
+
+  @override
   Future<bool> permissionRequested() async => markedPermissionRequested;
 
   @override
@@ -1328,6 +1335,7 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
   CustomerPushDeviceStatus pushDeviceStatus;
 
   final List<String> registeredTokens = [];
+  final List<String> registeredOwnerStates = [];
   final List<String> registrationAttempts = [];
   final List<String> registeredInstallationIds = [];
   final List<String> registeredPlatforms = [];
@@ -1336,6 +1344,7 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
   final List<Map<String, dynamic>> registeredMetadata = [];
   final List<String> readNotificationIds = [];
   final List<String> revokedInstallationIds = [];
+  final List<String> detachedInstallationIds = [];
   final List<String> statusInstallationIds = [];
 
   @override
@@ -1347,6 +1356,7 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
   @override
   Future<void> registerDevice({
     required String installationId,
+    required String installationSecret,
     required String platform,
     required String fcmToken,
     required String locale,
@@ -1364,6 +1374,31 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
     registeredDeviceNames.add(deviceName);
     registeredMetadata.add(Map<String, dynamic>.from(metadata));
     registeredTokens.add(fcmToken);
+    registeredOwnerStates.add('customer');
+  }
+
+  @override
+  Future<void> registerAnonymousInstallation({
+    required String installationId,
+    required String installationSecret,
+    required String platform,
+    required String fcmToken,
+    required String locale,
+    String appVersion = '',
+    String deviceName = '',
+    Map<String, dynamic> metadata = const {},
+  }) async {
+    registrationAttempts.add(fcmToken);
+    if (failRegistrationTokensOnce.remove(fcmToken)) {
+      throw StateError('device registration offline');
+    }
+    registeredInstallationIds.add(installationId);
+    registeredPlatforms.add(platform);
+    registeredAppVersions.add(appVersion);
+    registeredDeviceNames.add(deviceName);
+    registeredMetadata.add(Map<String, dynamic>.from(metadata));
+    registeredTokens.add(fcmToken);
+    registeredOwnerStates.add('anonymous');
   }
 
   @override
@@ -1383,6 +1418,12 @@ class _PushNotificationRepository extends CustomerNotificationRepository {
     revokedInstallationIds.add(installationId);
     if (failRevoke) throw StateError('offline revoke');
   }
+
+  @override
+  Future<void> detachDevice(String installationId) async {
+    detachedInstallationIds.add(installationId);
+    if (failRevoke) throw StateError('offline detach');
+  }
 }
 
 class _GatedPushNotificationRepository extends _PushNotificationRepository {
@@ -1395,6 +1436,7 @@ class _GatedPushNotificationRepository extends _PushNotificationRepository {
   @override
   Future<void> registerDevice({
     required String installationId,
+    required String installationSecret,
     required String platform,
     required String fcmToken,
     required String locale,
@@ -1407,6 +1449,7 @@ class _GatedPushNotificationRepository extends _PushNotificationRepository {
     await registrationGate?.future;
     await super.registerDevice(
       installationId: installationId,
+      installationSecret: installationSecret,
       platform: platform,
       fcmToken: fcmToken,
       locale: locale,
@@ -1418,9 +1461,9 @@ class _GatedPushNotificationRepository extends _PushNotificationRepository {
   }
 
   @override
-  Future<void> revokeDevice(String installationId) async {
-    await super.revokeDevice(installationId);
-    lifecycleOperations.add('revoke:$installationId');
+  Future<void> detachDevice(String installationId) async {
+    await super.detachDevice(installationId);
+    lifecycleOperations.add('detach:$installationId');
   }
 }
 

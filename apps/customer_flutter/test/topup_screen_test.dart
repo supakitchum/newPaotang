@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
@@ -10,6 +11,7 @@ import 'package:customer_flutter/features/topup/data/topup_models.dart';
 import 'package:customer_flutter/features/topup/data/topup_repository.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_realtime_monitor.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_screen.dart';
+import 'package:customer_flutter/shared/services/receipt_export_service.dart';
 import 'package:customer_flutter/shared/widgets/customer_gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -946,15 +948,25 @@ void main() {
 
     expect(repository.cancelCalls, 0);
     expect(find.byType(AlertDialog), findsNothing);
-    expect(find.text('ยกเลิกรายการเติมเงินนี้?'), findsOneWidget);
+    expect(
+      find.text('คุณต้องการยกเลิกรายการเติมเงินนี้ใช่หรือไม่'),
+      findsOneWidget,
+    );
     expect(
       find.text(
         'รายการ #top_waiting_bank จะถูกยกเลิก และคุณสามารถสร้างรายการเติมเงินใหม่ได้ทันที',
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('ยอดเติมเงิน'), findsWidgets);
-    expect(find.text('800 บาท'), findsWidgets);
+    final confirmDialog = find.byType(Dialog);
+    expect(
+      find.descendant(of: confirmDialog, matching: find.text('ยอดเติมเงิน')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: confirmDialog, matching: find.text('800 บาท')),
+      findsNothing,
+    );
     expect(find.widgetWithText(OutlinedButton, 'ไม่ยกเลิก'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'ยืนยันยกเลิก'), findsOneWidget);
 
@@ -1064,6 +1076,13 @@ void main() {
 
     expect(repository.createCalls, 1);
     expect(find.text('กำลังสร้าง QR...'), findsWidgets);
+    final loadingDialog = find.byKey(
+      const ValueKey('topup-create-loading-dialog'),
+    );
+    final logicalSize = tester.view.physicalSize / tester.view.devicePixelRatio;
+    final loadingCenter = tester.getCenter(loadingDialog);
+    expect(loadingCenter.dx, closeTo(logicalSize.width / 2, 1));
+    expect(loadingCenter.dy, closeTo(logicalSize.height / 2, 1));
 
     createGate.complete();
     await tester.pumpAndSettle();
@@ -1131,6 +1150,121 @@ void main() {
     expect(find.text('โบนัส 80 บาท'), findsOneWidget);
     expect(find.text('รายการนี้รอทีมงานตรวจสอบ'), findsOneWidget);
   });
+
+  testWidgets('QR detail centers payment art and keeps values right aligned', (
+    tester,
+  ) async {
+    final imageExporter = _RecordingTopupQrImageExporter();
+    final shareService = _RecordingTopupQrShareService();
+    final repository = _DetailTopupRepository(
+      const TopupRequestItem(
+        id: 'qr_detail_1',
+        amount: 500,
+        bonusAmount: 0,
+        status: TopupStatus.pendingPayment,
+        channel: TopupChannel.qr,
+        provider: 'deepay_kbank',
+        transferAt: null,
+        createdAt: '2026-08-12T10:00:00+07:00',
+        slipUrl: '',
+        slipThumbUrl: '',
+        qrCode:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+        redirectUrl: '',
+        message: '',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          topupRepositoryProvider.overrideWithValue(repository),
+          receiptImageExporterProvider.overrideWithValue(imageExporter),
+          receiptShareServiceProvider.overrideWithValue(shareService),
+          topupOverviewProvider.overrideWith(
+            (_) async => _emptyTopupOverview(),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const TopupScreen(
+            detailTopupId: 'qr_detail_1',
+            backPath: '/my-wallet',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('THAI QR PAYMENT'), findsOneWidget);
+    expect(find.text('บันทึก QR Code'), findsOneWidget);
+    expect(find.text('สำหรับเติมเงิน Siamblend เท่านั้น'), findsOneWidget);
+    expect(find.text('รายการเติมเงินของคุณ'), findsNothing);
+    expect(find.text('500 บาท'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('500 บาท')).textAlign, TextAlign.end);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/topup/siamblend_qr_footer.png',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('topup-detail-content-scroll')),
+      const Offset(0, -360),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('บันทึก QR Code'));
+    await tester.pumpAndSettle();
+
+    expect(imageExporter.captureCalls, 1);
+    expect(shareService.shareCalls, 1);
+    expect(shareService.fileName, 'siamblend-topup-qr_detail_1.png');
+    expect(shareService.imageBytes, orderedEquals([1, 2, 3]));
+  });
+}
+
+class _RecordingTopupQrImageExporter implements ReceiptImageExporter {
+  int captureCalls = 0;
+
+  @override
+  Future<Uint8List> capturePng(GlobalKey boundaryKey) async {
+    captureCalls += 1;
+    expect(boundaryKey.currentContext, isNotNull);
+    return Uint8List.fromList([1, 2, 3]);
+  }
+}
+
+class _RecordingTopupQrShareService implements ReceiptShareService {
+  int shareCalls = 0;
+  Uint8List? imageBytes;
+  String? fileName;
+
+  @override
+  Future<void> shareReceipt({
+    required String text,
+    required String subject,
+    Uint8List? imageBytes,
+    String? fileName,
+    Uint8List? pdfBytes,
+    String? pdfFileName,
+    Rect? sharePositionOrigin,
+  }) async {
+    shareCalls += 1;
+    this.imageBytes = imageBytes;
+    this.fileName = fileName;
+  }
 }
 
 Future<void> _cancelWaitingTopup(WidgetTester tester) async {

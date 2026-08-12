@@ -153,19 +153,16 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     path: '/topup',
     key: 'topup',
     group: CustomerFeatureGroup.wallet,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/topup/:topupId',
     key: 'topup_detail',
     group: CustomerFeatureGroup.wallet,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/topup/history',
     key: 'topup_history',
     group: CustomerFeatureGroup.wallet,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/reward-claims',
@@ -214,43 +211,36 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     path: '/affiliate',
     key: 'affiliate',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/affiliate/referral',
     key: 'affiliate_referral',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/affiliate/rankings',
     key: 'affiliate_rankings',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/affiliate/campaigns',
     key: 'affiliate_campaigns',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/affiliate/withdraw',
     key: 'affiliate_withdraw',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/affiliate/commissions',
     key: 'affiliate_commissions',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/affiliate/payouts',
     key: 'affiliate_payouts',
     group: CustomerFeatureGroup.account,
-    sensitive: true,
   ),
   CustomerFeatureRoute(
     path: '/profile',
@@ -489,6 +479,7 @@ bool isSensitiveCustomerPath(
 }) {
   final normalizedPath = normalizeCustomerRoutePath(path);
   if (normalizedPath.isEmpty) return false;
+  if (isCustomerScreenSecurityExemptPath(normalizedPath)) return false;
 
   final routeSensitive = customerFeatureRoutes.any(
     (route) =>
@@ -500,6 +491,14 @@ bool isSensitiveCustomerPath(
   return extraSensitiveRoutes.any(
     (route) => _isSensitivePathPrefixMatch(route, normalizedPath),
   );
+}
+
+bool isCustomerScreenSecurityExemptPath(String path) {
+  final normalizedPath = normalizeCustomerRoutePath(path);
+  return normalizedPath == '/topup' ||
+      normalizedPath.startsWith('/topup/') ||
+      normalizedPath == '/affiliate' ||
+      normalizedPath.startsWith('/affiliate/');
 }
 
 CustomerFeatureRoute? customerFeatureByPath(String path) {

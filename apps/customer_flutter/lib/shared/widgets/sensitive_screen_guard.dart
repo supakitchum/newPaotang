@@ -88,7 +88,12 @@ class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
     if (!widget.enabled) {
       _subscription?.cancel();
       _subscription = null;
-      _queueProtectionUpdate(_screenSecurity.disable);
+      _queueProtectionUpdate(
+        () => _screenSecurity.disable(
+          route: widget.route,
+          allowRouteExemption: true,
+        ),
+      );
       return;
     }
 

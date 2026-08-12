@@ -58,6 +58,7 @@ flutter:
   assets:
     - assets/images/splash/
     - assets/images/affiliate/tiers/
+    - assets/images/topup/
   fonts:
     - family: Kanit
       fonts:

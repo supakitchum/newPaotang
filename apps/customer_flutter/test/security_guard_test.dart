@@ -112,6 +112,40 @@ void main() {
     });
   });
 
+  testWidgets('ScreenSecurityService sends an explicit route exemption', (
+    tester,
+  ) async {
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('customer_flutter/screen_security'),
+          (call) async {
+            calls.add(call);
+            return null;
+          },
+        );
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('customer_flutter/screen_security'),
+            null,
+          );
+    });
+
+    final service = ScreenSecurityService();
+    await service.disable(
+      route: '/affiliate/referral',
+      allowRouteExemption: true,
+    );
+
+    expect(calls, hasLength(1));
+    expect(calls.single.method, 'disable');
+    expect(calls.single.arguments, {
+      'route': '/affiliate/referral',
+      'allow_route_exemption': true,
+    });
+  });
+
   testWidgets('ScreenSecurityService normalizes native event aliases', (
     tester,
   ) async {
@@ -1447,6 +1481,10 @@ void main() {
           path: '/my-wallet',
           builder: (context, state) => const Text('Wallet route'),
         ),
+        GoRoute(
+          path: '/topup',
+          builder: (context, state) => const Text('Topup route'),
+        ),
       ],
     );
 
@@ -1499,7 +1537,101 @@ void main() {
     await tester.pump();
 
     expect(authController.pinRequired, isTrue);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    router.go('/topup');
+    await tester.pumpAndSettle();
+    authController.pinRequired = false;
+    expect(find.text('Topup route'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+
+    expect(authController.pinRequired, isFalse);
   });
+
+  testWidgets(
+    'CustomerApp disables native protection for Topup and Affiliate routes',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/topup/history',
+        routes: [
+          GoRoute(
+            path: '/topup/history',
+            builder: (context, state) => const Text('Topup history route'),
+          ),
+          GoRoute(
+            path: '/affiliate/referral',
+            builder: (context, state) => const Text('Affiliate route'),
+          ),
+          GoRoute(
+            path: '/my-wallet',
+            builder: (context, state) => const Text('Wallet route'),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              const AppConfig(
+                apiBaseUrl: 'https://partner.example.com/api/v1',
+                defaultLocale: 'th-TH',
+              ),
+            ),
+            authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+            newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+            resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
+            publicVisitMonitorEnabledProvider.overrideWithValue(false),
+            customerPlatformKeyProvider.overrideWithValue('android'),
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({
+                'site': {'display_name': 'Test Shop', 'locale': 'th-TH'},
+                'mobile': {
+                  'screen_security': {
+                    'android': {'flag_secure': true},
+                    'sensitive_routes': ['/topup/*', '/affiliate'],
+                  },
+                },
+              }),
+            ),
+            appRouterProvider.overrideWithValue(router),
+          ],
+          child: const CustomerApp(),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.text('Topup history route'), findsOneWidget);
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .enabled,
+        isFalse,
+      );
+
+      router.go('/affiliate/referral');
+      await tester.pumpAndSettle();
+      expect(find.text('Affiliate route'), findsOneWidget);
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .enabled,
+        isFalse,
+      );
+
+      router.go('/my-wallet');
+      await tester.pumpAndSettle();
+      expect(find.text('Wallet route'), findsOneWidget);
+      expect(
+        tester
+            .widget<SensitiveScreenGuard>(find.byType(SensitiveScreenGuard))
+            .enabled,
+        isTrue,
+      );
+    },
+  );
 
   testWidgets('CustomerApp does not lifecycle lock web sessions', (
     tester,
@@ -2590,7 +2722,10 @@ class _FakeScreenSecurityService extends ScreenSecurityService {
   }
 
   @override
-  Future<void> disable() async {
+  Future<void> disable({
+    String? route,
+    bool allowRouteExemption = false,
+  }) async {
     disabled = true;
   }
 

@@ -38,7 +38,7 @@
                 <span class="np-pr-step">1</span>
                 <div>
                   <h3>{{ phrase('Audience') }}</h3>
-                  <p>{{ phrase('Send to everyone or choose one customer.') }}</p>
+                  <p>{{ phrase('Choose customers or app installations for this campaign.') }}</p>
                 </div>
               </div>
 
@@ -50,8 +50,22 @@
                 <button type="button" :class="{ active: form.audience_type === 'all_customers' }" @click="setAudience('all_customers')">
                   <i class="ri-group-line" />
                   <span>
-                    <strong>{{ phrase('All customers') }}</strong>
-                    <small>{{ activeCustomerCount ? `${formatNumber(activeCustomerCount)} ${phrase('active customers')}` : phrase('Every active customer') }}</small>
+                    <strong>{{ phrase('Logged-in customers') }}</strong>
+                    <small>{{ activeCustomerCount ? `${formatNumber(activeCustomerCount)} ${phrase('customer accounts')}` : phrase('Every active customer account') }}</small>
+                  </span>
+                </button>
+                <button type="button" :class="{ active: form.audience_type === 'all_installations' }" @click="setAudience('all_installations')">
+                  <i class="ri-smartphone-line" />
+                  <span>
+                    <strong>{{ phrase('All app installations') }}</strong>
+                    <small>{{ activeInstallationCount ? `${formatNumber(activeInstallationCount)} ${phrase('push-enabled devices')}` : phrase('Every push-enabled app installation') }}</small>
+                  </span>
+                </button>
+                <button type="button" :class="{ active: form.audience_type === 'anonymous_installations' }" @click="setAudience('anonymous_installations')">
+                  <i class="ri-user-unfollow-line" />
+                  <span>
+                    <strong>{{ phrase('Installed, not logged in') }}</strong>
+                    <small>{{ anonymousInstallationCount ? `${formatNumber(anonymousInstallationCount)} ${phrase('anonymous devices')}` : phrase('Push-enabled installations without a customer session') }}</small>
                   </span>
                 </button>
                 <button type="button" :class="{ active: form.audience_type === 'customer' }" @click="setAudience('customer')">
@@ -111,7 +125,7 @@
                 <span class="np-pr-step">2</span>
                 <div>
                   <h3>{{ phrase('Message') }}</h3>
-                  <p>{{ phrase('Write the content customers will see in their inbox and push notification.') }}</p>
+                  <p>{{ phrase(isInstallationAudience ? 'Write the push notification installed devices will receive.' : 'Write the content customers will see in their inbox and push notification.') }}</p>
                 </div>
                 <div class="btn-group btn-group-sm ms-auto" role="group" :aria-label="phrase('Message language')">
                   <button v-for="locale in localeOptions" :key="locale.value" class="btn" :class="contentLocale === locale.value ? 'btn-primary' : 'btn-outline-primary'" type="button" @click="contentLocale = locale.value">
@@ -216,11 +230,11 @@
           <div class="card-header">
             <div>
               <div class="card-title">{{ phrase('Customer preview') }}</div>
-              <div class="text-muted fs-12">{{ phrase('Approximate inbox appearance on the customer app.') }}</div>
+              <div class="text-muted fs-12">{{ phrase(isInstallationAudience ? 'Installation audiences receive push notifications only.' : 'Approximate inbox appearance on the customer app.') }}</div>
             </div>
             <div class="d-flex align-items-center gap-2">
               <div class="btn-group btn-group-sm" role="group" :aria-label="phrase('Preview type')">
-                <button class="btn" :class="previewMode === 'inbox' ? 'btn-primary' : 'btn-outline-primary'" type="button" @click="previewMode = 'inbox'">
+                <button v-if="!isInstallationAudience" class="btn" :class="previewMode === 'inbox' ? 'btn-primary' : 'btn-outline-primary'" type="button" @click="previewMode = 'inbox'">
                   {{ phrase('Inbox') }}
                 </button>
                 <button class="btn" :class="previewMode === 'push' ? 'btn-primary' : 'btn-outline-primary'" type="button" @click="previewMode = 'push'">
@@ -324,7 +338,7 @@
           </template>
           <template #cell-audience="{ row }">
             <div class="fw-semibold">{{ campaignAudience(row) }}</div>
-            <div class="text-muted fs-11">{{ formatNumber(row.stats?.recipient_count || 0) }} {{ phrase('recipients') }}</div>
+            <div class="text-muted fs-11">{{ formatNumber(row.stats?.target_count ?? row.stats?.recipient_count ?? 0) }} {{ phrase(campaignAudienceUnit(row)) }}</div>
           </template>
           <template #cell-status="{ row }">
             <AdminStatusBadge :status="row.status" :label="phrase(statusLabel(row.status))" />
@@ -365,7 +379,7 @@
         <strong>{{ localizedDraft(form.title) }}</strong>
         <p>{{ localizedDraft(form.body) }}</p>
       </div>
-      <AdminAlert v-if="form.audience_type === 'all_customers'" type="warning" :message="phrase('This campaign will be queued for every active customer. Delivery cannot be undone after publishing starts.')" />
+      <AdminAlert v-if="form.audience_type !== 'customer'" type="warning" :message="phrase(broadcastWarning)" />
       <template #footer>
         <button class="btn btn-light btn-wave" type="button" :disabled="sending" @click="confirmationOpen = false">{{ phrase('Back') }}</button>
         <button class="btn btn-primary btn-wave" type="button" :disabled="sending" @click="submitCampaign">
@@ -383,7 +397,7 @@ definePageMeta({ layout: 'admin' })
 
 type AnyRecord = Record<string, any>
 type LocaleKey = 'th-TH' | 'en-US'
-type AudienceType = 'all_customers' | 'customer'
+type AudienceType = 'all_customers' | 'all_installations' | 'anonymous_installations' | 'customer'
 type ActionOption = { key: string, label: string, entity_required: boolean }
 
 const api = useAdminApi()
@@ -412,6 +426,8 @@ const customers = ref<AnyRecord[]>([])
 const selectedCustomer = ref<AnyRecord | null>(null)
 const customerResultsOpen = ref(false)
 const activeCustomerCount = ref(0)
+const activeInstallationCount = ref(0)
+const anonymousInstallationCount = ref(0)
 const contentLocale = ref<LocaleKey>('th-TH')
 const previewMode = ref<'inbox' | 'push'>('inbox')
 const actionOptions = ref<ActionOption[]>([])
@@ -430,21 +446,28 @@ let customerSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 const loading = computed(() => loadingCustomers.value || loadingCampaigns.value || sending.value)
 const selectedAction = computed(() => actionOptions.value.find(option => option.key === form.action_key) || actionOptions.value[0] || null)
+const isInstallationAudience = computed(() => ['all_installations', 'anonymous_installations'].includes(form.audience_type))
 const availableActionOptions = computed(() => actionOptions.value.filter(option => form.audience_type === 'customer' || !option.entity_required || ['activity', 'news'].includes(option.key)))
 const minimumSchedule = computed(() => localDateTime(new Date(Date.now() + 60_000)))
 const canSubmit = computed(() => Boolean(
   tenantId.value
   && localizedDraft(form.title)
   && localizedDraft(form.body)
-  && (form.audience_type === 'all_customers' || selectedCustomer.value?.id)
+  && (form.audience_type !== 'customer' || selectedCustomer.value?.id)
   && form.action_key
   && (!selectedAction.value?.entity_required || form.action_entity_id.trim())
   && (form.delivery_mode === 'now' || form.scheduled_at)
   && !sending.value,
 ))
-const audienceSummary = computed(() => form.audience_type === 'all_customers'
-  ? (activeCustomerCount.value ? `${phrase('All customers')} (${formatNumber(activeCustomerCount.value)})` : phrase('All customers'))
-  : (selectedCustomer.value?.name || selectedCustomer.value?.phone || phrase('No customer selected')))
+const audienceSummary = computed(() => {
+  if (form.audience_type === 'all_customers') return audienceWithCount('Logged-in customers', activeCustomerCount.value)
+  if (form.audience_type === 'all_installations') return audienceWithCount('All app installations', activeInstallationCount.value)
+  if (form.audience_type === 'anonymous_installations') return audienceWithCount('Installed, not logged in', anonymousInstallationCount.value)
+  return selectedCustomer.value?.name || selectedCustomer.value?.phone || phrase('No customer selected')
+})
+const broadcastWarning = computed(() => isInstallationAudience.value
+  ? 'This push-only campaign will be queued for the selected app installations. Delivery cannot be undone after publishing starts.'
+  : 'This campaign will be queued for every active customer. Delivery cannot be undone after publishing starts.')
 const deliverySummary = computed(() => form.delivery_mode === 'now' ? phrase('Send now') : formatDateTime(form.scheduled_at))
 const destinationLabel = computed(() => {
   const label = phrase(selectedAction.value?.label || 'No destination')
@@ -463,6 +486,7 @@ watch(() => form.action_key, () => {
 })
 watch(() => form.audience_type, () => {
   if (!availableActionOptions.value.some(option => option.key === form.action_key)) form.action_key = 'none'
+  if (isInstallationAudience.value) previewMode.value = 'push'
 })
 watch(tenantId, async () => {
   resetState()
@@ -497,7 +521,7 @@ async function loadCustomers(query: AnyRecord = {}) {
       scope: 'tenant', tenantId: tenantId.value, query: { limit: 20, ...query },
     })
     customers.value = Array.isArray(response.data) ? response.data : []
-    activeCustomerCount.value = Number(response.meta?.active_customer_count || activeCustomerCount.value || 0)
+    applyAudienceCounts(response.meta)
     applyActionOptions(response.meta?.action_options)
     customerResultsOpen.value = Boolean(form.audience_type === 'customer' && customerSearch.value.trim() && !selectedCustomer.value && customers.value.length)
   } catch (err: any) {
@@ -518,6 +542,7 @@ async function loadCampaigns(cursor = '') {
     })
     campaigns.value = Array.isArray(response.data) ? response.data : []
     historyMeta.value = response.meta || {}
+    applyAudienceCounts(response.meta)
     applyActionOptions(response.meta?.action_options)
   } catch (err: any) {
     error.value = err
@@ -537,7 +562,13 @@ function applyActionOptions(source: unknown) {
 function setAudience(value: AudienceType) {
   form.audience_type = value
   delete fieldErrors.value.audience_type
-  if (value === 'all_customers') clearCustomer()
+  if (value !== 'customer') clearCustomer()
+}
+
+function applyAudienceCounts(meta: AnyRecord = {}) {
+  activeCustomerCount.value = Number(meta?.active_customer_count ?? activeCustomerCount.value ?? 0)
+  activeInstallationCount.value = Number(meta?.active_installation_count ?? activeInstallationCount.value ?? 0)
+  anonymousInstallationCount.value = Number(meta?.anonymous_installation_count ?? anonymousInstallationCount.value ?? 0)
 }
 function searchCustomers() {
   selectedCustomer.value = null
@@ -676,6 +707,8 @@ function resetState() {
   historyMeta.value = {}
   historyPage.value = { index: 0, cursors: [''] }
   activeCustomerCount.value = 0
+  activeInstallationCount.value = 0
+  anonymousInstallationCount.value = 0
   error.value = null
   successMessage.value = ''
   resetForm()
@@ -699,7 +732,16 @@ function localizedText(value: unknown) { return value && typeof value === 'objec
 function localeLabel(locale: LocaleKey) { return locale === 'th-TH' ? phrase('Thai') : phrase('English') }
 function normalizeActionOption(value: AnyRecord): ActionOption { return { key: String(value?.key || ''), label: String(value?.label || value?.key || ''), entity_required: Boolean(value?.entity_required) } }
 function customerSummary(customer: AnyRecord) { return [customer.customer_no, customer.phone, customer.email].filter(Boolean).join(' · ') || '-' }
-function campaignAudience(row: AnyRecord) { return row.audience_type === 'all_customers' ? phrase('All customers') : (row.customer?.name || row.customer?.phone || phrase('One customer')) }
+function audienceWithCount(label: string, count: number) { return count ? `${phrase(label)} (${formatNumber(count)})` : phrase(label) }
+function campaignAudience(row: AnyRecord) {
+  const labels: Record<string, string> = {
+    all_customers: 'Logged-in customers',
+    all_installations: 'All app installations',
+    anonymous_installations: 'Installed, not logged in',
+  }
+  return labels[row.audience_type] ? phrase(labels[row.audience_type]) : (row.customer?.name || row.customer?.phone || phrase('One customer'))
+}
+function campaignAudienceUnit(row: AnyRecord) { return ['all_installations', 'anonymous_installations'].includes(String(row.audience_type)) ? 'devices' : 'recipients' }
 function statusLabel(status: unknown) { return ({ scheduled: 'Scheduled', publishing: 'Publishing', published: 'Published', failed: 'Failed', cancelled: 'Cancelled' } as AnyRecord)[String(status)] || String(status || '-') }
 function campaignTiming(row: AnyRecord) { return row.status === 'scheduled' ? formatDateTime(row.scheduled_at) : formatDateTime(row.published_at || row.created_at) }
 function formatNumber(value: unknown) { return new Intl.NumberFormat(adminLocale.locale.value).format(Number(value || 0)) }
@@ -743,6 +785,7 @@ function alertType(err: AnyRecord) { return [403, 409, 422].includes(Number(err?
 .np-pr-segmented button.active { border-color: rgb(var(--primary-rgb)); background: rgba(var(--primary-rgb), .06); box-shadow: 0 0 0 1px rgba(var(--primary-rgb), .16); }
 .np-pr-segmented button.active > i, .np-pr-segmented button.active strong { color: rgb(var(--primary-rgb)); }
 .np-pr-segmented.compact button { min-height: 66px; }
+@media (max-width: 575.98px) { .np-pr-segmented { grid-template-columns: minmax(0, 1fr); } }
 .np-pr-customer-results { max-height: 260px; overflow-y: auto; }
 .np-pr-customer-results button { display: flex; align-items: center; gap: .75rem; }
 .np-pr-avatar { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; background: var(--light-rgb, #f1f5f9); color: var(--text-muted); }

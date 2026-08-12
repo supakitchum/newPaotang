@@ -237,10 +237,12 @@ following customer-facing events.
   local notification package for foreground presentation.
 - Initialize Firebase only on Android/iOS. Web remains free of browser-push
   initialization in this phase.
-- Request notification permission once per installation after successful login
-  and PIN unlock; denial never blocks the inbox.
-- Register the FCM token after authentication, listen for token refresh, and
-  revoke the installation during explicit logout.
+- Request notification permission once per native installation. Denial never
+  blocks login or the authenticated inbox.
+- Register the FCM token as an anonymous installation before login, attach the
+  same installation to the customer after authentication/PIN unlock, listen for
+  token refresh in both states, and detach customer ownership during explicit
+  logout without deleting the FCM token.
 - Configure Android 13 notification permission and a stable high-importance
   channel. Configure iOS push capability, APNs integration, and remote
   notification background mode.
@@ -255,9 +257,9 @@ following customer-facing events.
 
 - Use the dedicated tenant page named `Public Relations` / `ระบบประชาสัมพันธ์`
   rather than forcing the workflow into the generic operations form.
-- Provide tenant-scoped audience selection for one active customer or all active
-  customers, Thai/English title and body fields, optional campaign image,
-  allowlisted destination, send confirmation, and clear API errors.
+- Provide tenant-scoped audience selection for one active customer, all active
+  customer accounts, every push-enabled app installation, or only push-enabled
+  installations that are not logged in. Installation audiences are push-only.
 - Support send-now and scheduled campaigns with idempotent publish/cancel and a
   bounded queue fan-out for tenant-wide broadcast.
 - Preview both the customer inbox card and native push appearance before send.

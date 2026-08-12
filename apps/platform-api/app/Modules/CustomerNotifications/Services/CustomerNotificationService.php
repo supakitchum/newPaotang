@@ -3,6 +3,7 @@
 namespace App\Modules\CustomerNotifications\Services;
 
 use App\Jobs\FanoutCustomerNotificationRecipientsJob;
+use App\Jobs\FanoutCustomerPushInstallationsJob;
 use App\Jobs\SendCustomerPushNotificationJob;
 use App\Models\AdminUser;
 use App\Models\Customer;
@@ -249,24 +250,91 @@ class CustomerNotificationService
      */
     public function registerDevice(string $tenantId, string $customerId, array $payload): array
     {
-        $errors = $this->deviceErrors($payload);
+        return $this->registerPushInstallation($tenantId, $customerId, $payload, false);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function registerAnonymousInstallation(string $tenantId, array $payload): array
+    {
+        return $this->registerPushInstallation($tenantId, null, $payload, true);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    private function registerPushInstallation(
+        string $tenantId,
+        ?string $customerId,
+        array $payload,
+        bool $requireInstallationSecret,
+    ): array {
+        $errors = $this->deviceErrors($payload, $requireInstallationSecret);
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
         $installationId = trim((string) $payload['installation_id']);
+        $installationSecret = trim((string) ($payload['installation_secret'] ?? ''));
+        $installationSecretHash = $installationSecret === ''
+            ? null
+            : hash_hmac('sha256', $installationSecret, (string) config('app.key'));
         $token = trim((string) $payload['fcm_token']);
         $tokenHash = hash_hmac('sha256', $token, (string) config('app.key'));
         $metadata = $this->normalizedDeviceMetadata($payload['metadata'] ?? null);
-        $device = DB::transaction(function () use ($tenantId, $customerId, $installationId, $token, $tokenHash, $payload, $metadata): ?CustomerPushDevice {
+        $registration = DB::transaction(function () use (
+            $tenantId,
+            $customerId,
+            $installationId,
+            $installationSecretHash,
+            $token,
+            $tokenHash,
+            $payload,
+            $metadata,
+        ): array {
             $this->lockPushRegistrationIdentity($installationId, $tokenHash);
             $now = now();
-            $device = CustomerPushDevice::query()
+            $deviceQuery = CustomerPushDevice::query()
                 ->where('tenant_id', $tenantId)
-                ->where('customer_id', $customerId)
                 ->where('installation_id', $installationId)
-                ->lockForUpdate()
-                ->first();
+                ->whereNull('revoked_at');
+            if ($customerId === null) {
+                $deviceQuery->orderByRaw('CASE WHEN customer_id IS NULL THEN 0 ELSE 1 END');
+            } else {
+                $deviceQuery->where(function (Builder $query) use ($customerId): void {
+                    $query->where('customer_id', $customerId)->orWhereNull('customer_id');
+                })->orderByRaw('CASE WHEN customer_id = ? THEN 0 ELSE 1 END', [$customerId]);
+            }
+            $device = $deviceQuery->orderByDesc('updated_at')->lockForUpdate()->first();
+
+            if ($device === null) {
+                $fallback = CustomerPushDevice::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('installation_id', $installationId);
+                if ($customerId === null) {
+                    $fallback->whereNull('customer_id');
+                } else {
+                    $fallback->where('customer_id', $customerId);
+                }
+                $device = $fallback->orderByDesc('updated_at')->lockForUpdate()->first();
+            }
+
+            if ($device !== null && $device->installation_secret_hash !== null) {
+                $sameAuthenticatedOwner = $customerId !== null
+                    && (string) $device->customer_id === $customerId;
+                $credentialMismatch = $installationSecretHash === null
+                    || ! hash_equals((string) $device->installation_secret_hash, $installationSecretHash);
+                if ((! $sameAuthenticatedOwner || $installationSecretHash !== null) && $credentialMismatch) {
+                    return ['error' => 'installation_credential_invalid'];
+                }
+            } elseif ($device !== null
+                && $customerId === null
+                && ! hash_equals((string) $device->token_hash, $tokenHash)) {
+                return ['error' => 'installation_credential_invalid'];
+            }
 
             $terminallyRevokedTokenExists = CustomerPushDevice::query()
                 ->where('token_hash', $tokenHash)
@@ -276,11 +344,8 @@ class CustomerNotificationService
                         ->orWhere('revoked_reason', 'like', 'fcm_%');
                 })
                 ->exists();
-            $sameRevokedInstallation = $device !== null
-                && $device->revoked_at !== null
-                && hash_equals((string) $device->token_hash, $tokenHash);
-            if ($terminallyRevokedTokenExists || $sameRevokedInstallation) {
-                return null;
+            if ($terminallyRevokedTokenExists) {
+                return ['error' => 'token_rotation_required'];
             }
 
             if ($device === null) {
@@ -309,6 +374,8 @@ class CustomerNotificationService
                 ]);
 
             $device->fill([
+                'customer_id' => $customerId,
+                'installation_secret_hash' => $installationSecretHash ?? $device->installation_secret_hash,
                 'platform' => strtolower(trim((string) $payload['platform'])),
                 'fcm_token_encrypted' => $token,
                 'token_hash' => $tokenHash,
@@ -322,12 +389,15 @@ class CustomerNotificationService
                 'updated_at' => $now,
             ])->save();
 
-            return $device;
+            return ['device' => $device];
         });
 
-        if ($device === null) {
-            return ['error' => 'token_rotation_required'];
+        if (($registration['error'] ?? null) !== null) {
+            return ['error' => (string) $registration['error']];
         }
+
+        /** @var CustomerPushDevice $device */
+        $device = $registration['device'];
 
         return ['resource' => $this->deviceResource($device->refresh())];
     }
@@ -369,6 +439,31 @@ class CustomerNotificationService
         }
 
         return true;
+    }
+
+    public function detachDevice(string $tenantId, string $customerId, string $installationId): bool
+    {
+        return DB::transaction(function () use ($tenantId, $customerId, $installationId): bool {
+            $device = CustomerPushDevice::query()
+                ->forTenant($tenantId)
+                ->where('customer_id', $customerId)
+                ->where('installation_id', trim($installationId))
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($device === null) {
+                return false;
+            }
+
+            $device->forceFill([
+                'customer_id' => null,
+                'last_seen_at' => now(),
+                'updated_at' => now(),
+            ])->save();
+
+            return true;
+        });
     }
 
     /** @return array<string, mixed> */
@@ -587,6 +682,74 @@ class CustomerNotificationService
         return (string) $notification->id;
     }
 
+    /**
+     * @param array<string, mixed> $content
+     * @param array<string, mixed> $context
+     */
+    public function createForInstallationAudience(
+        string $tenantId,
+        string $audienceType,
+        string $eventKey,
+        array $content,
+        array $context = [],
+    ): ?string {
+        if (! in_array($audienceType, ['all_installations', 'anonymous_installations'], true)) {
+            return null;
+        }
+
+        $tenantExists = PartnerTenant::query()
+            ->whereKey($tenantId)
+            ->where('status', 'active')
+            ->exists();
+        if (! $tenantExists) {
+            return null;
+        }
+
+        $normalized = $this->normalizedContent($content);
+        $dedupeSource = trim((string) ($context['dedupe_key'] ?? ''));
+        $dedupeKey = hash('sha256', implode('|', [
+            $tenantId,
+            $audienceType,
+            $eventKey,
+            $dedupeSource !== '' ? $dedupeSource : ($normalized['subject_type'] ?? '').':'.($normalized['subject_id'] ?? ''),
+        ]));
+
+        $notification = CustomerNotification::query()->firstOrCreate(
+            ['tenant_id' => $tenantId, 'dedupe_key' => $dedupeKey],
+            [
+                'id' => 'cnt_'.Str::ulid()->toBase32(),
+                'event_key' => $eventKey,
+                'category' => $normalized['category'],
+                'title_json' => $normalized['title'],
+                'body_json' => $normalized['body'],
+                'icon_key' => $normalized['icon_key'],
+                'action_key' => $normalized['action_key'],
+                'action_entity_id' => $normalized['action_entity_id'],
+                'subject_type' => $normalized['subject_type'],
+                'subject_id' => $normalized['subject_id'],
+                'creator_type' => trim((string) ($context['creator_type'] ?? 'system')) ?: 'system',
+                'creator_id' => $this->nullableText($context['creator_id'] ?? null, 30),
+                'metadata_json' => [
+                    ...(is_array($context['metadata'] ?? null) ? $context['metadata'] : []),
+                    'audience' => $audienceType,
+                    'push_only' => true,
+                ],
+                'published_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        if ($notification->wasRecentlyCreated) {
+            FanoutCustomerPushInstallationsJob::dispatch(
+                (string) $notification->id,
+                $audienceType,
+            )->afterCommit();
+        }
+
+        return (string) $notification->id;
+    }
+
     public function fanOutTenantChunk(string $notificationId, ?string $afterCustomerId = null): void
     {
         $notification = CustomerNotification::query()->whereKey($notificationId)->first();
@@ -635,6 +798,48 @@ class CustomerNotificationService
             FanoutCustomerNotificationRecipientsJob::dispatch(
                 $notificationId,
                 end($customerIds) ?: null,
+            )->afterCommit();
+        }
+    }
+
+    public function fanOutInstallationChunk(
+        string $notificationId,
+        string $audienceType,
+        ?string $afterDeviceId = null,
+    ): void {
+        if (! in_array($audienceType, ['all_installations', 'anonymous_installations'], true)) {
+            return;
+        }
+
+        $notification = CustomerNotification::query()->whereKey($notificationId)->first();
+        if ($notification === null) {
+            return;
+        }
+
+        $deviceQuery = CustomerPushDevice::query()
+            ->where('tenant_id', $notification->tenant_id)
+            ->whereNull('revoked_at')
+            ->when(
+                $audienceType === 'anonymous_installations',
+                fn (Builder $query) => $query->whereNull('customer_id'),
+            )
+            ->orderBy('id')
+            ->limit(self::FANOUT_CHUNK_SIZE);
+        $cursor = trim((string) $afterDeviceId);
+        if ($cursor !== '') {
+            $deviceQuery->where('id', '>', $cursor);
+        }
+
+        $deviceIds = $deviceQuery->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
+        foreach ($deviceIds as $deviceId) {
+            $this->queueInstallationDelivery((string) $notification->tenant_id, $notificationId, $deviceId);
+        }
+
+        if (count($deviceIds) === self::FANOUT_CHUNK_SIZE) {
+            FanoutCustomerPushInstallationsJob::dispatch(
+                $notificationId,
+                $audienceType,
+                end($deviceIds) ?: null,
             )->afterCommit();
         }
     }
@@ -825,7 +1030,21 @@ class CustomerNotificationService
             'meta' => [
                 'action_options' => $this->adminActionOptions(),
                 'active_customer_count' => $activeCustomerCount,
+                ...$this->adminAudienceCounts($tenantId),
             ],
+        ];
+    }
+
+    /** @return array{active_installation_count: int, anonymous_installation_count: int} */
+    public function adminAudienceCounts(string $tenantId): array
+    {
+        $activeInstallations = CustomerPushDevice::query()
+            ->forTenant($tenantId)
+            ->whereNull('revoked_at');
+
+        return [
+            'active_installation_count' => (clone $activeInstallations)->count(),
+            'anonymous_installation_count' => (clone $activeInstallations)->whereNull('customer_id')->count(),
         ];
     }
 
@@ -906,7 +1125,7 @@ class CustomerNotificationService
         }
 
         $delivery = CustomerNotificationDelivery::query()
-            ->with(['recipient.notification', 'device'])
+            ->with(['recipient.notification', 'notification', 'device'])
             ->whereKey($deliveryId)
             ->first();
 
@@ -916,16 +1135,18 @@ class CustomerNotificationService
 
         $recipient = $delivery->recipient;
         $device = $delivery->device;
-        $notification = $recipient?->notification;
+        $notification = $delivery->notification ?? $recipient?->notification;
         $isFinalSessionReplacementDelivery = $device !== null
             && $notification !== null
             && $device->revoked_at !== null
             && (string) $notification->event_key === 'account.session.replaced'
             && $delivery->created_at !== null
             && $delivery->created_at->lessThanOrEqualTo($device->revoked_at);
-        if ($recipient === null
-            || $device === null
+        $recipientOwnerChanged = $recipient !== null
+            && (string) $device?->customer_id !== (string) $recipient->customer_id;
+        if ($device === null
             || $notification === null
+            || $recipientOwnerChanged
             || ($device->revoked_at !== null && ! $isFinalSessionReplacementDelivery)) {
             $delivery->forceFill([
                 'status' => 'skipped',
@@ -958,8 +1179,9 @@ class CustomerNotificationService
             'token' => (string) $device->fcm_token_encrypted,
             'notification' => $pushPreview,
             'data' => [
-                'notification_id' => (string) $notification->id,
+                'notification_id' => $recipient === null ? '' : (string) $notification->id,
                 'event_key' => (string) $notification->event_key,
+                'delivery_scope' => $recipient === null ? 'installation' : 'customer',
                 'replacement_session_id' => (string) ($notificationMetadata['replacement_session_id'] ?? ''),
                 'action_key' => (string) $notification->action_key,
                 'action_entity_id' => (string) ($notification->action_entity_id ?? ''),
@@ -1170,6 +1392,68 @@ class CustomerNotificationService
         return $dispatched;
     }
 
+    public function recoverInstallationFanouts(int $limit = 25, int $queuedMinutes = 2): int
+    {
+        $notifications = CustomerNotification::query()
+            ->where('created_at', '<=', now()->subMinutes(max(1, $queuedMinutes)))
+            ->whereIn('metadata_json->audience', ['all_installations', 'anonymous_installations'])
+            ->orderBy('created_at')
+            ->limit(max(1, min(100, $limit)))
+            ->get();
+
+        $dispatched = 0;
+        foreach ($notifications as $notification) {
+            $metadata = is_array($notification->metadata_json) ? $notification->metadata_json : [];
+            $audienceType = (string) ($metadata['audience'] ?? '');
+            if (! in_array($audienceType, ['all_installations', 'anonymous_installations'], true)) {
+                continue;
+            }
+
+            $deviceQuery = CustomerPushDevice::query()
+                ->where('tenant_id', $notification->tenant_id)
+                ->whereNull('revoked_at')
+                ->when(
+                    $audienceType === 'anonymous_installations',
+                    fn (Builder $query) => $query->whereNull('customer_id'),
+                )
+                ->whereNotExists(function ($query) use ($notification): void {
+                    $query->selectRaw('1')
+                        ->from('customer_notification_deliveries')
+                        ->whereColumn('customer_notification_deliveries.device_id', 'customer_push_devices.id')
+                        ->where('customer_notification_deliveries.notification_id', $notification->id);
+                })
+                ->orderBy('id');
+            $missingDeviceId = $deviceQuery->value('id');
+            if ($missingDeviceId === null) {
+                continue;
+            }
+
+            $afterDeviceId = CustomerPushDevice::query()
+                ->where('tenant_id', $notification->tenant_id)
+                ->whereNull('revoked_at')
+                ->when(
+                    $audienceType === 'anonymous_installations',
+                    fn (Builder $query) => $query->whereNull('customer_id'),
+                )
+                ->where('id', '<', $missingDeviceId)
+                ->orderByDesc('id')
+                ->value('id');
+
+            try {
+                FanoutCustomerPushInstallationsJob::dispatch(
+                    (string) $notification->id,
+                    $audienceType,
+                    $afterDeviceId === null ? null : (string) $afterDeviceId,
+                );
+                $dispatched++;
+            } catch (\Throwable) {
+                // The next scheduled recovery run retries the immutable source.
+            }
+        }
+
+        return $dispatched;
+    }
+
     private function dispatchCreated(
         CustomerNotificationRecipient $recipient,
         bool $broadcastAfterCommit = false,
@@ -1215,10 +1499,11 @@ class CustomerNotificationService
 
         foreach ($devices as $device) {
             $delivery = CustomerNotificationDelivery::query()->firstOrCreate(
-                ['recipient_id' => $recipientId, 'device_id' => $device->id],
+                ['notification_id' => $recipient->notification_id, 'device_id' => $device->id],
                 [
                     'id' => 'cnd_'.Str::ulid()->toBase32(),
                     'tenant_id' => $tenantId,
+                    'recipient_id' => $recipientId,
                     'status' => 'queued',
                     'attempts' => 0,
                     'created_at' => now(),
@@ -1237,6 +1522,36 @@ class CustomerNotificationService
                     ])->save();
                 }
             }
+        }
+    }
+
+    private function queueInstallationDelivery(string $tenantId, string $notificationId, string $deviceId): void
+    {
+        $delivery = CustomerNotificationDelivery::query()->firstOrCreate(
+            ['notification_id' => $notificationId, 'device_id' => $deviceId],
+            [
+                'id' => 'cnd_'.Str::ulid()->toBase32(),
+                'tenant_id' => $tenantId,
+                'recipient_id' => null,
+                'status' => 'queued',
+                'attempts' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        if (! $delivery->wasRecentlyCreated) {
+            return;
+        }
+
+        try {
+            SendCustomerPushNotificationJob::dispatch((string) $delivery->id)->afterCommit();
+        } catch (\Throwable) {
+            $delivery->forceFill([
+                'last_error_code' => 'queue_dispatch_failed',
+                'next_retry_at' => now(),
+                'updated_at' => now(),
+            ])->save();
         }
     }
 
@@ -1358,6 +1673,7 @@ class CustomerNotificationService
     {
         return [
             'installation_id' => (string) $device->installation_id,
+            'owner_state' => $device->customer_id === null ? 'anonymous' : 'customer',
             'platform' => (string) $device->platform,
             'locale' => $device->locale,
             'app_version' => $device->app_version,
@@ -1394,7 +1710,7 @@ class CustomerNotificationService
     }
 
     /** @return array<string, array<int, string>> */
-    private function deviceErrors(array $payload): array
+    private function deviceErrors(array $payload, bool $requireInstallationSecret = false): array
     {
         $errors = [];
         $installationId = is_scalar($payload['installation_id'] ?? null)
@@ -1406,6 +1722,9 @@ class CustomerNotificationService
         $platform = is_scalar($payload['platform'] ?? null)
             ? strtolower(trim((string) $payload['platform']))
             : '';
+        $installationSecret = is_scalar($payload['installation_secret'] ?? null)
+            ? trim((string) $payload['installation_secret'])
+            : '';
 
         if (strlen($installationId) < 8 || strlen($installationId) > 128 || preg_match('/^[A-Za-z0-9._:-]+$/', $installationId) !== 1) {
             $errors['installation_id'][] = 'The installation ID format is invalid.';
@@ -1415,6 +1734,12 @@ class CustomerNotificationService
         }
         if (! in_array($platform, ['ios', 'android'], true)) {
             $errors['platform'][] = 'The platform must be ios or android.';
+        }
+        if (($requireInstallationSecret || $installationSecret !== '')
+            && (strlen($installationSecret) < 24
+                || strlen($installationSecret) > 160
+                || preg_match('/^[A-Za-z0-9._:-]+$/', $installationSecret) !== 1)) {
+            $errors['installation_secret'][] = 'The installation credential format is invalid.';
         }
 
         foreach (['app_version' => 40, 'device_name' => 255] as $field => $maxLength) {

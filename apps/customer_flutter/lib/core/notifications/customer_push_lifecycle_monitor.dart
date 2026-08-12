@@ -81,7 +81,7 @@ class _CustomerPushLifecycleMonitorState
     _subscriptions.add(platform.tokenRefresh.listen(_handleTokenRefresh));
     _removeLogoutHook = ref
         .read(authControllerProvider)
-        .registerBeforeLogoutHook(_revokeForLogout);
+        .registerBeforeLogoutHook(_detachForLogout);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final initialTap = platform.takeInitialTap();
       if (initialTap != null) _handleTap(initialTap);
@@ -141,7 +141,10 @@ class _CustomerPushLifecycleMonitorState
     if (_syncing || _loggingOut) return;
     final platform = ref.read(customerPushPlatformProvider);
     final auth = ref.read(authControllerProvider);
-    if (!platform.available || !_isUnlocked(auth)) return;
+    if (!platform.available || (auth.isAuthenticated && !_isUnlocked(auth))) {
+      return;
+    }
+    final anonymous = !auth.isAuthenticated;
 
     _syncing = true;
     var stage = 'permission';
@@ -166,7 +169,7 @@ class _CustomerPushLifecycleMonitorState
       final installationId = await store.installationId();
       final now = ref.read(customerPushRegistrationClockProvider)().toUtc();
       CustomerPushDeviceStatus? serverStatus;
-      if (_shouldReconcile(now)) {
+      if (!anonymous && _shouldReconcile(now)) {
         stage = 'status';
         serverStatus = await ref
             .read(customerNotificationRepositoryProvider)
@@ -192,6 +195,7 @@ class _CustomerPushLifecycleMonitorState
         token,
         force: serverStatus != null && !serverStatus.registered,
         installationId: installationId,
+        anonymous: anonymous,
       );
       if (serverStatus != null) _lastReconciledAt = now;
       _clearRetry();
@@ -207,14 +211,17 @@ class _CustomerPushLifecycleMonitorState
     String token, {
     bool force = false,
     String? installationId,
+    bool? anonymous,
   }) async {
     if (_loggingOut || token.trim().isEmpty) return;
     final auth = ref.read(authControllerProvider);
-    if (!_isUnlocked(auth)) return;
+    if (auth.isAuthenticated && !_isUnlocked(auth)) return;
+    final registerAnonymously = anonymous ?? !auth.isAuthenticated;
 
     final store = ref.read(customerPushInstallationStoreProvider);
     final resolvedInstallationId =
         installationId ?? await store.installationId();
+    final installationSecret = await store.installationSecret();
     final locale = localeTag(ref.read(customerLocaleProvider));
     final platform = switch (defaultTargetPlatform) {
       TargetPlatform.iOS => 'ios',
@@ -227,7 +234,7 @@ class _CustomerPushLifecycleMonitorState
         .read(customerPushDeviceContextLoaderProvider)
         .load();
     final signature =
-        '$resolvedInstallationId|$platform|$locale|${deviceContext.registrationSignature}|${token.trim()}';
+        '$resolvedInstallationId|$installationSecret|${registerAnonymously ? 'anonymous' : 'customer'}|$platform|$locale|${deviceContext.registrationSignature}|${token.trim()}';
     final now = ref.read(customerPushRegistrationClockProvider)().toUtc();
     final registeredAt = _registeredAt;
     final registrationAge = registeredAt == null
@@ -240,17 +247,30 @@ class _CustomerPushLifecycleMonitorState
         registrationAge < const Duration(days: 1)) {
       return;
     }
-    await ref
-        .read(customerNotificationRepositoryProvider)
-        .registerDevice(
-          installationId: resolvedInstallationId,
-          platform: platform,
-          fcmToken: token.trim(),
-          locale: locale,
-          appVersion: deviceContext.appVersion,
-          deviceName: deviceContext.deviceName,
-          metadata: deviceContext.metadata,
-        );
+    final repository = ref.read(customerNotificationRepositoryProvider);
+    if (registerAnonymously) {
+      await repository.registerAnonymousInstallation(
+        installationId: resolvedInstallationId,
+        installationSecret: installationSecret,
+        platform: platform,
+        fcmToken: token.trim(),
+        locale: locale,
+        appVersion: deviceContext.appVersion,
+        deviceName: deviceContext.deviceName,
+        metadata: deviceContext.metadata,
+      );
+    } else {
+      await repository.registerDevice(
+        installationId: resolvedInstallationId,
+        installationSecret: installationSecret,
+        platform: platform,
+        fcmToken: token.trim(),
+        locale: locale,
+        appVersion: deviceContext.appVersion,
+        deviceName: deviceContext.deviceName,
+        metadata: deviceContext.metadata,
+      );
+    }
     _registeredSignature = signature;
     _registeredAt = now;
   }
@@ -405,7 +425,7 @@ class _CustomerPushLifecycleMonitorState
     }
   }
 
-  Future<void> _revokeForLogout() async {
+  Future<void> _detachForLogout() async {
     final platform = ref.read(customerPushPlatformProvider);
     _loggingOut = true;
     _pendingTap = null;
@@ -425,14 +445,9 @@ class _CustomerPushLifecycleMonitorState
           .installationId();
       await ref
           .read(customerNotificationRepositoryProvider)
-          .revokeDevice(installationId);
+          .detachDevice(installationId);
     } catch (_) {
-      // Explicit logout remains available even if the device revoke is offline.
-    }
-    try {
-      await platform.deleteToken();
-    } catch (_) {
-      // Local token cleanup is best effort and must not block explicit logout.
+      // Explicit logout remains available if ownership cannot detach offline.
     }
   }
 }

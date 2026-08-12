@@ -69,6 +69,11 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(20)->by(hash('sha256', $scope));
         });
+        RateLimiter::for('customer-push-public', function (Request $request): Limit {
+            $scope = strtolower((string) $request->getHost()).'|'.(string) $request->ip();
+
+            return Limit::perMinute(20)->by(hash('sha256', $scope));
+        });
 
         if ($this->app->runningInConsole()) {
             Event::listen(CommandStarting::class, function (CommandStarting $event): void {

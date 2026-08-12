@@ -78,6 +78,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
   bool _currentRouteIsSensitive() {
     final router = ref.read(appRouterProvider);
     final path = router.routeInformationProvider.value.uri.path;
+    if (isCustomerScreenSecurityExemptPath(path)) return false;
     final extraSensitiveRoutes = ref
         .read(mobileBootstrapProvider)
         .maybeWhen(
@@ -304,6 +305,7 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
       listenable: router.routeInformationProvider,
       builder: (context, _) {
         final path = router.routeInformationProvider.value.uri.path;
+        final routeSecurityExempt = isCustomerScreenSecurityExemptPath(path);
         final extraSensitiveRoutes = bootstrap.maybeWhen(
           data: (data) => data.screenSecurity.sensitiveRoutes,
           orElse: () => const <String>[],
@@ -322,9 +324,10 @@ class _CustomerRuntimeSecurityLayer extends StatelessWidget {
 
         return SensitiveScreenGuard(
           enabled:
-              protectEntireAndroidApp ||
-              (screenSecurityEnabled &&
-                  (protectEntireIosApp || routeSensitive)),
+              !routeSecurityExempt &&
+              (protectEntireAndroidApp ||
+                  (screenSecurityEnabled &&
+                      (protectEntireIosApp || routeSensitive))),
           route: path.isEmpty ? 'app' : path,
           androidFlagSecure: protectEntireAndroidApp
               ? true

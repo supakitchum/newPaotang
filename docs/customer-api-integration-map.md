@@ -659,17 +659,26 @@ CustomerNotification.image_url/image_thumb_url -> fixed-ratio inbox campaign med
   `Public Relations` / `ระบบประชาสัมพันธ์` workspace.
 - `POST /admin/tenant/customer-notifications/campaigns` accepts multipart form
   data with a JSON `payload` and optional JPEG/PNG/WebP `file` up to 8 MB.
-- A campaign can target one active customer or `all_customers`. Tenant-wide
-  delivery fans out in bounded queue chunks and keeps Order/Checkout out of the
-  request path.
+- A campaign can target one active customer, all active customer accounts via
+  `all_customers`, every active native installation via `all_installations`, or
+  only installations not currently attached to a customer via
+  `anonymous_installations`. The two installation audiences are push-only and
+  do not create customer Inbox rows.
+- Native Flutter registers `POST /public/notification-installations` before
+  login using a stable installation credential, attaches the same installation
+  through `POST /customer/notification-devices` after login/PIN unlock, and
+  calls `POST /customer/notification-devices/{installation_id}/detach` during
+  explicit logout without deleting the FCM token.
 - `delivery_mode=scheduled` stores an ISO-8601 time and the scheduler publishes
   due campaigns once through campaign and notification dedupe keys. Send-now,
   publish, and cancel writes require an `Idempotency-Key`.
 - Customer inbox resources expose `image_url` and `image_thumb_url`; native FCM
   payloads use the same localized title/body and include the full image URL for
   rich notification presentation.
-- The BO composer previews both the customer inbox card and native push layout,
-  and campaign history reports recipient, read, sent, pending, and failed counts.
+- The BO composer previews both the customer inbox card and native push layout;
+  installation audiences show push preview only. Campaign history reports the
+  authoritative target/device or recipient count plus read, sent, pending, and
+  failed counts.
 
 ## Required Adapter Behavior
 

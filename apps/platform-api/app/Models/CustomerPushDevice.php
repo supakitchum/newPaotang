@@ -15,6 +15,7 @@ class CustomerPushDevice extends BaseModel
         'tenant_id',
         'customer_id',
         'installation_id',
+        'installation_secret_hash',
         'platform',
         'fcm_token_encrypted',
         'token_hash',
@@ -29,7 +30,7 @@ class CustomerPushDevice extends BaseModel
         'updated_at',
     ];
 
-    protected $hidden = ['fcm_token_encrypted', 'token_hash'];
+    protected $hidden = ['fcm_token_encrypted', 'token_hash', 'installation_secret_hash'];
 
     protected $casts = [
         'fcm_token_encrypted' => 'encrypted',

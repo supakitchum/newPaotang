@@ -278,8 +278,8 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				C0D3A00226F0000000000001 /* Copy Firebase Config */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
-				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				965367363CAE51CD25991F7E /* Embed App Extensions */,
+				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 			);
 			buildRules = (
 			);

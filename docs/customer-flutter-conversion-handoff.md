@@ -174,6 +174,18 @@ Recent verified work:
   successfully; saved-image behavior on a physical iPhone remains a manual QA
   item because screenshot automation was intentionally not added. No database,
   clear-worktree, commit, or push process was used.
+- Screen-security route exemptions now allow capture on every `/topup` and
+  `/affiliate` page, including Topup detail/history and all Affiliate tabs.
+  The exemption takes precedence over tenant-provided sensitive-route patterns,
+  skips lifecycle PIN locking on those pages, and is propagated to the native
+  bridge. Android keeps app-wide `FLAG_SECURE` protection during startup and on
+  every other route, but accepts an explicit route-scoped exemption that clears
+  both screenshot and recent-app-preview protection until navigation returns to
+  a protected page. iOS uses the same route policy through its existing native
+  disable path. Wallet, Checkout, PIN, tickets, claims, and other sensitive
+  surfaces remain protected. Focused route/security tests and Android debug
+  Kotlin compilation passed; no database, commit, push, or worktree cleanup was
+  performed.
 - Privacy and Terms now use the compact title-only shared header and an
   unframed white reading surface. The former repeated runtime title/site
   sub-header, section pill, rounded card, and card shadow were removed. Runtime
@@ -11543,6 +11555,31 @@ Customer Public Relations campaigns (2026-08-04):
   campaign migration has not been run on runtime DB, and no commit, push, or
   clear-worktree action was performed.
 
+Public Relations installation audiences (2026-08-12):
+
+- Campaign audience now distinguishes active customer accounts
+  (`all_customers`), every active native installation (`all_installations`),
+  anonymous native installations (`anonymous_installations`), and one customer.
+  Customer audiences retain durable Inbox records; installation audiences are
+  intentionally push-only because no customer identity may exist yet.
+- Flutter registers iOS/Android FCM installations before login with a stable
+  installation ID and secure per-installation credential. Login/PIN unlock
+  attaches that row to the customer; explicit logout detaches it back to
+  anonymous without deleting the FCM token. Web/PWA remains outside native FCM
+  installation targeting.
+- Tenant BO exposes the three broadcast choices with authoritative customer and
+  installation counts, push-only preview for installation groups, confirmation
+  copy, and history metrics based on the actual target type.
+- Platform fan-out, delivery uniqueness, retry, stale-delivery recovery, and
+  audience recovery remain bounded on the notification queue. This migration is
+  non-destructive and has only been exercised against `newpaotang_test`; runtime
+  DB was not touched.
+- Focused verification passed Platform notification/campaign tests including
+  anonymous attach/detach, credential rejection, all-installation fan-out, and
+  anonymous-only filtering; Flutter push lifecycle tests and focused analysis;
+  BO lint, guardrail tests, and production build; OpenAPI YAML validation; and
+  `git diff --check`.
+
 Topup immediate QR and expiry parity (2026-08-12):
 
 - QR and Credit QR quick amounts now create the provider QR immediately instead
@@ -11565,3 +11602,22 @@ Topup immediate QR and expiry parity (2026-08-12):
 - Verification passed 36 focused Flutter Topup tests plus analysis, and 17
   Platform Topup/Webhook tests/362 assertions on `newpaotang_test`. Runtime DB
   migration/deployment, commit, push, and worktree clearing were not performed.
+
+Topup QR detail and export UX (2026-08-12):
+
+- The QR detail screen now uses a compact payment-art layout with a centered QR,
+  right-aligned amount/reference, live expiry countdown, and the supplied
+  Siamblend payment footer. The exported PNG carries the localized
+  “Siamblend topups only” watermark and remains available through the existing
+  platform share/save surface when native screenshot protection is enabled.
+- QR expiry is anchored to the provider deadline and server response clock,
+  with elapsed local time deducted from cached responses. Reopening or
+  rebuilding the detail screen no longer restarts the timer or treats an active
+  QR as expired because a stale relative-seconds field was retained.
+- QR creation now presents its blocking progress panel through the root overlay,
+  centered over the whole screen instead of inside the Topup bottom sheet and
+  without adding a temporary route that could pop the wrong navigation layer.
+  Cancellation confirmation contains only the requested confirmation question
+  and actions, without repeating reference or amount details.
+- Focused Flutter analysis and 29 Topup model/widget tests passed. No runtime
+  database, commit, push, or worktree-clearing operation was performed.

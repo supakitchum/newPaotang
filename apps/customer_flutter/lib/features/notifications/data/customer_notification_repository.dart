@@ -75,6 +75,7 @@ class CustomerNotificationRepository {
 
   Future<void> registerDevice({
     required String installationId,
+    required String installationSecret,
     required String platform,
     required String fcmToken,
     required String locale,
@@ -86,6 +87,33 @@ class CustomerNotificationRepository {
       '/customer/notification-devices',
       data: {
         'installation_id': installationId,
+        'installation_secret': installationSecret,
+        'platform': platform,
+        'fcm_token': fcmToken,
+        'locale': locale,
+        if (appVersion.trim().isNotEmpty) 'app_version': appVersion.trim(),
+        if (deviceName.trim().isNotEmpty) 'device_name': deviceName.trim(),
+        if (metadata.isNotEmpty) 'metadata': metadata,
+      },
+    );
+  }
+
+  Future<void> registerAnonymousInstallation({
+    required String installationId,
+    required String installationSecret,
+    required String platform,
+    required String fcmToken,
+    required String locale,
+    String appVersion = '',
+    String deviceName = '',
+    Map<String, dynamic> metadata = const {},
+  }) async {
+    await _api.post<Map<String, dynamic>>(
+      '/public/notification-installations',
+      auth: false,
+      data: {
+        'installation_id': installationId,
+        'installation_secret': installationSecret,
         'platform': platform,
         'fcm_token': fcmToken,
         'locale': locale,
@@ -110,6 +138,14 @@ class CustomerNotificationRepository {
     final encodedId = Uri.encodeComponent(installationId.trim());
     await _api.deleteWithHeaders<void>(
       '/customer/notification-devices/$encodedId',
+    );
+  }
+
+  Future<void> detachDevice(String installationId) async {
+    final encodedId = Uri.encodeComponent(installationId.trim());
+    await _api.post<Map<String, dynamic>>(
+      '/customer/notification-devices/$encodedId/detach',
+      data: const <String, dynamic>{},
     );
   }
 }

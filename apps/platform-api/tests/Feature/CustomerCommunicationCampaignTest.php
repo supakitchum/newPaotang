@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\FanoutCustomerNotificationRecipientsJob;
+use App\Jobs\FanoutCustomerPushInstallationsJob;
 use App\Models\CustomerNotificationDelivery;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\CustomerNotifications\Services\FirebaseCloudMessagingClient;
@@ -267,5 +268,133 @@ class CustomerCommunicationCampaignTest extends TestCase
         $this->assertDatabaseCount('customer_communication_campaigns', 0);
         $this->assertDatabaseCount('platform_assets', 0);
         $this->assertDatabaseCount('customer_notifications', 0);
+    }
+
+    public function test_installation_audiences_send_push_without_creating_customer_inbox_rows(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain(
+            'par_customer_comms_installs',
+            'ten_customer_comms_installs',
+            'customer-comms-installs.example.test',
+        );
+        $this->issueCustomerToken('ten_customer_comms_installs', 'cus_customer_comms_installs');
+        $notifications = app(CustomerNotificationService::class);
+        $notifications->registerDevice(
+            'ten_customer_comms_installs',
+            'cus_customer_comms_installs',
+            [
+                'installation_id' => 'install_customer_comms_logged_in',
+                'installation_secret' => 'secret_customer_comms_logged_in_123456',
+                'platform' => 'android',
+                'fcm_token' => str_repeat('customer-comms-logged-in-token-', 8),
+                'locale' => 'th-TH',
+            ],
+        );
+        $notifications->registerAnonymousInstallation('ten_customer_comms_installs', [
+            'installation_id' => 'install_customer_comms_anonymous',
+            'installation_secret' => 'secret_customer_comms_anonymous_123456',
+            'platform' => 'ios',
+            'fcm_token' => str_repeat('customer-comms-anonymous-token-', 8),
+            'locale' => 'en-US',
+        ]);
+        $admin = $this->createTenantSession(
+            'ten_customer_comms_installs',
+            'par_customer_comms_installs',
+            ['customer_notification.view', 'customer_notification.send'],
+            'adm_comms_installs',
+            'customer-comms-installs@example.test',
+        );
+
+        $created = $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'payload' => json_encode([
+                    'name' => 'All app installations',
+                    'audience_type' => 'all_installations',
+                    'title' => ['th-TH' => 'ข่าวสำหรับทุกเครื่อง', 'en-US' => 'Every installation'],
+                    'body' => ['th-TH' => 'เปิดแอปเพื่อดูรายละเอียด', 'en-US' => 'Open the app for details.'],
+                    'action_key' => 'home',
+                    'delivery_mode' => 'now',
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms_installs',
+                'Idempotency-Key' => 'customer-comms-all-installations',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('audience_type', 'all_installations')
+            ->assertJsonPath('status', 'published')
+            ->json();
+
+        Queue::assertPushed(FanoutCustomerPushInstallationsJob::class, 1);
+        $notificationId = (string) $created['notification_id'];
+        $notifications->fanOutInstallationChunk($notificationId, 'all_installations');
+        $this->assertDatabaseCount('customer_notification_recipients', 0);
+        $this->assertDatabaseCount('customer_notification_deliveries', 2);
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'notification_id' => $notificationId,
+            'recipient_id' => null,
+        ]);
+
+        $sentMessages = [];
+        $this->mock(FirebaseCloudMessagingClient::class, function (MockInterface $mock) use (&$sentMessages): void {
+            $mock->shouldReceive('send')
+                ->twice()
+                ->with(\Mockery::on(function (array $message) use (&$sentMessages): bool {
+                    $sentMessages[] = $message;
+                    return true;
+                }))
+                ->andReturn(['ok' => true, 'message_id' => 'projects/test/messages/install-campaign']);
+        });
+        $this->app->forgetInstance(CustomerNotificationService::class);
+        $deliveryIds = CustomerNotificationDelivery::query()->orderBy('id')->pluck('id');
+        foreach ($deliveryIds as $deliveryId) {
+            app(CustomerNotificationService::class)->processDelivery((string) $deliveryId);
+        }
+
+        $this->assertCount(2, $sentMessages);
+        $this->assertSame(['', ''], array_column(array_column($sentMessages, 'data'), 'notification_id'));
+        $this->assertSame(
+            ['installation', 'installation'],
+            array_column(array_column($sentMessages, 'data'), 'delivery_scope'),
+        );
+
+        $anonymousNotificationId = app(CustomerNotificationService::class)->createForInstallationAudience(
+            'ten_customer_comms_installs',
+            'anonymous_installations',
+            'admin.communication_campaign',
+            [
+                'category' => 'admin',
+                'title' => 'Anonymous only',
+                'body' => 'Open the app to get started.',
+                'action_key' => 'home',
+            ],
+            ['dedupe_key' => 'customer-comms-anonymous-only'],
+        );
+        app(CustomerNotificationService::class)->fanOutInstallationChunk(
+            (string) $anonymousNotificationId,
+            'anonymous_installations',
+        );
+        $this->assertSame(1, CustomerNotificationDelivery::query()
+            ->where('notification_id', $anonymousNotificationId)
+            ->count());
+        $this->assertDatabaseHas('customer_notification_deliveries', [
+            'notification_id' => $anonymousNotificationId,
+            'device_id' => DB::table('customer_push_devices')
+                ->whereNull('customer_id')
+                ->value('id'),
+        ]);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms_installs',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.active_installation_count', 2)
+            ->assertJsonPath('meta.anonymous_installation_count', 1)
+            ->assertJsonPath('data.0.stats.target_count', 2)
+            ->assertJsonPath('data.0.stats.installation_count', 2)
+            ->assertJsonPath('data.0.stats.recipient_count', 0);
     }
 }

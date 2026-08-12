@@ -2433,6 +2433,35 @@ paths:
                 $ref: "#/components/schemas/CustomerNotificationReadAllResponse"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
+  /public/notification-installations:
+    post:
+      tags: [Customer]
+      security: []
+      summary: Register or refresh a native push installation before customer login
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPushInstallationRegistrationRequest"
+      responses:
+        "201":
+          description: Anonymous native push installation registered or refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPushDevice"
+        "409":
+          description: Installation credential mismatch or a terminal token requiring rotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /customer/notification-devices:
     post:
       tags: [Customer]
@@ -2509,6 +2538,27 @@ paths:
                 $ref: "#/components/schemas/CustomerPushDeviceStatus"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
+  /customer/notification-devices/{installation_id}/detach:
+    post:
+      tags: [Customer]
+      security:
+        - bearerAuth: []
+      summary: Detach the current customer while preserving the installation for anonymous push
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: installation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Customer ownership detached; installation remains active
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /customer/wallet:
     get:
       tags: [Customer]
@@ -11707,6 +11757,12 @@ components:
           minLength: 8
           maxLength: 128
           pattern: "^[A-Za-z0-9._:-]+$"
+        installation_secret:
+          type: string
+          minLength: 24
+          maxLength: 160
+          pattern: "^[A-Za-z0-9._:-]+$"
+          description: Stable per-installation credential. Required by current clients and always required before login.
         platform:
           type: string
           enum: [ios, android]
@@ -11750,12 +11806,20 @@ components:
               maxLength: 160
             is_physical_device:
               type: boolean
+    CustomerPushInstallationRegistrationRequest:
+      allOf:
+        - $ref: "#/components/schemas/CustomerPushDeviceRegistrationRequest"
+        - type: object
+          required: [installation_secret]
     CustomerPushDevice:
       type: object
-      required: [installation_id, platform, registered, last_seen_at]
+      required: [installation_id, owner_state, platform, registered, last_seen_at]
       properties:
         installation_id:
           type: string
+        owner_state:
+          type: string
+          enum: [anonymous, customer]
         platform:
           type: string
           enum: [ios, android]
@@ -11867,7 +11931,7 @@ components:
             $ref: "#/components/schemas/TenantCustomerNotificationCustomerOption"
         meta:
           type: object
-          required: [action_options, active_customer_count]
+          required: [action_options, active_customer_count, active_installation_count, anonymous_installation_count]
           properties:
             action_options:
               type: array
@@ -11876,9 +11940,15 @@ components:
             active_customer_count:
               type: integer
               minimum: 0
+            active_installation_count:
+              type: integer
+              minimum: 0
+            anonymous_installation_count:
+              type: integer
+              minimum: 0
     CustomerCommunicationAudienceType:
       type: string
-      enum: [all_customers, customer]
+      enum: [all_customers, all_installations, anonymous_installations, customer]
     CustomerCommunicationCampaignStatus:
       type: string
       enum: [scheduled, publishing, published, failed, cancelled]
@@ -11979,9 +12049,11 @@ components:
           additionalProperties: true
         stats:
           type: object
-          required: [recipient_count, read_count, sent_count, pending_count, failed_count]
+          required: [target_count, recipient_count, installation_count, read_count, sent_count, pending_count, failed_count]
           properties:
+            target_count: { type: integer, minimum: 0 }
             recipient_count: { type: integer, minimum: 0 }
+            installation_count: { type: integer, minimum: 0 }
             read_count: { type: integer, minimum: 0 }
             sent_count: { type: integer, minimum: 0 }
             pending_count: { type: integer, minimum: 0 }
@@ -12004,12 +12076,18 @@ components:
           allOf:
             - $ref: "#/components/schemas/CursorMeta"
             - type: object
-              required: [action_options]
+              required: [action_options, active_installation_count, anonymous_installation_count]
               properties:
                 action_options:
                   type: array
                   items:
                     $ref: "#/components/schemas/TenantCustomerNotificationActionOption"
+                active_installation_count:
+                  type: integer
+                  minimum: 0
+                anonymous_installation_count:
+                  type: integer
+                  minimum: 0
     TenantCustomerNotificationRecipientHistory:
       type: object
       required: [customer, is_read, push]

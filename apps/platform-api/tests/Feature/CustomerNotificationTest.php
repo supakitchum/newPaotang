@@ -448,6 +448,57 @@ class CustomerNotificationTest extends TestCase
             ]);
     }
 
+    public function test_public_installation_registration_attaches_after_login_and_detaches_on_logout(): void
+    {
+        $this->seedTenant('par_notify_anonymous', 'ten_notify_anonymous', 'notify-anonymous.test');
+        $this->seedCustomer('ten_notify_anonymous', 'cus_notify_anonymous', 'CUS-NOTIFY-ANONYMOUS');
+        $payload = [
+            'installation_id' => 'install_notify_anonymous_001',
+            'installation_secret' => 'secret_notify_anonymous_1234567890',
+            'platform' => 'ios',
+            'fcm_token' => str_repeat('anonymous-fcm-token-', 10),
+            'locale' => 'th-TH',
+        ];
+
+        $this->postJson('http://notify-anonymous.test/api/v1/public/notification-installations', $payload)
+            ->assertCreated()
+            ->assertJsonPath('owner_state', 'anonymous')
+            ->assertJsonPath('registered', true);
+        $this->assertDatabaseHas('customer_push_devices', [
+            'tenant_id' => 'ten_notify_anonymous',
+            'customer_id' => null,
+            'installation_id' => 'install_notify_anonymous_001',
+        ]);
+
+        $this->withToken($this->customerToken('ten_notify_anonymous', 'cus_notify_anonymous'))
+            ->postJson('http://notify-anonymous.test/api/v1/customer/notification-devices', $payload)
+            ->assertCreated()
+            ->assertJsonPath('owner_state', 'customer');
+        $this->assertDatabaseCount('customer_push_devices', 1);
+        $this->assertDatabaseHas('customer_push_devices', [
+            'tenant_id' => 'ten_notify_anonymous',
+            'customer_id' => 'cus_notify_anonymous',
+            'installation_id' => 'install_notify_anonymous_001',
+        ]);
+
+        $this->postJson('http://notify-anonymous.test/api/v1/public/notification-installations', [
+            ...$payload,
+            'installation_secret' => 'wrong_secret_notify_anonymous_123456',
+        ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'push_installation_credential_invalid');
+
+        $this->withToken($this->customerToken('ten_notify_anonymous', 'cus_notify_anonymous'))
+            ->postJson('http://notify-anonymous.test/api/v1/customer/notification-devices/install_notify_anonymous_001/detach')
+            ->assertNoContent();
+        $this->assertDatabaseHas('customer_push_devices', [
+            'tenant_id' => 'ten_notify_anonymous',
+            'customer_id' => null,
+            'installation_id' => 'install_notify_anonymous_001',
+            'revoked_at' => null,
+        ]);
+    }
+
     public function test_device_registration_rejects_identifying_or_unbounded_metadata(): void
     {
         $this->seedTenant('par_notify_metadata', 'ten_notify_metadata', 'notify-metadata.test');

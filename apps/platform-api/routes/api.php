@@ -111,6 +111,8 @@ Route::get('/public/results/history', [PublicRewardController::class, 'history']
 Route::get('/public/results/live/latest', [PublicRewardController::class, 'liveLatest']);
 Route::get('/public/results/live/{game_id}', [PublicRewardController::class, 'liveShow']);
 Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show']);
+Route::post('/public/notification-installations', [CustomerNotificationController::class, 'registerAnonymousInstallation'])
+    ->middleware('throttle:customer-push-public');
 
 Route::post('/customer/auth/register', [CustomerAuthController::class, 'register']);
 Route::post('/customer/auth/login', [CustomerAuthController::class, 'login']);
@@ -180,6 +182,7 @@ Route::post('/customer/notifications/read-all', [CustomerNotificationController:
 Route::post('/customer/notification-devices', [CustomerNotificationController::class, 'registerDevice'])->middleware('customer.auth');
 Route::get('/customer/notification-devices/{installation_id}/status', [CustomerNotificationController::class, 'deviceStatus'])->middleware('customer.auth');
 Route::delete('/customer/notification-devices/{installation_id}', [CustomerNotificationController::class, 'revokeDevice'])->middleware('customer.auth');
+Route::post('/customer/notification-devices/{installation_id}/detach', [CustomerNotificationController::class, 'detachDevice'])->middleware('customer.auth');
 Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');
 Route::post('/customer/support-session', [CustomerSupportSessionController::class, 'store'])->middleware('customer.auth');
 Route::get('/customer/cart', [CustomerCommerceController::class, 'cart'])->middleware('customer.auth');

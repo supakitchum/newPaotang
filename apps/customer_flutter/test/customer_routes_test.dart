@@ -302,14 +302,10 @@ void main() {
         '/tickets/view',
         '/tickets/claim/:ticketId',
         '/my-wallet',
-        '/topup',
-        '/topup/:topupId',
-        '/topup/history',
         '/reward-claims',
         '/reward-claims/:claimId',
         '/activity-claims',
         '/activity-claims/:claimId',
-        '/affiliate',
         '/profile',
         '/profile/language',
         '/profile/auto-reward',
@@ -328,12 +324,48 @@ void main() {
         '/support/tickets/:ticketId',
       }),
     );
+
+    expect(
+      sensitivePaths.intersection({
+        '/topup',
+        '/topup/:topupId',
+        '/topup/history',
+        '/affiliate',
+        '/affiliate/referral',
+        '/affiliate/rankings',
+        '/affiliate/campaigns',
+        '/affiliate/withdraw',
+        '/affiliate/commissions',
+        '/affiliate/payouts',
+      }),
+      isEmpty,
+    );
   });
 
   test('customer route sensitivity matcher handles dynamic and tenant routes', () {
     expect(isSensitiveCustomerPath('/'), isFalse);
     expect(isSensitiveCustomerPath('/news/announcement'), isFalse);
     expect(isSensitiveCustomerPath('/my-wallet'), isTrue);
+    expect(isSensitiveCustomerPath('/topup'), isFalse);
+    expect(isSensitiveCustomerPath('/topup/history'), isFalse);
+    expect(isSensitiveCustomerPath('/topup/request_123'), isFalse);
+    expect(isSensitiveCustomerPath('/affiliate'), isFalse);
+    expect(isSensitiveCustomerPath('/affiliate/referral'), isFalse);
+    expect(isSensitiveCustomerPath('/affiliate/rankings'), isFalse);
+    expect(
+      isSensitiveCustomerPath(
+        '/topup/request_123',
+        extraSensitiveRoutes: const ['/topup/*'],
+      ),
+      isFalse,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/affiliate/withdraw',
+        extraSensitiveRoutes: const ['/affiliate'],
+      ),
+      isFalse,
+    );
     expect(isSensitiveCustomerPath('/support/tickets/stic_123'), isTrue);
     expect(isSensitiveCustomerPath('/my-wallet?tab=summary'), isTrue);
     expect(isSensitiveCustomerPath('/tickets/claim/ticket_123'), isTrue);

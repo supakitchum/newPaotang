@@ -108,8 +108,11 @@ class ScreenSecurityService {
     });
   }
 
-  Future<void> disable() async {
-    await _invoke('disable');
+  Future<void> disable({String? route, bool allowRouteExemption = false}) async {
+    await _invoke('disable', {
+      if (route?.trim().isNotEmpty == true) 'route': route!.trim(),
+      'allow_route_exemption': allowRouteExemption,
+    });
   }
 
   Future<void> reportSecurityEvent({

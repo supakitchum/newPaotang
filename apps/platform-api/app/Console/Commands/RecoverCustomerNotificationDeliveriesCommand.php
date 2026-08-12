@@ -27,6 +27,10 @@ class RecoverCustomerNotificationDeliveriesCommand extends Command
             min(25, (int) $this->option('limit')),
             (int) $this->option('queued-minutes'),
         );
+        $installationFanoutCount = $notifications->recoverInstallationFanouts(
+            min(25, (int) $this->option('limit')),
+            (int) $this->option('queued-minutes'),
+        );
         $staleDaysOption = $this->option('device-stale-days');
         $staleDeviceCount = $notifications->revokeStaleDevices(
             (int) $this->option('device-limit'),
@@ -35,6 +39,7 @@ class RecoverCustomerNotificationDeliveriesCommand extends Command
 
         $this->info('Recovered customer push deliveries: '.$count);
         $this->info('Recovered customer notification fan-outs: '.$fanoutCount);
+        $this->info('Recovered push installation fan-outs: '.$installationFanoutCount);
         $this->info('Revoked stale customer push devices: '.$staleDeviceCount);
 
         return self::SUCCESS;

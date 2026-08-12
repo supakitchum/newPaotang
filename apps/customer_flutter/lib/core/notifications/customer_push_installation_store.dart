@@ -20,11 +20,13 @@ class CustomerPushInstallationStore {
        _storage = storage ?? const FlutterSecureStorage();
 
   static const _installationKey = 'customer_push_installation_id';
+  static const _installationSecretKey = 'customer_push_installation_secret';
   static const _permissionRequestedKey = 'customer_push_permission_requested';
 
   final String _scope;
   final FlutterSecureStorage _storage;
   String? _installationId;
+  String? _installationSecret;
   bool? _permissionRequested;
 
   Future<String> installationId() async {
@@ -46,6 +48,30 @@ class CustomerPushInstallationStore {
     _installationId = generated;
     try {
       await _storage.write(key: _key(_installationKey), value: generated);
+    } catch (_) {}
+    return generated;
+  }
+
+  Future<String> installationSecret() async {
+    final cached = _installationSecret?.trim() ?? '';
+    if (cached.isNotEmpty) return cached;
+
+    try {
+      final stored =
+          (await _storage.read(key: _key(_installationSecretKey)))?.trim() ??
+          '';
+      if (stored.isNotEmpty) {
+        _installationSecret = stored;
+        return stored;
+      }
+    } catch (_) {
+      // The in-memory credential still protects this process when storage fails.
+    }
+
+    final generated = newIdempotencyKey('push_secret');
+    _installationSecret = generated;
+    try {
+      await _storage.write(key: _key(_installationSecretKey), value: generated);
     } catch (_) {}
     return generated;
   }

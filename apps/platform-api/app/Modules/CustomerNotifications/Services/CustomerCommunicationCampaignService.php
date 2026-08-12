@@ -18,7 +18,14 @@ use Illuminate\Support\Str;
 
 class CustomerCommunicationCampaignService
 {
-    private const AUDIENCES = ['all_customers', 'customer'];
+    private const AUDIENCES = [
+        'all_customers',
+        'all_installations',
+        'anonymous_installations',
+        'customer',
+    ];
+
+    private const INSTALLATION_AUDIENCES = ['all_installations', 'anonymous_installations'];
     private const STATUSES = ['scheduled', 'published', 'cancelled', 'failed'];
     private const MAX_IMAGE_BYTES = 8_388_608;
     private const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -72,6 +79,7 @@ class CustomerCommunicationCampaignService
                 'next_cursor' => $hasMore && $rows->isNotEmpty() ? (string) $rows->last()->id : null,
                 'has_more' => $hasMore,
                 'action_options' => $this->notifications->adminActionOptions(),
+                ...$this->notifications->adminAudienceCounts($tenantId),
             ],
         ];
     }
@@ -293,6 +301,14 @@ class CustomerCommunicationCampaignService
                     $content,
                     $context,
                 );
+            } elseif (in_array((string) $campaign->audience_type, self::INSTALLATION_AUDIENCES, true)) {
+                $notificationId = $this->notifications->createForInstallationAudience(
+                    $tenantId,
+                    (string) $campaign->audience_type,
+                    'admin.communication_campaign',
+                    $content,
+                    $context,
+                );
             } else {
                 $resource = $this->notifications->createForCustomer(
                     $tenantId,
@@ -387,7 +403,7 @@ class CustomerCommunicationCampaignService
         )) {
             $errors['action_entity_id'][] = 'The destination record ID format is invalid.';
         }
-        if ($payload['audience_type'] === 'all_customers'
+        if ($payload['audience_type'] !== 'customer'
             && ($action['entity_required'] ?? false)
             && ! in_array($payload['action_key'], ['activity', 'news'], true)) {
             $errors['action_key'][] = 'This record-specific destination cannot be broadcast to every customer.';
@@ -523,11 +539,11 @@ class CustomerCommunicationCampaignService
                 DB::raw('SUM(CASE WHEN read_at IS NOT NULL THEN 1 ELSE 0 END) AS read_count'),
             ]);
         $deliveryRows = DB::table('customer_notification_deliveries as d')
-            ->join('customer_notification_recipients as r', 'r.id', '=', 'd.recipient_id')
-            ->whereIn('r.notification_id', $notificationIds)
-            ->groupBy('r.notification_id')
+            ->whereIn('d.notification_id', $notificationIds)
+            ->groupBy('d.notification_id')
             ->get([
-                'r.notification_id',
+                'd.notification_id',
+                DB::raw('COUNT(*) AS installation_count'),
                 DB::raw("SUM(CASE WHEN d.status = 'sent' THEN 1 ELSE 0 END) AS sent_count"),
                 DB::raw("SUM(CASE WHEN d.status IN ('queued', 'sending') THEN 1 ELSE 0 END) AS pending_count"),
                 DB::raw("SUM(CASE WHEN d.status IN ('failed', 'skipped') THEN 1 ELSE 0 END) AS failed_count"),
@@ -538,7 +554,21 @@ class CustomerCommunicationCampaignService
             $delivery = $deliveryRows->get($row->notification_id);
             $stats[(string) $row->notification_id] = [
                 'recipient_count' => (int) $row->recipient_count,
+                'installation_count' => (int) ($delivery->installation_count ?? 0),
                 'read_count' => (int) $row->read_count,
+                'sent_count' => (int) ($delivery->sent_count ?? 0),
+                'pending_count' => (int) ($delivery->pending_count ?? 0),
+                'failed_count' => (int) ($delivery->failed_count ?? 0),
+            ];
+        }
+
+        foreach ($deliveryRows as $delivery) {
+            $notificationId = (string) $delivery->notification_id;
+            if (isset($stats[$notificationId])) continue;
+            $stats[$notificationId] = [
+                'recipient_count' => 0,
+                'installation_count' => (int) ($delivery->installation_count ?? 0),
+                'read_count' => 0,
                 'sent_count' => (int) ($delivery->sent_count ?? 0),
                 'pending_count' => (int) ($delivery->pending_count ?? 0),
                 'failed_count' => (int) ($delivery->failed_count ?? 0),
@@ -551,6 +581,18 @@ class CustomerCommunicationCampaignService
     /** @param array<string, int>|null $stats @return array<string, mixed> */
     private function resource(CustomerCommunicationCampaign $campaign, ?array $stats = null): array
     {
+        $stats ??= [
+            'recipient_count' => 0,
+            'installation_count' => 0,
+            'read_count' => 0,
+            'sent_count' => 0,
+            'pending_count' => 0,
+            'failed_count' => 0,
+        ];
+        $stats['target_count'] = in_array((string) $campaign->audience_type, self::INSTALLATION_AUDIENCES, true)
+            ? (int) ($stats['installation_count'] ?? 0)
+            : (int) ($stats['recipient_count'] ?? 0);
+
         return [
             'id' => (string) $campaign->id,
             'name' => (string) $campaign->name,
@@ -579,13 +621,7 @@ class CustomerCommunicationCampaignService
                 'name' => $campaign->creator?->name,
                 'username' => $campaign->creator?->username,
             ],
-            'stats' => $stats ?? [
-                'recipient_count' => 0,
-                'read_count' => 0,
-                'sent_count' => 0,
-                'pending_count' => 0,
-                'failed_count' => 0,
-            ],
+            'stats' => $stats,
             'created_at' => $campaign->created_at?->toISOString(),
             'updated_at' => $campaign->updated_at?->toISOString(),
         ];

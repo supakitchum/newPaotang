@@ -39,6 +39,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var screenSecurityActive = true
     private var flagSecureEnabled = true
     private var protectRecentAppPreviewEnabled = true
+    private var routeSecurityExemptionActive = false
     private var activeScreenSecurityRoute = appWideScreenSecurityRoute
     private var screenSecurityMethodChannel: MethodChannel? = null
     private var screenCaptureCallback: Any? = null
@@ -83,6 +84,7 @@ class MainActivity : FlutterFragmentActivity() {
             when (call.method) {
                 "enable" -> {
                     val args = call.arguments as? Map<*, *>
+                    routeSecurityExemptionActive = false
                     screenSecurityActive = true
                     activeScreenSecurityRoute =
                         stringArg(args, screenSecurityRouteKeys, currentScreenSecurityRoute())
@@ -98,11 +100,16 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "disable" -> {
-                    if (appWideScreenSecurity) {
+                    val args = call.arguments as? Map<*, *>
+                    val allowRouteExemption =
+                        boolArg(args, "allow_route_exemption", false)
+                    if (appWideScreenSecurity && !allowRouteExemption) {
                         enforceAppWideScreenSecurity()
                     } else {
+                        routeSecurityExemptionActive = allowRouteExemption
                         screenSecurityActive = false
-                        activeScreenSecurityRoute = ""
+                        activeScreenSecurityRoute =
+                            stringArg(args, screenSecurityRouteKeys, "")
                     }
                     applyScreenSecurityPolicy()
                     updateScreenSecurityDetection()
@@ -110,6 +117,7 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 "reportSecurityEvent" -> {
                     val args = call.arguments as? Map<*, *>
+                    routeSecurityExemptionActive = false
                     screenSecurityActive = true
                     activeScreenSecurityRoute =
                         stringArg(args, screenSecurityRouteKeys, currentScreenSecurityRoute())
@@ -417,6 +425,7 @@ class MainActivity : FlutterFragmentActivity() {
             "sdkInt" to Build.VERSION.SDK_INT,
             "activityStarted" to activityStarted,
             "appWideProtection" to appWideScreenSecurity,
+            "routeSecurityExemptionActive" to routeSecurityExemptionActive,
             "screenSecurityActive" to screenSecurityActive,
             "activeRoute" to currentScreenSecurityRoute(),
             "flagSecureConfigured" to flagSecureEnabled,
@@ -431,12 +440,12 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     private fun applyScreenSecurityPolicy() {
-        if (appWideScreenSecurity) {
+        if (appWideScreenSecurity && !routeSecurityExemptionActive) {
             enforceAppWideScreenSecurity()
         }
         val recentsApiAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
         val secureWindowRequired =
-            appWideScreenSecurity ||
+            (appWideScreenSecurity && !routeSecurityExemptionActive) ||
                 (screenSecurityActive &&
                     (
                         flagSecureEnabled ||
@@ -454,13 +463,14 @@ class MainActivity : FlutterFragmentActivity() {
 
         if (recentsApiAvailable) {
             setRecentsScreenshotEnabled(
-                !(appWideScreenSecurity ||
+                !((appWideScreenSecurity && !routeSecurityExemptionActive) ||
                     (screenSecurityActive && protectRecentAppPreviewEnabled))
             )
         }
     }
 
     private fun enforceAppWideScreenSecurity() {
+        routeSecurityExemptionActive = false
         screenSecurityActive = true
         flagSecureEnabled = true
         protectRecentAppPreviewEnabled = true

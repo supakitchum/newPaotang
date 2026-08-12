@@ -288,6 +288,7 @@ class TopupRequestItem {
     this.paymentExpiresAt,
     this.paymentExpiresInSeconds,
     this.serverTime,
+    this.responseReceivedAt,
   });
 
   factory TopupRequestItem.fromJson(Map<String, dynamic> json) {
@@ -449,6 +450,7 @@ class TopupRequestItem {
             payment['expiresInSeconds'],
       ),
       serverTime: payload['server_time'] ?? payload['serverTime'],
+      responseReceivedAt: DateTime.now(),
     );
   }
 
@@ -468,17 +470,39 @@ class TopupRequestItem {
   final Object? paymentExpiresAt;
   final int? paymentExpiresInSeconds;
   final Object? serverTime;
+  final DateTime? responseReceivedAt;
+
+  DateTime? get paymentExpiresAtDateTime {
+    final value = DateTime.tryParse(paymentExpiresAt?.toString() ?? '');
+    return value?.toLocal();
+  }
 
   int? get paymentRemainingSeconds {
-    final supplied = paymentExpiresInSeconds;
-    if (supplied != null) return supplied < 0 ? 0 : supplied;
+    final expiresAt = paymentExpiresAtDateTime;
+    final parsedServerTime = DateTime.tryParse(
+      serverTime?.toString() ?? '',
+    )?.toLocal();
+    final receivedAt = responseReceivedAt;
+    if (expiresAt != null && parsedServerTime != null && receivedAt != null) {
+      final responseRemaining = expiresAt.difference(parsedServerTime);
+      final measuredElapsed = DateTime.now().difference(receivedAt);
+      final elapsed = measuredElapsed.isNegative
+          ? Duration.zero
+          : measuredElapsed;
+      final milliseconds = (responseRemaining - elapsed).inMilliseconds;
+      if (milliseconds <= 0) return 0;
+      return (milliseconds + 999) ~/ 1000;
+    }
 
-    final expiresAt = DateTime.tryParse(paymentExpiresAt?.toString() ?? '');
-    if (expiresAt == null) return null;
-    final reference =
-        DateTime.tryParse(serverTime?.toString() ?? '') ?? DateTime.now();
-    final seconds = expiresAt.difference(reference).inSeconds;
-    return seconds < 0 ? 0 : seconds;
+    if (expiresAt != null) {
+      final milliseconds = expiresAt.difference(DateTime.now()).inMilliseconds;
+      if (milliseconds <= 0) return 0;
+      return (milliseconds + 999) ~/ 1000;
+    }
+
+    final supplied = paymentExpiresInSeconds;
+    if (supplied == null) return null;
+    return supplied < 0 ? 0 : supplied;
   }
 
   Uri? get redirectUri {

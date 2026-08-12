@@ -37,6 +37,24 @@ void main() {
     expect(item.qrCode, 'data:image/png;base64,WRAPPED');
   });
 
+  test('QR remaining time follows the absolute provider deadline', () {
+    final serverTime = DateTime.now().toUtc();
+    final item = TopupRequestItem.fromJson({
+      'id': 'topup_active_qr',
+      'amount': {'amount': 50000, 'currency': 'THB'},
+      'status': 'pending_payment',
+      'channel': 'qr',
+      'payment_expires_at': serverTime
+          .add(const Duration(minutes: 5))
+          .toIso8601String(),
+      'payment_expires_in_seconds': 0,
+      'server_time': serverTime.toIso8601String(),
+      'payment': {'qr_code': 'data:image/png;base64,ACTIVE'},
+    });
+
+    expect(item.paymentRemainingSeconds, inInclusiveRange(299, 300));
+  });
+
   test('create sends multipart slip for bank transfer request', () async {
     final api = _TopupApiClient();
     final repository = TopupRepository(api);
@@ -67,30 +85,32 @@ void main() {
     );
   });
 
-  test('uploadSlip sends multipart slip without implicit transfer time',
-      () async {
-    final api = _TopupApiClient();
-    final repository = TopupRepository(api);
+  test(
+    'uploadSlip sends multipart slip without implicit transfer time',
+    () async {
+      final api = _TopupApiClient();
+      final repository = TopupRepository(api);
 
-    await repository.uploadSlip(
-      id: 'topup_waiting_qr',
-      slip: TopupSlipUpload(
-        filename: 'qr-slip.webp',
-        bytes: Uint8List.fromList([4, 5, 6]),
-      ),
-    );
+      await repository.uploadSlip(
+        id: 'topup_waiting_qr',
+        slip: TopupSlipUpload(
+          filename: 'qr-slip.webp',
+          bytes: Uint8List.fromList([4, 5, 6]),
+        ),
+      );
 
-    final fields = Map<String, String>.fromEntries(api.multipartData!.fields);
+      final fields = Map<String, String>.fromEntries(api.multipartData!.fields);
 
-    expect(api.multipartPath, '/customer/topups/topup_waiting_qr/slip');
-    expect(fields.containsKey('transfer_at'), isFalse);
-    expect(api.multipartData!.files.single.key, 'slip');
-    expect(api.multipartData!.files.single.value.filename, 'qr-slip.webp');
-    expect(
-      api.multipartHeaders['Idempotency-Key'],
-      startsWith('customer_topup_slip_'),
-    );
-  });
+      expect(api.multipartPath, '/customer/topups/topup_waiting_qr/slip');
+      expect(fields.containsKey('transfer_at'), isFalse);
+      expect(api.multipartData!.files.single.key, 'slip');
+      expect(api.multipartData!.files.single.value.filename, 'qr-slip.webp');
+      expect(
+        api.multipartHeaders['Idempotency-Key'],
+        startsWith('customer_topup_slip_'),
+      );
+    },
+  );
 
   test('uploadSlip forwards explicit transfer time when provided', () async {
     final api = _TopupApiClient();
@@ -114,14 +134,14 @@ void main() {
 
 class _TopupApiClient extends ApiClient {
   _TopupApiClient()
-      : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.test/api/v1',
-            defaultLocale: 'th-TH',
-          ),
-          AuthTokenStore(),
-          localeTag: 'th-TH',
-        );
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.test/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        AuthTokenStore(),
+        localeTag: 'th-TH',
+      );
 
   String postPath = '';
   Map<String, dynamic> postPayload = {};
