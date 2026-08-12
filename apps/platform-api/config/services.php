@@ -8,6 +8,9 @@ return [
         'endpoint' => env('DEEPAY_KBANK_ENDPOINT', 'https://ks-intershop.com/api/v1/payments/kbank'),
         'timeout' => (int) env('DEEPAY_KBANK_TIMEOUT', 15),
     ],
+    'topup' => [
+        'qr_ttl_seconds' => max(60, (int) env('TOPUP_QR_TTL_SECONDS', 300)),
+    ],
     'thaibulksms' => [
         'otp_request_endpoint' => env('THAIBULKSMS_OTP_REQUEST_ENDPOINT', 'https://otp.thaibulksms.com/v2/otp/request'),
         'otp_verify_endpoint' => env('THAIBULKSMS_OTP_VERIFY_ENDPOINT', 'https://otp.thaibulksms.com/v2/otp/verify'),

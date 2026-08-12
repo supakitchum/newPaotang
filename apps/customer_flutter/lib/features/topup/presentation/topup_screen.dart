@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -356,52 +357,72 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
         var showPaymentDetails = false;
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-            void continueToPaymentDetails() {
+            Future<void> submitTopup() async {
+              if (_submitting) return;
+              final navigator = Navigator.of(sheetContext);
+              final pending = _submitTopup(
+                channelOverride: channel,
+                method: overview.methodForChannel(channel),
+              );
+              if (sheetContext.mounted) setSheetState(() {});
+              final created = await pending;
+              if (created != null && navigator.mounted) {
+                navigator.pop();
+                _goToTopupDetail(created.id);
+              }
+              if (sheetContext.mounted) setSheetState(() {});
+            }
+
+            Future<void> continueToPaymentDetails() async {
               if (!_validateTopupAmount(
                 channel: channel,
                 method: overview.methodForChannel(channel),
               )) {
-                if (mounted) setSheetState(() {});
+                if (sheetContext.mounted) setSheetState(() {});
                 return;
               }
               FocusScope.of(sheetContext).unfocus();
               setState(() => _sheetNoticeMessage = '');
+              if (channel != TopupChannel.bankTransfer) {
+                await submitTopup();
+                return;
+              }
               showPaymentDetails = true;
-              if (mounted) setSheetState(() {});
+              if (sheetContext.mounted) setSheetState(() {});
             }
 
             void editAmount() {
               setState(() => _sheetNoticeMessage = '');
               showPaymentDetails = false;
-              if (mounted) setSheetState(() {});
+              if (sheetContext.mounted) setSheetState(() {});
             }
 
             Future<void> pickBankTransferSlip() async {
               await _pickBankTransferSlip();
-              if (mounted) setSheetState(() {});
+              if (sheetContext.mounted) setSheetState(() {});
             }
 
             void clearBankTransferSlip() {
               _clearBankTransferSlip();
-              if (mounted) setSheetState(() {});
+              if (sheetContext.mounted) setSheetState(() {});
             }
 
             Future<void> selectBankTransferAt() async {
               await _selectBankTransferAt();
-              if (mounted) setSheetState(() {});
+              if (sheetContext.mounted) setSheetState(() {});
             }
 
-            Future<void> submitTopup() async {
-              final navigator = Navigator.of(sheetContext);
-              final created = await _submitTopup(
-                channelOverride: channel,
-                method: overview.methodForChannel(channel),
+            Future<void> selectQuickAmount(int amount) async {
+              if (_submitting) return;
+              _amount.value = TextEditingValue(
+                text: amount.toString(),
+                selection: TextSelection.collapsed(
+                  offset: amount.toString().length,
+                ),
               );
-              if (created != null && mounted) {
-                navigator.pop();
-                _goToTopupDetail(created.id);
+              if (channel != TopupChannel.bankTransfer) {
+                await submitTopup();
               }
-              if (mounted) setSheetState(() {});
             }
 
             return _TopupSheetContent(
@@ -419,6 +440,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
               onClearBankTransferSlip: clearBankTransferSlip,
               onSelectBankTransferAt: selectBankTransferAt,
               onContinueToPaymentDetails: continueToPaymentDetails,
+              onQuickAmountSelected: selectQuickAmount,
               onEditAmount: editAmount,
               onSubmit: submitTopup,
             );
@@ -432,6 +454,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
     TopupChannel? channelOverride,
     TopupPaymentMethod? method,
   }) async {
+    if (_submitting) return null;
     final channel = channelOverride ?? _selectedChannel;
     final l10n = context.l10n;
     if (!_validateTopupAmount(channel: channel, method: method)) {
@@ -1447,6 +1470,7 @@ class _WaitingTopupCard extends StatelessWidget {
                 title: l10n.topupWaitingQrTitle,
                 qrCode: topup.qrCode,
                 instruction: l10n.topupQrSlipInstruction,
+                initialRemainingSeconds: topup.paymentRemainingSeconds,
               )
             else
               _WaitingNotePanel(
@@ -1859,20 +1883,70 @@ class _WaitingDateRow extends StatelessWidget {
   }
 }
 
-class _WaitingPaymentPanel extends StatelessWidget {
+class _WaitingPaymentPanel extends StatefulWidget {
   const _WaitingPaymentPanel({
     required this.title,
     required this.qrCode,
     required this.instruction,
+    required this.initialRemainingSeconds,
   });
 
   final String title;
   final String qrCode;
   final String instruction;
+  final int? initialRemainingSeconds;
+
+  @override
+  State<_WaitingPaymentPanel> createState() => _WaitingPaymentPanelState();
+}
+
+class _WaitingPaymentPanelState extends State<_WaitingPaymentPanel> {
+  Timer? _timer;
+  DateTime? _deadline;
+  int? _remainingSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WaitingPaymentPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialRemainingSeconds != widget.initialRemainingSeconds ||
+        oldWidget.qrCode != widget.qrCode) {
+      _resetCountdown();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _resetCountdown() {
+    _timer?.cancel();
+    _remainingSeconds = widget.initialRemainingSeconds;
+    _deadline = _remainingSeconds == null
+        ? null
+        : DateTime.now().add(Duration(seconds: _remainingSeconds!));
+    if ((_remainingSeconds ?? 0) <= 0) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      final milliseconds = _deadline!.difference(DateTime.now()).inMilliseconds;
+      final next = milliseconds <= 0 ? 0 : (milliseconds + 999) ~/ 1000;
+      setState(() => _remainingSeconds = math.max(0, next));
+      if (next <= 0) timer.cancel();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final expired = _remainingSeconds != null && _remainingSeconds! <= 0;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: _topupSoftSurface(colorScheme),
@@ -1885,7 +1959,7 @@ class _WaitingPaymentPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              title,
+              widget.title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: colorScheme.onSurface,
@@ -1893,28 +1967,84 @@ class _WaitingPaymentPanel extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: FlexibleImage(
-                source: qrCode,
-                width: 240,
-                height: 240,
-                fit: BoxFit.contain,
-                errorIcon: Icons.qr_code_2,
+            if (!expired) ...[
+              if (_remainingSeconds != null) ...[
+                const SizedBox(height: 8),
+                _TopupQrCountdown(seconds: _remainingSeconds!),
+              ],
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: FlexibleImage(
+                  source: widget.qrCode,
+                  width: 240,
+                  height: 240,
+                  fit: BoxFit.contain,
+                  errorIcon: Icons.qr_code_2,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              instruction,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              const SizedBox(height: 12),
+              Text(
+                widget.instruction,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 14),
+              Icon(
+                Icons.timer_off_outlined,
                 color: colorScheme.onSurfaceVariant,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+                size: 42,
               ),
-            ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.topupQrExpired,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopupQrCountdown extends StatelessWidget {
+  const _TopupQrCountdown({required this.seconds});
+
+  final int seconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final minutes = seconds ~/ 60;
+    final remaining = seconds % 60;
+    final time =
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${remaining.toString().padLeft(2, '0')}';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _topupPrimaryTint(colorScheme),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(
+          l10n.topupQrExpiresIn(time),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
@@ -2205,25 +2335,29 @@ class _TopupChannelLauncherCard extends StatelessWidget {
     final blockedByWaiting =
         overview.waiting != null && !overview.waiting!.status.isTerminal;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var index = 0; index < TopupChannel.values.length; index++) ...[
-          Expanded(
-            child: _ChannelTile(
-              channel: TopupChannel.values[index],
-              method: overview.methodForChannel(TopupChannel.values[index]),
-              enabled: interactionsEnabled
-                  ? overview.isChannelEnabled(TopupChannel.values[index])
-                  : true,
-              blocked: blockedByWaiting || !interactionsEnabled,
-              compact: true,
-              onTap: () => onChannelSelected(TopupChannel.values[index]),
+    return SizedBox(
+      height: 120,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < TopupChannel.values.length; index++) ...[
+            Expanded(
+              child: _ChannelTile(
+                channel: TopupChannel.values[index],
+                method: overview.methodForChannel(TopupChannel.values[index]),
+                enabled: interactionsEnabled
+                    ? overview.isChannelEnabled(TopupChannel.values[index])
+                    : true,
+                blocked: blockedByWaiting || !interactionsEnabled,
+                compact: true,
+                onTap: () => onChannelSelected(TopupChannel.values[index]),
+              ),
             ),
-          ),
-          if (index < TopupChannel.values.length - 1) const SizedBox(width: 12),
+            if (index < TopupChannel.values.length - 1)
+              const SizedBox(width: 12),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -2244,6 +2378,7 @@ class _TopupSheetContent extends StatelessWidget {
     required this.onClearBankTransferSlip,
     required this.onSelectBankTransferAt,
     required this.onContinueToPaymentDetails,
+    required this.onQuickAmountSelected,
     required this.onEditAmount,
     required this.onSubmit,
   });
@@ -2261,7 +2396,8 @@ class _TopupSheetContent extends StatelessWidget {
   final Future<void> Function() onPickBankTransferSlip;
   final VoidCallback onClearBankTransferSlip;
   final Future<void> Function() onSelectBankTransferAt;
-  final VoidCallback onContinueToPaymentDetails;
+  final Future<void> Function() onContinueToPaymentDetails;
+  final Future<void> Function(int amount) onQuickAmountSelected;
   final VoidCallback onEditAmount;
   final Future<void> Function() onSubmit;
 
@@ -2302,138 +2438,192 @@ class _TopupSheetContent extends StatelessWidget {
               borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
               children: [
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: SingleChildScrollView(
-                    primary: false,
-                    padding: scrollPadding,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        padding: scrollPadding,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            SizedBox.square(
-                              dimension: 44,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: _topupPrimaryTint(colorScheme),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  _iconForChannel(selectedChannel),
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _channelLabel(
-                                      l10n,
-                                      selectedChannel,
-                                      selectedMethod,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox.square(
+                                  dimension: 44,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: _topupPrimaryTint(colorScheme),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                    child: Icon(
+                                      _iconForChannel(selectedChannel),
+                                      color: colorScheme.primary,
+                                    ),
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _channelDescription(
-                                      l10n,
-                                      selectedChannel,
-                                      selectedMethod,
-                                    ),
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.35,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _channelLabel(
+                                          l10n,
+                                          selectedChannel,
+                                          selectedMethod,
                                         ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        _channelDescription(
+                                          l10n,
+                                          selectedChannel,
+                                          selectedMethod,
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w700,
+                                              height: 1.35,
+                                            ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: colorScheme.surface,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: colorScheme.primary.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 6),
+                                ),
+                                const SizedBox(width: 12),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surface,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: colorScheme.primary.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: SizedBox.square(
-                                dimension: 40,
-                                child: IconButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  icon: Icon(
-                                    Icons.close,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  tooltip: MaterialLocalizations.of(
-                                    context,
-                                  ).closeButtonTooltip,
-                                  style: IconButton.styleFrom().copyWith(
-                                    overlayColor: const WidgetStatePropertyAll(
-                                      Colors.transparent,
+                                  child: SizedBox.square(
+                                    dimension: 40,
+                                    child: IconButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      icon: Icon(
+                                        Icons.close,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      tooltip: MaterialLocalizations.of(
+                                        context,
+                                      ).closeButtonTooltip,
+                                      style: IconButton.styleFrom().copyWith(
+                                        overlayColor:
+                                            const WidgetStatePropertyAll(
+                                              Colors.transparent,
+                                            ),
+                                      ),
                                     ),
                                   ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            if (noticeMessage.isNotEmpty) ...[
+                              _TopupNoticePanel(
+                                message: noticeMessage,
+                                isError: noticeIsError,
                               ),
+                              const SizedBox(height: 14),
+                            ],
+                            _TopupFormCard(
+                              bank: overview.bank,
+                              amount: amount,
+                              selectedChannel: selectedChannel,
+                              selectedMethod: selectedMethod,
+                              bankTransferSlip: bankTransferSlip,
+                              bankTransferAt: bankTransferAt,
+                              submitting: submitting,
+                              showPaymentDetails: showPaymentDetails,
+                              onQuickAmountSelected: onQuickAmountSelected,
+                              onPickBankTransferSlip: onPickBankTransferSlip,
+                              onClearBankTransferSlip: onClearBankTransferSlip,
+                              onSelectBankTransferAt: onSelectBankTransferAt,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        if (noticeMessage.isNotEmpty) ...[
-                          _TopupNoticePanel(
-                            message: noticeMessage,
-                            isError: noticeIsError,
+                      ),
+                    ),
+                    _TopupSheetActionDock(
+                      selectedChannel: selectedChannel,
+                      submitting: submitting,
+                      showPaymentDetails: showPaymentDetails,
+                      padding: actionPadding,
+                      onContinueToPaymentDetails: onContinueToPaymentDetails,
+                      onEditAmount: onEditAmount,
+                      onSubmit: onSubmit,
+                    ),
+                  ],
+                ),
+                if (submitting)
+                  Positioned.fill(
+                    child: AbsorbPointer(
+                      child: ColoredBox(
+                        color: colorScheme.scrim.withValues(alpha: 0.34),
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 22,
+                                vertical: 18,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    color: colorScheme.primary,
+                                    strokeWidth: 3,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    selectedChannel == TopupChannel.bankTransfer
+                                        ? l10n.topupSubmittingBankTransfer
+                                        : l10n.topupCreatingQr,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 14),
-                        ],
-                        _TopupFormCard(
-                          bank: overview.bank,
-                          amount: amount,
-                          selectedChannel: selectedChannel,
-                          selectedMethod: selectedMethod,
-                          bankTransferSlip: bankTransferSlip,
-                          bankTransferAt: bankTransferAt,
-                          submitting: submitting,
-                          showPaymentDetails: showPaymentDetails,
-                          onPickBankTransferSlip: onPickBankTransferSlip,
-                          onClearBankTransferSlip: onClearBankTransferSlip,
-                          onSelectBankTransferAt: onSelectBankTransferAt,
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                _TopupSheetActionDock(
-                  selectedChannel: selectedChannel,
-                  submitting: submitting,
-                  showPaymentDetails: showPaymentDetails,
-                  padding: actionPadding,
-                  onContinueToPaymentDetails: onContinueToPaymentDetails,
-                  onEditAmount: onEditAmount,
-                  onSubmit: onSubmit,
-                ),
               ],
             ),
           ),
@@ -2458,7 +2648,7 @@ class _TopupSheetActionDock extends StatelessWidget {
   final bool submitting;
   final bool showPaymentDetails;
   final EdgeInsets padding;
-  final VoidCallback onContinueToPaymentDetails;
+  final Future<void> Function() onContinueToPaymentDetails;
   final VoidCallback onEditAmount;
   final Future<void> Function() onSubmit;
 
@@ -2467,11 +2657,15 @@ class _TopupSheetActionDock extends StatelessWidget {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final primaryLabel = !showPaymentDetails
-        ? l10n.topupContinuePayment
-        : submitting
+    final primaryLabel = submitting
         ? _submittingLabel(l10n)
-        : l10n.topupConfirmPayment;
+        : showPaymentDetails
+        ? l10n.topupConfirmPayment
+        : switch (selectedChannel) {
+            TopupChannel.qr => l10n.topupCreateQr,
+            TopupChannel.creditCard => l10n.topupCreateCreditQr,
+            TopupChannel.bankTransfer => l10n.topupContinuePayment,
+          };
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -2549,6 +2743,7 @@ class _TopupFormCard extends StatelessWidget {
     required this.bankTransferAt,
     required this.submitting,
     required this.showPaymentDetails,
+    required this.onQuickAmountSelected,
     required this.onPickBankTransferSlip,
     required this.onClearBankTransferSlip,
     required this.onSelectBankTransferAt,
@@ -2562,6 +2757,7 @@ class _TopupFormCard extends StatelessWidget {
   final DateTime? bankTransferAt;
   final bool submitting;
   final bool showPaymentDetails;
+  final Future<void> Function(int amount) onQuickAmountSelected;
   final Future<void> Function() onPickBankTransferSlip;
   final VoidCallback onClearBankTransferSlip;
   final Future<void> Function() onSelectBankTransferAt;
@@ -2578,6 +2774,8 @@ class _TopupFormCard extends StatelessWidget {
           _TopupAmountPanel(
             amount: amount,
             minimumAmount: selectedMethod?.minimumAmount ?? 0,
+            submitting: submitting,
+            onQuickAmountSelected: onQuickAmountSelected,
           ),
         ] else ...[
           _TopupPaymentAmountSummary(
@@ -2758,10 +2956,17 @@ class _TopupPaymentDetailsPanel extends StatelessWidget {
 }
 
 class _TopupAmountPanel extends StatelessWidget {
-  const _TopupAmountPanel({required this.amount, required this.minimumAmount});
+  const _TopupAmountPanel({
+    required this.amount,
+    required this.minimumAmount,
+    required this.submitting,
+    required this.onQuickAmountSelected,
+  });
 
   final TextEditingController amount;
   final double minimumAmount;
+  final bool submitting;
+  final Future<void> Function(int amount) onQuickAmountSelected;
 
   static const _quickAmounts = [100, 300, 500, 1000, 2000, 5000];
 
@@ -2795,6 +3000,7 @@ class _TopupAmountPanel extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: amount,
+              enabled: !submitting,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
@@ -2867,7 +3073,11 @@ class _TopupAmountPanel extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
-                      onPressed: () => _setAmount(value),
+                      onPressed: submitting
+                          ? null
+                          : () {
+                              onQuickAmountSelected(value);
+                            },
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(_formatQuickAmount(value, l10n)),
@@ -2884,13 +3094,6 @@ class _TopupAmountPanel extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  void _setAmount(int value) {
-    amount.value = TextEditingValue(
-      text: value.toString(),
-      selection: TextSelection.collapsed(offset: value.toString().length),
     );
   }
 
@@ -3285,7 +3488,7 @@ class _ChannelTile extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: compact ? 8 : 14,
-              vertical: compact ? 12 : 13,
+              vertical: compact ? 7 : 13,
             ),
             child: compact
                 ? Column(
@@ -3298,21 +3501,27 @@ class _ChannelTile extends StatelessWidget {
                         iconColor: iconColor,
                         compact: true,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _channelLabel(l10n, channel, method),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.22,
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        height: 34,
+                        child: Center(
+                          child: Text(
+                            _channelLabel(l10n, channel, method),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: textColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.16,
+                                ),
+                          ),
                         ),
                       ),
                       if (!enabled) ...[
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 3),
                         _ChannelDisabledBadge(
                           label: l10n.topupChannelDisabled,
                           compact: true,
@@ -3416,8 +3625,8 @@ class _TopupChannelMark extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final logoSource = method?.iconUrl.trim() ?? '';
     final hasLogo = _isRenderableTopupImageSource(logoSource);
-    final size = compact ? 48.0 : 38.0;
-    final iconSize = compact ? 28.0 : 24.0;
+    final size = compact ? 38.0 : 38.0;
+    final iconSize = compact ? 25.0 : 24.0;
     final radius = BorderRadius.circular(compact ? 14 : 12);
 
     if (compact) {
@@ -3494,13 +3703,13 @@ class _ChannelDisabledBadge extends StatelessWidget {
         ),
         child: Text(
           label,
-          maxLines: compact ? 2 : 1,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w900,
-            fontSize: compact ? 10 : null,
+            fontSize: compact ? 9 : null,
             height: compact ? 1.1 : null,
           ),
         ),

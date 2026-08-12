@@ -5,6 +5,7 @@ use App\Console\Commands\AffiliateProductionPreflightCommand;
 use App\Console\Commands\CalculateCommissionsCommand;
 use App\Console\Commands\CheckPendingLotteryBackgroundsCommand;
 use App\Console\Commands\ExpireStockReservationsCommand;
+use App\Console\Commands\ExpireTopupPaymentsCommand;
 use App\Console\Commands\LotteryImageReadinessCommand;
 use App\Console\Commands\PlatformAlertsCheckCommand;
 use App\Console\Commands\PlatformAboutCommand;
@@ -60,6 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AffiliateProductionPreflightCommand::class,
         AutoCloseExpiredGamesCommand::class,
         ExpireStockReservationsCommand::class,
+        ExpireTopupPaymentsCommand::class,
         SeedBaseLotteryNumbersCommand::class,
         SeedCustomerContentFixturesCommand::class,
         ProcessSoldSyncCommand::class,

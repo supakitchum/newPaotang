@@ -90,9 +90,7 @@ void main() {
     );
   });
 
-  testWidgets('topup launcher follows the Nuxt hero controls', (
-    tester,
-  ) async {
+  testWidgets('topup launcher follows the Nuxt hero controls', (tester) async {
     await _pumpTopupRoute(tester, '/topup');
 
     expect(find.text('เติมเงินเข้า Runtime Blue Wallet'), findsWidgets);
@@ -111,10 +109,7 @@ void main() {
       findsNothing,
     );
     expect(
-      find.ancestor(
-        of: find.text('QR Code'),
-        matching: find.byType(Card),
-      ),
+      find.ancestor(of: find.text('QR Code'), matching: find.byType(Card)),
       findsNothing,
     );
   });
@@ -329,30 +324,19 @@ void main() {
     );
     expect(find.text('ข้อมูลการชำระเงิน'), findsNothing);
     expect(
-      find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'),
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
       findsOneWidget,
     );
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '1,000'));
+    await tester.enterText(find.byType(TextField), '1000');
     await tester.pump();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller?.text,
       '1000',
     );
-
-    await tester.tap(find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('ข้อมูลการชำระเงิน'), findsOneWidget);
-    expect(find.text('ยอดที่ต้องชำระ'), findsOneWidget);
-    expect(find.text('1,000 บาท'), findsOneWidget);
     expect(
       find.text('สร้าง QR Code แล้วแนบสลิปหลังชำระเงินเพื่อให้ร้านค้าตรวจสอบ'),
-      findsOneWidget,
-    );
-    expect(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันชำระเงิน'),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.tap(find.byIcon(Icons.close).last);
@@ -367,19 +351,12 @@ void main() {
       findsNothing,
     );
     expect(
-      find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'),
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
       findsOneWidget,
     );
-    await tester.tap(find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'));
-    await tester.pumpAndSettle();
-
     expect(
       find.text('ช่องทางนี้จะแสดงเป็น QR Code และแนบสลิปหลังชำระเงินได้'),
-      findsOneWidget,
-    );
-    expect(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันชำระเงิน'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('สร้าง Credit QR Code'), findsNothing);
   });
@@ -406,25 +383,12 @@ void main() {
     expect(sheetRect.left, moreOrLessEquals(0, epsilon: 0.5));
     expect(sheetRect.right, moreOrLessEquals(390, epsilon: 0.5));
 
-    final continuePayment =
-        find.widgetWithText(CustomerGradientButton, 'ชำระเงิน');
-    final continueRect = tester.getRect(continuePayment);
-    expect(sheetRect.bottom - continueRect.bottom, lessThanOrEqualTo(18));
-
-    await tester.tap(continuePayment);
-    await tester.pumpAndSettle();
-
-    final detailSheetRect = tester.getRect(sheet);
-    final confirmPayment = find.widgetWithText(
+    final createQr = find.widgetWithText(
       CustomerGradientButton,
-      'ยืนยันชำระเงิน',
+      'สร้าง QR Code',
     );
-    final confirmRect = tester.getRect(confirmPayment);
-    expect(
-      find.widgetWithText(OutlinedButton, 'แก้ไขจำนวนเงิน'),
-      findsOneWidget,
-    );
-    expect(detailSheetRect.bottom - confirmRect.bottom, lessThanOrEqualTo(18));
+    final createRect = tester.getRect(createQr);
+    expect(sheetRect.bottom - createRect.bottom, lessThanOrEqualTo(18));
   });
 
   testWidgets('topup uses Nuxt labels with runtime payment minimums', (
@@ -481,11 +445,11 @@ void main() {
 
     expect(find.text('ขั้นต่ำตาม provider ของร้านค้า'), findsNothing);
 
-    final continuePayment =
-        find.widgetWithText(CustomerGradientButton, 'ชำระเงิน');
-    final continueButton =
-        tester.widget<CustomerGradientButton>(continuePayment);
-    continueButton.onPressed!();
+    final createQr = find.widgetWithText(
+      CustomerGradientButton,
+      'สร้าง QR Code',
+    );
+    tester.widget<CustomerGradientButton>(createQr).onPressed!();
     await tester.pump();
 
     expect(repository.createCalls, 0);
@@ -584,10 +548,7 @@ void main() {
     submitButton.onPressed!();
     await tester.pump();
 
-    expect(
-      find.text('กรุณาแนบรูปสลิปก่อนส่งให้แอดมินตรวจสอบ'),
-      findsOneWidget,
-    );
+    expect(find.text('กรุณาแนบรูปสลิปก่อนส่งให้แอดมินตรวจสอบ'), findsOneWidget);
   });
 
   testWidgets('pending QR topup can upload a slip after QR creation', (
@@ -720,9 +681,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('unfinished topup blocks creating a new request', (
-    tester,
-  ) async {
+  testWidgets('unfinished topup blocks creating a new request', (tester) async {
     await _pumpTopupScreen(
       tester,
       TopupOverview(
@@ -809,11 +768,7 @@ void main() {
     await tester.tap(find.text('QR Code'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันชำระเงิน'),
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
     );
     await tester.pumpAndSettle();
 
@@ -843,11 +798,7 @@ void main() {
     await tester.tap(find.text('QR Code'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันชำระเงิน'),
+      find.widgetWithText(CustomerGradientButton, 'สร้าง QR Code'),
     );
     await tester.pumpAndSettle();
 
@@ -1019,10 +970,7 @@ void main() {
     expect(
       tester
           .widget<FilledButton>(
-            find.widgetWithText(
-              FilledButton,
-              'กำลังยกเลิก...',
-            ),
+            find.widgetWithText(FilledButton, 'กำลังยกเลิก...'),
           )
           .onPressed,
       isNull,
@@ -1066,13 +1014,7 @@ void main() {
 
     await tester.tap(find.text('QR Code'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ชำระเงิน'),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันชำระเงิน'),
-    );
+    await tester.tap(find.widgetWithText(OutlinedButton, '500'));
     await tester.pumpAndSettle();
 
     expect(repository.createCalls, 1);
@@ -1081,6 +1023,56 @@ void main() {
       find.text('topup detail route top_created_qr back=/my-wallet'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('quick amount creates one QR while provider request is pending', (
+    tester,
+  ) async {
+    final createGate = Completer<void>();
+    final repository = _CreateTopupRepository(
+      const TopupRequestItem(
+        id: 'top_quick_qr',
+        amount: 500,
+        bonusAmount: 0,
+        status: TopupStatus.pendingPayment,
+        channel: TopupChannel.qr,
+        provider: 'deepay_kbank',
+        transferAt: null,
+        createdAt: '2026-08-12T10:00:00+07:00',
+        slipUrl: '',
+        slipThumbUrl: '',
+        qrCode: 'data:image/png;base64,QR',
+        redirectUrl: '',
+        message: '',
+        paymentExpiresAt: '2026-08-12T10:05:00+07:00',
+        paymentExpiresInSeconds: 300,
+        serverTime: '2026-08-12T10:00:00+07:00',
+      ),
+      createGate: createGate,
+    );
+
+    await _pumpTopupRoute(tester, '/topup', repository: repository);
+    await tester.tap(find.text('QR Code'));
+    await tester.pumpAndSettle();
+
+    final quickAmount = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '500'),
+    );
+    quickAmount.onPressed!();
+    quickAmount.onPressed!();
+    await tester.pump();
+
+    expect(repository.createCalls, 1);
+    expect(find.text('กำลังสร้าง QR...'), findsWidgets);
+
+    createGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('topup detail route top_quick_qr back=/my-wallet'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('topup detail screen renders the selected request', (
@@ -1108,8 +1100,9 @@ void main() {
       ProviderScope(
         overrides: [
           topupRepositoryProvider.overrideWithValue(repository),
-          topupOverviewProvider
-              .overrideWith((_) async => _emptyTopupOverview()),
+          topupOverviewProvider.overrideWith(
+            (_) async => _emptyTopupOverview(),
+          ),
         ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
@@ -1171,21 +1164,17 @@ Future<void> _pumpTopupRoute(
       ),
       GoRoute(
         path: '/checkout',
-        builder: (context, state) => const Scaffold(
-          body: Text('checkout route'),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Text('checkout route')),
       ),
       GoRoute(
         path: '/my-wallet',
-        builder: (context, state) => const Scaffold(
-          body: Text('wallet route'),
-        ),
+        builder: (context, state) => const Scaffold(body: Text('wallet route')),
       ),
       GoRoute(
         path: '/topup/history',
-        builder: (context, state) => const Scaffold(
-          body: Text('topup history route'),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Text('topup history route')),
       ),
       GoRoute(
         path: '/topup/:topupId',
@@ -1356,9 +1345,11 @@ class _FailingCreateTopupRepository extends TopupRepository {
 }
 
 class _CreateTopupRepository extends TopupRepository {
-  _CreateTopupRepository(this.item) : super(_testApiClient());
+  _CreateTopupRepository(this.item, {this.createGate})
+    : super(_testApiClient());
 
   final TopupRequestItem item;
+  final Completer<void>? createGate;
   int createCalls = 0;
   TopupChannel? createdChannel;
 
@@ -1371,6 +1362,7 @@ class _CreateTopupRepository extends TopupRepository {
   }) async {
     createCalls++;
     createdChannel = channel;
+    await createGate?.future;
     return item;
   }
 
@@ -1378,6 +1370,7 @@ class _CreateTopupRepository extends TopupRepository {
   Future<TopupRequestItem> createCredit({required double amount}) async {
     createCalls++;
     createdChannel = TopupChannel.creditCard;
+    await createGate?.future;
     return item;
   }
 }
@@ -1399,7 +1392,7 @@ class _DetailTopupRepository extends TopupRepository {
 
 class _CancelTopupRepository extends TopupRepository {
   _CancelTopupRepository({this.error, this.cancelGate})
-      : super(_testApiClient());
+    : super(_testApiClient());
 
   final Object? error;
   final Completer<void>? cancelGate;

@@ -38,6 +38,7 @@ services:
       SESSION_DRIVER: redis
       REDIS_HOST: valkey
       REDIS_PORT: "6379"
+      TOPUP_QR_TTL_SECONDS: ${TOPUP_QR_TTL_SECONDS:-300}
       BROADCAST_CONNECTION: reverb
       REVERB_APP_ID: newpaotang-local
       REVERB_APP_KEY: newpaotang-admin
@@ -190,6 +191,7 @@ services:
       SESSION_DRIVER: redis
       REDIS_HOST: valkey
       REDIS_PORT: "6379"
+      TOPUP_QR_TTL_SECONDS: ${TOPUP_QR_TTL_SECONDS:-300}
     volumes:
       - ./:/workspace:ro
       - ./apps/platform-api:/var/www/html

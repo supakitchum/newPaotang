@@ -3568,7 +3568,7 @@ function handleTenantTopupRealtimeEvent(payload: any) {
     return
   }
 
-  const row = payload.topup || payload.row || payload
+  const row = payload.topup || payload.row || null
   const payloadTenantId = String(payload.tenant_id || row?.tenant_id || '').trim()
   if (payloadTenantId && payloadTenantId !== String(session.currentTenantId.value || '')) {
     return
@@ -3590,6 +3590,11 @@ function handleTenantTopupRealtimeEvent(payload: any) {
         break
       }
     }
+  }
+
+  if (!row) {
+    void loadRelatedLists()
+    return
   }
 
   for (const section of activeRelatedLists.value) {

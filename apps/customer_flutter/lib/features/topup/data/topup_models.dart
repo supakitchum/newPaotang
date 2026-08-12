@@ -19,8 +19,7 @@ enum TopupChannel {
       'promptpay' ||
       'prompt_pay' ||
       'thai_qr' ||
-      'thaiqr' =>
-        TopupChannel.qr,
+      'thaiqr' => TopupChannel.qr,
       'credit' ||
       'credit_card' ||
       'credit_qr' ||
@@ -28,8 +27,7 @@ enum TopupChannel {
       'credit_qr_code' ||
       'creditcard' ||
       'card_qr' ||
-      'cardqr' =>
-        TopupChannel.creditCard,
+      'cardqr' => TopupChannel.creditCard,
       'bank' ||
       'bank_transfer' ||
       'banktransfer' ||
@@ -37,8 +35,7 @@ enum TopupChannel {
       'manual' ||
       'manual_transfer' ||
       'bank_deposit' ||
-      'transfer_slip' =>
-        TopupChannel.bankTransfer,
+      'transfer_slip' => TopupChannel.bankTransfer,
       _ => null,
     };
   }
@@ -65,20 +62,17 @@ enum TopupStatus {
       'pending_payment' ||
       'pendingpayment' ||
       'pending-payment' ||
-      'processing' =>
-        TopupStatus.pendingPayment,
+      'processing' => TopupStatus.pendingPayment,
       'pending_review' ||
       'pendingreview' ||
       'pending-review' ||
-      'pending' =>
-        TopupStatus.pendingReview,
+      'pending' => TopupStatus.pendingReview,
       'approved' ||
       'paid' ||
       'completed' ||
       'complete' ||
       'success' ||
-      'succeeded' =>
-        TopupStatus.approved,
+      'succeeded' => TopupStatus.approved,
       'rejected' || 'failed' => TopupStatus.rejected,
       'cancelled' || 'canceled' => TopupStatus.cancelled,
       'expired' => TopupStatus.expired,
@@ -91,8 +85,7 @@ enum TopupStatus {
       TopupStatus.approved ||
       TopupStatus.rejected ||
       TopupStatus.cancelled ||
-      TopupStatus.expired =>
-        true,
+      TopupStatus.expired => true,
       _ => false,
     };
   }
@@ -292,6 +285,9 @@ class TopupRequestItem {
     required this.qrCode,
     required this.redirectUrl,
     required this.message,
+    this.paymentExpiresAt,
+    this.paymentExpiresInSeconds,
+    this.serverTime,
   });
 
   factory TopupRequestItem.fromJson(Map<String, dynamic> json) {
@@ -299,7 +295,8 @@ class TopupRequestItem {
     final payment = asMap(payload['payment']);
     final slip = payload['slip'];
     final slipMap = asMap(slip);
-    final slipUrl = payload['slip_url'] ??
+    final slipUrl =
+        payload['slip_url'] ??
         payload['slipUrl'] ??
         payload['slip_full_url'] ??
         payload['slipFullUrl'] ??
@@ -368,16 +365,19 @@ class TopupRequestItem {
         payment['provider_name'],
         payment['providerName'],
       ]),
-      transferAt: payload['transfer_at'] ??
+      transferAt:
+          payload['transfer_at'] ??
           payload['transferAt'] ??
           payload['transferred_at'] ??
           payload['transferredAt'],
-      createdAt: payload['created_at'] ??
+      createdAt:
+          payload['created_at'] ??
           payload['createdAt'] ??
           payload['requested_at'] ??
           payload['requestedAt'],
       slipUrl: slipUrl?.toString() ?? '',
-      slipThumbUrl: (payload['slip_thumb_url'] ??
+      slipThumbUrl:
+          (payload['slip_thumb_url'] ??
                   payload['slipThumbUrl'] ??
                   payload['slip_thumbnail_url'] ??
                   payload['slipThumbnailUrl'] ??
@@ -437,6 +437,18 @@ class TopupRequestItem {
         payment['instruction'],
         payment['instructions'],
       ]),
+      paymentExpiresAt:
+          payload['payment_expires_at'] ??
+          payload['paymentExpiresAt'] ??
+          payment['expires_at'] ??
+          payment['expiresAt'],
+      paymentExpiresInSeconds: _optionalTopupInt(
+        payload['payment_expires_in_seconds'] ??
+            payload['paymentExpiresInSeconds'] ??
+            payment['expires_in_seconds'] ??
+            payment['expiresInSeconds'],
+      ),
+      serverTime: payload['server_time'] ?? payload['serverTime'],
     );
   }
 
@@ -453,6 +465,21 @@ class TopupRequestItem {
   final String qrCode;
   final String redirectUrl;
   final String message;
+  final Object? paymentExpiresAt;
+  final int? paymentExpiresInSeconds;
+  final Object? serverTime;
+
+  int? get paymentRemainingSeconds {
+    final supplied = paymentExpiresInSeconds;
+    if (supplied != null) return supplied < 0 ? 0 : supplied;
+
+    final expiresAt = DateTime.tryParse(paymentExpiresAt?.toString() ?? '');
+    if (expiresAt == null) return null;
+    final reference =
+        DateTime.tryParse(serverTime?.toString() ?? '') ?? DateTime.now();
+    final seconds = expiresAt.difference(reference).inSeconds;
+    return seconds < 0 ? 0 : seconds;
+  }
 
   Uri? get redirectUri {
     final uri = Uri.tryParse(redirectUrl.trim());
@@ -469,6 +496,13 @@ class TopupRequestItem {
       (channel == TopupChannel.bankTransfer ||
           channel == TopupChannel.qr ||
           channel == TopupChannel.creditCard);
+}
+
+int? _optionalTopupInt(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString().trim());
 }
 
 Map<String, dynamic> _topupItemPayload(Map<String, dynamic> json) {
@@ -581,48 +615,51 @@ class TopupOverview {
           payload['customer_wallet'] ??
           payload['customerWallet'],
     );
-    final banks = _topupBankRows(
-      payload['banks'] ??
-          payload['website_banks'] ??
-          payload['websiteBanks'] ??
-          payload['bank_accounts'] ??
-          payload['bankAccounts'] ??
-          payload['receiving_banks'] ??
-          payload['receivingBanks'] ??
-          payment['banks'] ??
-          payment['website_banks'] ??
-          payment['websiteBanks'] ??
-          payment['bank_accounts'] ??
-          payment['bankAccounts'] ??
-          payment['receiving_banks'] ??
-          payment['receivingBanks'],
-    )
-        .map(TopupBankAccount.fromJson)
-        .where((bank) => bank.hasDisplayValue)
-        .toList(growable: false);
+    final banks =
+        _topupBankRows(
+              payload['banks'] ??
+                  payload['website_banks'] ??
+                  payload['websiteBanks'] ??
+                  payload['bank_accounts'] ??
+                  payload['bankAccounts'] ??
+                  payload['receiving_banks'] ??
+                  payload['receivingBanks'] ??
+                  payment['banks'] ??
+                  payment['website_banks'] ??
+                  payment['websiteBanks'] ??
+                  payment['bank_accounts'] ??
+                  payment['bankAccounts'] ??
+                  payment['receiving_banks'] ??
+                  payment['receivingBanks'],
+            )
+            .map(TopupBankAccount.fromJson)
+            .where((bank) => bank.hasDisplayValue)
+            .toList(growable: false);
 
     return TopupOverview(
       bank: bank,
       banks: banks.isNotEmpty
           ? banks
           : bank.hasDisplayValue
-              ? [bank]
-              : const [],
+          ? [bank]
+          : const [],
       paymentMethods: _normalizePaymentMethods(paymentMethods, enabled),
       enabledPaymentMethods: enabled,
       waiting: waitingPayload == null
           ? null
           : TopupRequestItem.fromJson(waitingPayload),
-      histories: histories.map(TopupRequestItem.fromJson).toList(
-            growable: false,
-          ),
-      currentPage: int.tryParse(
+      histories: histories
+          .map(TopupRequestItem.fromJson)
+          .toList(growable: false),
+      currentPage:
+          int.tryParse(
             (meta['current_page'] ?? meta['currentPage'] ?? meta['page'])
                     ?.toString() ??
                 '',
           ) ??
           1,
-      lastPage: int.tryParse(
+      lastPage:
+          int.tryParse(
             (meta['last_page'] ??
                         meta['lastPage'] ??
                         meta['total_page'] ??
@@ -882,16 +919,15 @@ List<Map<String, dynamic>> _topupPaymentMethodRows(Object? value) {
   final map = asMap(value);
   if (map.isEmpty) return const [];
 
-  return map.entries.map((entry) {
-    final row = asMap(entry.value);
-    if (row.isEmpty) {
-      return <String, dynamic>{
-        'key': entry.key,
-        'enabled': entry.value,
-      };
-    }
-    return <String, dynamic>{'key': entry.key, ...row};
-  }).toList(growable: false);
+  return map.entries
+      .map((entry) {
+        final row = asMap(entry.value);
+        if (row.isEmpty) {
+          return <String, dynamic>{'key': entry.key, 'enabled': entry.value};
+        }
+        return <String, dynamic>{'key': entry.key, ...row};
+      })
+      .toList(growable: false);
 }
 
 List<Map<String, dynamic>> _topupBankRows(Object? value) {
@@ -913,7 +949,8 @@ List<Map<String, dynamic>> _topupBankRows(Object? value) {
   final map = asMap(value);
   if (map.isEmpty) return const [];
 
-  final looksLikeSingleBank = _firstTopupText([
+  final looksLikeSingleBank =
+      _firstTopupText([
         map['bank_name'],
         map['bankName'],
         map['bank_label'],
@@ -980,7 +1017,8 @@ bool _topupMethodDisabled(Map<String, dynamic> json) {
 }
 
 bool _topupMethodActive(Map<String, dynamic> json) {
-  final supported = json['supported'] ??
+  final supported =
+      json['supported'] ??
       json['is_supported'] ??
       json['isSupported'] ??
       json['allowed'] ??

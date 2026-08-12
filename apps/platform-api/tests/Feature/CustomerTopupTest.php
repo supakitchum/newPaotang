@@ -2,9 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Commerce\Events\CustomerTopupUpdated;
+use App\Modules\Commerce\Events\TopupUpdated;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
@@ -20,6 +25,7 @@ class CustomerTopupTest extends TestCase
     {
         $world = $this->prepareReservedCart('par_cust_topup', 'ten_cust_topup', 'customer-topup.m5.test', 'gam_cust_topup', '0804005000', 730001);
         $this->configureDeepayProvider('ten_cust_topup');
+        Event::fake([TopupUpdated::class, CustomerTopupUpdated::class, AdminMenuBadgesUpdated::class]);
         $transferAt = now()->toISOString();
 
         $topup = $this->withToken($world['auth']['token'])
@@ -56,6 +62,8 @@ class CustomerTopupTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('status', 'pending_payment')
             ->assertJsonPath('payment.qr_code', fn (?string $value): bool => is_string($value) && $value !== '')
+            ->assertJsonPath('payment_expires_at', fn (?string $value): bool => is_string($value) && $value !== '')
+            ->assertJsonPath('payment_expires_in_seconds', fn (int $value): bool => $value > 0 && $value <= 300)
             ->json();
 
         $this->assertDatabaseHas('payments', [
@@ -63,6 +71,25 @@ class CustomerTopupTest extends TestCase
             'topup_request_id' => $credit['id'],
             'status' => 'pending',
         ]);
+        Event::assertDispatched(CustomerTopupUpdated::class, function (CustomerTopupUpdated $event) use ($credit): bool {
+            $payload = $event->payload;
+
+            return ($payload['topup_id'] ?? null) === $credit['id']
+                && ($payload['event_type'] ?? null) === 'topup.updated'
+                && ! array_key_exists('topup', $payload)
+                && ! array_key_exists('payment', $payload)
+                && ! array_key_exists('qr_code', $payload)
+                && strlen(json_encode($payload, JSON_THROW_ON_ERROR)) < 2048;
+        });
+        Event::assertDispatched(TopupUpdated::class, function (TopupUpdated $event) use ($credit): bool {
+            $payload = $event->payload;
+
+            return ($payload['topup_id'] ?? null) === $credit['id']
+                && ! array_key_exists('topup', $payload)
+                && ! array_key_exists('payment', $payload)
+                && ! array_key_exists('qr_code', $payload)
+                && strlen(json_encode($payload, JSON_THROW_ON_ERROR)) < 2048;
+        });
         Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/billCredit')
             && str_starts_with((string) data_get($request->data(), 'reference1'), 'T')
             && strlen((string) data_get($request->data(), 'reference1')) <= 20
@@ -93,6 +120,9 @@ class CustomerTopupTest extends TestCase
             ->assertOk()
             ->assertJsonPath('id', $credit['id'])
             ->assertJsonPath('status', 'cancelled')
+            ->assertJsonPath('payment_expires_in_seconds', 0)
+            ->assertJsonPath('payment.qr_code', null)
+            ->assertJsonPath('payment.redirect_url', null)
             ->json();
 
         $cancelReplay = $this->withToken($world['auth']['token'])
@@ -119,6 +149,101 @@ class CustomerTopupTest extends TestCase
             ->assertJsonPath('id', $topup['id']);
 
         $this->assertSame(2, DB::table('topup_requests')->where('tenant_id', 'ten_cust_topup')->count());
+    }
+
+    public function test_CustomerTopup_provider_qr_expires_after_five_minutes_and_is_cancelled(): void
+    {
+        $startedAt = Carbon::parse('2026-08-12T10:00:00+07:00');
+        Carbon::setTestNow($startedAt);
+        $this->beforeApplicationDestroyed(static fn () => Carbon::setTestNow());
+
+        $world = $this->prepareReservedCart(
+            'par_cust_topup_expiry',
+            'ten_cust_topup_expiry',
+            'customer-topup-expiry.m5.test',
+            'gam_cust_topup_expiry',
+            '0804005099',
+            730099,
+        );
+        $this->configureDeepayProvider('ten_cust_topup_expiry');
+
+        $topup = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'qr',
+                'amount' => 50000,
+            ], [
+                'Idempotency-Key' => 'customer-topup-expiry-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'pending_payment')
+            ->assertJsonPath('payment_expires_in_seconds', 300)
+            ->assertJsonPath('payment.qr_code', fn (?string $value): bool => is_string($value) && $value !== '')
+            ->json();
+
+        $expiresAt = Carbon::parse((string) $topup['payment_expires_at']);
+        $this->assertEquals(300, $startedAt->diffInSeconds($expiresAt));
+
+        Carbon::setTestNow($startedAt->copy()->addSeconds(299));
+        $this->artisan('topups:payments:expire --limit=10')
+            ->assertSuccessful()
+            ->expectsOutput('Expired topup payments: 0');
+
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $topup['id'],
+            'status' => 'processing',
+        ]);
+
+        Carbon::setTestNow($startedAt->copy()->addSeconds(300));
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
+            ->assertOk()
+            ->assertJsonPath('waiting', null)
+            ->assertJsonPath('histories.0.status', 'expired')
+            ->assertJsonPath('histories.0.payment.qr_code', null);
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'qr',
+                'amount' => 50000,
+            ], [
+                'Idempotency-Key' => 'customer-topup-expiry-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('id', $topup['id'])
+            ->assertJsonPath('status', 'expired')
+            ->assertJsonPath('payment_expires_in_seconds', 0)
+            ->assertJsonPath('payment.qr_code', null);
+        Http::assertSentCount(1);
+
+        $this->artisan('topups:payments:expire --limit=10')
+            ->assertSuccessful()
+            ->expectsOutput('Expired topup payments: 1');
+
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $topup['id'],
+            'status' => 'expired',
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'topup_request_id' => $topup['id'],
+            'status' => 'cancelled',
+        ]);
+        Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/cancel'));
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/topups/'.$topup['id'])
+            ->assertOk()
+            ->assertJsonPath('status', 'expired')
+            ->assertJsonPath('payment_expires_in_seconds', 0)
+            ->assertJsonPath('payment.qr_code', null)
+            ->assertJsonPath('payment.redirect_url', null);
+
+        $this->artisan('topups:payments:expire --limit=10')
+            ->assertSuccessful()
+            ->expectsOutput('Expired topup payments: 0');
+        $this->assertSame(1, DB::table('payment_provider_attempts')
+            ->where('topup_request_id', $topup['id'])
+            ->where('operation', 'cancel')
+            ->count());
     }
 
     public function test_CustomerTopup_respects_tenant_payment_method_toggles(): void

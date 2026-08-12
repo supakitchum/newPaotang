@@ -1466,6 +1466,9 @@ class CustomerLocalizations {
   }
 
   String get topupQrSlipInstruction => _text('topup.qr_slip_instruction');
+  String topupQrExpiresIn(String time) =>
+      _text('topup.qr_expires_in').replaceAll('{time}', time);
+  String get topupQrExpired => _text('topup.qr_expired');
   String get topupOpenPayment => _text('topup.open_payment');
   String get topupOpenPaymentFailed => _text('topup.open_payment_failed');
   String get topupNeedsSlip => _text('topup.needs_slip');
@@ -4099,6 +4102,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.reference': 'รายการ #{reference}',
     'topup.qr_slip_instruction':
         'หลังชำระเงินแล้วแนบสลิปเพื่อให้ร้านค้าตรวจสอบ',
+    'topup.qr_expires_in': 'QR หมดอายุใน {time}',
+    'topup.qr_expired': 'QR Code นี้หมดอายุแล้ว กรุณายกเลิกรายการและสร้างใหม่',
     'topup.open_payment': 'เปิดหน้าชำระเงิน',
     'topup.open_payment_failed': 'เปิดหน้าชำระเงินไม่สำเร็จ',
     'topup.needs_slip': 'รายการนี้รอสลิปหรือรอทีมงานตรวจสอบ',
@@ -6142,6 +6147,9 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.reference': 'Request #{reference}',
     'topup.qr_slip_instruction':
         'After payment, attach a slip so the store can verify it.',
+    'topup.qr_expires_in': 'QR expires in {time}',
+    'topup.qr_expired':
+        'This QR Code has expired. Cancel this request and create a new one.',
     'topup.open_payment': 'Open payment page',
     'topup.open_payment_failed': 'Could not open payment page.',
     'topup.needs_slip': 'This request is waiting for a slip or review.',

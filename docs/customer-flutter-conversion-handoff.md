@@ -11542,3 +11542,26 @@ Customer Public Relations campaigns (2026-08-04):
   validation passed. Only `newpaotang_test` was used; the non-destructive
   campaign migration has not been run on runtime DB, and no commit, push, or
   clear-worktree action was performed.
+
+Topup immediate QR and expiry parity (2026-08-12):
+
+- QR and Credit QR quick amounts now create the provider QR immediately instead
+  of showing a second confirmation step. A manually typed amount has one Create
+  QR action; bank-transfer still opens its payment details and slip step.
+- The Topup modal blocks all interaction while the provider request is pending,
+  preventing duplicate taps and duplicate bills. The three payment-channel
+  launchers use the same stable height, including the longer Credit QR label.
+- Platform owns a runtime-configured five-minute QR lifetime. The customer
+  detail displays a server-aligned countdown and hides the QR when time expires;
+  the scheduler requests provider cancellation before marking the request
+  expired. Customer cancellation also removes QR and redirect data immediately.
+- Idempotency replay resolves the current Topup resource instead of returning a
+  stored QR body, so retrying the original request after five minutes cannot
+  reveal or reuse an expired QR. Failed provider cancellation remains retryable
+  while a signed late payment callback can still settle safely.
+- Topup realtime events are now compact and exclude QR/base64/provider bodies;
+  BO and Flutter refetch authenticated data on the event. Broadcast transport
+  failures are isolated from the already committed create response.
+- Verification passed 36 focused Flutter Topup tests plus analysis, and 17
+  Platform Topup/Webhook tests/362 assertions on `newpaotang_test`. Runtime DB
+  migration/deployment, commit, push, and worktree clearing were not performed.

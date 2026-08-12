@@ -62,6 +62,8 @@ class CommerceService
 
     private const HISTORY_TICKET_STATUSES = ['cancelled', 'non_winning', 'paid_out', 'voided'];
 
+    private const PROVIDER_TOPUP_CHANNELS = ['qr', 'credit_card'];
+
     private const REWARD_PRIZE_TYPE_SORT_ORDER = [
         'first_prize' => 10,
         'near_first_prize' => 20,
@@ -618,6 +620,10 @@ class CommerceService
             ->forTenant($tenantId)
             ->where('customer_id', $customer->customerId())
             ->whereIn('status', ['pending', 'processing'])
+            ->where(function ($query): void {
+                $query->whereNull('payment_expires_at')
+                    ->orWhere('payment_expires_at', '>', now());
+            })
             ->orderByDesc('created_at')
             ->first();
         $wallet = Wallet::query()
@@ -692,7 +698,7 @@ class CommerceService
                 $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, lock: true);
 
                 if (is_array($replay)) {
-                    return $this->topupIdempotencyReplayResult($replay);
+                    return $this->topupIdempotencyReplayResult($replay, $tenantId, $customer->customerId());
                 }
 
                 if ($replay !== null) {
@@ -719,6 +725,7 @@ class CommerceService
                     'currency' => 'THB',
                     'reference' => $reference,
                     'transfer_at' => $normalized['transfer_at'] === '' ? null : Carbon::parse($normalized['transfer_at']),
+                    'payment_expires_at' => null,
                     'slip_url' => $slipAsset['url'] ?? null,
                     'slip_thumb_url' => $slipAsset['thumb_url'] ?? null,
                     'slip_storage_path' => $slipAsset['storage_path'] ?? null,
@@ -748,7 +755,7 @@ class CommerceService
             $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, lock: true);
 
             if (is_array($replay)) {
-                return ['completed' => $this->topupIdempotencyReplayResult($replay)];
+                return ['completed' => $this->topupIdempotencyReplayResult($replay, $tenantId, $customer->customerId())];
             }
 
             if ($replay !== null) {
@@ -759,7 +766,7 @@ class CommerceService
                 $concurrent = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, lock: true);
 
                 return ['completed' => is_array($concurrent)
-                    ? $this->topupIdempotencyReplayResult($concurrent)
+                    ? $this->topupIdempotencyReplayResult($concurrent, $tenantId, $customer->customerId())
                     : ['error' => $concurrent ?? 'resource_conflict']];
             }
 
@@ -787,6 +794,7 @@ class CommerceService
                 'currency' => 'THB',
                 'reference' => $reference,
                 'transfer_at' => $normalized['transfer_at'] === '' ? null : Carbon::parse($normalized['transfer_at']),
+                'payment_expires_at' => null,
                 'slip_url' => $slipAsset['url'] ?? null,
                 'slip_thumb_url' => $slipAsset['thumb_url'] ?? null,
                 'slip_storage_path' => $slipAsset['storage_path'] ?? null,
@@ -944,6 +952,7 @@ class CommerceService
             ]);
             TopupRequest::query()->where('id', $topup->id)->update([
                 'status' => 'processing',
+                'payment_expires_at' => $now->copy()->addSeconds($this->topupQrTtlSeconds()),
                 'provider_payload_json' => json_encode($providerPayload, JSON_THROW_ON_ERROR),
                 'updated_at' => $now,
             ]);
@@ -1072,7 +1081,7 @@ class CommerceService
             $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, lock: true);
 
             if (is_array($replay)) {
-                return ['completed' => $this->topupIdempotencyReplayResult($replay)];
+                return ['completed' => $this->topupIdempotencyReplayResult($replay, $tenantId, $customer->customerId())];
             }
 
             if ($replay !== null) {
@@ -1157,7 +1166,7 @@ class CommerceService
                 $concurrent = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, lock: true);
 
                 return ['completed' => is_array($concurrent)
-                    ? $this->topupIdempotencyReplayResult($concurrent)
+                    ? $this->topupIdempotencyReplayResult($concurrent, $tenantId, $customer->customerId())
                     : ['error' => $concurrent ?? 'resource_conflict']];
             }
 
@@ -2282,6 +2291,10 @@ class CommerceService
         return TopupRequest::query()
             ->forTenant($tenantId)
             ->whereIn('status', ['pending', 'processing'])
+            ->where(function ($query): void {
+                $query->whereNull('payment_expires_at')
+                    ->orWhere('payment_expires_at', '>', now());
+            })
             ->count();
     }
 
@@ -2555,6 +2568,180 @@ class CommerceService
         }
 
         return $pruned;
+    }
+
+    public function expireTopupPayments(int $limit = 100): int
+    {
+        $ids = TopupRequest::query()
+            ->whereIn('channel', self::PROVIDER_TOPUP_CHANNELS)
+            ->whereIn('status', ['pending', 'processing', 'expired'])
+            ->whereNotNull('payment_expires_at')
+            ->where('payment_expires_at', '<=', now())
+            ->orderBy('payment_expires_at')
+            ->limit(max(1, min(500, $limit)))
+            ->pluck('id')
+            ->all();
+        $expired = 0;
+
+        foreach ($ids as $id) {
+            if ($this->expireTopupPayment((string) $id)) {
+                $expired++;
+            }
+        }
+
+        return $expired;
+    }
+
+    private function expireTopupPayment(string $topupId): bool
+    {
+        $initiation = DB::transaction(function () use ($topupId): array {
+            $topup = TopupRequest::query()->where('id', $topupId)->lockForUpdate()->first();
+            if ($topup === null
+                || ! in_array((string) $topup->status, ['pending', 'processing', 'expired'], true)
+                || ! $this->topupPaymentExpired($topup)) {
+                return ['skip' => true];
+            }
+
+            $payment = $topup->payment_id === null
+                ? null
+                : Payment::query()->where('id', $topup->payment_id)->lockForUpdate()->first();
+            if ($payment === null || ! in_array((string) $payment->status, ['pending', 'processing'], true)) {
+                return ['skip' => true];
+            }
+
+            $providerReference = trim((string) $payment->provider_reference);
+            if ($providerReference === '') {
+                TopupRequest::query()->where('id', $topup->id)->update([
+                    'status' => 'expired',
+                    'updated_at' => now(),
+                ]);
+                Payment::query()->where('id', $payment->id)->update([
+                    'status' => 'cancelled',
+                    'updated_at' => now(),
+                ]);
+
+                return ['expired' => true, 'tenant_id' => (string) $topup->tenant_id];
+            }
+
+            $activeCancel = PaymentProviderAttempt::query()
+                ->where('payment_id', $payment->id)
+                ->where('operation', 'cancel')
+                ->where('status', 'initiated')
+                ->exists();
+            if ($activeCancel) {
+                return ['skip' => true];
+            }
+
+            $attemptId = 'pat_'.Str::ulid()->toBase32();
+            $now = now();
+            PaymentProviderAttempt::query()->insert([
+                'id' => $attemptId,
+                'tenant_id' => $topup->tenant_id,
+                'customer_id' => $topup->customer_id,
+                'payment_id' => $payment->id,
+                'topup_request_id' => $topup->id,
+                'provider' => $payment->provider,
+                'operation' => 'cancel',
+                'channel' => $topup->channel,
+                'status' => 'initiated',
+                'request_id' => 'scheduler:topup-payment-expiry',
+                'idempotency_key_hash' => hash('sha256', 'topup-expiry:'.$topup->id),
+                'provider_reference1' => null,
+                'provider_reference2' => null,
+                'provider_reference3' => null,
+                'provider_reference4' => null,
+                'provider_transaction_reference' => $providerReference,
+                'application_error_code' => null,
+                'provider_http_status' => null,
+                'provider_code' => null,
+                'provider_message' => null,
+                'response_classification' => null,
+                'latency_ms' => null,
+                'attempted_at' => $now,
+                'completed_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return [
+                'attempt_id' => $attemptId,
+                'payment_id' => (string) $payment->id,
+                'tenant_id' => (string) $topup->tenant_id,
+            ];
+        });
+
+        if (($initiation['skip'] ?? false) === true) {
+            return false;
+        }
+        if (($initiation['expired'] ?? false) === true) {
+            $this->queueTopupUpdatedBroadcast((string) $initiation['tenant_id'], $topupId);
+
+            return true;
+        }
+
+        $payment = Payment::query()->where('id', $initiation['payment_id'])->firstOrFail();
+        $cancelResult = $this->cancelTopupProviderPayment((string) $initiation['tenant_id'], $payment);
+
+        $didExpire = DB::transaction(function () use ($topupId, $cancelResult, $initiation): bool {
+            $attempt = PaymentProviderAttempt::query()->where('id', $initiation['attempt_id'])->lockForUpdate()->firstOrFail();
+            $topup = TopupRequest::query()->where('id', $topupId)->lockForUpdate()->firstOrFail();
+            $payment = Payment::query()->where('id', $initiation['payment_id'])->lockForUpdate()->firstOrFail();
+            $now = now();
+
+            if ((string) $topup->status === 'succeeded' || (string) $payment->status === 'succeeded') {
+                PaymentProviderAttempt::query()->where('id', $attempt->id)->update([
+                    'status' => 'superseded',
+                    'application_error_code' => 'payment_already_succeeded',
+                    'response_classification' => 'superseded_by_payment_success',
+                    'completed_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                return false;
+            }
+
+            $classification = (string) ($cancelResult['classification'] ?? (($cancelResult['ok'] ?? false) ? 'succeeded' : 'provider_rejected'));
+            $errorCode = ($cancelResult['ok'] ?? false) ? null : (string) ($cancelResult['error_code'] ?? 'payment_provider_cancel_failed');
+            PaymentProviderAttempt::query()->where('id', $attempt->id)->update([
+                'status' => $this->providerAttemptStatus($classification),
+                'application_error_code' => $errorCode,
+                'provider_http_status' => $cancelResult['http_status'] ?? null,
+                'provider_code' => $this->safeProviderCode($cancelResult['provider_code'] ?? null),
+                'provider_message' => $this->safeProviderMessage($cancelResult['message'] ?? null),
+                'response_classification' => $classification,
+                'latency_ms' => max(0, (int) ($cancelResult['latency_ms'] ?? 0)),
+                'completed_at' => $now,
+                'updated_at' => $now,
+            ]);
+            TopupRequest::query()->where('id', $topup->id)->update([
+                'status' => 'expired',
+                'updated_at' => $now,
+            ]);
+            if (($cancelResult['ok'] ?? false) === true) {
+                Payment::query()->where('id', $payment->id)->update([
+                    'status' => 'cancelled',
+                    'updated_at' => $now,
+                ]);
+            }
+
+            Log::log(($cancelResult['ok'] ?? false) ? 'info' : 'warning', 'topup_payment_expired', [
+                'tenant_id' => (string) $topup->tenant_id,
+                'topup_id' => (string) $topup->id,
+                'payment_id' => (string) $payment->id,
+                'provider_attempt_id' => (string) $attempt->id,
+                'provider_cancelled' => ($cancelResult['ok'] ?? false) === true,
+                'response_classification' => $classification,
+                'application_error_code' => $errorCode,
+            ]);
+
+            return true;
+        });
+
+        if ($didExpire) {
+            $this->queueTopupUpdatedBroadcast((string) $initiation['tenant_id'], $topupId);
+        }
+
+        return $didExpire;
     }
 
     private function processSoldEvent(object $event): bool
@@ -3193,7 +3380,7 @@ class CommerceService
     {
         $topup = TopupRequest::query()->where('id', $topup->id)->lockForUpdate()->first();
 
-        if ($topup === null || ! in_array((string) $topup->status, ['pending', 'processing'], true)) {
+        if ($topup === null || ! in_array((string) $topup->status, ['pending', 'processing', 'expired'], true)) {
             return;
         }
 
@@ -3575,9 +3762,13 @@ class CommerceService
     private function topupResource(object $topup): array
     {
         $payment = $topup->payment_id === null ? null : Payment::where('id', $topup->payment_id)->first();
+        $paymentActive = ! $this->topupPaymentExpired($topup)
+            && in_array((string) $topup->status, ['pending', 'processing'], true)
+            && $payment !== null
+            && in_array((string) $payment->status, ['pending', 'processing'], true);
         $qrCode = $payment === null
             ? null
-            : $this->topupPaymentQrCode($payment);
+            : ($paymentActive ? $this->topupPaymentQrCode($payment) : null);
 
         return [
             'id' => (string) $topup->id,
@@ -3587,13 +3778,18 @@ class CommerceService
             'provider' => (string) $topup->provider,
             'channel' => (string) $topup->channel,
             'transfer_at' => $topup->transfer_at,
+            'payment_expires_at' => $this->dateTimeIso($topup->payment_expires_at ?? null),
+            'payment_expires_in_seconds' => $paymentActive
+                ? $this->remainingSeconds($topup->payment_expires_at ?? null)
+                : 0,
+            'server_time' => now()->toISOString(),
             'created_at' => $topup->created_at,
             'slip' => $this->topupSlipResource($topup),
             'slip_url' => PublicUrl::normalizeAssetUrl($topup->slip_url ?? null),
             'slip_thumb_url' => PublicUrl::normalizeAssetUrl($topup->slip_thumb_url ?? null),
             'payment' => [
                 'qr_code' => in_array((string) $topup->channel, ['qr', 'credit_card'], true) ? $qrCode : null,
-                'redirect_url' => $payment?->redirect_url,
+                'redirect_url' => $paymentActive ? $payment?->redirect_url : null,
                 'message' => null,
             ],
         ];
@@ -4019,10 +4215,21 @@ class CommerceService
 
     private function topupChannelUsesProvider(string $channel): bool
     {
-        return in_array(TenantPaymentMethods::normalizeTopupChannel($channel), [
-            TenantPaymentMethods::QR,
-            TenantPaymentMethods::CREDIT_CARD,
-        ], true);
+        return in_array(TenantPaymentMethods::normalizeTopupChannel($channel), self::PROVIDER_TOPUP_CHANNELS, true);
+    }
+
+    private function topupQrTtlSeconds(): int
+    {
+        return max(60, (int) config('services.topup.qr_ttl_seconds', 300));
+    }
+
+    private function topupPaymentExpired(object $topup): bool
+    {
+        $expiresAt = $topup->payment_expires_at ?? null;
+
+        return $expiresAt !== null
+            && $expiresAt !== ''
+            && Carbon::parse((string) $expiresAt)->lessThanOrEqualTo(now());
     }
 
     private function topupProviderForChannel(string $tenantId, string $channel): ?string
@@ -4096,7 +4303,7 @@ class CommerceService
      * @param array{status: int, body: array<string, mixed>|null} $replay
      * @return array<string, mixed>
      */
-    private function topupIdempotencyReplayResult(array $replay): array
+    private function topupIdempotencyReplayResult(array $replay, string $tenantId, string $customerId): array
     {
         $body = is_array($replay['body'] ?? null) ? $replay['body'] : [];
 
@@ -4105,6 +4312,19 @@ class CommerceService
                 'error' => (string) $body['error'],
                 'message' => isset($body['message']) ? (string) $body['message'] : null,
             ];
+        }
+
+        $topupId = trim((string) ($body['id'] ?? ''));
+        if ($topupId !== '') {
+            $topup = TopupRequest::query()
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customerId)
+                ->where('id', $topupId)
+                ->first();
+
+            if ($topup !== null) {
+                $body = $this->topupResource($topup);
+            }
         }
 
         return ['resource' => $body, 'status' => (int) $replay['status']];
@@ -4570,17 +4790,7 @@ class CommerceService
                 return;
             }
 
-            TopupUpdated::dispatch([
-                'event_type' => 'topup.updated',
-                'tenant_id' => $tenantId,
-                'topup_id' => $topupId,
-                'topup' => $this->adminTopupSummaryResource($topup),
-                'pending_count' => $this->pendingTopupCount($tenantId),
-                'updated_at' => now()->toISOString(),
-            ]);
-            AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, 'topups');
-
-            CustomerTopupUpdated::dispatch([
+            $payload = [
                 'event_type' => 'topup.updated',
                 'tenant_id' => $tenantId,
                 'customer_id' => (string) $topup->customer_id,
@@ -4588,9 +4798,36 @@ class CommerceService
                 'notification_status' => $notificationStatus,
                 'source_status' => (string) $topup->status,
                 'status' => $this->topupPresentationStatus($topup),
-                'topup' => $this->topupResource($topup),
+                'channel' => (string) $topup->channel,
+                'payment_expires_at' => $this->dateTimeIso($topup->payment_expires_at ?? null),
                 'updated_at' => now()->toISOString(),
-            ]);
+            ];
+
+            try {
+                TopupUpdated::dispatch($payload + [
+                    'pending_count' => $this->pendingTopupCount($tenantId),
+                ]);
+                AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, 'topups');
+            } catch (\Throwable $exception) {
+                Log::warning('Admin topup realtime broadcast failed.', [
+                    'tenant_id' => $tenantId,
+                    'topup_id' => $topupId,
+                    'exception' => $exception::class,
+                    'message' => $this->safeProviderMessage($exception->getMessage()),
+                ]);
+            }
+
+            try {
+                CustomerTopupUpdated::dispatch($payload);
+            } catch (\Throwable $exception) {
+                Log::warning('Customer topup realtime broadcast failed.', [
+                    'tenant_id' => $tenantId,
+                    'customer_id' => (string) $topup->customer_id,
+                    'topup_id' => $topupId,
+                    'exception' => $exception::class,
+                    'message' => $this->safeProviderMessage($exception->getMessage()),
+                ]);
+            }
         });
     }
 
@@ -4613,6 +4850,11 @@ class CommerceService
     private function topupPresentationStatus(object $topup): string
     {
         $hasSlip = $this->topupHasSlip($topup);
+
+        if (in_array((string) $topup->status, ['pending', 'processing'], true)
+            && $this->topupPaymentExpired($topup)) {
+            return 'expired';
+        }
 
         return match ((string) $topup->status) {
             'pending' => $topup->channel === 'bank_transfer' || $hasSlip ? 'pending_review' : 'pending_payment',

@@ -67,7 +67,7 @@ class PaymentWebhookAuthenticator
         $paymentStatus = (string) $payment->status;
         $topupStatus = (string) $topup->status;
         $active = in_array($paymentStatus, ['pending', 'processing'], true)
-            && in_array($topupStatus, ['pending', 'processing'], true);
+            && in_array($topupStatus, ['pending', 'processing', 'expired'], true);
         $alreadySucceeded = $paymentStatus === 'succeeded' && $topupStatus === 'succeeded';
         if (! $active && ! $alreadySucceeded) {
             return false;

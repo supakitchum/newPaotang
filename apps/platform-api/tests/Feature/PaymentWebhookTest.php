@@ -319,6 +319,51 @@ class PaymentWebhookTest extends TestCase
         $this->assertSame(0, DB::table('webhook_callbacks')->where('provider', 'deepay_kbank')->count());
     }
 
+    public function test_Deepay_authenticated_callback_credits_an_expired_topup_when_provider_cancel_was_not_confirmed(): void
+    {
+        $world = $this->prepareReservedCart('par_topup_expired_cb', 'ten_topup_expired_cb', 'topup-expired-callback.m5.test', 'gam_topup_expired_cb', '0808009004', 770401);
+        $this->configureDeepayProvider('ten_topup_expired_cb');
+
+        $topup = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
+                'amount' => 900,
+            ], [
+                'Idempotency-Key' => 'topup-expired-callback-create',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $payment = DB::table('payments')->where('topup_request_id', $topup['id'])->first();
+        $attempt = DB::table('payment_provider_attempts')
+            ->where('topup_request_id', $topup['id'])
+            ->whereIn('operation', ['bill', 'billCredit'])
+            ->first();
+        DB::table('topup_requests')->where('id', $topup['id'])->update([
+            'status' => 'expired',
+            'payment_expires_at' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $callback = [
+            'partnerTxnUid' => $payment->provider_reference,
+            'reference1' => $attempt->provider_reference1,
+            'reference2' => $attempt->provider_reference2,
+            'reference3' => $attempt->provider_reference3,
+            'reference4' => $attempt->provider_reference4,
+            'txnAmount' => '9.00',
+            'txnCurrencyCode' => 'THB',
+            'statusCode' => '00',
+        ];
+
+        $this->postSignedWebhook('/api/v1/webhooks/topups/deepay_kbank', $callback)
+            ->assertAccepted();
+
+        $this->assertDatabaseHas('topup_requests', ['id' => $topup['id'], 'status' => 'succeeded']);
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'succeeded']);
+        $this->assertDatabaseHas('wallets', ['id' => $world['wallet_id'], 'balance_amount' => 100900]);
+        $this->assertSame(2, DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->count());
+    }
+
     private function configureDeepayProvider(string $tenantId): void
     {
         DB::table('tenant_payment_provider_connections')->updateOrInsert(

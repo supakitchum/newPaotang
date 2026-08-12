@@ -15971,6 +15971,18 @@ components:
           type: string
           format: date-time
           nullable: true
+        payment_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Server-owned expiry for provider QR and Credit QR payments.
+        payment_expires_in_seconds:
+          type: integer
+          minimum: 0
+          description: Remaining payment lifetime calculated against server_time.
+        server_time:
+          type: string
+          format: date-time
         created_at:
           type: string
           format: date-time
