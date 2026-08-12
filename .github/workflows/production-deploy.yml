@@ -241,7 +241,7 @@ jobs:
         run: |
           set -euo pipefail
           kubectl apply -f deploy/digitalocean/namespace.yaml
-          kubectl apply -f deploy/digitalocean/configmap.yaml
+          kubectl apply -n "$NAMESPACE" -f deploy/digitalocean/configmap.yaml
 
       - name: Run database migrations before Platform rollout
         env:
