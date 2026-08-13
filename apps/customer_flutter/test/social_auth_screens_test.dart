@@ -120,7 +120,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Sending OTP'), findsNothing);
-      expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Send OTP'), findsOneWidget);
       expect(repository.lastSocialLoginProvider, 'line');
 
       socialLoginUrl.complete('https://social.example.com/oauth');

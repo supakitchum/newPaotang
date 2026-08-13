@@ -11696,18 +11696,17 @@ Compact social login controls (2026-08-13):
   current device and runtime policy support it, instead of using a separate
   full-width button.
 
-Phone-first login method selection (2026-08-13):
+Phone-first OTP login flow (2026-08-13):
 
-- Customer Login now starts with phone-number collection only. Continuing from
-  that step validates and freezes the selected phone locally without sending an
-  OTP or calling the password login API.
-- The next step explicitly offers OTP or password. Choosing OTP sends the
-  challenge and opens the existing dedicated OTP screen; choosing password
-  reveals the password form while retaining the phone, redirect, PIN handoff,
-  SMS fallback, and one-active-device behavior.
-- Customers can edit the phone from either later step or return from the
-  password form to choose another method. Social login and Passkey remain
-  alternative actions on the initial phone step.
+- Customer Login collects the phone number and immediately requests an OTP
+  challenge after the customer presses “รับรหัส OTP”; there is no intermediate
+  login-method selector and no password action on the initial Login screen.
+- Password login is available only from the dedicated OTP screen as an SMS
+  fallback. That action preserves the phone and redirect when returning to the
+  password form, while OTP, PIN handoff, and one-active-device behavior remain
+  unchanged.
+- Social login and Passkey remain alternative actions on the initial Login
+  screen.
 - Focused auth, redirect, OTP, PIN, fallback, and social verification passed 54
   tests. Focused Flutter analysis passed without issues.
 
@@ -11721,3 +11720,21 @@ Topup QR confirmation restored (2026-08-13):
   by the existing submitting state and centered loading overlay.
 - Focused Topup verification passed 27 tests, including API-call timing,
   duplicate-confirm protection, error copy, and detail navigation.
+
+Topup callback status recovery (2026-08-13):
+
+- The active Topup detail no longer depends on receiving one realtime event to
+  leave the pending state. It refreshes immediately when the app resumes after
+  an external payment flow and performs a bounded five-second status poll only
+  while that request remains non-terminal.
+- Polling stops as soon as the callback-backed API resource becomes approved,
+  rejected, cancelled, or expired. A successful transition also invalidates
+  the cached Topup overview and Wallet summary so the completed detail and new
+  balance are visible without reopening the flow.
+- The existing compact realtime event remains the fastest update path; polling
+  is a recovery path for backgrounded apps, disconnected sockets, and missed
+  events. Failed refreshes retain the last usable detail and retry on the next
+  bounded interval without replacing the screen with an error state.
+- Focused Flutter Topup/auth/social verification passed 82 tests and focused
+  analysis passed. The successful provider callback regression passed 1 test
+  with 22 assertions against `newpaotang_test`; runtime DB was not touched.

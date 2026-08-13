@@ -82,11 +82,6 @@ class CustomerLocalizations {
   String get loginSubmitting => _text('auth.login.submitting');
   String get loginPhoneSubmit => _text('auth.login.phone_submit');
   String get loginPhoneSubmitting => _text('auth.login.phone_submitting');
-  String get loginContinue => _text('auth.login.continue');
-  String get loginMethodTitle => _text('auth.login.method_title');
-  String get loginMethodDescription => _text('auth.login.method_description');
-  String get loginChangePhone => _text('auth.login.change_phone');
-  String get loginChangeMethod => _text('auth.login.change_method');
   String get loginPasswordFormTitle => _text('auth.login.password_form_title');
   String get loginPasswordFormDescription =>
       _text('auth.login.password_form_description');
@@ -3145,12 +3140,6 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.submitting': 'กำลังเข้าสู่ระบบ',
     'auth.login.phone_submit': 'รับรหัส OTP',
     'auth.login.phone_submitting': 'กำลังส่งรหัส OTP',
-    'auth.login.continue': 'ดำเนินการต่อ',
-    'auth.login.method_title': 'เลือกวิธีเข้าสู่ระบบ',
-    'auth.login.method_description':
-        'เลือกยืนยันด้วย OTP หรือใช้รหัสผ่านของบัญชี',
-    'auth.login.change_phone': 'เปลี่ยนเบอร์โทรศัพท์',
-    'auth.login.change_method': 'เปลี่ยนวิธีเข้าสู่ระบบ',
     'auth.login.password_form_title': 'เข้าสู่ระบบด้วยรหัสผ่าน',
     'auth.login.password_form_description':
         'ใช้เบอร์โทรศัพท์และรหัสผ่านเมื่อไม่สามารถรับ SMS ได้',
@@ -5177,12 +5166,6 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.submitting': 'Signing in',
     'auth.login.phone_submit': 'Send OTP',
     'auth.login.phone_submitting': 'Sending OTP',
-    'auth.login.continue': 'Continue',
-    'auth.login.method_title': 'Choose a sign-in method',
-    'auth.login.method_description':
-        'Verify with an OTP or use your account password.',
-    'auth.login.change_phone': 'Change phone number',
-    'auth.login.change_method': 'Change sign-in method',
     'auth.login.password_form_title': 'Sign in with password',
     'auth.login.password_form_description':
         'Use your phone number and password when SMS is unavailable.',

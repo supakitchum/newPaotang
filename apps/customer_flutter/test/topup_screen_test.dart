@@ -1485,6 +1485,123 @@ void main() {
     expect(find.text('QR Code นี้หมดอายุแล้ว'), findsNothing);
     expect(find.text('แจ้งปัญหา'), findsOneWidget);
   });
+
+  testWidgets(
+    'pending detail refreshes after app resume and keeps polling until callback succeeds',
+    (tester) async {
+      final repository = _SequencedDetailTopupRepository([
+        const TopupRequestItem(
+          id: 'topup_callback_1',
+          reference: 'TOP-CALLBACK-001',
+          amount: 500,
+          bonusAmount: 0,
+          status: TopupStatus.pendingPayment,
+          channel: TopupChannel.qr,
+          provider: 'deepay_kbank',
+          transferAt: null,
+          createdAt: '2026-08-13T10:00:00+07:00',
+          slipUrl: '',
+          slipThumbUrl: '',
+          qrCode: '',
+          redirectUrl: '',
+          message: '',
+        ),
+        const TopupRequestItem(
+          id: 'topup_callback_1',
+          reference: 'TOP-CALLBACK-001',
+          amount: 500,
+          bonusAmount: 0,
+          status: TopupStatus.pendingPayment,
+          channel: TopupChannel.qr,
+          provider: 'deepay_kbank',
+          transferAt: null,
+          createdAt: '2026-08-13T10:00:00+07:00',
+          slipUrl: '',
+          slipThumbUrl: '',
+          qrCode: '',
+          redirectUrl: '',
+          message: '',
+        ),
+        const TopupRequestItem(
+          id: 'topup_callback_1',
+          reference: 'TOP-CALLBACK-001',
+          amount: 500,
+          bonusAmount: 0,
+          status: TopupStatus.approved,
+          channel: TopupChannel.qr,
+          provider: 'deepay_kbank',
+          transferAt: null,
+          createdAt: '2026-08-13T10:00:00+07:00',
+          slipUrl: '',
+          slipThumbUrl: '',
+          qrCode: '',
+          redirectUrl: '',
+          message: '',
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            topupRepositoryProvider.overrideWithValue(repository),
+            topupPendingRefreshIntervalProvider.overrideWithValue(
+              const Duration(seconds: 1),
+            ),
+          ],
+          child: MaterialApp(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            home: const TopupScreen(
+              detailTopupId: 'topup_callback_1',
+              backPath: '/my-wallet',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.detailCalls, 1);
+      expect(
+        find.byKey(const ValueKey('topup-completed-detail')),
+        findsNothing,
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.detailCalls, 2);
+      expect(
+        find.byKey(const ValueKey('topup-completed-detail')),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(repository.detailCalls, 3);
+      expect(
+        find.byKey(const ValueKey('topup-completed-detail')),
+        findsOneWidget,
+      );
+      expect(find.text('อนุมัติแล้ว'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(repository.detailCalls, 3);
+    },
+  );
 }
 
 class _RecordingTopupQrImageExporter implements ReceiptImageExporter {
@@ -1784,6 +1901,20 @@ class _DetailTopupRepository extends TopupRepository {
     cancelCalls++;
     cancelledReasons.add(reason);
     return item;
+  }
+}
+
+class _SequencedDetailTopupRepository extends TopupRepository {
+  _SequencedDetailTopupRepository(this.items) : super(_testApiClient());
+
+  final List<TopupRequestItem> items;
+  int detailCalls = 0;
+
+  @override
+  Future<TopupRequestItem> detail(String id) async {
+    final index = detailCalls < items.length ? detailCalls : items.length - 1;
+    detailCalls++;
+    return items[index];
   }
 }
 

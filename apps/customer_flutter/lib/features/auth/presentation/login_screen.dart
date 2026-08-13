@@ -28,7 +28,7 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-enum _LoginStep { phone, method, password }
+enum _LoginStep { phone, password }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
@@ -138,12 +138,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               socialProviders: socialProviders,
                               socialSubmittingProvider:
                                   _socialSubmittingProvider,
-                              onContinue: _continueToMethodSelection,
+                              onOtpLogin: _requestLoginOtp,
                               onPasswordLogin: _loginWithPassword,
-                              onUsePassword: _usePasswordLogin,
-                              onUseOtp: _useOtpLogin,
                               onChangePhone: _changePhone,
-                              onChangeMethod: _changeLoginMethod,
                               onPasskeyLogin: _passkeyLogin,
                               onSocialLogin: _socialLogin,
                               onRegister: () => context.go(
@@ -166,27 +163,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _continueToMethodSelection() async {
-    if (_busy || _loginStep != _LoginStep.phone) return;
-    final phone = _username.text.trim();
-    if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
-      _showFormError(context.l10n.authPhoneInvalid);
-      return;
-    }
-
-    await dismissAuthKeyboard(
-      context,
-      waitForAnimation: true,
-      finishAutofillContext: true,
-    );
-    if (!mounted) return;
-    ref.read(loginOtpFlowProvider.notifier).state = null;
-    setState(() {
-      _formError = '';
-      _loginStep = _LoginStep.method;
-    });
   }
 
   Future<void> _requestLoginOtp() async {
@@ -299,23 +275,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _usePasswordLogin() {
-    if (_busy || _loginStep != _LoginStep.method) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _formError = '';
-      _loginStep = _LoginStep.password;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _passwordFocusNode.requestFocus();
-    });
-  }
-
-  Future<void> _useOtpLogin() async {
-    if (_busy || _loginStep != _LoginStep.method) return;
-    await _requestLoginOtp();
-  }
-
   void _changePhone() {
     if (_busy || _loginStep == _LoginStep.phone) return;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -326,16 +285,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _phoneFocusNode.requestFocus();
-    });
-  }
-
-  void _changeLoginMethod() {
-    if (_busy || _loginStep != _LoginStep.password) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _formError = '';
-      _loginStep = _LoginStep.method;
-      _password.clear();
     });
   }
 
@@ -712,12 +661,9 @@ class _LoginFormCard extends StatelessWidget {
     required this.onTogglePassword,
     required this.socialProviders,
     required this.socialSubmittingProvider,
-    required this.onContinue,
+    required this.onOtpLogin,
     required this.onPasswordLogin,
-    required this.onUsePassword,
-    required this.onUseOtp,
     required this.onChangePhone,
-    required this.onChangeMethod,
     required this.onPasskeyLogin,
     required this.onSocialLogin,
     required this.onRegister,
@@ -741,12 +687,9 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final List<SocialAuthProvider> socialProviders;
   final String? socialSubmittingProvider;
-  final VoidCallback onContinue;
+  final VoidCallback onOtpLogin;
   final VoidCallback onPasswordLogin;
-  final VoidCallback onUsePassword;
-  final VoidCallback onUseOtp;
   final VoidCallback onChangePhone;
-  final VoidCallback onChangeMethod;
   final VoidCallback onPasskeyLogin;
   final ValueChanged<String> onSocialLogin;
   final VoidCallback onRegister;
@@ -757,16 +700,13 @@ class _LoginFormCard extends StatelessWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final isPhoneStep = loginStep == _LoginStep.phone;
-    final isMethodStep = loginStep == _LoginStep.method;
     final isPasswordStep = loginStep == _LoginStep.password;
     final title = switch (loginStep) {
       _LoginStep.phone => l10n.loginFormTitle,
-      _LoginStep.method => l10n.loginMethodTitle,
       _LoginStep.password => l10n.loginPasswordFormTitle,
     };
     final description = switch (loginStep) {
       _LoginStep.phone => l10n.loginFormDescription,
-      _LoginStep.method => l10n.loginMethodDescription,
       _LoginStep.password => l10n.loginPasswordFormDescription,
     };
     return DecoratedBox(
@@ -829,7 +769,7 @@ class _LoginFormCard extends StatelessWidget {
                       FocusManager.instance.primaryFocus?.unfocus(
                         disposition: UnfocusDisposition.scope,
                       );
-                      onContinue();
+                      onOtpLogin();
                     }
                   : null,
               inputFormatters: [
@@ -846,34 +786,10 @@ class _LoginFormCard extends StatelessWidget {
                         context,
                         onPressed: busy ? null : onChangePhone,
                         icon: Icons.edit_outlined,
-                        tooltip: l10n.loginChangePhone,
+                        tooltip: l10n.loginOtpChangePhone,
                       ),
               ),
             ),
-            if (isMethodStep) ...[
-              const SizedBox(height: 16),
-              _LoginMethodButton(
-                key: const ValueKey('login-use-otp'),
-                label: otpSubmitting
-                    ? l10n.loginPhoneSubmitting
-                    : l10n.loginUseOtp,
-                icon: Icons.sms_outlined,
-                primary: true,
-                loading: otpSubmitting,
-                enabled: !busy,
-                onPressed: onUseOtp,
-              ),
-              const SizedBox(height: 10),
-              _LoginMethodButton(
-                key: const ValueKey('login-use-password'),
-                label: l10n.loginPasswordFormTitle,
-                icon: Icons.lock_outline,
-                primary: false,
-                loading: false,
-                enabled: !busy,
-                onPressed: onUsePassword,
-              ),
-            ],
             if (isPasswordStep) ...[
               const SizedBox(height: 16),
               _LoginFieldLabel(label: l10n.loginPasswordLabel),
@@ -928,19 +844,23 @@ class _LoginFormCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               TextButton.icon(
-                key: const ValueKey('login-change-method'),
-                onPressed: busy ? null : onChangeMethod,
-                icon: const Icon(Icons.swap_horiz_rounded),
-                label: Text(l10n.loginChangeMethod),
+                key: const ValueKey('login-use-otp'),
+                onPressed: busy ? null : onOtpLogin,
+                icon: const Icon(Icons.sms_outlined),
+                label: Text(
+                  otpSubmitting ? l10n.loginPhoneSubmitting : l10n.loginUseOtp,
+                ),
               ),
             ],
             if (isPhoneStep) ...[
               const SizedBox(height: 12),
               authPrimaryActionButton(
-                onPressed: busy ? null : onContinue,
+                onPressed: busy ? null : onOtpLogin,
                 height: 54,
                 fontSize: 18,
-                label: l10n.loginContinue,
+                label: otpSubmitting
+                    ? l10n.loginPhoneSubmitting
+                    : l10n.loginPhoneSubmit,
               ),
               _SocialLoginPanel(
                 providers: socialProviders,
@@ -981,59 +901,6 @@ class _LoginFormCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _LoginMethodButton extends StatelessWidget {
-  const _LoginMethodButton({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.primary,
-    required this.loading,
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool primary;
-  final bool loading;
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final buttonIcon = loading
-        ? SizedBox.square(
-            dimension: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.2,
-              color: colorScheme.onPrimary,
-            ),
-          )
-        : Icon(icon, size: 22);
-    final text = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
-
-    return SizedBox(
-      height: 54,
-      child: primary
-          ? FilledButton.icon(
-              onPressed: enabled ? onPressed : null,
-              icon: buttonIcon,
-              label: text,
-            )
-          : OutlinedButton.icon(
-              onPressed: enabled ? onPressed : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colorScheme.primary,
-                side: BorderSide(color: colorScheme.primary),
-              ),
-              icon: buttonIcon,
-              label: text,
-            ),
     );
   }
 }

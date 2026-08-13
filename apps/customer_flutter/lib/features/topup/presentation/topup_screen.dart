@@ -19,6 +19,7 @@ import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/flexible_image.dart';
 import '../../../shared/utils/customer_operational_error.dart';
+import '../../wallet/data/wallet_repository.dart';
 import '../data/topup_models.dart';
 import '../data/topup_repository.dart';
 import 'topup_error_message.dart';
@@ -42,6 +43,10 @@ final topupQrImagePreloaderProvider = Provider<TopupQrImagePreloader>((ref) {
   return (context, provider) async {
     await precacheImage(provider, context);
   };
+});
+
+final topupPendingRefreshIntervalProvider = Provider<Duration>((_) {
+  return const Duration(seconds: 5);
 });
 
 Future<void> _waitForTopupQrFrame() {
@@ -174,7 +179,8 @@ class TopupScreen extends ConsumerStatefulWidget {
   ConsumerState<TopupScreen> createState() => _TopupScreenState();
 }
 
-class _TopupScreenState extends ConsumerState<TopupScreen> {
+class _TopupScreenState extends ConsumerState<TopupScreen>
+    with WidgetsBindingObserver {
   final _amount = TextEditingController(text: '500');
   final _qrExportBoundaryKey = GlobalKey();
   TopupChannel _selectedChannel = TopupChannel.qr;
@@ -185,6 +191,11 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
   bool _uploadingSlip = false;
   bool _savingQr = false;
   bool _feedbackDialogOpen = false;
+  Timer? _detailRefreshTimer;
+  String _detailRefreshId = '';
+  TopupStatus? _detailRefreshStatus;
+  bool _detailRefreshInFlight = false;
+  bool _appIsActive = true;
   final Set<String> _expiringTopupIds = <String>{};
   final Set<String> _submittedSlipTopupIds = <String>{};
   String _pageNoticeMessage = '';
@@ -193,9 +204,40 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
   bool _sheetNoticeIsError = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didUpdateWidget(covariant TopupScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.detailTopupId != widget.detailTopupId) {
+      _stopDetailRefresh();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopDetailRefresh();
     _amount.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appIsActive = state == AppLifecycleState.resumed;
+    if (!_appIsActive) {
+      _detailRefreshTimer?.cancel();
+      _detailRefreshTimer = null;
+      return;
+    }
+
+    final id = (widget.detailTopupId ?? '').trim();
+    if (id.isEmpty || (_detailRefreshStatus?.isTerminal ?? false)) return;
+    _startDetailRefreshTimer(id);
+    unawaited(_refreshTopupDetail(id));
   }
 
   @override
@@ -267,7 +309,9 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       showBottomNavigation: false,
       fullScreen: true,
       child: detail.when(
+        skipError: detail.hasValue,
         data: (topup) {
+          _scheduleDetailRefreshSync(topup);
           final usesQrLayout =
               topup.channel == TopupChannel.qr ||
               topup.channel == TopupChannel.creditCard;
@@ -320,6 +364,81 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
         ),
       ),
     );
+  }
+
+  void _scheduleDetailRefreshSync(TopupRequestItem topup) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.detailTopupId?.trim() != topup.id.trim()) return;
+      _syncDetailRefresh(topup);
+    });
+  }
+
+  void _syncDetailRefresh(TopupRequestItem topup) {
+    final id = topup.id.trim();
+    if (id.isEmpty) {
+      _stopDetailRefresh();
+      return;
+    }
+
+    final previousStatus = _detailRefreshStatus;
+    _detailRefreshId = id;
+    _detailRefreshStatus = topup.status;
+    if (topup.status.isTerminal) {
+      _detailRefreshTimer?.cancel();
+      _detailRefreshTimer = null;
+      if (previousStatus != null && !previousStatus.isTerminal) {
+        ref.invalidate(topupOverviewProvider);
+        ref.invalidate(walletSummaryProvider);
+      }
+      return;
+    }
+
+    if (_appIsActive) _startDetailRefreshTimer(id);
+  }
+
+  void _startDetailRefreshTimer(String id) {
+    final interval = ref.read(topupPendingRefreshIntervalProvider);
+    if (interval <= Duration.zero ||
+        (_detailRefreshTimer?.isActive ?? false) && _detailRefreshId == id) {
+      return;
+    }
+
+    _detailRefreshTimer?.cancel();
+    _detailRefreshId = id;
+    _detailRefreshTimer = Timer.periodic(
+      interval,
+      (_) => unawaited(_refreshTopupDetail(id)),
+    );
+  }
+
+  Future<void> _refreshTopupDetail(String id) async {
+    if (!mounted ||
+        !_appIsActive ||
+        _detailRefreshInFlight ||
+        _detailRefreshId != id ||
+        (_detailRefreshStatus?.isTerminal ?? false)) {
+      return;
+    }
+
+    _detailRefreshInFlight = true;
+    try {
+      final latest = await ref.refresh(topupDetailProvider(id).future);
+      if (mounted && _detailRefreshId == id) {
+        _syncDetailRefresh(latest);
+      }
+    } catch (_) {
+      // Keep the last usable detail visible; the next bounded poll can retry.
+    } finally {
+      _detailRefreshInFlight = false;
+    }
+  }
+
+  void _stopDetailRefresh() {
+    _detailRefreshTimer?.cancel();
+    _detailRefreshTimer = null;
+    _detailRefreshId = '';
+    _detailRefreshStatus = null;
+    _detailRefreshInFlight = false;
   }
 
   Widget _buildTopupPage(
