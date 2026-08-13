@@ -279,6 +279,90 @@ class PaymentWebhookTest extends TestCase
         Event::assertDispatchedTimes(CustomerWalletUpdated::class, 1);
     }
 
+    public function test_Deepay_trusted_provider_callback_requires_allowlisted_source_and_exact_bill_correlation(): void
+    {
+        config()->set('deepay.callback_trusted_ips', ['159.65.135.215']);
+        $world = $this->prepareReservedCart('par_topup_trusted', 'ten_topup_trusted', 'topup-trusted.m5.test', 'gam_topup_trusted', '0808009010', 770110);
+        $this->configureDeepayProvider('ten_topup_trusted', 'trusted_provider');
+        Event::fake([CustomerWalletUpdated::class]);
+
+        $topup = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
+                'amount' => 600,
+            ], [
+                'Idempotency-Key' => 'topup-trusted-credit',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $payment = DB::table('payments')->where('topup_request_id', $topup['id'])->first();
+        $attempt = DB::table('payment_provider_attempts')->where('topup_request_id', $topup['id'])->first();
+        $callback = [
+            'partnerTxnUid' => $payment->provider_reference,
+            'reference1' => $attempt->provider_reference1,
+            'reference2' => $attempt->provider_reference2,
+        ];
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback, [
+            'X-Forwarded-For' => '203.0.113.10',
+        ])->assertUnauthorized();
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+            ...$callback,
+            'partnerTxnUid' => 'ptx-forged',
+        ], [
+            'X-Forwarded-For' => '159.65.135.215',
+        ])->assertUnauthorized();
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+            ...$callback,
+            'reference3' => 'N'.str_repeat('0', 19),
+        ], [
+            'X-Forwarded-For' => '159.65.135.215',
+        ])->assertUnauthorized();
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+            ...$callback,
+            'txnAmount' => '60.00',
+        ], [
+            'X-Forwarded-For' => '159.65.135.215',
+        ])->assertUnauthorized();
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', [
+            ...$callback,
+            'statusCode' => '05',
+        ], [
+            'X-Forwarded-For' => '159.65.135.215',
+        ])->assertUnauthorized();
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback, [
+            'X-Forwarded-For' => '159.65.135.215',
+        ])
+            ->assertAccepted()
+            ->assertJsonPath('duplicate', false);
+
+        $this->postJson('/api/v1/webhooks/topups/deepay_kbank', $callback, [
+            'X-Forwarded-For' => '159.65.135.215',
+        ])
+            ->assertAccepted()
+            ->assertJsonPath('duplicate', true);
+
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $topup['id'],
+            'status' => 'succeeded',
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => 'succeeded',
+        ]);
+        $this->assertDatabaseHas('wallets', [
+            'id' => $world['wallet_id'],
+            'balance_amount' => 100600,
+        ]);
+        $this->assertSame(1, DB::table('webhook_callbacks')->where('provider', 'deepay_kbank')->count());
+        Event::assertDispatchedTimes(CustomerWalletUpdated::class, 1);
+    }
+
     public function test_Deepay_payment_callback_cannot_revive_a_cancelled_topup(): void
     {
         $world = $this->prepareReservedCart('par_topup_cancel_cb', 'ten_topup_cancel_cb', 'topup-cancelled-callback.m5.test', 'gam_topup_cancel_cb', '0808009003', 770301);
@@ -364,7 +448,7 @@ class PaymentWebhookTest extends TestCase
         $this->assertSame(2, DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->count());
     }
 
-    private function configureDeepayProvider(string $tenantId): void
+    private function configureDeepayProvider(string $tenantId, string $webhookAuthMode = 'hmac_sha256'): void
     {
         DB::table('tenant_payment_provider_connections')->updateOrInsert(
             ['tenant_id' => $tenantId, 'provider' => 'deepay_kbank'],
@@ -372,13 +456,15 @@ class PaymentWebhookTest extends TestCase
                 'id' => 'tpc_'.substr(hash('sha256', $tenantId), 0, 20),
                 'status' => 'active',
                 'api_key_encrypted' => Crypt::encryptString('test-deepay-key'),
-                'webhook_secret_encrypted' => Crypt::encryptString(self::WEBHOOK_SECRET),
+                'webhook_secret_encrypted' => $webhookAuthMode === 'trusted_provider'
+                    ? null
+                    : Crypt::encryptString(self::WEBHOOK_SECRET),
                 'verified_at' => now(),
                 'last_tested_at' => now(),
                 'last_test_status' => 'ok',
                 'last_error' => null,
                 'metadata_json' => json_encode([
-                    'webhook_auth_mode' => 'hmac_sha256',
+                    'webhook_auth_mode' => $webhookAuthMode,
                 ], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
                 'updated_at' => now(),

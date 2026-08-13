@@ -10,6 +10,7 @@ resources:
   - lotto-scraper.yaml
   - siamblend-certificate.yaml
   - ingress.yaml
+  - deepay-webhook-ingress.yaml
   - partner-xn--80-bsia4ej0dc7e8e3d-online-ingress.yaml
   - hpa.yaml
   - pdb.yaml

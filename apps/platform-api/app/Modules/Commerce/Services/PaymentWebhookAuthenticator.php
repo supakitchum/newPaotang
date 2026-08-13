@@ -38,6 +38,10 @@ class PaymentWebhookAuthenticator
         $metadata = is_array($connection->metadata_json) ? $connection->metadata_json : [];
         $mode = strtolower(trim((string) ($metadata['webhook_auth_mode'] ?? 'hmac_sha256')));
 
+        if ($provider === DeepayKbankPaymentProvider::PROVIDER && $mode === 'trusted_provider') {
+            return $this->verifyTrustedDeepayCallback($payment, $topup, $request);
+        }
+
         if ($secret === '') {
             return false;
         }
@@ -57,6 +61,109 @@ class PaymentWebhookAuthenticator
         }
 
         return true;
+    }
+
+    private function verifyTrustedDeepayCallback(?object $payment, ?object $topup, Request $request): bool
+    {
+        if ($payment === null || $topup === null || ! $this->isTrustedDeepaySource($request)) {
+            return false;
+        }
+
+        $paymentStatus = (string) $payment->status;
+        $topupStatus = (string) $topup->status;
+        $active = in_array($paymentStatus, ['pending', 'processing'], true)
+            && in_array($topupStatus, ['pending', 'processing', 'expired'], true);
+        $alreadySucceeded = $paymentStatus === 'succeeded' && $topupStatus === 'succeeded';
+        if (! $active && ! $alreadySucceeded) {
+            return false;
+        }
+
+        $payload = $request->all();
+        $providerReference = trim((string) (
+            $payload['partnerTxnUid']
+            ?? data_get($payload, 'payload.partnerTxnUid', '')
+        ));
+        $reference1 = trim((string) (
+            $payload['reference1']
+            ?? data_get($payload, 'payload.reference1', '')
+        ));
+        $reference2 = strtolower(trim((string) (
+            $payload['reference2']
+            ?? data_get($payload, 'payload.reference2', '')
+        )));
+        $reference3 = trim((string) (
+            $payload['reference3']
+            ?? data_get($payload, 'payload.reference3', '')
+        ));
+        $reference4 = trim((string) (
+            $payload['reference4']
+            ?? data_get($payload, 'payload.reference4', '')
+        ));
+
+        $attempt = PaymentProviderAttempt::query()
+            ->where('provider', DeepayKbankPaymentProvider::PROVIDER)
+            ->where('payment_id', $payment->id)
+            ->whereIn('operation', ['bill', 'billCredit'])
+            ->latest('attempted_at')
+            ->first();
+        if ($attempt === null || (string) $attempt->status !== 'succeeded') {
+            return false;
+        }
+
+        $expectedProviderReference = trim((string) $payment->provider_reference);
+        $attemptProviderReference = trim((string) $attempt->provider_transaction_reference);
+        $expectedReference1 = trim((string) $attempt->provider_reference1);
+        $expectedReference2 = strtolower(trim((string) $attempt->provider_reference2));
+        $expectedReference3 = trim((string) $attempt->provider_reference3);
+        $expectedReference4 = trim((string) $attempt->provider_reference4);
+        if (
+            $providerReference === ''
+            || $expectedProviderReference === ''
+            || $attemptProviderReference === ''
+            || $reference1 === ''
+            || $reference2 === ''
+            || ! hash_equals($expectedProviderReference, $providerReference)
+            || ! hash_equals($attemptProviderReference, $providerReference)
+            || ! hash_equals($expectedReference1, $reference1)
+            || ! hash_equals($expectedReference2, $reference2)
+            || ($reference3 !== '' && ! hash_equals($expectedReference3, $reference3))
+            || ($reference4 !== '' && ! hash_equals($expectedReference4, $reference4))
+        ) {
+            return false;
+        }
+
+        $amount = $payload['txnAmount']
+            ?? $payload['amount']
+            ?? data_get($payload, 'payload.txnAmount')
+            ?? data_get($payload, 'payload.amount');
+        if ($amount !== null && trim((string) $amount) !== '' && $this->amountMinor($amount) !== (int) $payment->amount) {
+            return false;
+        }
+
+        $currency = strtoupper(trim((string) (
+            $payload['txnCurrencyCode']
+            ?? $payload['currency']
+            ?? data_get($payload, 'payload.txnCurrencyCode')
+            ?? data_get($payload, 'payload.currency')
+            ?? ''
+        )));
+        if ($currency !== '' && $currency !== (string) $payment->currency) {
+            return false;
+        }
+
+        if ($this->deepayCallbackExplicitlyFailed($payload)) {
+            return false;
+        }
+
+        $tenantId = (string) $payment->tenant_id;
+
+        return (string) $payment->provider === DeepayKbankPaymentProvider::PROVIDER
+            && (string) $payment->topup_request_id === (string) $topup->id
+            && (string) $topup->payment_id === (string) $payment->id
+            && (string) $topup->tenant_id === $tenantId
+            && (string) $topup->customer_id === (string) $payment->customer_id
+            && (string) $topup->currency === (string) $payment->currency
+            && (int) $topup->amount === (int) $payment->amount;
     }
 
     private function verifyAuthenticatedDeepayCallback(?object $payment, ?object $topup, Request $request): bool
@@ -181,6 +288,55 @@ class PaymentWebhookAuthenticator
 
         return in_array($status, ['success', 'succeeded', 'paid', 'payment.succeeded', 'topup.succeeded'], true)
             || $statusCode === '00';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function deepayCallbackExplicitlyFailed(array $payload): bool
+    {
+        $status = strtolower(trim((string) (
+            $payload['status']
+            ?? $payload['event']
+            ?? $payload['txnStatus']
+            ?? data_get($payload, 'payload.status')
+            ?? data_get($payload, 'payload.txnStatus')
+            ?? ''
+        )));
+        if (in_array($status, ['failed', 'failure', 'cancelled', 'canceled', 'expired', 'rejected'], true)) {
+            return true;
+        }
+
+        $statusCode = strtoupper(trim((string) (
+            $payload['statusCode']
+            ?? data_get($payload, 'payload.statusCode')
+            ?? ''
+        )));
+
+        return $statusCode !== '' && ! in_array($statusCode, ['0', '00', '0000'], true);
+    }
+
+    private function isTrustedDeepaySource(Request $request): bool
+    {
+        $trustedIps = config('deepay.callback_trusted_ips', []);
+        if (! is_array($trustedIps) || $trustedIps === []) {
+            return false;
+        }
+
+        $forwardedFor = trim((string) $request->header('X-Forwarded-For', ''));
+        $sourceIp = trim(explode(',', $forwardedFor)[0] ?? '');
+        if (filter_var($sourceIp, FILTER_VALIDATE_IP) === false) {
+            return false;
+        }
+
+        foreach ($trustedIps as $trustedIp) {
+            $trustedIp = trim((string) $trustedIp);
+            if ($trustedIp !== '' && hash_equals($trustedIp, $sourceIp)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function amountMinor(mixed $value): ?int

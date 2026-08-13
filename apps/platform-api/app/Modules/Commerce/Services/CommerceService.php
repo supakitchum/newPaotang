@@ -3566,6 +3566,15 @@ class CommerceService
                 ?? ''
             )));
 
+            if (
+                $status === ''
+                && $statusCode === ''
+                && trim((string) ($payload['partnerTxnUid'] ?? data_get($payload, 'payload.partnerTxnUid', ''))) !== ''
+                && strtolower(trim((string) ($payload['reference2'] ?? data_get($payload, 'payload.reference2', '')))) === 'wallet'
+            ) {
+                return true;
+            }
+
             return in_array($status, ['success', 'succeeded', 'paid', 'payment.succeeded', 'topup.succeeded'], true)
                 || $statusCode === '00';
         }
