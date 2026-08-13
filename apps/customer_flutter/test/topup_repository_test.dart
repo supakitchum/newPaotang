@@ -39,6 +39,20 @@ void main() {
     expect(item.qrCode, 'data:image/png;base64,WRAPPED');
   });
 
+  test('expiry cancellation sends a machine-readable reason', () async {
+    final api = _TopupApiClient();
+    final repository = TopupRepository(api);
+
+    await repository.cancel('topup_expired_1', reason: 'payment_qr_expired');
+
+    expect(api.deletePath, '/customer/topups/topup_expired_1');
+    expect(api.deletePayload, {'reason': 'payment_qr_expired'});
+    expect(
+      api.deleteHeaders['Idempotency-Key'],
+      startsWith('customer_topup_cancel_'),
+    );
+  });
+
   test('QR remaining time follows the absolute provider deadline', () {
     final serverTime = DateTime.now().toUtc();
     final item = TopupRequestItem.fromJson({
@@ -152,6 +166,9 @@ class _TopupApiClient extends ApiClient {
   FormData? multipartData;
   Map<String, String> multipartHeaders = {};
   String getPath = '';
+  String deletePath = '';
+  Object? deletePayload;
+  Map<String, String> deleteHeaders = {};
 
   @override
   Future<Response<T>> get<T>(
@@ -179,6 +196,22 @@ class _TopupApiClient extends ApiClient {
     return Response<T>(
       requestOptions: RequestOptions(path: path),
       data: _topupResponse(postPayload['channel']) as T,
+    );
+  }
+
+  @override
+  Future<Response<T>> deleteWithHeaders<T>(
+    String path, {
+    Object? data,
+    bool auth = true,
+    Map<String, String> headers = const {},
+  }) async {
+    deletePath = path;
+    deletePayload = data;
+    deleteHeaders = Map<String, String>.from(headers);
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: _topupResponse('qr') as T,
     );
   }
 

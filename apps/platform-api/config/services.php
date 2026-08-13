@@ -9,7 +9,7 @@ return [
         'timeout' => (int) env('DEEPAY_KBANK_TIMEOUT', 15),
     ],
     'topup' => [
-        'qr_ttl_seconds' => max(60, (int) env('TOPUP_QR_TTL_SECONDS', 300)),
+        'qr_ttl_seconds' => max(60, (int) env('TOPUP_QR_TTL_SECONDS', 900)),
     ],
     'thaibulksms' => [
         'otp_request_endpoint' => env('THAIBULKSMS_OTP_REQUEST_ENDPOINT', 'https://otp.thaibulksms.com/v2/otp/request'),

@@ -11588,12 +11588,12 @@ Topup immediate QR and expiry parity (2026-08-12):
 - The Topup modal blocks all interaction while the provider request is pending,
   preventing duplicate taps and duplicate bills. The three payment-channel
   launchers use the same stable height, including the longer Credit QR label.
-- Platform owns a runtime-configured five-minute QR lifetime. The customer
+- Platform owns a runtime-configured fifteen-minute QR lifetime. The customer
   detail displays a server-aligned countdown and hides the QR when time expires;
   the scheduler requests provider cancellation before marking the request
   expired. Customer cancellation also removes QR and redirect data immediately.
 - Idempotency replay resolves the current Topup resource instead of returning a
-  stored QR body, so retrying the original request after five minutes cannot
+  stored QR body, so retrying the original request after fifteen minutes cannot
   reveal or reuse an expired QR. Failed provider cancellation remains retryable
   while a signed late payment callback can still settle safely.
 - Topup realtime events are now compact and exclude QR/base64/provider bodies;
@@ -11642,3 +11642,82 @@ Topup QR detail stability and completion flow (2026-08-12):
   `newpaotang_test`; OpenAPI YAML validation and `git diff --check` passed. The
   runtime database was not touched, and no commit, push, or worktree clearing
   was performed.
+
+Topup QR unified detail and timeout cancellation (2026-08-12):
+
+- The active QR/Credit QR detail now uses one runtime-primary blue background
+  across the full viewport. The QR art, save action, amount/reference grid, and
+  compact secondary actions are constrained responsively and centered without
+  changing Bank Transfer detail styling.
+- The Siamblend payment logo now sits inside the same white payment card as the
+  QR instead of floating in a separate blue footer area. The runtime QR TTL is
+  fifteen minutes (`900` seconds) for newly created provider payments.
+- The Save QR action sits directly below the payment artwork. Amount and
+  customer-visible reference share the same responsive label/value columns;
+  Report problem, Cancel, and Attach slip are compact actions immediately below
+  the reference instead of separate full-width buttons.
+- Detail feedback no longer renders as an inline alert block. Save, upload,
+  payment-open, and expiry feedback use a centered modal with an explicit Close
+  action.
+- When the server-aligned QR deadline reaches zero, Flutter calls the existing
+  idempotent customer cancellation API once with reason
+  `payment_qr_expired`, explains that the request was cancelled due to timeout,
+  and returns to the Topup launcher after the customer closes the modal. The
+  platform expiry scheduler remains the server-side fallback.
+- Focused Flutter repository/widget verification passed 33 tests; focused
+  analysis and `git diff --check` passed. Runtime DB, commit, push, and worktree
+  clearing were not performed.
+
+Topup slip review retention (2026-08-13):
+
+- An expired QR/Credit QR request is no longer cancelled when the customer has
+  already submitted a transfer slip. It remains in both customer and admin
+  pending queues as `pending_review`, while the QR itself is hidden after its
+  payment deadline.
+- Flutter does not dispatch the automatic expiry cancellation for a request
+  with a slip and instead displays “แอดมินกำลังตรวจสอบหลักฐานการโอนเงิน”. The
+  scheduler keeps its locked-row slip check as a race-condition guard in
+  addition to excluding slip-backed requests from the expiry scan.
+- Verification passed 34 focused Flutter Topup tests and focused analysis. The
+  Platform CustomerTopup suite passed 12 tests/280 assertions against
+  `newpaotang_test`; PHP syntax and `git diff --check` also passed.
+
+Compact social login controls (2026-08-13):
+
+- The Login screen now renders each runtime-enabled social provider as a small
+  circular logo control in one centered responsive row. Visible full-width
+  provider labels were removed; tooltip and accessibility labels remain, and
+  the active provider shows an in-place progress indicator.
+- LINE, Google, Apple, and Facebook use bundled logo assets while provider
+  availability, launch behavior, and colors continue to follow runtime mobile
+  bootstrap configuration. Focused social auth verification passed 25 tests;
+  focused Flutter analysis and `git diff --check` passed.
+- Passkey login now joins the same compact alternative-login row when the
+  current device and runtime policy support it, instead of using a separate
+  full-width button.
+
+Phone-first login method selection (2026-08-13):
+
+- Customer Login now starts with phone-number collection only. Continuing from
+  that step validates and freezes the selected phone locally without sending an
+  OTP or calling the password login API.
+- The next step explicitly offers OTP or password. Choosing OTP sends the
+  challenge and opens the existing dedicated OTP screen; choosing password
+  reveals the password form while retaining the phone, redirect, PIN handoff,
+  SMS fallback, and one-active-device behavior.
+- Customers can edit the phone from either later step or return from the
+  password form to choose another method. Social login and Passkey remain
+  alternative actions on the initial phone step.
+- Focused auth, redirect, OTP, PIN, fallback, and social verification passed 54
+  tests. Focused Flutter analysis passed without issues.
+
+Topup QR confirmation restored (2026-08-13):
+
+- Selecting a quick amount in the QR or Credit QR bottom sheet now updates the
+  amount only and never creates a Topup request or calls the payment provider.
+- All three payment channels now continue from amount selection to a payment
+  summary. The write API and QR generation run only after the customer presses
+  the explicit “ยืนยันชำระเงิน” action; duplicate confirmation remains guarded
+  by the existing submitting state and centered loading overlay.
+- Focused Topup verification passed 27 tests, including API-call timing,
+  duplicate-confirm protection, error copy, and detail navigation.

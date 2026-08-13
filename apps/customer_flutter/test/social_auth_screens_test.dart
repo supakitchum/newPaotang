@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:customer_flutter/core/auth/auth_repository.dart';
+import 'package:customer_flutter/core/auth/customer_passkey_repository.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
@@ -27,6 +28,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            customerPasskeyAvailabilityProvider.overrideWith((_) async => true),
             mobileBootstrapProvider.overrideWith(
               (_) async => MobileBootstrap.fromJson({
                 'mobile': {
@@ -48,18 +50,26 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Continue with LINE'), findsOneWidget);
-      expect(find.text('Continue with Google'), findsOneWidget);
-      expect(find.text('Continue with Apple ID'), findsOneWidget);
-      expect(find.text('Continue with Facebook'), findsOneWidget);
+      final socialRow = find.byKey(const ValueKey('login-social-provider-row'));
+      expect(socialRow, findsOneWidget);
+      for (final provider in const ['line', 'google', 'apple', 'facebook']) {
+        final button = find.byKey(ValueKey('social-login-$provider'));
+        expect(button, findsOneWidget);
+        expect(tester.getSize(button), const Size.square(48));
+      }
+      final passkeyButton = find.byKey(const ValueKey('login-passkey-button'));
+      expect(passkeyButton, findsOneWidget);
+      expect(tester.getSize(passkeyButton), const Size.square(48));
+      expect(
+        find.descendant(of: socialRow, matching: passkeyButton),
+        findsOneWidget,
+      );
+      expect(find.text('Continue with LINE'), findsNothing);
+      expect(find.text('Continue with Google'), findsNothing);
+      expect(find.text('Continue with Apple ID'), findsNothing);
+      expect(find.text('Continue with Facebook'), findsNothing);
       expect(find.text('Continue with discord'), findsNothing);
-      expect(find.text('Remember me'), findsOneWidget);
-      expect(find.byIcon(Icons.check), findsOneWidget);
-
-      await tester.tap(find.text('Remember me'));
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(Icons.check), findsNothing);
+      expect(find.text('Sign in with a passkey'), findsNothing);
     },
   );
 
@@ -95,25 +105,28 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      final lineButton = find.widgetWithText(
-        OutlinedButton,
-        'Continue with LINE',
-      );
+      final lineButton = find.byKey(const ValueKey('social-login-line'));
       await tester.ensureVisible(lineButton);
       await tester.pumpAndSettle();
 
       await tester.tap(lineButton);
       await tester.pump();
 
-      expect(find.text('Connecting to LINE'), findsOneWidget);
-      expect(find.text('Signing in'), findsNothing);
-      expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: lineButton,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Sending OTP'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Continue'), findsOneWidget);
       expect(repository.lastSocialLoginProvider, 'line');
 
       socialLoginUrl.complete('https://social.example.com/oauth');
       await tester.pumpAndSettle();
 
-      expect(find.text('Continue with LINE'), findsOneWidget);
+      expect(find.byKey(const ValueKey('social-login-line')), findsOneWidget);
     },
   );
 
@@ -147,10 +160,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final lineButton = find.widgetWithText(
-      OutlinedButton,
-      'Continue with LINE',
-    );
+    final lineButton = find.byKey(const ValueKey('social-login-line'));
     await tester.ensureVisible(lineButton);
     await tester.pumpAndSettle();
     await tester.tap(lineButton);
@@ -185,10 +195,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    final lineButton = find.widgetWithText(
-      OutlinedButton,
-      'Continue with LINE',
-    );
+    final lineButton = find.byKey(const ValueKey('social-login-line'));
     await tester.ensureVisible(lineButton);
     await tester.pumpAndSettle();
     await tester.tap(lineButton);

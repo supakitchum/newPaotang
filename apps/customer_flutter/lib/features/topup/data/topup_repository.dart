@@ -103,10 +103,12 @@ class TopupRepository {
     );
   }
 
-  Future<TopupRequestItem> cancel(String id) async {
+  Future<TopupRequestItem> cancel(String id, {String? reason}) async {
+    final normalizedReason = reason?.trim() ?? '';
     final response = await _api.deleteWithHeaders<Map<String, dynamic>>(
       '/customer/topups/$id',
       headers: {'Idempotency-Key': newIdempotencyKey('customer_topup_cancel')},
+      data: normalizedReason.isEmpty ? null : {'reason': normalizedReason},
     );
     return TopupRequestItem.fromJson(
       response.data ?? const <String, dynamic>{},

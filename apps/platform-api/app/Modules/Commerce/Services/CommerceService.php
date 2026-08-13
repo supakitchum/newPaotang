@@ -622,7 +622,10 @@ class CommerceService
             ->whereIn('status', ['pending', 'processing'])
             ->where(function ($query): void {
                 $query->whereNull('payment_expires_at')
-                    ->orWhere('payment_expires_at', '>', now());
+                    ->orWhere('payment_expires_at', '>', now())
+                    ->orWhereNotNull('slip_storage_path')
+                    ->orWhereNotNull('slip_url')
+                    ->orWhereNotNull('slip_thumb_url');
             })
             ->orderByDesc('created_at')
             ->first();
@@ -2293,7 +2296,10 @@ class CommerceService
             ->whereIn('status', ['pending', 'processing'])
             ->where(function ($query): void {
                 $query->whereNull('payment_expires_at')
-                    ->orWhere('payment_expires_at', '>', now());
+                    ->orWhere('payment_expires_at', '>', now())
+                    ->orWhereNotNull('slip_storage_path')
+                    ->orWhereNotNull('slip_url')
+                    ->orWhereNotNull('slip_thumb_url');
             })
             ->count();
     }
@@ -2575,6 +2581,15 @@ class CommerceService
         $ids = TopupRequest::query()
             ->whereIn('channel', self::PROVIDER_TOPUP_CHANNELS)
             ->whereIn('status', ['pending', 'processing', 'expired'])
+            ->where(function ($query): void {
+                $query->whereNull('slip_storage_path')->orWhere('slip_storage_path', '');
+            })
+            ->where(function ($query): void {
+                $query->whereNull('slip_url')->orWhere('slip_url', '');
+            })
+            ->where(function ($query): void {
+                $query->whereNull('slip_thumb_url')->orWhere('slip_thumb_url', '');
+            })
             ->whereNotNull('payment_expires_at')
             ->where('payment_expires_at', '<=', now())
             ->orderBy('payment_expires_at')
@@ -2598,6 +2613,7 @@ class CommerceService
             $topup = TopupRequest::query()->where('id', $topupId)->lockForUpdate()->first();
             if ($topup === null
                 || ! in_array((string) $topup->status, ['pending', 'processing', 'expired'], true)
+                || $this->topupHasSlip($topup)
                 || ! $this->topupPaymentExpired($topup)) {
                 return ['skip' => true];
             }
@@ -2693,6 +2709,18 @@ class CommerceService
                     'status' => 'superseded',
                     'application_error_code' => 'payment_already_succeeded',
                     'response_classification' => 'superseded_by_payment_success',
+                    'completed_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                return false;
+            }
+
+            if ($this->topupHasSlip($topup)) {
+                PaymentProviderAttempt::query()->where('id', $attempt->id)->update([
+                    'status' => 'superseded',
+                    'application_error_code' => 'topup_slip_submitted',
+                    'response_classification' => 'superseded_by_slip_review',
                     'completed_at' => $now,
                     'updated_at' => $now,
                 ]);
@@ -4230,7 +4258,7 @@ class CommerceService
 
     private function topupQrTtlSeconds(): int
     {
-        return max(60, (int) config('services.topup.qr_ttl_seconds', 300));
+        return max(60, (int) config('services.topup.qr_ttl_seconds', 900));
     }
 
     private function topupPaymentExpired(object $topup): bool
@@ -4862,6 +4890,7 @@ class CommerceService
         $hasSlip = $this->topupHasSlip($topup);
 
         if (in_array((string) $topup->status, ['pending', 'processing'], true)
+            && ! $hasSlip
             && $this->topupPaymentExpired($topup)) {
             return 'expired';
         }

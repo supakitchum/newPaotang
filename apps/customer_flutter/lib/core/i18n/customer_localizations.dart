@@ -82,6 +82,11 @@ class CustomerLocalizations {
   String get loginSubmitting => _text('auth.login.submitting');
   String get loginPhoneSubmit => _text('auth.login.phone_submit');
   String get loginPhoneSubmitting => _text('auth.login.phone_submitting');
+  String get loginContinue => _text('auth.login.continue');
+  String get loginMethodTitle => _text('auth.login.method_title');
+  String get loginMethodDescription => _text('auth.login.method_description');
+  String get loginChangePhone => _text('auth.login.change_phone');
+  String get loginChangeMethod => _text('auth.login.change_method');
   String get loginPasswordFormTitle => _text('auth.login.password_form_title');
   String get loginPasswordFormDescription =>
       _text('auth.login.password_form_description');
@@ -1469,6 +1474,9 @@ class CustomerLocalizations {
   String topupQrExpiresIn(String time) =>
       _text('topup.qr_expires_in').replaceAll('{time}', time);
   String get topupQrExpired => _text('topup.qr_expired');
+  String get topupQrExpiredCancelled => _text('topup.qr.expired_cancelled');
+  String get topupQrExpiryCancelFailed =>
+      _text('topup.qr.expiry_cancel_failed');
   String get topupQrPaymentLabel => _text('topup.qr.payment_label');
   String get topupQrReferenceLabel => _text('topup.qr.reference_label');
   String get topupQrWatermark => _text('topup.qr.watermark');
@@ -1477,6 +1485,8 @@ class CustomerLocalizations {
   String get topupQrSaveSubject => _text('topup.qr.save_subject');
   String get topupQrSaveReady => _text('topup.qr.save_ready');
   String get topupQrSaveFailed => _text('topup.qr.save_failed');
+  String get topupQrAttachSlipAction => _text('topup.qr.action.attach_slip');
+  String get topupQrCancelAction => _text('topup.qr.action.cancel');
   String topupQrSaveShareText(String amount, String reference) => _text(
     'topup.qr.save_share_text',
   ).replaceAll('{amount}', amount).replaceAll('{reference}', reference);
@@ -1568,6 +1578,8 @@ class CustomerLocalizations {
   String get topupCancelFailed => _text('topup.cancel_failed');
   String get topupSlipTooLarge => _text('topup.slip_too_large');
   String get topupSlipUploaded => _text('topup.slip_uploaded');
+  String get topupSlipReviewInProgress =>
+      _text('topup.slip.review_in_progress');
   String get topupSlipUploadFailed => _text('topup.slip_upload_failed');
   String get topupHistoryTitle => _text('topup.history.title');
   String get topupHistoryLoading => _text('topup.history.loading');
@@ -3133,6 +3145,12 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.submitting': 'กำลังเข้าสู่ระบบ',
     'auth.login.phone_submit': 'รับรหัส OTP',
     'auth.login.phone_submitting': 'กำลังส่งรหัส OTP',
+    'auth.login.continue': 'ดำเนินการต่อ',
+    'auth.login.method_title': 'เลือกวิธีเข้าสู่ระบบ',
+    'auth.login.method_description':
+        'เลือกยืนยันด้วย OTP หรือใช้รหัสผ่านของบัญชี',
+    'auth.login.change_phone': 'เปลี่ยนเบอร์โทรศัพท์',
+    'auth.login.change_method': 'เปลี่ยนวิธีเข้าสู่ระบบ',
     'auth.login.password_form_title': 'เข้าสู่ระบบด้วยรหัสผ่าน',
     'auth.login.password_form_description':
         'ใช้เบอร์โทรศัพท์และรหัสผ่านเมื่อไม่สามารถรับ SMS ได้',
@@ -4116,6 +4134,10 @@ const _localizedValues = <String, Map<String, String>>{
         'หลังชำระเงินแล้วแนบสลิปเพื่อให้ร้านค้าตรวจสอบ',
     'topup.qr_expires_in': 'QR หมดอายุใน {time}',
     'topup.qr_expired': 'QR Code นี้หมดอายุแล้ว กรุณายกเลิกรายการและสร้างใหม่',
+    'topup.qr.expired_cancelled':
+        'รายการเติมเงินถูกยกเลิก เนื่องจาก QR Code หมดเวลา',
+    'topup.qr.expiry_cancel_failed':
+        'QR Code หมดเวลา แต่ยกเลิกรายการไม่สำเร็จ กรุณาลองอีกครั้ง',
     'topup.qr.payment_label': 'THAI QR PAYMENT',
     'topup.qr.reference_label': 'เลขอ้างอิง',
     'topup.qr.watermark': 'สำหรับเติมเงิน Siamblend เท่านั้น',
@@ -4124,6 +4146,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.qr.save_subject': 'QR Code เติมเงิน Siamblend',
     'topup.qr.save_ready': 'เตรียมไฟล์ QR Code สำหรับบันทึกแล้ว',
     'topup.qr.save_failed': 'บันทึก QR Code ไม่สำเร็จ กรุณาลองใหม่',
+    'topup.qr.action.attach_slip': 'แนบสลิป',
+    'topup.qr.action.cancel': 'ยกเลิก',
     'topup.qr.save_share_text':
         'QR Code เติมเงิน {amount} เลขอ้างอิง {reference}',
     'topup.open_payment': 'เปิดหน้าชำระเงิน',
@@ -4200,6 +4224,7 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.cancel_failed': 'ยกเลิกรายการไม่สำเร็จ',
     'topup.slip_too_large': 'ไฟล์สลิปต้องไม่เกิน 5 MB',
     'topup.slip_uploaded': 'อัพโหลดสลิปสำเร็จ',
+    'topup.slip.review_in_progress': 'แอดมินกำลังตรวจสอบหลักฐานการโอนเงิน',
     'topup.slip_upload_failed': 'อัพโหลดสลิปไม่สำเร็จ กรุณาลองใหม่',
     'topup.history.title': 'ประวัติเติมเงิน',
     'topup.history.loading': 'กำลังโหลดข้อมูล...',
@@ -5152,6 +5177,12 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.submitting': 'Signing in',
     'auth.login.phone_submit': 'Send OTP',
     'auth.login.phone_submitting': 'Sending OTP',
+    'auth.login.continue': 'Continue',
+    'auth.login.method_title': 'Choose a sign-in method',
+    'auth.login.method_description':
+        'Verify with an OTP or use your account password.',
+    'auth.login.change_phone': 'Change phone number',
+    'auth.login.change_method': 'Change sign-in method',
     'auth.login.password_form_title': 'Sign in with password',
     'auth.login.password_form_description':
         'Use your phone number and password when SMS is unavailable.',
@@ -6173,6 +6204,10 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.qr_expires_in': 'QR expires in {time}',
     'topup.qr_expired':
         'This QR Code has expired. Cancel this request and create a new one.',
+    'topup.qr.expired_cancelled':
+        'This topup request was cancelled because the QR Code expired.',
+    'topup.qr.expiry_cancel_failed':
+        'The QR Code expired, but the request could not be cancelled. Please try again.',
     'topup.qr.payment_label': 'THAI QR PAYMENT',
     'topup.qr.reference_label': 'Reference',
     'topup.qr.watermark': 'For Siamblend topups only',
@@ -6181,6 +6216,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.qr.save_subject': 'Siamblend topup QR Code',
     'topup.qr.save_ready': 'The QR Code file is ready to save.',
     'topup.qr.save_failed': 'Could not save the QR Code. Please try again.',
+    'topup.qr.action.attach_slip': 'Attach slip',
+    'topup.qr.action.cancel': 'Cancel',
     'topup.qr.save_share_text':
         'Topup QR Code for {amount}, reference {reference}',
     'topup.open_payment': 'Open payment page',
@@ -6260,6 +6297,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.cancel_failed': 'Could not cancel this request.',
     'topup.slip_too_large': 'Slip file must not exceed 5 MB.',
     'topup.slip_uploaded': 'Slip uploaded successfully.',
+    'topup.slip.review_in_progress':
+        'The admin is reviewing your proof of payment.',
     'topup.slip_upload_failed': 'Could not upload slip. Please try again.',
     'topup.history.title': 'Topup history',
     'topup.history.loading': 'Loading data...',

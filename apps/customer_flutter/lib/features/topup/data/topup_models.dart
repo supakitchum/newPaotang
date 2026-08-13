@@ -529,6 +529,9 @@ class TopupRequestItem {
     return uri;
   }
 
+  bool get hasSlip =>
+      slipUrl.trim().isNotEmpty || slipThumbUrl.trim().isNotEmpty;
+
   bool get needsSlip =>
       !status.isTerminal &&
       (channel == TopupChannel.bankTransfer ||

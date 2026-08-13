@@ -47,7 +47,7 @@ Schedule::command('topups:payments:expire --limit=100')
     ->everyMinute()
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Cancel provider QR payments after their five-minute payment window.');
+    ->description('Cancel provider QR payments after their configured payment window.');
 
 Schedule::command('lottery-images:backgrounds:prune --days=40 --limit=100')
     ->daily()

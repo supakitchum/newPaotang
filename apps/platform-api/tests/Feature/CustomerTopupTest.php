@@ -64,7 +64,7 @@ class CustomerTopupTest extends TestCase
             ->assertJsonPath('status', 'pending_payment')
             ->assertJsonPath('payment.qr_code', fn (?string $value): bool => is_string($value) && $value !== '')
             ->assertJsonPath('payment_expires_at', fn (?string $value): bool => is_string($value) && $value !== '')
-            ->assertJsonPath('payment_expires_in_seconds', fn (int $value): bool => $value > 0 && $value <= 300)
+            ->assertJsonPath('payment_expires_in_seconds', fn (int $value): bool => $value > 0 && $value <= 900)
             ->json();
 
         $this->assertDatabaseHas('payments', [
@@ -152,7 +152,7 @@ class CustomerTopupTest extends TestCase
         $this->assertSame(2, DB::table('topup_requests')->where('tenant_id', 'ten_cust_topup')->count());
     }
 
-    public function test_CustomerTopup_provider_qr_expires_after_five_minutes_and_is_cancelled(): void
+    public function test_CustomerTopup_provider_qr_expires_after_fifteen_minutes_and_is_cancelled(): void
     {
         $startedAt = Carbon::parse('2026-08-12T10:00:00+07:00');
         Carbon::setTestNow($startedAt);
@@ -177,14 +177,14 @@ class CustomerTopupTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('status', 'pending_payment')
-            ->assertJsonPath('payment_expires_in_seconds', 300)
+            ->assertJsonPath('payment_expires_in_seconds', 900)
             ->assertJsonPath('payment.qr_code', fn (?string $value): bool => is_string($value) && $value !== '')
             ->json();
 
         $expiresAt = Carbon::parse((string) $topup['payment_expires_at']);
-        $this->assertEquals(300, $startedAt->diffInSeconds($expiresAt));
+        $this->assertEquals(900, $startedAt->diffInSeconds($expiresAt));
 
-        Carbon::setTestNow($startedAt->copy()->addSeconds(299));
+        Carbon::setTestNow($startedAt->copy()->addSeconds(899));
         $this->artisan('topups:payments:expire --limit=10')
             ->assertSuccessful()
             ->expectsOutput('Expired topup payments: 0');
@@ -194,7 +194,7 @@ class CustomerTopupTest extends TestCase
             'status' => 'processing',
         ]);
 
-        Carbon::setTestNow($startedAt->copy()->addSeconds(300));
+        Carbon::setTestNow($startedAt->copy()->addSeconds(900));
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
             ->assertOk()
@@ -518,6 +518,35 @@ class CustomerTopupTest extends TestCase
         $qrRow = DB::table('topup_requests')->where('id', $qrTopup['id'])->first();
         $this->assertSame('pending', $qrRow?->status);
         $this->assertNotNull($qrRow?->slip_storage_path);
+
+        DB::table('topup_requests')
+            ->where('id', $qrTopup['id'])
+            ->update(['payment_expires_at' => now()->subSecond()]);
+
+        $this->artisan('topups:payments:expire --limit=10')
+            ->assertSuccessful()
+            ->expectsOutput('Expired topup payments: 0');
+
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $qrTopup['id'],
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'topup_request_id' => $qrTopup['id'],
+            'status' => 'pending',
+        ]);
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/topups/'.$qrTopup['id'])
+            ->assertOk()
+            ->assertJsonPath('status', 'pending_review')
+            ->assertJsonPath('payment_expires_in_seconds', 0)
+            ->assertJsonPath('payment.qr_code', null);
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
+            ->assertOk()
+            ->assertJsonPath('waiting.id', $qrTopup['id'])
+            ->assertJsonPath('waiting.status', 'pending_review');
+        Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/cancel'));
     }
 
     public function test_CustomerTopup_realtime_auth_allows_only_the_current_customer_topup_channel(): void

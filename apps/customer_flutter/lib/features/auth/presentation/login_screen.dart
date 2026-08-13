@@ -28,13 +28,17 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
+enum _LoginStep { phone, method, password }
+
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _phoneFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _otpSubmitting = false;
   bool _passwordSubmitting = false;
   bool _passkeySubmitting = false;
-  bool _passwordMode = false;
+  _LoginStep _loginStep = _LoginStep.phone;
   bool _rememberMe = true;
   bool _showPassword = false;
   String? _socialSubmittingProvider;
@@ -57,7 +61,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.read(loginPasswordFallbackPhoneProvider.notifier).state = '';
       setState(() {
         _username.text = fallbackPhone;
-        _passwordMode = true;
+        _loginStep = _LoginStep.password;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _passwordFocusNode.requestFocus();
       });
     });
   }
@@ -68,6 +75,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _password.removeListener(_clearFormError);
     _username.dispose();
     _password.dispose();
+    _phoneFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -110,7 +119,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: _LoginFormCard(
                               username: _username,
                               password: _password,
-                              passwordMode: _passwordMode,
+                              phoneFocusNode: _phoneFocusNode,
+                              passwordFocusNode: _passwordFocusNode,
+                              loginStep: _loginStep,
                               busy: _busy,
                               otpSubmitting: _otpSubmitting,
                               passwordSubmitting: _passwordSubmitting,
@@ -127,11 +138,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               socialProviders: socialProviders,
                               socialSubmittingProvider:
                                   _socialSubmittingProvider,
-                              onLogin: _passwordMode
-                                  ? _loginWithPassword
-                                  : _requestLoginOtp,
+                              onContinue: _continueToMethodSelection,
+                              onPasswordLogin: _loginWithPassword,
                               onUsePassword: _usePasswordLogin,
                               onUseOtp: _useOtpLogin,
+                              onChangePhone: _changePhone,
+                              onChangeMethod: _changeLoginMethod,
                               onPasskeyLogin: _passkeyLogin,
                               onSocialLogin: _socialLogin,
                               onRegister: () => context.go(
@@ -154,6 +166,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _continueToMethodSelection() async {
+    if (_busy || _loginStep != _LoginStep.phone) return;
+    final phone = _username.text.trim();
+    if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
+      _showFormError(context.l10n.authPhoneInvalid);
+      return;
+    }
+
+    await dismissAuthKeyboard(
+      context,
+      waitForAnimation: true,
+      finishAutofillContext: true,
+    );
+    if (!mounted) return;
+    ref.read(loginOtpFlowProvider.notifier).state = null;
+    setState(() {
+      _formError = '';
+      _loginStep = _LoginStep.method;
+    });
   }
 
   Future<void> _requestLoginOtp() async {
@@ -267,20 +300,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _usePasswordLogin() {
-    if (_busy || _passwordMode) return;
+    if (_busy || _loginStep != _LoginStep.method) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _formError = '';
-      _passwordMode = true;
+      _loginStep = _LoginStep.password;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _passwordFocusNode.requestFocus();
     });
   }
 
-  void _useOtpLogin() {
-    if (_busy || !_passwordMode) return;
+  Future<void> _useOtpLogin() async {
+    if (_busy || _loginStep != _LoginStep.method) return;
+    await _requestLoginOtp();
+  }
+
+  void _changePhone() {
+    if (_busy || _loginStep == _LoginStep.phone) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _formError = '';
-      _passwordMode = false;
+      _loginStep = _LoginStep.phone;
+      _password.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _phoneFocusNode.requestFocus();
+    });
+  }
+
+  void _changeLoginMethod() {
+    if (_busy || _loginStep != _LoginStep.password) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _formError = '';
+      _loginStep = _LoginStep.method;
       _password.clear();
     });
   }
@@ -643,7 +697,9 @@ class _LoginFormCard extends StatelessWidget {
   const _LoginFormCard({
     required this.username,
     required this.password,
-    required this.passwordMode,
+    required this.phoneFocusNode,
+    required this.passwordFocusNode,
+    required this.loginStep,
     required this.busy,
     required this.otpSubmitting,
     required this.passwordSubmitting,
@@ -656,9 +712,12 @@ class _LoginFormCard extends StatelessWidget {
     required this.onTogglePassword,
     required this.socialProviders,
     required this.socialSubmittingProvider,
-    required this.onLogin,
+    required this.onContinue,
+    required this.onPasswordLogin,
     required this.onUsePassword,
     required this.onUseOtp,
+    required this.onChangePhone,
+    required this.onChangeMethod,
     required this.onPasskeyLogin,
     required this.onSocialLogin,
     required this.onRegister,
@@ -667,7 +726,9 @@ class _LoginFormCard extends StatelessWidget {
 
   final TextEditingController username;
   final TextEditingController password;
-  final bool passwordMode;
+  final FocusNode phoneFocusNode;
+  final FocusNode passwordFocusNode;
+  final _LoginStep loginStep;
   final bool busy;
   final bool otpSubmitting;
   final bool passwordSubmitting;
@@ -680,9 +741,12 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final List<SocialAuthProvider> socialProviders;
   final String? socialSubmittingProvider;
-  final VoidCallback onLogin;
+  final VoidCallback onContinue;
+  final VoidCallback onPasswordLogin;
   final VoidCallback onUsePassword;
   final VoidCallback onUseOtp;
+  final VoidCallback onChangePhone;
+  final VoidCallback onChangeMethod;
   final VoidCallback onPasskeyLogin;
   final ValueChanged<String> onSocialLogin;
   final VoidCallback onRegister;
@@ -692,6 +756,19 @@ class _LoginFormCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final isPhoneStep = loginStep == _LoginStep.phone;
+    final isMethodStep = loginStep == _LoginStep.method;
+    final isPasswordStep = loginStep == _LoginStep.password;
+    final title = switch (loginStep) {
+      _LoginStep.phone => l10n.loginFormTitle,
+      _LoginStep.method => l10n.loginMethodTitle,
+      _LoginStep.password => l10n.loginPasswordFormTitle,
+    };
+    final description = switch (loginStep) {
+      _LoginStep.phone => l10n.loginFormDescription,
+      _LoginStep.method => l10n.loginMethodDescription,
+      _LoginStep.password => l10n.loginPasswordFormDescription,
+    };
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -710,7 +787,7 @@ class _LoginFormCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              passwordMode ? l10n.loginPasswordFormTitle : l10n.loginFormTitle,
+              title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: colorScheme.onSurface,
                 fontSize: 23,
@@ -719,9 +796,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              passwordMode
-                  ? l10n.loginPasswordFormDescription
-                  : l10n.loginFormDescription,
+              description,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 15,
@@ -736,23 +811,27 @@ class _LoginFormCard extends StatelessWidget {
             _LoginFieldLabel(label: l10n.loginIdentifierLabel),
             const SizedBox(height: 8),
             TextField(
+              key: const ValueKey('login-phone-input'),
               controller: username,
+              focusNode: phoneFocusNode,
               enabled: !busy,
+              readOnly: !isPhoneStep,
+              enableInteractiveSelection: isPhoneStep,
               autofillHints: const [AutofillHints.telephoneNumber],
               style: authInputTextStyle(context),
               keyboardType: TextInputType.phone,
-              textInputAction: passwordMode
-                  ? TextInputAction.next
-                  : TextInputAction.done,
-              onSubmitted: passwordMode
-                  ? null
-                  : (_) {
+              textInputAction: isPhoneStep
+                  ? TextInputAction.done
+                  : TextInputAction.none,
+              onSubmitted: isPhoneStep
+                  ? (_) {
                       if (busy) return;
                       FocusManager.instance.primaryFocus?.unfocus(
                         disposition: UnfocusDisposition.scope,
                       );
-                      onLogin();
-                    },
+                      onContinue();
+                    }
+                  : null,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(10),
@@ -761,14 +840,48 @@ class _LoginFormCard extends StatelessWidget {
                 context,
                 hintText: l10n.loginIdentifierHint,
                 prefixIcon: const Icon(Icons.phone_android_outlined),
+                suffixIcon: isPhoneStep
+                    ? null
+                    : authInputActionButton(
+                        context,
+                        onPressed: busy ? null : onChangePhone,
+                        icon: Icons.edit_outlined,
+                        tooltip: l10n.loginChangePhone,
+                      ),
               ),
             ),
-            if (passwordMode) ...[
+            if (isMethodStep) ...[
+              const SizedBox(height: 16),
+              _LoginMethodButton(
+                key: const ValueKey('login-use-otp'),
+                label: otpSubmitting
+                    ? l10n.loginPhoneSubmitting
+                    : l10n.loginUseOtp,
+                icon: Icons.sms_outlined,
+                primary: true,
+                loading: otpSubmitting,
+                enabled: !busy,
+                onPressed: onUseOtp,
+              ),
+              const SizedBox(height: 10),
+              _LoginMethodButton(
+                key: const ValueKey('login-use-password'),
+                label: l10n.loginPasswordFormTitle,
+                icon: Icons.lock_outline,
+                primary: false,
+                loading: false,
+                enabled: !busy,
+                onPressed: onUsePassword,
+              ),
+            ],
+            if (isPasswordStep) ...[
               const SizedBox(height: 16),
               _LoginFieldLabel(label: l10n.loginPasswordLabel),
               const SizedBox(height: 8),
               TextField(
+                key: const ValueKey('login-password-input'),
                 controller: password,
+                focusNode: passwordFocusNode,
                 enabled: !busy,
                 autofillHints: const [AutofillHints.password],
                 style: authInputTextStyle(context),
@@ -779,7 +892,7 @@ class _LoginFormCard extends StatelessWidget {
                   FocusManager.instance.primaryFocus?.unfocus(
                     disposition: UnfocusDisposition.scope,
                   );
-                  onLogin();
+                  onPasswordLogin();
                 },
                 decoration: _loginInputDecoration(
                   context,
@@ -804,95 +917,123 @@ class _LoginFormCard extends StatelessWidget {
                 onRememberMeChanged: onRememberMeChanged,
                 onForgotPassword: onForgotPassword,
               ),
-            ],
-            const SizedBox(height: 12),
-            authPrimaryActionButton(
-              onPressed: busy ? null : onLogin,
-              height: 54,
-              fontSize: 18,
-              label: passwordMode
-                  ? (passwordSubmitting
-                        ? l10n.loginSubmitting
-                        : l10n.loginSubmit)
-                  : (otpSubmitting
-                        ? l10n.loginPhoneSubmitting
-                        : l10n.loginPhoneSubmit),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              key: ValueKey(
-                passwordMode ? 'login-use-otp' : 'login-use-password',
-              ),
-              onPressed: busy
-                  ? null
-                  : (passwordMode ? onUseOtp : onUsePassword),
-              icon: Icon(
-                passwordMode ? Icons.sms_outlined : Icons.lock_outline,
-              ),
-              label: Text(
-                passwordMode ? l10n.loginUseOtp : l10n.loginUsePassword,
-              ),
-            ),
-            if (passkeyAvailable) ...[
-              const SizedBox(height: 10),
-              SizedBox(
+              const SizedBox(height: 12),
+              authPrimaryActionButton(
+                onPressed: busy ? null : onPasswordLogin,
                 height: 54,
-                child: OutlinedButton.icon(
-                  key: const ValueKey('login-passkey-button'),
-                  onPressed: busy ? null : onPasskeyLogin,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.primary,
-                    side: BorderSide(color: colorScheme.primary),
-                    shape: const StadiumBorder(),
-                    textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  icon: const Icon(Icons.key_rounded),
-                  label: Text(
-                    passkeySubmitting
-                        ? l10n.passkeyLoginSubmitting
-                        : l10n.passkeyLogin,
-                  ),
-                ),
+                fontSize: 18,
+                label: passwordSubmitting
+                    ? l10n.loginSubmitting
+                    : l10n.loginSubmit,
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                key: const ValueKey('login-change-method'),
+                onPressed: busy ? null : onChangeMethod,
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: Text(l10n.loginChangeMethod),
               ),
             ],
-            _SocialLoginPanel(
-              providers: socialProviders,
-              loading: busy,
-              submittingProvider: socialSubmittingProvider,
-              onLogin: onSocialLogin,
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    l10n.loginRegisterPrompt,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+            if (isPhoneStep) ...[
+              const SizedBox(height: 12),
+              authPrimaryActionButton(
+                onPressed: busy ? null : onContinue,
+                height: 54,
+                fontSize: 18,
+                label: l10n.loginContinue,
+              ),
+              _SocialLoginPanel(
+                providers: socialProviders,
+                loading: busy,
+                submittingProvider: socialSubmittingProvider,
+                passkeyAvailable: passkeyAvailable,
+                passkeySubmitting: passkeySubmitting,
+                onPasskeyLogin: onPasskeyLogin,
+                onLogin: onSocialLogin,
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      l10n.loginRegisterPrompt,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 7),
-                TextButton(
-                  onPressed: busy ? null : onRegister,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 36),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  const SizedBox(width: 7),
+                  TextButton(
+                    onPressed: busy ? null : onRegister,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 36),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(l10n.loginRegister),
                   ),
-                  child: Text(l10n.loginRegister),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LoginMethodButton extends StatelessWidget {
+  const _LoginMethodButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.primary,
+    required this.loading,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool primary;
+  final bool loading;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final buttonIcon = loading
+        ? SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: colorScheme.onPrimary,
+            ),
+          )
+        : Icon(icon, size: 22);
+    final text = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
+
+    return SizedBox(
+      height: 54,
+      child: primary
+          ? FilledButton.icon(
+              onPressed: enabled ? onPressed : null,
+              icon: buttonIcon,
+              label: text,
+            )
+          : OutlinedButton.icon(
+              onPressed: enabled ? onPressed : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(color: colorScheme.primary),
+              ),
+              icon: buttonIcon,
+              label: text,
+            ),
     );
   }
 }
@@ -1078,18 +1219,26 @@ class _SocialLoginPanel extends StatelessWidget {
     required this.providers,
     required this.loading,
     required this.submittingProvider,
+    required this.passkeyAvailable,
+    required this.passkeySubmitting,
+    required this.onPasskeyLogin,
     required this.onLogin,
   });
 
   final List<SocialAuthProvider> providers;
   final bool loading;
   final String? submittingProvider;
+  final bool passkeyAvailable;
+  final bool passkeySubmitting;
+  final VoidCallback onPasskeyLogin;
   final ValueChanged<String> onLogin;
 
   @override
   Widget build(BuildContext context) {
     final enabledProviders = _visibleSocialProviders(providers);
-    if (enabledProviders.isEmpty) return const SizedBox.shrink();
+    if (enabledProviders.isEmpty && !passkeyAvailable) {
+      return const SizedBox.shrink();
+    }
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -1112,17 +1261,77 @@ class _SocialLoginPanel extends StatelessWidget {
             Expanded(child: Divider(color: colorScheme.outlineVariant)),
           ],
         ),
-        const SizedBox(height: 18),
-        for (var index = 0; index < enabledProviders.length; index++) ...[
-          _SocialLoginButton(
-            provider: enabledProviders[index],
-            loading: loading,
-            submittingProvider: submittingProvider,
-            onPressed: () => onLogin(enabledProviders[index].provider),
-          ),
-          if (index < enabledProviders.length - 1) const SizedBox(height: 8),
-        ],
+        const SizedBox(height: 14),
+        Wrap(
+          key: const ValueKey('login-social-provider-row'),
+          alignment: WrapAlignment.center,
+          runAlignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            for (final provider in enabledProviders)
+              _SocialLoginButton(
+                provider: provider,
+                loading: loading,
+                submittingProvider: submittingProvider,
+                onPressed: () => onLogin(provider.provider),
+              ),
+            if (passkeyAvailable)
+              _PasskeyLoginButton(
+                loading: loading,
+                submitting: passkeySubmitting,
+                onPressed: onPasskeyLogin,
+              ),
+          ],
+        ),
       ],
+    );
+  }
+}
+
+class _PasskeyLoginButton extends StatelessWidget {
+  const _PasskeyLoginButton({
+    required this.loading,
+    required this.submitting,
+    required this.onPressed,
+  });
+
+  final bool loading;
+  final bool submitting;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final label = submitting
+        ? context.l10n.passkeyLoginSubmitting
+        : context.l10n.passkeyLogin;
+
+    return SizedBox.square(
+      dimension: 48,
+      child: IconButton(
+        key: const ValueKey('login-passkey-button'),
+        tooltip: label,
+        style: IconButton.styleFrom(
+          backgroundColor: colorScheme.surface,
+          foregroundColor: colorScheme.primary,
+          disabledBackgroundColor: colorScheme.surface.withValues(alpha: 0.62),
+          disabledForegroundColor: colorScheme.primary.withValues(alpha: 0.48),
+          side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.34)),
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(12),
+        ),
+        onPressed: loading ? null : onPressed,
+        icon: submitting
+            ? SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: colorScheme.primary,
+                ),
+              )
+            : const Icon(Icons.key_rounded, size: 22),
+      ),
     );
   }
 }
@@ -1145,45 +1354,50 @@ class _SocialLoginButton extends StatelessWidget {
     final normalizedProvider = normalizeSocialAuthProvider(provider.provider);
     final isSubmitting = submittingProvider == normalizedProvider;
     final colorScheme = Theme.of(context).colorScheme;
-    final brandColor = provider.brandColor ?? colorScheme.primary;
     final backgroundColor =
-        provider.buttonBackgroundColor ??
-        (normalizedProvider == 'line' ? brandColor : null);
+        provider.buttonBackgroundColor ?? colorScheme.surface;
     final foregroundColor =
         provider.buttonForegroundColor ??
-        (backgroundColor == null
-            ? colorScheme.onSurface
+        (provider.buttonBackgroundColor == null
+            ? provider.brandColor ?? colorScheme.onSurface
             : colorScheme.onPrimary);
-    final borderColor = backgroundColor ?? provider.brandColor;
-    return SizedBox(
-      height: 54,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
+    final label = context.l10n.socialLoginLabel(provider.label);
+
+    return SizedBox.square(
+      dimension: 48,
+      child: IconButton(
+        key: ValueKey('social-login-$normalizedProvider'),
+        tooltip: label,
+        style: IconButton.styleFrom(
           backgroundColor: backgroundColor,
           foregroundColor: foregroundColor,
+          disabledBackgroundColor: backgroundColor.withValues(alpha: 0.62),
+          disabledForegroundColor: foregroundColor.withValues(alpha: 0.48),
           side: BorderSide(
-            color:
-                borderColor ??
-                colorScheme.outlineVariant.withValues(alpha: 0.90),
+            color: (provider.brandColor ?? colorScheme.outlineVariant)
+                .withValues(alpha: provider.brandColor == null ? 0.82 : 0.34),
           ),
-          shape: const StadiumBorder(),
-          textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(12),
         ),
         onPressed: loading ? null : onPressed,
-        icon: Icon(
-          _providerIcon(normalizedProvider),
-          size: normalizedProvider == 'line' ? 22 : 20,
-        ),
-        label: Text(
-          isSubmitting
-              ? context.l10n.socialLoginOpening(provider.label)
-              : context.l10n.socialLoginLabel(provider.label),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        icon: isSubmitting
+            ? SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: foregroundColor,
+                ),
+              )
+            : Image.asset(
+                _providerLogoAsset(normalizedProvider),
+                width: 22,
+                height: 22,
+                color: foregroundColor,
+                colorBlendMode: BlendMode.srcIn,
+                filterQuality: FilterQuality.high,
+                excludeFromSemantics: true,
+              ),
       ),
     );
   }
@@ -1207,9 +1421,6 @@ List<SocialAuthProvider> _visibleSocialProviders(
   return visible;
 }
 
-IconData _providerIcon(String provider) {
-  if (provider == 'apple') return Icons.apple;
-  if (provider == 'facebook') return Icons.facebook;
-  if (provider == 'google') return Icons.mail_outline;
-  return Icons.chat_bubble_outline;
+String _providerLogoAsset(String provider) {
+  return 'assets/images/social/$provider.png';
 }

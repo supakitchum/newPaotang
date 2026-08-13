@@ -155,7 +155,7 @@ void main() {
     );
   });
 
-  testWidgets('login phone input keeps Nuxt numeric 10-digit behavior', (
+  testWidgets('login chooses OTP only after validating the phone step', (
     tester,
   ) async {
     final repo = _AuthRedirectRepository();
@@ -175,9 +175,19 @@ void main() {
     expect(loginFields[0].textInputAction, TextInputAction.done);
 
     await tester.enterText(find.byType(TextField).at(0), '08a12345678999');
-    await _tapLoginOtpSubmit(tester);
+    final continueButton = find.widgetWithText(FilledButton, 'Continue');
+    await _scrollUntilVisible(tester, continueButton);
+    await tester.tap(continueButton);
     await tester.pumpAndSettle();
 
+    expect(repo.requestLoginOtpCalls, 0);
+    expect(find.byKey(const ValueKey('login-use-otp')), findsOneWidget);
+    expect(find.byKey(const ValueKey('login-use-password')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('login-use-otp')));
+    await tester.pumpAndSettle();
+
+    expect(repo.requestLoginOtpCalls, 1);
     expect(repo.lastLoginOtpPhone, '0812345678');
     expect(
       router.routerDelegate.currentConfiguration.uri.toString(),
@@ -1122,12 +1132,26 @@ Future<void> _tapLoginSubmit(WidgetTester tester) async {
 }
 
 Future<void> _tapLoginOtpSubmit(WidgetTester tester) async {
-  final submitButton = find.widgetWithText(FilledButton, 'Send OTP');
-  await _scrollUntilVisible(tester, submitButton);
-  await tester.tap(submitButton);
+  final continueButton = find.widgetWithText(FilledButton, 'Continue');
+  await _scrollUntilVisible(tester, continueButton);
+  await tester.tap(continueButton);
+  await tester.pumpAndSettle();
+
+  final otpButton = find.byKey(const ValueKey('login-use-otp'));
+  await _scrollUntilVisible(tester, otpButton);
+  await tester.tap(otpButton);
 }
 
 Future<void> _switchLoginToPassword(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const ValueKey('login-phone-input')),
+    '0812345678',
+  );
+  final continueButton = find.widgetWithText(FilledButton, 'Continue');
+  await _scrollUntilVisible(tester, continueButton);
+  await tester.tap(continueButton);
+  await tester.pumpAndSettle();
+
   final switchButton = find.byKey(const ValueKey('login-use-password'));
   await _scrollUntilVisible(tester, switchButton);
   await tester.tap(switchButton);
