@@ -52,10 +52,19 @@ void main() {
 
       final socialRow = find.byKey(const ValueKey('login-social-provider-row'));
       expect(socialRow, findsOneWidget);
-      for (final provider in const ['line', 'google', 'apple', 'facebook']) {
+      const expectedProviderColors = <String, Color>{
+        'line': Color(0xFF06C755),
+        'google': Color(0xFF4285F4),
+        'apple': Color(0xFF000000),
+        'facebook': Color(0xFF1877F2),
+      };
+      for (final entry in expectedProviderColors.entries) {
+        final provider = entry.key;
         final button = find.byKey(ValueKey('social-login-$provider'));
         expect(button, findsOneWidget);
         expect(tester.getSize(button), const Size.square(48));
+        final iconButton = tester.widget<IconButton>(button);
+        expect(iconButton.style?.foregroundColor?.resolve({}), entry.value);
       }
       final passkeyButton = find.byKey(const ValueKey('login-passkey-button'));
       expect(passkeyButton, findsOneWidget);
@@ -93,7 +102,14 @@ void main() {
               (_) async => MobileBootstrap.fromJson({
                 'mobile': {
                   'auth_providers': [
-                    {'provider': 'line', 'label': 'LINE', 'enabled': true},
+                    {
+                      'provider': 'line',
+                      'label': 'LINE',
+                      'enabled': true,
+                      'brandColor': '#127A42',
+                      'buttonBackgroundColor': '#E6F8ED',
+                      'buttonForegroundColor': '#0C5E31',
+                    },
                     {'provider': 'google', 'label': 'Google', 'enabled': true},
                   ],
                 },
@@ -106,6 +122,15 @@ void main() {
 
       await tester.pumpAndSettle();
       final lineButton = find.byKey(const ValueKey('social-login-line'));
+      final lineIconButton = tester.widget<IconButton>(lineButton);
+      expect(
+        lineIconButton.style?.backgroundColor?.resolve({}),
+        const Color(0xFFE6F8ED),
+      );
+      expect(
+        lineIconButton.style?.foregroundColor?.resolve({}),
+        const Color(0xFF0C5E31),
+      );
       await tester.ensureVisible(lineButton);
       await tester.pumpAndSettle();
 
@@ -120,7 +145,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Sending OTP'), findsNothing);
-      expect(find.widgetWithText(FilledButton, 'Send OTP'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
       expect(repository.lastSocialLoginProvider, 'line');
 
       socialLoginUrl.complete('https://social.example.com/oauth');

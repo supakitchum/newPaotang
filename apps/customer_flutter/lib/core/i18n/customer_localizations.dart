@@ -1549,6 +1549,13 @@ class CustomerLocalizations {
   String get topupBankInstructionUnavailable =>
       _text('topup.bank_instruction.unavailable');
   String get topupBankAccountFallback => _text('topup.bank_account_fallback');
+  String get topupBankTransferTo => _text('topup.bank_account.transfer_to');
+  String get topupBankAccountNameLabel =>
+      _text('topup.bank_account.account_name');
+  String get topupBankAccountNumberLabel =>
+      _text('topup.bank_account.account_number');
+  String get topupBankCopyAccount => _text('topup.bank_account.copy');
+  String get topupBankAccountCopied => _text('topup.bank_account.copied');
   String get topupStatusPendingPayment => _text('topup.status.pending_payment');
   String get topupStatusPendingReview => _text('topup.status.pending_review');
   String get topupStatusApproved => _text('topup.status.approved');
@@ -3138,7 +3145,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.password_hint': 'กรอกรหัสผ่าน',
     'auth.login.submit': 'เข้าสู่ระบบ',
     'auth.login.submitting': 'กำลังเข้าสู่ระบบ',
-    'auth.login.phone_submit': 'รับรหัส OTP',
+    'auth.login.phone_submit': 'เข้าสู่ระบบ',
     'auth.login.phone_submitting': 'กำลังส่งรหัส OTP',
     'auth.login.password_form_title': 'เข้าสู่ระบบด้วยรหัสผ่าน',
     'auth.login.password_form_description':
@@ -4197,6 +4204,11 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.bank_instruction.unavailable':
         'ยังไม่มีข้อมูลบัญชีรับโอนสำหรับช่องทางนี้',
     'topup.bank_account_fallback': 'บัญชีรับโอน',
+    'topup.bank_account.transfer_to': 'โอนเงินเข้าบัญชีนี้',
+    'topup.bank_account.account_name': 'ชื่อบัญชี',
+    'topup.bank_account.account_number': 'เลขที่บัญชี',
+    'topup.bank_account.copy': 'คัดลอก',
+    'topup.bank_account.copied': 'คัดลอกแล้ว',
     'topup.status.pending_payment': 'รอชำระ',
     'topup.status.pending_review': 'รอตรวจสอบ',
     'topup.status.approved': 'อนุมัติแล้ว',
@@ -5164,7 +5176,7 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.login.password_hint': 'Enter your password',
     'auth.login.submit': 'Sign in',
     'auth.login.submitting': 'Signing in',
-    'auth.login.phone_submit': 'Send OTP',
+    'auth.login.phone_submit': 'Sign in',
     'auth.login.phone_submitting': 'Sending OTP',
     'auth.login.password_form_title': 'Sign in with password',
     'auth.login.password_form_description':
@@ -6264,6 +6276,11 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.bank_instruction.unavailable':
         'Receiving account details are not available for this channel yet.',
     'topup.bank_account_fallback': 'Receiving account',
+    'topup.bank_account.transfer_to': 'Transfer to this account',
+    'topup.bank_account.account_name': 'Account name',
+    'topup.bank_account.account_number': 'Account number',
+    'topup.bank_account.copy': 'Copy',
+    'topup.bank_account.copied': 'Copied',
     'topup.status.pending_payment': 'Pending payment',
     'topup.status.pending_review': 'Pending review',
     'topup.status.approved': 'Approved',

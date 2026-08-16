@@ -16,7 +16,9 @@ import 'customer_notification_navigation.dart';
 import 'customer_notification_realtime_monitor.dart';
 
 class CustomerNotificationsScreen extends ConsumerStatefulWidget {
-  const CustomerNotificationsScreen({super.key});
+  const CustomerNotificationsScreen({super.key, this.markAllOnOpen = true});
+
+  final bool markAllOnOpen;
 
   @override
   ConsumerState<CustomerNotificationsScreen> createState() =>
@@ -40,7 +42,7 @@ class _CustomerNotificationsScreenState
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadInitial);
+    Future.microtask(() => _loadInitial(markAllOnOpen: widget.markAllOnOpen));
   }
 
   @override
@@ -178,6 +180,7 @@ class _CustomerNotificationsScreenState
   Future<void> _loadInitial({
     bool showLoading = true,
     bool preserveOnError = false,
+    bool markAllOnOpen = false,
   }) async {
     if (_refreshing) return;
     _refreshing = true;
@@ -187,9 +190,33 @@ class _CustomerNotificationsScreenState
       _inlineError = '';
     });
     try {
-      final page = await ref
-          .read(customerNotificationRepositoryProvider)
-          .list();
+      final repository = ref.read(customerNotificationRepositoryProvider);
+      var markAllError = '';
+      if (markAllOnOpen) {
+        if (mounted) setState(() => _markingAll = true);
+        try {
+          await repository.markAllRead();
+          ref.invalidate(customerNotificationUnreadCountProvider);
+        } catch (error) {
+          if (!mounted) return;
+          if (await handleCustomerOperationalError(
+            ref: ref,
+            context: context,
+            error: error,
+          )) {
+            return;
+          }
+          if (!mounted) return;
+          markAllError = _notificationErrorMessage(
+            error,
+            context.l10n.notificationsMarkAllFailed,
+          );
+        } finally {
+          if (mounted) setState(() => _markingAll = false);
+        }
+      }
+
+      final page = await repository.list();
       if (!mounted) return;
       setState(() {
         _items
@@ -198,6 +225,7 @@ class _CustomerNotificationsScreenState
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
         _unreadCount = page.unreadCount;
+        _inlineError = markAllError;
       });
       ref.invalidate(customerNotificationUnreadCountProvider);
     } catch (error) {

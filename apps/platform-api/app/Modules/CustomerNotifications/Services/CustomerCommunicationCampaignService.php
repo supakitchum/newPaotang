@@ -59,6 +59,23 @@ class CustomerCommunicationCampaignService
             $builder->where('audience_type', $audience);
         }
 
+        $search = Str::lower(trim((string) ($query['q'] ?? '')));
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $builder->where(function (Builder $query) use ($like): void {
+                $query
+                    ->whereRaw('LOWER(name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(id) LIKE ?', [$like])
+                    ->orWhereRaw("LOWER(COALESCE(notification_id, '')) LIKE ?", [$like])
+                    ->orWhereHas('customer', function (Builder $customerQuery) use ($like): void {
+                        $customerQuery
+                            ->whereRaw("LOWER(COALESCE(name, '')) LIKE ?", [$like])
+                            ->orWhereRaw("LOWER(COALESCE(phone, '')) LIKE ?", [$like])
+                            ->orWhereRaw("LOWER(COALESCE(customer_no, '')) LIKE ?", [$like]);
+                    });
+            });
+        }
+
         $cursor = trim((string) ($query['cursor'] ?? ''));
         if ($cursor !== '') {
             $builder->where('id', '<', $cursor);
@@ -79,8 +96,31 @@ class CustomerCommunicationCampaignService
                 'next_cursor' => $hasMore && $rows->isNotEmpty() ? (string) $rows->last()->id : null,
                 'has_more' => $hasMore,
                 'action_options' => $this->notifications->adminActionOptions(),
+                'campaign_counts' => $this->campaignCounts($tenantId),
                 ...$this->notifications->adminAudienceCounts($tenantId),
             ],
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    public function detail(string $tenantId, string $campaignId): ?array
+    {
+        $campaign = CustomerCommunicationCampaign::query()
+            ->forTenant($tenantId)
+            ->with(['customer', 'creator', 'fullAsset', 'thumbAsset'])
+            ->whereKey($campaignId)
+            ->first();
+
+        if ($campaign === null) return null;
+
+        $notificationId = trim((string) $campaign->notification_id);
+        $stats = $notificationId === ''
+            ? null
+            : ($this->deliveryStats([$notificationId])[$notificationId] ?? null);
+
+        return [
+            ...$this->resource($campaign, $stats),
+            'delivery_breakdown' => $this->deliveryBreakdown($notificationId),
         ];
     }
 
@@ -97,7 +137,8 @@ class CustomerCommunicationCampaignService
         string $idempotencyKey,
     ): array {
         $normalized = $this->normalizePayload($payload);
-        $errors = $this->errors($tenantId, $normalized, $image);
+        [$scheduledAt, $scheduledAtInvalid] = $this->normalizeScheduledAt($normalized);
+        $errors = $this->errors($tenantId, $normalized, $image, $scheduledAt, $scheduledAtInvalid);
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
@@ -116,9 +157,6 @@ class CustomerCommunicationCampaignService
         $assetIds = $image instanceof UploadedFile
             ? $this->storeImageVariants($tenantId, $campaignId, $image, $actor)
             : ['full' => null, 'thumb' => null];
-        $scheduledAt = $normalized['delivery_mode'] === 'scheduled'
-            ? Carbon::parse((string) $normalized['scheduled_at'])
-            : null;
         $status = 'scheduled';
 
         $campaign = CustomerCommunicationCampaign::query()->create([
@@ -363,8 +401,48 @@ class CustomerCommunicationCampaignService
         ];
     }
 
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{0: Carbon|null, 1: bool}
+     */
+    private function normalizeScheduledAt(array $payload): array
+    {
+        if ($payload['delivery_mode'] !== 'scheduled') {
+            return [null, false];
+        }
+
+        $value = (string) $payload['scheduled_at'];
+        if (preg_match('/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})\z/D', $value) !== 1) {
+            return [null, true];
+        }
+
+        try {
+            // Eloquent omits offsets in SQL, so its clock value must match the DB session timezone.
+            $scheduledAt = Carbon::parse($value)->setTimezone($this->persistenceTimezone());
+        } catch (\Throwable) {
+            return [null, true];
+        }
+
+        return [$scheduledAt, false];
+    }
+
+    private function persistenceTimezone(): string
+    {
+        $timezone = DB::connection()->getConfig('timezone');
+
+        return is_string($timezone) && trim($timezone) !== ''
+            ? $timezone
+            : (string) config('app.timezone', 'UTC');
+    }
+
     /** @param array<string, mixed> $payload @return array<string, array<int, string>> */
-    private function errors(string $tenantId, array $payload, ?UploadedFile $image): array
+    private function errors(
+        string $tenantId,
+        array $payload,
+        ?UploadedFile $image,
+        ?Carbon $scheduledAt,
+        bool $scheduledAtInvalid,
+    ): array
     {
         $errors = [];
         if (! in_array($payload['audience_type'], self::AUDIENCES, true)) {
@@ -412,16 +490,15 @@ class CustomerCommunicationCampaignService
         if (! in_array($payload['delivery_mode'], ['now', 'scheduled'], true)) {
             $errors['delivery_mode'][] = 'The delivery mode must be now or scheduled.';
         } elseif ($payload['delivery_mode'] === 'scheduled') {
-            try {
-                $scheduledAt = Carbon::parse($payload['scheduled_at']);
+            if ($scheduledAtInvalid || $scheduledAt === null) {
+                $errors['scheduled_at'][] = 'Enter a valid campaign date and time with a timezone offset.';
+            } else {
                 if ($scheduledAt->lessThanOrEqualTo(now()->addMinute())) {
                     $errors['scheduled_at'][] = 'Schedule the campaign at least one minute in the future.';
                 }
                 if ($scheduledAt->greaterThan(now()->addYear())) {
                     $errors['scheduled_at'][] = 'Campaigns can be scheduled up to one year ahead.';
                 }
-            } catch (\Throwable) {
-                $errors['scheduled_at'][] = 'Enter a valid campaign date and time.';
             }
         }
 
@@ -578,6 +655,87 @@ class CustomerCommunicationCampaignService
         return $stats;
     }
 
+    /** @return array<string, int> */
+    private function campaignCounts(string $tenantId): array
+    {
+        $counts = array_fill_keys(self::STATUSES, 0);
+        $rows = CustomerCommunicationCampaign::query()
+            ->forTenant($tenantId)
+            ->selectRaw('status, COUNT(*) AS aggregate')
+            ->groupBy('status')
+            ->get();
+
+        foreach ($rows as $row) {
+            $counts[(string) $row->status] = (int) $row->aggregate;
+        }
+
+        return [
+            'total' => array_sum($counts),
+            ...$counts,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function deliveryBreakdown(string $notificationId): array
+    {
+        if ($notificationId === '') {
+            return [
+                'statuses' => [],
+                'platforms' => [],
+                'errors' => [],
+                'last_activity_at' => null,
+            ];
+        }
+
+        $statusRows = DB::table('customer_notification_deliveries')
+            ->where('notification_id', $notificationId)
+            ->groupBy('status')
+            ->orderBy('status')
+            ->get(['status', DB::raw('COUNT(*) AS count')]);
+        $platformRows = DB::table('customer_notification_deliveries as d')
+            ->join('customer_push_devices as device', 'device.id', '=', 'd.device_id')
+            ->where('d.notification_id', $notificationId)
+            ->groupBy('device.platform')
+            ->orderBy('device.platform')
+            ->get([
+                'device.platform',
+                DB::raw('COUNT(*) AS total_count'),
+                DB::raw("SUM(CASE WHEN d.status = 'sent' THEN 1 ELSE 0 END) AS sent_count"),
+                DB::raw("SUM(CASE WHEN d.status IN ('queued', 'sending') THEN 1 ELSE 0 END) AS pending_count"),
+                DB::raw("SUM(CASE WHEN d.status IN ('failed', 'skipped') THEN 1 ELSE 0 END) AS failed_count"),
+            ]);
+        $errorRows = DB::table('customer_notification_deliveries')
+            ->where('notification_id', $notificationId)
+            ->whereIn('status', ['failed', 'skipped'])
+            ->whereNotNull('last_error_code')
+            ->where('last_error_code', '<>', '')
+            ->groupBy('last_error_code')
+            ->orderByDesc(DB::raw('COUNT(*)'))
+            ->limit(10)
+            ->get(['last_error_code', DB::raw('COUNT(*) AS count')]);
+
+        return [
+            'statuses' => $statusRows->map(fn (object $row): array => [
+                'status' => (string) $row->status,
+                'count' => (int) $row->count,
+            ])->values()->all(),
+            'platforms' => $platformRows->map(fn (object $row): array => [
+                'platform' => (string) $row->platform,
+                'total_count' => (int) $row->total_count,
+                'sent_count' => (int) $row->sent_count,
+                'pending_count' => (int) $row->pending_count,
+                'failed_count' => (int) $row->failed_count,
+            ])->values()->all(),
+            'errors' => $errorRows->map(fn (object $row): array => [
+                'code' => (string) $row->last_error_code,
+                'count' => (int) $row->count,
+            ])->values()->all(),
+            'last_activity_at' => DB::table('customer_notification_deliveries')
+                ->where('notification_id', $notificationId)
+                ->max('updated_at'),
+        ];
+    }
+
     /** @param array<string, int>|null $stats @return array<string, mixed> */
     private function resource(CustomerCommunicationCampaign $campaign, ?array $stats = null): array
     {
@@ -592,6 +750,7 @@ class CustomerCommunicationCampaignService
         $stats['target_count'] = in_array((string) $campaign->audience_type, self::INSTALLATION_AUDIENCES, true)
             ? (int) ($stats['installation_count'] ?? 0)
             : (int) ($stats['recipient_count'] ?? 0);
+        $stats['unread_count'] = max(0, (int) ($stats['recipient_count'] ?? 0) - (int) ($stats['read_count'] ?? 0));
 
         return [
             'id' => (string) $campaign->id,
@@ -612,6 +771,7 @@ class CustomerCommunicationCampaignService
                 'thumb_url' => PublicUrl::normalizeAssetUrl($campaign->thumbAsset?->public_url),
             ],
             'notification_id' => $campaign->notification_id,
+            'delivery_mode' => $campaign->scheduled_at === null ? 'now' : 'scheduled',
             'scheduled_at' => $campaign->scheduled_at?->toISOString(),
             'published_at' => $campaign->published_at?->toISOString(),
             'cancelled_at' => $campaign->cancelled_at?->toISOString(),

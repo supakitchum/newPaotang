@@ -299,12 +299,29 @@
     </div>
 
     <div v-else class="card custom-card">
-      <div class="card-header flex-wrap gap-3">
+      <div class="card-header flex-wrap gap-3 align-items-start">
         <div>
           <div class="card-title">{{ phrase('Campaign history') }}</div>
           <div class="text-muted fs-12">{{ phrase('Track scheduled campaigns, recipients, reads, and push delivery.') }}</div>
         </div>
-        <div class="ms-auto d-flex align-items-center gap-2">
+        <div class="np-pr-history-filters ms-auto">
+          <div class="input-group input-group-sm np-pr-history-search">
+            <span class="input-group-text"><i class="ri-search-line" /></span>
+            <input v-model="historySearch" class="form-control" :placeholder="phrase('Search campaign, customer, or ID')" @keyup.enter="resetHistory">
+            <button v-if="historySearch" class="btn btn-light" type="button" :title="phrase('Clear search')" @click="clearHistorySearch">
+              <i class="ri-close-line" />
+            </button>
+            <button class="btn btn-primary" type="button" :title="phrase('Search')" @click="resetHistory">
+              <i class="ri-search-line" />
+            </button>
+          </div>
+          <select v-model="historyAudience" class="form-select form-select-sm" :aria-label="phrase('Audience filter')" @change="resetHistory">
+            <option value="">{{ phrase('All audiences') }}</option>
+            <option value="all_customers">{{ phrase('Logged-in customers') }}</option>
+            <option value="all_installations">{{ phrase('All app installations') }}</option>
+            <option value="anonymous_installations">{{ phrase('Installed, not logged in') }}</option>
+            <option value="customer">{{ phrase('One customer') }}</option>
+          </select>
           <select v-model="historyStatus" class="form-select form-select-sm" @change="resetHistory">
             <option value="">{{ phrase('All statuses') }}</option>
             <option value="scheduled">{{ phrase('Scheduled') }}</option>
@@ -318,6 +335,28 @@
         </div>
       </div>
       <div class="card-body">
+        <div class="np-pr-history-summary mb-4">
+          <button type="button" :class="{ active: historyStatus === '' }" @click="applyHistoryStatus('')">
+            <span>{{ phrase('All campaigns') }}</span>
+            <strong>{{ formatNumber(historyCount('total')) }}</strong>
+          </button>
+          <button type="button" :class="{ active: historyStatus === 'scheduled' }" @click="applyHistoryStatus('scheduled')">
+            <span>{{ phrase('Scheduled') }}</span>
+            <strong>{{ formatNumber(historyCount('scheduled')) }}</strong>
+          </button>
+          <button type="button" :class="{ active: historyStatus === 'published' }" @click="applyHistoryStatus('published')">
+            <span>{{ phrase('Published') }}</span>
+            <strong>{{ formatNumber(historyCount('published')) }}</strong>
+          </button>
+          <button type="button" :class="{ active: historyStatus === 'failed' }" @click="applyHistoryStatus('failed')">
+            <span>{{ phrase('Failed') }}</span>
+            <strong>{{ formatNumber(historyCount('failed')) }}</strong>
+          </button>
+          <button type="button" :class="{ active: historyStatus === 'cancelled' }" @click="applyHistoryStatus('cancelled')">
+            <span>{{ phrase('Cancelled') }}</span>
+            <strong>{{ formatNumber(historyCount('cancelled')) }}</strong>
+          </button>
+        </div>
         <AdminDataTable
           :columns="historyColumns"
           :rows="campaigns"
@@ -331,7 +370,7 @@
               <img v-if="row.image?.thumb_url || row.image?.url" :src="row.image.thumb_url || row.image.url" alt="">
               <span v-else class="np-pr-history-icon"><i class="ri-megaphone-line" /></span>
               <div class="min-w-0">
-                <strong class="d-block text-wrap">{{ row.name || localizedText(row.title) }}</strong>
+                <button class="np-pr-history-title" type="button" @click="openCampaignDetail(row)">{{ row.name || localizedText(row.title) }}</button>
                 <small class="d-block text-muted text-wrap">{{ localizedText(row.title) }}</small>
               </div>
             </div>
@@ -352,8 +391,11 @@
           </template>
           <template #cell-actions="{ row }">
             <div class="d-flex justify-content-end gap-1">
-              <button v-if="row.status === 'scheduled'" class="btn btn-sm btn-icon btn-primary-light" type="button" :disabled="mutatingCampaignId === row.id" :title="phrase('Send now')" @click="publishNow(row)">
-                <i class="ri-send-plane-2-line" />
+              <button class="btn btn-sm btn-icon btn-light" type="button" :disabled="loadingCampaignDetail && selectedCampaign?.id === row.id" :title="phrase('View campaign details')" @click="openCampaignDetail(row)">
+                <i class="ri-eye-line" />
+              </button>
+              <button v-if="row.status === 'scheduled' || row.status === 'failed'" class="btn btn-sm btn-icon btn-primary-light" type="button" :disabled="mutatingCampaignId === row.id" :title="phrase(row.status === 'failed' ? 'Retry campaign' : 'Send now')" @click="publishNow(row)">
+                <i :class="row.status === 'failed' ? 'ri-restart-line' : 'ri-send-plane-2-line'" />
               </button>
               <button v-if="row.status === 'scheduled' || row.status === 'failed'" class="btn btn-sm btn-icon btn-danger-light" type="button" :disabled="mutatingCampaignId === row.id" :title="phrase('Cancel campaign')" @click="cancelCampaign(row)">
                 <i class="ri-close-circle-line" />
@@ -389,10 +431,123 @@
         </button>
       </template>
     </AdminModal>
+
+    <AdminModal v-model="campaignDetailOpen" :title="phrase('Campaign details')" size="xl">
+      <AdminLoader v-if="loadingCampaignDetail" :label="phrase('Loading campaign details...')" />
+      <AdminAlert v-else-if="campaignDetailError" :type="alertType(campaignDetailError)" :message="campaignDetailError.message" :details="campaignDetailError.details" />
+      <div v-else-if="selectedCampaign" class="np-pr-detail">
+        <div class="np-pr-detail-heading">
+          <div class="min-w-0">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <h3>{{ selectedCampaign.name || localizedText(selectedCampaign.title) }}</h3>
+              <AdminStatusBadge :status="selectedCampaign.status" :label="phrase(statusLabel(selectedCampaign.status))" />
+            </div>
+            <div class="np-pr-detail-identifiers">
+              <span>{{ phrase('Campaign ID') }}: <code>{{ selectedCampaign.id }}</code></span>
+              <span v-if="selectedCampaign.notification_id">{{ phrase('Notification ID') }}: <code>{{ selectedCampaign.notification_id }}</code></span>
+            </div>
+          </div>
+          <div class="btn-group btn-group-sm" role="group" :aria-label="phrase('Message language')">
+            <button v-for="locale in detailAvailableLocales" :key="locale" class="btn" :class="detailLocale === locale ? 'btn-primary' : 'btn-outline-primary'" type="button" @click="detailLocale = locale">
+              {{ localeLabel(locale) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="np-pr-detail-metrics">
+          <div v-for="metric in campaignDetailMetrics" :key="metric.label">
+            <span><i :class="metric.icon" />{{ phrase(metric.label) }}</span>
+            <strong>{{ formatNumber(metric.value) }}</strong>
+            <small v-if="metric.hint">{{ metric.hint }}</small>
+          </div>
+        </div>
+
+        <div class="row g-4 mt-0">
+          <div class="col-12 col-lg-7">
+            <section class="np-pr-detail-section pt-0 border-0">
+              <div class="np-pr-detail-section-title">
+                <div><h4>{{ phrase('Customer message') }}</h4><p>{{ phrase('The exact campaign content saved for this delivery.') }}</p></div>
+              </div>
+              <div class="np-pr-detail-message">
+                <img v-if="selectedCampaign.image?.url || selectedCampaign.image?.thumb_url" :src="selectedCampaign.image.url || selectedCampaign.image.thumb_url" alt="">
+                <div>
+                  <strong>{{ localizedTextForLocale(selectedCampaign.title, detailLocale) || '-' }}</strong>
+                  <p>{{ localizedTextForLocale(selectedCampaign.body, detailLocale) || '-' }}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="np-pr-detail-section">
+              <div class="np-pr-detail-section-title">
+                <div><h4>{{ phrase('Push delivery by platform') }}</h4><p>{{ phrase('Device-level delivery results reported by the push queue.') }}</p></div>
+                <span v-if="selectedCampaign.delivery_breakdown?.last_activity_at" class="text-muted fs-11">{{ phrase('Last activity') }} {{ formatDateTime(selectedCampaign.delivery_breakdown.last_activity_at) }}</span>
+              </div>
+              <div v-if="selectedCampaign.delivery_breakdown?.platforms?.length" class="table-responsive">
+                <table class="table table-sm align-middle mb-0 np-pr-platform-table">
+                  <thead><tr><th>{{ phrase('Platform') }}</th><th class="text-end">{{ phrase('Devices') }}</th><th class="text-end">{{ phrase('Sent') }}</th><th class="text-end">{{ phrase('Pending') }}</th><th class="text-end">{{ phrase('Failed') }}</th></tr></thead>
+                  <tbody>
+                    <tr v-for="platform in selectedCampaign.delivery_breakdown.platforms" :key="platform.platform">
+                      <td><span class="np-pr-platform"><i :class="platformIcon(platform.platform)" />{{ platformLabel(platform.platform) }}</span></td>
+                      <td class="text-end">{{ formatNumber(platform.total_count) }}</td>
+                      <td class="text-end text-success fw-semibold">{{ formatNumber(platform.sent_count) }}</td>
+                      <td class="text-end text-warning fw-semibold">{{ formatNumber(platform.pending_count) }}</td>
+                      <td class="text-end text-danger fw-semibold">{{ formatNumber(platform.failed_count) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="np-pr-detail-empty"><i class="ri-smartphone-line" /><span>{{ phrase('No push delivery records for this campaign.') }}</span></div>
+              <div v-if="selectedCampaign.delivery_breakdown?.statuses?.length" class="np-pr-delivery-statuses mt-3">
+                <span v-for="status in selectedCampaign.delivery_breakdown.statuses" :key="status.status"><strong>{{ phrase(deliveryStatusLabel(status.status)) }}</strong>{{ formatNumber(status.count) }}</span>
+              </div>
+              <div v-if="selectedCampaign.delivery_breakdown?.errors?.length" class="np-pr-error-summary mt-3">
+                <h5>{{ phrase('Delivery errors') }}</h5>
+                <div v-for="failure in selectedCampaign.delivery_breakdown.errors" :key="failure.code"><code>{{ failure.code }}</code><strong>{{ formatNumber(failure.count) }}</strong></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="col-12 col-lg-5">
+            <section class="np-pr-detail-section pt-0 border-0">
+              <div class="np-pr-detail-section-title"><div><h4>{{ phrase('Campaign setup') }}</h4><p>{{ phrase('Audience, destination, ownership, and schedule.') }}</p></div></div>
+              <dl class="np-pr-detail-list">
+                <div><dt>{{ phrase('Audience') }}</dt><dd>{{ campaignAudience(selectedCampaign) }}</dd></div>
+                <div v-if="selectedCampaign.customer"><dt>{{ phrase('Customer') }}</dt><dd>{{ customerSummary(selectedCampaign.customer) }}</dd></div>
+                <div><dt>{{ phrase('Destination') }}</dt><dd>{{ campaignDestination(selectedCampaign) }}</dd></div>
+                <div><dt>{{ phrase('Delivery mode') }}</dt><dd>{{ phrase(selectedCampaign.delivery_mode === 'scheduled' ? 'Scheduled' : 'Send now') }}</dd></div>
+                <div><dt>{{ phrase('Created by') }}</dt><dd>{{ campaignCreator(selectedCampaign) }}</dd></div>
+                <div v-if="selectedCampaign.last_error_code"><dt>{{ phrase('Campaign error') }}</dt><dd><code>{{ selectedCampaign.last_error_code }}</code></dd></div>
+              </dl>
+            </section>
+
+            <section class="np-pr-detail-section">
+              <div class="np-pr-detail-section-title"><div><h4>{{ phrase('Campaign timeline') }}</h4><p>{{ phrase('Important timestamps for auditing this campaign.') }}</p></div></div>
+              <ol class="np-pr-timeline">
+                <li v-for="entry in campaignTimeline(selectedCampaign)" :key="entry.label">
+                  <span><i :class="entry.icon" /></span>
+                  <div><strong>{{ phrase(entry.label) }}</strong><small>{{ formatDateTime(entry.value) }}</small></div>
+                </li>
+              </ol>
+            </section>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <button class="btn btn-light btn-wave" type="button" @click="campaignDetailOpen = false">{{ phrase('Close') }}</button>
+        <button v-if="selectedCampaign && (selectedCampaign.status === 'scheduled' || selectedCampaign.status === 'failed')" class="btn btn-primary btn-wave" type="button" :disabled="mutatingCampaignId === selectedCampaign.id" @click="publishNow(selectedCampaign)">
+          <i :class="selectedCampaign.status === 'failed' ? 'ri-restart-line' : 'ri-send-plane-2-line'" class="me-1" />{{ phrase(selectedCampaign.status === 'failed' ? 'Retry campaign' : 'Send now') }}
+        </button>
+        <button v-if="selectedCampaign && (selectedCampaign.status === 'scheduled' || selectedCampaign.status === 'failed')" class="btn btn-danger-light btn-wave" type="button" :disabled="mutatingCampaignId === selectedCampaign.id" @click="cancelCampaign(selectedCampaign)">
+          <i class="ri-close-circle-line me-1" />{{ phrase('Cancel campaign') }}
+        </button>
+      </template>
+    </AdminModal>
   </div>
 </template>
 
 <script setup lang="ts">
+import { dateTimeLocalToIso, dateToLocalInputValue } from '~/utils/campaignSchedule.mjs'
+
 definePageMeta({ layout: 'admin' })
 
 type AnyRecord = Record<string, any>
@@ -433,9 +588,16 @@ const previewMode = ref<'inbox' | 'push'>('inbox')
 const actionOptions = ref<ActionOption[]>([])
 const campaigns = ref<AnyRecord[]>([])
 const historyStatus = ref('')
+const historyAudience = ref('')
+const historySearch = ref('')
 const historyMeta = ref<AnyRecord>({})
 const historyPage = ref({ index: 0, cursors: [''] })
 const confirmationOpen = ref(false)
+const campaignDetailOpen = ref(false)
+const loadingCampaignDetail = ref(false)
+const campaignDetailError = ref<any>(null)
+const selectedCampaign = ref<AnyRecord | null>(null)
+const detailLocale = ref<LocaleKey>('th-TH')
 const fieldErrors = ref<Record<string, string[]>>({})
 const imageInput = ref<HTMLInputElement | null>(null)
 const imageFile = ref<File | null>(null)
@@ -448,7 +610,7 @@ const loading = computed(() => loadingCustomers.value || loadingCampaigns.value 
 const selectedAction = computed(() => actionOptions.value.find(option => option.key === form.action_key) || actionOptions.value[0] || null)
 const isInstallationAudience = computed(() => ['all_installations', 'anonymous_installations'].includes(form.audience_type))
 const availableActionOptions = computed(() => actionOptions.value.filter(option => form.audience_type === 'customer' || !option.entity_required || ['activity', 'news'].includes(option.key)))
-const minimumSchedule = computed(() => localDateTime(new Date(Date.now() + 60_000)))
+const minimumSchedule = computed(() => dateToLocalInputValue(new Date(Date.now() + 60_000)))
 const canSubmit = computed(() => Boolean(
   tenantId.value
   && localizedDraft(form.title)
@@ -472,6 +634,36 @@ const deliverySummary = computed(() => form.delivery_mode === 'now' ? phrase('Se
 const destinationLabel = computed(() => {
   const label = phrase(selectedAction.value?.label || 'No destination')
   return form.action_entity_id.trim() ? `${label} · ${form.action_entity_id.trim()}` : label
+})
+const detailAvailableLocales = computed<LocaleKey[]>(() => {
+  const campaign = selectedCampaign.value
+  if (!campaign) return ['th-TH']
+  const locales = localeOptions
+    .map(option => option.value)
+    .filter(locale => localizedTextForLocale(campaign.title, locale) || localizedTextForLocale(campaign.body, locale))
+  return locales.length ? locales : ['th-TH']
+})
+const campaignDetailMetrics = computed(() => {
+  const campaign = selectedCampaign.value
+  if (!campaign) return []
+  const stats = campaign.stats || {}
+  const installationAudience = ['all_installations', 'anonymous_installations'].includes(String(campaign.audience_type))
+  const metrics = [
+    { label: 'Target audience', value: stats.target_count || 0, icon: 'ri-focus-3-line', hint: phrase(installationAudience ? 'devices' : 'recipients') },
+  ]
+  if (!installationAudience) {
+    metrics.push(
+      { label: 'Inbox recipients', value: stats.recipient_count || 0, icon: 'ri-inbox-archive-line', hint: '' },
+      { label: 'Read', value: stats.read_count || 0, icon: 'ri-mail-open-line', hint: stats.recipient_count ? `${formatPercent(stats.read_count, stats.recipient_count)} ${phrase('read rate')}` : '' },
+      { label: 'Unread', value: stats.unread_count || 0, icon: 'ri-mail-unread-line', hint: '' },
+    )
+  }
+  metrics.push(
+    { label: 'Push sent', value: stats.sent_count || 0, icon: 'ri-send-plane-line', hint: stats.installation_count ? `${formatPercent(stats.sent_count, stats.installation_count)} ${phrase('send rate')}` : '' },
+    { label: 'Push pending', value: stats.pending_count || 0, icon: 'ri-time-line', hint: '' },
+    { label: 'Failed', value: stats.failed_count || 0, icon: 'ri-error-warning-line', hint: '' },
+  )
+  return metrics
 })
 
 watch(customerSearch, () => {
@@ -538,7 +730,13 @@ async function loadCampaigns(cursor = '') {
   try {
     const response: AnyRecord = await api.apiFetch('/admin/tenant/customer-notifications/campaigns', {
       scope: 'tenant', tenantId: tenantId.value,
-      query: { limit: 20, cursor: cursor || undefined, status: historyStatus.value || undefined },
+      query: {
+        limit: 20,
+        cursor: cursor || undefined,
+        status: historyStatus.value || undefined,
+        audience_type: historyAudience.value || undefined,
+        q: historySearch.value.trim() || undefined,
+      },
     })
     campaigns.value = Array.isArray(response.data) ? response.data : []
     historyMeta.value = response.meta || {}
@@ -627,7 +825,7 @@ async function submitCampaign() {
       action_key: form.action_key,
       action_entity_id: selectedAction.value?.entity_required ? form.action_entity_id.trim() : null,
       delivery_mode: form.delivery_mode,
-      scheduled_at: form.delivery_mode === 'scheduled' && form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+      scheduled_at: form.delivery_mode === 'scheduled' && form.scheduled_at ? dateTimeLocalToIso(form.scheduled_at) : null,
     }
     const body = new FormData()
     body.append('payload', JSON.stringify(payload))
@@ -662,11 +860,13 @@ async function mutateCampaign(id: string, action: 'publish' | 'cancel', message:
   mutatingCampaignId.value = id
   error.value = null
   try {
-    await api.apiFetch(`/admin/tenant/customer-notifications/campaigns/${encodeURIComponent(id)}/${action}`, {
+    const updated: AnyRecord = await api.apiFetch(`/admin/tenant/customer-notifications/campaigns/${encodeURIComponent(id)}/${action}`, {
       method: 'POST', scope: 'tenant', tenantId: tenantId.value, idempotencyKey: api.idempotencyKey(), body: {}, successMessage: false,
     })
+    if (selectedCampaign.value?.id === id) selectedCampaign.value = { ...selectedCampaign.value, ...updated }
     successMessage.value = message
     await resetHistory()
+    if (campaignDetailOpen.value && selectedCampaign.value?.id === id) await loadCampaignDetail(id)
   } catch (err: any) {
     error.value = err
   } finally {
@@ -693,6 +893,40 @@ async function resetHistory() {
   historyPage.value = { index: 0, cursors: [''] }
   await loadCampaigns()
 }
+async function openCampaignDetail(campaign: AnyRecord) {
+  selectedCampaign.value = campaign
+  campaignDetailOpen.value = true
+  campaignDetailError.value = null
+  await loadCampaignDetail(String(campaign.id || ''))
+}
+async function loadCampaignDetail(id: string) {
+  if (!tenantId.value || !id) return
+  loadingCampaignDetail.value = true
+  campaignDetailError.value = null
+  try {
+    const response: AnyRecord = await api.apiFetch(`/admin/tenant/customer-notifications/campaigns/${encodeURIComponent(id)}`, {
+      scope: 'tenant', tenantId: tenantId.value,
+    })
+    selectedCampaign.value = response
+    const preferred: LocaleKey = String(adminLocale.locale.value).toLowerCase().startsWith('en') ? 'en-US' : 'th-TH'
+    detailLocale.value = localizedTextForLocale(response.title, preferred) || localizedTextForLocale(response.body, preferred)
+      ? preferred
+      : (detailAvailableLocales.value[0] || 'th-TH')
+  } catch (err: any) {
+    campaignDetailError.value = err
+  } finally {
+    loadingCampaignDetail.value = false
+  }
+}
+function clearHistorySearch() {
+  historySearch.value = ''
+  void resetHistory()
+}
+function applyHistoryStatus(status: string) {
+  if (historyStatus.value === status && status !== '') return
+  historyStatus.value = status
+  void resetHistory()
+}
 function resetForm() {
   Object.assign(form, defaultForm())
   clearCustomer()
@@ -706,6 +940,12 @@ function resetState() {
   actionOptions.value = []
   historyMeta.value = {}
   historyPage.value = { index: 0, cursors: [''] }
+  historyStatus.value = ''
+  historyAudience.value = ''
+  historySearch.value = ''
+  campaignDetailOpen.value = false
+  campaignDetailError.value = null
+  selectedCampaign.value = null
   activeCustomerCount.value = 0
   activeInstallationCount.value = 0
   anonymousInstallationCount.value = 0
@@ -729,6 +969,11 @@ function localizedDraft(value: Record<LocaleKey, string>) {
   return value[preferred] || value['th-TH'] || value['en-US'] || ''
 }
 function localizedText(value: unknown) { return value && typeof value === 'object' ? localizedDraft(value as Record<LocaleKey, string>) : String(value || '') }
+function localizedTextForLocale(value: unknown, locale: LocaleKey) {
+  if (!value || typeof value !== 'object') return String(value || '')
+  const localized = value as Record<LocaleKey, string>
+  return String(localized[locale] || localized['th-TH'] || localized['en-US'] || '')
+}
 function localeLabel(locale: LocaleKey) { return locale === 'th-TH' ? phrase('Thai') : phrase('English') }
 function normalizeActionOption(value: AnyRecord): ActionOption { return { key: String(value?.key || ''), label: String(value?.label || value?.key || ''), entity_required: Boolean(value?.entity_required) } }
 function customerSummary(customer: AnyRecord) { return [customer.customer_no, customer.phone, customer.email].filter(Boolean).join(' · ') || '-' }
@@ -742,20 +987,48 @@ function campaignAudience(row: AnyRecord) {
   return labels[row.audience_type] ? phrase(labels[row.audience_type]) : (row.customer?.name || row.customer?.phone || phrase('One customer'))
 }
 function campaignAudienceUnit(row: AnyRecord) { return ['all_installations', 'anonymous_installations'].includes(String(row.audience_type)) ? 'devices' : 'recipients' }
+function campaignDestination(row: AnyRecord) {
+  const actionKey = String(row.action?.key || 'none')
+  const option = actionOptions.value.find(item => item.key === actionKey)
+  const label = phrase(option?.label || (actionKey === 'none' ? 'No destination' : actionKey))
+  return row.action?.entity_id ? `${label} · ${row.action.entity_id}` : label
+}
+function campaignCreator(row: AnyRecord) { return row.creator?.name || row.creator?.username || phrase('System') }
+function campaignTimeline(row: AnyRecord) {
+  return [
+    { label: 'Created', value: row.created_at, icon: 'ri-add-circle-line' },
+    row.scheduled_at ? { label: 'Scheduled for', value: row.scheduled_at, icon: 'ri-calendar-schedule-line' } : null,
+    row.published_at ? { label: 'Published at', value: row.published_at, icon: 'ri-send-plane-line' } : null,
+    row.cancelled_at ? { label: 'Cancelled at', value: row.cancelled_at, icon: 'ri-close-circle-line' } : null,
+    row.updated_at && row.updated_at !== row.created_at ? { label: 'Last updated', value: row.updated_at, icon: 'ri-refresh-line' } : null,
+  ].filter(Boolean) as Array<{ label: string, value: unknown, icon: string }>
+}
+function historyCount(status: string) { return Number(historyMeta.value?.campaign_counts?.[status] || 0) }
+function platformLabel(platform: unknown) {
+  const value = String(platform || '').toLowerCase()
+  return ({ ios: 'iOS', android: 'Android', web: phrase('Web') } as Record<string, string>)[value] || String(platform || phrase('Unknown'))
+}
+function platformIcon(platform: unknown) {
+  return ({ ios: 'ri-apple-line', android: 'ri-android-line', web: 'ri-global-line' } as Record<string, string>)[String(platform || '').toLowerCase()] || 'ri-smartphone-line'
+}
+function deliveryStatusLabel(status: unknown) {
+  return ({ queued: 'Queued', sending: 'Sending', sent: 'Sent', failed: 'Failed', skipped: 'Skipped' } as Record<string, string>)[String(status)] || String(status || '-')
+}
 function statusLabel(status: unknown) { return ({ scheduled: 'Scheduled', publishing: 'Publishing', published: 'Published', failed: 'Failed', cancelled: 'Cancelled' } as AnyRecord)[String(status)] || String(status || '-') }
 function campaignTiming(row: AnyRecord) { return row.status === 'scheduled' ? formatDateTime(row.scheduled_at) : formatDateTime(row.published_at || row.created_at) }
 function formatNumber(value: unknown) { return new Intl.NumberFormat(adminLocale.locale.value).format(Number(value || 0)) }
+function formatPercent(value: unknown, total: unknown) {
+  const denominator = Number(total || 0)
+  if (denominator <= 0) return '0%'
+  return new Intl.NumberFormat(adminLocale.locale.value, { style: 'percent', maximumFractionDigits: 1 }).format(Number(value || 0) / denominator)
+}
 function formatDateTime(value: unknown) {
   if (!value) return '-'
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
   return new Intl.DateTimeFormat(adminLocale.locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
-function localDateTime(date: Date) {
-  const offset = date.getTimezoneOffset()
-  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16)
-}
-function defaultSchedule() { return localDateTime(new Date(Date.now() + 15 * 60_000)) }
+function defaultSchedule() { return dateToLocalInputValue(new Date(Date.now() + 15 * 60_000)) }
 function fieldError(key: string) { return fieldErrors.value[key]?.[0] || '' }
 function invalidClass(key: string) { return { 'is-invalid': Boolean(fieldError(key)) } }
 function normalizeFieldErrors(err: AnyRecord) {
@@ -827,10 +1100,64 @@ function alertType(err: AnyRecord) { return [403, 409, 422].includes(Number(err?
 .np-pr-summary > div:last-child { border-bottom: 0; }
 .np-pr-summary dt { color: var(--text-muted); font-size: .75rem; font-weight: 500; }
 .np-pr-summary dd { margin: 0; font-size: .78rem; font-weight: 600; text-align: right; }
+.np-pr-history-filters { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr) minmax(130px, .8fr) auto; gap: .5rem; width: min(100%, 760px); }
+.np-pr-history-search { min-width: 0; }
+.np-pr-history-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--default-border); border-radius: 6px; }
+.np-pr-history-summary button { display: flex; min-width: 0; min-height: 70px; align-items: flex-start; justify-content: center; flex-direction: column; gap: .15rem; padding: .75rem 1rem; border: 0; border-right: 1px solid var(--default-border); background: var(--custom-white); color: var(--text-muted); text-align: left; }
+.np-pr-history-summary button:last-child { border-right: 0; }
+.np-pr-history-summary button strong { color: var(--default-text-color); font-size: 1.25rem; line-height: 1.1; }
+.np-pr-history-summary button span { overflow: hidden; width: 100%; font-size: .7rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.np-pr-history-summary button.active { background: rgba(var(--primary-rgb), .07); box-shadow: inset 0 3px 0 rgb(var(--primary-rgb)); }
+.np-pr-history-summary button.active span, .np-pr-history-summary button.active strong { color: rgb(var(--primary-rgb)); }
 .np-pr-history-campaign { display: flex; align-items: center; gap: .75rem; min-width: 220px; }
 .np-pr-history-campaign img, .np-pr-history-icon { flex: 0 0 54px; width: 54px; height: 42px; border-radius: 5px; object-fit: cover; }
 .np-pr-history-icon { display: grid; place-items: center; background: rgba(var(--primary-rgb), .1); color: rgb(var(--primary-rgb)); font-size: 1.1rem; }
+.np-pr-history-title { display: block; max-width: 260px; overflow: hidden; padding: 0; border: 0; background: transparent; color: var(--default-text-color); font-size: .8rem; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.np-pr-history-title:hover { color: rgb(var(--primary-rgb)); }
 .np-pr-stat-line { display: flex; justify-content: space-between; gap: 1rem; min-width: 120px; font-size: .72rem; }
+.np-pr-detail { color: var(--default-text-color); }
+.np-pr-detail-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--default-border); }
+.np-pr-detail-heading h3 { overflow-wrap: anywhere; margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: 0; }
+.np-pr-detail-identifiers { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .4rem; color: var(--text-muted); font-size: .68rem; }
+.np-pr-detail-identifiers code { overflow-wrap: anywhere; color: rgb(var(--primary-rgb)); }
+.np-pr-detail-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: .65rem; padding: 1rem 0; }
+.np-pr-detail-metrics > div { display: flex; min-height: 84px; justify-content: center; flex-direction: column; padding: .75rem; border: 1px solid var(--default-border); border-radius: 6px; background: var(--custom-white); }
+.np-pr-detail-metrics span { display: flex; align-items: center; gap: .35rem; color: var(--text-muted); font-size: .68rem; font-weight: 600; }
+.np-pr-detail-metrics span i { color: rgb(var(--primary-rgb)); font-size: .9rem; }
+.np-pr-detail-metrics strong { margin-top: .25rem; font-size: 1.15rem; line-height: 1.1; }
+.np-pr-detail-metrics small { margin-top: .2rem; color: var(--text-muted); font-size: .62rem; }
+.np-pr-detail-section { padding: 1.15rem 0; border-top: 1px solid var(--default-border); }
+.np-pr-detail-section-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
+.np-pr-detail-section-title h4 { margin: 0; font-size: .88rem; font-weight: 700; letter-spacing: 0; }
+.np-pr-detail-section-title p { margin: .15rem 0 0; color: var(--text-muted); font-size: .68rem; }
+.np-pr-detail-message { overflow: hidden; border: 1px solid var(--default-border); border-radius: 6px; background: var(--custom-white); }
+.np-pr-detail-message > img { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+.np-pr-detail-message > div { padding: 1rem; }
+.np-pr-detail-message strong { display: block; font-size: .95rem; }
+.np-pr-detail-message p { margin: .35rem 0 0; color: var(--text-muted); font-size: .78rem; line-height: 1.6; white-space: pre-wrap; }
+.np-pr-platform-table { font-size: .73rem; }
+.np-pr-platform { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; }
+.np-pr-platform i { color: rgb(var(--primary-rgb)); font-size: 1rem; }
+.np-pr-detail-empty { display: flex; min-height: 110px; align-items: center; justify-content: center; flex-direction: column; gap: .35rem; border: 1px dashed var(--default-border); border-radius: 6px; color: var(--text-muted); font-size: .72rem; text-align: center; }
+.np-pr-detail-empty i { font-size: 1.4rem; }
+.np-pr-delivery-statuses { display: flex; flex-wrap: wrap; gap: .4rem; }
+.np-pr-delivery-statuses span { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .55rem; border: 1px solid var(--default-border); border-radius: 4px; color: var(--text-muted); font-size: .68rem; }
+.np-pr-delivery-statuses strong { color: var(--default-text-color); }
+.np-pr-error-summary { padding: .75rem; border-left: 3px solid rgb(var(--danger-rgb)); background: rgba(var(--danger-rgb), .05); }
+.np-pr-error-summary h5 { margin: 0 0 .4rem; font-size: .75rem; font-weight: 700; }
+.np-pr-error-summary > div { display: flex; justify-content: space-between; gap: 1rem; padding: .25rem 0; font-size: .68rem; }
+.np-pr-error-summary code { overflow-wrap: anywhere; }
+.np-pr-detail-list { margin: 0; }
+.np-pr-detail-list > div { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr); gap: 1rem; padding: .65rem 0; border-bottom: 1px solid var(--default-border); }
+.np-pr-detail-list dt { color: var(--text-muted); font-size: .7rem; font-weight: 500; }
+.np-pr-detail-list dd { overflow-wrap: anywhere; margin: 0; font-size: .73rem; font-weight: 600; text-align: right; }
+.np-pr-timeline { position: relative; margin: 0; padding: 0; list-style: none; }
+.np-pr-timeline::before { position: absolute; top: 18px; bottom: 18px; left: 15px; width: 1px; background: var(--default-border); content: ''; }
+.np-pr-timeline li { position: relative; display: grid; grid-template-columns: 31px minmax(0, 1fr); align-items: center; gap: .65rem; padding: .45rem 0; }
+.np-pr-timeline li > span { z-index: 1; display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; background: rgba(var(--primary-rgb), .1); color: rgb(var(--primary-rgb)); }
+.np-pr-timeline li > div { display: flex; min-width: 0; justify-content: space-between; gap: .75rem; }
+.np-pr-timeline strong { font-size: .72rem; }
+.np-pr-timeline small { color: var(--text-muted); font-size: .65rem; text-align: right; }
 .np-pr-confirmation > div { display: flex; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid var(--default-border); }
 .np-pr-confirmation span { color: var(--text-muted); }
 .np-pr-confirmation strong { text-align: right; }
@@ -846,5 +1173,17 @@ function alertType(err: AnyRecord) { return [403, 409, 422].includes(Number(err?
   .np-pr-section-heading { flex-wrap: wrap; }
   .np-pr-section-heading .btn-group { margin-left: 2.5rem !important; }
   .np-pr-preview-card { position: static; }
+  .np-pr-history-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); width: 100%; }
+  .np-pr-history-search { grid-column: 1 / -1; }
+  .np-pr-history-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .np-pr-history-summary button { border-bottom: 1px solid var(--default-border); }
+  .np-pr-history-summary button:nth-child(2n) { border-right: 0; }
+  .np-pr-history-summary button:last-child { grid-column: 1 / -1; border-bottom: 0; }
+  .np-pr-detail-heading, .np-pr-detail-section-title { align-items: stretch; flex-direction: column; }
+  .np-pr-detail-heading .btn-group { align-self: flex-start; }
+  .np-pr-detail-list > div { grid-template-columns: 1fr; gap: .2rem; }
+  .np-pr-detail-list dd { text-align: left; }
+  .np-pr-timeline li > div { flex-direction: column; gap: .1rem; }
+  .np-pr-timeline small { text-align: left; }
 }
 </style>

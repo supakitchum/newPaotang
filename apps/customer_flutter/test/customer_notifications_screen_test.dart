@@ -18,6 +18,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets('opening inbox from the bell marks all before loading rows', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    final repository = _InboxRepository(
+      listResponses: [
+        () async {
+          calls.add('list');
+          return _page([
+            _item(
+              'read-on-open',
+              'อ่านจากกระดิ่งแล้ว',
+              isRead: true,
+              readAt: DateTime(2026, 8, 13, 14),
+            ),
+          ], unreadCount: 0);
+        },
+      ],
+      markAllReadHandler: () async {
+        calls.add('mark-all');
+        return 0;
+      },
+    );
+
+    await _pumpInbox(tester, repository, markAllOnOpen: true);
+    await tester.pumpAndSettle();
+
+    expect(calls, ['mark-all', 'list']);
+    expect(repository.markAllReadCalls, 1);
+    expect(find.text('อ่านจากกระดิ่งแล้ว'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(
+            find.byKey(const ValueKey('customer-notification-read-all')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
   testWidgets('realtime refresh is replayed after the initial request', (
     tester,
   ) async {
@@ -210,14 +250,16 @@ void main() {
 
 Future<_InboxHarness> _pumpInbox(
   WidgetTester tester,
-  CustomerNotificationRepository repository,
-) async {
+  CustomerNotificationRepository repository, {
+  bool markAllOnOpen = false,
+}) async {
   final router = GoRouter(
     initialLocation: '/notifications',
     routes: [
       GoRoute(
         path: '/notifications',
-        builder: (_, __) => const CustomerNotificationsScreen(),
+        builder: (_, __) =>
+            CustomerNotificationsScreen(markAllOnOpen: markAllOnOpen),
       ),
       GoRoute(
         path: '/',

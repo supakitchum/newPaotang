@@ -3765,7 +3765,7 @@ void main() {
   test('topup bank account maps legacy bank and account field variants', () {
     final legacy = TopupOverview.fromJson({
       'bank': {
-        'bank': {'bank_name': 'ธนาคารกรุงไทย'},
+        'bank': {'code': 'ktb', 'bank_name': 'ธนาคารกรุงไทย'},
         'account_name': 'บริษัท ดี จำกัด',
         'account_number': '006123456789',
       },
@@ -3782,6 +3782,7 @@ void main() {
     });
 
     expect(legacy.bank.bankName, 'ธนาคารกรุงไทย');
+    expect(legacy.bank.bankCode, 'ktb');
     expect(legacy.bank.accountName, 'บริษัท ดี จำกัด');
     expect(legacy.bank.accountNumber, '006123456789');
     expect(legacy.bank.isConfigured, isTrue);

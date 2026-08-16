@@ -26,6 +26,7 @@ import '../../../features/lottery/presentation/lottery_screens.dart'
         reservationRemainingDuration;
 import '../../../features/lottery/data/lottery_models.dart';
 import '../../../features/lottery/data/lottery_repository.dart';
+import '../../../features/lottery/data/customer_revenue_cache.dart';
 import '../../../features/news/data/news_models.dart';
 import '../../../features/news/data/news_repository.dart';
 import '../../../features/news/presentation/news_card.dart';
@@ -44,6 +45,7 @@ import '../../../shared/widgets/flexible_image.dart';
 
 final _homeCartProvider = FutureProvider.autoDispose<LotteryCart>((ref) async {
   ref.keepForCustomerNavigation();
+  ref.watch(cartRealtimeTickProvider);
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired) {
     return LotteryCart.empty();

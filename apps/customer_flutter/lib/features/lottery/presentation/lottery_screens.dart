@@ -33,10 +33,10 @@ import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/flexible_image.dart';
 import '../../../shared/widgets/pin_confirmation_step.dart';
+import '../data/customer_revenue_cache.dart';
 import '../data/lottery_models.dart';
 import '../data/lottery_repository.dart';
 import 'checkout_payment_method_provider.dart';
-import 'customer_revenue_realtime_monitor.dart';
 import 'lottery_digit_input_row.dart';
 import 'lottery_navigation.dart';
 import 'lottery_stock_realtime_monitor.dart';
@@ -1488,6 +1488,7 @@ class CheckoutPendingPaymentScreen extends ConsumerStatefulWidget {
 class _CheckoutPendingPaymentScreenState
     extends ConsumerState<CheckoutPendingPaymentScreen> {
   String _noticeMessage = '';
+  String _handledPaidOrderId = '';
 
   @override
   Widget build(BuildContext context) {
@@ -1518,11 +1519,19 @@ class _CheckoutPendingPaymentScreenState
         data: (item) {
           if (item != null && _checkoutOrderPaid(item)) {
             final successOrderId = item.id.trim().isNotEmpty ? item.id : id;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) {
+            if (_handledPaidOrderId != successOrderId) {
+              _handledPaidOrderId = successOrderId;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                ref
+                    .read(customerRevenueCacheProvider)
+                    .orderChanged(
+                      orderIds: [successOrderId],
+                      invalidateOrderDetails: false,
+                    );
                 context.go(checkoutSuccessPath(successOrderId));
-              }
-            });
+              });
+            }
             return _LotteryDockedPage(
               children: [
                 _LoadingMessageCard(
@@ -2230,6 +2239,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (!mounted) return;
       ref.read(successReceiptFallbackOrderProvider.notifier).state =
           successReceiptFallbackFromCheckout(order: order, cart: _cart);
+      ref
+          .read(customerRevenueCacheProvider)
+          .orderChanged(
+            orderIds: [order.id],
+            settlementChanged:
+                paymentMethod != checkoutPaymentMethodExternalPayment,
+          );
       if (paymentMethod == checkoutPaymentMethodExternalPayment) {
         await _openExternalPayment(order);
         if (!mounted) return;
@@ -5844,14 +5860,19 @@ LotteryDigitInputStyle _lotteryDigitBoxesStyle(BuildContext context) {
 }
 
 ButtonStyle _lotteryTextLinkButtonStyle(BuildContext context) {
-  final primary = Theme.of(context).colorScheme.primary;
+  final theme = Theme.of(context);
+  final primary = theme.colorScheme.primary;
   return TextButton.styleFrom(
     foregroundColor: AppTheme.primaryLink(primary),
     minimumSize: const Size(0, 36),
     padding: EdgeInsets.zero,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     visualDensity: VisualDensity.compact,
-    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+    textStyle: theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      letterSpacing: 0,
+    ),
   ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
 }
 
@@ -5859,7 +5880,8 @@ ButtonStyle _lotteryOutlinePillButtonStyle(
   BuildContext context, {
   bool enabled = true,
 }) {
-  final primary = Theme.of(context).colorScheme.primary;
+  final theme = Theme.of(context);
+  final primary = theme.colorScheme.primary;
   final outlineText = AppTheme.primaryOutlineText(primary);
   final outlineBorder = AppTheme.primaryOutlineBorder(primary);
   return OutlinedButton.styleFrom(
@@ -5875,7 +5897,11 @@ ButtonStyle _lotteryOutlinePillButtonStyle(
     side: BorderSide(
       color: enabled ? outlineBorder : AppTheme.appOutlinePillDisabledBorder,
     ),
-    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+    textStyle: theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      letterSpacing: 0,
+    ),
   ).copyWith(
     overlayColor: const WidgetStatePropertyAll(Colors.transparent),
     backgroundColor: WidgetStateProperty.resolveWith((states) {

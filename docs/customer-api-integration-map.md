@@ -669,16 +669,23 @@ CustomerNotification.image_url/image_thumb_url -> fixed-ratio inbox campaign med
   through `POST /customer/notification-devices` after login/PIN unlock, and
   calls `POST /customer/notification-devices/{installation_id}/detach` during
   explicit logout without deleting the FCM token.
-- `delivery_mode=scheduled` stores an ISO-8601 time and the scheduler publishes
-  due campaigns once through campaign and notification dedupe keys. Send-now,
-  publish, and cancel writes require an `Idempotency-Key`.
+- `delivery_mode=scheduled` requires an RFC 3339 instant with an explicit `Z`
+  or `+/-HH:MM` offset. The API preserves that instant while aligning the SQL
+  clock value to the configured database-session timezone, then returns
+  canonical UTC. The scheduler publishes due campaigns once through campaign
+  and notification dedupe keys. Send-now, publish, and cancel writes require an
+  `Idempotency-Key`.
 - Customer inbox resources expose `image_url` and `image_thumb_url`; native FCM
   payloads use the same localized title/body and include the full image URL for
   rich notification presentation.
 - The BO composer previews both the customer inbox card and native push layout;
   installation audiences show push preview only. Campaign history reports the
   authoritative target/device or recipient count plus read, sent, pending, and
-  failed counts.
+  failed counts. History supports campaign/customer/ID search plus audience and
+  status filters. `GET /admin/tenant/customer-notifications/campaigns/{id}` is
+  tenant-scoped and returns the saved message, ownership/timeline fields, Inbox
+  performance, Push status/platform aggregates, and delivery error counts for
+  the campaign detail view.
 
 ## Required Adapter Behavior
 

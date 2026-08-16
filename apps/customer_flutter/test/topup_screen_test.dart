@@ -15,6 +15,7 @@ import 'package:customer_flutter/shared/services/receipt_export_service.dart';
 import 'package:customer_flutter/shared/widgets/customer_gradient_button.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -473,6 +474,7 @@ void main() {
       tester,
       TopupOverview(
         bank: const TopupBankAccount(
+          bankCode: 'kbank',
           bankName: 'ธนาคารทดสอบ',
           accountName: 'ร้านทดสอบ',
           accountNumber: '123-4-56789-0',
@@ -520,6 +522,38 @@ void main() {
     expect(find.text('ยอดที่ต้องชำระ'), findsOneWidget);
     expect(find.text('500 บาท'), findsOneWidget);
     expect(find.text('ธนาคารทดสอบ'), findsOneWidget);
+    expect(find.byKey(const ValueKey('topup-bank-logo-kbank')), findsOneWidget);
+    expect(find.text('ชื่อบัญชี'), findsOneWidget);
+    expect(find.text('เลขที่บัญชี'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topup-bank-copy-account')),
+      findsOneWidget,
+    );
+    String? copiedAccountNumber;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedAccountNumber = (call.arguments as Map<Object?, Object?>)['text']
+              ?.toString();
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('topup-bank-copy-account')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topup-bank-copy-account')));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(copiedAccountNumber, '123-4-56789-0');
+    expect(find.text('คัดลอกแล้ว'), findsOneWidget);
     expect(find.text('วันเวลาที่โอน'), findsOneWidget);
     final transferTimeButton = find.ancestor(
       of: find.byIcon(Icons.schedule),
@@ -1432,9 +1466,7 @@ void main() {
     expect(find.text('แอดมินกำลังตรวจสอบหลักฐานการโอนเงิน'), findsOneWidget);
   });
 
-  testWidgets('successful QR payment becomes transaction detail', (
-    tester,
-  ) async {
+  testWidgets('approved QR payment returns to the wallet', (tester) async {
     final repository = _DetailTopupRepository(
       const TopupRequestItem(
         id: 'topup_paid_1',
@@ -1454,11 +1486,30 @@ void main() {
         paymentExpiresInSeconds: 0,
       ),
     );
+    final router = GoRouter(
+      initialLocation: '/topup/topup_paid_1?back=/my-wallet',
+      routes: [
+        GoRoute(
+          path: '/topup/:topupId',
+          builder: (context, state) => TopupScreen(
+            detailTopupId: state.pathParameters['topupId'],
+            backPath: safeTopupDetailBackPath(
+              state.uri.queryParameters['back'],
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/my-wallet',
+          builder: (_, __) => const Scaffold(body: Text('wallet route')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [topupRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(
+        child: MaterialApp.router(
           locale: fallbackCustomerLocale,
           supportedLocales: supportedCustomerLocales,
           localizationsDelegates: const [
@@ -1467,23 +1518,15 @@ void main() {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: const TopupScreen(
-            detailTopupId: 'topup_paid_1',
-            backPath: '/my-wallet',
-          ),
+          routerConfig: router,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('topup-completed-detail')),
-      findsOneWidget,
-    );
-    expect(find.text('อนุมัติแล้ว'), findsOneWidget);
-    expect(find.text('TOP-PAID-001'), findsOneWidget);
-    expect(find.text('QR Code นี้หมดอายุแล้ว'), findsNothing);
-    expect(find.text('แจ้งปัญหา'), findsOneWidget);
+    expect(find.text('wallet route'), findsOneWidget);
+    expect(router.routeInformationProvider.value.uri.path, '/my-wallet');
+    expect(find.byKey(const ValueKey('topup-completed-detail')), findsNothing);
   });
 
   testWidgets(
@@ -1539,6 +1582,25 @@ void main() {
           message: '',
         ),
       ]);
+      final router = GoRouter(
+        initialLocation: '/topup/topup_callback_1?back=/my-wallet',
+        routes: [
+          GoRoute(
+            path: '/topup/:topupId',
+            builder: (context, state) => TopupScreen(
+              detailTopupId: state.pathParameters['topupId'],
+              backPath: safeTopupDetailBackPath(
+                state.uri.queryParameters['back'],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/my-wallet',
+            builder: (_, __) => const Scaffold(body: Text('wallet route')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -1548,7 +1610,7 @@ void main() {
               const Duration(seconds: 1),
             ),
           ],
-          child: MaterialApp(
+          child: MaterialApp.router(
             locale: fallbackCustomerLocale,
             supportedLocales: supportedCustomerLocales,
             localizationsDelegates: const [
@@ -1558,10 +1620,7 @@ void main() {
               GlobalCupertinoLocalizations.delegate,
             ],
             theme: AppTheme.light(),
-            home: const TopupScreen(
-              detailTopupId: 'topup_callback_1',
-              backPath: '/my-wallet',
-            ),
+            routerConfig: router,
           ),
         ),
       );
@@ -1573,12 +1632,8 @@ void main() {
         findsNothing,
       );
 
-      tester.binding.handleAppLifecycleStateChanged(
-        AppLifecycleState.paused,
-      );
-      tester.binding.handleAppLifecycleStateChanged(
-        AppLifecycleState.resumed,
-      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
 
       expect(repository.detailCalls, 2);
@@ -1591,11 +1646,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.detailCalls, 3);
+      expect(find.text('wallet route'), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/my-wallet');
       expect(
         find.byKey(const ValueKey('topup-completed-detail')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('อนุมัติแล้ว'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();

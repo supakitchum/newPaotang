@@ -1221,12 +1221,15 @@ class _SocialLoginButton extends StatelessWidget {
     final normalizedProvider = normalizeSocialAuthProvider(provider.provider);
     final isSubmitting = submittingProvider == normalizedProvider;
     final colorScheme = Theme.of(context).colorScheme;
+    final brandColor =
+        provider.brandColor ??
+        _defaultSocialProviderBrandColor(normalizedProvider, colorScheme);
     final backgroundColor =
         provider.buttonBackgroundColor ?? colorScheme.surface;
     final foregroundColor =
         provider.buttonForegroundColor ??
         (provider.buttonBackgroundColor == null
-            ? provider.brandColor ?? colorScheme.onSurface
+            ? brandColor
             : colorScheme.onPrimary);
     final label = context.l10n.socialLoginLabel(provider.label);
 
@@ -1240,10 +1243,7 @@ class _SocialLoginButton extends StatelessWidget {
           foregroundColor: foregroundColor,
           disabledBackgroundColor: backgroundColor.withValues(alpha: 0.62),
           disabledForegroundColor: foregroundColor.withValues(alpha: 0.48),
-          side: BorderSide(
-            color: (provider.brandColor ?? colorScheme.outlineVariant)
-                .withValues(alpha: provider.brandColor == null ? 0.82 : 0.34),
-          ),
+          side: BorderSide(color: brandColor.withValues(alpha: 0.42)),
           shape: const CircleBorder(),
           padding: const EdgeInsets.all(12),
         ),
@@ -1290,4 +1290,17 @@ List<SocialAuthProvider> _visibleSocialProviders(
 
 String _providerLogoAsset(String provider) {
   return 'assets/images/social/$provider.png';
+}
+
+Color _defaultSocialProviderBrandColor(
+  String provider,
+  ColorScheme colorScheme,
+) {
+  return switch (provider) {
+    'line' => const Color(0xFF06C755),
+    'google' => const Color(0xFF4285F4),
+    'apple' => const Color(0xFF000000),
+    'facebook' => const Color(0xFF1877F2),
+    _ => colorScheme.primary,
+  };
 }

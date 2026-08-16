@@ -768,6 +768,8 @@ Route::get('/admin/tenant/customer-notifications/campaigns', [TenantCustomerNoti
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/customer-notifications/campaigns', [TenantCustomerNotificationController::class, 'storeCampaign'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/customer-notifications/campaigns/{campaign_id}', [TenantCustomerNotificationController::class, 'campaign'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/customer-notifications/campaigns/{campaign_id}/publish', [TenantCustomerNotificationController::class, 'publishCampaign'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/customer-notifications/campaigns/{campaign_id}/cancel', [TenantCustomerNotificationController::class, 'cancelCampaign'])

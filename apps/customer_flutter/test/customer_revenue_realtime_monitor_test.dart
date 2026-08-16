@@ -40,6 +40,21 @@ void main() {
     );
   });
 
+  test('revenue realtime extracts order ids from supported aliases', () {
+    expect(
+      orderIdsFromRealtimePayload({
+        'order_id': 'ord_direct',
+        'checkoutOrder': {
+          'id': {'value': 'ord_nested'},
+        },
+        'orders': [
+          {'purchaseOrderId': 'ord_list'},
+        ],
+      }),
+      {'ord_direct', 'ord_nested', 'ord_list'},
+    );
+  });
+
   testWidgets('revenue realtime monitor subscribes cart order ticket channels',
       (tester) async {
     FlutterSecureStorage.setMockInitialValues({});
@@ -119,7 +134,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('cart:0 tickets:0'), findsOneWidget);
+    expect(find.text('cart:0 tickets:0 purchases:0'), findsOneWidget);
 
     client.emit(
       CustomerRealtimeEvent(
@@ -133,7 +148,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('cart:1 tickets:0'), findsOneWidget);
+    expect(find.text('cart:1 tickets:0 purchases:0'), findsOneWidget);
 
     client.emit(
       CustomerRealtimeEvent(
@@ -150,7 +165,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('cart:2 tickets:1'), findsOneWidget);
+    expect(find.text('cart:2 tickets:1 purchases:1'), findsOneWidget);
 
     final ordersChannel = customerOrdersChannel(
       tenantId: 'ten_revenue',
@@ -164,7 +179,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 700));
-    expect(find.text('cart:2 tickets:1'), findsOneWidget);
+    expect(find.text('cart:2 tickets:1 purchases:1'), findsOneWidget);
 
     client.emit(
       CustomerRealtimeEvent(
@@ -174,7 +189,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 700));
-    expect(find.text('cart:3 tickets:2'), findsOneWidget);
+    expect(find.text('cart:3 tickets:2 purchases:2'), findsOneWidget);
   });
 }
 
@@ -185,11 +200,12 @@ class _RevenueRealtimeHarness extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cartTick = ref.watch(cartRealtimeTickProvider);
     final ticketTick = ref.watch(ticketRealtimeTickProvider);
+    final purchaseTick = ref.watch(purchaseHistoryRefreshTickProvider);
 
     return MaterialApp(
       home: CustomerRevenueRealtimeMonitor(
         child: Text(
-          'cart:$cartTick tickets:$ticketTick',
+          'cart:$cartTick tickets:$ticketTick purchases:$purchaseTick',
           textDirection: TextDirection.ltr,
         ),
       ),

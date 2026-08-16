@@ -98,6 +98,18 @@ class TenantCustomerNotificationController extends Controller
             : $context;
     }
 
+    public function campaign(Request $request, string $campaign_id): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'customer_notification.view');
+        if (! $context instanceof AdminSessionContext) return $context;
+
+        $resource = $this->campaigns->detail((string) $context->activeTenantId(), $campaign_id);
+
+        return $resource === null
+            ? ApiErrorResponse::notFound($request)
+            : response()->json($resource);
+    }
+
     public function storeCampaign(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request, 'customer_notification.send');

@@ -1128,7 +1128,7 @@ Future<void> _tapLoginSubmit(WidgetTester tester) async {
 }
 
 Future<void> _tapLoginOtpSubmit(WidgetTester tester) async {
-  final submitButton = find.widgetWithText(FilledButton, 'Send OTP');
+  final submitButton = find.widgetWithText(FilledButton, 'Sign in');
   await _scrollUntilVisible(tester, submitButton);
   await tester.tap(submitButton);
 }

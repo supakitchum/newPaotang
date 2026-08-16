@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../../lottery/data/customer_revenue_cache.dart';
 import '../data/purchase_history_models.dart';
 import '../data/purchase_history_repository.dart';
 import 'purchase_history_localization.dart';
@@ -25,6 +26,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
   int _lastPage = 1;
   bool _loadingInitial = true;
   bool _loadingMore = false;
+  bool _refreshing = false;
   String _error = '';
 
   @override
@@ -35,6 +37,14 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(purchaseHistoryRefreshTickProvider, (previous, next) {
+      if (previous == null || previous == next || _refreshing) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_refreshing) {
+          _loadInitial(showLoading: false);
+        }
+      });
+    });
     final groups = _groupOrders(_orders);
     final compact = MediaQuery.sizeOf(context).width <= 360;
     final l10n = context.l10n;
@@ -130,11 +140,15 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
     );
   }
 
-  Future<void> _loadInitial() async {
-    setState(() {
-      _loadingInitial = true;
-      _error = '';
-    });
+  Future<void> _loadInitial({bool showLoading = true}) async {
+    if (_refreshing) return;
+    _refreshing = true;
+    if (showLoading) {
+      setState(() {
+        _loadingInitial = true;
+        _error = '';
+      });
+    }
     try {
       final page = await ref.read(purchaseHistoryRepositoryProvider).list();
       if (!mounted) return;
@@ -144,6 +158,7 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
           ..addAll(page.items);
         _currentPage = page.currentPage;
         _lastPage = page.lastPage;
+        _error = '';
       });
     } catch (error) {
       if (!mounted) return;
@@ -153,14 +168,19 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
         error: error,
       );
       if (!mounted || handled) return;
-      setState(
-        () => _error = customerErrorMessage(
-          error,
-          context.l10n.purchaseHistoryLoadFailedMessage,
-        ),
-      );
+      if (showLoading || _orders.isEmpty) {
+        setState(
+          () => _error = customerErrorMessage(
+            error,
+            context.l10n.purchaseHistoryLoadFailedMessage,
+          ),
+        );
+      }
     } finally {
-      if (mounted) setState(() => _loadingInitial = false);
+      _refreshing = false;
+      if (mounted && showLoading) {
+        setState(() => _loadingInitial = false);
+      }
     }
   }
 

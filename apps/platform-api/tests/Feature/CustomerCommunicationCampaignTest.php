@@ -9,6 +9,7 @@ use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\CustomerNotifications\Services\FirebaseCloudMessagingClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -129,7 +130,194 @@ class CustomerCommunicationCampaignTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.0.id', $created['id'])
-            ->assertJsonPath('data.0.stats.recipient_count', 2);
+            ->assertJsonPath('data.0.stats.recipient_count', 2)
+            ->assertJsonPath('meta.campaign_counts.total', 1)
+            ->assertJsonPath('meta.campaign_counts.published', 1);
+
+        $readRecipientId = DB::table('customer_notification_recipients')
+            ->where('notification_id', $notificationId)
+            ->orderBy('id')
+            ->value('id');
+        DB::table('customer_notification_recipients')
+            ->where('id', $readRecipientId)
+            ->update(['read_at' => now(), 'updated_at' => now()]);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/customer-notifications/campaigns/'.$created['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms',
+            ])
+            ->assertOk()
+            ->assertJsonPath('id', $created['id'])
+            ->assertJsonPath('delivery_mode', 'scheduled')
+            ->assertJsonPath('stats.recipient_count', 2)
+            ->assertJsonPath('stats.read_count', 1)
+            ->assertJsonPath('stats.unread_count', 1)
+            ->assertJsonPath('delivery_breakdown.statuses', [])
+            ->assertJsonPath('delivery_breakdown.platforms', []);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/customer-notifications/campaigns?q=august&audience_type=all_customers', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms',
+            ])
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $created['id']);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/customer-notifications/campaigns/ccp_missing', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms',
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_scheduled_campaign_preserves_the_requested_instant_with_a_bangkok_database_session(): void
+    {
+        $this->useBangkokClock('2026-08-16T12:00:00+07:00');
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain(
+            'par_comms_timezone',
+            'ten_comms_timezone',
+            'customer-comms-timezone.example.test',
+        );
+        $this->issueCustomerToken('ten_comms_timezone', 'cus_comms_timezone');
+        $admin = $this->createTenantSession(
+            'ten_comms_timezone',
+            'par_comms_timezone',
+            ['customer_notification.view', 'customer_notification.send'],
+            'adm_comms_timezone',
+            'customer-comms-timezone@example.test',
+        );
+        $scheduledAt = '2026-08-16T06:40:00Z';
+
+        $created = $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'payload' => $this->scheduledPayload($scheduledAt, 'Bangkok persistence'),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_comms_timezone',
+                'Idempotency-Key' => 'customer-comms-timezone-persistence',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'scheduled')
+            ->json();
+
+        $expectedTimestamp = Carbon::parse($scheduledAt)->timestamp;
+        $stored = DB::selectOne(
+            'SELECT EXTRACT(EPOCH FROM scheduled_at)::bigint AS epoch, scheduled_at::text AS local_value FROM customer_communication_campaigns WHERE id = ?',
+            [$created['id']],
+        );
+        $this->assertNotNull($stored);
+        $this->assertSame('Asia/Bangkok', (string) DB::selectOne("SELECT current_setting('TIMEZONE') AS timezone")->timezone);
+        $this->assertSame($expectedTimestamp, (int) $stored->epoch);
+        $this->assertStringStartsWith('2026-08-16 13:40:00+07', (string) $stored->local_value);
+        $this->assertSame(Carbon::parse($scheduledAt)->toISOString(), (string) $created['scheduled_at']);
+        $this->assertSame($expectedTimestamp, Carbon::parse((string) $created['scheduled_at'])->timestamp);
+
+        Carbon::setTestNow(Carbon::parse('2026-08-16T13:39:59+07:00'));
+        $this->artisan('customer-communications:publish-due --limit=25')
+            ->expectsOutput('Customer communication campaigns: selected=0 published=0 failed=0')
+            ->assertSuccessful();
+        $this->assertDatabaseCount('customer_notifications', 0);
+
+        Carbon::setTestNow(Carbon::parse('2026-08-16T13:40:00+07:00'));
+        $this->artisan('customer-communications:publish-due --limit=25')
+            ->expectsOutput('Customer communication campaigns: selected=1 published=1 failed=0')
+            ->assertSuccessful();
+        $this->assertDatabaseCount('customer_notifications', 1);
+
+        $this->artisan('customer-communications:publish-due --limit=25')
+            ->expectsOutput('Customer communication campaigns: selected=0 published=0 failed=0')
+            ->assertSuccessful();
+        $this->assertDatabaseCount('customer_notifications', 1);
+    }
+
+    public function test_scheduled_campaign_requires_an_offset_and_round_trips_supported_offsets(): void
+    {
+        $this->useBangkokClock('2026-08-16T12:00:00+07:00');
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain(
+            'par_comms_offsets',
+            'ten_comms_offsets',
+            'customer-comms-offsets.example.test',
+        );
+        $admin = $this->createTenantSession(
+            'ten_comms_offsets',
+            'par_comms_offsets',
+            ['customer_notification.view', 'customer_notification.send'],
+            'adm_comms_offsets',
+            'customer-comms-offsets@example.test',
+        );
+        $expectedTimestamp = Carbon::parse('2026-08-16T06:40:00Z')->timestamp;
+        $variants = [
+            'utc' => '2026-08-16T06:40:00Z',
+            'bangkok' => '2026-08-16T13:40:00+07:00',
+            'negative' => '2026-08-16T02:40:00-04:00',
+        ];
+
+        foreach ($variants as $key => $scheduledAt) {
+            $created = $this->withToken($admin['access_token'])
+                ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                    'payload' => $this->scheduledPayload($scheduledAt, 'Offset '.$key),
+                ], [
+                    'X-Admin-Scope' => 'tenant',
+                    'X-Tenant-Id' => 'ten_comms_offsets',
+                    'Idempotency-Key' => 'customer-comms-offset-'.$key,
+                ])
+                ->assertCreated()
+                ->assertJsonPath('status', 'scheduled')
+                ->json();
+
+            $storedEpoch = DB::table('customer_communication_campaigns')
+                ->where('id', $created['id'])
+                ->selectRaw('EXTRACT(EPOCH FROM scheduled_at)::bigint AS epoch')
+                ->value('epoch');
+            $this->assertSame($expectedTimestamp, (int) $storedEpoch, 'Stored instant changed for '.$scheduledAt);
+            $this->assertSame(
+                $expectedTimestamp,
+                Carbon::parse((string) $created['scheduled_at'])->timestamp,
+                'Response instant changed for '.$scheduledAt,
+            );
+            $this->assertSame(
+                Carbon::parse($scheduledAt)->toISOString(),
+                (string) $created['scheduled_at'],
+                'Response was not canonical UTC for '.$scheduledAt,
+            );
+        }
+
+        $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'payload' => $this->scheduledPayload('2026-08-16T13:40:00', 'Missing offset'),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_comms_offsets',
+                'Idempotency-Key' => 'customer-comms-missing-offset',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath(
+                'error.details.fields.scheduled_at.0',
+                'Enter a valid campaign date and time with a timezone offset.',
+            );
+
+        $this->withToken($admin['access_token'])
+            ->post('/api/v1/admin/tenant/customer-notifications/campaigns', [
+                'payload' => $this->scheduledPayload('2026-08-16T12:01:00+07:00', 'Too soon'),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_comms_offsets',
+                'Idempotency-Key' => 'customer-comms-too-soon',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'error.details.fields.scheduled_at.0',
+                'Schedule the campaign at least one minute in the future.',
+            );
+
+        $this->assertDatabaseCount('customer_communication_campaigns', count($variants));
+        $this->assertDatabaseCount('customer_notifications', 0);
     }
 
     public function test_image_campaign_reaches_inbox_and_native_push_with_the_exact_content(): void
@@ -396,5 +584,50 @@ class CustomerCommunicationCampaignTest extends TestCase
             ->assertJsonPath('data.0.stats.target_count', 2)
             ->assertJsonPath('data.0.stats.installation_count', 2)
             ->assertJsonPath('data.0.stats.recipient_count', 0);
+
+        $detail = $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/customer-notifications/campaigns/'.$created['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_customer_comms_installs',
+            ])
+            ->assertOk()
+            ->assertJsonPath('stats.target_count', 2)
+            ->assertJsonPath('delivery_breakdown.statuses.0.status', 'sent')
+            ->assertJsonPath('delivery_breakdown.statuses.0.count', 2)
+            ->assertJsonPath('delivery_breakdown.platforms.0.platform', 'android')
+            ->assertJsonPath('delivery_breakdown.platforms.0.sent_count', 1)
+            ->assertJsonPath('delivery_breakdown.platforms.1.platform', 'ios')
+            ->assertJsonPath('delivery_breakdown.platforms.1.sent_count', 1);
+        $this->assertNotEmpty($detail->json('delivery_breakdown.last_activity_at'));
+    }
+
+    private function useBangkokClock(string $now): void
+    {
+        $originalTimezone = date_default_timezone_get();
+        date_default_timezone_set('Asia/Bangkok');
+        config([
+            'app.timezone' => 'Asia/Bangkok',
+            'database.connections.pgsql.timezone' => 'Asia/Bangkok',
+        ]);
+        DB::statement("SET TIME ZONE 'Asia/Bangkok'");
+        Carbon::setTestNow(Carbon::parse($now));
+
+        $this->beforeApplicationDestroyed(static function () use ($originalTimezone): void {
+            Carbon::setTestNow();
+            date_default_timezone_set($originalTimezone);
+        });
+    }
+
+    private function scheduledPayload(string $scheduledAt, string $name): string
+    {
+        return json_encode([
+            'name' => $name,
+            'audience_type' => 'all_customers',
+            'title' => ['th-TH' => 'ข่าวประชาสัมพันธ์'],
+            'body' => ['th-TH' => 'รายละเอียดข่าวประชาสัมพันธ์'],
+            'action_key' => 'home',
+            'delivery_mode' => 'scheduled',
+            'scheduled_at' => $scheduledAt,
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }

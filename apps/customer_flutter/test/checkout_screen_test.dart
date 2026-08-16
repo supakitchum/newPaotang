@@ -693,6 +693,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
 
+    final providerContainer = ProviderScope.containerOf(
+      tester.element(find.byType(CheckoutScreen)),
+    );
+    final cartRevisionBeforeCheckout = providerContainer.read(
+      cartRealtimeTickProvider,
+    );
+    final ticketRevisionBeforeCheckout = providerContainer.read(
+      ticketRealtimeTickProvider,
+    );
+    final purchaseRevisionBeforeCheckout = providerContainer.read(
+      purchaseHistoryRefreshTickProvider,
+    );
+
     await _openCheckoutPin(tester);
 
     expect(lottery.checkoutReservationIds, isEmpty);
@@ -704,6 +717,18 @@ void main() {
     expect(lottery.checkoutReservationIds, ['res_1']);
     expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodWallet);
     expect(lottery.checkoutPin, '246810');
+    expect(
+      providerContainer.read(cartRealtimeTickProvider),
+      cartRevisionBeforeCheckout + 1,
+    );
+    expect(
+      providerContainer.read(ticketRealtimeTickProvider),
+      ticketRevisionBeforeCheckout + 1,
+    );
+    expect(
+      providerContainer.read(purchaseHistoryRefreshTickProvider),
+      purchaseRevisionBeforeCheckout + 1,
+    );
     expect(find.text('success:ord_nested'), findsOneWidget);
   });
 

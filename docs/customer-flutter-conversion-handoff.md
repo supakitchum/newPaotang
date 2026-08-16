@@ -11738,3 +11738,22 @@ Topup callback status recovery (2026-08-13):
 - Focused Flutter Topup/auth/social verification passed 82 tests and focused
   analysis passed. The successful provider callback regression passed 1 test
   with 22 assertions against `newpaotang_test`; runtime DB was not touched.
+
+Revenue cache invalidation after checkout (2026-08-16):
+
+- The three-minute navigation cache remains in place so back navigation keeps
+  its rendered state, but successful Order writes now publish a scoped revenue
+  refresh instead of waiting for cache expiry or a realtime event.
+- A paid Order invalidates Wallet summary, current tickets, known ticket/order
+  detail providers, the Home cart, and the purchase-history list. The list
+  refreshes in place without replacing usable content with a loading screen.
+- External checkout creation refreshes only cart and purchase-order state while
+  payment is pending. Wallet and ticket reads are invalidated only after the
+  pending screen or realtime channel confirms a paid/order state change.
+- Order realtime events and order-channel reconnect recovery use the same cache
+  coordinator, with the existing 500 ms event coalescing retained. This keeps
+  direct API completion as the deterministic path and realtime as the recovery
+  path when data changes on another device or while the app is backgrounded.
+- Focused cache, realtime, checkout, and navigation-cache verification passed
+  10 tests. Focused Flutter analysis and `git diff --check` passed. Runtime DB,
+  commit, push, and worktree clearing were not performed.

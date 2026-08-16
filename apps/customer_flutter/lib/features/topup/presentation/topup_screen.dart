@@ -195,6 +195,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
   String _detailRefreshId = '';
   TopupStatus? _detailRefreshStatus;
   bool _detailRefreshInFlight = false;
+  bool _redirectingApprovedTopup = false;
   bool _appIsActive = true;
   final Set<String> _expiringTopupIds = <String>{};
   final Set<String> _submittedSlipTopupIds = <String>{};
@@ -214,6 +215,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.detailTopupId != widget.detailTopupId) {
       _stopDetailRefresh();
+      _redirectingApprovedTopup = false;
     }
   }
 
@@ -383,6 +385,13 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
     final previousStatus = _detailRefreshStatus;
     _detailRefreshId = id;
     _detailRefreshStatus = topup.status;
+    if (topup.status == TopupStatus.approved) {
+      _detailRefreshTimer?.cancel();
+      _detailRefreshTimer = null;
+      _goToWalletAfterTopupApproval();
+      return;
+    }
+
     if (topup.status.isTerminal) {
       _detailRefreshTimer?.cancel();
       _detailRefreshTimer = null;
@@ -394,6 +403,19 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
     }
 
     if (_appIsActive) _startDetailRefreshTimer(id);
+  }
+
+  void _goToWalletAfterTopupApproval() {
+    if (!mounted || _redirectingApprovedTopup) return;
+    _redirectingApprovedTopup = true;
+    ref.invalidate(topupOverviewProvider);
+    ref.invalidate(walletSummaryProvider);
+    try {
+      context.go('/my-wallet');
+    } catch (_) {
+      _redirectingApprovedTopup = false;
+      // Focused widget tests can mount TopupScreen without a GoRouter.
+    }
   }
 
   void _startDetailRefreshTimer(String id) {
@@ -4900,77 +4922,188 @@ class _ChannelDisabledBadge extends StatelessWidget {
   }
 }
 
-class _BankInfoCard extends StatelessWidget {
+class _BankInfoCard extends StatefulWidget {
   const _BankInfoCard({required this.bank});
 
   final TopupBankAccount bank;
 
   @override
+  State<_BankInfoCard> createState() => _BankInfoCardState();
+}
+
+class _BankInfoCardState extends State<_BankInfoCard> {
+  Timer? _copiedResetTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copyAccountNumber() async {
+    final accountNumber = widget.bank.accountNumber.trim();
+    if (accountNumber.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: accountNumber));
+    if (!mounted) return;
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedResetTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final bank = widget.bank;
+    final bankName = bank.bankName.isEmpty
+        ? l10n.topupBankAccountFallback
+        : bank.bankName;
+    final accountName = bank.accountName.trim().isEmpty
+        ? '-'
+        : bank.accountName.trim();
+    final accountNumber = bank.accountNumber.trim().isEmpty
+        ? '-'
+        : bank.accountNumber.trim();
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: _topupPrimaryTint(colorScheme),
-        border: Border.all(
-          color:
-              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
-              colorScheme.primary.withValues(alpha: 0.24),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        color: colorScheme.surface,
+        border: Border.all(color: _topupPrimaryBorder(colorScheme)),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              l10n.topupBankAccountFallback,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 4),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.account_balance,
-                  color: colorScheme.primary,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
+                _TopupBankLogo(bank: bank),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    bank.bankName.isEmpty
-                        ? l10n.topupBankAccountFallback
-                        : bank.bankName,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.topupBankTransferTo,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        bankName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w800,
+                              height: 1.2,
+                            ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              bank.accountName,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-              ),
+            const SizedBox(height: 14),
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
             ),
-            Text(
-              bank.accountNumber,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colorScheme.primary,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+            const SizedBox(height: 13),
+            _TopupBankDetail(
+              label: l10n.topupBankAccountNameLabel,
+              value: accountName,
+            ),
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: _topupPrimaryTint(colorScheme),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _topupPrimaryBorder(colorScheme)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(13, 11, 10, 11),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final number = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.topupBankAccountNumberLabel,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        SelectableText(
+                          accountNumber,
+                          maxLines: 2,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: colorScheme.primary,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w800,
+                                height: 1.15,
+                              ),
+                        ),
+                      ],
+                    );
+                    final copyButton = OutlinedButton.icon(
+                      key: const ValueKey('topup-bank-copy-account'),
+                      onPressed: bank.accountNumber.trim().isEmpty
+                          ? null
+                          : _copyAccountNumber,
+                      style: _topupBankCopyButtonStyle(context),
+                      icon: Icon(
+                        _copied ? Icons.check_rounded : Icons.copy_rounded,
+                        size: 17,
+                      ),
+                      label: Text(
+                        _copied
+                            ? l10n.topupBankAccountCopied
+                            : l10n.topupBankCopyAccount,
+                      ),
+                    );
+
+                    if (constraints.maxWidth < 285) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          number,
+                          const SizedBox(height: 9),
+                          copyButton,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(child: number),
+                        const SizedBox(width: 10),
+                        copyButton,
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -4978,6 +5111,167 @@ class _BankInfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TopupBankDetail extends StatelessWidget {
+  const _TopupBankDetail({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopupBankLogo extends StatelessWidget {
+  const _TopupBankLogo({required this.bank});
+
+  final TopupBankAccount bank;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final localAsset = _topupBankLogoAsset(bank);
+    final remoteProvider = _topupQrImageProvider(bank.iconUrl);
+    final fallback = localAsset == null
+        ? Icon(Icons.account_balance, color: colorScheme.primary, size: 29)
+        : Image.asset(
+            localAsset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          );
+    final logo = remoteProvider == null
+        ? fallback
+        : Image(
+            image: remoteProvider,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            errorBuilder: (_, __, ___) => fallback,
+          );
+
+    return Semantics(
+      image: true,
+      label: bank.bankName,
+      child: Container(
+        key: ValueKey('topup-bank-logo-${bank.bankCode}'),
+        width: 58,
+        height: 58,
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.68),
+          ),
+        ),
+        child: ClipRRect(borderRadius: BorderRadius.circular(10), child: logo),
+      ),
+    );
+  }
+}
+
+ButtonStyle _topupBankCopyButtonStyle(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return _topupFlatButtonStyle(
+    OutlinedButton.styleFrom(
+      foregroundColor: colorScheme.primary,
+      minimumSize: const Size(0, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.46)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      textStyle: Theme.of(
+        context,
+      ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+    ),
+  );
+}
+
+String? _topupBankLogoAsset(TopupBankAccount bank) {
+  const assets = <String, String>{
+    'bbl': 'assets/images/banks/bbl.png',
+    'kbank': 'assets/images/banks/kbank.png',
+    'ktb': 'assets/images/banks/ktb.png',
+    'ttb': 'assets/images/banks/ttb.png',
+    'scb': 'assets/images/banks/scb.png',
+    'bay': 'assets/images/banks/bay.png',
+    'gsb': 'assets/images/banks/gsb.png',
+    'baac': 'assets/images/banks/baac.png',
+    'ghb': 'assets/images/banks/ghb.png',
+    'uob': 'assets/images/banks/uob.png',
+    'cimb': 'assets/images/banks/cimb.png',
+    'kkp': 'assets/images/banks/kkp.png',
+    'tisco': 'assets/images/banks/tisco.png',
+    'lhbank': 'assets/images/banks/lhbank.png',
+    'thai_credit': 'assets/images/banks/thai_credit.png',
+    'icbc': 'assets/images/banks/icbc.png',
+  };
+  final code = bank.bankCode.trim().toLowerCase();
+  final direct = assets[code];
+  if (direct != null) return direct;
+
+  final name = bank.bankName.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  final inferredCode = switch (name) {
+    final value when value.contains('กสิกร') || value.contains('kasikorn') =>
+      'kbank',
+    final value when value.contains('กรุงไทย') || value.contains('krungthai') =>
+      'ktb',
+    final value
+        when value.contains('ไทยพาณิชย์') || value.contains('siamcommercial') =>
+      'scb',
+    final value when value.contains('กรุงศรี') || value.contains('ayudhya') =>
+      'bay',
+    final value
+        when value.contains('กรุงเทพ') || value.contains('bangkokbank') =>
+      'bbl',
+    final value
+        when value.contains('ทหารไทยธนชาต') ||
+            value.contains('ทีเอ็มบีธนชาต') =>
+      'ttb',
+    final value when value.contains('ออมสิน') => 'gsb',
+    final value
+        when value.contains('เพื่อการเกษตร') || value.contains('ธ.ก.ส') =>
+      'baac',
+    final value when value.contains('อาคารสงเคราะห์') => 'ghb',
+    final value when value.contains('ยูโอบี') || value.contains('uob') => 'uob',
+    final value when value.contains('ซีไอเอ็มบี') || value.contains('cimb') =>
+      'cimb',
+    final value when value.contains('เกียรตินาคิน') => 'kkp',
+    final value when value.contains('ทิสโก้') || value.contains('tisco') =>
+      'tisco',
+    final value
+        when value.contains('แลนด์แอนด์เฮ้าส์') || value.contains('lhbank') =>
+      'lhbank',
+    final value when value.contains('ไทยเครดิต') => 'thai_credit',
+    final value when value.contains('ไอซีบีซี') || value.contains('icbc') =>
+      'icbc',
+    _ => '',
+  };
+  return assets[inferredCode];
 }
 
 ButtonStyle _topupOutlinePillStyle(BuildContext context) {

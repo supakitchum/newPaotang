@@ -195,6 +195,7 @@ class TopupBankAccount {
     required this.bankName,
     required this.accountName,
     required this.accountNumber,
+    this.bankCode = '',
     this.iconUrl = '',
   });
 
@@ -202,6 +203,16 @@ class TopupBankAccount {
     final bankPayload = json['bank'];
     final bank = asMap(bankPayload);
     return TopupBankAccount(
+      bankCode: _firstTopupText([
+        bank['code'],
+        bank['bank_code'],
+        bank['bankCode'],
+        bank['slug'],
+        json['bank_code'],
+        json['bankCode'],
+        json['bank_slug'],
+        json['bankSlug'],
+      ]).toLowerCase(),
       bankName: _firstTopupText([
         bank['name'],
         bank['bank_name'],
@@ -259,6 +270,7 @@ class TopupBankAccount {
   final String bankName;
   final String accountName;
   final String accountNumber;
+  final String bankCode;
   final String iconUrl;
 
   bool get hasDisplayValue {

@@ -9,12 +9,15 @@ import '../../../core/realtime/customer_realtime_client.dart';
 import '../../../core/realtime/customer_realtime_monitor.dart';
 import '../../../core/realtime/customer_realtime_protocol.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../tickets/data/ticket_repository.dart';
+import '../data/customer_revenue_cache.dart';
+
+export '../data/customer_revenue_cache.dart'
+    show
+        cartRealtimeTickProvider,
+        purchaseHistoryRefreshTickProvider,
+        ticketRealtimeTickProvider;
 
 final customerRevenueRealtimeEnabledProvider = Provider<bool>((_) => true);
-
-final cartRealtimeTickProvider = StateProvider<int>((_) => 0);
-final ticketRealtimeTickProvider = StateProvider<int>((_) => 0);
 
 bool shouldRefreshCartFromRealtimeEvent(CustomerRealtimeEvent event) {
   final eventName = normalizeRealtimeEventNameWithPayload(
@@ -32,6 +35,79 @@ bool shouldRefreshTicketsFromRealtimeEvent(CustomerRealtimeEvent event) {
     payload: event.payload,
   );
   return eventName == 'tickets.updated' || eventName == 'order.updated';
+}
+
+bool shouldRefreshOrdersFromRealtimeEvent(CustomerRealtimeEvent event) {
+  return normalizeRealtimeEventNameWithPayload(
+        eventName: event.name,
+        payload: event.payload,
+      ) ==
+      'order.updated';
+}
+
+Set<String> orderIdsFromRealtimePayload(Map<String, Object?> payload) {
+  final normalized = normalizeRealtimePayload(
+    Map<String, dynamic>.from(payload),
+  );
+  final ids = <String>{};
+
+  void addId(Object? value) {
+    final text = _revenueRealtimeScalarText(value);
+    if (text.isNotEmpty) ids.add(text);
+  }
+
+  void collect(Object? value) {
+    if (value is List) {
+      for (final item in value) {
+        collect(item);
+      }
+      return;
+    }
+    if (value is Map) {
+      addId(
+        value['order_id'] ??
+            value['orderId'] ??
+            value['checkout_order_id'] ??
+            value['checkoutOrderId'] ??
+            value['purchase_order_id'] ??
+            value['purchaseOrderId'] ??
+            value['id'] ??
+            value['uuid'],
+      );
+      for (final key in const [
+        'order',
+        'checkout_order',
+        'checkoutOrder',
+        'purchase_order',
+        'purchaseOrder',
+      ]) {
+        collect(value[key]);
+      }
+      return;
+    }
+    addId(value);
+  }
+
+  for (final key in const [
+    'order_id',
+    'orderId',
+    'checkout_order_id',
+    'checkoutOrderId',
+    'purchase_order_id',
+    'purchaseOrderId',
+    'order_ids',
+    'orderIds',
+    'orders',
+    'order',
+    'checkout_order',
+    'checkoutOrder',
+    'purchase_order',
+    'purchaseOrder',
+  ]) {
+    collect(normalized[key]);
+  }
+
+  return ids;
 }
 
 Set<String> ticketIdsFromRealtimePayload(Map<String, Object?> payload) {
@@ -156,9 +232,11 @@ class _CustomerRevenueRealtimeMonitorState
       CustomerRealtimeSubscriptionTracker();
   Future<void> _syncQueue = Future<void>.value();
   final Set<String> _pendingTicketIds = {};
+  final Set<String> _pendingOrderIds = {};
   String _signature = '';
   bool _pendingCartRefresh = false;
   bool _pendingTicketRefresh = false;
+  bool _pendingOrderRefresh = false;
 
   @override
   void didChangeDependencies() {
@@ -262,7 +340,9 @@ class _CustomerRevenueRealtimeMonitorState
     _signature = '';
     _pendingCartRefresh = false;
     _pendingTicketRefresh = false;
+    _pendingOrderRefresh = false;
     _pendingTicketIds.clear();
+    _pendingOrderIds.clear();
     _refreshThrottle?.cancel();
     _refreshThrottle = null;
     await _events?.cancel();
@@ -275,8 +355,7 @@ class _CustomerRevenueRealtimeMonitorState
   void _handleEvent(CustomerRealtimeEvent event) {
     if (_subscriptionTracker.register(event)) {
       if (event.channel.trim().endsWith('.orders')) {
-        _pendingCartRefresh = true;
-        _pendingTicketRefresh = true;
+        _pendingOrderRefresh = true;
         _scheduleRefresh();
       }
       return;
@@ -284,12 +363,17 @@ class _CustomerRevenueRealtimeMonitorState
 
     final refreshCart = shouldRefreshCartFromRealtimeEvent(event);
     final refreshTickets = shouldRefreshTicketsFromRealtimeEvent(event);
-    if (!refreshCart && !refreshTickets) return;
+    final refreshOrder = shouldRefreshOrdersFromRealtimeEvent(event);
+    if (!refreshCart && !refreshTickets && !refreshOrder) return;
 
     _pendingCartRefresh = _pendingCartRefresh || refreshCart;
     _pendingTicketRefresh = _pendingTicketRefresh || refreshTickets;
+    _pendingOrderRefresh = _pendingOrderRefresh || refreshOrder;
     if (refreshTickets) {
       _pendingTicketIds.addAll(ticketIdsFromRealtimePayload(event.payload));
+    }
+    if (refreshOrder) {
+      _pendingOrderIds.addAll(orderIdsFromRealtimePayload(event.payload));
     }
 
     _scheduleRefresh();
@@ -305,21 +389,25 @@ class _CustomerRevenueRealtimeMonitorState
 
     final refreshCart = _pendingCartRefresh;
     final refreshTickets = _pendingTicketRefresh;
+    final refreshOrder = _pendingOrderRefresh;
     final ticketIds = Set<String>.from(_pendingTicketIds);
+    final orderIds = Set<String>.from(_pendingOrderIds);
     _pendingCartRefresh = false;
     _pendingTicketRefresh = false;
+    _pendingOrderRefresh = false;
     _pendingTicketIds.clear();
+    _pendingOrderIds.clear();
 
-    if (refreshCart) {
-      ref.read(cartRealtimeTickProvider.notifier).state++;
+    final cache = ref.read(customerRevenueCacheProvider);
+    if (refreshOrder) {
+      cache.orderChanged(orderIds: orderIds, ticketIds: ticketIds);
+      return;
     }
 
+    if (refreshCart) cache.cartChanged();
+
     if (refreshTickets) {
-      ref.invalidate(currentTicketsProvider);
-      for (final ticketId in ticketIds) {
-        ref.invalidate(ticketDetailProvider(ticketId));
-      }
-      ref.read(ticketRealtimeTickProvider.notifier).state++;
+      cache.ticketsChanged(ticketIds: ticketIds);
     }
   }
 }

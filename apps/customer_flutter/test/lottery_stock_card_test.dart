@@ -77,10 +77,7 @@ void main() {
     expect(find.text('ลดราคา'), findsOneWidget);
     expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
     expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('lottery-stock-brand-row')),
-      findsWidgets,
-    );
+    expect(find.byKey(const ValueKey('lottery-stock-brand-row')), findsWidgets);
     expect(
       find.byKey(const ValueKey('lottery-stock-seller-row')),
       findsNothing,
@@ -90,6 +87,18 @@ void main() {
     expect(find.text('ร้านทดสอบ'), findsNothing);
     final moreButton = find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่ม');
     expect(moreButton, findsOneWidget);
+    final moreButtonStyle = tester
+        .widget<TextButton>(moreButton)
+        .style
+        ?.textStyle
+        ?.resolve({});
+    final appLabelStyle = Theme.of(
+      tester.element(moreButton),
+    ).textTheme.labelLarge;
+    expect(moreButtonStyle?.fontFamily, appLabelStyle?.fontFamily);
+    expect(moreButtonStyle?.fontSize, appLabelStyle?.fontSize);
+    expect(moreButtonStyle?.fontWeight, FontWeight.w600);
+    expect(moreButtonStyle?.letterSpacing, 0);
     expect(
       find.descendant(of: moreButton, matching: find.byIcon(Icons.open_in_new)),
       findsNothing,
@@ -182,16 +191,12 @@ void main() {
   testWidgets('search load follows backend maintenance redirect', (
     tester,
   ) async {
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(
       tester,
       router: router,
-      lottery: _FailingSearchLotteryRepository(
-        _maintenanceApiException(),
-      ),
+      lottery: _FailingSearchLotteryRepository(_maintenanceApiException()),
     );
     await tester.pumpAndSettle();
 
@@ -199,54 +204,56 @@ void main() {
     expect(find.text('Maintenance route'), findsOneWidget);
   });
 
-  testWidgets('buy search hides ticket image frame like Nuxt show-image false',
-      (
-    tester,
-  ) async {
-    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+  testWidgets(
+    'buy search hides ticket image frame like Nuxt show-image false',
+    (tester) async {
+      final router = _lotteryRouter(
+        initialLocation: '/buy/search?number=273707',
+      );
 
-    await _pumpLotteryApp(
-      tester,
-      router: router,
-      lottery: _FakeLotteryRepository(),
-    );
-    await tester.pumpAndSettle();
+      await _pumpLotteryApp(
+        tester,
+        router: router,
+        lottery: _FakeLotteryRepository(),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('lottery-stock-ticket-image')),
-      findsNothing,
-    );
+      expect(
+        find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('lottery-stock-ticket-image')),
+        findsNothing,
+      );
 
-    await _pumpLotteryApp(
-      tester,
-      router: _lotteryRouter(initialLocation: '/buy/search?number=273707'),
-      lottery: _PendingImageLotteryRepository(),
-    );
-    await tester.pumpAndSettle();
+      await _pumpLotteryApp(
+        tester,
+        router: _lotteryRouter(initialLocation: '/buy/search?number=273707'),
+        lottery: _PendingImageLotteryRepository(),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
-      findsNothing,
-    );
-    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+        findsNothing,
+      );
+      expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsNothing);
 
-    await _pumpLotteryApp(
-      tester,
-      router: _lotteryRouter(initialLocation: '/buy/search?number=273707'),
-      lottery: _FailedImageLotteryRepository(),
-    );
-    await tester.pumpAndSettle();
+      await _pumpLotteryApp(
+        tester,
+        router: _lotteryRouter(initialLocation: '/buy/search?number=273707'),
+        lottery: _FailedImageLotteryRepository(),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
-      findsNothing,
-    );
-    expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsNothing);
-  });
+      expect(
+        find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+        findsNothing,
+      );
+      expect(find.text('ภาพสลากยังไม่พร้อมจากระบบ'), findsNothing);
+    },
+  );
 
   testWidgets('stock card toggles select and remove from the live cart state', (
     tester,
@@ -255,9 +262,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _FakeLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
 
@@ -328,9 +333,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _FakeLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
@@ -359,9 +362,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _MaterializedReservationLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
@@ -379,49 +380,47 @@ void main() {
     expect(find.text('เอาออก'), findsOneWidget);
   });
 
-  testWidgets('stock row tap does not reserve; select pill is the only action',
-      (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(800, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'stock row tap does not reserve; select pill is the only action',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final lottery = _FakeLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+      final lottery = _FakeLotteryRepository();
+      final router = _lotteryRouter(
+        initialLocation: '/buy/search?number=273707',
+      );
 
-    await _pumpLotteryApp(tester, router: router, lottery: lottery);
-    await tester.pumpAndSettle();
+      await _pumpLotteryApp(tester, router: router, lottery: lottery);
+      await tester.pumpAndSettle();
 
-    final stockRow = find.byKey(
-      const ValueKey('lottery-stock-row-local-stock-1'),
-    );
-    expect(stockRow, findsOneWidget);
+      final stockRow = find.byKey(
+        const ValueKey('lottery-stock-row-local-stock-1'),
+      );
+      expect(stockRow, findsOneWidget);
 
-    await tester.tap(stockRow);
-    await tester.pumpAndSettle();
+      await tester.tap(stockRow);
+      await tester.pumpAndSettle();
 
-    expect(lottery.reserveCount, 0);
-    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
-    expect(find.text('เอาออก'), findsNothing);
+      expect(lottery.reserveCount, 0);
+      expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
+      expect(find.text('เอาออก'), findsNothing);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+      await tester.pumpAndSettle();
 
-    expect(lottery.reserveCount, 1);
-    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
-    expect(find.text('เอาออก'), findsOneWidget);
-  });
+      expect(lottery.reserveCount, 1);
+      expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
+      expect(find.text('เอาออก'), findsOneWidget);
+    },
+  );
 
   testWidgets('guest stock selection keeps Nuxt-style login redirect', (
     tester,
   ) async {
     final lottery = _GuestBrowseLotteryRepository();
     final tokenStore = AuthTokenStore();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(
       tester,
@@ -457,9 +456,7 @@ void main() {
       refreshToken: 'restored-refresh-token',
       customerId: 'customer_1',
     );
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(
       tester,
@@ -488,9 +485,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _FakeLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
@@ -556,9 +551,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final lottery = _ClosedLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
@@ -594,9 +587,7 @@ void main() {
     tester,
   ) async {
     final lottery = _UnavailableReservationLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
@@ -624,13 +615,9 @@ void main() {
     expect(find.text('ไม่พบเลขสลาก'), findsOneWidget);
   });
 
-  testWidgets('search page refreshes stock on realtime tick', (
-    tester,
-  ) async {
+  testWidgets('search page refreshes stock on realtime tick', (tester) async {
     final lottery = _FakeLotteryRepository();
-    final router = _lotteryRouter(
-      initialLocation: '/buy/search?number=273707',
-    );
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
@@ -670,8 +657,9 @@ void main() {
       tester.element(find.byType(BuySearchScreen)),
       listen: false,
     );
-    container.read(lotteryStockPricePatchProvider.notifier).state =
-        const LotteryStockPricePatch(
+    container
+        .read(lotteryStockPricePatchProvider.notifier)
+        .state = const LotteryStockPricePatch(
       price: 90,
       gameId: 'game_1',
       flashKey: 9001,
@@ -694,40 +682,43 @@ void main() {
     );
   });
 
-  testWidgets('stock availability realtime patch disables sold rows like Nuxt',
-      (
-    tester,
-  ) async {
-    final lottery = _FakeLotteryRepository();
-    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+  testWidgets(
+    'stock availability realtime patch disables sold rows like Nuxt',
+    (tester) async {
+      final lottery = _FakeLotteryRepository();
+      final router = _lotteryRouter(
+        initialLocation: '/buy/search?number=273707',
+      );
 
-    await _pumpLotteryApp(tester, router: router, lottery: lottery);
-    await tester.pumpAndSettle();
+      await _pumpLotteryApp(tester, router: router, lottery: lottery);
+      await tester.pumpAndSettle();
 
-    expect(find.text('เลือก'), findsOneWidget);
+      expect(find.text('เลือก'), findsOneWidget);
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(BuySearchScreen)),
-      listen: false,
-    );
-    container.read(lotteryStockAvailabilityPatchProvider.notifier).state =
-        const LotteryStockAvailabilityPatch(
-      number: '273707',
-      remainingCount: 0,
-      status: 'sold_out',
-      gameId: 'game_1',
-      flashKey: 2701,
-    );
-    await tester.pump();
-    await tester.pump();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(BuySearchScreen)),
+        listen: false,
+      );
+      container
+          .read(lotteryStockAvailabilityPatchProvider.notifier)
+          .state = const LotteryStockAvailabilityPatch(
+        number: '273707',
+        remainingCount: 0,
+        status: 'sold_out',
+        gameId: 'game_1',
+        flashKey: 2701,
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text('เลือก'), findsNothing);
-    final soldOutButton = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'ขายหมดแล้ว'),
-    );
-    expect(soldOutButton.onPressed, isNull);
-    expect(lottery.reserveCount, 0);
-  });
+      expect(find.text('เลือก'), findsNothing);
+      final soldOutButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'ขายหมดแล้ว'),
+      );
+      expect(soldOutButton.onPressed, isNull);
+      expect(lottery.reserveCount, 0);
+    },
+  );
 
   testWidgets('stock list loads the next page when it is near the bottom', (
     tester,
@@ -754,9 +745,7 @@ void main() {
     expect(find.text('เลือก'), findsNWidgets(2));
   });
 
-  testWidgets('stock list omits Flutter load-more CTA', (
-    tester,
-  ) async {
+  testWidgets('stock list omits Flutter load-more CTA', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -769,37 +758,42 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม'), findsNothing);
   });
 
-  testWidgets('stock list renders Nuxt-style skeletons while initially loading',
-      (
-    tester,
-  ) async {
-    final lottery = _DelayedInitialLotteryRepository();
-    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+  testWidgets(
+    'stock list renders Nuxt-style skeletons while initially loading',
+    (tester) async {
+      final lottery = _DelayedInitialLotteryRepository();
+      final router = _lotteryRouter(
+        initialLocation: '/buy/search?number=273707',
+      );
 
-    await _pumpLotteryApp(tester, router: router, lottery: lottery);
-    await tester.pump();
-    await tester.pump();
+      await _pumpLotteryApp(tester, router: router, lottery: lottery);
+      await tester.pump();
+      await tester.pump();
 
-    final loadingSearchButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'กำลังค้นหา'),
-    );
-    expect(loadingSearchButton.onPressed, isNull);
-    final loadingClearButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'ล้างค่า'),
-    );
-    expect(loadingClearButton.onPressed, isNull);
-    expect(find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'กำลังโหลด'), findsNothing);
-    expect(_lotteryStockSkeletons(), findsNWidgets(5));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+      final loadingSearchButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'กำลังค้นหา'),
+      );
+      expect(loadingSearchButton.onPressed, isNull);
+      final loadingClearButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'ล้างค่า'),
+      );
+      expect(loadingClearButton.onPressed, isNull);
+      expect(
+        find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(OutlinedButton, 'กำลังโหลด'), findsNothing);
+      expect(_lotteryStockSkeletons(), findsNWidgets(5));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    lottery.completeSearch();
-    await tester.pumpAndSettle();
+      lottery.completeSearch();
+      await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(FilledButton, 'ค้นหาเลข'), findsOneWidget);
-    expect(_lotteryStockSkeletons(), findsNothing);
-    expect(find.text('เลือก'), findsOneWidget);
-  });
+      expect(find.widgetWithText(FilledButton, 'ค้นหาเลข'), findsOneWidget);
+      expect(_lotteryStockSkeletons(), findsNothing);
+      expect(find.text('เลือก'), findsOneWidget);
+    },
+  );
 
   testWidgets('stock list appends Nuxt-style skeletons while loading more', (
     tester,
@@ -831,52 +825,44 @@ void main() {
     expect(find.text('เลือก'), findsNWidgets(2));
   });
 
-  testWidgets('buy browse list deduplicates repeated random numbers like Nuxt',
-      (
-    tester,
-  ) async {
-    final lottery = _DuplicateBrowseLotteryRepository();
-    final router = GoRouter(
-      initialLocation: '/buy',
-      routes: [
-        GoRoute(
-          path: '/buy',
-          builder: (context, state) => const BuyScreen(),
-        ),
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) =>
-              const Scaffold(body: Center(child: Text('Cart route'))),
-        ),
-      ],
-    );
+  testWidgets(
+    'buy browse list deduplicates repeated random numbers like Nuxt',
+    (tester) async {
+      final lottery = _DuplicateBrowseLotteryRepository();
+      final router = GoRouter(
+        initialLocation: '/buy',
+        routes: [
+          GoRoute(path: '/buy', builder: (context, state) => const BuyScreen()),
+          GoRoute(
+            path: '/cart',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Cart route'))),
+          ),
+        ],
+      );
 
-    await _pumpLotteryApp(tester, router: router, lottery: lottery);
-    await tester.pumpAndSettle();
+      await _pumpLotteryApp(tester, router: router, lottery: lottery);
+      await tester.pumpAndSettle();
 
-    expect(lottery.searchCount, 1);
-    expect(find.text('ทั้งหมด'), findsOneWidget);
-    expect(find.text('ลดราคา'), findsOneWidget);
-    expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
-    expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
-      findsNothing,
-    );
-    expect(find.text('เลือก'), findsNWidgets(2));
-  });
+      expect(lottery.searchCount, 1);
+      expect(find.text('ทั้งหมด'), findsOneWidget);
+      expect(find.text('ลดราคา'), findsOneWidget);
+      expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
+      expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('lottery-stock-ticket-image-frame')),
+        findsNothing,
+      );
+      expect(find.text('เลือก'), findsNWidgets(2));
+    },
+  );
 
-  testWidgets('buy browse refresh enters Nuxt-style cooldown', (
-    tester,
-  ) async {
+  testWidgets('buy browse refresh enters Nuxt-style cooldown', (tester) async {
     final lottery = _FakeLotteryRepository();
     final router = GoRouter(
       initialLocation: '/buy',
       routes: [
-        GoRoute(
-          path: '/buy',
-          builder: (context, state) => const BuyScreen(),
-        ),
+        GoRoute(path: '/buy', builder: (context, state) => const BuyScreen()),
         GoRoute(
           path: '/cart',
           builder: (context, state) =>
@@ -893,6 +879,18 @@ void main() {
     expect(initialSeed, isNotEmpty);
 
     final refreshButton = find.widgetWithText(OutlinedButton, 'แสดงเลขใหม่');
+    final refreshButtonStyle = tester
+        .widget<OutlinedButton>(refreshButton)
+        .style
+        ?.textStyle
+        ?.resolve({});
+    final appLabelStyle = Theme.of(
+      tester.element(refreshButton),
+    ).textTheme.labelLarge;
+    expect(refreshButtonStyle?.fontFamily, appLabelStyle?.fontFamily);
+    expect(refreshButtonStyle?.fontSize, appLabelStyle?.fontSize);
+    expect(refreshButtonStyle?.fontWeight, FontWeight.w600);
+    expect(refreshButtonStyle?.letterSpacing, 0);
     await tester.tap(refreshButton);
     await tester.pump();
     await tester.pump();
@@ -1113,15 +1111,13 @@ GoRouter _lotteryRouter({required String initialLocation}) {
     routes: [
       GoRoute(
         path: '/buy/search',
-        builder: (context, state) => BuySearchScreen(
-          query: state.uri.queryParameters,
-        ),
+        builder: (context, state) =>
+            BuySearchScreen(query: state.uri.queryParameters),
       ),
       GoRoute(
         path: '/buy/more',
-        builder: (context, state) => BuyMoreScreen(
-          query: state.uri.queryParameters,
-        ),
+        builder: (context, state) =>
+            BuyMoreScreen(query: state.uri.queryParameters),
       ),
       GoRoute(
         path: '/buy',
@@ -1202,10 +1198,10 @@ MobileBootstrap _mobileBootstrap() {
 AuthController _authenticatedController(AuthTokenStore tokenStore) {
   final api = _testApiClient(tokenStore);
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = true
     ..pinRequired = false;
 }
@@ -1213,10 +1209,10 @@ AuthController _authenticatedController(AuthTokenStore tokenStore) {
 AuthController _unauthenticatedController(AuthTokenStore tokenStore) {
   final api = _testApiClient(tokenStore);
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = false
     ..pinRequired = false;
 }
@@ -1622,9 +1618,7 @@ class _PaginatedLotteryRepository extends _FakeLotteryRepository {
     }
     return LotteryStockPage(
       gameId: gameId,
-      items: [
-        _stockItem(number: '999999', localStockItemId: 'local-stock-2'),
-      ],
+      items: [_stockItem(number: '999999', localStockItemId: 'local-stock-2')],
       nextCursor: '',
       hasMore: false,
       sellerName: 'ร้านทดสอบ',
