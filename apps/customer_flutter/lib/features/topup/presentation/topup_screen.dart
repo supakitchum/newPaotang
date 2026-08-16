@@ -184,8 +184,6 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
   final _amount = TextEditingController(text: '500');
   final _qrExportBoundaryKey = GlobalKey();
   TopupChannel _selectedChannel = TopupChannel.qr;
-  TopupSlipUpload? _bankTransferSlip;
-  DateTime? _bankTransferAt;
   DateTime? _waitingSlipTransferAt;
   bool _submitting = false;
   bool _uploadingSlip = false;
@@ -525,9 +523,6 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
       _selectedChannel = channel;
       _sheetNoticeMessage = '';
       _pageNoticeMessage = '';
-      if (channel == TopupChannel.bankTransfer) {
-        _bankTransferAt ??= DateTime.now();
-      }
     });
 
     await showModalBottomSheet<void>(
@@ -578,21 +573,6 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
               if (sheetContext.mounted) setSheetState(() {});
             }
 
-            Future<void> pickBankTransferSlip() async {
-              await _pickBankTransferSlip();
-              if (sheetContext.mounted) setSheetState(() {});
-            }
-
-            void clearBankTransferSlip() {
-              _clearBankTransferSlip();
-              if (sheetContext.mounted) setSheetState(() {});
-            }
-
-            Future<void> selectBankTransferAt() async {
-              await _selectBankTransferAt();
-              if (sheetContext.mounted) setSheetState(() {});
-            }
-
             Future<void> selectQuickAmount(int amount) async {
               if (_submitting) return;
               _amount.value = TextEditingValue(
@@ -608,15 +588,10 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
               amount: _amount,
               selectedChannel: channel,
               selectedMethod: overview.methodForChannel(channel),
-              bankTransferSlip: _bankTransferSlip,
-              bankTransferAt: _bankTransferAt,
               noticeMessage: _sheetNoticeMessage,
               noticeIsError: _sheetNoticeIsError,
               submitting: _submitting,
               showPaymentDetails: showPaymentDetails,
-              onPickBankTransferSlip: pickBankTransferSlip,
-              onClearBankTransferSlip: clearBankTransferSlip,
-              onSelectBankTransferAt: selectBankTransferAt,
               onContinueToPaymentDetails: continueToPaymentDetails,
               onQuickAmountSelected: selectQuickAmount,
               onEditAmount: editAmount,
@@ -639,10 +614,6 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
       return null;
     }
     final amount = double.tryParse(_amount.text.trim()) ?? 0;
-    if (channel == TopupChannel.bankTransfer && _bankTransferSlip == null) {
-      _setSheetNotice(l10n.topupBankSlipRequired);
-      return null;
-    }
 
     setState(() {
       _submitting = true;
@@ -657,22 +628,10 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
       if (channel == TopupChannel.creditCard) {
         created = await repo.createCredit(amount: amount);
       } else {
-        created = await repo.create(
-          channel: channel,
-          amount: amount,
-          transferAt: channel == TopupChannel.bankTransfer
-              ? _bankTransferAt
-              : null,
-          slip: channel == TopupChannel.bankTransfer ? _bankTransferSlip : null,
-        );
+        created = await repo.create(channel: channel, amount: amount);
       }
       _invalidateTopupSurfaces(created.id);
-      if (channel == TopupChannel.bankTransfer) {
-        setState(() {
-          _bankTransferSlip = null;
-          _bankTransferAt = null;
-        });
-      } else {
+      if (channel != TopupChannel.bankTransfer) {
         setState(() => _waitingSlipTransferAt = null);
       }
       _setPageNotice(
@@ -970,34 +929,6 @@ class _TopupScreenState extends ConsumerState<TopupScreen>
     } finally {
       if (mounted) setState(() => _uploadingSlip = false);
     }
-  }
-
-  Future<void> _pickBankTransferSlip() async {
-    final l10n = context.l10n;
-    final slip = await pickTopupSlipUpload();
-    if (slip == null) return;
-
-    if (slip.sizeInBytes > 5 * 1024 * 1024) {
-      _setSheetNotice(l10n.topupSlipTooLarge);
-      return;
-    }
-
-    setState(() {
-      _bankTransferSlip = slip;
-      _sheetNoticeMessage = '';
-    });
-  }
-
-  void _clearBankTransferSlip() {
-    setState(() {
-      _bankTransferSlip = null;
-      _sheetNoticeMessage = '';
-    });
-  }
-
-  Future<void> _selectBankTransferAt() async {
-    final selected = await _pickTransferDateTime(_bankTransferAt);
-    if (selected != null && mounted) setState(() => _bankTransferAt = selected);
   }
 
   Future<void> _selectWaitingSlipTransferAt(TopupRequestItem topup) async {
@@ -3576,15 +3507,10 @@ class _TopupSheetContent extends StatelessWidget {
     required this.amount,
     required this.selectedChannel,
     required this.selectedMethod,
-    required this.bankTransferSlip,
-    required this.bankTransferAt,
     required this.noticeMessage,
     required this.noticeIsError,
     required this.submitting,
     required this.showPaymentDetails,
-    required this.onPickBankTransferSlip,
-    required this.onClearBankTransferSlip,
-    required this.onSelectBankTransferAt,
     required this.onContinueToPaymentDetails,
     required this.onQuickAmountSelected,
     required this.onEditAmount,
@@ -3595,15 +3521,10 @@ class _TopupSheetContent extends StatelessWidget {
   final TextEditingController amount;
   final TopupChannel selectedChannel;
   final TopupPaymentMethod? selectedMethod;
-  final TopupSlipUpload? bankTransferSlip;
-  final DateTime? bankTransferAt;
   final String noticeMessage;
   final bool noticeIsError;
   final bool submitting;
   final bool showPaymentDetails;
-  final Future<void> Function() onPickBankTransferSlip;
-  final VoidCallback onClearBankTransferSlip;
-  final Future<void> Function() onSelectBankTransferAt;
   final Future<void> Function() onContinueToPaymentDetails;
   final Future<void> Function(int amount) onQuickAmountSelected;
   final VoidCallback onEditAmount;
@@ -3767,14 +3688,9 @@ class _TopupSheetContent extends StatelessWidget {
                               amount: amount,
                               selectedChannel: selectedChannel,
                               selectedMethod: selectedMethod,
-                              bankTransferSlip: bankTransferSlip,
-                              bankTransferAt: bankTransferAt,
                               submitting: submitting,
                               showPaymentDetails: showPaymentDetails,
                               onQuickAmountSelected: onQuickAmountSelected,
-                              onPickBankTransferSlip: onPickBankTransferSlip,
-                              onClearBankTransferSlip: onClearBankTransferSlip,
-                              onSelectBankTransferAt: onSelectBankTransferAt,
                             ),
                           ],
                         ),
@@ -3943,28 +3859,18 @@ class _TopupFormCard extends StatelessWidget {
     required this.amount,
     required this.selectedChannel,
     required this.selectedMethod,
-    required this.bankTransferSlip,
-    required this.bankTransferAt,
     required this.submitting,
     required this.showPaymentDetails,
     required this.onQuickAmountSelected,
-    required this.onPickBankTransferSlip,
-    required this.onClearBankTransferSlip,
-    required this.onSelectBankTransferAt,
   });
 
   final TopupBankAccount bank;
   final TextEditingController amount;
   final TopupChannel selectedChannel;
   final TopupPaymentMethod? selectedMethod;
-  final TopupSlipUpload? bankTransferSlip;
-  final DateTime? bankTransferAt;
   final bool submitting;
   final bool showPaymentDetails;
   final Future<void> Function(int amount) onQuickAmountSelected;
-  final Future<void> Function() onPickBankTransferSlip;
-  final VoidCallback onClearBankTransferSlip;
-  final Future<void> Function() onSelectBankTransferAt;
 
   @override
   Widget build(BuildContext context) {
@@ -3981,6 +3887,11 @@ class _TopupFormCard extends StatelessWidget {
             submitting: submitting,
             onQuickAmountSelected: onQuickAmountSelected,
           ),
+        ] else if (selectedChannel == TopupChannel.bankTransfer) ...[
+          _BankInfoCard(
+            bank: bank,
+            amount: formatTopupBaht(l10n, currentAmount),
+          ),
         ] else ...[
           _TopupPaymentAmountSummary(
             amount: formatTopupBaht(l10n, currentAmount),
@@ -3991,35 +3902,8 @@ class _TopupFormCard extends StatelessWidget {
             method: selectedMethod,
           ),
           const SizedBox(height: 12),
-          if (selectedChannel != TopupChannel.bankTransfer) ...[
-            _DeferredSlipNote(message: _deferredSlipMessage(l10n)),
-            const SizedBox(height: 16),
-          ],
-          if (selectedChannel == TopupChannel.bankTransfer &&
-              bank.isConfigured) ...[
-            _BankInfoCard(bank: bank),
-            const SizedBox(height: 10),
-          ],
-          if (selectedChannel == TopupChannel.bankTransfer) ...[
-            _BankTransferSlipPanel(
-              slip: bankTransferSlip,
-              transferAt: bankTransferAt,
-              onPickSlip: submitting
-                  ? null
-                  : () {
-                      onPickBankTransferSlip();
-                    },
-              onClearSlip: submitting || bankTransferSlip == null
-                  ? null
-                  : onClearBankTransferSlip,
-              onSelectTransferAt: submitting
-                  ? null
-                  : () {
-                      onSelectBankTransferAt();
-                    },
-            ),
-            const SizedBox(height: 16),
-          ],
+          _DeferredSlipNote(message: _deferredSlipMessage(l10n)),
+          const SizedBox(height: 16),
         ],
       ],
     );
@@ -4029,7 +3913,7 @@ class _TopupFormCard extends StatelessWidget {
     return switch (selectedChannel) {
       TopupChannel.qr => l10n.topupDeferredSlipQr,
       TopupChannel.creditCard => l10n.topupDeferredSlipCredit,
-      TopupChannel.bankTransfer => '',
+      TopupChannel.bankTransfer => l10n.topupBankSlipDescription,
     };
   }
 }
@@ -4389,147 +4273,6 @@ class _DeferredSlipNote extends StatelessWidget {
   }
 }
 
-class _BankTransferSlipPanel extends StatelessWidget {
-  const _BankTransferSlipPanel({
-    required this.slip,
-    required this.transferAt,
-    required this.onPickSlip,
-    required this.onClearSlip,
-    required this.onSelectTransferAt,
-  });
-
-  final TopupSlipUpload? slip;
-  final DateTime? transferAt;
-  final VoidCallback? onPickSlip;
-  final VoidCallback? onClearSlip;
-  final VoidCallback? onSelectTransferAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    final hasSlip = slip != null;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: _topupPrimaryTint(colorScheme),
-        border: Border.all(
-          color:
-              Color.lerp(colorScheme.primary, colorScheme.surface, 0.76) ??
-              colorScheme.primary.withValues(alpha: 0.24),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.receipt_long, color: colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.topupBankSlipTitle,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l10n.topupBankSlipDescription,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _TransferTimePickerRow(
-              value: transferAt == null
-                  ? l10n.topupBankSlipTransferAtUnset
-                  : formatLocalizedDateTime(
-                      transferAt,
-                      l10n.locale.toLanguageTag(),
-                    ),
-              onPressed: onSelectTransferAt,
-            ),
-            if (hasSlip) ...[
-              const SizedBox(height: 12),
-              _SlipMetaRow(
-                icon: Icons.image_outlined,
-                label: l10n.topupBankSlipFileLabel,
-                value: slip!.filename,
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onPickSlip,
-                    icon: Icon(hasSlip ? Icons.change_circle : Icons.upload),
-                    label: Text(
-                      hasSlip
-                          ? l10n.topupBankSlipChange
-                          : l10n.topupBankSlipAttach,
-                    ),
-                    style: _topupFlatButtonStyle(
-                      OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(46),
-                        foregroundColor: colorScheme.primary,
-                        backgroundColor: colorScheme.surface,
-                        side: BorderSide(
-                          color: _topupPrimaryBorder(colorScheme),
-                        ),
-                        shape: const StadiumBorder(),
-                        textStyle: Theme.of(context).textTheme.labelLarge
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ),
-                ),
-                if (hasSlip) ...[
-                  const SizedBox(width: 8),
-                  IconButton.outlined(
-                    onPressed: onClearSlip,
-                    icon: const Icon(Icons.close),
-                    tooltip: l10n.topupBankSlipRemove,
-                    style:
-                        IconButton.styleFrom(
-                          foregroundColor: colorScheme.error,
-                          side: BorderSide(
-                            color: _topupErrorBorder(colorScheme),
-                          ),
-                        ).copyWith(
-                          overlayColor: const WidgetStatePropertyAll(
-                            Colors.transparent,
-                          ),
-                        ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _TransferTimePickerRow extends StatelessWidget {
   const _TransferTimePickerRow({required this.value, required this.onPressed});
 
@@ -4584,51 +4327,6 @@ class _TransferTimePickerRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SlipMetaRow extends StatelessWidget {
-  const _SlipMetaRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -4923,9 +4621,10 @@ class _ChannelDisabledBadge extends StatelessWidget {
 }
 
 class _BankInfoCard extends StatefulWidget {
-  const _BankInfoCard({required this.bank});
+  const _BankInfoCard({required this.bank, required this.amount});
 
   final TopupBankAccount bank;
+  final String amount;
 
   @override
   State<_BankInfoCard> createState() => _BankInfoCardState();
@@ -4969,6 +4668,7 @@ class _BankInfoCardState extends State<_BankInfoCard> {
         : bank.accountNumber.trim();
 
     return DecoratedBox(
+      key: const ValueKey('topup-bank-transfer-summary'),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: colorScheme.surface,
@@ -4992,30 +4692,15 @@ class _BankInfoCardState extends State<_BankInfoCard> {
                 _TopupBankLogo(bank: bank),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.topupBankTransferTo,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        bankName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w800,
-                              height: 1.2,
-                            ),
-                      ),
-                    ],
+                  child: Text(
+                    bankName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
@@ -5026,11 +4711,32 @@ class _BankInfoCardState extends State<_BankInfoCard> {
               color: colorScheme.outlineVariant.withValues(alpha: 0.72),
             ),
             const SizedBox(height: 13),
-            _TopupBankDetail(
-              label: l10n.topupBankAccountNameLabel,
-              value: accountName,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.topupPaymentAmountDue,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  widget.amount,
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             DecoratedBox(
               decoration: BoxDecoration(
                 color: _topupPrimaryTint(colorScheme),
@@ -5106,44 +4812,36 @@ class _BankInfoCardState extends State<_BankInfoCard> {
                 ),
               ),
             ),
+            const SizedBox(height: 11),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.topupBankAccountNameLabel,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    accountName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _TopupBankDetail extends StatelessWidget {
-  const _TopupBankDetail({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
-        ),
-      ],
     );
   }
 }

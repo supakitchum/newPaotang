@@ -1999,7 +1999,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final enoughBalance = _walletBalance >= _cart.total;
     final canUseSelectedPayment =
         !usesWallet || (!_walletLoading && enoughBalance);
-    final walletName = _primaryWallet?.name.trim().isNotEmpty == true
+    final siteName =
+        ref.watch(mobileBootstrapProvider).valueOrNull?.siteName.trim() ?? '';
+    final walletName = siteName.isNotEmpty
+        ? l10n.checkoutWalletNameFor(siteName)
+        : _primaryWallet?.name.trim().isNotEmpty == true
         ? _primaryWallet!.name.trim()
         : l10n.checkoutWalletFallbackName;
     final confirmLabel = _submitting
@@ -4023,7 +4027,8 @@ class _CheckoutDockedPage extends StatelessWidget {
       children: [
         Positioned.fill(
           child: ListView(
-            padding: EdgeInsets.zero,
+            key: const ValueKey('checkout-content-scroll'),
+            padding: const EdgeInsets.only(top: 10),
             physics: physics,
             children: [
               _LotteryContentSheet(

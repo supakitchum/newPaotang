@@ -11757,3 +11757,22 @@ Revenue cache invalidation after checkout (2026-08-16):
 - Focused cache, realtime, checkout, and navigation-cache verification passed
   10 tests. Focused Flutter analysis and `git diff --check` passed. Runtime DB,
   commit, push, and worktree clearing were not performed.
+
+Home, ticket inventory, and Checkout parity polish (2026-08-16):
+
+- The Home lottery-number affordance is now a single button surface with six
+  centered, light placeholder digits. It no longer mounts read-only text
+  fields, takes input focus, or opens a keyboard before routing to lottery
+  search. The draw-day sale-cutoff hero allocation was tightened while keeping
+  narrow-screen content overflow-free.
+- Customer ticket inventory now returns newest purchases first. Its ULID cursor
+  pagination follows the same descending direction, so loading subsequent
+  pages continues toward older tickets without duplicates or skipped rows.
+- Checkout now leaves a small branded-background gap between its fixed hero
+  and content sheet. The wallet payment option uses the runtime Tenant site
+  name through localization, for example `Siamblend Wallet`, rather than the
+  internal wallet record name.
+- Focused Home and Checkout widget tests, focused Flutter analysis, and
+  `git diff --check` passed. The ticket-order/cursor API regression passed 1
+  test with 32 assertions against `newpaotang_test`. Runtime DB, commit, push,
+  and worktree clearing were not performed.

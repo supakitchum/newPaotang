@@ -398,11 +398,11 @@ class CommerceService
         $total = (clone $query)->count();
 
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+            $query->where('id', '<', trim((string) $queryParams['cursor']));
         }
 
         $rows = $query
-            ->orderBy('id')
+            ->orderByDesc('id')
             ->limit($limit + 1)
             ->get()
             ->all();

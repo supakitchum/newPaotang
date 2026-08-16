@@ -16,7 +16,6 @@ import '../../../core/utils/provider_cache.dart';
 import '../../../features/activities/data/activity_models.dart';
 import '../../../features/activities/data/activity_repository.dart';
 import '../../../features/activities/presentation/activity_localization.dart';
-import '../../../features/lottery/presentation/lottery_digit_input_row.dart';
 import '../../../features/lottery/presentation/lottery_navigation.dart';
 import '../../../features/lottery/presentation/lottery_screens.dart'
     show
@@ -387,19 +386,6 @@ class _HomeLotteryHero extends StatefulWidget {
 }
 
 class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
-  late final _digits = List.generate(
-    6,
-    (index) => TextEditingController(text: '${index + 1}'),
-  );
-
-  @override
-  void dispose() {
-    for (final controller in _digits) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -527,27 +513,9 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 620),
-                  child: LotteryDigitInputRow(
-                    controllers: _digits,
-                    readOnly: true,
+                  child: _HomeLotterySearchButton(
                     onTap: _goSearch,
-                    onSubmitted: _goSearch,
-                    style: LotteryDigitInputStyle(
-                      borderRadius: 8,
-                      spacing: 0,
-                      verticalPadding: 8,
-                      fillColor: colorScheme.surface,
-                      enabledBorderColor: colorScheme.outlineVariant.withValues(
-                        alpha: 0.92,
-                      ),
-                      shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
-                      shadowBlurRadius: 5,
-                      shadowOffset: const Offset(0, 2),
-                      hintColor: colorScheme.onSurface.withValues(alpha: 0.20),
-                      focusedBorderColor: colorScheme.tertiary,
-                      maxDigitWidth: homeDigitWidth,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    maxDigitWidth: homeDigitWidth,
                   ),
                 ),
               ),
@@ -582,6 +550,88 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
 
   void _goSearch() {
     context.push(lotterySearchPath());
+  }
+}
+
+class _HomeLotterySearchButton extends StatelessWidget {
+  const _HomeLotterySearchButton({
+    required this.onTap,
+    required this.maxDigitWidth,
+  });
+
+  final VoidCallback onTap;
+  final double maxDigitWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Semantics(
+      button: true,
+      label: context.l10n.lotterySearchHeroTitle,
+      child: Material(
+        key: const ValueKey('home-lottery-search-button'),
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: ExcludeSemantics(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final digitWidth = constraints.hasBoundedWidth
+                    ? (constraints.maxWidth / 6)
+                          .clamp(0.0, maxDigitWidth)
+                          .toDouble()
+                    : maxDigitWidth;
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (var index = 0; index < 6; index++)
+                      Container(
+                        key: ValueKey(
+                          'home-lottery-search-placeholder-${index + 1}',
+                        ),
+                        width: digitWidth,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          border: Border.all(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.92,
+                            ),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.shadow.withValues(alpha: 0.12),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          '${index + 1}',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onSurface.withValues(
+                              alpha: 0.32,
+                            ),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w500,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2546,9 +2596,9 @@ String _homeSaleCloseTime(DateTime date) {
 }
 
 const _homeHeroBaseHeight = 352.0;
-const _homeDrawDayNoticeNarrowExtraHeight = 160.0;
-const _homeDrawDayNoticeCompactExtraHeight = 140.0;
-const _homeDrawDayNoticeWideExtraHeight = 116.0;
+const _homeDrawDayNoticeNarrowExtraHeight = 144.0;
+const _homeDrawDayNoticeCompactExtraHeight = 108.0;
+const _homeDrawDayNoticeWideExtraHeight = 96.0;
 const _homeSheetOverlap = 34.0;
 const _homeFixedNavbarToolbarHeight = 64.0;
 const _homeNewsSlideshowInterval = Duration(seconds: 5);

@@ -124,6 +124,20 @@ void main() {
 
     expect(find.text('ซื้อสลากดิจิทัล'), findsWidgets);
     expect(find.text('ค้นหาเลขเด็ด'), findsOneWidget);
+    final searchButton = find.byKey(
+      const ValueKey('home-lottery-search-button'),
+    );
+    expect(searchButton, findsOneWidget);
+    expect(
+      find.descendant(of: searchButton, matching: find.byType(TextField)),
+      findsNothing,
+    );
+    for (var digit = 1; digit <= 6; digit++) {
+      expect(
+        find.byKey(ValueKey('home-lottery-search-placeholder-$digit')),
+        findsOneWidget,
+      );
+    }
     final sheet = tester.getRect(
       find.byKey(const ValueKey('home-content-sheet')),
     );
@@ -174,6 +188,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('14:00', findRichText: true), findsOneWidget);
+    final noticeRect = tester.getRect(
+      find.byKey(const ValueKey('home-draw-day-sale-notice')),
+    );
+    final contentSheetRect = tester.getRect(
+      find.byKey(const ValueKey('home-content-sheet')),
+    );
+    expect(contentSheetRect.top - noticeRect.bottom, lessThan(80));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

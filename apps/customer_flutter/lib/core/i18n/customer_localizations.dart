@@ -869,6 +869,8 @@ class CustomerLocalizations {
       _text('checkout.payment_method_title');
   String get checkoutWalletFallbackName =>
       _text('checkout.wallet_fallback_name');
+  String checkoutWalletNameFor(String siteName) =>
+      _text('checkout.wallet_site_name').replaceAll('{site}', siteName.trim());
   String get checkoutWalletPaymentNote => _text('checkout.wallet_payment_note');
   String get checkoutWalletLoading => _text('checkout.wallet_loading');
   String get checkoutWalletLoadFailed => _text('checkout.wallet_load_failed');
@@ -3731,6 +3733,7 @@ const _localizedValues = <String, Map<String, String>>{
     'checkout.wallet_balance': 'ยอดเงินในกระเป๋า',
     'checkout.payment_method_title': 'ช่องทางชำระเงิน',
     'checkout.wallet_fallback_name': 'กระเป๋าเงิน',
+    'checkout.wallet_site_name': '{site} Wallet',
     'checkout.wallet_payment_note':
         'คุณสามารถยืนยันชำระเงินเพื่อใช้บัญชีที่ผูกไว้ชำระเงินค่าสลากได้อัตโนมัติ',
     'checkout.wallet_loading': 'กำลังโหลดกระเป๋าเงิน...',
@@ -5781,6 +5784,7 @@ const _localizedValues = <String, Map<String, String>>{
     'checkout.wallet_balance': 'Wallet balance',
     'checkout.payment_method_title': 'Payment method',
     'checkout.wallet_fallback_name': 'Wallet',
+    'checkout.wallet_site_name': '{site} Wallet',
     'checkout.wallet_payment_note':
         'Confirm payment to pay for lottery tickets automatically with the linked wallet account.',
     'checkout.wallet_loading': 'Loading wallet...',

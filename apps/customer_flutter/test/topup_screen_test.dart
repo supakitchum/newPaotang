@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
@@ -467,12 +466,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('bank transfer requires a slip before creating request', (
+  testWidgets('bank transfer confirms before requesting a slip', (
     tester,
   ) async {
-    await _pumpTopupScreen(
+    final repository = _CreateTopupRepository(
+      const TopupRequestItem(
+        id: 'top_bank_transfer',
+        amount: 500,
+        bonusAmount: 0,
+        status: TopupStatus.pendingReview,
+        channel: TopupChannel.bankTransfer,
+        provider: 'manual',
+        transferAt: null,
+        createdAt: '2026-08-16T10:00:00+07:00',
+        slipUrl: '',
+        slipThumbUrl: '',
+        qrCode: '',
+        redirectUrl: '',
+        message: '',
+      ),
+    );
+    await _pumpTopupRoute(
       tester,
-      TopupOverview(
+      '/topup',
+      overview: TopupOverview(
         bank: const TopupBankAccount(
           bankCode: 'kbank',
           bankName: 'ธนาคารทดสอบ',
@@ -505,6 +522,7 @@ void main() {
         currentPage: 1,
         lastPage: 1,
       ),
+      repository: repository,
     );
 
     await tester.ensureVisible(find.text('โอนธนาคาร'));
@@ -522,9 +540,17 @@ void main() {
     expect(find.text('ยอดที่ต้องชำระ'), findsOneWidget);
     expect(find.text('500 บาท'), findsOneWidget);
     expect(find.text('ธนาคารทดสอบ'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topup-bank-transfer-summary')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('topup-bank-logo-kbank')), findsOneWidget);
     expect(find.text('ชื่อบัญชี'), findsOneWidget);
     expect(find.text('เลขที่บัญชี'), findsOneWidget);
+    expect(find.text('ข้อมูลการชำระเงิน'), findsNothing);
+    expect(find.text('วันเวลาที่โอน'), findsNothing);
+    expect(find.text('สลิปโอนเงิน'), findsNothing);
+    expect(find.text('แนบสลิป'), findsNothing);
     expect(
       find.byKey(const ValueKey('topup-bank-copy-account')),
       findsOneWidget,
@@ -534,8 +560,8 @@ void main() {
       SystemChannels.platform,
       (call) async {
         if (call.method == 'Clipboard.setData') {
-          copiedAccountNumber = (call.arguments as Map<Object?, Object?>)['text']
-              ?.toString();
+          copiedAccountNumber =
+              (call.arguments as Map<Object?, Object?>)['text']?.toString();
         }
         return null;
       },
@@ -554,29 +580,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(copiedAccountNumber, '123-4-56789-0');
     expect(find.text('คัดลอกแล้ว'), findsOneWidget);
-    expect(find.text('วันเวลาที่โอน'), findsOneWidget);
-    final transferTimeButton = find.ancestor(
-      of: find.byIcon(Icons.schedule),
-      matching: find.byType(OutlinedButton),
-    );
-    expect(transferTimeButton, findsOneWidget);
-    expect(find.text('สลิปโอนเงิน'), findsOneWidget);
-    expect(find.text('แนบสลิป'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('วันเวลาที่โอน')).dy,
-      lessThan(tester.getTopLeft(find.text('แนบสลิป')).dy),
-    );
-
-    await Scrollable.ensureVisible(
-      tester.element(transferTimeButton),
-      alignment: 0.45,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(transferTimeButton);
-    await tester.pumpAndSettle();
-    expect(find.byType(DatePickerDialog), findsOneWidget);
-    await tester.tap(find.text('ยกเลิก').last);
-    await tester.pumpAndSettle();
 
     final submit = find.widgetWithText(
       CustomerGradientButton,
@@ -584,9 +587,16 @@ void main() {
     );
     final submitButton = tester.widget<CustomerGradientButton>(submit);
     submitButton.onPressed!();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('กรุณาแนบรูปสลิปก่อนส่งให้แอดมินตรวจสอบ'), findsOneWidget);
+    expect(repository.createCalls, 1);
+    expect(repository.createdChannel, TopupChannel.bankTransfer);
+    expect(repository.createdTransferAt, isNull);
+    expect(repository.createdSlip, isNull);
+    expect(
+      find.text('topup detail route top_bank_transfer back=/my-wallet'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('pending QR topup can upload a slip after QR creation', (
@@ -1913,6 +1923,8 @@ class _CreateTopupRepository extends TopupRepository {
   final Completer<void>? createGate;
   int createCalls = 0;
   TopupChannel? createdChannel;
+  DateTime? createdTransferAt;
+  TopupSlipUpload? createdSlip;
 
   @override
   Future<TopupRequestItem> create({
@@ -1923,6 +1935,8 @@ class _CreateTopupRepository extends TopupRepository {
   }) async {
     createCalls++;
     createdChannel = channel;
+    createdTransferAt = transferAt;
+    createdSlip = slip;
     await createGate?.future;
     return item;
   }

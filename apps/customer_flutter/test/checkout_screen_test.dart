@@ -353,7 +353,8 @@ void main() {
       findsNothing,
     );
     expect(find.text('273707'), findsNothing);
-    expect(find.text('G Wallet'), findsOneWidget);
+    expect(find.text('ร้านทดสอบ Wallet'), findsOneWidget);
+    expect(find.text('G Wallet'), findsNothing);
     expect(
       find.text(
         'คุณสามารถยืนยันชำระเงินเพื่อใช้บัญชีที่ผูกไว้ชำระเงินค่าสลากได้อัตโนมัติ',
@@ -405,7 +406,11 @@ void main() {
     final walletMark = tester.widget<Text>(
       find.byKey(const ValueKey('checkout-wallet-method-mark')),
     );
-    expect(walletMark.data, 'G');
+    expect(walletMark.data, 'ร');
+    final checkoutContentScroll = tester.widget<ListView>(
+      find.byKey(const ValueKey('checkout-content-scroll')),
+    );
+    expect(checkoutContentScroll.padding, const EdgeInsets.only(top: 10));
 
     final paymentDock = find.byKey(const ValueKey('checkout-payment-dock'));
     expect(paymentDock, findsOneWidget);
@@ -544,7 +549,7 @@ void main() {
   });
 
   testWidgets(
-      'checkout wallet card handles long runtime wallet names on mobile',
+      'checkout wallet card handles long runtime tenant names on mobile',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(360, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -578,10 +583,13 @@ void main() {
       ],
     );
 
+    const longSiteName = 'ร้านทดสอบสำหรับชำระเงินค่าสลากประจำครอบครัว';
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => _mobileBootstrap(siteName: longSiteName),
+          ),
           lotteryRepositoryProvider.overrideWithValue(lottery),
           walletRepositoryProvider.overrideWithValue(
             _WalletRepository(
@@ -612,7 +620,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('G Wallet บัญชีหลักสำหรับชำระเงินค่าสลากประจำครอบครัว'),
+      find.text('$longSiteName Wallet'),
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('checkout-payment-dock')), findsOneWidget);
@@ -3644,11 +3652,11 @@ class _NoopAffiliateReferralService extends AffiliateReferralService {
   }
 }
 
-MobileBootstrap _mobileBootstrap() {
-  return MobileBootstrap.fromJson(const {
+MobileBootstrap _mobileBootstrap({String siteName = 'ร้านทดสอบ'}) {
+  return MobileBootstrap.fromJson({
     'tenant_id': 'tenant_test',
     'site': {
-      'display_name': 'ร้านทดสอบ',
+      'display_name': siteName,
       'locale': 'th-TH',
     },
     'brand': {'logo_url': ''},

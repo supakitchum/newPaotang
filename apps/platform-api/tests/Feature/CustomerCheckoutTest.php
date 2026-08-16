@@ -488,6 +488,20 @@ class CustomerCheckoutTest extends TestCase
             ->assertOk()
             ->assertJsonPath('item_count', 0)
             ->assertJsonPath('total.amount', 0);
+
+        $expectedTicketIds = array_column($order['tickets'], 'id');
+        rsort($expectedTicketIds);
+        $firstTicketPage = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets?limit=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $expectedTicketIds[0])
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets?limit=1&cursor='.rawurlencode((string) $firstTicketPage['meta']['next_cursor']))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $expectedTicketIds[1])
+            ->assertJsonPath('meta.has_more', false);
     }
 
     public function test_CustomerCheckout_cart_prices_duplicate_number_with_partner_set_rule(): void
