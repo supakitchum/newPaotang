@@ -1,8 +1,10 @@
 const checkoutPaymentMethodWallet = 'wallet';
+const checkoutPaymentMethodAffiliateWallet = 'affiliate_wallet';
 const checkoutPaymentMethodExternalPayment = 'external_payment';
 
 const supportedCheckoutPaymentMethods = <String>{
   checkoutPaymentMethodWallet,
+  checkoutPaymentMethodAffiliateWallet,
   checkoutPaymentMethodExternalPayment,
 };
 
@@ -246,6 +248,10 @@ String? _canonicalCheckoutPaymentMethod(String? value) {
   }).toLowerCase();
   return switch (key) {
     'g_wallet' || 'gwallet' || 'wallet_balance' => checkoutPaymentMethodWallet,
+    'affiliate' ||
+    'affiliate_balance' ||
+    'reseller_wallet' ||
+    'agent_wallet' => checkoutPaymentMethodAffiliateWallet,
     'external' ||
     'external_payment_provider' ||
     'external_provider' ||

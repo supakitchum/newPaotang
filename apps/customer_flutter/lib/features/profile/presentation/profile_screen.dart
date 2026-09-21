@@ -424,7 +424,7 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                       profile.name.trim().isEmpty
                           ? l10n.profileCustomerAccount
                           : profile.name,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
@@ -486,6 +486,20 @@ class _ProfileIdentityHeaderState extends State<_ProfileIdentityHeader> {
                   ],
                 ],
               ),
+              if (profile.phone.trim().isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  l10n.profilePhone(profile.phone.trim()),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.90),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

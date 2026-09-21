@@ -103,6 +103,25 @@
             <p v-else class="affiliate-empty mb-0">ยังไม่มีลิงก์แนะนำ</p>
           </article>
 
+          <article class="affiliate-card">
+            <div class="affiliate-section-head">
+              <div>
+                <h2>สมาชิกจากลิงก์แนะนำ</h2>
+                <p>แสดงเบอร์โทรแบบปกปิดเพื่อความเป็นส่วนตัว</p>
+              </div>
+            </div>
+            <p v-if="overview.referrals.length === 0" class="affiliate-empty mb-0">ยังไม่มีสมาชิกที่สมัครผ่านลิงก์แนะนำ</p>
+            <div v-else class="affiliate-referral-list">
+              <article v-for="referral in overview.referrals" :key="referral.id" class="affiliate-referral-member">
+                <span class="affiliate-referral-icon"><i class="bi bi-person-fill" /></span>
+                <div>
+                  <strong>{{ referral.phone_masked || '-' }}</strong>
+                  <span>สมัครเมื่อ {{ dateText(referral.registered_at) }}</span>
+                </div>
+              </article>
+            </div>
+          </article>
+
           <article class="affiliate-card affiliate-bank-summary">
             <div class="affiliate-section-head">
               <div>
@@ -252,6 +271,7 @@ const emptyOverview = () => ({
     minimum_payout: 300,
     minimum_payout_amount: 300
   },
+  referrals: [] as Record<string, any>[],
   commissions: [] as Record<string, any>[],
   payouts: [] as Record<string, any>[]
 })
@@ -618,7 +638,7 @@ onMounted(resetAffiliatePinEntry)
 .affiliate-start-icon {
   background: #fff;
   border-radius: 14px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: grid;
   flex: 0 0 auto;
   font-size: 24px;
@@ -740,12 +760,12 @@ onMounted(resetAffiliatePinEntry)
 }
 
 .affiliate-store-field input:focus {
-  border-color: #0b69dc;
+  border-color: var(--app-blue-mid);
   box-shadow: 0 0 0 3px rgba(11, 105, 220, .12);
 }
 
 .affiliate-card .affiliate-minimum-note {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-weight: 800;
   margin-top: 3px;
 }
@@ -763,7 +783,7 @@ onMounted(resetAffiliatePinEntry)
   align-items: center;
   background: #eaf5ff;
   border-radius: 14px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: inline-flex;
   font-size: 22px;
   height: 48px;
@@ -815,7 +835,7 @@ onMounted(resetAffiliatePinEntry)
 }
 
 .affiliate-widget strong {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 20px;
   font-weight: 900;
   line-height: 1.12;
@@ -848,7 +868,7 @@ onMounted(resetAffiliatePinEntry)
 
 .affiliate-tabs button.active {
   background: #fff;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   box-shadow: 0 8px 18px rgba(37, 99, 235, .16);
 }
 
@@ -883,7 +903,7 @@ onMounted(resetAffiliatePinEntry)
 .affiliate-code {
   background: #eaf5ff;
   border-radius: 999px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   flex: 0 1 auto;
   font-size: 12px;
   font-weight: 900;
@@ -896,7 +916,7 @@ onMounted(resetAffiliatePinEntry)
 .affiliate-text-button {
   background: transparent;
   border: 0;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   flex: 0 0 auto;
   font-weight: 800;
   padding: 0;
@@ -923,7 +943,7 @@ onMounted(resetAffiliatePinEntry)
 
 .affiliate-link-box button {
   align-items: center;
-  background: #0b69dc;
+  background: var(--app-blue-mid);
   border: 0;
   border-radius: 50%;
   color: #fff;
@@ -931,6 +951,51 @@ onMounted(resetAffiliatePinEntry)
   height: 38px;
   place-items: center;
   width: 38px;
+}
+
+.affiliate-referral-list {
+  display: grid;
+  gap: 8px;
+}
+
+.affiliate-referral-member {
+  align-items: center;
+  background: #f7fbff;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 11px 12px;
+}
+
+.affiliate-referral-icon {
+  align-items: center;
+  background: #eaf5ff;
+  border-radius: 50%;
+  color: var(--app-blue-mid);
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.affiliate-referral-member div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.affiliate-referral-member strong {
+  color: #17335f;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.affiliate-referral-member span:not(.affiliate-referral-icon) {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .affiliate-bank-line {
@@ -1021,7 +1086,7 @@ onMounted(resetAffiliatePinEntry)
   align-items: center;
   background: #fff;
   border-radius: 50%;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: grid;
   height: 38px;
   place-items: center;
@@ -1045,7 +1110,7 @@ onMounted(resetAffiliatePinEntry)
   background: #eef6ff;
   border: 1px solid #bfdbfe;
   border-radius: 999px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: inline-flex;
   font: inherit;
   font-weight: 900;

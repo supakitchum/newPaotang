@@ -106,7 +106,7 @@ useTenantSeo({
 }
 
 .news-detail-kicker {
-  color: #0875df;
+  color: var(--app-blue);
   font-size: 13px;
   font-weight: 900;
   margin-bottom: 8px;

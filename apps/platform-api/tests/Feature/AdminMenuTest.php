@@ -86,7 +86,7 @@ class AdminMenuTest extends TestCase
             'scp_tenant',
             'tenant',
             'ten_auth',
-            ['dashboard.view', 'topup.view'],
+            ['dashboard.view', 'topup.view', 'affiliate_name_review.view'],
             'tenant_topup_menu_badge',
         );
 
@@ -158,6 +158,48 @@ class AdminMenuTest extends TestCase
                 'updated_at' => now(),
             ],
         ]);
+        DB::table('affiliate_accounts')->insert([
+            'id' => 'aff_menu_badge',
+            'tenant_id' => 'ten_auth',
+            'customer_id' => 'cus_menu_badge',
+            'code' => 'MENUBADGE',
+            'name' => 'Pending Store Name',
+            'store_name_status' => 'pending',
+            'status' => 'active',
+            'currency' => 'THB',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('affiliate_store_name_requests')->insert([
+            [
+                'id' => 'asnr_menu_pending',
+                'tenant_id' => 'ten_auth',
+                'affiliate_account_id' => 'aff_menu_badge',
+                'request_type' => 'initial',
+                'previous_name' => null,
+                'requested_name' => 'Pending Store Name',
+                'normalized_name' => 'pending store name',
+                'status' => 'pending',
+                'submitted_at' => now(),
+                'reviewed_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'asnr_menu_approved',
+                'tenant_id' => 'ten_auth',
+                'affiliate_account_id' => 'aff_menu_badge',
+                'request_type' => 'change',
+                'previous_name' => 'Pending Store Name',
+                'requested_name' => 'Approved Store Name',
+                'normalized_name' => 'approved store name',
+                'status' => 'approved',
+                'submitted_at' => now(),
+                'reviewed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
 
         $login = $this->loginAdmin([
             'email' => 'tenant@example.test',
@@ -175,10 +217,13 @@ class AdminMenuTest extends TestCase
             ->json('data');
 
         $topups = collect($response)->firstWhere('key', 'topups');
+        $storeNames = collect($response)->firstWhere('key', 'affiliate_store_name_requests');
 
         $this->assertIsArray($topups);
         $this->assertSame('Review Queue', $topups['category'] ?? null);
         $this->assertSame(2, $topups['badge_count'] ?? null);
+        $this->assertIsArray($storeNames);
+        $this->assertSame(1, $storeNames['badge_count'] ?? null);
     }
 
     public function test_tenant_admin_cannot_access_another_tenant_menu(): void

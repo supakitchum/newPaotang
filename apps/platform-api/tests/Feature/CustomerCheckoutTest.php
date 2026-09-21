@@ -203,6 +203,184 @@ class CustomerCheckoutTest extends TestCase
             ->assertJsonPath('data.0.image_thumb_url', $expectedThumbUrl);
     }
 
+    public function test_CustomerCheckout_can_pay_with_approved_affiliate_balance_idempotently(): void
+    {
+        $world = $this->prepareReservedCart(
+            'par_aff_wallet',
+            'ten_aff_wallet',
+            'affiliate-wallet.m5.test',
+            'gam_aff_wallet',
+            '0802003010',
+            711001,
+        );
+        Event::fake([
+            CustomerOrderUpdated::class,
+            CustomerTicketsUpdated::class,
+            CustomerWalletUpdated::class,
+        ]);
+        $now = now();
+        $affiliateId = 'aff_checkout_wallet';
+        $sourceOrderId = 'ord_aff_wallet_source';
+        $ruleId = 'cmr_aff_wallet_source';
+
+        DB::table('affiliate_accounts')->insert([
+            'id' => $affiliateId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['auth']['user']['id'],
+            'affiliate_program_id' => null,
+            'code' => 'AffWallet01',
+            'name' => 'Affiliate Wallet Customer',
+            'phone' => null,
+            'email' => null,
+            'status' => 'active',
+            'wallet_balance_amount' => 0,
+            'currency' => 'THB',
+            'payout_profile_json' => null,
+            'metadata_json' => null,
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('commission_rules')->insert([
+            'id' => $ruleId,
+            'tenant_id' => $world['tenant_id'],
+            'affiliate_program_id' => null,
+            'affiliate_account_id' => $affiliateId,
+            'code' => 'affiliate_wallet_source',
+            'name' => 'Affiliate wallet source',
+            'rule_type' => 'fixed_per_order',
+            'amount' => 10000,
+            'rate_bps' => 0,
+            'currency' => 'THB',
+            'status' => 'active',
+            'metadata_json' => null,
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('orders')->insert([
+            'id' => $sourceOrderId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['auth']['user']['id'],
+            'reservation_id' => $world['reservation']['id'],
+            'game_id' => $world['game_id'],
+            'wallet_id' => null,
+            'payment_method' => 'wallet',
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'total_amount' => 10000,
+            'currency' => 'THB',
+            'reference' => 'AFF-WALLET-SOURCE',
+            'admin_note' => null,
+            'idempotency_key' => 'affiliate-wallet-source-order',
+            'payload_hash' => hash('sha256', 'affiliate-wallet-source-order'),
+            'paid_at' => $now,
+            'cancelled_at' => null,
+            'refunded_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('commission_transactions')->insert([
+            'id' => 'cmt_aff_wallet_source',
+            'tenant_id' => $world['tenant_id'],
+            'affiliate_account_id' => $affiliateId,
+            'affiliate_attribution_id' => null,
+            'order_id' => $sourceOrderId,
+            'commission_rule_id' => $ruleId,
+            'original_commission_id' => null,
+            'transaction_type' => 'commission',
+            'status' => 'approved',
+            'amount' => 10000,
+            'ticket_count' => 1,
+            'tier_code' => 'bronze',
+            'commission_per_ticket_amount' => 10000,
+            'currency' => 'THB',
+            'idempotency_key' => 'affiliate-wallet-source-commission',
+            'payload_hash' => hash('sha256', 'affiliate-wallet-source-commission'),
+            'calculated_at' => $now,
+            'approved_by_admin_id' => null,
+            'approved_at' => $now,
+            'metadata_json' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet')
+            ->assertOk()
+            ->assertJsonPath('data.1.type', 'affiliate')
+            ->assertJsonPath('data.1.balance.amount', 10000);
+
+        $order = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
+                'reservation_id' => $world['reservation']['id'],
+                'payment_method' => 'affiliate_wallet',
+                'pin' => '246810',
+            ], [
+                'Idempotency-Key' => 'checkout-affiliate-wallet',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('payment_method', 'affiliate_wallet')
+            ->assertJsonPath('status', 'paid')
+            ->assertJsonPath('affiliate_wallet.balance.amount', 2000)
+            ->json();
+
+        $this->assertDatabaseHas('affiliate_payouts', [
+            'tenant_id' => $world['tenant_id'],
+            'affiliate_account_id' => $affiliateId,
+            'status' => 'paid',
+            'payout_method' => 'order_payment',
+            'amount' => 8000,
+            'payment_reference' => $order['id'],
+        ]);
+        $this->assertDatabaseHas('wallets', [
+            'id' => $world['wallet_id'],
+            'balance_amount' => 100000,
+        ]);
+
+        $replay = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
+                'reservation_id' => $world['reservation']['id'],
+                'payment_method' => 'affiliate_wallet',
+                'pin' => '246810',
+            ], [
+                'Idempotency-Key' => 'checkout-affiliate-wallet',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->assertSame($order['id'], $replay['id']);
+        $this->assertSame(1, DB::table('affiliate_payouts')
+            ->where('tenant_id', $world['tenant_id'])
+            ->where('payout_method', 'order_payment')
+            ->count());
+
+        $manager = $this->tenantAdmin($world, ['order.refund'], 'affiliate-wallet-refund');
+        $this->withToken($manager['access_token'])
+            ->postJson('/api/v1/admin/tenant/orders/'.$order['id'].'/refund', [
+                'amount' => ['amount' => 8000, 'currency' => 'THB'],
+                'reason' => 'restore affiliate wallet balance',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+                'Idempotency-Key' => 'affiliate-wallet-refund',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'refunded')
+            ->assertJsonPath('payment_status', 'refunded');
+
+        $this->assertDatabaseHas('affiliate_payouts', [
+            'tenant_id' => $world['tenant_id'],
+            'payout_method' => 'order_payment',
+            'payment_reference' => $order['id'],
+            'status' => 'cancelled',
+        ]);
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet')
+            ->assertOk()
+            ->assertJsonPath('data.1.balance.amount', 10000);
+    }
+
     public function test_CustomerCheckout_locks_reservation_price_when_cart_is_created(): void
     {
         $world = $this->prepareReservedCart('par_checkout_price', 'ten_checkout_price', 'checkout-price.m5.test', 'gam_checkout_price', '0802003001', 710101);

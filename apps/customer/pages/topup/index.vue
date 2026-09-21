@@ -212,7 +212,7 @@ const baseChannels: TopupChannelConfig[] = [
 const quickAmounts = [100, 300, 500, 1000, 2000, 5000]
 const channelDescriptions: Record<TopupChannel, string> = {
   qr: 'สร้าง QR สำหรับเติมเงินเข้า wallet โดยตรง',
-  credit: 'ขั้นต่ำ 400 บาท ระบบจะสร้าง QR Code จากผู้ให้บริการภายนอก',
+  credit: 'ขั้นต่ำ 300 บาท ระบบจะสร้าง QR Code จากผู้ให้บริการภายนอก',
   bank_transfer: 'โอนเข้าบัญชีบริษัทแล้วแนบสลิปเพื่อให้แอดมินตรวจสอบ'
 }
 
@@ -492,7 +492,7 @@ const createQrTopup = async () => {
 }
 
 const createCreditTopup = async () => {
-  const value = validateAmount(400)
+  const value = validateAmount(300)
   if (!value) {
     return
   }
@@ -744,7 +744,7 @@ onMounted(async () => {
 
 .topup-channel i {
   font-size: 28px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
 }
 
 .topup-channel.is-unavailable i {
@@ -846,7 +846,7 @@ onMounted(async () => {
   border: 1px solid #cfe1f6;
   border-radius: 999px;
   min-height: 38px;
-  color: #075ec9;
+  color: var(--app-blue);
   background: #fff;
   font-weight: 700;
 }
@@ -865,7 +865,7 @@ onMounted(async () => {
   display: grid;
   place-items: center;
   background: #eaf5ff;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 24px;
 }
 
@@ -933,7 +933,7 @@ onMounted(async () => {
 }
 
 .topup-waiting-status.is-payment {
-  color: #075ec9;
+  color: var(--app-blue);
   background: #eaf5ff;
 }
 
@@ -965,7 +965,7 @@ onMounted(async () => {
 }
 
 .topup-waiting-amount strong {
-  color: #075ec9;
+  color: var(--app-blue);
   font-size: 28px;
   font-weight: 900;
   line-height: 1;
@@ -990,7 +990,7 @@ onMounted(async () => {
 }
 
 .topup-waiting-date i {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
 }
 
 .topup-waiting-loading,
@@ -1106,7 +1106,7 @@ onMounted(async () => {
 }
 
 .topup-deferred-slip-note i {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 18px;
 }
 
@@ -1193,14 +1193,14 @@ onMounted(async () => {
 }
 
 .topup-bank-name i {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 18px;
 }
 
 .topup-bank-number {
   font-size: 22px;
   font-weight: 800;
-  color: #075ec9;
+  color: var(--app-blue);
 }
 
 .topup-qr-result {
@@ -1283,7 +1283,7 @@ onMounted(async () => {
 }
 
 .topup-confirm-amount strong {
-  color: #075ec9;
+  color: var(--app-blue);
   font-size: 19px;
   font-weight: 900;
   white-space: nowrap;
@@ -1303,7 +1303,7 @@ onMounted(async () => {
 
 .topup-confirm-secondary {
   border: 1px solid #cfe1f6;
-  color: #075ec9;
+  color: var(--app-blue);
   background: #fff;
 }
 

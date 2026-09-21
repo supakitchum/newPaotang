@@ -148,7 +148,7 @@ useTenantSeo({
   place-items: center;
   margin-top: 3px;
   border-radius: 50%;
-  background: #086bcf;
+  background: var(--app-blue);
   color: #fff;
   font-size: 18px;
   font-weight: 900;

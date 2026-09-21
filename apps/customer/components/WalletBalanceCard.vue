@@ -75,7 +75,7 @@ const formattedBalance = computed(() => {
   color: #fff;
   background:
     radial-gradient(circle at 88% 0%, rgba(255, 211, 41, .92) 0 38px, transparent 39px),
-    linear-gradient(135deg, #087bec 0%, #0e95d8 46%, #12a077 100%);
+    linear-gradient(135deg, var(--app-blue-mid) 0%, var(--app-blue) 46%, var(--app-blue-dark) 100%);
   box-shadow: 0 14px 30px rgba(0, 93, 183, .23);
 }
 

@@ -274,7 +274,7 @@ onMounted(loadProfile)
 .reward-bank-icon {
   background: #fff;
   border-radius: 14px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: grid;
   flex: 0 0 auto;
   font-size: 24px;
@@ -386,7 +386,7 @@ onMounted(loadProfile)
 .reward-bank-preview i {
   background: #fff;
   border-radius: 50%;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: grid;
   height: 40px;
   place-items: center;

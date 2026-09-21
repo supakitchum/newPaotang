@@ -69,7 +69,7 @@ onMounted(() => {
   padding: 32px 24px;
   color: #fff;
   text-align: center;
-  background: linear-gradient(145deg, var(--app-blue) 0%, #174a8b 100%);
+  background: var(--app-hero-gradient);
 }
 
 .maintenance-icon {
@@ -108,4 +108,3 @@ onMounted(() => {
   background: #fff;
 }
 </style>
-

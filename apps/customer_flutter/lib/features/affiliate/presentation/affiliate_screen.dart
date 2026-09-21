@@ -127,9 +127,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: const CircleBorder(),
               ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(
-                  Colors.transparent,
-                ),
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
               ),
         ),
       ],
@@ -640,6 +638,7 @@ class _AffiliateSheet extends StatelessWidget {
 
 class _AffiliateSurface extends StatelessWidget {
   const _AffiliateSurface({
+    super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
   });
@@ -1641,7 +1640,80 @@ class _AffiliateOverviewTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _AffiliateStatsGrid(stats: overview.stats),
+        const SizedBox(height: 12),
+        _AffiliateReferralMembersCard(referrals: overview.referrals),
       ],
+    );
+  }
+}
+
+class _AffiliateReferralMembersCard extends StatelessWidget {
+  const _AffiliateReferralMembersCard({required this.referrals});
+
+  final List<AffiliateReferralSignup> referrals;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return _AffiliateSurface(
+      key: const ValueKey('affiliate-referral-members-card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _AffiliateSectionHead(
+            title: l10n.affiliateReferralMembersTitle,
+            subtitle: l10n.affiliateReferralMembersSubtitle,
+          ),
+          if (referrals.isEmpty)
+            _AffiliateEmptyLine(message: l10n.affiliateReferralMembersEmpty)
+          else
+            for (var index = 0; index < referrals.length; index++) ...[
+              if (index > 0) const Divider(height: 17),
+              Row(
+                key: ValueKey(
+                  'affiliate-referral-member-${referrals[index].id}',
+                ),
+                children: [
+                  CircleAvatar(
+                    radius: 19,
+                    backgroundColor: colorScheme.primaryContainer,
+                    foregroundColor: colorScheme.primary,
+                    child: const Icon(Icons.person_rounded, size: 21),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          referrals[index].maskedPhone.isEmpty
+                              ? '-'
+                              : referrals[index].maskedPhone,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l10n.affiliateReferralRegisteredAt(
+                            formatLocalizedDateTime(
+                              referrals[index].registeredAt,
+                              localeTag(l10n.locale),
+                            ),
+                          ),
+                          style: _affiliateMutedTextStyle(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+        ],
+      ),
     );
   }
 }

@@ -11776,3 +11776,24 @@ Home, ticket inventory, and Checkout parity polish (2026-08-16):
   `git diff --check` passed. The ticket-order/cursor API regression passed 1
   test with 32 assertions against `newpaotang_test`. Runtime DB, commit, push,
   and worktree clearing were not performed.
+
+Topup bank summary, ticket realtime, and sale-close Home flow (2026-08-16):
+
+- The bank-transfer confirmation now keeps one summary surface and orders its
+  runtime account details as bank, account name, and account number. The
+  account number is a normal detail row with the existing copy action rather
+  than a nested card. The amount action is now a compact localized “เปลี่ยน”
+  button immediately after the amount for every Topup channel.
+- Current customer tickets now depend directly on the shared ticket realtime
+  refresh tick. Ticket-channel reconnect success also refreshes the list, in
+  addition to normal `tickets.updated` and paid-order events, so “สลากฯ ของ
+  ฉัน” recovers from events missed while disconnected.
+- The draw-day sale-cutoff notice disappears as soon as API server time reaches
+  the cutoff, including while Home remains open. After sale closure, Home
+  redirects to waiting-result only once per game/cutoff and persists that
+  marker locally; later Home visits remain available while Buy, Cart, and
+  Checkout keep their existing sale-closure rules.
+- Five focused Flutter regressions and focused analysis passed. The existing
+  unrelated Home route-tap assertions remain reproducibly failing on the prior
+  `9ae09a14` baseline as well. Runtime DB, commit, push, and worktree clearing
+  were not performed.

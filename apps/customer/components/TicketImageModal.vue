@@ -237,7 +237,7 @@ watch(() => [props.imageUrl, props.imageThumbUrl, props.imageStatus], () => {
 }
 
 .ticket-generated-head strong {
-  color: #008dd2;
+  color: var(--app-blue-mid);
   font-size: clamp(14px, 3.5vw, 20px);
   line-height: 1.1;
 }
@@ -269,7 +269,7 @@ watch(() => [props.imageUrl, props.imageThumbUrl, props.imageStatus], () => {
     #fff;
   border: 1px solid rgba(0, 141, 210, .22);
   border-radius: 12px;
-  color: #008dd2;
+  color: var(--app-blue-mid);
   display: grid;
   font-size: clamp(26px, 8vw, 54px);
   justify-items: center;

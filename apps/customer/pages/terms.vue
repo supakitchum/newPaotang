@@ -168,7 +168,7 @@ useTenantSeo({
   overflow: hidden;
   border-radius: 999px;
   background: #eef7ff;
-  color: #086bcf;
+  color: var(--app-blue);
   font-size: 14px;
   font-weight: 900;
   line-height: 1;
@@ -202,7 +202,7 @@ useTenantSeo({
   place-items: center;
   margin-top: 2px;
   border-radius: 50%;
-  background: #086bcf;
+  background: var(--app-blue);
   color: #fff;
   font-size: 17px;
   font-weight: 900;

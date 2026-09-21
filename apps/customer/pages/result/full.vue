@@ -272,7 +272,7 @@ onMounted(fetchReward)
   align-content: center;
   justify-items: center;
   padding: 36px 18px;
-  color: #20385f;
+  color: var(--app-blue);
   text-align: center;
 }
 
@@ -304,7 +304,7 @@ onMounted(fetchReward)
 
 .result-draw-date {
   margin: 0 0 20px;
-  color: #20385f;
+  color: var(--app-blue);
   font-size: 18px;
   font-weight: 800;
   text-align: center;

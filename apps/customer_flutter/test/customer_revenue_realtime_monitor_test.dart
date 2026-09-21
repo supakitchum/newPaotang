@@ -190,6 +190,32 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('cart:3 tickets:2 purchases:2'), findsOneWidget);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: customerTicketsChannel(
+          tenantId: 'ten_revenue',
+          customerId: 'cus_revenue',
+        ),
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('cart:3 tickets:2 purchases:2'), findsOneWidget);
+
+    client.emit(
+      CustomerRealtimeEvent(
+        name: 'pusher_internal:subscription_succeeded',
+        channel: customerTicketsChannel(
+          tenantId: 'ten_revenue',
+          customerId: 'cus_revenue',
+        ),
+        payload: const {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('cart:3 tickets:3 purchases:2'), findsOneWidget);
   });
 }
 

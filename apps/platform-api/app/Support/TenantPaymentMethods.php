@@ -7,6 +7,7 @@ class TenantPaymentMethods
     public const QR = 'qr';
     public const CREDIT_CARD = 'credit_card';
     public const BANK_TRANSFER = 'bank_transfer';
+    public const CREDIT_CARD_MINIMUM_AMOUNT = 30000;
 
     private const DEFAULTS = [
         self::QR => [
@@ -21,6 +22,10 @@ class TenantPaymentMethods
             'key' => self::CREDIT_CARD,
             'label' => 'Credit Card QR',
             'description' => 'Generate external provider QR for credit card topup.',
+            'minimum_amount' => [
+                'amount' => self::CREDIT_CARD_MINIMUM_AMOUNT,
+                'currency' => 'THB',
+            ],
             'enabled' => true,
             'provider' => 'deepay_kbank',
             'sort_order' => 20,
@@ -61,6 +66,7 @@ class TenantPaymentMethods
                 'key' => $key,
                 'label' => trim((string) ($methodConfig['label'] ?? '')) !== '' ? trim((string) $methodConfig['label']) : $default['label'],
                 'description' => trim((string) ($methodConfig['description'] ?? '')) !== '' ? trim((string) $methodConfig['description']) : $default['description'],
+                ...(isset($default['minimum_amount']) ? ['minimum_amount' => $default['minimum_amount']] : []),
                 'enabled' => self::boolValue($enabledSource, (bool) $default['enabled']),
                 'provider' => self::providerValue($methodConfig['provider'] ?? $default['provider'] ?? null),
                 'sort_order' => (int) ($methodConfig['sort_order'] ?? $default['sort_order']),

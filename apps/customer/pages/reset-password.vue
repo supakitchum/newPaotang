@@ -225,7 +225,7 @@ const submit = async () => {
 }
 
 .reset-input > i {
-  color: #0b84f3;
+  color: var(--app-blue-mid);
   font-size: 20px;
 }
 

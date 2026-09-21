@@ -237,6 +237,14 @@ class WalletSummary {
     return wallets.isEmpty ? null : wallets.first;
   }
 
+  CustomerWallet? get affiliateWallet {
+    for (final wallet in wallets) {
+      final type = wallet.type.trim().toLowerCase();
+      if (type == 'affiliate' || type == 'affiliate_wallet') return wallet;
+    }
+    return null;
+  }
+
   double get balance => primaryWallet?.balance ?? 0;
 }
 

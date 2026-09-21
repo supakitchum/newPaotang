@@ -539,6 +539,7 @@ void main() {
 
     expect(find.text('ยอดที่ต้องชำระ'), findsOneWidget);
     expect(find.text('500 บาท'), findsOneWidget);
+    expect(find.text('เปลี่ยน'), findsOneWidget);
     expect(find.text('ธนาคารทดสอบ'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('topup-bank-transfer-summary')),
@@ -547,6 +548,27 @@ void main() {
     expect(find.byKey(const ValueKey('topup-bank-logo-kbank')), findsOneWidget);
     expect(find.text('ชื่อบัญชี'), findsOneWidget);
     expect(find.text('เลขที่บัญชี'), findsOneWidget);
+    final bankRow = find.byKey(const ValueKey('topup-bank-name-row'));
+    final accountNameRow = find.byKey(
+      const ValueKey('topup-bank-account-name-row'),
+    );
+    final accountNumberRow = find.byKey(
+      const ValueKey('topup-bank-account-number-row'),
+    );
+    expect(
+      tester.getTopLeft(bankRow).dy,
+      lessThan(tester.getTopLeft(accountNameRow).dy),
+    );
+    expect(
+      tester.getTopLeft(accountNameRow).dy,
+      lessThan(tester.getTopLeft(accountNumberRow).dy),
+    );
+    expect(
+      tester.getCenter(find.text('500 บาท')).dx,
+      lessThan(
+        tester.getCenter(find.byKey(const ValueKey('topup-change-amount'))).dx,
+      ),
+    );
     expect(find.text('ข้อมูลการชำระเงิน'), findsNothing);
     expect(find.text('วันเวลาที่โอน'), findsNothing);
     expect(find.text('สลิปโอนเงิน'), findsNothing);

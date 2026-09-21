@@ -60,6 +60,21 @@ void main() {
     expect(api.payload['payment_method'], checkoutPaymentMethodWallet);
   });
 
+  test('lottery checkout sends the reseller wallet payment method', () async {
+    final api = _CheckoutApiClient();
+    final repository = LotteryRepository(api);
+
+    await repository.checkout(
+      ['res_1'],
+      paymentMethod: checkoutPaymentMethodAffiliateWallet,
+    );
+
+    expect(
+      api.payload['payment_method'],
+      checkoutPaymentMethodAffiliateWallet,
+    );
+  });
+
   test('lottery release uses idempotency and refreshes server cart', () async {
     final api = _CheckoutApiClient();
     final repository = LotteryRepository(api);

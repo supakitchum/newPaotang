@@ -81,6 +81,7 @@ void main() {
 
     expect(tester.getRect(headerFinder), initialHeaderRect);
     expect(find.text('คุณกิจ ชุ่มจันทร์จิรา'), findsOneWidget);
+    expect(find.text('เบอร์โทรศัพท์ : 0812345678'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('profile-affiliate-tier-gold')),
       findsNothing,

@@ -419,6 +419,7 @@ class GrowthService
                     return ['error' => 'validation_failed', 'errors' => ['name' => ['The store name has already been taken.']]];
                 }
                 $this->ensureCustomerAffiliateLink($tenantId, $affiliate->fresh());
+                $this->queueTenantMenuBadgeBroadcast($tenantId, 'affiliate_store_name_requests');
                 DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateRegistered(
                     $tenantId,
                     (string) $normalized['customer_id'],
@@ -875,6 +876,7 @@ class GrowthService
                 'profile' => $profile,
                 'payout_policy' => $this->customerAffiliatePayoutPolicy($tenantId, null),
                 'stats' => $this->emptyCustomerAffiliateStats(),
+                'referrals' => [],
                 'commissions' => [],
                 'payouts' => [],
             ];
@@ -887,6 +889,7 @@ class GrowthService
             'profile' => $profile,
             'payout_policy' => $this->customerAffiliatePayoutPolicy($tenantId, $affiliate),
             'stats' => $this->customerAffiliateStats($affiliate),
+            'referrals' => $this->customerAffiliateReferralRows((string) $affiliate->tenant_id, (string) $affiliate->id, 10),
             'commissions' => $this->customerAffiliateCommissionRows((string) $affiliate->tenant_id, (string) $affiliate->id, 5),
             'payouts' => $this->customerAffiliatePayoutRows((string) $affiliate->tenant_id, (string) $affiliate->id, 5),
         ] + $this->affiliateTiers->overviewResource($affiliate);
@@ -983,6 +986,7 @@ class GrowthService
                     }
                     $affiliate = AffiliateAccount::query()->where('tenant_id', $tenantId)->where('id', $affiliateId)->first();
                     $this->ensureCustomerAffiliateLink($tenantId, $affiliate);
+                    $this->queueTenantMenuBadgeBroadcast($tenantId, 'affiliate_store_name_requests');
                 }
                 DB::afterCommit(fn () => $this->customerNotificationEvents->affiliateRegistered(
                     $tenantId,
@@ -1009,7 +1013,15 @@ class GrowthService
             $request,
             'customer.affiliate.store_name.request',
             $normalized,
-            fn (): array => $this->affiliateTiers->requestStoreNameChange($tenantId, $customer->customerId(), $normalized),
+            function () use ($tenantId, $customer, $normalized): array {
+                $result = $this->affiliateTiers->requestStoreNameChange($tenantId, $customer->customerId(), $normalized);
+
+                if (! isset($result['error'])) {
+                    $this->queueTenantMenuBadgeBroadcast($tenantId, 'affiliate_store_name_requests');
+                }
+
+                return $result;
+            },
         );
     }
 
@@ -1048,7 +1060,15 @@ class GrowthService
             'admin.tenant.affiliate_store_name_requests.'.($approve ? 'approve' : 'reject'),
             'affiliate_name_review.manage',
             $payload + ['request_id' => $requestId],
-            fn (): array => $this->affiliateTiers->reviewStoreNameRequest($tenantId, $actor, $requestId, $approve, $payload, $request),
+            function () use ($tenantId, $actor, $requestId, $approve, $payload, $request): array {
+                $result = $this->affiliateTiers->reviewStoreNameRequest($tenantId, $actor, $requestId, $approve, $payload, $request);
+
+                if (! isset($result['error'])) {
+                    $this->queueTenantMenuBadgeBroadcast($tenantId, 'affiliate_store_name_requests');
+                }
+
+                return $result;
+            },
         );
     }
 
@@ -1383,7 +1403,8 @@ class GrowthService
 
         $query = AffiliatePayout::query()
             ->where('tenant_id', $tenantId)
-            ->where('affiliate_account_id', $affiliate->id);
+            ->where('affiliate_account_id', $affiliate->id)
+            ->where('payout_method', '!=', 'order_payment');
 
         if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
             $query->where('status', trim((string) $queryParams['status']));
@@ -1881,7 +1902,9 @@ class GrowthService
      */
     public function listPayouts(string $tenantId, array $queryParams): array
     {
-        $query = AffiliatePayout::query()->where('tenant_id', $tenantId);
+        $query = AffiliatePayout::query()
+            ->where('tenant_id', $tenantId)
+            ->where('payout_method', '!=', 'order_payment');
 
         foreach (['status', 'affiliate_account_id', 'payout_method'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
@@ -4116,7 +4139,9 @@ class GrowthService
 
     private function scopedPaidAffiliatePayouts(?string $tenantId, array $dateRange): mixed
     {
-        $query = AffiliatePayout::query()->where('status', 'paid');
+        $query = AffiliatePayout::query()
+            ->where('status', 'paid')
+            ->where('payout_method', '!=', 'order_payment');
 
         if ($tenantId !== null) {
             $query->where('tenant_id', $tenantId);
@@ -5932,6 +5957,7 @@ class GrowthService
         $this->applyCentralTenantFilter($query, $tenantId, 'affiliate_payouts.tenant_id');
         $this->applyCentralDateRange($query, $dateRange, 'COALESCE(affiliate_payouts.paid_at, affiliate_payouts.approved_at, affiliate_payouts.created_at)');
         $query->where('status', 'paid');
+        $query->where('payout_method', '!=', 'order_payment');
 
         return (int) $query->sum('amount');
     }
@@ -7672,6 +7698,7 @@ class GrowthService
         $requested = (int) AffiliatePayout::query()
             ->where('tenant_id', $tenantId)
             ->where('affiliate_account_id', $affiliateId)
+            ->where('payout_method', '!=', 'order_payment')
             ->whereIn('status', ['pending', 'approved', 'paid'])
             ->sum('amount');
         $converted = (int) AffiliateAttribution::query()
@@ -7739,6 +7766,54 @@ class GrowthService
     }
 
     /**
+     * @return array<int, array{id: string, phone_masked: string, registered_at: ?string}>
+     */
+    private function customerAffiliateReferralRows(string $tenantId, string $affiliateId, int $limit): array
+    {
+        return DB::table('affiliate_referral_visits')
+            ->join('customers', function ($join) use ($tenantId): void {
+                $join->on('customers.id', '=', 'affiliate_referral_visits.customer_id')
+                    ->where('customers.tenant_id', '=', $tenantId);
+            })
+            ->where('affiliate_referral_visits.tenant_id', $tenantId)
+            ->where('affiliate_referral_visits.affiliate_account_id', $affiliateId)
+            ->whereNotNull('affiliate_referral_visits.customer_id')
+            ->whereNotNull('affiliate_referral_visits.registered_at')
+            ->select(['customers.id as customer_id', 'customers.phone'])
+            ->selectRaw('MAX(affiliate_referral_visits.registered_at) as registered_at')
+            ->groupBy('customers.id', 'customers.phone')
+            ->orderByRaw('MAX(affiliate_referral_visits.registered_at) DESC')
+            ->limit(max(1, $limit))
+            ->get()
+            ->map(fn (object $row): array => [
+                'id' => hash('sha256', $tenantId.'|'.$affiliateId.'|'.(string) $row->customer_id),
+                'phone_masked' => $this->maskAffiliateReferralPhone((string) $row->phone),
+                'registered_at' => $this->iso($row->registered_at),
+            ])
+            ->all();
+    }
+
+    private function maskAffiliateReferralPhone(string $phone): string
+    {
+        $normalized = (string) preg_replace('/\s+/', '', trim($phone));
+        $length = mb_strlen($normalized);
+
+        if ($length <= 2) {
+            return str_repeat('*', max(1, $length));
+        }
+
+        if ($length <= 6) {
+            return mb_substr($normalized, 0, 1)
+                .str_repeat('*', $length - 2)
+                .mb_substr($normalized, -1);
+        }
+
+        return mb_substr($normalized, 0, 3)
+            .str_repeat('*', $length - 6)
+            .mb_substr($normalized, -3);
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function customerAffiliateCommissionRows(string $tenantId, string $affiliateId, int $limit): array
@@ -7762,6 +7837,7 @@ class GrowthService
         return AffiliatePayout::query()
             ->where('tenant_id', $tenantId)
             ->where('affiliate_account_id', $affiliateId)
+            ->where('payout_method', '!=', 'order_payment')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit($limit)

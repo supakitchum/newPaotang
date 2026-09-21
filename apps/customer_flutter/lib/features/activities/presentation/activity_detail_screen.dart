@@ -230,7 +230,7 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
             activity: activity,
             authenticated: widget.authenticated,
             submitting: _submittingEntry,
-            onSelect: _confirmNumber,
+            onSelect: _submitEntry,
             onLogin: () {
               final redirect = Uri.encodeComponent(
                 GoRouterState.of(context).uri.toString(),
@@ -240,24 +240,6 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
           ),
       ],
     );
-  }
-
-  Future<void> _confirmNumber(String number) async {
-    final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => _NumberConfirmDialog(
-        number: number,
-        message: l10n.activityConfirmNumberMessage(
-          number,
-          l10n.activityPredictionLabel(activity.numberBoard.predictionType),
-        ),
-      ),
-    );
-
-    if (confirmed == true) {
-      await _submitEntry(number);
-    }
   }
 
   Future<void> _submitEntry(String number) async {
@@ -358,108 +340,6 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
       _activityNoticeMessage = message;
       _activityNoticeIsError = isError;
     });
-  }
-}
-
-class _NumberConfirmDialog extends StatelessWidget {
-  const _NumberConfirmDialog({required this.number, required this.message});
-
-  final String number;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.activityConfirmNumberEyebrow,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.activityConfirmNumberTitle,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 16),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      number,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.45,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: Text(l10n.commonCancel),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomerGradientButton.text(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        height: 40,
-                        fontSize: 14,
-                        shadow: false,
-                        label: l10n.activityConfirmNumberSubmit,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 8,
-            top: 8,
-            child: IconButton(
-              tooltip: l10n.commonCancel,
-              onPressed: () => Navigator.of(context).pop(false),
-              icon: const Icon(Icons.close),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

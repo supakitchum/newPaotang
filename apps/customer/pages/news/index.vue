@@ -209,7 +209,7 @@ useTenantSeo({
   place-items: center;
   background:
     radial-gradient(circle at 75% 20%, rgba(255, 210, 64, .82), transparent 26%),
-    linear-gradient(135deg, #0b84ed 0%, #174783 100%);
+    linear-gradient(135deg, var(--app-blue-mid) 0%, var(--app-blue) 100%);
 }
 
 .news-list-card-body {
@@ -221,7 +221,7 @@ useTenantSeo({
 }
 
 .news-list-card-body span {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 11px;
   font-weight: 900;
   line-height: 1;
@@ -260,7 +260,7 @@ useTenantSeo({
 
 .news-list-chevron {
   align-self: center;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 20px;
   justify-self: center;
 }
@@ -280,7 +280,7 @@ useTenantSeo({
 }
 
 .news-list-empty i {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 42px;
 }
 

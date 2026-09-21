@@ -27,17 +27,6 @@
     </BlueHeader>
 
     <section class="content-sheet home-sheet">
-      <div class="rounded-panel home-quick-card mb-4">
-        <NuxtLink class="quick-action" to="/buy">
-          <span class="quick-illustration"><i class="bi bi-phone" /></span>
-          <span>ซื้อสลากดิจิทัล</span>
-        </NuxtLink>
-        <NuxtLink class="quick-action" to="/stores">
-          <span class="quick-illustration"><i class="bi bi-qr-code-scan" /></span>
-          <span>สแกนซื้อสลากฯ</span>
-        </NuxtLink>
-      </div>
-
       <WalletBalanceCard
         v-if="isAuthenticated"
         class="home-wallet-card"
@@ -443,7 +432,7 @@ onMounted(() => {
   border-radius: 999px;
   padding: 0 16px;
   color: #fff;
-  background: #0b69dc;
+  background: var(--app-blue-mid);
   font-weight: 900;
   white-space: nowrap;
 }
@@ -469,7 +458,7 @@ onMounted(() => {
 }
 
 .home-guest-actions a:last-child {
-  color: #075ec9;
+  color: var(--app-blue);
   background: #eaf5ff;
 }
 
@@ -498,7 +487,7 @@ onMounted(() => {
 }
 
 .home-section-heading a {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
@@ -555,7 +544,7 @@ onMounted(() => {
   color: #fff;
   background:
     radial-gradient(circle at 74% 18%, rgba(255, 210, 64, .82), transparent 25%),
-    linear-gradient(135deg, #0b84ed 0%, #11a584 100%);
+    linear-gradient(135deg, var(--app-blue-mid) 0%, var(--app-blue) 100%);
   font-size: 32px;
 }
 
@@ -582,7 +571,7 @@ onMounted(() => {
   align-items: center;
   overflow: hidden;
   border-radius: 999px;
-  color: #075ec9;
+  color: var(--app-blue);
   background: #eaf5ff;
   font-size: 11px;
   font-weight: 900;
@@ -594,7 +583,7 @@ onMounted(() => {
 
 .home-activity-card-top i {
   flex: 0 0 auto;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 16px;
 }
 
@@ -627,7 +616,7 @@ onMounted(() => {
 .home-activity-card small {
   min-width: 0;
   overflow: hidden;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 11px;
   font-weight: 900;
   line-height: 1.2;
@@ -650,7 +639,7 @@ onMounted(() => {
 }
 
 .home-news-heading a {
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
@@ -693,7 +682,7 @@ onMounted(() => {
 .home-news-image-fallback {
   background:
     radial-gradient(circle at 78% 22%, rgba(255, 210, 64, .72), transparent 24%),
-    linear-gradient(135deg, #0a87f5 0%, #20385f 100%);
+    var(--app-hero-gradient);
 }
 
 .home-news-card-body {
@@ -738,7 +727,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 12px;
   font-weight: 900;
 }

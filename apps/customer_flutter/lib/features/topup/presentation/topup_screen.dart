@@ -3691,6 +3691,7 @@ class _TopupSheetContent extends StatelessWidget {
                               submitting: submitting,
                               showPaymentDetails: showPaymentDetails,
                               onQuickAmountSelected: onQuickAmountSelected,
+                              onEditAmount: onEditAmount,
                             ),
                           ],
                         ),
@@ -3702,7 +3703,6 @@ class _TopupSheetContent extends StatelessWidget {
                       showPaymentDetails: showPaymentDetails,
                       padding: actionPadding,
                       onContinueToPaymentDetails: onContinueToPaymentDetails,
-                      onEditAmount: onEditAmount,
                       onSubmit: onSubmit,
                     ),
                   ],
@@ -3764,7 +3764,6 @@ class _TopupSheetActionDock extends StatelessWidget {
     required this.showPaymentDetails,
     required this.padding,
     required this.onContinueToPaymentDetails,
-    required this.onEditAmount,
     required this.onSubmit,
   });
 
@@ -3773,7 +3772,6 @@ class _TopupSheetActionDock extends StatelessWidget {
   final bool showPaymentDetails;
   final EdgeInsets padding;
   final Future<void> Function() onContinueToPaymentDetails;
-  final VoidCallback onEditAmount;
   final Future<void> Function() onSubmit;
 
   @override
@@ -3807,25 +3805,6 @@ class _TopupSheetActionDock extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (showPaymentDetails) ...[
-              OutlinedButton(
-                style: _topupFlatButtonStyle(
-                  OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
-                    foregroundColor: colorScheme.primary,
-                    backgroundColor: colorScheme.surface,
-                    side: BorderSide(color: _topupPrimaryBorder(colorScheme)),
-                    shape: const StadiumBorder(),
-                    textStyle: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                onPressed: submitting ? null : onEditAmount,
-                child: Text(l10n.topupEditAmount),
-              ),
-              const SizedBox(height: 10),
-            ],
             CustomerGradientButton.text(
               onPressed: submitting
                   ? null
@@ -3862,6 +3841,7 @@ class _TopupFormCard extends StatelessWidget {
     required this.submitting,
     required this.showPaymentDetails,
     required this.onQuickAmountSelected,
+    required this.onEditAmount,
   });
 
   final TopupBankAccount bank;
@@ -3871,6 +3851,7 @@ class _TopupFormCard extends StatelessWidget {
   final bool submitting;
   final bool showPaymentDetails;
   final Future<void> Function(int amount) onQuickAmountSelected;
+  final VoidCallback onEditAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -3891,10 +3872,12 @@ class _TopupFormCard extends StatelessWidget {
           _BankInfoCard(
             bank: bank,
             amount: formatTopupBaht(l10n, currentAmount),
+            onEditAmount: onEditAmount,
           ),
         ] else ...[
           _TopupPaymentAmountSummary(
             amount: formatTopupBaht(l10n, currentAmount),
+            onEditAmount: onEditAmount,
           ),
           const SizedBox(height: 14),
           _TopupPaymentDetailsPanel(
@@ -3919,9 +3902,13 @@ class _TopupFormCard extends StatelessWidget {
 }
 
 class _TopupPaymentAmountSummary extends StatelessWidget {
-  const _TopupPaymentAmountSummary({required this.amount});
+  const _TopupPaymentAmountSummary({
+    required this.amount,
+    required this.onEditAmount,
+  });
 
   final String amount;
+  final VoidCallback onEditAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -3936,29 +3923,108 @@ class _TopupPaymentAmountSummary extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              l10n.topupPaymentAmountDue,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.topupPaymentAmountDue,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    amount,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: colorScheme.primary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              amount,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colorScheme.primary,
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                height: 1.1,
-              ),
-            ),
+            const SizedBox(width: 10),
+            _TopupChangeAmountButton(onPressed: onEditAmount),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TopupChangeAmountButton extends StatelessWidget {
+  const _TopupChangeAmountButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return OutlinedButton(
+      key: const ValueKey('topup-change-amount'),
+      onPressed: onPressed,
+      style: _topupFlatButtonStyle(
+        OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          foregroundColor: colorScheme.primary,
+          backgroundColor: colorScheme.surface,
+          side: BorderSide(color: _topupPrimaryBorder(colorScheme)),
+          shape: const StadiumBorder(),
+          textStyle: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
+      child: Text(context.l10n.topupEditAmount),
+    );
+  }
+}
+
+class _TopupBankDetailRow extends StatelessWidget {
+  const _TopupBankDetailRow({
+    required this.rowKey,
+    required this.label,
+    required this.child,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+  });
+
+  final Key rowKey;
+  final String label;
+  final Widget child;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      key: rowKey,
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: child),
+      ],
     );
   }
 }
@@ -4621,10 +4687,15 @@ class _ChannelDisabledBadge extends StatelessWidget {
 }
 
 class _BankInfoCard extends StatefulWidget {
-  const _BankInfoCard({required this.bank, required this.amount});
+  const _BankInfoCard({
+    required this.bank,
+    required this.amount,
+    required this.onEditAmount,
+  });
 
   final TopupBankAccount bank;
   final String amount;
+  final VoidCallback onEditAmount;
 
   @override
   State<_BankInfoCard> createState() => _BankInfoCardState();
@@ -4689,31 +4760,6 @@ class _BankInfoCardState extends State<_BankInfoCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _TopupBankLogo(bank: bank),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    bankName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Divider(
-              height: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-            ),
-            const SizedBox(height: 13),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
                 Expanded(
                   child: Text(
                     l10n.topupPaymentAmountDue,
@@ -4734,110 +4780,110 @@ class _BankInfoCardState extends State<_BankInfoCard> {
                     height: 1.1,
                   ),
                 ),
+                const SizedBox(width: 10),
+                _TopupChangeAmountButton(onPressed: widget.onEditAmount),
               ],
             ),
             const SizedBox(height: 14),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: _topupPrimaryTint(colorScheme),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _topupPrimaryBorder(colorScheme)),
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+            ),
+            const SizedBox(height: 13),
+            _TopupBankDetailRow(
+              rowKey: const ValueKey('topup-bank-name-row'),
+              label: l10n.topupBankNameLabel,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  SizedBox.square(
+                    dimension: 38,
+                    child: _TopupBankLogo(bank: bank),
+                  ),
+                  const SizedBox(width: 9),
+                  Flexible(
+                    child: Text(
+                      bankName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(13, 11, 10, 11),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final number = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.topupBankAccountNumberLabel,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const SizedBox(height: 2),
-                        SelectableText(
-                          accountNumber,
-                          maxLines: 2,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: colorScheme.primary,
-                                fontSize: 21,
-                                fontWeight: FontWeight.w800,
-                                height: 1.15,
-                              ),
-                        ),
-                      ],
-                    );
-                    final copyButton = OutlinedButton.icon(
-                      key: const ValueKey('topup-bank-copy-account'),
-                      onPressed: bank.accountNumber.trim().isEmpty
-                          ? null
-                          : _copyAccountNumber,
-                      style: _topupBankCopyButtonStyle(context),
-                      icon: Icon(
-                        _copied ? Icons.check_rounded : Icons.copy_rounded,
-                        size: 17,
-                      ),
-                      label: Text(
-                        _copied
-                            ? l10n.topupBankAccountCopied
-                            : l10n.topupBankCopyAccount,
-                      ),
-                    );
-
-                    if (constraints.maxWidth < 285) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          number,
-                          const SizedBox(height: 9),
-                          copyButton,
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(child: number),
-                        const SizedBox(width: 10),
-                        copyButton,
-                      ],
-                    );
-                  },
+            ),
+            const SizedBox(height: 14),
+            _TopupBankDetailRow(
+              rowKey: const ValueKey('topup-bank-account-name-row'),
+              label: l10n.topupBankAccountNameLabel,
+              child: Text(
+                accountName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
             ),
-            const SizedBox(height: 11),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.topupBankAccountNameLabel,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    accountName,
+            const SizedBox(height: 14),
+            _TopupBankDetailRow(
+              rowKey: const ValueKey('topup-bank-account-number-row'),
+              label: l10n.topupBankAccountNumberLabel,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final number = SelectableText(
+                    accountNumber,
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w700,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
                     ),
-                  ),
-                ),
-              ],
+                  );
+                  final copyButton = OutlinedButton.icon(
+                    key: const ValueKey('topup-bank-copy-account'),
+                    onPressed: bank.accountNumber.trim().isEmpty
+                        ? null
+                        : _copyAccountNumber,
+                    style: _topupBankCopyButtonStyle(context),
+                    icon: Icon(
+                      _copied ? Icons.check_rounded : Icons.copy_rounded,
+                      size: 17,
+                    ),
+                    label: Text(
+                      _copied
+                          ? l10n.topupBankAccountCopied
+                          : l10n.topupBankCopyAccount,
+                    ),
+                  );
+
+                  if (constraints.maxWidth < 220) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [number, const SizedBox(height: 7), copyButton],
+                    );
+                  }
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(child: number),
+                      const SizedBox(width: 8),
+                      copyButton,
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),

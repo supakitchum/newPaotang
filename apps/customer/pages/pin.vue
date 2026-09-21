@@ -521,7 +521,7 @@ onBeforeUnmount(() => {
 .pin-reset-action {
   background: transparent;
   border: 0;
-  color: #0d7fe8;
+  color: var(--app-blue-mid);
   font-size: 14px;
   font-weight: 900;
   line-height: 1;
@@ -599,7 +599,7 @@ onBeforeUnmount(() => {
   align-items: center;
   background: #e8f3ff;
   border-radius: 22px;
-  color: #0d7fe8;
+  color: var(--app-blue-mid);
   display: inline-flex;
   font-size: 28px;
   height: 64px;
@@ -652,7 +652,7 @@ onBeforeUnmount(() => {
 }
 
 .pin-reset-form input:focus {
-  border-color: #0d7fe8;
+  border-color: var(--app-blue-mid);
   box-shadow: 0 0 0 4px rgba(13, 127, 232, .12);
 }
 
@@ -681,14 +681,14 @@ onBeforeUnmount(() => {
 }
 
 .pin-reset-submit {
-  background: linear-gradient(135deg, #14a7ff, #0062d9);
+  background: linear-gradient(135deg, var(--app-blue-mid), var(--app-blue-dark));
   color: #fff;
   box-shadow: 0 14px 28px rgba(0, 98, 217, .2);
 }
 
 .pin-reset-secondary {
   background: transparent;
-  color: #0d7fe8;
+  color: var(--app-blue-mid);
 }
 
 .pin-reset-submit:disabled,

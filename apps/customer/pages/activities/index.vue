@@ -368,7 +368,7 @@ useTenantSeo({
   align-items: center;
   background: #e8f4ff;
   border-radius: 999px;
-  color: #0875df;
+  color: var(--app-blue);
   display: inline-flex;
   font-size: 13px;
   font-weight: 900;
@@ -408,7 +408,7 @@ useTenantSeo({
 .activity-card-placeholder {
   align-items: center;
   background: linear-gradient(135deg, #e8f6ff, #f4fbff);
-  color: #0b7fe8;
+  color: var(--app-blue-mid);
   display: flex;
   font-size: 32px;
   justify-content: center;
@@ -426,7 +426,7 @@ useTenantSeo({
   align-items: center;
   background: #e8f4ff;
   border-radius: 999px;
-  color: #0875df;
+  color: var(--app-blue);
   display: inline-flex;
   font-size: 12px;
   font-weight: 900;
@@ -482,7 +482,7 @@ useTenantSeo({
 
 .activity-rights-badge.is-used {
   background: #eef2ff;
-  color: #3157c8;
+  color: var(--app-blue-mid);
 }
 
 .activity-rights-badge.is-none,
@@ -547,7 +547,7 @@ useTenantSeo({
 }
 
 .activities-empty i {
-  color: #0b7fe8;
+  color: var(--app-blue-mid);
   font-size: 38px;
 }
 

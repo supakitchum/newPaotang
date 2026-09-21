@@ -216,7 +216,7 @@ onMounted(fetchReceipt)
   background:
     radial-gradient(circle at 66% 78%, rgba(0, 91, 198, .5) 0 136px, transparent 138px),
     radial-gradient(circle at 100% 96%, rgba(255, 209, 11, .98) 0 124px, transparent 126px),
-    linear-gradient(145deg, #087ff0 0%, #22bff3 100%);
+    var(--app-hero-gradient);
 }
 
 .purchase-receipt-bg::before,

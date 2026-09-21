@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: 999px;
   padding: 0 12px;
-  background: #0b69dc;
+  background: var(--app-blue-mid);
   color: #fff;
   font-size: 14px;
   font-weight: 700;

@@ -1924,7 +1924,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   LotteryCart _cart = LotteryCart.empty();
   Timer? _deadlineTimer;
   CustomerWallet? _primaryWallet;
+  CustomerWallet? _affiliateWallet;
   double _walletBalance = 0;
+  double _affiliateWalletBalance = 0;
   String _walletError = '';
   String _selectedPaymentMethod = '';
   bool _loading = true;
@@ -1984,7 +1986,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         onBiometric: () {},
       );
     }
-    final paymentMethods = ref.watch(checkoutPaymentMethodsProvider);
+    final paymentMethods = _availableCheckoutPaymentMethods(
+      ref.watch(checkoutPaymentMethodsProvider),
+    );
     final paymentMethodLabels = ref.watch(checkoutPaymentMethodLabelsProvider);
     final defaultPaymentMethod = ref.watch(checkoutPaymentMethodProvider);
     final selectedPaymentMethod = _effectiveCheckoutPaymentMethod(
@@ -1992,13 +1996,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       defaultPaymentMethod,
     );
     final usesWallet = selectedPaymentMethod == checkoutPaymentMethodWallet;
+    final usesAffiliateWallet =
+        selectedPaymentMethod == checkoutPaymentMethodAffiliateWallet;
     final paymentDeadline = earliestActiveReservation(_cart.reservations);
     final paymentExpired =
         paymentDeadline != null && reservationDeadlineExpired(paymentDeadline);
     final hasActivePayment = _cart.reservationIds.isNotEmpty && !paymentExpired;
-    final enoughBalance = _walletBalance >= _cart.total;
+    final enoughBalance = usesAffiliateWallet
+        ? _affiliateWalletBalance >= _cart.total
+        : _walletBalance >= _cart.total;
     final canUseSelectedPayment =
-        !usesWallet || (!_walletLoading && enoughBalance);
+        (!usesWallet && !usesAffiliateWallet) ||
+        (!_walletLoading && enoughBalance);
     final siteName =
         ref.watch(mobileBootstrapProvider).valueOrNull?.siteName.trim() ?? '';
     final walletName = siteName.isNotEmpty
@@ -2006,11 +2015,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : _primaryWallet?.name.trim().isNotEmpty == true
         ? _primaryWallet!.name.trim()
         : l10n.checkoutWalletFallbackName;
+    final affiliateWalletName = _affiliateWallet?.name.trim().isNotEmpty == true
+        ? _affiliateWallet!.name.trim()
+        : l10n.checkoutAffiliateWalletName;
     final confirmLabel = _submitting
         ? l10n.checkoutSubmitting
         : paymentExpired || !hasActivePayment
         ? l10n.cartExpired
-        : usesWallet && _walletLoading
+        : (usesWallet || usesAffiliateWallet) && _walletLoading
         ? l10n.checkoutWalletLoading
         : canUseSelectedPayment
         ? l10n.checkoutConfirm
@@ -2080,8 +2092,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             _CheckoutPaymentMethodCard(
               walletName: walletName,
               balance: _walletBalance,
+              affiliateWalletName: affiliateWalletName,
+              affiliateBalance: _affiliateWalletBalance,
               walletLoading: _walletLoading,
-              enoughBalance: enoughBalance,
+              enoughBalance: _walletBalance >= _cart.total,
+              affiliateEnoughBalance:
+                  _affiliateWalletBalance >= _cart.total,
               walletError: _walletError,
               methods: paymentMethods,
               methodLabels: paymentMethodLabels,
@@ -2139,7 +2155,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _walletLoading = needsWalletSummary;
       if (!needsWalletSummary) {
         _primaryWallet = null;
+        _affiliateWallet = null;
         _walletBalance = 0;
+        _affiliateWalletBalance = 0;
         _walletError = '';
       }
     });
@@ -2168,7 +2186,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!mounted) return;
     setState(() {
       _primaryWallet = walletSummary?.primaryWallet;
+      _affiliateWallet = walletSummary?.affiliateWallet;
       _walletBalance = walletSummary?.balance ?? 0;
+      _affiliateWalletBalance = walletSummary?.affiliateWallet?.balance ?? 0;
       _walletError = walletError;
       _walletLoading = false;
     });
@@ -2230,7 +2250,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       await ref.read(affiliateReferralServiceProvider).applyStored();
       final paymentMethod = _effectiveCheckoutPaymentMethod(
-        ref.read(checkoutPaymentMethodsProvider),
+        _availableCheckoutPaymentMethods(
+          ref.read(checkoutPaymentMethodsProvider),
+        ),
         ref.read(checkoutPaymentMethodProvider),
       );
       final order = await ref
@@ -2292,10 +2314,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _pinStep = false;
         _pin = '';
         _pinError = '';
-        _noticeMessage = _checkoutErrorMessage(
-          error,
-          context.l10n.checkoutFailed,
-        );
+        _noticeMessage = switch (code) {
+          'affiliate_wallet_insufficient_balance' =>
+            context.l10n.checkoutInsufficientTitle,
+          'affiliate_wallet_unavailable' =>
+            context.l10n.checkoutAffiliateWalletUnavailable,
+          _ => _checkoutErrorMessage(error, context.l10n.checkoutFailed),
+        };
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -2316,11 +2341,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return methods.first;
   }
 
+  List<String> _availableCheckoutPaymentMethods(
+    List<String> configuredMethods,
+  ) {
+    final methods = configuredMethods.isEmpty
+        ? <String>[checkoutPaymentMethodWallet]
+        : <String>[...configuredMethods];
+    if (_affiliateWallet != null &&
+        !methods.contains(checkoutPaymentMethodAffiliateWallet)) {
+      methods.add(checkoutPaymentMethodAffiliateWallet);
+    }
+    return methods;
+  }
+
   bool _checkoutPaymentMethodsUseWallet(List<String> configuredMethods) {
     final methods = configuredMethods.isEmpty
         ? const [checkoutPaymentMethodWallet]
         : configuredMethods;
-    return methods.contains(checkoutPaymentMethodWallet);
+    return methods.contains(checkoutPaymentMethodWallet) ||
+        methods.contains(checkoutPaymentMethodAffiliateWallet);
   }
 
   Future<void> _openExternalPayment(LotteryCheckoutOrder order) async {
@@ -4288,8 +4327,11 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
   const _CheckoutPaymentMethodCard({
     required this.walletName,
     required this.balance,
+    required this.affiliateWalletName,
+    required this.affiliateBalance,
     required this.walletLoading,
     required this.enoughBalance,
+    required this.affiliateEnoughBalance,
     required this.walletError,
     required this.methods,
     required this.methodLabels,
@@ -4300,8 +4342,11 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
 
   final String walletName;
   final double balance;
+  final String affiliateWalletName;
+  final double affiliateBalance;
   final bool walletLoading;
   final bool enoughBalance;
+  final bool affiliateEnoughBalance;
   final String walletError;
   final List<String> methods;
   final Map<String, String> methodLabels;
@@ -4341,10 +4386,18 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
                   method: method,
                   runtimeLabel: methodLabels[method] ?? '',
                   selected: method == selectedMethod,
-                  walletName: walletName,
-                  balance: balance,
+                  walletName:
+                      method == checkoutPaymentMethodAffiliateWallet
+                      ? affiliateWalletName
+                      : walletName,
+                  balance: method == checkoutPaymentMethodAffiliateWallet
+                      ? affiliateBalance
+                      : balance,
                   walletLoading: walletLoading,
-                  enoughBalance: enoughBalance,
+                  enoughBalance:
+                      method == checkoutPaymentMethodAffiliateWallet
+                      ? affiliateEnoughBalance
+                      : enoughBalance,
                   walletError: walletError,
                   onSelected: () => onMethodChanged(method),
                   onTopup: onTopup,
@@ -4452,17 +4505,22 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final walletMethod = method == checkoutPaymentMethodWallet;
-    final title = walletMethod
+    final affiliateWalletMethod =
+        method == checkoutPaymentMethodAffiliateWallet;
+    final balanceMethod = walletMethod || affiliateWalletMethod;
+    final title = balanceMethod
         ? walletName
         : runtimeLabel.trim().isNotEmpty
         ? runtimeLabel.trim()
         : l10n.checkoutExternalPaymentName;
-    final subtitle = walletMethod && walletLoading
+    final subtitle = balanceMethod && walletLoading
         ? l10n.checkoutWalletLoading
-        : walletMethod
+        : balanceMethod
         ? formatBaht(balance)
         : l10n.checkoutExternalPaymentSubtitle;
-    final note = walletMethod
+    final note = affiliateWalletMethod
+        ? l10n.checkoutAffiliateWalletNote
+        : walletMethod
         ? l10n.checkoutWalletPaymentNote
         : l10n.checkoutExternalPaymentNote;
     final borderColor = selected
@@ -4553,16 +4611,14 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                               subtitle,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontSize: 18,
-                                color: walletMethod
+                                color: balanceMethod
                                     ? colorScheme.onSurface
                                     : colorScheme.onSurfaceVariant,
-                                fontWeight: walletMethod
-                                    ? FontWeight.w700
-                                    : FontWeight.w700,
+                                fontWeight: FontWeight.w700,
                                 height: 1.2,
                               ),
                             ),
-                            if (walletMethod &&
+                            if (balanceMethod &&
                                 !walletLoading &&
                                 walletError.isNotEmpty) ...[
                               const SizedBox(height: 4),
@@ -4574,7 +4630,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                            ] else if (walletMethod &&
+                            ] else if (balanceMethod &&
                                 !walletLoading &&
                                 !enoughBalance) ...[
                               const SizedBox(height: 4),
@@ -4593,10 +4649,10 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                             ],
                           ],
                         );
-                        final markText = walletMethod
+                        final markText = balanceMethod
                             ? _checkoutWalletMethodMark(walletName)
                             : '';
-                        final markSelected = selected || walletMethod;
+                        final markSelected = selected || balanceMethod;
                         final methodMark = DecoratedBox(
                           decoration: BoxDecoration(
                             color: markSelected
@@ -4609,7 +4665,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                           ),
                           child: SizedBox.square(
                             dimension: 55,
-                            child: walletMethod && markText.isNotEmpty
+                            child: balanceMethod && markText.isNotEmpty
                                 ? Center(
                                     child: Text(
                                       markText,
@@ -4672,7 +4728,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                     key: ValueKey('checkout-payment-method-note-$method'),
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: walletMethod
+                      color: balanceMethod
                           ? AppTheme.checkoutWalletNoteFill(colorScheme.primary)
                           : colorScheme.surfaceContainerHighest.withValues(
                               alpha: selected ? 0.56 : 0.36,
@@ -4685,7 +4741,7 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                     child: Text(
                       note,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: walletMethod
+                        color: balanceMethod
                             ? AppTheme.checkoutWalletNoteText(
                                 colorScheme.primary,
                               )

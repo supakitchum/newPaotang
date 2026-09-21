@@ -1,5 +1,17 @@
 <template>
-  <MobileShell time="12:58">
+  <PinKeypadScreen
+    v-if="checkoutStep === 'pin'"
+    title="ใส่รหัส PIN 6 หลัก"
+    subtitle="เพื่อยืนยันการชำระเงิน"
+    :digits="checkoutPinDigits"
+    :error="checkoutPinError"
+    :disabled="isPaying"
+    @append="appendCheckoutPinDigit"
+    @remove="removeCheckoutPinDigit"
+    @back="cancelCheckoutPin"
+  />
+
+  <MobileShell v-else time="12:58">
     <BlueHeader title="ยืนยันการชำระเงิน" back-to="/cart" min-height="454px">
       <div class="summary-card mt-4 text-dark">
         <div class="d-flex align-items-center gap-3 border-bottom pb-3 mb-3">
@@ -23,11 +35,17 @@
 
     <section class="content-sheet flush">
       <h2 class="fs-5 fw-bold mb-4">ช่องทางชำระเงิน</h2>
-      <div class="wallet-card">
+      <div
+        class="wallet-card"
+        role="button"
+        tabindex="0"
+        @click="selectedPaymentMethod = 'wallet'"
+        @keydown.enter="selectedPaymentMethod = 'wallet'"
+      >
         <div class="d-flex align-items-center gap-3 p-3">
           <i
             class="bi fs-3"
-            :class="primaryWallet ? 'bi-check-circle-fill text-primary' : 'bi-circle text-muted'"
+            :class="selectedPaymentMethod === 'wallet' ? 'bi-check-circle-fill text-primary' : 'bi-circle text-muted'"
           />
           <div class="flex-grow-1">
             <div class="fw-bold fs-5">{{ walletName }}</div>
@@ -35,7 +53,7 @@
               <span v-if="isWalletLoading">กำลังโหลด...</span>
               <span v-else>{{ formatMoney(walletBalance) }} บาท</span>
             </div>
-            <div v-if="!isWalletLoading && !hasEnoughBalance" class="text-danger small fw-semibold mt-1">
+            <div v-if="!isWalletLoading && !walletHasEnoughBalance" class="text-danger small fw-semibold mt-1">
               ยอดเงินไม่เพียงพอสำหรับชำระรายการนี้
             </div>
             <NuxtLink class="outline-pill d-inline-flex align-items-center gap-2 mt-2" :to="{ path: '/topup', query: { back: '/checkout' } }">
@@ -46,6 +64,32 @@
         </div>
         <div class="wallet-note">
           คุณสามารถ ‘ยืนยันชำระเงิน’ เพื่อใช้บัญชีกรุงไทยที่ผูกไว้ชำระเงินค่าสลากฯ ได้อัตโนมัติ
+        </div>
+      </div>
+      <div
+        v-if="affiliateWallet"
+        class="wallet-card mt-3"
+        role="button"
+        tabindex="0"
+        @click="selectedPaymentMethod = 'affiliate_wallet'"
+        @keydown.enter="selectedPaymentMethod = 'affiliate_wallet'"
+      >
+        <div class="d-flex align-items-center gap-3 p-3">
+          <i
+            class="bi fs-3"
+            :class="selectedPaymentMethod === 'affiliate_wallet' ? 'bi-check-circle-fill text-primary' : 'bi-circle text-muted'"
+          />
+          <div class="flex-grow-1">
+            <div class="fw-bold fs-5">{{ affiliateWalletName }}</div>
+            <div class="fw-bold fs-5">{{ formatMoney(affiliateWalletBalance) }} บาท</div>
+            <div v-if="!affiliateWalletHasEnoughBalance" class="text-danger small fw-semibold mt-1">
+              ยอดเงินไม่เพียงพอสำหรับชำระรายการนี้
+            </div>
+          </div>
+          <div class="rounded-3 d-grid place-center text-white fs-2 fw-bold" style="width:55px;height:55px;background:#1e8bc2">A</div>
+        </div>
+        <div class="wallet-note">
+          ใช้ยอดคอมมิชชันตัวแทนจำหน่ายที่อนุมัติแล้วเพื่อชำระรายการนี้
         </div>
       </div>
       <div style="height:265px" />
@@ -106,6 +150,10 @@ const isPreparing = ref(false)
 const isWalletLoading = ref(false)
 const isPaying = ref(false)
 const prepareError = ref('')
+const selectedPaymentMethod = ref<'wallet' | 'affiliate_wallet'>('wallet')
+const checkoutStep = ref<'payment' | 'pin'>('payment')
+const checkoutPinDigits = ref('')
+const checkoutPinError = ref('')
 
 const toNumber = (value: unknown, fallback = 0) => moneyToDisplayNumber(value, fallback)
 
@@ -179,11 +227,20 @@ const formatMoney = (value: number) => new Intl.NumberFormat('th-TH', {
 }).format(value)
 
 const primaryWallet = computed(() => (
-  wallets.value.find((wallet) => Number(wallet.type) === 1) || wallets.value[0] || null
+  wallets.value.find((wallet) => Number(wallet.type) === 1) ||
+  wallets.value.find((wallet) => String(wallet.type).toLowerCase() === 'primary') ||
+  wallets.value.find((wallet) => !['affiliate', 'affiliate_wallet'].includes(String(wallet.type).toLowerCase())) ||
+  null
+))
+
+const affiliateWallet = computed(() => (
+  wallets.value.find((wallet) => ['affiliate', 'affiliate_wallet'].includes(String(wallet.type).toLowerCase())) || null
 ))
 
 const walletName = computed(() => primaryWallet.value?.name || 'G Wallet')
 const walletBalance = computed(() => toNumber(primaryWallet.value?.balance))
+const affiliateWalletName = computed(() => affiliateWallet.value?.name || 'กระเป๋าเงินตัวแทนจำหน่าย')
+const affiliateWalletBalance = computed(() => toNumber(affiliateWallet.value?.balance))
 const orderTickets = computed(() => getOrderLotteries(order.value))
 const orderCount = computed(() => {
   if (orderTickets.value.length > 0) {
@@ -206,7 +263,12 @@ const orderTotal = computed(() => {
 
   return amount.value
 })
-const hasEnoughBalance = computed(() => walletBalance.value >= orderTotal.value)
+const selectedWalletBalance = computed(() => (
+  selectedPaymentMethod.value === 'affiliate_wallet' ? affiliateWalletBalance.value : walletBalance.value
+))
+const walletHasEnoughBalance = computed(() => walletBalance.value >= orderTotal.value)
+const affiliateWalletHasEnoughBalance = computed(() => affiliateWalletBalance.value >= orderTotal.value)
+const hasEnoughBalance = computed(() => selectedWalletBalance.value >= orderTotal.value)
 const canConfirmPayment = computed(() => (
   Boolean(order.value?.id) &&
   !isPreparing.value &&
@@ -244,6 +306,9 @@ const fetchWallet = async () => {
   try {
     const response = await platformApi.walletLegacy()
     wallets.value = Array.isArray(response.data?.result) ? response.data.result : []
+    if (!affiliateWallet.value && selectedPaymentMethod.value === 'affiliate_wallet') {
+      selectedPaymentMethod.value = 'wallet'
+    }
   } catch {
     wallets.value = []
     showAlert({
@@ -319,11 +384,56 @@ const handleConfirmPayment = async () => {
     return
   }
 
+  checkoutPinDigits.value = ''
+  checkoutPinError.value = ''
+  checkoutStep.value = 'pin'
+}
+
+const cancelCheckoutPin = () => {
+  if (isPaying.value) {
+    return
+  }
+
+  checkoutStep.value = 'payment'
+  checkoutPinDigits.value = ''
+  checkoutPinError.value = ''
+}
+
+const removeCheckoutPinDigit = () => {
+  if (isPaying.value || checkoutPinDigits.value.length === 0) {
+    return
+  }
+
+  checkoutPinDigits.value = checkoutPinDigits.value.slice(0, -1)
+  checkoutPinError.value = ''
+}
+
+const appendCheckoutPinDigit = async (digit: string) => {
+  if (!/^\d$/.test(digit) || checkoutPinDigits.value.length >= 6 || isPaying.value) {
+    return
+  }
+
+  checkoutPinDigits.value = `${checkoutPinDigits.value}${digit}`
+  checkoutPinError.value = ''
+
+  if (checkoutPinDigits.value.length === 6) {
+    await submitCheckout()
+  }
+}
+
+const submitCheckout = async () => {
+  if (!order.value?.id || checkoutPinDigits.value.length !== 6 || isPaying.value) {
+    return
+  }
+
   isPaying.value = true
 
   try {
     await applyStoredRef()
-    const response = await platformApi.checkoutLegacy(order.value)
+    const response = await platformApi.checkoutLegacy(order.value, {
+      paymentMethod: selectedPaymentMethod.value,
+      pin: checkoutPinDigits.value
+    })
 
     const paidOrder = response.data?.result?.order || order.value
     successOrder.value = paidOrder
@@ -337,11 +447,15 @@ const handleConfirmPayment = async () => {
       }
     })
   } catch (error: any) {
-    showAlert({
-      title: 'ชำระเงินไม่สำเร็จ',
-      message: error?.response?.data?.message || 'กรุณาลองใหม่อีกครั้ง',
-      variant: 'error'
-    })
+    checkoutPinDigits.value = ''
+    const code = error?.response?.data?.error?.code || error?.response?.data?.code
+    checkoutPinError.value = code === 'pin_invalid'
+      ? 'PIN ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
+      : code === 'pin_locked'
+        ? 'กรอก PIN ผิดเกินกำหนด กรุณารอสักครู่แล้วลองใหม่'
+        : code === 'affiliate_wallet_insufficient_balance'
+          ? 'ยอดเงินในกระเป๋าตัวแทนจำหน่ายไม่เพียงพอ'
+          : error?.response?.data?.message || 'ชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
   } finally {
     isPaying.value = false
   }

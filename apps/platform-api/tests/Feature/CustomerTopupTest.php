@@ -54,9 +54,18 @@ class CustomerTopupTest extends TestCase
 
         $this->assertSame($topup['id'], $replay['id']);
 
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
+                'amount' => 29999,
+            ], [
+                'Idempotency-Key' => 'customer-credit-topup-below-minimum',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.amount.0', 'The amount field must be at least 300 baht.');
+
         $credit = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 400,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'customer-credit-topup',
             ])
@@ -279,6 +288,8 @@ class CustomerTopupTest extends TestCase
             ->assertJsonPath('payment_methods.0.enabled', false)
             ->assertJsonPath('payment_methods.1.key', 'credit_card')
             ->assertJsonPath('payment_methods.1.enabled', false)
+            ->assertJsonPath('payment_methods.1.minimum_amount.amount', 30000)
+            ->assertJsonPath('payment_methods.1.minimum_amount.currency', 'THB')
             ->assertJsonPath('payment_methods.2.key', 'bank_transfer')
             ->assertJsonPath('payment_methods.2.enabled', true)
             ->assertJsonPath('enabled_payment_methods.0', 'bank_transfer');
@@ -295,7 +306,7 @@ class CustomerTopupTest extends TestCase
 
         $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 400,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'customer-topup-disabled-credit',
             ])
@@ -795,7 +806,7 @@ class CustomerTopupTest extends TestCase
 
         $topup = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 600,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'deepay-cancel-race-create',
             ])

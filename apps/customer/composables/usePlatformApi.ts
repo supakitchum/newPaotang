@@ -385,6 +385,13 @@ const normalizeAffiliateOverview = (payload: AnyRecord | null | undefined) => {
       visitor_count: Number(stats.visitor_count || 0),
       registered_count: Number(stats.registered_count || 0)
     },
+    referrals: Array.isArray(payload?.referrals)
+      ? payload.referrals.map((referral: AnyRecord) => ({
+          id: String(referral?.id || ''),
+          phone_masked: String(referral?.phone_masked || referral?.masked_phone || ''),
+          registered_at: referral?.registered_at || null
+        }))
+      : [],
     commissions: Array.isArray(payload?.commissions) ? payload.commissions.map(normalizeAffiliateCommission).filter(Boolean) : [],
     payouts: Array.isArray(payload?.payouts) ? payload.payouts.map(normalizeAffiliatePayout).filter(Boolean) : []
   }
@@ -1175,12 +1182,16 @@ export const usePlatformApi = () => {
     return [String(input || '').trim()].filter(Boolean)
   }
 
-  const checkoutLegacy = async (reservationInput: string | number | Array<string | number> | AnyRecord) => {
+  const checkoutLegacy = async (
+    reservationInput: string | number | Array<string | number> | AnyRecord,
+    options: { paymentMethod?: 'wallet' | 'affiliate_wallet'; pin?: string } = {}
+  ) => {
     const reservationIds = normalizeCheckoutReservationIds(reservationInput)
     const response = await axios.post('/customer/checkout', {
       reservation_id: reservationIds[0] || '',
       reservation_ids: reservationIds,
-      payment_method: 'wallet'
+      payment_method: options.paymentMethod || 'wallet',
+      pin: String(options.pin || '')
     }, {
       headers: idempotencyHeaders('customer-checkout')
     })

@@ -874,6 +874,12 @@ class CustomerLocalizations {
   String get checkoutWalletPaymentNote => _text('checkout.wallet_payment_note');
   String get checkoutWalletLoading => _text('checkout.wallet_loading');
   String get checkoutWalletLoadFailed => _text('checkout.wallet_load_failed');
+  String get checkoutAffiliateWalletName =>
+      _text('checkout.affiliate_wallet.name');
+  String get checkoutAffiliateWalletNote =>
+      _text('checkout.affiliate_wallet.note');
+  String get checkoutAffiliateWalletUnavailable =>
+      _text('checkout.affiliate_wallet.unavailable');
   String get checkoutExternalPaymentName =>
       _text('checkout.external_payment.name');
   String get checkoutExternalPaymentSubtitle =>
@@ -937,6 +943,10 @@ class CustomerLocalizations {
   String get profileCustomerAccount => _text('profile.customer_account');
   String profileMemberCode(String value) {
     return _text('profile.member_code').replaceAll('{code}', value);
+  }
+
+  String profilePhone(String value) {
+    return _text('profile.phone').replaceAll('{phone}', value);
   }
 
   String get profileCopyMemberCode => _text('profile.copy_member_code');
@@ -1552,6 +1562,7 @@ class CustomerLocalizations {
       _text('topup.bank_instruction.unavailable');
   String get topupBankAccountFallback => _text('topup.bank_account_fallback');
   String get topupBankTransferTo => _text('topup.bank_account.transfer_to');
+  String get topupBankNameLabel => _text('topup.bank_account.bank');
   String get topupBankAccountNameLabel =>
       _text('topup.bank_account.account_name');
   String get topupBankAccountNumberLabel =>
@@ -2556,6 +2567,18 @@ class CustomerLocalizations {
   String get affiliateReferralQrTitle => _text('affiliate.referral.qr_title');
   String get affiliateReferralQrDescription =>
       _text('affiliate.referral.qr_description');
+  String get affiliateReferralMembersTitle =>
+      _text('affiliate.referral_members.title');
+  String get affiliateReferralMembersSubtitle =>
+      _text('affiliate.referral_members.subtitle');
+  String get affiliateReferralMembersEmpty =>
+      _text('affiliate.referral_members.empty');
+  String affiliateReferralRegisteredAt(String value) {
+    return _text(
+      'affiliate.referral_members.registered_at',
+    ).replaceAll('{date}', value);
+  }
+
   String get affiliateBankTitle => _text('affiliate.bank.title');
   String get affiliateBankDescription => _text('affiliate.bank.description');
   String get affiliateBankEmpty => _text('affiliate.bank.empty');
@@ -3738,6 +3761,11 @@ const _localizedValues = <String, Map<String, String>>{
         'คุณสามารถยืนยันชำระเงินเพื่อใช้บัญชีที่ผูกไว้ชำระเงินค่าสลากได้อัตโนมัติ',
     'checkout.wallet_loading': 'กำลังโหลดกระเป๋าเงิน...',
     'checkout.wallet_load_failed': 'โหลดกระเป๋าเงินไม่สำเร็จ',
+    'checkout.affiliate_wallet.name': 'กระเป๋าเงินตัวแทนจำหน่าย',
+    'checkout.affiliate_wallet.note':
+        'ใช้ยอดคอมมิชชันตัวแทนจำหน่ายที่อนุมัติแล้วเพื่อชำระรายการนี้',
+    'checkout.affiliate_wallet.unavailable':
+        'ไม่พบกระเป๋าเงินตัวแทนจำหน่ายที่พร้อมใช้งาน',
     'checkout.external_payment.name': 'ชำระผ่านผู้ให้บริการภายนอก',
     'checkout.external_payment.subtitle':
         'เปิดหน้าชำระเงินของผู้ให้บริการที่ร้านค้ากำหนด',
@@ -3785,6 +3813,7 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.refresh_tooltip': 'รีเฟรชข้อมูล',
     'profile.customer_account': 'บัญชีลูกค้า',
     'profile.member_code': 'รหัสสมาชิก : {code}',
+    'profile.phone': 'เบอร์โทรศัพท์ : {phone}',
     'profile.copy_member_code': 'คัดลอกรหัสสมาชิก',
     'profile.copied_member_code': 'คัดลอกรหัสสมาชิกแล้ว',
     'profile.loading': 'กำลังโหลดข้อมูลสมาชิก...',
@@ -4173,7 +4202,7 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.payment.confirm': 'ยืนยันชำระเงิน',
     'topup.payment.details_title': 'ข้อมูลการชำระเงิน',
     'topup.payment.amount_due': 'ยอดที่ต้องชำระ',
-    'topup.payment.edit_amount': 'แก้ไขจำนวนเงิน',
+    'topup.payment.edit_amount': 'เปลี่ยน',
     'topup.submit.qr': 'สร้าง QR Code',
     'topup.submit.credit_qr': 'สร้าง QR Code',
     'topup.submit.bank_transfer': 'ยืนยันการชำระเงิน',
@@ -4208,6 +4237,7 @@ const _localizedValues = <String, Map<String, String>>{
         'ยังไม่มีข้อมูลบัญชีรับโอนสำหรับช่องทางนี้',
     'topup.bank_account_fallback': 'บัญชีรับโอน',
     'topup.bank_account.transfer_to': 'โอนเงินเข้าบัญชีนี้',
+    'topup.bank_account.bank': 'ธนาคาร',
     'topup.bank_account.account_name': 'ชื่อบัญชี',
     'topup.bank_account.account_number': 'เลขที่บัญชี',
     'topup.bank_account.copy': 'คัดลอก',
@@ -4764,6 +4794,11 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.referral.share_action': 'แชร์ไปยังโซเชียล',
     'affiliate.referral.qr_title': 'QR Code ลิงก์แนะนำ',
     'affiliate.referral.qr_description': 'ให้ลูกค้าสแกนเพื่อเปิดลิงก์แนะนำ',
+    'affiliate.referral_members.title': 'สมาชิกจากลิงก์แนะนำ',
+    'affiliate.referral_members.subtitle':
+        'แสดงเบอร์โทรแบบปกปิดเพื่อความเป็นส่วนตัว',
+    'affiliate.referral_members.empty': 'ยังไม่มีสมาชิกที่สมัครผ่านลิงก์แนะนำ',
+    'affiliate.referral_members.registered_at': 'สมัครเมื่อ {date}',
     'affiliate.bank.title': 'บัญชีรับเงิน',
     'affiliate.bank.description': 'ใช้บัญชีเดียวกับบัญชีรับเงินรางวัล',
     'affiliate.bank.empty': 'ยังไม่ได้บันทึกบัญชีรับเงิน',
@@ -5789,6 +5824,11 @@ const _localizedValues = <String, Map<String, String>>{
         'Confirm payment to pay for lottery tickets automatically with the linked wallet account.',
     'checkout.wallet_loading': 'Loading wallet...',
     'checkout.wallet_load_failed': 'Could not load wallet.',
+    'checkout.affiliate_wallet.name': 'Reseller wallet',
+    'checkout.affiliate_wallet.note':
+        'Use your approved reseller commission balance to pay for this order.',
+    'checkout.affiliate_wallet.unavailable':
+        'No active reseller wallet is available.',
     'checkout.external_payment.name': 'External payment provider',
     'checkout.external_payment.subtitle':
         'Open the payment page configured by this store.',
@@ -5838,6 +5878,7 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.refresh_tooltip': 'Refresh',
     'profile.customer_account': 'Customer account',
     'profile.member_code': 'Member code: {code}',
+    'profile.phone': 'Phone: {phone}',
     'profile.copy_member_code': 'Copy member code',
     'profile.copied_member_code': 'Member code copied',
     'profile.loading': 'Loading member information...',
@@ -6243,7 +6284,7 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.payment.confirm': 'Confirm payment',
     'topup.payment.details_title': 'Payment details',
     'topup.payment.amount_due': 'Amount due',
-    'topup.payment.edit_amount': 'Edit amount',
+    'topup.payment.edit_amount': 'Change',
     'topup.submit.qr': 'Create QR Code',
     'topup.submit.credit_qr': 'Create QR Code',
     'topup.submit.bank_transfer': 'Confirm payment',
@@ -6281,6 +6322,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Receiving account details are not available for this channel yet.',
     'topup.bank_account_fallback': 'Receiving account',
     'topup.bank_account.transfer_to': 'Transfer to this account',
+    'topup.bank_account.bank': 'Bank',
     'topup.bank_account.account_name': 'Account name',
     'topup.bank_account.account_number': 'Account number',
     'topup.bank_account.copy': 'Copy',
@@ -6856,6 +6898,12 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.referral.qr_title': 'Referral QR Code',
     'affiliate.referral.qr_description':
         'Customers can scan to open your link.',
+    'affiliate.referral_members.title': 'Members from referral links',
+    'affiliate.referral_members.subtitle':
+        'Phone numbers are partially hidden for privacy.',
+    'affiliate.referral_members.empty':
+        'No members have registered through your referral link yet.',
+    'affiliate.referral_members.registered_at': 'Registered {date}',
     'affiliate.bank.title': 'Payout account',
     'affiliate.bank.description': 'Uses the same account as reward payouts.',
     'affiliate.bank.empty': 'No payout account saved',

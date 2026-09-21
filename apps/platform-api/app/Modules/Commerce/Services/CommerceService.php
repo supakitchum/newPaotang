@@ -3,6 +3,9 @@
 namespace App\Modules\Commerce\Services;
 
 use App\Jobs\GenerateSoldTicketImageJob;
+use App\Models\AffiliateAccount;
+use App\Models\AffiliatePayout;
+use App\Models\CommissionTransaction;
 use App\Models\Customer;
 use App\Models\LocalStockItem;
 use App\Models\Order;
@@ -140,7 +143,17 @@ class CommerceService
             ->get()
             ->all();
 
-        return ['data' => array_map(fn (object $wallet): array => $this->walletResource($wallet), $wallets)];
+        $resources = array_map(fn (object $wallet): array => $this->walletResource($wallet), $wallets);
+        $affiliateWallet = $this->affiliateWalletForCustomer($tenantId, $customer->customerId());
+
+        if ($affiliateWallet !== null) {
+            $resources[] = $affiliateWallet;
+        }
+
+        return [
+            'data' => $resources,
+            'affiliate_wallet' => $affiliateWallet,
+        ];
     }
 
     /**
@@ -208,7 +221,7 @@ class CommerceService
             $errors['reservation_ids'][] = 'The reservation_ids field must be an array.';
         }
 
-        if (! in_array((string) ($payload['payment_method'] ?? ''), ['wallet', 'external_payment'], true)) {
+        if (! in_array((string) ($payload['payment_method'] ?? ''), ['wallet', 'affiliate_wallet', 'external_payment'], true)) {
             $errors['payment_method'][] = 'The payment_method field is invalid.';
         }
 
@@ -298,6 +311,8 @@ class CommerceService
 
             if ($normalized['payment_method'] === 'wallet') {
                 $order = $this->createPaidWalletOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids']);
+            } elseif ($normalized['payment_method'] === 'affiliate_wallet') {
+                $order = $this->createPaidAffiliateWalletOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids']);
             } else {
                 $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids'], $externalPayment ?? []);
             }
@@ -677,7 +692,7 @@ class CommerceService
         }
         $idempotencyKey = (string) $request->header('Idempotency-Key');
 
-        if ($normalized['amount'] < ($credit ? 400 : 1)) {
+        if ($normalized['amount'] < ($credit ? TenantPaymentMethods::CREDIT_CARD_MINIMUM_AMOUNT : 1)) {
             return ['error' => 'validation_failed'];
         }
 
@@ -1367,6 +1382,7 @@ class CommerceService
             'customer_no' => 'customers.customer_no',
             'member_no' => 'customers.customer_no',
             'customer_name' => 'customers.name',
+            'total' => 'orders.total_amount',
             'total.amount' => 'orders.total_amount',
             'status' => 'orders.status',
             'created_at' => 'orders.created_at',
@@ -1462,10 +1478,24 @@ class CommerceService
             $method = trim((string) ($payload['method'] ?? 'wallet_refund'));
             $externalReference = trim((string) ($payload['refund_reference'] ?? ''));
             $isWalletOrder = (string) $order->payment_method === 'wallet';
+            $isAffiliateWalletOrder = (string) $order->payment_method === 'affiliate_wallet';
             $payment = null;
-            if ($isWalletOrder) {
-                if ($method !== 'wallet_refund' || $order->wallet_id === null) {
+            $affiliateDebit = null;
+            if ($isWalletOrder || $isAffiliateWalletOrder) {
+                if ($method !== 'wallet_refund' || ($isWalletOrder && $order->wallet_id === null)) {
                     return 'validation_failed';
+                }
+                if ($isAffiliateWalletOrder) {
+                    $affiliateDebit = AffiliatePayout::query()
+                        ->where('tenant_id', $order->tenant_id)
+                        ->where('payout_method', 'order_payment')
+                        ->where('payment_reference', $order->id)
+                        ->where('status', 'paid')
+                        ->lockForUpdate()
+                        ->first();
+                    if ($affiliateDebit === null) {
+                        return 'resource_conflict';
+                    }
                 }
             } else {
                 if (
@@ -1526,6 +1556,12 @@ class CommerceService
                 );
                 DB::table('order_refunds')->where('id', $refundId)->update([
                     'wallet_ledger_id' => $ledger['id'],
+                    'updated_at' => now(),
+                ]);
+            } elseif ($isAffiliateWalletOrder) {
+                AffiliatePayout::query()->where('id', $affiliateDebit->id)->update([
+                    'status' => 'cancelled',
+                    'admin_note' => trim((string) $payload['reason']),
                     'updated_at' => now(),
                 ]);
             } else {
@@ -2904,6 +2940,103 @@ class CommerceService
 
     /**
      * @param array<int, object> $stockRows
+     * @param array<int, string> $reservationIds
+     * @return array<string, mixed>
+     */
+    private function createPaidAffiliateWalletOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request, array $reservationIds): array
+    {
+        $tenantId = (string) $tenant['tenant_id'];
+        $affiliate = AffiliateAccount::query()
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customer->customerId())
+            ->where('status', 'active')
+            ->lockForUpdate()
+            ->first();
+
+        if ($affiliate === null || strtoupper((string) $affiliate->currency) !== 'THB') {
+            return ['error' => 'affiliate_wallet_unavailable'];
+        }
+
+        if ($this->affiliateAvailableBalance($tenantId, (string) $affiliate->id) < $totalAmount) {
+            return ['error' => 'affiliate_wallet_insufficient_balance'];
+        }
+
+        $now = now();
+        $orderId = 'ord_'.Str::ulid()->toBase32();
+        $order = $this->insertOrder($orderId, $tenant, $customer, $reservation, 'affiliate_wallet', 'paid', 'paid', $totalAmount, null, $idempotencyKey, $now);
+        $payoutId = 'pyo_'.Str::ulid()->toBase32();
+        AffiliatePayout::query()->insert([
+            'id' => $payoutId,
+            'tenant_id' => $tenantId,
+            'affiliate_account_id' => $affiliate->id,
+            'status' => 'paid',
+            'payout_method' => 'order_payment',
+            'amount' => $totalAmount,
+            'currency' => 'THB',
+            'bank_account_json' => null,
+            'bank_account_encrypted' => null,
+            'wallet_id' => null,
+            'payout_ledger_id' => null,
+            'payment_reference' => $orderId,
+            'admin_note' => null,
+            'idempotency_key' => $idempotencyKey,
+            'payload_hash' => $this->idempotency->payloadHash([
+                'order_id' => $orderId,
+                'affiliate_account_id' => (string) $affiliate->id,
+                'amount' => $totalAmount,
+            ]),
+            'requested_by_admin_id' => null,
+            'approved_by_admin_id' => null,
+            'approved_at' => $now,
+            'paid_by_admin_id' => null,
+            'paid_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $tickets = $this->createSoldOrderItemsAndTickets($tenantId, $customer, $orderId, $stockRows, $pricing, $now);
+
+        StockReservation::query()->whereIn('id', $reservationIds)->update([
+            'status' => 'converted',
+            'converted_at' => $now,
+            'updated_at' => $now,
+        ]);
+        StockReservationItem::query()->whereIn('reservation_id', $reservationIds)->update([
+            'status' => 'converted',
+            'updated_at' => $now,
+        ]);
+        LocalStockItem::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('id', array_map(fn (object $stock): string => (string) $stock->id, $stockRows))
+            ->update([
+                'status' => 'sold',
+                'sold_at' => $now,
+                'updated_at' => $now,
+            ]);
+        $this->virtualStock->convertReservedRowsToSold(
+            stockRows: $stockRows,
+            tenantId: $tenantId,
+            partnerId: (string) $tenant['partner_id'],
+            gameId: (string) $reservation->game_id,
+            customerId: $customer->customerId(),
+        );
+
+        $this->insertPaidOrderEvents($tenant, $customer, $orderId, (string) $reservation->game_id, $stockRows, $tickets, $totalAmount, null, $idempotencyKey, $request);
+        $this->calculateAffiliateCommissionForOrder($orderId, $tenantId);
+
+        return $this->orderResource(Order::where('id', $order->id)->first()) + [
+            'affiliate_wallet' => [
+                'id' => (string) $affiliate->id,
+                'debit_reference' => $payoutId,
+                'balance' => $this->money(
+                    $this->affiliateAvailableBalance($tenantId, (string) $affiliate->id),
+                    'THB',
+                ),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<int, object> $stockRows
      * @return array<string, mixed>
      */
     private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request, array $reservationIds, array $externalPayment): array
@@ -4078,6 +4211,53 @@ class CommerceService
 
             imagedestroy($source);
         }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function affiliateWalletForCustomer(string $tenantId, string $customerId): ?array
+    {
+        $affiliate = AffiliateAccount::query()
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customerId)
+            ->where('status', 'active')
+            ->first();
+
+        if ($affiliate === null) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $affiliate->id,
+            'affiliate_account_id' => (string) $affiliate->id,
+            'name' => 'กระเป๋าเงินตัวแทนจำหน่าย',
+            'type' => 'affiliate',
+            'status' => 'active',
+            'is_primary' => false,
+            'balance' => $this->money(
+                $this->affiliateAvailableBalance($tenantId, (string) $affiliate->id),
+                (string) $affiliate->currency,
+            ),
+        ];
+    }
+
+    private function affiliateAvailableBalance(string $tenantId, string $affiliateId): int
+    {
+        $approvedCommission = (int) CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->where(function ($query): void {
+                $query->where('status', 'approved')->orWhere('transaction_type', 'reversal');
+            })
+            ->sum('amount');
+        $reservedOrPaid = (int) AffiliatePayout::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->whereIn('status', ['pending', 'approved', 'paid'])
+            ->sum('amount');
+
+        return max(0, $approvedCommission - $reservedOrPaid);
     }
 
     private function walletResource(?object $wallet): ?array

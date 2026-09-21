@@ -9,6 +9,7 @@ class AffiliateOverview {
     required this.links,
     required this.profile,
     required this.stats,
+    required this.referrals,
     required this.payoutPolicy,
     required this.tier,
     required this.storeNameState,
@@ -24,6 +25,7 @@ class AffiliateOverview {
       links: [],
       profile: null,
       stats: AffiliateStats.empty(),
+      referrals: [],
       payoutPolicy: AffiliatePayoutPolicy.empty(),
       tier: AffiliateTier.empty(),
       storeNameState: AffiliateStoreNameState.empty(),
@@ -72,6 +74,13 @@ class AffiliateOverview {
           payload['affiliateStats'],
         ]),
       ),
+      referrals: _firstAffiliateMapList([
+        payload['referrals'],
+        payload['referred_members'],
+        payload['referredMembers'],
+        payload['registered_customers'],
+        payload['registeredCustomers'],
+      ]).map(AffiliateReferralSignup.fromJson).toList(growable: false),
       payoutPolicy: AffiliatePayoutPolicy.fromJson(
         _firstAffiliateMap([
           payload['payout_policy'],
@@ -115,6 +124,7 @@ class AffiliateOverview {
   final List<AffiliateLink> links;
   final AffiliateProfile? profile;
   final AffiliateStats stats;
+  final List<AffiliateReferralSignup> referrals;
   final AffiliatePayoutPolicy payoutPolicy;
   final AffiliateTier tier;
   final AffiliateStoreNameState storeNameState;
@@ -165,6 +175,40 @@ class AffiliateOverview {
       accountNumber: '',
     );
   }
+}
+
+class AffiliateReferralSignup {
+  const AffiliateReferralSignup({
+    required this.id,
+    required this.maskedPhone,
+    required this.registeredAt,
+  });
+
+  factory AffiliateReferralSignup.fromJson(Map<String, dynamic> json) {
+    final payload = _affiliateEntityPayload(json, const [
+      'referral',
+      'referred_member',
+      'referredMember',
+    ]);
+    return AffiliateReferralSignup(
+      id: _firstAffiliateText([
+        payload['id'],
+        payload['referral_id'],
+        payload['referralId'],
+      ]),
+      maskedPhone: _firstAffiliateText([
+        payload['phone_masked'],
+        payload['phoneMasked'],
+        payload['masked_phone'],
+        payload['maskedPhone'],
+      ]),
+      registeredAt: payload['registered_at'] ?? payload['registeredAt'],
+    );
+  }
+
+  final String id;
+  final String maskedPhone;
+  final Object? registeredAt;
 }
 
 class AffiliateTier {

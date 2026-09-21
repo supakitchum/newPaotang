@@ -121,7 +121,7 @@ onBeforeUnmount(() => {
   gap: 28px;
   color: #fff;
   text-align: center;
-  background: linear-gradient(135deg, #087ff0 0%, #0a66c8 58%, #163970 100%);
+  background: var(--app-hero-gradient);
 }
 
 .countdown-brand {

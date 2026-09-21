@@ -167,6 +167,9 @@ class AdminMenuController extends Controller
             'commission_transactions' => $this->safeCount('affiliate_payouts', fn ($query): mixed => $query
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'pending')),
+            'affiliate_store_name_requests' => $this->safeCount('affiliate_store_name_requests', fn ($query): mixed => $query
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'pending')),
             'support_access_logs' => $this->safeCount('support_access_requests', fn ($query): mixed => $query
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'pending_approval')),

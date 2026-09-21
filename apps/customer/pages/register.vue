@@ -384,7 +384,7 @@ onBeforeUnmount(() => {
   align-self: flex-start;
   background: transparent;
   border: 0;
-  color: #0b74de;
+  color: var(--app-blue);
   font-weight: 800;
   padding: 0;
 }

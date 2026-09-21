@@ -548,6 +548,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('checkout can pay with an eligible reseller wallet', (
+    tester,
+  ) async {
+    final lottery = _CheckoutLotteryRepository();
+    await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: lottery,
+      walletRepository: _AffiliateWalletRepository(),
+    );
+
+    final affiliateOption = find.byKey(
+      const ValueKey('checkout-payment-method-option-affiliate_wallet'),
+    );
+    expect(affiliateOption, findsOneWidget);
+    expect(find.text('กระเป๋าเงินตัวแทนจำหน่าย'), findsOneWidget);
+    expect(find.text('120.00 บาท'), findsOneWidget);
+    expect(
+      find.text(
+        'ใช้ยอดคอมมิชชันตัวแทนจำหน่ายที่อนุมัติแล้วเพื่อชำระรายการนี้',
+      ),
+      findsOneWidget,
+    );
+
+    await _tapVisibleAboveDock(tester, affiliateOption);
+    await _openCheckoutPin(tester);
+    await _enterCheckoutPin(tester);
+
+    expect(
+      lottery.checkoutPaymentMethod,
+      checkoutPaymentMethodAffiliateWallet,
+    );
+    expect(lottery.checkoutPin, '246810');
+    expect(find.text('success:ord_nested'), findsOneWidget);
+  });
+
   testWidgets(
       'checkout wallet card handles long runtime tenant names on mobile',
       (tester) async {
@@ -3607,6 +3642,32 @@ class _PendingWalletRepository extends WalletRepository {
 
   @override
   Future<WalletSummary> summary() => summaryFuture;
+}
+
+class _AffiliateWalletRepository extends WalletRepository {
+  _AffiliateWalletRepository() : super(_testApiClient());
+
+  @override
+  Future<WalletSummary> summary() async {
+    return const WalletSummary(
+      wallets: [
+        CustomerWallet(
+          id: 'wallet_1',
+          name: 'G Wallet',
+          type: 'primary',
+          balance: 240,
+          isPrimary: true,
+        ),
+        CustomerWallet(
+          id: 'affiliate_1',
+          name: 'กระเป๋าเงินตัวแทนจำหน่าย',
+          type: 'affiliate',
+          balance: 120,
+        ),
+      ],
+      ledger: [],
+    );
+  }
 }
 
 class _CountingWalletRepository extends WalletRepository {

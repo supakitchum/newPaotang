@@ -89,7 +89,7 @@ const goLogin = async () => {
   padding: 32px 20px;
   background:
     radial-gradient(circle at 82% 16%, rgba(255, 214, 10, .86) 0 54px, transparent 55px),
-    linear-gradient(155deg, #0d8fff 0%, #0c69d8 44%, #0aa58f 100%);
+    linear-gradient(155deg, var(--app-blue-mid) 0%, var(--app-blue) 44%, var(--app-blue) 100%);
 }
 
 .account-suspended-card {
@@ -163,7 +163,7 @@ const goLogin = async () => {
   margin-top: 4px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, #168cf2, #0a64d8);
+  background: linear-gradient(135deg, var(--app-blue-mid), var(--app-blue-dark));
   color: #fff;
   font-size: 16px;
   font-weight: 900;

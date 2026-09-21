@@ -87,6 +87,13 @@ export interface SiteConfig {
 const siteConfigPromises = new Map<string, Promise<SiteConfig | null>>()
 
 const isSafeColor = (value: unknown) => typeof value === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)
+const brandTheme = {
+  primary: '#061c44',
+  primaryDark: '#03102e',
+  secondary: '#145ca8',
+  accent: '#dbaf61',
+  text: '#182236'
+}
 
 const routeMatchesPattern = (path: string, pattern: string) => {
   if (pattern.endsWith('*')) {
@@ -135,29 +142,21 @@ export const useSiteConfig = () => {
   const axios = useAxios()
 
   const applyTheme = (siteConfig: SiteConfig | null) => {
-    if (!process.client || !siteConfig?.theme) {
+    if (!process.client) {
       return
     }
 
     const root = document.documentElement
-    const theme = siteConfig.theme
+    const theme = siteConfig?.theme
+    const textColor = isSafeColor(theme?.text_color) ? theme?.text_color : brandTheme.text
 
-    if (isSafeColor(theme.primary_color)) {
-      root.style.setProperty('--app-blue', theme.primary_color)
-      root.style.setProperty('--app-blue-dark', theme.primary_color)
-    }
-
-    if (isSafeColor(theme.secondary_color)) {
-      root.style.setProperty('--app-sky', theme.secondary_color)
-    }
-
-    if (isSafeColor(theme.accent_color)) {
-      root.style.setProperty('--app-yellow', theme.accent_color)
-    }
-
-    if (isSafeColor(theme.text_color)) {
-      root.style.setProperty('--app-ink', theme.text_color)
-    }
+    root.style.setProperty('--app-blue', brandTheme.primary)
+    root.style.setProperty('--app-blue-dark', brandTheme.primaryDark)
+    root.style.setProperty('--app-blue-mid', brandTheme.secondary)
+    root.style.setProperty('--app-sky', brandTheme.secondary)
+    root.style.setProperty('--app-yellow', brandTheme.accent)
+    root.style.setProperty('--app-gold', '#e8d08f')
+    root.style.setProperty('--app-ink', textColor || brandTheme.text)
   }
 
   const setSiteConfig = (siteConfig: SiteConfig | null) => {

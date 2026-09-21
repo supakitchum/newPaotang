@@ -377,7 +377,7 @@ onBeforeUnmount(() => {
 }
 
 .forgot-input i {
-  color: #0b84f3;
+  color: var(--app-blue-mid);
   font-size: 20px;
 }
 
@@ -403,7 +403,7 @@ onBeforeUnmount(() => {
 .forgot-link-button {
   background: transparent;
   border: 0;
-  color: #0b74de;
+  color: var(--app-blue);
   font-weight: 900;
   justify-self: start;
   padding: 0;

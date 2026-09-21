@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
 .login-otp-actions button {
   background: transparent;
   border: 0;
-  color: #0b74de;
+  color: var(--app-blue);
   font-weight: 800;
   padding: 0;
 }

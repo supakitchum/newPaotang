@@ -1202,6 +1202,16 @@ const memberUpdateFields: OperationFormField[] = [
   { key: 'name', label: 'Name' },
   { key: 'phone', label: 'Phone' },
   { key: 'email', label: 'Email' },
+  { key: 'reward_payout_bank_account.bank_name', label: 'Payout bank name' },
+  { key: 'reward_payout_bank_account.account_name', label: 'Payout account name' },
+  {
+    key: 'reward_payout_bank_account.account_number',
+    label: 'Payout account number',
+    sourceKey: 'reward_payout_bank_account_input.account_number',
+    placeholder: 'Leave blank to keep the current account number',
+    help: 'Enter a new account number only when it needs to change.',
+  },
+  { key: 'reward_payout_bank_account.branch', label: 'Payout bank branch' },
   { key: 'admin_note', label: 'Admin note', type: 'textarea', placeholder: 'Optional internal note for audit context' },
 ]
 const memberStatusFields: OperationFormField[] = [
@@ -1893,7 +1903,7 @@ const tenant: OperationResource[] = [
     columns: [
       { key: 'order_id', label: 'Order', fallbackKeys: ['id'] },
       { key: 'customer_name', label: 'Customer name', type: 'customer_name', fallbackKeys: ['customer', 'customer.name', 'customer_id', 'member_id'] },
-      { key: 'total.amount', label: 'Total', type: 'money' },
+      { key: 'total', label: 'Total', type: 'money' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
@@ -2018,7 +2028,7 @@ const tenant: OperationResource[] = [
       defaultQuery: { customer_id: '{member_id}' },
       columns: [
         { key: 'order_id', label: 'Order', fallbackKeys: ['id'] },
-        { key: 'total.amount', label: 'Total', type: 'money' },
+        { key: 'total', label: 'Total', type: 'money' },
         { key: 'status', label: 'Status', type: 'status' },
         { key: 'payment_status', label: 'Payment' },
         { key: 'created_at', label: 'Created', type: 'datetime' },

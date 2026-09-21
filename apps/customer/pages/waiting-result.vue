@@ -299,7 +299,7 @@ onMounted(async () => {
   font-size: clamp(34px, 9vw, 58px);
   line-height: 1.08;
   font-weight: 800;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
 }
 
 .waiting-result-actions {
@@ -337,7 +337,7 @@ onMounted(async () => {
   align-content: center;
   justify-items: center;
   gap: 10px;
-  color: #20385f;
+  color: var(--app-blue);
   font-weight: 700;
 }
 
@@ -375,7 +375,7 @@ onMounted(async () => {
 
 .waiting-result-section-head h2 {
   margin: 0;
-  color: #20385f;
+  color: var(--app-blue);
   font-size: 18px;
   font-weight: 800;
 }

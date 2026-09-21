@@ -18,6 +18,7 @@
               <i :class="copiedCustomerNo ? 'bi bi-check2' : 'bi bi-copy'" />
             </button>
           </div>
+          <div v-if="phoneText" class="profile-phone">{{ t('profile.phone', { phone: phoneText }) }}</div>
         </div>
       </div>
     </BlueHeader>
@@ -67,6 +68,7 @@ const copiedCustomerNo = ref(false)
 
 const displayName = computed(() => profile.value?.name || profile.value?.full_name || t('profile.fallbackName'))
 const rawCustomerNo = computed(() => `${profile.value?.customer_no || profile.value?.member_no || profile.value?.id || ''}`.trim())
+const phoneText = computed(() => `${profile.value?.phone || profile.value?.phone_number || profile.value?.mobile || ''}`.trim())
 const customerNoText = computed(() => {
   const customerNo = rawCustomerNo.value
 
@@ -178,6 +180,13 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-phone {
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 3px;
+  opacity: .9;
 }
 
 .profile-copy-button {

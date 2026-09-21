@@ -16,7 +16,6 @@ import '../../../core/utils/provider_cache.dart';
 import '../../../features/activities/data/activity_models.dart';
 import '../../../features/activities/data/activity_repository.dart';
 import '../../../features/activities/presentation/activity_localization.dart';
-import '../../../features/lottery/presentation/lottery_navigation.dart';
 import '../../../features/lottery/presentation/lottery_screens.dart'
     show
         earliestActiveReservation,
@@ -61,6 +60,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _dismissedSaleNoticeKey = '';
+  String _expiredSaleNoticeKey = '';
+  String _scheduledSaleNoticeKey = '';
+  Timer? _saleNoticeExpiryTimer;
+
+  @override
+  void dispose() {
+    _saleNoticeExpiryTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,10 +84,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final currentGame = result.valueOrNull?.currentGame;
     final saleCloseAt = _homeDrawDaySaleCloseAt(currentGame);
     final saleNoticeKey = _homeSaleNoticeKey(currentGame);
+    _syncSaleNoticeExpiry(
+      game: currentGame,
+      saleCloseAt: saleCloseAt,
+      saleNoticeKey: saleNoticeKey,
+    );
     final showSaleNotice =
         saleCloseAt != null &&
         saleNoticeKey.isNotEmpty &&
-        saleNoticeKey != _dismissedSaleNoticeKey;
+        saleNoticeKey != _dismissedSaleNoticeKey &&
+        saleNoticeKey != _expiredSaleNoticeKey;
     final heroHeight = _homeHeroHeightFor(
       context,
       showDrawDaySaleNotice: showSaleNotice,
@@ -100,18 +114,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 value: result,
                 saleCloseAt: showSaleNotice ? saleCloseAt : null,
                 onDismissSaleNotice: showSaleNotice
-                    ? () => setState(
-                        () => _dismissedSaleNoticeKey = saleNoticeKey,
-                      )
+                    ? () => _dismissSaleNotice(saleNoticeKey)
                     : null,
               ),
               bottom: showCartDock ? 236 : 116,
               children: [
-                const _HomeQuickActionPanel(),
-                if (!auth.isAuthenticated) ...[
-                  const SizedBox(height: 24),
-                  const _HomeGuestPanel(),
-                ],
+                if (!auth.isAuthenticated) ...[const _HomeGuestPanel()],
                 const SizedBox(height: 24),
                 _HomeResultSection(value: result),
                 _ActivitiesRail(value: activities),
@@ -138,6 +146,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  void _syncSaleNoticeExpiry({
+    required CurrentGame? game,
+    required DateTime? saleCloseAt,
+    required String saleNoticeKey,
+  }) {
+    if (saleCloseAt == null || saleNoticeKey.isEmpty) {
+      _saleNoticeExpiryTimer?.cancel();
+      _saleNoticeExpiryTimer = null;
+      _scheduledSaleNoticeKey = '';
+      return;
+    }
+    if (_scheduledSaleNoticeKey == saleNoticeKey ||
+        _expiredSaleNoticeKey == saleNoticeKey) {
+      return;
+    }
+
+    final serverTime =
+        _homeBangkokDateTime(game?.serverTime) ??
+        DateTime.now().toUtc().add(const Duration(hours: 7));
+    final remaining = saleCloseAt.difference(serverTime);
+    if (remaining <= Duration.zero) return;
+
+    _saleNoticeExpiryTimer?.cancel();
+    _scheduledSaleNoticeKey = saleNoticeKey;
+    _saleNoticeExpiryTimer = Timer(remaining, () {
+      if (!mounted) return;
+      setState(() {
+        _expiredSaleNoticeKey = saleNoticeKey;
+        _scheduledSaleNoticeKey = '';
+      });
+    });
+  }
+
+  void _dismissSaleNotice(String saleNoticeKey) {
+    _saleNoticeExpiryTimer?.cancel();
+    _saleNoticeExpiryTimer = null;
+    _scheduledSaleNoticeKey = '';
+    setState(() => _dismissedSaleNoticeKey = saleNoticeKey);
   }
 }
 
@@ -549,7 +597,7 @@ class _HomeLotteryHeroState extends State<_HomeLotteryHero> {
   }
 
   void _goSearch() {
-    context.push(lotterySearchPath());
+    context.go('/buy');
   }
 }
 
@@ -573,60 +621,65 @@ class _HomeLotterySearchButton extends StatelessWidget {
       child: Material(
         key: const ValueKey('home-lottery-search-button'),
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: ExcludeSemantics(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final digitWidth = constraints.hasBoundedWidth
-                    ? (constraints.maxWidth / 6)
-                          .clamp(0.0, maxDigitWidth)
-                          .toDouble()
-                    : maxDigitWidth;
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    for (var index = 0; index < 6; index++)
-                      Container(
-                        key: ValueKey(
-                          'home-lottery-search-placeholder-${index + 1}',
-                        ),
-                        width: digitWidth,
-                        height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          border: Border.all(
-                            color: colorScheme.outlineVariant.withValues(
-                              alpha: 0.92,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: ExcludeSemantics(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final digitWidth = constraints.hasBoundedWidth
+                      ? (constraints.maxWidth / 6)
+                            .clamp(0.0, maxDigitWidth)
+                            .toDouble()
+                      : maxDigitWidth;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      for (var index = 0; index < 6; index++)
+                        Container(
+                          key: ValueKey(
+                            'home-lottery-search-placeholder-${index + 1}',
+                          ),
+                          width: digitWidth,
+                          height: 48,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface,
+                            border: Border.all(
+                              color: colorScheme.outlineVariant.withValues(
+                                alpha: 0.92,
+                              ),
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.shadow.withValues(
+                                  alpha: 0.12,
+                                ),
+                                blurRadius: 5,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '${index + 1}',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.32,
+                              ),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
+                              height: 1,
                             ),
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.shadow.withValues(alpha: 0.12),
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
-                        child: Text(
-                          '${index + 1}',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface.withValues(
-                              alpha: 0.32,
-                            ),
-                            fontSize: 22,
-                            fontWeight: FontWeight.w500,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -1134,336 +1187,6 @@ class _HomeSaleBadge extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _HomeQuickActionPanel extends StatelessWidget {
-  const _HomeQuickActionPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final horizontalPadding = MediaQuery.sizeOf(context).width >= 1024
-        ? 26.0
-        : 16.0;
-    return DecoratedBox(
-      decoration: _homeSurfaceDecoration(context, radius: 16, outlined: false),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: horizontalPadding,
-          vertical: 22,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _HomeQuickAction(
-                kind: _HomeQuickActionKind.buy,
-                label: l10n.homeBuyLotteryTitle,
-                path: '/buy',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _HomeQuickAction(
-                kind: _HomeQuickActionKind.scan,
-                label: l10n.homeScanLotteryTitle,
-                path: '/stores',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeQuickAction extends StatelessWidget {
-  const _HomeQuickAction({
-    required this.kind,
-    required this.label,
-    required this.path,
-  });
-
-  final _HomeQuickActionKind kind;
-  final String label;
-  final String path;
-
-  @override
-  Widget build(BuildContext context) {
-    return _HomeLinkGesture(
-      onTap: () => context.push(path),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 70,
-              height: 60,
-              alignment: Alignment.center,
-              child: _HomeQuickIllustration(kind: kind),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum _HomeQuickActionKind { buy, scan }
-
-class _HomeQuickIllustration extends StatelessWidget {
-  const _HomeQuickIllustration({required this.kind});
-
-  final _HomeQuickActionKind kind;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.lerp(colorScheme.surface, colorScheme.primary, 0.12)!,
-            Color.lerp(colorScheme.surface, colorScheme.primary, 0.38)!,
-          ],
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          kind == _HomeQuickActionKind.buy
-              ? Icons.phone_android_outlined
-              : Icons.qr_code_scanner,
-          color: colorScheme.primary,
-          size: 28,
-        ),
-      ),
-    );
-  }
-}
-
-// ignore: unused_element
-class _HomeQuickIllustrationPainter extends CustomPainter {
-  const _HomeQuickIllustrationPainter({
-    required this.kind,
-    required this.primary,
-    required this.secondary,
-    required this.accent,
-    required this.ink,
-    required this.surface,
-  });
-
-  final _HomeQuickActionKind kind;
-  final Color primary;
-  final Color secondary;
-  final Color accent;
-  final Color ink;
-  final Color surface;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    _paintBase(canvas, size);
-    switch (kind) {
-      case _HomeQuickActionKind.buy:
-        _paintBuy(canvas, size);
-      case _HomeQuickActionKind.scan:
-        _paintScan(canvas, size);
-    }
-  }
-
-  void _paintBase(Canvas canvas, Size size) {
-    final basePaint = Paint()
-      ..shader =
-          LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color.lerp(surface, secondary, 0.20) ?? surface,
-              Color.lerp(surface, primary, 0.28) ?? surface,
-            ],
-          ).createShader(
-            Rect.fromLTWH(
-              size.width * 0.10,
-              9,
-              size.width * 0.80,
-              size.height - 9,
-            ),
-          );
-    canvas.drawOval(
-      Rect.fromLTWH(size.width * 0.10, 9, size.width * 0.80, size.height - 9),
-      basePaint,
-    );
-
-    canvas.drawOval(
-      Rect.fromLTWH(size.width * 0.25, size.height - 8, size.width * 0.50, 6),
-      Paint()..color = primary.withValues(alpha: 0.12),
-    );
-  }
-
-  void _paintBuy(Canvas canvas, Size size) {
-    final phoneRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(size.width * 0.31, 11, 22, 34),
-      const Radius.circular(5),
-    );
-    canvas.drawRRect(
-      phoneRect.shift(const Offset(0, 2)),
-      Paint()..color = ink.withValues(alpha: 0.08),
-    );
-    canvas.drawRRect(
-      phoneRect,
-      Paint()..color = Color.lerp(surface, primary, 0.10)!,
-    );
-    canvas.drawRRect(
-      phoneRect,
-      Paint()
-        ..color = primary
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.35, 17, 14, 15),
-      Paint()..color = primary.withValues(alpha: 0.18),
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.36, 37),
-      Offset(size.width * 0.55, 37),
-      Paint()
-        ..color = primary
-        ..strokeWidth = 1.8
-        ..strokeCap = StrokeCap.round,
-    );
-
-    final ticket = RRect.fromRectAndRadius(
-      Rect.fromLTWH(size.width * 0.49, 6, 28, 20),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(
-      ticket.shift(const Offset(0, 2)),
-      Paint()..color = ink.withValues(alpha: 0.08),
-    );
-    canvas.drawRRect(ticket, Paint()..color = surface);
-    canvas.drawRRect(
-      ticket,
-      Paint()
-        ..color = primary.withValues(alpha: 0.68)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-    final digitPaint = Paint()
-      ..color = primary
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    for (var index = 0; index < 4; index += 1) {
-      final x = size.width * 0.54 + (index * 4.6);
-      canvas.drawLine(Offset(x, 15), Offset(x + 1.6, 15), digitPaint);
-    }
-    canvas.drawCircle(Offset(size.width * 0.65, 8), 5, Paint()..color = accent);
-    canvas.drawCircle(
-      Offset(size.width * 0.70, 17),
-      3.5,
-      Paint()..color = accent.withValues(alpha: 0.90),
-    );
-  }
-
-  void _paintScan(Canvas canvas, Size size) {
-    final device = RRect.fromRectAndRadius(
-      Rect.fromLTWH(size.width * 0.30, 15, 20, 30),
-      const Radius.circular(5),
-    );
-    canvas.drawRRect(
-      device.shift(const Offset(0, 2)),
-      Paint()..color = ink.withValues(alpha: 0.08),
-    );
-    canvas.drawRRect(
-      device,
-      Paint()..color = Color.lerp(surface, primary, 0.14)!,
-    );
-    canvas.drawRRect(
-      device,
-      Paint()
-        ..color = primary
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-
-    final ticketRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(size.width * 0.48, 7, 24, 30),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(
-      ticketRect.shift(const Offset(0, 2)),
-      Paint()..color = ink.withValues(alpha: 0.08),
-    );
-    canvas.drawRRect(ticketRect, Paint()..color = surface);
-    canvas.drawRRect(
-      ticketRect,
-      Paint()
-        ..color = primary.withValues(alpha: 0.74)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-
-    final qrPaint = Paint()..color = ink.withValues(alpha: 0.78);
-    const cell = 2.7;
-    final left = size.width * 0.525;
-    const top = 13.0;
-    final blocks = <Offset>[
-      const Offset(0, 0),
-      const Offset(1, 0),
-      const Offset(0, 1),
-      const Offset(3, 0),
-      const Offset(4, 0),
-      const Offset(4, 1),
-      const Offset(1, 3),
-      const Offset(2, 2),
-      const Offset(3, 3),
-      const Offset(0, 4),
-      const Offset(2, 4),
-      const Offset(4, 4),
-    ];
-    for (final block in blocks) {
-      canvas.drawRect(
-        Rect.fromLTWH(left + block.dx * cell, top + block.dy * cell, 2, 2),
-        qrPaint,
-      );
-    }
-
-    canvas.drawLine(
-      Offset(size.width * 0.31, 33),
-      Offset(size.width * 0.58, 25),
-      Paint()
-        ..color = secondary.withValues(alpha: 0.65)
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.68, 40),
-      4.5,
-      Paint()..color = accent.withValues(alpha: 0.92),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_HomeQuickIllustrationPainter oldDelegate) {
-    return oldDelegate.kind != kind ||
-        oldDelegate.primary != primary ||
-        oldDelegate.secondary != secondary ||
-        oldDelegate.accent != accent ||
-        oldDelegate.ink != ink ||
-        oldDelegate.surface != surface;
   }
 }
 
@@ -2569,6 +2292,7 @@ DateTime? _homeDrawDaySaleCloseAt(CurrentGame? game) {
       !_homeSameDate(drawAt, serverTime)) {
     return null;
   }
+  if (!serverTime.isBefore(saleCloseAt)) return null;
   return saleCloseAt;
 }
 

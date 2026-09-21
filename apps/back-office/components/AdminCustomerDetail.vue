@@ -126,6 +126,7 @@ const sections = computed(() => {
         ],
       }]
     : []
+  const bank = row.reward_payout_bank_account || {}
 
   return [
     {
@@ -143,6 +144,15 @@ const sections = computed(() => {
         { key: 'name', label: 'Name', value: valueOrDash(row.name) },
         { key: 'phone', label: 'Phone', value: valueOrDash(row.phone) },
         { key: 'email', label: 'Email', value: valueOrDash(row.email) },
+      ],
+    },
+    {
+      title: 'Payout bank account',
+      items: [
+        { key: 'reward_bank_name', label: 'Bank', value: valueOrDash(bank.bank_name) },
+        { key: 'reward_account_name', label: 'Account name', value: valueOrDash(bank.account_name) },
+        { key: 'reward_account_number', label: 'Account number', value: valueOrDash(bank.account_number), mono: true },
+        { key: 'reward_bank_branch', label: 'Branch', value: valueOrDash(bank.branch) },
       ],
     },
     ...suspensionSection,

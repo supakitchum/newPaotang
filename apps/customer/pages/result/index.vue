@@ -192,7 +192,7 @@ onMounted(fetchReward)
   align-content: center;
   justify-items: center;
   gap: 10px;
-  color: #20385f;
+  color: var(--app-blue);
   text-align: center;
   font-weight: 700;
 }

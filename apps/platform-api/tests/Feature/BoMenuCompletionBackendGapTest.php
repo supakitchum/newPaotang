@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Support\EncryptedJsonPayload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -482,9 +483,43 @@ class BoMenuCompletionBackendGapTest extends TestCase
         $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/tenant/members/'.$member['id'], [
                 'name' => 'Tenant Member Updated',
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'Example Bank',
+                    'account_name' => 'Tenant Member Updated',
+                    'account_number' => '1234567890',
+                    'branch' => 'Bangkok',
+                ],
             ], $tenantHeaders + ['Idempotency-Key' => 'tenant-member-update'])
             ->assertOk()
-            ->assertJsonPath('name', 'Tenant Member Updated');
+            ->assertJsonPath('name', 'Tenant Member Updated')
+            ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank')
+            ->assertJsonPath('reward_payout_bank_account.account_number', '******7890');
+
+        $storedBankAccount = DB::table('customers')->where('id', $member['id'])->first();
+        $this->assertNull($storedBankAccount->reward_payout_bank_account_json);
+        $this->assertSame(
+            '1234567890',
+            EncryptedJsonPayload::decrypt($storedBankAccount->reward_payout_bank_account_encrypted)['account_number'],
+        );
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/tenant/members/'.$member['id'], [
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'Updated Bank',
+                    'account_name' => 'Tenant Member Updated',
+                    'account_number' => '',
+                    'branch' => 'Chiang Mai',
+                ],
+            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-member-bank-update'])
+            ->assertOk()
+            ->assertJsonPath('reward_payout_bank_account.bank_name', 'Updated Bank')
+            ->assertJsonPath('reward_payout_bank_account.account_number', '******7890');
+
+        $updatedBankAccount = DB::table('customers')->where('id', $member['id'])->first();
+        $this->assertSame(
+            '1234567890',
+            EncryptedJsonPayload::decrypt($updatedBankAccount->reward_payout_bank_account_encrypted)['account_number'],
+        );
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/tenant/members/'.$member['id'].'/status', [

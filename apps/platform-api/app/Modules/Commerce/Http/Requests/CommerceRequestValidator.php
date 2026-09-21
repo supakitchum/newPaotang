@@ -3,6 +3,7 @@
 namespace App\Modules\Commerce\Http\Requests;
 
 use App\Shared\Validation\RequestPayloadValidator;
+use App\Support\TenantPaymentMethods;
 use Illuminate\Http\UploadedFile;
 
 class CommerceRequestValidator
@@ -30,7 +31,7 @@ class CommerceRequestValidator
             $errors['reservation_ids'][] = 'The reservation_ids field must be an array.';
         }
 
-        if (! in_array((string) ($payload['payment_method'] ?? ''), ['wallet', 'external_payment'], true)) {
+        if (! in_array((string) ($payload['payment_method'] ?? ''), ['wallet', 'affiliate_wallet', 'external_payment'], true)) {
             $errors['payment_method'][] = 'The payment_method field is invalid.';
         }
 
@@ -51,8 +52,8 @@ class CommerceRequestValidator
         $errors = $this->payloads->moneyAmount($payload, 'amount');
         $amount = $this->rawAmount($payload['amount'] ?? null);
 
-        if ($amount !== null && $credit && $amount < 400) {
-            $errors['amount'][] = 'The amount field must be at least 400.';
+        if ($amount !== null && $credit && $amount < TenantPaymentMethods::CREDIT_CARD_MINIMUM_AMOUNT) {
+            $errors['amount'][] = 'The amount field must be at least 300 baht.';
         }
 
         $channel = $credit ? 'credit_card' : (string) ($payload['channel'] ?? '');

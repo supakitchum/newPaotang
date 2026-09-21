@@ -162,6 +162,13 @@ void main() {
               'approved_name': 'Approved Store',
               'can_request_change': false,
             },
+            'referrals': [
+              {
+                'id': 'ref_1',
+                'phone_masked': '081****678',
+                'registered_at': '2026-07-15T09:30:00+07:00',
+              },
+            ],
             'campaigns': [
               {
                 'id': 'atc_1',
@@ -254,6 +261,12 @@ void main() {
       expect(find.text('Bronze member'), findsOneWidget);
       expect(find.text('Commission per ticket'), findsOneWidget);
       expect(find.text('1.00 THB'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('affiliate-referral-members-card')),
+        findsOneWidget,
+      );
+      expect(find.text('Members from referral links'), findsOneWidget);
+      expect(find.text('081****678'), findsOneWidget);
       expect(find.text('July tier campaign'), findsNothing);
       expect(find.text('95 tickets to Gold'), findsNothing);
       expect(find.text('205 tickets sold'), findsNothing);

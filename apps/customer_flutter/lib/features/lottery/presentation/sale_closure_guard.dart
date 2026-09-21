@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
@@ -17,6 +18,39 @@ const saleClosedNoticeQuery = 'sale_closed';
 const waitingResultPath = '/waiting-result';
 const resultPath = '/result';
 const countdownPath = '/countdown';
+
+final saleClosureHomeRedirectStoreProvider =
+    Provider<SaleClosureHomeRedirectStore>((_) {
+      return SecureSaleClosureHomeRedirectStore();
+    });
+
+abstract class SaleClosureHomeRedirectStore {
+  Future<bool> wasRedirected(String saleKey);
+
+  Future<void> markRedirected(String saleKey);
+}
+
+class SecureSaleClosureHomeRedirectStore
+    implements SaleClosureHomeRedirectStore {
+  SecureSaleClosureHomeRedirectStore({FlutterSecureStorage? storage})
+    : _storage = storage ?? const FlutterSecureStorage();
+
+  static const _storageKey = 'customer.sale_closure.home_redirected_sale';
+
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<bool> wasRedirected(String saleKey) async {
+    if (saleKey.isEmpty) return false;
+    return (await _storage.read(key: _storageKey)) == saleKey;
+  }
+
+  @override
+  Future<void> markRedirected(String saleKey) async {
+    if (saleKey.isEmpty) return;
+    await _storage.write(key: _storageKey, value: saleKey);
+  }
+}
 
 class SaleClosureGuard extends ConsumerStatefulWidget {
   const SaleClosureGuard({
@@ -39,6 +73,8 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
   bool? _hasActiveCart;
   String? _lastWatchedLocation;
   String? _lastExpiredReleaseKey;
+  String _loadedHomeRedirectSaleKey = '';
+  bool _homeRedirectConsumed = false;
   bool _loading = false;
   bool _releasingExpiredCart = false;
   bool _saleClosedAlertShown = false;
@@ -61,6 +97,8 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
     _currentGame = null;
     _currentGameFetchedAt = null;
     _hasActiveCart = null;
+    _loadedHomeRedirectSaleKey = '';
+    _homeRedirectConsumed = false;
     _handleRouteChanged();
   }
 
@@ -141,6 +179,17 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
       _hasActiveCart = hasActiveCart;
     }
 
+    var homeRedirectConsumed = false;
+    final saleKey = saleClosureHomeRedirectKey(_currentGame);
+    if (path == '/' && saleClosed && !(_hasActiveCart ?? false)) {
+      homeRedirectConsumed = await _wasHomeRedirectConsumed(saleKey);
+      if (!mounted ||
+          widget.router.routeInformationProvider.value.uri.toString() !=
+              location) {
+        return;
+      }
+    }
+
     final redirect = saleClosureRedirectPath(
       path: path,
       gameStatus: _currentGame?.status ?? '',
@@ -148,12 +197,15 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
       saleCloseAt: _currentGame?.saleCloseAt,
       now: now,
       hasActiveCart: _hasActiveCart ?? false,
+      homeRedirectConsumed: homeRedirectConsumed,
     );
     if (redirect == null) {
       _saleClosedAlertShown = false;
       return;
     }
     final shouldShowNotice = saleClosureShouldShowClosedNotice(redirect);
+    final shouldMarkHomeRedirect =
+        path == '/' && shouldShowNotice && !homeRedirectConsumed;
     if (shouldShowNotice && !_saleClosedAlertShown) {
       _saleClosedAlertShown = true;
       ref.read(appAlertControllerProvider.notifier).show(
@@ -166,6 +218,41 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
     }
     if (location == redirect) return;
     widget.router.go(redirect);
+    if (shouldMarkHomeRedirect) {
+      unawaited(_markHomeRedirectConsumed(saleKey));
+    }
+  }
+
+  Future<bool> _wasHomeRedirectConsumed(String saleKey) async {
+    if (saleKey.isEmpty) return false;
+    if (_loadedHomeRedirectSaleKey == saleKey) {
+      return _homeRedirectConsumed;
+    }
+
+    var consumed = false;
+    try {
+      consumed = await ref
+          .read(saleClosureHomeRedirectStoreProvider)
+          .wasRedirected(saleKey);
+    } catch (_) {
+      // A storage failure must not block the sale-closure flow.
+    }
+    _loadedHomeRedirectSaleKey = saleKey;
+    _homeRedirectConsumed = consumed;
+    return consumed;
+  }
+
+  Future<void> _markHomeRedirectConsumed(String saleKey) async {
+    if (saleKey.isEmpty) return;
+    _loadedHomeRedirectSaleKey = saleKey;
+    _homeRedirectConsumed = true;
+    try {
+      await ref
+          .read(saleClosureHomeRedirectStoreProvider)
+          .markRedirected(saleKey);
+    } catch (_) {
+      // Keep the in-memory marker when persistence is unavailable.
+    }
   }
 
   Future<bool?> _loadHasActiveCart() async {
@@ -271,6 +358,7 @@ String? saleClosureRedirectPath({
   required DateTime now,
   Object? saleStartAt,
   bool hasActiveCart = false,
+  bool homeRedirectConsumed = false,
 }) {
   if (!saleClosureShouldWatchPath(path)) return null;
   if (path == waitingResultPath) return null;
@@ -295,6 +383,8 @@ String? saleClosureRedirectPath({
     return null;
   }
 
+  if (path == '/' && homeRedirectConsumed) return null;
+
   if (path == '/cart' || path == '/checkout') {
     return hasActiveCart ? null : '$waitingResultPath?$saleClosedNoticeQuery=1';
   }
@@ -306,6 +396,16 @@ String? saleClosureRedirectPath({
   }
 
   return '$waitingResultPath?$saleClosedNoticeQuery=1';
+}
+
+String saleClosureHomeRedirectKey(CurrentGame? game) {
+  if (game == null) return '';
+  final identity = game.id.trim().isNotEmpty
+      ? game.id.trim()
+      : game.drawAt?.toString().trim() ?? '';
+  if (identity.isEmpty) return '';
+  final saleCloseAt = game.saleCloseAt?.toString().trim() ?? '';
+  return saleCloseAt.isEmpty ? identity : '$identity|$saleCloseAt';
 }
 
 bool _saleClosureBrowsingPath(String path) {

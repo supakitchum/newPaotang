@@ -691,7 +691,7 @@ onMounted(loadClaimContext)
 <style scoped>
 .reward-flow-header {
   align-items: flex-start;
-  background: linear-gradient(145deg, #0788f2 0%, #0064d5 100%);
+  background: linear-gradient(145deg, var(--app-blue-mid) 0%, var(--app-blue-dark) 100%);
   color: #fff;
   display: flex;
   justify-content: center;
@@ -882,7 +882,7 @@ onMounted(loadClaimContext)
   align-items: center;
   border: 1px solid #dbeafe;
   border-radius: 50%;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: inline-flex;
   flex: 0 0 42px;
   font-size: 13px;
@@ -961,7 +961,7 @@ onMounted(loadClaimContext)
 
 .reward-lottery-card dd.blue,
 .reward-confirm-list dd.blue {
-  color: #086bdd;
+  color: var(--app-blue-mid);
 }
 
 .reward-payout-lines {
@@ -999,7 +999,7 @@ onMounted(loadClaimContext)
 }
 
 .reward-lottery-card dd.amount {
-  color: #086bdd;
+  color: var(--app-blue-mid);
   font-size: 22px;
 }
 
@@ -1041,7 +1041,7 @@ onMounted(loadClaimContext)
 }
 
 .reward-payout-option.active {
-  border-color: #0b7fea;
+  border-color: var(--app-blue-mid);
   box-shadow: 0 0 0 1px rgba(11, 127, 234, .12);
 }
 
@@ -1054,8 +1054,8 @@ onMounted(loadClaimContext)
 }
 
 .reward-payout-option.active .reward-radio {
-  background: #0b7fea;
-  border-color: #0b7fea;
+  background: var(--app-blue-mid);
+  border-color: var(--app-blue-mid);
   box-shadow: inset 0 0 0 4px #fff;
 }
 
@@ -1081,7 +1081,7 @@ onMounted(loadClaimContext)
 .reward-option-badge {
   background: #dff1ff;
   border-radius: 999px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: inline-flex;
   font-size: 10px;
   font-weight: 900;
@@ -1108,17 +1108,17 @@ onMounted(loadClaimContext)
 }
 
 .reward-option-icon.wallet {
-  background: #0b69dc;
+  background: var(--app-blue-mid);
   color: #fff;
 }
 
 .reward-option-icon.bank {
   background: #eaf4ff;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
 }
 
 .reward-bank-link {
-  color: #075ec9;
+  color: var(--app-blue);
   font-size: 13px;
   font-weight: 900;
   justify-self: start;

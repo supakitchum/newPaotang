@@ -9,8 +9,8 @@ import '../../core/i18n/customer_localizations.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
 
 const appSplashBackgroundAsset = 'assets/images/splash/siamblend_splash.jpg';
-const _appSplashFallbackColor = Color(0xFF0B96DC);
-const _appSplashNavigationBarColor = Color(0xFF0788CF);
+const _appSplashFallbackColor = Color(0xFF03102E);
+const _appSplashNavigationBarColor = Color(0xFF03102E);
 
 Future<void> precacheAppSplashBackground() async {
   final stream = const AssetImage(
@@ -145,7 +145,7 @@ class _AppSplashOverlay extends StatelessWidget {
                           colors: [
                             Colors.transparent,
                             Colors.transparent,
-                            Color(0x1A034E91),
+                            Color(0x8A03102E),
                           ],
                           stops: [0, 0.72, 1],
                         ),
@@ -232,12 +232,12 @@ class _SplashLoaderState extends State<_SplashLoader>
         constraints: const BoxConstraints(maxWidth: 190),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xA6075A9C),
+            color: const Color(0xB303102E),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: const Color(0x4DFFFFFF)),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x3300315E),
+                color: Color(0x6603102E),
                 blurRadius: 20,
                 offset: Offset(0, 8),
               ),
@@ -259,7 +259,7 @@ class _SplashLoaderState extends State<_SplashLoader>
                     fontWeight: FontWeight.w500,
                     height: 1.25,
                     shadows: const [
-                      Shadow(color: Color(0x4000315E), blurRadius: 6),
+                      Shadow(color: Color(0x6603102E), blurRadius: 6),
                     ],
                   ),
                 ),
@@ -291,15 +291,15 @@ class _SplashLoaderState extends State<_SplashLoader>
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
                                     colors: [
-                                      Color(0xFFFFF2B8),
-                                      Color(0xFFE7B64C),
-                                      Color(0xFFFFEBA0),
+                                      Color(0xFFE8D08F),
+                                      Color(0xFFDBAF61),
+                                      Color(0xFFFFF4C7),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(999),
                                   boxShadow: const [
                                     BoxShadow(
-                                      color: Color(0x99F3CC69),
+                                      color: Color(0x99DBAF61),
                                       blurRadius: 5,
                                     ),
                                   ],

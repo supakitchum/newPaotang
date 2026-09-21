@@ -144,6 +144,38 @@ void main() {
     );
   });
 
+  test('redirects home to waiting result once per closed sale', () {
+    expect(
+      saleClosureRedirectPath(
+        path: '/',
+        gameStatus: 'closed',
+        saleCloseAt: now.toIso8601String(),
+        now: now,
+      ),
+      '$waitingResultPath?$saleClosedNoticeQuery=1',
+    );
+    expect(
+      saleClosureRedirectPath(
+        path: '/',
+        gameStatus: 'closed',
+        saleCloseAt: now.toIso8601String(),
+        now: now,
+        homeRedirectConsumed: true,
+      ),
+      isNull,
+    );
+    expect(
+      saleClosureRedirectPath(
+        path: '/buy',
+        gameStatus: 'closed',
+        saleCloseAt: now.toIso8601String(),
+        now: now,
+        homeRedirectConsumed: true,
+      ),
+      '$waitingResultPath?$saleClosedNoticeQuery=1',
+    );
+  });
+
   test(
       'redirects browsing routes to cart after sale close time when cart has items',
       () {
@@ -426,6 +458,78 @@ void main() {
     expect(lottery.releasedReservationIds, ['res_1']);
   });
 
+  testWidgets('home remains available after its first waiting-result redirect', (
+    tester,
+  ) async {
+    final redirectStore = _MemorySaleClosureHomeRedirectStore();
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('Home route')),
+        ),
+        GoRoute(
+          path: waitingResultPath,
+          builder: (context, state) => const Scaffold(
+            body: Text('Waiting result route'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          resultRepositoryProvider.overrideWithValue(
+            _ClosedSaleResultRepository(),
+          ),
+          lotteryRepositoryProvider.overrideWithValue(
+            _EmptySaleClosureLotteryRepository(),
+          ),
+          saleClosureHomeRedirectStoreProvider.overrideWithValue(
+            redirectStore,
+          ),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          routerConfig: router,
+          builder: (context, child) => SaleClosureGuard(
+            router: router,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.pump();
+
+    expect(
+      router.routeInformationProvider.value.uri.toString(),
+      '$waitingResultPath?$saleClosedNoticeQuery=1',
+    );
+    expect(redirectStore.markedSaleKey, isNotEmpty);
+
+    router.go('/');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(router.routeInformationProvider.value.uri.toString(), '/');
+    expect(find.text('Home route'), findsOneWidget);
+  });
+
   testWidgets('sale closure guard follows backend maintenance redirect', (
     tester,
   ) async {
@@ -576,6 +680,28 @@ class _SaleClosureLotteryRepository extends LotteryRepository {
   Future<LotteryCart> releaseReservation(String reservationId) async {
     releasedReservationIds.add(reservationId);
     return LotteryCart.empty();
+  }
+}
+
+class _EmptySaleClosureLotteryRepository extends LotteryRepository {
+  _EmptySaleClosureLotteryRepository() : super(_testApiClient());
+
+  @override
+  Future<LotteryCart> cart() async => LotteryCart.empty();
+}
+
+class _MemorySaleClosureHomeRedirectStore
+    implements SaleClosureHomeRedirectStore {
+  String markedSaleKey = '';
+
+  @override
+  Future<void> markRedirected(String saleKey) async {
+    markedSaleKey = saleKey;
+  }
+
+  @override
+  Future<bool> wasRedirected(String saleKey) async {
+    return markedSaleKey == saleKey;
   }
 }
 

@@ -170,7 +170,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('ActivityDetailScreen confirms lucky number with Nuxt modal', (
+  testWidgets('ActivityDetailScreen submits a lucky number without a modal', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(800, 1200);
@@ -186,26 +186,7 @@ void main() {
     await _tapLuckyNumber(tester, '04');
     await tester.pumpAndSettle();
 
-    expect(find.text('ยืนยันเลขนำโชค'), findsOneWidget);
-    expect(find.text('ต้องการเลือกเลขนี้ใช่ไหม?'), findsOneWidget);
-    expect(find.text('04'), findsWidgets);
-    expect(
-      find.text(
-        'ระบบจะใช้ 1 สิทธิ์ของคุณสำหรับ เลขท้าย 2 ตัว และไม่สามารถเลือกเลขนี้ซ้ำได้',
-      ),
-      findsOneWidget,
-    );
-    expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
-    expect(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันเลือกเลข'),
-      findsOneWidget,
-    );
-
-    await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันเลือกเลข'),
-    );
-    await tester.pumpAndSettle();
-
+    expect(find.text('ยืนยันเลขนำโชค'), findsNothing);
     expect(repository.createEntryCount, 1);
     expect(repository.createdActivityIds, ['act_lucky']);
     expect(repository.createdPredictionTypes, ['last2']);
@@ -361,10 +342,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await _tapLuckyNumber(tester, '04');
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(CustomerGradientButton, 'ยืนยันเลือกเลข'),
-    );
     await tester.pumpAndSettle();
 
     expect(repository.createEntryCount, 1);

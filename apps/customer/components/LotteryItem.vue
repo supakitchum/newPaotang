@@ -402,9 +402,9 @@ const handleBooking = async () => {
 
 .ticket-count-badge {
   align-self: stretch;
-  background: #eaf4ff;
+  background: var(--app-soft);
   border-radius: 999px;
-  color: #0d6efd;
+  color: var(--app-blue);
   display: inline-flex;
   justify-content: center;
   font-size: 0.78rem;

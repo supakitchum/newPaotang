@@ -357,6 +357,9 @@ class _CustomerRevenueRealtimeMonitorState
       if (event.channel.trim().endsWith('.orders')) {
         _pendingOrderRefresh = true;
         _scheduleRefresh();
+      } else if (event.channel.trim().endsWith('.tickets')) {
+        _pendingTicketRefresh = true;
+        _scheduleRefresh();
       }
       return;
     }

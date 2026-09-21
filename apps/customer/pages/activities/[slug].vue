@@ -139,7 +139,7 @@
               class="number-cell"
               :class="{ reserved: isReservedNumber(number), mine: hasSubmittedNumber(number) }"
               :disabled="numberCellDisabled(number)"
-              @click="openNumberConfirm(number)"
+              @click="selectNumber(number)"
             >
               {{ number }}
             </button>
@@ -236,24 +236,6 @@
         <NuxtLink class="primary-pill" to="/activities">กลับหน้ากิจกรรม</NuxtLink>
       </section>
 
-      <div v-if="pendingNumber" class="number-confirm-backdrop" @click.self="closeNumberConfirm">
-        <div class="number-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="number-confirm-title">
-          <button class="number-confirm-close" type="button" aria-label="ปิด" @click="closeNumberConfirm">
-            <i class="bi bi-x-lg" />
-          </button>
-          <span class="activity-type">ยืนยันเลขนำโชค</span>
-          <h3 id="number-confirm-title">ต้องการเลือกเลขนี้ใช่ไหม?</h3>
-          <div class="confirm-number">{{ pendingNumber }}</div>
-          <p>ระบบจะใช้ 1 สิทธิ์ของคุณสำหรับ {{ predictionLabel(predictionType) }} และไม่สามารถเลือกเลขนี้ซ้ำได้</p>
-          <div class="number-confirm-actions">
-            <button type="button" class="outline-pill" @click="closeNumberConfirm">ยกเลิก</button>
-            <button type="button" class="primary-pill" :disabled="!canSubmitEntry || isSubmitting" @click="submitEntry">
-              {{ isSubmitting ? 'กำลังบันทึก' : 'ยืนยันเลือกเลข' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
       <div v-if="claimAward && claimStep === 'select'" class="number-confirm-backdrop claim-backdrop" @click.self="closeClaimModal">
         <div class="number-confirm-modal claim-modal" role="dialog" aria-modal="true" aria-labelledby="activity-claim-title">
           <button class="number-confirm-close" type="button" aria-label="ปิด" @click="closeClaimModal">
@@ -335,7 +317,6 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 const nowTick = ref(Date.now())
 const predictionType = ref('first_prize_last2')
-const pendingNumber = ref('')
 const claimAward = ref<Record<string, any> | null>(null)
 const payoutMethod = ref<'wallet_credit' | 'bank_transfer'>('wallet_credit')
 const claimStep = ref<'idle' | 'select' | 'pin'>('idle')
@@ -451,14 +432,15 @@ const selectedEntryNumbers = computed(() => new Set(entries.value
   .filter(Boolean)
   .map((number) => number.padStart(predictionDigits.value, '0'))
 ))
-const canSubmitEntry = computed(() => Boolean(
+const canSubmitEntry = (number: string) => Boolean(
   token.value &&
   activity.value?.id &&
-  pendingNumber.value.length === predictionDigits.value &&
+  number.length === predictionDigits.value &&
   Number(rights.value.remaining_count || 0) > 0 &&
   !luckyEntryClosed.value &&
-  !isReservedNumber(pendingNumber.value)
-))
+  !isReservedNumber(number) &&
+  !isSubmitting.value
+)
 const luckyResultSummary = computed(() => {
   const summary = activity.value?.result_summary
   return summary && typeof summary === 'object' ? summary : null
@@ -725,7 +707,6 @@ watch(enabledPredictionTypes, (types) => {
   if (!types.includes(predictionType.value)) {
     predictionType.value = types[0]
   }
-  pendingNumber.value = ''
 }, { immediate: true })
 
 const hasSubmittedNumber = (number: string) => selectedEntryNumbers.value.has(number)
@@ -739,7 +720,7 @@ const numberCellDisabled = (number: string) => (
   isSubmitting.value
 )
 
-const openNumberConfirm = async (number: string) => {
+const selectNumber = async (number: string) => {
   if (!token.value) {
     await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
     return
@@ -750,19 +731,11 @@ const openNumberConfirm = async (number: string) => {
     return
   }
 
-  if (numberCellDisabled(number)) {
+  if (numberCellDisabled(number) || !canSubmitEntry(number)) {
     return
   }
 
-  pendingNumber.value = number
-}
-
-const closeNumberConfirm = () => {
-  if (isSubmitting.value) {
-    return
-  }
-
-  pendingNumber.value = ''
+  await submitEntry(number)
 }
 
 const maskAccountNumber = (value: unknown) => {
@@ -829,20 +802,19 @@ const loadActivity = async () => {
   }
 }
 
-const submitEntry = async () => {
+const submitEntry = async (number: string) => {
   if (!token.value) {
     await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
 
-  if (!activity.value?.id || !canSubmitEntry.value) return
+  if (!activity.value?.id || !canSubmitEntry(number)) return
   isSubmitting.value = true
   try {
     await platformApi.createActivityEntry(activity.value.id, {
       prediction_type: predictionType.value,
-      selected_number: pendingNumber.value
+      selected_number: number
     })
-    pendingNumber.value = ''
     await loadActivity()
     showAlert({ title: 'ส่งเลขสำเร็จ', message: 'ระบบบันทึกเลขนำโชคของคุณแล้ว', variant: 'success' })
   } catch (error: any) {
@@ -1064,7 +1036,7 @@ useTenantSeo({
   align-items: center;
   background: #e8f4ff;
   border-radius: 999px;
-  color: #0875df;
+  color: var(--app-blue);
   display: inline-flex;
   font-size: 12px;
   font-weight: 900;
@@ -1093,7 +1065,7 @@ useTenantSeo({
 
 .activity-game {
   align-items: center;
-  color: #0b74d9;
+  color: var(--app-blue);
   display: flex;
   font-size: 14px;
   font-weight: 800;
@@ -1120,7 +1092,7 @@ useTenantSeo({
 }
 
 .panel-heading span {
-  color: #0b74d9;
+  color: var(--app-blue);
   font-size: 13px;
   font-weight: 900;
   line-height: 1.35;
@@ -1227,7 +1199,7 @@ useTenantSeo({
 }
 
 .lucky-result-header span {
-  color: #0b74d9;
+  color: var(--app-blue);
   font-size: 12px;
   font-weight: 900;
 }
@@ -1248,7 +1220,7 @@ useTenantSeo({
 
 .lucky-winning-numbers span {
   align-items: center;
-  background: #0b7fe8;
+  background: var(--app-blue-mid);
   border-radius: 14px;
   box-shadow: 0 10px 18px rgba(11, 127, 232, .2);
   color: #fff;
@@ -1332,7 +1304,7 @@ useTenantSeo({
   background: #fff;
   border: 1px solid #cfe7ff;
   border-radius: 999px;
-  color: #0875df;
+  color: var(--app-blue);
   font-size: 12px;
   font-weight: 900;
   line-height: 1;
@@ -1398,7 +1370,7 @@ useTenantSeo({
 .number-board-head em {
   background: #e8f4ff;
   border-radius: 999px;
-  color: #0875df;
+  color: var(--app-blue);
   font-size: 12px;
   font-style: normal;
   font-weight: 900;
@@ -1471,7 +1443,7 @@ useTenantSeo({
 
 .activity-login-link {
   background: #e8f4ff;
-  color: #0875df;
+  color: var(--app-blue);
   text-decoration: none;
 }
 
@@ -1497,7 +1469,7 @@ useTenantSeo({
 }
 
 .award-status-panel::before {
-  background: linear-gradient(90deg, #0b7fe8, #42b5ff);
+  background: linear-gradient(90deg, var(--app-blue-mid), var(--app-sky));
   content: "";
   height: 5px;
   inset: 0 0 auto;
@@ -1533,7 +1505,7 @@ useTenantSeo({
   align-items: center;
   background: #e8f4ff;
   border-radius: 16px;
-  color: #0875df;
+  color: var(--app-blue);
   display: flex;
   font-size: 22px;
   height: 46px;
@@ -1645,7 +1617,7 @@ useTenantSeo({
 }
 
 .cashback-hero span {
-  color: #0875df;
+  color: var(--app-blue);
   font-size: 13px;
   font-weight: 900;
 }
@@ -1666,7 +1638,7 @@ useTenantSeo({
 }
 
 .cashback-expected-card {
-  background: linear-gradient(135deg, #0b7fe8, #0d6bd9);
+  background: linear-gradient(135deg, var(--app-blue-mid), var(--app-blue));
   border-radius: 18px;
   box-shadow: 0 12px 24px rgba(11, 127, 232, .18);
   color: #fff;
@@ -1746,7 +1718,7 @@ useTenantSeo({
   align-items: center;
   background: #e8f4ff;
   border-radius: 14px;
-  color: #0875df;
+  color: var(--app-blue);
   display: flex;
   font-size: 20px;
   height: 40px;
@@ -1852,7 +1824,7 @@ useTenantSeo({
 }
 
 .confirm-number {
-  background: linear-gradient(135deg, #1488f5, #0568d9);
+  background: linear-gradient(135deg, var(--app-blue-mid), var(--app-blue-dark));
   border-radius: 18px;
   box-shadow: 0 12px 24px rgba(5, 104, 217, .22);
   color: #fff;
@@ -1905,7 +1877,7 @@ useTenantSeo({
 }
 
 .claim-amount-card {
-  background: linear-gradient(135deg, #0b7fe8, #0d6bd9);
+  background: linear-gradient(135deg, var(--app-blue-mid), var(--app-blue));
   border-radius: 18px;
   color: #fff;
   display: grid;
@@ -1952,7 +1924,7 @@ useTenantSeo({
 
 .claim-payout-options button.active {
   background: #eff7ff;
-  border-color: #0b7fe8;
+  border-color: var(--app-blue-mid);
   box-shadow: inset 0 0 0 1px rgba(11, 127, 232, .18);
 }
 
@@ -1965,8 +1937,8 @@ useTenantSeo({
 }
 
 .claim-payout-options button.active .claim-radio {
-  background: #0b7fe8;
-  border-color: #0b7fe8;
+  background: var(--app-blue-mid);
+  border-color: var(--app-blue-mid);
 }
 
 .claim-payout-options button.active .claim-radio::after {
@@ -2011,7 +1983,7 @@ useTenantSeo({
 
 .claim-option-icon.wallet {
   background: #dbeafe;
-  color: #0b7fe8;
+  color: var(--app-blue-mid);
 }
 
 .claim-option-icon.bank {
@@ -2039,7 +2011,7 @@ useTenantSeo({
   align-items: center;
   background: #e8f4ff;
   border-radius: 14px;
-  color: #0875df;
+  color: var(--app-blue);
   display: flex;
   font-size: 20px;
   height: 42px;
@@ -2055,7 +2027,7 @@ useTenantSeo({
 .claim-bank-link {
   background: #e8f4ff;
   border-radius: 14px;
-  color: #0875df;
+  color: var(--app-blue);
   font-size: 13px;
   font-weight: 900;
   padding: 12px 14px;

@@ -6133,3 +6133,18 @@ fixed-bottom confirmation action. Pending requests use a countdown/status
 surface and a fixed-bottom cancellation action; blocked requests list the
 outstanding items. Do not offer biometric substitution for the required PIN
 confirmation and do not add an admin-review state.
+
+Topup bank confirmation rule: keep a single responsive payment summary rather
+than nesting an account-number card inside it. Account details must read in the
+order bank, account name, and account number, with the copy action on the
+account-number row. Place the compact localized change action directly after
+the selected amount; do not restore a separate full-width edit-amount button
+above the confirmation CTA.
+
+Sale-close Home rule: the draw-day purchase-time notice is valid only before
+the configured cutoff and must disappear when server-aligned time reaches that
+deadline. Preserve the waiting-result handoff on the first Home entry after a
+game closes, then allow later Home entries for that same game/cutoff while sale
+routes continue to enforce their normal closed-sale guard. Customer ticket
+inventory must refresh from ticket/order realtime events and after a ticket
+channel reconnect without requiring route re-entry.

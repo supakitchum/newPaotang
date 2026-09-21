@@ -558,8 +558,8 @@ onMounted(loadProfile)
 }
 
 .auto-reward-option.active .auto-reward-radio {
-  background: #0b69dc;
-  border-color: #0b69dc;
+  background: var(--app-blue-mid);
+  border-color: var(--app-blue-mid);
   color: #fff;
 }
 
@@ -595,20 +595,20 @@ onMounted(loadProfile)
 }
 
 .auto-reward-option-icon.wallet {
-  background: linear-gradient(135deg, #17a8df, #0953bd);
+  background: linear-gradient(135deg, var(--app-blue-mid), var(--app-blue-dark));
   color: #fff;
 }
 
 .auto-reward-option-icon.bank {
   background: #eaf6ff;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
 }
 
 .auto-reward-option em {
   background: #e7f3ff;
   border-radius: 0 0 12px 12px;
   bottom: 0;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 15px;
   font-style: normal;
   font-weight: 900;

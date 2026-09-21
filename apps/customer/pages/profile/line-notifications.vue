@@ -416,7 +416,7 @@ function openAddFriend() {
 }
 
 .line-status-tile i {
-  color: #0879e6;
+  color: var(--app-blue);
   font-size: 18px;
 }
 
@@ -491,7 +491,7 @@ function openAddFriend() {
 .line-card-icon {
   background: #edf6ff;
   border-radius: 8px;
-  color: #0879e6;
+  color: var(--app-blue);
   display: grid;
   flex: 0 0 42px;
   height: 42px;
@@ -519,7 +519,7 @@ function openAddFriend() {
 }
 
 .line-event-row i {
-  color: #0879e6;
+  color: var(--app-blue);
   font-size: 17px;
 }
 

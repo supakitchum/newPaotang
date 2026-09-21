@@ -364,7 +364,7 @@ onMounted(loadClaim)
   align-items: center;
   border: 1px solid #dbeafe;
   border-radius: 50%;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: inline-flex;
   flex: 0 0 42px;
   font-size: 20px;
@@ -435,7 +435,7 @@ onMounted(loadClaim)
 }
 
 .activity-receipt-list dd.blue {
-  color: #086bdd;
+  color: var(--app-blue-mid);
 }
 
 .activity-payout-lines {

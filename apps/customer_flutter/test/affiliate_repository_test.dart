@@ -115,31 +115,35 @@ void main() {
             'availableBalance': {'amount': 30000, 'currency': 'THB'},
             'visitorCount': {'value': '12'},
           },
+          'referredMembers': [
+            {
+              'id': 'ref_1',
+              'phoneMasked': '081****678',
+              'registeredAt': '2026-07-15T09:30:00+07:00',
+            },
+          ],
           'payoutPolicy': {
             'minimumPayoutAmount': {'amount': 30000, 'currency': 'THB'},
           },
         },
       },
     });
-    final page = AffiliatePage<AffiliateCommission>.fromJson(
-      {
-        'result': {
-          'commissionPage': {
-            'commissionItems': [
-              {
-                'commissionId': 'com_wrapped',
-                'order': {'reference': 'ord_wrapped'},
-                'commissionStatus': 'approved',
-                'commissionAmount': {'amount': 2500, 'currency': 'THB'},
-                'calculatedAt': '2026-07-15T09:00:00+07:00',
-              },
-            ],
-            'pagination': {'nextCursor': 'com_next', 'hasMore': true},
-          },
+    final page = AffiliatePage<AffiliateCommission>.fromJson({
+      'result': {
+        'commissionPage': {
+          'commissionItems': [
+            {
+              'commissionId': 'com_wrapped',
+              'order': {'reference': 'ord_wrapped'},
+              'commissionStatus': 'approved',
+              'commissionAmount': {'amount': 2500, 'currency': 'THB'},
+              'calculatedAt': '2026-07-15T09:00:00+07:00',
+            },
+          ],
+          'pagination': {'nextCursor': 'com_next', 'hasMore': true},
         },
       },
-      AffiliateCommission.fromJson,
-    );
+    }, AffiliateCommission.fromJson);
 
     expect(overview.isAffiliate, isTrue);
     expect(overview.affiliate?.id, 'aff_wrapped');
@@ -148,6 +152,9 @@ void main() {
     expect(overview.referralUrl, 'https://example.test/?ref=WRAP01');
     expect(overview.stats.availableBalance, 300);
     expect(overview.stats.visitorCount, 12);
+    expect(overview.referrals.single.id, 'ref_1');
+    expect(overview.referrals.single.maskedPhone, '081****678');
+    expect(overview.referrals.single.registeredAt, '2026-07-15T09:30:00+07:00');
     expect(overview.payoutPolicy.minimumPayout, 300);
     expect(overview.bankAccount.accountNumber, '1234567890');
     expect(page.hasMore, isTrue);
@@ -160,14 +167,14 @@ void main() {
 
 class _AffiliateApiClient extends ApiClient {
   _AffiliateApiClient()
-      : super(
-          const AppConfig(
-            apiBaseUrl: 'https://partner.example.test/api/v1',
-            defaultLocale: 'th-TH',
-          ),
-          AuthTokenStore(),
-          localeTag: 'th-TH',
-        );
+    : super(
+        const AppConfig(
+          apiBaseUrl: 'https://partner.example.test/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        AuthTokenStore(),
+        localeTag: 'th-TH',
+      );
 
   String path = '';
   Map<String, dynamic> query = {};
@@ -228,28 +235,32 @@ class _AffiliateApiClient extends ApiClient {
     if (path == '/customer/affiliate') {
       return Response<T>(
         requestOptions: RequestOptions(path: path),
-        data: {
-          'is_affiliate': true,
-          'affiliate': {
-            'id': 'aff_1',
-            'name': payload['name'],
-            'status': 'active',
-          },
-        } as T,
+        data:
+            {
+                  'is_affiliate': true,
+                  'affiliate': {
+                    'id': 'aff_1',
+                    'name': payload['name'],
+                    'status': 'active',
+                  },
+                }
+                as T,
       );
     }
 
     return Response<T>(
       requestOptions: RequestOptions(path: path),
-      data: {
-        'data': {
-          'id': 'pay_created',
-          'status': 'pending',
-          'payout_method': payload['payout_method'],
-          'amount': payload['amount'],
-          'created_at': '2026-06-26T10:10:00+07:00',
-        },
-      } as T,
+      data:
+          {
+                'data': {
+                  'id': 'pay_created',
+                  'status': 'pending',
+                  'payout_method': payload['payout_method'],
+                  'amount': payload['amount'],
+                  'created_at': '2026-06-26T10:10:00+07:00',
+                },
+              }
+              as T,
     );
   }
 }

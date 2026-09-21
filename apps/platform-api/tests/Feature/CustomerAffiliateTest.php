@@ -290,6 +290,7 @@ class CustomerAffiliateTest extends TestCase
         $this->insertActivePartnerTenantWithDomain($partnerId, $tenantId, $host);
         $affiliateToken = $this->issueCustomerToken($tenantId, $affiliateCustomerId);
         $buyerToken = $this->issueCustomerToken($tenantId, $buyerId);
+        $buyerPhone = (string) DB::table('customers')->where('id', $buyerId)->value('phone');
 
         $registered = $this->withToken($affiliateToken)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate', [
@@ -344,11 +345,19 @@ class CustomerAffiliateTest extends TestCase
             'click_count' => 2,
         ]);
 
-        $this->withToken($affiliateToken)
+        $overview = $this->withToken($affiliateToken)
             ->getJson('http://'.$host.'/api/v1/customer/affiliate')
             ->assertOk()
             ->assertJsonPath('stats.visitor_count', 1)
-            ->assertJsonPath('stats.registered_count', 1);
+            ->assertJsonPath('stats.registered_count', 1)
+            ->json();
+        $this->assertSame(
+            substr($buyerPhone, 0, 3).'****'.substr($buyerPhone, -3),
+            $overview['referrals'][0]['phone_masked'],
+        );
+        $this->assertNotEmpty($overview['referrals'][0]['registered_at']);
+        $this->assertArrayNotHasKey('phone', $overview['referrals'][0]);
+        $this->assertStringNotContainsString($buyerPhone, json_encode($overview, JSON_THROW_ON_ERROR));
 
         $affiliateList = app(GrowthService::class)->listAffiliateAccounts($tenantId, [
             'sort_by' => 'visitor_count',

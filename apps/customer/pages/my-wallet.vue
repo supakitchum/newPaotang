@@ -285,7 +285,7 @@ onMounted(() => {
   place-items: center;
   border: 0;
   border-radius: 999px;
-  color: #075ec9;
+  color: var(--app-blue);
   background: #eaf5ff;
   font-size: 18px;
 }
@@ -325,7 +325,7 @@ onMounted(() => {
   display: grid;
   place-items: center;
   border-radius: 20px;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   background: #eaf5ff;
   font-size: 32px;
 }

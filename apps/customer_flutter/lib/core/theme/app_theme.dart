@@ -1,70 +1,71 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const appBlue = Color(0xFF087FF0);
-  static const appBlueDark = Color(0xFF0067D9);
-  static const appSky = Color(0xFF19B8EF);
-  static const appYellow = Color(0xFFFFD10B);
-  static const appInk = Color(0xFF242833);
-  static const appMuted = Color(0xFF8A8F98);
-  static const appBorder = Color(0xFFE8EBEF);
-  static const appSoft = Color(0xFFF5F7FB);
+  static const appBlue = Color(0xFF061C44);
+  static const appBlueDark = Color(0xFF03102E);
+  static const appSky = Color(0xFF145CA8);
+  static const appYellow = Color(0xFFDBAF61);
+  static const appGold = Color(0xFFE8D08F);
+  static const appInk = Color(0xFF182236);
+  static const appMuted = Color(0xFF737A88);
+  static const appBorder = Color(0xFFDCE7F5);
+  static const appSoft = Color(0xFFEEF4FF);
   static const appSheet = Color(0xFFFFFFFF);
-  static const appHeroStart = Color(0xFF158FF6);
-  static const appHeroEnd = Color(0xFF0564D1);
-  static const appActionStart = Color(0xFF149AF9);
-  static const appActionEnd = Color(0xFF0064D5);
+  static const appHeroStart = Color(0xFF0B3F82);
+  static const appHeroEnd = Color(0xFF03102E);
+  static const appActionStart = Color(0xFF0B3F82);
+  static const appActionEnd = Color(0xFF03102E);
   static const appDisabledAction = Color(0xFFC6D3E3);
-  static const appOutlinePillText = Color(0xFF075EC9);
-  static const appOutlinePillBorder = Color(0xFF0B69DC);
+  static const appOutlinePillText = Color(0xFF061C44);
+  static const appOutlinePillBorder = Color(0xFF0B3F82);
   static const appOutlinePillDisabledBorder = Color(0xFFCBD4DF);
-  static const appOutlinePillDisabledText = Color(0xFF8A8F98);
+  static const appOutlinePillDisabledText = Color(0xFF737A88);
   static const appOutlinePillDisabledFill = Color(0xFFF2F4F7);
   static const appFilterPillFill = Color(0xFFF7F7F7);
   static const appFilterPillText = Color(0xFF2D3036);
-  static const appFilterPillActiveBorder = Color(0xFF086BDD);
-  static const appBlueLink = Color(0xFF0068D8);
-  static const appPaymentCountBlue = Color(0xFF006FE8);
-  static const appGreenPillStart = Color(0xFF77C827);
-  static const appGreenPillEnd = Color(0xFF55B20E);
-  static const appLotteryNumberFill = Color(0xFFFFF9DF);
-  static const appCheckoutWalletBorder = Color(0xFF267FF2);
-  static const appCheckoutWalletNoteFill = Color(0xFFDCEEFF);
-  static const appCheckoutWalletNoteText = Color(0xFF065FCA);
-  static const appCheckoutWalletMark = Color(0xFF1E8BC2);
-  static const appSuccessGradientEnd = Color(0xFF20BCF2);
-  static const appSuccessRadialBlue = Color(0xFF005BC6);
-  static const appSuccessCheck = Color(0xFF71BF18);
-  static const appLotterySix = Color(0xFF0C75D4);
-  static const appBottomNavActive = Color(0xFF0768D5);
+  static const appFilterPillActiveBorder = Color(0xFF145CA8);
+  static const appBlueLink = Color(0xFF061C44);
+  static const appPaymentCountBlue = Color(0xFF061C44);
+  static const appGreenPillStart = Color(0xFF0B3F82);
+  static const appGreenPillEnd = Color(0xFF061C44);
+  static const appLotteryNumberFill = Color(0xFFEEF4FF);
+  static const appCheckoutWalletBorder = Color(0xFF0B3F82);
+  static const appCheckoutWalletNoteFill = Color(0xFFEAF1FF);
+  static const appCheckoutWalletNoteText = Color(0xFF061C44);
+  static const appCheckoutWalletMark = Color(0xFF145CA8);
+  static const appSuccessGradientEnd = Color(0xFF145CA8);
+  static const appSuccessRadialBlue = Color(0xFF0B3F82);
+  static const appSuccessCheck = Color(0xFF145CA8);
+  static const appLotterySix = Color(0xFF061C44);
+  static const appBottomNavActive = Color(0xFF061C44);
   static const appBottomNavInactive = Color(0xFF8C8F93);
-  static const appBottomNavActiveFill = Color(0xFFEEF8FF);
-  static const appBottomNavShadow = Color(0xFF14233A);
-  static const appWalletSheet = Color(0xFFF4F6F8);
-  static const appWalletGradientEnd = Color(0xFF12A077);
-  static const appActivityActionFill = Color(0xFFE8F4FF);
-  static const appActivityActionText = Color(0xFF0875DF);
-  static const appActivityFallbackStart = Color(0xFFE8F6FF);
-  static const appActivityFallbackEnd = Color(0xFFF4FBFF);
-  static const appActivityFallbackIcon = Color(0xFF0B7FE8);
-  static const appPinAction = Color(0xFF0D7FE8);
-  static const appPinActionFill = Color(0xFFE8F3FF);
-  static const appPinGradientStart = Color(0xFF14A7FF);
-  static const appPinGradientEnd = Color(0xFF0062D9);
-  static const appTicketTabStart = Color(0xFF1495F5);
-  static const appTicketTabEnd = Color(0xFF0066D6);
-  static const appTicketCountFill = Color(0xFFEEF6FF);
-  static const appTicketCountText = Color(0xFF0B63C7);
-  static const appClaimChevron = Color(0xFF3B9CFF);
-  static const appMaintenanceGradientEnd = Color(0xFF174A8B);
-  static const appSuspendedGradientStart = Color(0xFF0D8FFF);
-  static const appSuspendedGradientMid = Color(0xFF0C69D8);
-  static const appSuspendedGradientEnd = Color(0xFF0AA58F);
-  static const appSuspendedRadialAccent = Color(0xDBFFD60A);
-  static const appCountdownGradientMid = Color(0xFF0A66C8);
-  static const appCountdownGradientEnd = Color(0xFF163970);
-  static const appSystemActionStart = Color(0xFF168CF2);
-  static const appSystemActionEnd = Color(0xFF0A64D8);
+  static const appBottomNavActiveFill = Color(0xFFEEF4FF);
+  static const appBottomNavShadow = Color(0xFF03102E);
+  static const appWalletSheet = Color(0xFFEEF4FF);
+  static const appWalletGradientEnd = Color(0xFF03102E);
+  static const appActivityActionFill = Color(0xFFEAF1FF);
+  static const appActivityActionText = Color(0xFF061C44);
+  static const appActivityFallbackStart = Color(0xFFEEF4FF);
+  static const appActivityFallbackEnd = Color(0xFFF8FBFF);
+  static const appActivityFallbackIcon = Color(0xFF0B3F82);
+  static const appPinAction = Color(0xFF061C44);
+  static const appPinActionFill = Color(0xFFEAF1FF);
+  static const appPinGradientStart = Color(0xFF0B3F82);
+  static const appPinGradientEnd = Color(0xFF03102E);
+  static const appTicketTabStart = Color(0xFF0B3F82);
+  static const appTicketTabEnd = Color(0xFF03102E);
+  static const appTicketCountFill = Color(0xFFEAF1FF);
+  static const appTicketCountText = Color(0xFF061C44);
+  static const appClaimChevron = Color(0xFF145CA8);
+  static const appMaintenanceGradientEnd = Color(0xFF03102E);
+  static const appSuspendedGradientStart = Color(0xFF0B3F82);
+  static const appSuspendedGradientMid = Color(0xFF061C44);
+  static const appSuspendedGradientEnd = Color(0xFF03102E);
+  static const appSuspendedRadialAccent = Color(0xDBDBAF61);
+  static const appCountdownGradientMid = Color(0xFF061C44);
+  static const appCountdownGradientEnd = Color(0xFF03102E);
+  static const appSystemActionStart = Color(0xFF0B3F82);
+  static const appSystemActionEnd = Color(0xFF03102E);
 
   static Color primaryActionStart(Color primary) {
     if (primary == appBlue) return appActionStart;
@@ -158,44 +159,44 @@ class AppTheme {
   }
 
   static Color homeActivityFallbackStart(Color primary) {
-    if (primary == appBlue) return const Color(0xFF0B84ED);
+    if (primary == appBlue) return appHeroStart;
     return primaryActionStart(primary);
   }
 
   static Color homeActivityFallbackEnd(Color primary, Color secondary) {
     if (primary == appBlue && secondary == appSky) {
-      return const Color(0xFF11A584);
+      return appBlue;
     }
     return Color.lerp(primary, secondary, 0.72) ?? secondary;
   }
 
   static Color homeNewsFallbackStart(Color primary) {
-    if (primary == appBlue) return const Color(0xFF0A87F5);
+    if (primary == appBlue) return appHeroStart;
     return primaryActionStart(primary);
   }
 
   static Color homeNewsFallbackEnd(Color primary, Color onSurface) {
-    if (primary == appBlue) return const Color(0xFF20385F);
+    if (primary == appBlue) return appBlueDark;
     return Color.lerp(primary, onSurface, 0.58) ?? primaryActionEnd(primary);
   }
 
   static Color newsCardFallbackStart(Color primary) {
-    if (primary == appBlue) return const Color(0xFF0B84ED);
+    if (primary == appBlue) return appHeroStart;
     return primaryActionStart(primary);
   }
 
   static Color newsCardFallbackEnd(Color primary, Color onSurface) {
-    if (primary == appBlue) return const Color(0xFF174783);
+    if (primary == appBlue) return appBlueDark;
     return Color.lerp(primary, onSurface, 0.54) ?? primaryActionEnd(primary);
   }
 
   static Color fallbackSpark(Color accent) {
-    if (accent == appYellow) return const Color(0xFFFFD240);
+    if (accent == appYellow) return appGold;
     return accent;
   }
 
   static Color detailKicker(Color primary) {
-    if (primary == appBlue) return const Color(0xFF0875DF);
+    if (primary == appBlue) return appBlue;
     return primary;
   }
 
@@ -329,14 +330,14 @@ class AppTheme {
 
   static Color splashGradientMid(Color primary, Color secondary) {
     if (primary == appBlue && secondary == appSky) {
-      return const Color(0xFF0C6FE0);
+      return appBlue;
     }
     return Color.lerp(primary, secondary, 0.22) ?? primary;
   }
 
   static Color splashGradientEnd(Color primary, Color secondary) {
     if (primary == appBlue && secondary == appSky) {
-      return const Color(0xFF15AEEA);
+      return appSky;
     }
     return Color.lerp(primary, secondary, 0.78) ?? secondary;
   }
@@ -393,13 +394,16 @@ class AppTheme {
         ? tokens.accentColor ?? AppThemeTokens.fallback.accentColor!
         : AppThemeTokens.fallback.accentColor!;
     final seed = primary;
-    final background =
-        tokens.backgroundColor ?? AppThemeTokens.fallback.backgroundColor!;
-    final textColor = tokens.textColor ?? AppThemeTokens.fallback.textColor!;
+    final background = useRuntimeBrandColors
+        ? tokens.backgroundColor ?? AppThemeTokens.fallback.backgroundColor!
+        : AppThemeTokens.fallback.backgroundColor!;
+    final textColor = useRuntimeBrandColors
+        ? tokens.textColor ?? AppThemeTokens.fallback.textColor!
+        : AppThemeTokens.fallback.textColor!;
     final fontFamily = useRuntimeBrandColors
         ? (tokens.fontFamily.trim().isEmpty
-            ? AppThemeTokens.fallback.fontFamily
-            : tokens.fontFamily.trim())
+              ? AppThemeTokens.fallback.fontFamily
+              : tokens.fontFamily.trim())
         : AppThemeTokens.fallback.fontFamily;
     final baseScheme = ColorScheme.fromSeed(seedColor: seed);
     final colorScheme = baseScheme.copyWith(
@@ -409,19 +413,22 @@ class AppTheme {
       onPrimaryContainer: primary,
       secondary: secondary,
       onSecondary: AppTheme.appSheet,
-      secondaryContainer: Color.lerp(secondary, AppTheme.appSheet, 0.78) ??
+      secondaryContainer:
+          Color.lerp(secondary, AppTheme.appSheet, 0.78) ??
           baseScheme.secondaryContainer,
       onSecondaryContainer: secondary,
       tertiary: tertiary,
       onTertiary: AppTheme.appSheet,
-      tertiaryContainer: Color.lerp(tertiary, AppTheme.appSheet, 0.74) ??
+      tertiaryContainer:
+          Color.lerp(tertiary, AppTheme.appSheet, 0.74) ??
           baseScheme.tertiaryContainer,
       onTertiaryContainer: AppTheme.appInk,
       surface: AppTheme.appSheet,
       surfaceContainerLowest: AppTheme.appSheet,
       surfaceContainerLow:
           Color.lerp(background, AppTheme.appSoft, 0.35) ?? AppTheme.appSoft,
-      surfaceContainer: Color.lerp(AppTheme.appSheet, AppTheme.appSoft, 0.46) ??
+      surfaceContainer:
+          Color.lerp(AppTheme.appSheet, AppTheme.appSoft, 0.46) ??
           AppTheme.appSoft,
       surfaceContainerHigh: AppTheme.appSoft,
       surfaceContainerHighest: AppTheme.appSoft,
@@ -434,10 +441,10 @@ class AppTheme {
     );
     final textTheme = _nuxtLikeTextTheme(
       ThemeData.light().textTheme.apply(
-            fontFamily: fontFamily,
-            bodyColor: textColor,
-            displayColor: textColor,
-          ),
+        fontFamily: fontFamily,
+        bodyColor: textColor,
+        displayColor: textColor,
+      ),
     );
 
     return ThemeData(
@@ -454,10 +461,10 @@ class AppTheme {
         centerTitle: true,
         foregroundColor: colorScheme.onPrimary,
         titleTextStyle: ThemeData.light().textTheme.titleLarge?.copyWith(
-              color: colorScheme.onPrimary,
-              fontFamily: fontFamily,
-              fontWeight: FontWeight.w700,
-            ),
+          color: colorScheme.onPrimary,
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w700,
+        ),
         iconTheme: IconThemeData(color: colorScheme.onPrimary),
         actionsIconTheme: IconThemeData(color: colorScheme.onPrimary),
       ),
@@ -491,62 +498,65 @@ class AppTheme {
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          disabledBackgroundColor: AppTheme.appDisabledAction,
-          disabledForegroundColor: colorScheme.onPrimary.withValues(
-            alpha: 0.86,
-          ),
-          minimumSize: const Size(0, 47),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          shape: const StadiumBorder(),
-          textStyle: textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            height: 1.12,
-          ),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.standard,
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
+        style:
+            FilledButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              disabledBackgroundColor: AppTheme.appDisabledAction,
+              disabledForegroundColor: colorScheme.onPrimary.withValues(
+                alpha: 0.86,
+              ),
+              minimumSize: const Size(0, 47),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              shape: const StadiumBorder(),
+              textStyle: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                height: 1.12,
+              ),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: colorScheme.primary,
-          disabledForegroundColor: colorScheme.onSurfaceVariant,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          shape: const StadiumBorder(),
-          side: BorderSide(color: colorScheme.primary),
-          textStyle: textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.12,
-          ),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.standard,
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          side: WidgetStateProperty.resolveWith((states) {
-            final disabled = states.contains(WidgetState.disabled);
-            return BorderSide(
-              color: disabled ? AppTheme.appBorder : colorScheme.primary,
-            );
-          }),
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              foregroundColor: colorScheme.primary,
+              disabledForegroundColor: colorScheme.onSurfaceVariant,
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              shape: const StadiumBorder(),
+              side: BorderSide(color: colorScheme.primary),
+              textStyle: textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                height: 1.12,
+              ),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.standard,
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              side: WidgetStateProperty.resolveWith((states) {
+                final disabled = states.contains(WidgetState.disabled);
+                return BorderSide(
+                  color: disabled ? AppTheme.appBorder : colorScheme.primary,
+                );
+              }),
+            ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: colorScheme.primary,
-          textStyle: textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.12,
-          ),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
+        style:
+            TextButton.styleFrom(
+              foregroundColor: colorScheme.primary,
+              textStyle: textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                height: 1.12,
+              ),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            ),
       ),
       dividerTheme: const DividerThemeData(
         color: AppTheme.appBorder,
@@ -791,7 +801,8 @@ class AppThemeTokens {
           semantic['onSurface'],
         ]),
       ),
-      fontFamily: _firstFontFamily([
+      fontFamily:
+          _firstFontFamily([
             json['font_family'],
             json['fontFamily'],
             json['font'],
@@ -915,9 +926,9 @@ class AppThemeTokens {
     final channels = colorPart.contains(',')
         ? colorPart.split(',').map((value) => value.trim()).toList()
         : colorPart
-            .split(RegExp(r'\s+'))
-            .where((value) => value.isNotEmpty)
-            .toList();
+              .split(RegExp(r'\s+'))
+              .where((value) => value.isNotEmpty)
+              .toList();
 
     if (channels.length < 3) return null;
     final red = _parseRgbChannel(channels[0]);
@@ -947,9 +958,9 @@ class AppThemeTokens {
     final channels = colorPart.contains(',')
         ? colorPart.split(',').map((value) => value.trim()).toList()
         : colorPart
-            .split(RegExp(r'\s+'))
-            .where((value) => value.isNotEmpty)
-            .toList();
+              .split(RegExp(r'\s+'))
+              .where((value) => value.isNotEmpty)
+              .toList();
 
     if (channels.length < 3) return null;
     final hue = _parseHueChannel(channels[0]);
@@ -965,12 +976,7 @@ class AppThemeTokens {
       return null;
     }
 
-    return HSLColor.fromAHSL(
-      alpha / 255,
-      hue,
-      saturation,
-      lightness,
-    ).toColor();
+    return HSLColor.fromAHSL(alpha / 255, hue, saturation, lightness).toColor();
   }
 
   static int? _parseRgbChannel(String raw) {

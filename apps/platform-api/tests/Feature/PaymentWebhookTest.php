@@ -170,7 +170,7 @@ class PaymentWebhookTest extends TestCase
 
         $topup = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 500,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'topup-webhook-credit',
             ])
@@ -186,7 +186,7 @@ class PaymentWebhookTest extends TestCase
             'reference2' => 'wallet',
             'reference3' => $attempt->provider_reference3,
             'reference4' => $attempt->provider_reference4,
-            'txnAmount' => '5.00',
+            'txnAmount' => '300.00',
             'txnCurrencyCode' => 'THB',
             'statusCode' => '00',
         ];
@@ -259,7 +259,7 @@ class PaymentWebhookTest extends TestCase
         ]);
         $this->assertDatabaseHas('wallets', [
             'id' => $world['wallet_id'],
-            'balance_amount' => 100500,
+            'balance_amount' => 130000,
         ]);
         $this->assertSame(2, DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->count());
         $this->assertDatabaseHas('payment_provider_attempts', [
@@ -273,7 +273,7 @@ class PaymentWebhookTest extends TestCase
 
             return ($event->payload['wallet_id'] ?? null) === $world['wallet_id']
                 && ($event->payload['entry_type'] ?? null) === 'credit'
-                && ($event->payload['amount'] ?? null) === 500
+                && ($event->payload['amount'] ?? null) === 30000
                 && in_array('private-customer.tenant.ten_topup_webhook.customer.'.$world['auth']['user']['id'].'.wallet', $channels, true);
         });
         Event::assertDispatchedTimes(CustomerWalletUpdated::class, 1);
@@ -288,7 +288,7 @@ class PaymentWebhookTest extends TestCase
 
         $topup = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 600,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'topup-trusted-credit',
             ])
@@ -357,7 +357,7 @@ class PaymentWebhookTest extends TestCase
         ]);
         $this->assertDatabaseHas('wallets', [
             'id' => $world['wallet_id'],
-            'balance_amount' => 100600,
+            'balance_amount' => 130000,
         ]);
         $this->assertSame(1, DB::table('webhook_callbacks')->where('provider', 'deepay_kbank')->count());
         Event::assertDispatchedTimes(CustomerWalletUpdated::class, 1);
@@ -370,7 +370,7 @@ class PaymentWebhookTest extends TestCase
 
         $topup = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 700,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'topup-cancelled-callback-create',
             ])
@@ -388,7 +388,7 @@ class PaymentWebhookTest extends TestCase
             'reference2' => $attempt->provider_reference2,
             'reference3' => $attempt->provider_reference3,
             'reference4' => $attempt->provider_reference4,
-            'txnAmount' => '7.00',
+            'txnAmount' => '300.00',
             'txnCurrencyCode' => 'THB',
             'statusCode' => '00',
         ];
@@ -407,10 +407,11 @@ class PaymentWebhookTest extends TestCase
     {
         $world = $this->prepareReservedCart('par_topup_expired_cb', 'ten_topup_expired_cb', 'topup-expired-callback.m5.test', 'gam_topup_expired_cb', '0808009004', 770401);
         $this->configureDeepayProvider('ten_topup_expired_cb');
+        Event::fake([CustomerWalletUpdated::class]);
 
         $topup = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
-                'amount' => 900,
+                'amount' => 30000,
             ], [
                 'Idempotency-Key' => 'topup-expired-callback-create',
             ])
@@ -434,7 +435,7 @@ class PaymentWebhookTest extends TestCase
             'reference2' => $attempt->provider_reference2,
             'reference3' => $attempt->provider_reference3,
             'reference4' => $attempt->provider_reference4,
-            'txnAmount' => '9.00',
+            'txnAmount' => '300.00',
             'txnCurrencyCode' => 'THB',
             'statusCode' => '00',
         ];
@@ -444,7 +445,7 @@ class PaymentWebhookTest extends TestCase
 
         $this->assertDatabaseHas('topup_requests', ['id' => $topup['id'], 'status' => 'succeeded']);
         $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'succeeded']);
-        $this->assertDatabaseHas('wallets', ['id' => $world['wallet_id'], 'balance_amount' => 100900]);
+        $this->assertDatabaseHas('wallets', ['id' => $world['wallet_id'], 'balance_amount' => 130000]);
         $this->assertSame(2, DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->count());
     }
 

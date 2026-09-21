@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/customer_revenue_refresh_ticks.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
 import '../../../core/utils/provider_cache.dart';
@@ -16,6 +17,7 @@ final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
 final currentTicketsProvider = FutureProvider.autoDispose<List<CustomerTicket>>(
   (ref) async {
     ref.keepForCustomerNavigation();
+    ref.watch(ticketRealtimeTickProvider);
     final auth = ref.watch(authControllerProvider);
     if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
       return const [];

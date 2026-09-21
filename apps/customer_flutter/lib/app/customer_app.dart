@@ -128,7 +128,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
     Intl.defaultLocale = localeTag(appLocale).replaceAll('-', '_');
     final appTheme = bootstrap.maybeWhen(
       data: (data) =>
-          AppTheme.light(tokens: data.theme, useRuntimeBrandColors: true),
+          AppTheme.light(tokens: data.theme, useRuntimeBrandColors: false),
       orElse: AppTheme.light,
     );
     final pwaIconUrl = bootstrap.maybeWhen(

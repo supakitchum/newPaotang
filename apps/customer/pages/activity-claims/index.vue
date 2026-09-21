@@ -286,7 +286,7 @@ onMounted(() => fetchClaims())
 .activity-claims-empty div {
   background: #eef7ff;
   border-radius: 50%;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   display: grid;
   font-size: 30px;
   height: 64px;
@@ -418,7 +418,7 @@ onMounted(() => fetchClaims())
 }
 
 .activity-claim-row-foot i {
-  color: #3b9cff;
+  color: var(--app-sky);
   font-size: 23px;
   line-height: 1;
 }

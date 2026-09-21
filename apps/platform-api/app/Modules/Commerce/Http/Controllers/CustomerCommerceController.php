@@ -288,6 +288,8 @@ class CustomerCommerceController extends Controller
             'reservation_unavailable' => ApiErrorResponse::reservationUnavailable($request),
             'reservation_expired' => ApiErrorResponse::reservationExpired($request),
             'wallet_insufficient_balance' => ApiErrorResponse::walletInsufficientBalance($request),
+            'affiliate_wallet_unavailable' => ApiErrorResponse::make($request, 409, 'affiliate_wallet_unavailable', 'An active affiliate wallet is required for this payment method.'),
+            'affiliate_wallet_insufficient_balance' => ApiErrorResponse::make($request, 409, 'affiliate_wallet_insufficient_balance', 'The affiliate wallet balance is insufficient.'),
             'not_found' => ApiErrorResponse::notFound($request),
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
             'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),

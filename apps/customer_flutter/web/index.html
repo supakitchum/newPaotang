@@ -20,8 +20,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Customer application.">
-  <meta name="theme-color" content="#087FF0">
-  <meta name="msapplication-TileColor" content="#087FF0">
+  <meta name="theme-color" content="#03102E">
+  <meta name="msapplication-TileColor" content="#03102E">
   <meta property="og:title" content="Customer">
   <meta property="og:description" content="Customer application.">
   <meta property="og:type" content="website">
@@ -35,7 +35,7 @@
 
   <style>
     :root {
-      --customer-theme-color: #087FF0;
+      --customer-theme-color: #03102E;
     }
 
     html,
@@ -66,13 +66,13 @@
         max(24px, env(safe-area-inset-bottom))
         max(28px, env(safe-area-inset-left));
       overflow: hidden;
-      background-color: #0b96dc;
+      background-color: #03102E;
       background-image:
         linear-gradient(
           to bottom,
           transparent 0%,
           transparent 72%,
-          rgba(3, 78, 145, 0.10) 100%
+          rgba(3, 16, 46, 0.78) 100%
         ),
         url("splash/siamblend_splash.jpg");
       background-position: center, center;
@@ -93,8 +93,8 @@
       padding: 10px 18px 11px;
       border: 1px solid rgba(255, 255, 255, 0.30);
       border-radius: 18px;
-      background: rgba(7, 90, 156, 0.65);
-      box-shadow: 0 8px 20px rgba(0, 49, 94, 0.20);
+      background: rgba(3, 16, 46, 0.70);
+      box-shadow: 0 8px 20px rgba(3, 16, 46, 0.38);
       color: #fff;
       font-family: Kanit, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 12px;
@@ -120,8 +120,8 @@
       left: -42%;
       width: 42%;
       border-radius: inherit;
-      background: linear-gradient(90deg, #fff2b8, #e7b64c, #ffeba0);
-      box-shadow: 0 0 5px rgba(243, 204, 105, 0.60);
+      background: linear-gradient(90deg, #E8D08F, #DBAF61, #FFF4C7);
+      box-shadow: 0 0 5px rgba(219, 175, 97, 0.60);
       animation: customer-bootstrap-loading 1350ms ease-in-out infinite;
     }
 
@@ -406,7 +406,7 @@
         const normalized = configScalar(value);
         return /^#[0-9a-fA-F]{6}$/.test(normalized)
           ? normalized.toUpperCase()
-          : "#087FF0";
+          : "#03102E";
       }
 
       const themeColor = normalizeThemeColor(firstConfigValue([
@@ -419,7 +419,7 @@
         "primary",
         "brandColor",
         "brand_color"
-      ], "#087FF0"));
+      ], "#03102E"));
       const backgroundColor = firstConfigValue(["manifestBackgroundColor", "manifest_background_color", "backgroundColor", "background_color"], "#FFFFFF");
       const icon192Url = firstConfigValue(["icon192Url", "icon192URL", "iconUrl", "iconURL", "icon_192_url", "icon_url", "icon192", "icon_192"], "icons/Icon-192.png");
       const icon512Url = firstConfigValue(["icon512Url", "icon512URL", "iconUrl", "iconURL", "icon_512_url", "icon_url", "icon512", "icon_512"], "icons/Icon-512.png");

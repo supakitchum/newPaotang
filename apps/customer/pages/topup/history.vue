@@ -179,7 +179,7 @@ onMounted(fetchHistories)
   display: grid;
   place-items: center;
   background: #fff;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 24px;
 }
 
@@ -234,7 +234,7 @@ onMounted(fetchHistories)
   display: grid;
   place-items: center;
   background: #eaf5ff;
-  color: #0b69dc;
+  color: var(--app-blue-mid);
   font-size: 32px;
 }
 
@@ -403,9 +403,9 @@ onMounted(fetchHistories)
 }
 
 .topup-history-pagination button.active {
-  border-color: #0b69dc;
+  border-color: var(--app-blue-mid);
   color: #fff;
-  background: #0b69dc;
+  background: var(--app-blue-mid);
 }
 
 .topup-history-pagination button:disabled {
@@ -420,7 +420,7 @@ onMounted(fetchHistories)
 }
 
 .status-2 {
-  color: #075ec9;
+  color: var(--app-blue);
   background: #e4f0ff;
 }
 

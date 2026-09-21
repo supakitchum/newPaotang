@@ -31,6 +31,7 @@ use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
 use App\Shared\Tenancy\TenantHostNormalizer;
 use App\Support\CustomerNo;
+use App\Support\EncryptedJsonPayload;
 use App\Support\YoutubeLiveUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -1101,7 +1102,8 @@ class BoMenuCompletionService
             return ['error' => 'not_found'];
         }
 
-        $updates = $this->memberPayload($tenantId, $payload, false);
+        $member = Customer::query()->forTenant($tenantId)->where('id', $memberId)->first();
+        $updates = $this->memberPayload($tenantId, $payload, false, $member);
         $errors = $this->memberErrors($tenantId, $updates, false);
 
         if ($errors !== []) {
@@ -2058,6 +2060,12 @@ class BoMenuCompletionService
             ->where('access_expires_at', '>', now())
             ->where('last_used_at', '>=', $onlineCutoff)
             ->exists();
+        $rewardPayoutBankAccount = EncryptedJsonPayload::maskedBankAccount(
+            EncryptedJsonPayload::decrypt(
+                $member->reward_payout_bank_account_encrypted ?? null,
+                $member->reward_payout_bank_account_json ?? null,
+            ),
+        );
 
         return [
             'id' => (string) $member->id,
@@ -2080,6 +2088,7 @@ class BoMenuCompletionService
             'is_online' => $isOnline,
             'online_status' => $isOnline ? 'online' : 'offline',
             'last_online_at' => $lastOnlineAt,
+            'reward_payout_bank_account' => $rewardPayoutBankAccount,
             'wallets' => collect($wallets)->map(fn (object $wallet): array => [
                 'id' => (string) $wallet->id,
                 'tenant_id' => (string) $wallet->tenant_id,
@@ -2501,7 +2510,7 @@ class BoMenuCompletionService
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    private function memberPayload(string $tenantId, array $payload, bool $creating): array
+    private function memberPayload(string $tenantId, array $payload, bool $creating, ?Customer $existing = null): array
     {
         $updates = [];
 
@@ -2518,6 +2527,19 @@ class BoMenuCompletionService
 
         if (array_key_exists('password', $payload) && trim((string) $payload['password']) !== '') {
             $updates['password_hash'] = Hash::make((string) $payload['password']);
+        }
+
+        if (! $creating && array_key_exists('reward_payout_bank_account', $payload)) {
+            $currentBankAccount = $existing === null ? [] : EncryptedJsonPayload::decrypt(
+                $existing->reward_payout_bank_account_encrypted,
+                $existing->reward_payout_bank_account_json,
+            );
+            $bankAccount = $this->normalizeMemberBankAccount(
+                $payload['reward_payout_bank_account'],
+                $currentBankAccount,
+            );
+            $updates['reward_payout_bank_account_json'] = null;
+            $updates['reward_payout_bank_account_encrypted'] = EncryptedJsonPayload::encrypt($bankAccount);
         }
 
         $updates['tenant_id'] = $tenantId;
@@ -2564,7 +2586,64 @@ class BoMenuCompletionService
             $errors['status'][] = 'The status field is invalid.';
         }
 
+        if (array_key_exists('reward_payout_bank_account_encrypted', $payload)) {
+            $bankAccount = EncryptedJsonPayload::decrypt($payload['reward_payout_bank_account_encrypted']);
+            if (($bankAccount['bank_name'] ?? '') === '') {
+                $errors['reward_payout_bank_account.bank_name'][] = 'The bank name field is required.';
+            }
+            if (($bankAccount['account_number'] ?? '') === '') {
+                $errors['reward_payout_bank_account.account_number'][] = 'The account number field is required.';
+            }
+        }
+
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $current
+     * @return array<string, string>
+     */
+    private function normalizeMemberBankAccount(mixed $value, array $current): array
+    {
+        if (! is_array($value)) {
+            return $current;
+        }
+
+        $aliases = [
+            'bank_name' => ['bank_name', 'bank'],
+            'account_name' => ['account_name', 'bank_deposit_name'],
+            'account_number' => ['account_number', 'account_no', 'bank_account_no', 'bank_deposit_number'],
+            'branch' => ['branch'],
+        ];
+        $normalized = [];
+
+        foreach ($aliases as $target => $keys) {
+            $provided = false;
+            $fieldValue = '';
+            foreach ($keys as $key) {
+                if (array_key_exists($key, $value)) {
+                    $provided = true;
+                    $fieldValue = trim((string) $value[$key]);
+                    break;
+                }
+            }
+
+            if (
+                $target === 'account_number'
+                && $provided
+                && ($fieldValue === '' || str_contains($fieldValue, '*'))
+            ) {
+                $fieldValue = trim((string) ($current[$target] ?? ''));
+            } elseif (! $provided) {
+                $fieldValue = trim((string) ($current[$target] ?? ''));
+            }
+
+            if ($fieldValue !== '') {
+                $normalized[$target] = $fieldValue;
+            }
+        }
+
+        return $normalized;
     }
 
     /**

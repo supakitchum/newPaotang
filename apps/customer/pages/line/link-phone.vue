@@ -358,7 +358,7 @@ const submit = async () => {
 }
 
 .line-link-input i {
-  color: #0b7fe8;
+  color: var(--app-blue-mid);
   flex: 0 0 auto;
 }
 

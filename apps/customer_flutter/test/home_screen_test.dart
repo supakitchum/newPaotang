@@ -33,8 +33,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ซื้อสลากดิจิทัล'), findsWidgets);
-    expect(find.text('สแกนซื้อสลากฯ'), findsOneWidget);
+    expect(find.text('ซื้อสลากดิจิทัล'), findsNothing);
+    expect(find.text('สแกนซื้อสลากฯ'), findsNothing);
     expect(find.text('เริ่มซื้อสลากดิจิทัล'), findsOneWidget);
     expect(find.text('เข้าสู่ระบบ'), findsOneWidget);
     expect(find.text('สมัครใช้งาน'), findsOneWidget);
@@ -122,7 +122,7 @@ void main() {
     await _pumpHome(tester);
     await tester.pumpAndSettle();
 
-    expect(find.text('ซื้อสลากดิจิทัล'), findsWidgets);
+    expect(find.text('ซื้อสลากดิจิทัล'), findsNothing);
     expect(find.text('ค้นหาเลขเด็ด'), findsOneWidget);
     final searchButton = find.byKey(
       const ValueKey('home-lottery-search-button'),
@@ -208,6 +208,27 @@ void main() {
         drawAt: '2026-07-16T16:00:00+07:00',
         saleCloseAt: '2026-07-16T14:00:00+07:00',
         serverTime: '2026-07-15T12:20:00+07:00',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-draw-day-sale-notice')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    await _pumpHome(
+      tester,
+      currentGame: const CurrentGame(
+        id: 'closed-draw-day-game',
+        name: 'งวดวันที่ 16 ก.ค. 2569',
+        status: 'open',
+        drawAt: '2026-07-16T16:00:00+07:00',
+        saleCloseAt: '2026-07-16T14:00:00+07:00',
+        serverTime: '2026-07-16T14:00:01+07:00',
       ),
     );
     await tester.pumpAndSettle();
@@ -351,9 +372,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('home quick actions preserve Nuxt buy and store routes', (
-    tester,
-  ) async {
+  testWidgets('home lottery search field opens the buy route', (tester) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -367,10 +386,6 @@ void main() {
           path: '/buy',
           builder: (context, state) => _RouteEcho(uri: state.uri),
         ),
-        GoRoute(
-          path: '/stores',
-          builder: (context, state) => _RouteEcho(uri: state.uri),
-        ),
       ],
     );
     addTearDown(router.dispose);
@@ -378,23 +393,16 @@ void main() {
     await _pumpHomeRouter(tester, router);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('ซื้อสลากดิจิทัล').last);
+    expect(find.text('ซื้อสลากดิจิทัล'), findsNothing);
+    expect(find.text('สแกนซื้อสลากฯ'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('home-lottery-search-placeholder-1')),
+    );
     await tester.pumpAndSettle();
 
     expect(router.routerDelegate.currentConfiguration.uri.toString(), '/buy');
     expect(find.text('/buy'), findsOneWidget);
-
-    router.go('/');
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('สแกนซื้อสลากฯ'));
-    await tester.pumpAndSettle();
-
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/stores',
-    );
-    expect(find.text('/stores'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

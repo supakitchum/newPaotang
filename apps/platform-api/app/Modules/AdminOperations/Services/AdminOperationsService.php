@@ -1762,6 +1762,9 @@ class AdminOperationsService
         }
 
         $query = DB::table($table);
+        if ($table === 'affiliate_payouts' && Schema::hasColumn($table, 'payout_method')) {
+            $query->where('payout_method', '!=', 'order_payment');
+        }
         $gameId = $previous ? $window['previous_game_id'] : $window['game_id'];
         if ($gameColumn !== null && $gameId !== null && Schema::hasColumn($table, $gameColumn)) {
             $query->where($gameColumn, $gameId);
