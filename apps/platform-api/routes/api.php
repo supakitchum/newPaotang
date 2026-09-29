@@ -127,6 +127,8 @@ Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'lo
 Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
 Route::post('/customer/auth/line/native', [CustomerLineAuthController::class, 'native']);
 Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class, 'linkPhone']);
+Route::post('/customer/auth/apple/native', [CustomerSocialAuthController::class, 'nativeApple']);
+Route::post('/customer/auth/google/native', [CustomerSocialAuthController::class, 'nativeGoogle']);
 Route::post('/customer/auth/social/{provider}/login', [CustomerSocialAuthController::class, 'login']);
 Route::match(['get', 'post'], '/customer/auth/social/{provider}/callback', [CustomerSocialAuthController::class, 'callback']);
 Route::post('/customer/auth/social/{provider}/link-phone', [CustomerSocialAuthController::class, 'linkPhone']);

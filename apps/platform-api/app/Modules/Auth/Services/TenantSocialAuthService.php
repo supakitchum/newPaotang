@@ -272,6 +272,7 @@ class TenantSocialAuthService
     private function publicProviderResource(string $tenantId, string $provider): array
     {
         $resource = $this->providerResource($tenantId, $provider);
+        $connection = $provider === 'google' ? $this->activeProvider($tenantId, $provider) : null;
 
         return [
             'provider' => $resource['provider'],
@@ -281,6 +282,10 @@ class TenantSocialAuthService
             'brand_color' => $resource['brand_color'] ?? null,
             'button_background_color' => $resource['button_background_color'] ?? null,
             'button_foreground_color' => $resource['button_foreground_color'] ?? null,
+            // OAuth client IDs are public. The client secret remains server-only.
+            'native_client_id' => $connection instanceof TenantSocialAuthProvider
+                ? $this->decrypted($connection, 'client_id_encrypted')
+                : null,
         ];
     }
 

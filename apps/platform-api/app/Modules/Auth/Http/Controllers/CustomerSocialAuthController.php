@@ -83,6 +83,42 @@ class CustomerSocialAuthController extends Controller
         return $this->result($request, $result, $provider);
     }
 
+    public function nativeApple(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        $currentCustomer = $this->optionalCustomerContext($request, (string) $tenant['tenant_id']);
+        $result = $this->socialAuth->nativeApple(
+            $tenant,
+            $request->all(),
+            $currentCustomer,
+        );
+
+        return $this->result($request, $result, 'apple');
+    }
+
+    public function nativeGoogle(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        $currentCustomer = $this->optionalCustomerContext($request, (string) $tenant['tenant_id']);
+        $result = $this->socialAuth->nativeGoogle(
+            $tenant,
+            $request->all(),
+            $currentCustomer,
+        );
+
+        return $this->result($request, $result, 'google');
+    }
+
     public function linkPhone(Request $request, string $provider): JsonResponse
     {
         $tenant = $this->tenantContext($request);

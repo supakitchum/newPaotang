@@ -8,6 +8,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/auth/customer_passkey_repository.dart';
+import '../../../core/auth/native_google_auth_service.dart';
 import '../../../core/auth/native_line_auth_service.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -298,6 +299,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final socialLinkMissing = context.l10n.socialLoginLinkMissing;
     final socialFailed = context.l10n.socialLoginFailed;
     try {
+      if (normalizedProvider == 'google') {
+        final nativeResult = await ref
+            .read(nativeGoogleAuthServiceProvider)
+            .authenticate(redirect: _currentRedirect());
+        if (!mounted) return;
+        if (nativeResult != null) {
+          final completed = await completeSocialAuthentication(
+            context: context,
+            ref: ref,
+            result: nativeResult,
+            fallbackRedirect: _currentRedirect(),
+          );
+          if (!mounted || completed) return;
+          _showFormError(
+            nativeResult.message.isEmpty ? socialFailed : nativeResult.message,
+          );
+          return;
+        }
+      }
+
       if (normalizedProvider == 'line') {
         final nativeResult = await ref
             .read(nativeLineAuthServiceProvider)
@@ -332,6 +353,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!opened) {
         _showFormError(socialFailed);
       }
+    } on NativeGoogleLoginCancelled {
+      return;
     } on NativeLineLoginCancelled {
       return;
     } catch (error) {

@@ -10,6 +10,7 @@ use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Modules\Partner\Services\PartnerProvisioningService;
 use App\Modules\Tenancy\Services\TenantConfigurationService;
 use App\Shared\Auth\CustomerSessionContext;
+use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -97,6 +98,169 @@ class CustomerSocialAuthServiceTest extends TestCase
         $this->assertSame('Google Customer', $payload['profile']['display_name'] ?? null);
         $this->assertSame('google@example.test', $payload['profile']['email'] ?? null);
         $this->assertNotEmpty($payload['link_token'] ?? null);
+    }
+
+    public function test_native_google_login_verifies_signed_id_token(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        $credential = $this->signedAppleToken([
+            'sub' => 'google-native-user-1',
+            'iss' => 'https://accounts.google.com',
+            'aud' => 'google-client-id',
+            'iat' => time(),
+            'exp' => time() + 600,
+            'name' => 'Google Native Customer',
+            'email' => 'native-google@example.test',
+        ]);
+        Http::fake([
+            'https://www.googleapis.com/oauth2/v3/certs' => Http::response($credential['keys']),
+        ]);
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/google/native', [
+            'identity_token' => $credential['token'],
+            'purpose' => 'login',
+            'redirect' => '/tickets',
+        ])->assertOk()
+            ->assertJsonPath('provider', 'google')
+            ->assertJsonPath('social_link_required', true)
+            ->assertJsonPath('profile.display_name', 'Google Native Customer')
+            ->assertJsonPath('profile.email', 'native-google@example.test')
+            ->assertJsonPath('redirect', '/tickets');
+    }
+
+    public function test_native_google_rejects_id_token_for_another_client(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        $credential = $this->signedAppleToken([
+            'sub' => 'google-native-user-2',
+            'iss' => 'https://accounts.google.com',
+            'aud' => 'another-app-client-id',
+            'iat' => time(),
+            'exp' => time() + 600,
+        ]);
+        Http::fake([
+            'https://www.googleapis.com/oauth2/v3/certs' => Http::response($credential['keys']),
+        ]);
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/google/native', [
+            'identity_token' => $credential['token'],
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'provider_exchange_failed');
+
+        $this->assertDatabaseMissing('customer_line_link_tokens', [
+            'tenant_id' => 'ten_social',
+            'line_user_id' => 'google:google-native-user-2',
+        ]);
+    }
+
+    public function test_native_google_login_returns_session_for_linked_customer(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        DB::table('customers')->insert([
+            'id' => 'cus_native_google_existing',
+            'tenant_id' => 'ten_social',
+            'phone' => '0899999997',
+            'name' => 'Existing Google Customer',
+            'pin_hash' => Hash::make('123456'),
+            'pin_set_at' => now(),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('customer_social_identities')->insert([
+            'id' => 'csi_native_google_existing',
+            'tenant_id' => 'ten_social',
+            'customer_id' => 'cus_native_google_existing',
+            'provider' => 'google',
+            'provider_user_id' => 'google-native-existing-user',
+            'email' => 'existing-native@example.test',
+            'linked_at' => now(),
+            'last_login_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $credential = $this->signedAppleToken([
+            'sub' => 'google-native-existing-user',
+            'iss' => 'https://accounts.google.com',
+            'aud' => 'google-client-id',
+            'iat' => time(),
+            'exp' => time() + 600,
+            'email' => 'existing-native@example.test',
+        ]);
+        Http::fake([
+            'https://www.googleapis.com/oauth2/v3/certs' => Http::response($credential['keys']),
+        ]);
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/google/native', [
+            'identity_token' => $credential['token'],
+            'purpose' => 'login',
+        ])->assertOk()
+            ->assertJsonPath('user.id', 'cus_native_google_existing')
+            ->assertJsonStructure(['token', 'refresh_token']);
+    }
+
+    public function test_native_google_link_requires_verified_pin_and_links_current_customer(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedProvider('google');
+        DB::table('customers')->insert([
+            'id' => 'cus_native_google_link',
+            'tenant_id' => 'ten_social',
+            'phone' => '0899999998',
+            'name' => 'Phone Customer',
+            'pin_hash' => Hash::make('123456'),
+            'pin_set_at' => now(),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $credential = $this->signedAppleToken([
+            'sub' => 'google-native-linked-user',
+            'iss' => 'https://accounts.google.com',
+            'aud' => 'google-client-id',
+            'iat' => time(),
+            'exp' => time() + 600,
+            'email' => 'linked-native@example.test',
+        ]);
+        Http::fake([
+            'https://www.googleapis.com/oauth2/v3/certs' => Http::response($credential['keys']),
+        ]);
+        $url = 'http://social-store.test/api/v1/customer/auth/google/native';
+        $payload = [
+            'identity_token' => $credential['token'],
+            'purpose' => 'link',
+            'redirect' => '/profile/social-accounts',
+        ];
+
+        $lockedSession = app(CustomerAuthService::class)->issueSession('ten_social', 'cus_native_google_link');
+        $this->withHeaders(['Authorization' => 'Bearer '.$lockedSession['token']])
+            ->postJson($url, $payload)
+            ->assertJsonPath('error.code', 'pin_required');
+        $this->assertDatabaseMissing('customer_social_identities', [
+            'tenant_id' => 'ten_social',
+            'provider_user_id' => 'google-native-linked-user',
+        ]);
+
+        $verifiedSession = app(CustomerAuthService::class)->issueSession(
+            'ten_social',
+            'cus_native_google_link',
+            pinVerifiedAt: now()->toISOString(),
+        );
+        $this->withHeaders(['Authorization' => 'Bearer '.$verifiedSession['token']])
+            ->postJson($url, $payload)
+            ->assertOk()
+            ->assertJsonPath('social_linked', true)
+            ->assertJsonPath('provider', 'google')
+            ->assertJsonStructure(['token', 'refresh_token']);
+        $this->assertDatabaseHas('customer_social_identities', [
+            'tenant_id' => 'ten_social',
+            'customer_id' => 'cus_native_google_link',
+            'provider' => 'google',
+            'provider_user_id' => 'google-native-linked-user',
+        ]);
     }
 
     public function test_social_onboarding_rejects_invalid_otp_without_creating_customer(): void
@@ -317,29 +481,22 @@ class CustomerSocialAuthServiceTest extends TestCase
     {
         $this->seedTenant('social-store.test');
         $this->seedProvider('apple');
-        $privateKey = openssl_pkey_new([
-            'private_key_type' => OPENSSL_KEYTYPE_EC,
-            'curve_name' => 'prime256v1',
+        $this->seedAppleClientSecretKey();
+        $appleToken = $this->signedAppleToken([
+            'sub' => 'apple-user-1',
+            'iss' => 'https://appleid.apple.com',
+            'aud' => 'apple-client-id',
+            'iat' => time(),
+            'exp' => time() + 600,
+            'email' => 'apple@example.test',
         ]);
-        $this->assertNotFalse($privateKey);
-        $exported = openssl_pkey_export($privateKey, $privateKeyPem);
-        $this->assertTrue($exported);
-        DB::table('tenant_social_auth_providers')
-            ->where('tenant_id', 'ten_social')
-            ->where('provider', 'apple')
-            ->update(['private_key_encrypted' => Crypt::encryptString($privateKeyPem)]);
         Http::fake([
             'https://appleid.apple.com/auth/token' => Http::response([
                 'access_token' => 'apple-access-token',
                 'token_type' => 'Bearer',
-                'id_token' => $this->testJwt([
-                    'sub' => 'apple-user-1',
-                    'iss' => 'https://appleid.apple.com',
-                    'aud' => 'apple-client-id',
-                    'exp' => time() + 600,
-                    'email' => 'apple@example.test',
-                ]),
+                'id_token' => $appleToken['token'],
             ]),
+            'https://appleid.apple.com/auth/keys' => Http::response($appleToken['keys']),
         ]);
 
         $login = $this->loginResponse('apple', 'social-store.test');
@@ -359,6 +516,70 @@ class CustomerSocialAuthServiceTest extends TestCase
             && $request['client_id'] === 'apple-client-id'
             && $request['code'] === 'apple-code'
             && count(explode('.', (string) $request['client_secret'])) === 3);
+    }
+
+    public function test_native_apple_login_verifies_signed_identity_token_without_tenant_secret(): void
+    {
+        $this->seedTenant('social-store.test');
+        config(['platform.social_auth.apple.native_client_id' => 'com.siamblend']);
+        $rawNonce = 'native-apple-raw-nonce';
+        $credentialToken = $this->signedAppleToken([
+            'sub' => 'apple-native-user-1',
+            'iss' => 'https://appleid.apple.com',
+            'aud' => 'com.siamblend',
+            'iat' => time(),
+            'exp' => time() + 600,
+            'nonce' => hash('sha256', $rawNonce),
+            'email' => 'native-apple@example.test',
+        ]);
+        Http::fake([
+            'https://appleid.apple.com/auth/keys' => Http::response($credentialToken['keys']),
+        ]);
+
+        $response = $this->postJson('http://social-store.test/api/v1/customer/auth/apple/native', [
+            'authorization_code' => 'apple-native-code',
+            'identity_token' => $credentialToken['token'],
+            'nonce' => $rawNonce,
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'purpose' => 'login',
+            'redirect' => '/tickets',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('provider', 'apple')
+            ->assertJsonPath('social_link_required', true)
+            ->assertJsonPath('profile.display_name', 'Ada Lovelace')
+            ->assertJsonPath('profile.email', 'native-apple@example.test')
+            ->assertJsonPath('redirect', '/tickets');
+        Http::assertNotSent(fn ($request): bool => $request->url() === 'https://appleid.apple.com/auth/token');
+    }
+
+    public function test_native_apple_login_rejects_nonce_mismatch_before_code_exchange(): void
+    {
+        $this->seedTenant('social-store.test');
+        config(['platform.social_auth.apple.native_client_id' => 'com.siamblend']);
+        $credentialToken = $this->signedAppleToken([
+            'sub' => 'apple-native-user-2',
+            'iss' => 'https://appleid.apple.com',
+            'aud' => 'com.siamblend',
+            'iat' => time(),
+            'exp' => time() + 600,
+            'nonce' => hash('sha256', 'expected-raw-nonce'),
+        ]);
+        Http::fake([
+            'https://appleid.apple.com/auth/keys' => Http::response($credentialToken['keys']),
+            'https://appleid.apple.com/auth/token' => Http::response([], 500),
+        ]);
+
+        $this->postJson('http://social-store.test/api/v1/customer/auth/apple/native', [
+            'authorization_code' => 'must-not-be-exchanged',
+            'identity_token' => $credentialToken['token'],
+            'nonce' => 'wrong-raw-nonce',
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'provider_exchange_failed');
+
+        Http::assertNotSent(fn ($request): bool => $request->url() === 'https://appleid.apple.com/auth/token');
     }
 
     public function test_facebook_login_and_callback_exchange_use_tenant_credentials(): void
@@ -431,6 +652,8 @@ class CustomerSocialAuthServiceTest extends TestCase
             ->json('data.mobile');
 
         $this->assertSame(['google', 'facebook'], array_column($response['auth_providers'] ?? [], 'provider'));
+        $this->assertSame('google-client-id', $response['auth_providers'][0]['native_client_id'] ?? null);
+        $this->assertArrayNotHasKey('client_secret', $response['auth_providers'][0]);
         $this->assertTrue((bool) ($response['feature_flags']['social_login_google'] ?? false));
         $this->assertFalse((bool) ($response['feature_flags']['social_login_apple'] ?? true));
         $this->assertTrue((bool) ($response['feature_flags']['social_login_facebook'] ?? false));
@@ -814,16 +1037,58 @@ class CustomerSocialAuthServiceTest extends TestCase
         return app(CustomerSocialAuthController::class)->callback($request, $provider);
     }
 
+    private function seedAppleClientSecretKey(): void
+    {
+        $privateKey = openssl_pkey_new([
+            'private_key_type' => OPENSSL_KEYTYPE_EC,
+            'curve_name' => 'prime256v1',
+        ]);
+        $this->assertNotFalse($privateKey);
+        $this->assertTrue(openssl_pkey_export($privateKey, $privateKeyPem));
+        DB::table('tenant_social_auth_providers')
+            ->where('tenant_id', 'ten_social')
+            ->where('provider', 'apple')
+            ->update(['private_key_encrypted' => Crypt::encryptString($privateKeyPem)]);
+    }
+
     /**
      * @param array<string, mixed> $claims
+     * @param array<string, mixed>|null $keys
+     * @return array{token: string, keys: array<string, mixed>, private_key: \OpenSSLAsymmetricKey}
      */
-    private function testJwt(array $claims): string
-    {
-        $encode = static fn (array $value): string => rtrim(strtr(base64_encode(
-            json_encode($value, JSON_THROW_ON_ERROR),
-        ), '+/', '-_'), '=');
+    private function signedAppleToken(
+        array $claims,
+        ?\OpenSSLAsymmetricKey $privateKey = null,
+        ?array $keys = null,
+    ): array {
+        if (! $privateKey instanceof \OpenSSLAsymmetricKey) {
+            $privateKey = openssl_pkey_new([
+                'private_key_type' => OPENSSL_KEYTYPE_RSA,
+                'private_key_bits' => 2048,
+            ]);
+            $this->assertNotFalse($privateKey);
+        }
 
-        return $encode(['alg' => 'none']).'.'.$encode($claims).'.test-signature';
+        $details = openssl_pkey_get_details($privateKey);
+        $this->assertIsArray($details);
+        $this->assertIsArray($details['rsa'] ?? null);
+        $encode = static fn (string $value): string => rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+        $keys ??= [
+            'keys' => [[
+                'kty' => 'RSA',
+                'kid' => 'apple-test-key',
+                'use' => 'sig',
+                'alg' => 'RS256',
+                'n' => $encode((string) $details['rsa']['n']),
+                'e' => $encode((string) $details['rsa']['e']),
+            ]],
+        ];
+
+        return [
+            'token' => JWT::encode($claims, $privateKey, 'RS256', 'apple-test-key'),
+            'keys' => $keys,
+            'private_key' => $privateKey,
+        ];
     }
 
     private function seedTenant(string $host): void

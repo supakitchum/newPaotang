@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/auth/customer_social_account_repository.dart';
+import '../../../core/auth/native_google_auth_service.dart';
 import '../../../core/auth/native_line_auth_service.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -109,6 +110,32 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
     if (_busyProvider.isNotEmpty) return;
     setState(() => _busyProvider = provider);
     try {
+      if (normalizeSocialAuthProvider(provider) == 'google') {
+        final nativeResult = await ref
+            .read(nativeGoogleAuthServiceProvider)
+            .authenticate(
+              purpose: 'link',
+              redirect: '/profile/social-accounts',
+              auth: true,
+            );
+        if (!mounted) return;
+        if (nativeResult != null) {
+          ref.invalidate(customerSocialAccountsProvider);
+          final completed = await completeSocialAuthentication(
+            context: context,
+            ref: ref,
+            result: nativeResult,
+            fallbackRedirect: '/profile/social-accounts',
+          );
+          if (!mounted || completed) return;
+          throw StateError(
+            nativeResult.message.isEmpty
+                ? 'Google account could not be connected.'
+                : nativeResult.message,
+          );
+        }
+      }
+
       if (normalizeSocialAuthProvider(provider) == 'line') {
         final nativeResult = await ref
             .read(nativeLineAuthServiceProvider)
@@ -150,6 +177,8 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
           .read(customerLinkLauncherProvider)
           .openSocialLogin(provider, uri!);
       if (!opened) throw StateError('Social login could not be opened.');
+    } on NativeGoogleLoginCancelled {
+      return;
     } on NativeLineLoginCancelled {
       return;
     } catch (error) {

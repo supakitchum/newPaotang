@@ -88,11 +88,14 @@ return [
             'authorize_url' => env('GOOGLE_OAUTH_AUTHORIZE_URL', 'https://accounts.google.com/o/oauth2/v2/auth'),
             'token_url' => env('GOOGLE_OAUTH_TOKEN_URL', 'https://oauth2.googleapis.com/token'),
             'userinfo_url' => env('GOOGLE_OAUTH_USERINFO_URL', 'https://openidconnect.googleapis.com/v1/userinfo'),
+            'keys_url' => env('GOOGLE_OAUTH_KEYS_URL', 'https://www.googleapis.com/oauth2/v3/certs'),
         ],
         'apple' => [
             'authorize_url' => env('APPLE_OAUTH_AUTHORIZE_URL', 'https://appleid.apple.com/auth/authorize'),
             'token_url' => env('APPLE_OAUTH_TOKEN_URL', 'https://appleid.apple.com/auth/token'),
+            'keys_url' => env('APPLE_OAUTH_KEYS_URL', 'https://appleid.apple.com/auth/keys'),
             'issuer' => env('APPLE_OAUTH_ISSUER', 'https://appleid.apple.com'),
+            'native_client_id' => env('APPLE_NATIVE_CLIENT_ID', 'com.siamblend'),
         ],
         'facebook' => [
             'authorize_url' => env('FACEBOOK_OAUTH_AUTHORIZE_URL', 'https://www.facebook.com/v25.0/dialog/oauth'),

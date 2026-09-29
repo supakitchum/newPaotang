@@ -10,11 +10,14 @@ use App\Models\TenantSocialAuthProvider;
 use App\Modules\SmsOtp\Services\SmsOtpService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
+use Firebase\JWT\JWK;
+use Firebase\JWT\JWT;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Throwable;
 
 class CustomerSocialAuthService
 {
@@ -150,21 +153,30 @@ class CustomerSocialAuthService
             ];
         }
 
-        $providerProfile = $profile['data'] ?? [];
-        $providerUserId = trim((string) ($providerProfile['id'] ?? ''));
+        return $this->completeAuthentication(
+            $tenant,
+            $provider,
+            $profile['data'] ?? [],
+            $purpose,
+            $redirectPath,
+            $currentCustomer,
+            $purpose === 'link' ? trim((string) ($metadata['link_customer_id'] ?? '')) : null,
+        );
+    }
 
-        if ($providerUserId === '') {
-            return [
-                'error' => 'provider_exchange_failed',
-                'details' => ['reason' => 'Provider profile did not include an id.'],
-            ];
-        }
-
+    /**
+     * @param array<string, mixed> $tenant
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
+     */
+    public function nativeApple(
+        array $tenant,
+        array $payload,
+        ?CustomerSessionContext $currentCustomer = null,
+    ): array {
+        $purpose = $this->purpose($payload['purpose'] ?? null);
         if ($purpose === 'link') {
-            $expectedCustomerId = trim((string) ($metadata['link_customer_id'] ?? ''));
-            if (! $currentCustomer instanceof CustomerSessionContext
-                || $expectedCustomerId === ''
-                || ! hash_equals($expectedCustomerId, $currentCustomer->customerId())) {
+            if (! $currentCustomer instanceof CustomerSessionContext) {
                 return ['error' => 'authentication_required'];
             }
             if (! $currentCustomer->hasPin()) {
@@ -173,74 +185,107 @@ class CustomerSocialAuthService
             if (! $currentCustomer->pinVerified()) {
                 return ['error' => 'pin_required'];
             }
-
-            return $this->linkCurrentCustomer($tenant, $currentCustomer, $provider, $providerProfile, $redirectPath);
         }
 
-        if ($currentCustomer instanceof CustomerSessionContext) {
-            return $this->linkCurrentCustomer($tenant, $currentCustomer, $provider, $providerProfile, $redirectPath);
+        $authorizationCode = trim((string) ($payload['authorization_code'] ?? ''));
+        $identityToken = trim((string) ($payload['identity_token'] ?? ''));
+        $nonce = trim((string) ($payload['nonce'] ?? ''));
+        $errors = [];
+
+        if ($authorizationCode === '') {
+            $errors['authorization_code'][] = 'The authorization_code field is required.';
+        }
+        if ($identityToken === '') {
+            $errors['identity_token'][] = 'The identity_token field is required.';
+        }
+        if ($nonce === '') {
+            $errors['nonce'][] = 'The nonce field is required.';
+        }
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'details' => ['fields' => $errors]];
         }
 
-        $identity = CustomerSocialIdentity::query()
-            ->where('tenant_id', $tenant['tenant_id'])
-            ->where('provider', $provider)
-            ->where('provider_user_id', $providerUserId)
-            ->whereNull('revoked_at')
-            ->first();
-
-        if ($identity instanceof CustomerSocialIdentity) {
-            $customer = Customer::query()
-                ->where('tenant_id', $tenant['tenant_id'])
-                ->where('id', $identity->customer_id)
-                ->first();
-
-            if (! $customer instanceof Customer || (string) $customer->status !== 'active') {
-                return ['error' => 'authentication_required'];
-            }
-
-            if ($this->customerSuspensions->isSuspended($customer)) {
-                return [
-                    'error' => 'customer_suspended',
-                    'details' => $this->customerSuspensions->payload($customer),
-                ];
-            }
-
-            $this->upsertIdentity((string) $tenant['tenant_id'], (string) $customer->id, $provider, $providerProfile);
-            Customer::query()->where('id', $customer->id)->update(['last_login_at' => now(), 'updated_at' => now()]);
-            $this->customerAuth->ensurePrimaryWallet((string) $tenant['tenant_id'], (string) $customer->id);
-
+        $profile = $this->appleNativeProfile(
+            $identityToken,
+            $nonce,
+            $payload,
+        );
+        if (($profile['ok'] ?? false) !== true) {
             return [
-                'resource' => array_merge(
-                    $this->customerAuth->issueSession(
-                        (string) $tenant['tenant_id'],
-                        (string) $customer->id,
-                        activationRequired: true,
-                    ),
-                    ['redirect' => $redirectPath],
-                ),
-                'status' => 200,
+                'error' => 'provider_exchange_failed',
+                'details' => ['reason' => $profile['message'] ?? 'Apple credential exchange failed.'],
             ];
         }
 
-        $linkToken = $this->createLinkToken((string) $tenant['tenant_id'], $provider, $providerProfile);
+        return $this->completeAuthentication(
+            $tenant,
+            'apple',
+            $profile['data'] ?? [],
+            $purpose,
+            $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null),
+            $currentCustomer,
+            $purpose === 'link' ? $currentCustomer?->customerId() : null,
+        );
+    }
 
-        return [
-            'resource' => [
-                'social_link_required' => true,
-                'social_onboarding_required' => true,
-                'phone_verification_required' => true,
-                'member_profile_required' => true,
-                'provider' => $provider,
-                'link_token' => $linkToken,
-                'redirect' => $redirectPath,
-                'profile' => [
-                    'display_name' => $providerProfile['display_name'] ?? null,
-                    'picture_url' => $providerProfile['avatar_url'] ?? null,
-                    'email' => $providerProfile['email'] ?? null,
-                ],
+    /**
+     * @param array<string, mixed> $tenant
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
+     */
+    public function nativeGoogle(
+        array $tenant,
+        array $payload,
+        ?CustomerSessionContext $currentCustomer = null,
+    ): array {
+        $connection = $this->providers->activeProvider((string) $tenant['tenant_id'], 'google');
+        if (! $connection instanceof TenantSocialAuthProvider) {
+            return ['error' => 'provider_not_configured'];
+        }
+
+        $purpose = $this->purpose($payload['purpose'] ?? null);
+        if ($purpose === 'link') {
+            if (! $currentCustomer instanceof CustomerSessionContext) {
+                return ['error' => 'authentication_required'];
+            }
+            if (! $currentCustomer->hasPin()) {
+                return ['error' => 'pin_setup_required'];
+            }
+            if (! $currentCustomer->pinVerified()) {
+                return ['error' => 'pin_required'];
+            }
+        }
+
+        $identityToken = trim((string) ($payload['identity_token'] ?? ''));
+        if ($identityToken === '') {
+            return ['error' => 'validation_failed', 'details' => ['fields' => [
+                'identity_token' => ['The identity_token field is required.'],
+            ]]];
+        }
+
+        $clientId = $this->providers->decrypted($connection, 'client_id_encrypted');
+        $verification = $this->verifiedGoogleClaims($identityToken, $clientId);
+        if (($verification['ok'] ?? false) !== true) {
+            return ['error' => 'provider_exchange_failed', 'details' => [
+                'reason' => $verification['message'] ?? 'Google identity token is invalid.',
+            ]];
+        }
+
+        $claims = $verification['data'] ?? [];
+        return $this->completeAuthentication(
+            $tenant,
+            'google',
+            [
+                'id' => (string) ($claims['sub'] ?? ''),
+                'email' => $claims['email'] ?? null,
+                'display_name' => $claims['name'] ?? null,
+                'avatar_url' => $claims['picture'] ?? null,
             ],
-            'status' => 200,
-        ];
+            $purpose,
+            $this->redirectPath($payload['redirect'] ?? $payload['redirect_path'] ?? null),
+            $currentCustomer,
+            $purpose === 'link' ? $currentCustomer?->customerId() : null,
+        );
     }
 
     /**
@@ -542,7 +587,8 @@ class CustomerSocialAuthService
      */
     private function appleProfile(TenantSocialAuthProvider $connection, string $code, string $redirectUri, array $query): array
     {
-        $clientSecret = $this->appleClientSecret($connection);
+        $clientId = $this->providers->decrypted($connection, 'client_id_encrypted');
+        $clientSecret = $this->appleClientSecret($connection, $clientId);
 
         if ($clientSecret === '') {
             return ['ok' => false, 'message' => 'Apple client secret could not be generated.'];
@@ -552,7 +598,7 @@ class CustomerSocialAuthService
             'apple.token_url',
             'https://appleid.apple.com/auth/token',
         ), [
-            'client_id' => $this->providers->decrypted($connection, 'client_id_encrypted'),
+            'client_id' => $clientId,
             'client_secret' => $clientSecret,
             'code' => $code,
             'grant_type' => 'authorization_code',
@@ -563,22 +609,14 @@ class CustomerSocialAuthService
             return ['ok' => false, 'message' => $token->body()];
         }
 
-        $claims = $this->decodeJwtPayload((string) ($token->json('id_token') ?? ''));
-        $clientId = $this->providers->decrypted($connection, 'client_id_encrypted');
-        $issuer = $this->socialEndpoint('apple.issuer', 'https://appleid.apple.com');
-        $audience = $claims['aud'] ?? null;
-        $validAudience = is_array($audience)
-            ? in_array($clientId, $audience, true)
-            : hash_equals($clientId, (string) $audience);
-
-        if (
-            trim((string) ($claims['sub'] ?? '')) === ''
-            || ! hash_equals($issuer, (string) ($claims['iss'] ?? ''))
-            || ! $validAudience
-            || (int) ($claims['exp'] ?? 0) <= time()
-        ) {
-            return ['ok' => false, 'message' => 'Apple returned an invalid identity token.'];
+        $verification = $this->verifiedAppleClaims(
+            (string) ($token->json('id_token') ?? ''),
+            $clientId,
+        );
+        if (($verification['ok'] ?? false) !== true) {
+            return ['ok' => false, 'message' => $verification['message'] ?? 'Apple returned an invalid identity token.'];
         }
+        $claims = $verification['data'] ?? [];
 
         $user = is_string($query['user'] ?? null) ? json_decode((string) $query['user'], true) : [];
         $name = is_array($user) ? trim(implode(' ', array_filter([
@@ -592,6 +630,54 @@ class CustomerSocialAuthService
                 'id' => (string) ($claims['sub'] ?? ''),
                 'email' => $claims['email'] ?? null,
                 'display_name' => $name ?: null,
+                'avatar_url' => null,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{ok: bool, data?: array<string, mixed>, message?: string}
+     */
+    private function appleNativeProfile(
+        string $identityToken,
+        string $rawNonce,
+        array $payload,
+    ): array {
+        $clientId = trim((string) config('platform.social_auth.apple.native_client_id', 'com.siamblend'));
+        if ($clientId === '') {
+            return ['ok' => false, 'message' => 'Apple native client id is not configured.'];
+        }
+
+        $keys = $this->applePublicKeys();
+        if (($keys['ok'] ?? false) !== true) {
+            return ['ok' => false, 'message' => $keys['message'] ?? 'Apple public keys are unavailable.'];
+        }
+
+        $credentialClaims = $this->verifiedAppleClaims(
+            $identityToken,
+            $clientId,
+            $rawNonce,
+            $keys['data'] ?? [],
+        );
+        if (($credentialClaims['ok'] ?? false) !== true) {
+            return ['ok' => false, 'message' => $credentialClaims['message'] ?? 'Apple returned an invalid identity token.'];
+        }
+
+        $credential = $credentialClaims['data'] ?? [];
+        $credentialSubject = trim((string) ($credential['sub'] ?? ''));
+
+        $name = trim(implode(' ', array_filter([
+            trim((string) ($payload['first_name'] ?? '')),
+            trim((string) ($payload['last_name'] ?? '')),
+        ])));
+
+        return [
+            'ok' => true,
+            'data' => [
+                'id' => $credentialSubject,
+                'email' => $credential['email'] ?? null,
+                'display_name' => $name !== '' ? Str::limit($name, 160, '') : null,
                 'avatar_url' => null,
             ],
         ];
@@ -648,11 +734,10 @@ class CustomerSocialAuthService
         ];
     }
 
-    private function appleClientSecret(TenantSocialAuthProvider $connection): string
+    private function appleClientSecret(TenantSocialAuthProvider $connection, string $clientId): string
     {
         $teamId = $this->providers->decrypted($connection, 'team_id_encrypted');
         $keyId = $this->providers->decrypted($connection, 'key_id_encrypted');
-        $clientId = $this->providers->decrypted($connection, 'client_id_encrypted');
         $privateKey = $this->providers->decrypted($connection, 'private_key_encrypted');
 
         if ($teamId === '' || $keyId === '' || $clientId === '' || $privateKey === '') {
@@ -675,6 +760,224 @@ class CustomerSocialAuthService
         }
 
         return $body.'.'.$this->base64Url($this->ecdsaDerToJose($signature, 64));
+    }
+
+    /**
+     * @return array{ok: bool, data?: array<string, mixed>, message?: string}
+     */
+    private function applePublicKeys(): array
+    {
+        $response = Http::timeout($this->requestTimeoutSeconds())->get($this->socialEndpoint(
+            'apple.keys_url',
+            'https://appleid.apple.com/auth/keys',
+        ));
+        $keys = $response->json();
+
+        if (! $response->successful() || ! is_array($keys) || ! is_array($keys['keys'] ?? null)) {
+            return ['ok' => false, 'message' => 'Apple public keys could not be loaded.'];
+        }
+
+        return ['ok' => true, 'data' => $keys];
+    }
+
+    /**
+     * @return array{ok: bool, data?: array<string, mixed>, message?: string}
+     */
+    private function verifiedGoogleClaims(string $identityToken, string $clientId): array
+    {
+        if ($identityToken === '' || $clientId === '') {
+            return ['ok' => false, 'message' => 'Google identity token is missing.'];
+        }
+
+        $response = Http::timeout($this->requestTimeoutSeconds())->get($this->socialEndpoint(
+            'google.keys_url',
+            'https://www.googleapis.com/oauth2/v3/certs',
+        ));
+        $keys = $response->json();
+        if (! $response->successful() || ! is_array($keys) || ! is_array($keys['keys'] ?? null)) {
+            return ['ok' => false, 'message' => 'Google public keys could not be loaded.'];
+        }
+
+        try {
+            $claims = (array) JWT::decode($identityToken, JWK::parseKeySet($keys, 'RS256'));
+        } catch (Throwable) {
+            return ['ok' => false, 'message' => 'Google identity token signature is invalid.'];
+        }
+
+        $audience = $claims['aud'] ?? null;
+        $validAudience = is_string($audience) && hash_equals($clientId, $audience);
+        $issuer = (string) ($claims['iss'] ?? '');
+        $subject = trim((string) ($claims['sub'] ?? ''));
+        if (
+            $subject === ''
+            || ! in_array($issuer, ['https://accounts.google.com', 'accounts.google.com'], true)
+            || ! $validAudience
+            || (int) ($claims['exp'] ?? 0) <= time()
+        ) {
+            return ['ok' => false, 'message' => 'Google identity token claims are invalid.'];
+        }
+
+        return ['ok' => true, 'data' => $claims];
+    }
+
+    /**
+     * @param array<string, mixed>|null $keys
+     * @return array{ok: bool, data?: array<string, mixed>, message?: string}
+     */
+    private function verifiedAppleClaims(
+        string $identityToken,
+        string $clientId,
+        ?string $rawNonce = null,
+        ?array $keys = null,
+    ): array {
+        if ($identityToken === '' || $clientId === '') {
+            return ['ok' => false, 'message' => 'Apple identity token is missing.'];
+        }
+
+        if ($keys === null) {
+            $loaded = $this->applePublicKeys();
+            if (($loaded['ok'] ?? false) !== true) {
+                return $loaded;
+            }
+            $keys = $loaded['data'] ?? [];
+        }
+
+        try {
+            $claims = (array) JWT::decode($identityToken, JWK::parseKeySet($keys));
+        } catch (Throwable) {
+            return ['ok' => false, 'message' => 'Apple identity token signature is invalid.'];
+        }
+
+        $issuer = $this->socialEndpoint('apple.issuer', 'https://appleid.apple.com');
+        $audience = $claims['aud'] ?? null;
+        $validAudience = is_array($audience)
+            ? in_array($clientId, $audience, true)
+            : hash_equals($clientId, (string) $audience);
+        $subject = trim((string) ($claims['sub'] ?? ''));
+
+        if (
+            $subject === ''
+            || ! hash_equals($issuer, (string) ($claims['iss'] ?? ''))
+            || ! $validAudience
+            || (int) ($claims['exp'] ?? 0) <= time()
+        ) {
+            return ['ok' => false, 'message' => 'Apple identity token claims are invalid.'];
+        }
+
+        if ($rawNonce !== null) {
+            $expectedNonce = hash('sha256', $rawNonce);
+            $tokenNonce = trim((string) ($claims['nonce'] ?? ''));
+            if ($tokenNonce === '' || ! hash_equals($expectedNonce, $tokenNonce)) {
+                return ['ok' => false, 'message' => 'Apple identity token nonce is invalid.'];
+            }
+        }
+
+        return ['ok' => true, 'data' => $claims];
+    }
+
+    /**
+     * @param array<string, mixed> $tenant
+     * @param array<string, mixed> $providerProfile
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
+     */
+    private function completeAuthentication(
+        array $tenant,
+        string $provider,
+        array $providerProfile,
+        string $purpose,
+        string $redirectPath,
+        ?CustomerSessionContext $currentCustomer,
+        ?string $expectedLinkCustomerId = null,
+    ): array {
+        $providerUserId = trim((string) ($providerProfile['id'] ?? ''));
+        if ($providerUserId === '') {
+            return [
+                'error' => 'provider_exchange_failed',
+                'details' => ['reason' => 'Provider profile did not include an id.'],
+            ];
+        }
+
+        if ($purpose === 'link') {
+            $expectedCustomerId = trim((string) $expectedLinkCustomerId);
+            if (! $currentCustomer instanceof CustomerSessionContext
+                || $expectedCustomerId === ''
+                || ! hash_equals($expectedCustomerId, $currentCustomer->customerId())) {
+                return ['error' => 'authentication_required'];
+            }
+            if (! $currentCustomer->hasPin()) {
+                return ['error' => 'pin_setup_required'];
+            }
+            if (! $currentCustomer->pinVerified()) {
+                return ['error' => 'pin_required'];
+            }
+
+            return $this->linkCurrentCustomer($tenant, $currentCustomer, $provider, $providerProfile, $redirectPath);
+        }
+
+        if ($currentCustomer instanceof CustomerSessionContext) {
+            return $this->linkCurrentCustomer($tenant, $currentCustomer, $provider, $providerProfile, $redirectPath);
+        }
+
+        $identity = CustomerSocialIdentity::query()
+            ->where('tenant_id', $tenant['tenant_id'])
+            ->where('provider', $provider)
+            ->where('provider_user_id', $providerUserId)
+            ->whereNull('revoked_at')
+            ->first();
+
+        if ($identity instanceof CustomerSocialIdentity) {
+            $customer = Customer::query()
+                ->where('tenant_id', $tenant['tenant_id'])
+                ->where('id', $identity->customer_id)
+                ->first();
+
+            if (! $customer instanceof Customer || (string) $customer->status !== 'active') {
+                return ['error' => 'authentication_required'];
+            }
+
+            if ($this->customerSuspensions->isSuspended($customer)) {
+                return [
+                    'error' => 'customer_suspended',
+                    'details' => $this->customerSuspensions->payload($customer),
+                ];
+            }
+
+            $this->upsertIdentity((string) $tenant['tenant_id'], (string) $customer->id, $provider, $providerProfile);
+            Customer::query()->where('id', $customer->id)->update(['last_login_at' => now(), 'updated_at' => now()]);
+            $this->customerAuth->ensurePrimaryWallet((string) $tenant['tenant_id'], (string) $customer->id);
+
+            return [
+                'resource' => array_merge(
+                    $this->customerAuth->issueSession(
+                        (string) $tenant['tenant_id'],
+                        (string) $customer->id,
+                        activationRequired: true,
+                    ),
+                    ['redirect' => $redirectPath],
+                ),
+                'status' => 200,
+            ];
+        }
+
+        $linkToken = $this->createLinkToken((string) $tenant['tenant_id'], $provider, $providerProfile);
+
+        return [
+            'resource' => [
+                'social_link_required' => true,
+                'social_onboarding_required' => true,
+                'phone_verification_required' => true,
+                'member_profile_required' => true,
+                'provider' => $provider,
+                'link_token' => $linkToken,
+                'redirect' => $redirectPath,
+                'profile' => [
+                    'display_name' => $providerProfile['display_name'] ?? null,
+                    'picture_url' => $providerProfile['avatar_url'] ?? null,
+                    'email' => $providerProfile['email'] ?? null,
+                ],
+            ],
+            'status' => 200,
+        ];
     }
 
     private function upsertIdentity(string $tenantId, string $customerId, string $provider, array $profile): void
@@ -811,20 +1114,6 @@ class CustomerSocialAuthService
     private function requestTimeoutSeconds(): int
     {
         return max(1, (int) config('platform.social_auth.http_timeout_seconds', 10));
-    }
-
-    private function decodeJwtPayload(string $jwt): array
-    {
-        $parts = explode('.', $jwt);
-
-        if (count($parts) < 2) {
-            return [];
-        }
-
-        $decoded = base64_decode(strtr($parts[1], '-_', '+/'), true);
-        $payload = $decoded === false ? null : json_decode($decoded, true);
-
-        return is_array($payload) ? $payload : [];
     }
 
     private function base64Url(string $value): string

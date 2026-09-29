@@ -40,6 +40,7 @@ dependencies:
     git:
       url: https://github.com/line/flutter_line_sdk.git
       ref: 1cdddadc533d895c85f4992460820390b1a80812
+  google_sign_in: ^7.2.0
 dev_dependencies:
   build_runner: ^2.4.13
   flutter_lints: ^5.0.0

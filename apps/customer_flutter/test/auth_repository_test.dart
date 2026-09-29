@@ -254,6 +254,55 @@ void main() {
     },
   );
 
+  test(
+    'native Google login sends ID token without browser callback state',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      final api = _AuthApiClient(tokenStore);
+      final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+      final result = await repository.nativeGoogleLogin(
+        identityToken: 'google-native-id-token',
+        redirect: '/tickets',
+      );
+
+      expect(api.paths, ['/customer/auth/google/native']);
+      expect(api.authFlags, [false]);
+      expect(api.payloads.single, {
+        'identity_token': 'google-native-id-token',
+        'purpose': 'login',
+        'client': 'customer_flutter_native',
+        'redirect': '/tickets',
+      });
+      expect(result.session?.accessToken, 'access-google-native');
+      expect(tokenStore.accessToken, 'access-google-native');
+      expect(tokenStore.accessToken, isNot('google-native-id-token'));
+    },
+  );
+
+  test(
+    'native Google account linking uses authenticated API request',
+    () async {
+      final tokenStore = _MemoryTokenStore();
+      final api = _AuthApiClient(tokenStore);
+      final repository = AuthRepository(api: api, tokenStore: tokenStore);
+
+      final result = await repository.nativeGoogleLogin(
+        identityToken: 'google-link-id-token',
+        purpose: 'link',
+        redirect: '/profile/social-accounts',
+        auth: true,
+      );
+
+      expect(api.authFlags, [true]);
+      expect(api.payloads.single['purpose'], 'link');
+      expect(api.payloads.single['redirect'], '/profile/social-accounts');
+      expect(result.provider, 'google');
+      expect(result.session?.accessToken, 'access-google-linked');
+      expect(tokenStore.accessToken, 'access-google-linked');
+    },
+  );
+
   test('requestOtp and verifyOtp preserve recursive OTP wrappers', () async {
     final tokenStore = _MemoryTokenStore();
     final api = _AuthApiClient(tokenStore);
@@ -762,6 +811,33 @@ class _AuthApiClient extends ApiClient {
           },
         },
       },
+      '/customer/auth/google/native' =>
+        payloads.last['purpose'] == 'link'
+            ? {
+                'provider': 'google',
+                'social_linked': true,
+                'redirect': '/profile/social-accounts',
+                'session': {
+                  'access_token': 'access-google-linked',
+                  'refresh_token': 'refresh-google-linked',
+                  'pin_required': false,
+                  'customer': {'customer_id': 'cus_google_linked'},
+                },
+              }
+            : {
+                'data': {
+                  'resource': {
+                    'customerSession': {
+                      'accessToken': 'access-google-native',
+                      'refreshToken': 'refresh-google-native',
+                      'pinRequired': true,
+                      'customer': {'customerId': 'cus_google_native'},
+                    },
+                    'redirect': '/tickets',
+                    'provider': 'google',
+                  },
+                },
+              },
       '/customer/auth/social/google/callback' => {
         'data': {
           'resource': {
