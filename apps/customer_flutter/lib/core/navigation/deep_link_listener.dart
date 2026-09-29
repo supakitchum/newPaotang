@@ -11,8 +11,13 @@ import '../tenant/mobile_bootstrap_controller.dart';
 import 'customer_deep_link.dart';
 
 class CustomerDeepLinkListener extends ConsumerStatefulWidget {
-  const CustomerDeepLinkListener({required this.child, super.key});
+  const CustomerDeepLinkListener({
+    required this.router,
+    required this.child,
+    super.key,
+  });
 
+  final GoRouter router;
   final Widget child;
 
   @override
@@ -80,10 +85,7 @@ class _CustomerDeepLinkListenerState
       }
       return;
     }
-    final target = customerDeepLinkPath(
-      uri,
-      allowedHosts: allowedHosts,
-    );
+    final target = customerDeepLinkPath(uri, allowedHosts: allowedHosts);
     if (target == null) {
       if (deferUntilBootstrap && isHttpsLink && bootstrap.isLoading) {
         _pendingHttpsUri = uri;
@@ -96,7 +98,7 @@ class _CustomerDeepLinkListenerState
     _lastHandled = target;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.go(target);
+      widget.router.go(target);
     });
   }
 }

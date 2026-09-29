@@ -9,6 +9,7 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/navigation/customer_back_navigation.dart';
+import 'package:customer_flutter/core/navigation/pending_social_callback.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
@@ -93,6 +94,75 @@ void main() {
     await controller.syncPinStatus();
 
     expect(container.read(appRouterProvider), same(router));
+  });
+
+  testWidgets('locked Google callback is held until PIN verification', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository();
+    final tokenStore = AuthTokenStore();
+    final api = ApiClient(_testConfig, tokenStore, localeTag: 'en-US');
+    final controller =
+        AuthController(
+            authRepository: repo,
+            tokenStore: tokenStore,
+            biometricAuth: BiometricAuthService(api),
+          )
+          ..isAuthenticated = true
+          ..pinRequired = true;
+    late GoRouter router;
+    late WidgetRef appRef;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(repo),
+          authControllerProvider.overrideWith((_) => controller),
+          customerPlatformKeyProvider.overrideWithValue('web'),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(const {
+              'mobile': {
+                'feature_flags': {'native_biometric_unlock': false},
+              },
+            }),
+          ),
+        ],
+        child: Consumer(
+          builder: (context, ref, _) {
+            appRef = ref;
+            router = ref.watch(appRouterProvider);
+            return MaterialApp.router(
+              locale: const Locale('en', 'US'),
+              supportedLocales: supportedCustomerLocales,
+              localizationsDelegates: const [
+                CustomerLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              routerConfig: router,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const callback = '/social/google/callback?code=test-code&state=test-state';
+    router.go(callback);
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/pin');
+    expect(appRef.read(pendingSocialCallbackProvider)?.location, callback);
+    expect(find.byType(PinScreen), findsOneWidget);
+    expect(find.textContaining('test-code'), findsNothing);
+
+    await _tapPinDigits(tester, '123456');
+    await tester.pump();
+
+    expect(repo.lastVerifiedPin, '123456');
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), callback);
+    expect(appRef.read(pendingSocialCallbackProvider), isNull);
   });
 
   testWidgets('login preserves checkout redirect after password auth', (

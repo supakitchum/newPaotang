@@ -178,6 +178,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
               key: const ValueKey('customer-system-ui-overlay'),
               value: systemUiOverlayStyle,
               child: CustomerDeepLinkListener(
+                router: router,
                 child: AppSplashHost(
                   child: CustomerRealtimeMonitor(
                     child: CustomerPushLifecycleMonitor(
