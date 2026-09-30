@@ -15,13 +15,13 @@ final topupRepositoryProvider = Provider<TopupRepository>((ref) {
 final topupOverviewProvider = FutureProvider.autoDispose<TopupOverview>((
   ref,
 ) async {
-  ref.keepForCustomerNavigation();
+  ref.keepForCustomerSession();
   return ref.watch(topupRepositoryProvider).overview();
 });
 
 final topupHistoryProvider = FutureProvider.autoDispose
     .family<TopupOverview, int>((ref, page) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref
           .watch(topupRepositoryProvider)
           .overview(page: page, perPage: 8);
@@ -29,7 +29,7 @@ final topupHistoryProvider = FutureProvider.autoDispose
 
 final topupDetailProvider = FutureProvider.autoDispose
     .family<TopupRequestItem, String>((ref, id) {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(topupRepositoryProvider).detail(id);
     });
 

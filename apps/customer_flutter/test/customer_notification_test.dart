@@ -320,6 +320,64 @@ void main() {
   );
 
   test(
+    'iOS foreground push uses system banner without local duplicate',
+    () async {
+      expect(
+        customerPushUsesSystemForegroundPresentation(TargetPlatform.iOS, true),
+        isTrue,
+      );
+      expect(
+        customerPushUsesSystemForegroundPresentation(
+          TargetPlatform.android,
+          true,
+        ),
+        isFalse,
+      );
+
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = previousPlatform);
+
+      final remoteMessages = StreamController<RemoteMessage>.broadcast();
+      final foreground = <CustomerPushMessage>[];
+      final localBanners = <CustomerPushMessage>[];
+      addTearDown(remoteMessages.close);
+
+      final platform = CustomerPushPlatform.test(
+        remoteForegroundMessages: remoteMessages.stream,
+        localNotificationsReady: true,
+        showForegroundNotification: (message) async {
+          localBanners.add(message);
+        },
+      );
+      addTearDown(platform.dispose);
+      final subscription = platform.foregroundMessages.listen(foreground.add);
+      addTearDown(subscription.cancel);
+
+      remoteMessages.add(
+        const RemoteMessage(
+          notification: RemoteNotification(
+            title: 'Remote alert',
+            body: 'Visible',
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(foreground.single.title, 'Remote alert');
+      expect(localBanners, isEmpty);
+
+      remoteMessages.add(
+        const RemoteMessage(
+          data: {'title': 'Data-only alert', 'body': 'Visible locally'},
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(foreground, hasLength(2));
+      expect(localBanners.single.title, 'Data-only alert');
+    },
+  );
+
+  test(
     'background FCM handler contains missing native configuration',
     () async {
       await expectLater(

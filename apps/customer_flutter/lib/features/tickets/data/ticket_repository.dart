@@ -16,7 +16,7 @@ final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
 
 final currentTicketsProvider = FutureProvider.autoDispose<List<CustomerTicket>>(
   (ref) async {
-    ref.keepForCustomerNavigation();
+    ref.keepForCustomerSession();
     ref.watch(ticketRealtimeTickProvider);
     final auth = ref.watch(authControllerProvider);
     if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
@@ -29,7 +29,7 @@ final currentTicketsProvider = FutureProvider.autoDispose<List<CustomerTicket>>(
 final currentTicketGameProvider = FutureProvider.autoDispose<CurrentGame?>((
   ref,
 ) async {
-  ref.keepForCustomerNavigation();
+  ref.keepForCustomerSession();
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
     return null;
@@ -39,7 +39,8 @@ final currentTicketGameProvider = FutureProvider.autoDispose<CurrentGame?>((
 
 final ticketDetailProvider = FutureProvider.autoDispose
     .family<CustomerTicket, String>((ref, id) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
+      ref.watch(ticketRealtimeTickProvider);
       return ref.watch(ticketRepositoryProvider).detail(id);
     });
 

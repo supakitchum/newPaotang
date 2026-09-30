@@ -3526,6 +3526,53 @@ class AppShell {
       isNot(contains('social_provider_invalid')),
     );
   });
+
+  test('ios Apple login requires the native entitlement', () {
+    final root = Directory.systemTemp.createTempSync(
+      'customer_flutter_preflight_apple_entitlement_',
+    );
+    try {
+      _writeValidIosSecurityFixture(root);
+      final input = ProductionPreflightInput(
+        target: CustomerFlutterTarget.ios,
+        production: true,
+        checkFiles: true,
+        androidRequireSigning: false,
+        projectRoot: root.path,
+        apiBaseUrl: 'https://partner.example.com/api/v1',
+        appDisplayName: 'Partner Lottery',
+        iosTeamId: 'ABCDE12345',
+        iosBundleId: 'com.partner.customer',
+        iosUrlScheme: 'partnerlottery',
+        iosAssociatedDomain: 'applinks:partner.example.com',
+        socialAuthProviders: const ['apple'],
+      );
+
+      var issues = runCustomerFlutterProductionPreflight(input);
+      expect(
+        issues.map((issue) => issue.code),
+        contains('ios_sign_in_with_apple_entitlement_missing'),
+      );
+
+      _writeFile(root, 'ios/Runner/Runner.entitlements', r'''
+<plist>
+  <dict>
+    <key>com.apple.developer.associated-domains</key>
+    <array><string>$(CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN)</string></array>
+    <key>com.apple.developer.applesignin</key>
+    <array><string>Default</string></array>
+  </dict>
+</plist>
+''');
+      issues = runCustomerFlutterProductionPreflight(input);
+      expect(
+        issues.map((issue) => issue.code),
+        isNot(contains('ios_sign_in_with_apple_entitlement_missing')),
+      );
+    } finally {
+      root.deleteSync(recursive: true);
+    }
+  });
 }
 
 void _writeFile(Directory root, String relativePath, String contents) {

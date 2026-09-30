@@ -15,7 +15,7 @@ final walletRepositoryProvider = Provider<WalletRepository>((ref) {
 final walletSummaryProvider = FutureProvider.autoDispose<WalletSummary>((
   ref,
 ) async {
-  ref.keepForCustomerNavigation();
+  ref.keepForCustomerSession();
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired || auth.pinSetupRequired) {
     return const WalletSummary(wallets: [], ledger: []);

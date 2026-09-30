@@ -13,7 +13,7 @@ final lineNotificationRepositoryProvider = Provider<LineNotificationRepository>(
 
 final lineNotificationSettingsProvider =
     FutureProvider.autoDispose<LineNotificationSettings>((ref) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(lineNotificationRepositoryProvider).load();
     });
 

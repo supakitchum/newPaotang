@@ -13,7 +13,7 @@ final purchaseHistoryRepositoryProvider = Provider<PurchaseHistoryRepository>((
 
 final purchaseHistoryDetailProvider = FutureProvider.autoDispose
     .family<PurchaseHistoryOrder, String>((ref, id) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(purchaseHistoryRepositoryProvider).detail(id);
     });
 

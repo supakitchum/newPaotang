@@ -297,6 +297,17 @@ class CustomerNotificationService
         ): array {
             $this->lockPushRegistrationIdentity($installationId, $tokenHash);
             $now = now();
+            // Reuse an existing owner row even if it was revoked. Converting an
+            // active anonymous row would collide with the unique owner/install
+            // key when a returning customer keeps the same installation ID.
+            $device = $customerId === null
+                ? null
+                : CustomerPushDevice::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('customer_id', $customerId)
+                    ->where('installation_id', $installationId)
+                    ->lockForUpdate()
+                    ->first();
             $deviceQuery = CustomerPushDevice::query()
                 ->where('tenant_id', $tenantId)
                 ->where('installation_id', $installationId)
@@ -308,7 +319,7 @@ class CustomerNotificationService
                     $query->where('customer_id', $customerId)->orWhereNull('customer_id');
                 })->orderByRaw('CASE WHEN customer_id = ? THEN 0 ELSE 1 END', [$customerId]);
             }
-            $device = $deviceQuery->orderByDesc('updated_at')->lockForUpdate()->first();
+            $device ??= $deviceQuery->orderByDesc('updated_at')->lockForUpdate()->first();
 
             if ($device === null) {
                 $fallback = CustomerPushDevice::query()

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/realtime/customer_revenue_refresh_ticks.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/idempotency_key.dart';
@@ -16,7 +17,8 @@ final activityRepositoryProvider = Provider<ActivityRepository>((ref) {
 final activityListProvider = FutureProvider.autoDispose<List<ActivityItem>>((
   ref,
 ) async {
-  ref.keepForCustomerNavigation();
+  ref.keepForCustomerSession();
+  ref.watch(ticketRealtimeTickProvider);
   final auth = ref.watch(authControllerProvider);
   return ref
       .watch(activityRepositoryProvider)
@@ -26,7 +28,8 @@ final activityListProvider = FutureProvider.autoDispose<List<ActivityItem>>((
 final activityListPageProvider = FutureProvider.autoDispose<ActivityListPage>((
   ref,
 ) async {
-  ref.keepForCustomerNavigation();
+  ref.keepForCustomerSession();
+  ref.watch(ticketRealtimeTickProvider);
   final auth = ref.watch(authControllerProvider);
   return ref
       .watch(activityRepositoryProvider)
@@ -35,7 +38,8 @@ final activityListPageProvider = FutureProvider.autoDispose<ActivityListPage>((
 
 final activityDetailProvider = FutureProvider.autoDispose
     .family<ActivityItem, ActivityDetailRequest>((ref, request) {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
+      ref.watch(ticketRealtimeTickProvider);
       return ref
           .watch(activityRepositoryProvider)
           .detail(request.slug, authenticated: request.authenticated);
@@ -43,7 +47,8 @@ final activityDetailProvider = FutureProvider.autoDispose
 
 final activityHistoryProvider = FutureProvider.autoDispose
     .family<ActivityListPage, String>((ref, gameId) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
+      ref.watch(ticketRealtimeTickProvider);
       final auth = ref.watch(authControllerProvider);
       return ref
           .watch(activityRepositoryProvider)
@@ -56,7 +61,7 @@ final activityHistoryProvider = FutureProvider.autoDispose
 
 final activityAwardListProvider = FutureProvider.autoDispose
     .family<List<ActivityAwardItem>, String>((ref, activityId) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       final auth = ref.watch(authControllerProvider);
       if (!auth.isAuthenticated || auth.pinRequired) return const [];
       final awards = await ref.watch(activityRepositoryProvider).awardsAll();

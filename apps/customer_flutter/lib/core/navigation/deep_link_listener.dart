@@ -6,13 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/affiliate/data/affiliate_referral_repository.dart';
 import '../config/app_config.dart';
 import '../tenant/mobile_bootstrap_controller.dart';
 import 'customer_deep_link.dart';
 
 class CustomerDeepLinkListener extends ConsumerStatefulWidget {
-  const CustomerDeepLinkListener({required this.child, super.key});
+  const CustomerDeepLinkListener({
+    required this.router,
+    required this.child,
+    super.key,
+  });
 
+  final GoRouter router;
   final Widget child;
 
   @override
@@ -26,6 +32,7 @@ class _CustomerDeepLinkListenerState
   StreamSubscription<Uri>? _subscription;
   String? _lastHandled;
   Uri? _pendingHttpsUri;
+  int _navigationGeneration = 0;
 
   @override
   void initState() {
@@ -80,23 +87,36 @@ class _CustomerDeepLinkListenerState
       }
       return;
     }
-    final target = customerDeepLinkPath(
-      uri,
-      allowedHosts: allowedHosts,
-    );
+    final target = customerDeepLinkPath(uri, allowedHosts: allowedHosts);
     if (target == null) {
       if (deferUntilBootstrap && isHttpsLink && bootstrap.isLoading) {
         _pendingHttpsUri = uri;
       }
       return;
     }
-    if (target == _lastHandled || !mounted) return;
+    if (!mounted ||
+        (target == _lastHandled &&
+            widget.router.routeInformationProvider.value.uri.toString() ==
+                target)) {
+      return;
+    }
 
     _pendingHttpsUri = null;
     _lastHandled = target;
+    final generation = ++_navigationGeneration;
+    unawaited(_navigate(target, generation));
+  }
+
+  Future<void> _navigate(String target, int generation) async {
+    if (extractAffiliateRefCode(target) != null) {
+      await ref
+          .read(affiliateReferralServiceProvider)
+          .captureFromLocation(target, waitForTracking: false);
+    }
+    if (!mounted || generation != _navigationGeneration) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.go(target);
+      if (!mounted || generation != _navigationGeneration) return;
+      widget.router.go(target);
     });
   }
 }

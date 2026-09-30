@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_back_navigation.dart';
+import '../../../core/realtime/customer_revenue_refresh_ticks.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
@@ -2351,7 +2352,8 @@ bool _ticketIsWinning(CustomerTicket ticket) {
 
 final _ticketViewLookupProvider = FutureProvider.autoDispose
     .family<CustomerTicket?, _TicketViewLookup>((ref, lookup) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
+      ref.watch(ticketRealtimeTickProvider);
       final repository = ref.watch(ticketRepositoryProvider);
       if (lookup.ticketId.isNotEmpty) {
         return repository.detail(lookup.ticketId);

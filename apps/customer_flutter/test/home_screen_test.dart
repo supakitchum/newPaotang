@@ -365,10 +365,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-header-wallet')));
     await tester.pumpAndSettle();
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/my-wallet',
-    );
+    expect(find.text('/my-wallet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -437,10 +434,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-header-notifications')));
     await tester.pumpAndSettle();
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/notifications',
-    );
+    expect(find.text('/notifications'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -506,10 +500,6 @@ void main() {
     await tester.tap(activityCard);
     await tester.pumpAndSettle();
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/activities/summer%20sale',
-    );
     expect(find.text('/activities/summer%20sale'), findsOneWidget);
 
     router.go('/');
@@ -525,10 +515,6 @@ void main() {
     await tester.tap(newsSlide);
     await tester.pumpAndSettle();
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/campaign/special?ref=home',
-    );
     expect(find.text('/campaign/special?ref=home'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

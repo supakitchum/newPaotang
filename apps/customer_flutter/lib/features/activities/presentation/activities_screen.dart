@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/realtime/customer_revenue_refresh_ticks.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
@@ -67,7 +68,8 @@ class ActivitiesScreen extends ConsumerStatefulWidget {
   ConsumerState<ActivitiesScreen> createState() => _ActivitiesScreenState();
 }
 
-class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
+class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen>
+    with WidgetsBindingObserver {
   final List<ActivityItem> _items = [];
   ActivityListMeta _meta = ActivityListMeta.empty;
   int _requestGeneration = 0;
@@ -82,7 +84,19 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) _refresh();
   }
 
   @override
@@ -92,6 +106,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       ref.watch(authControllerProvider),
     );
     final visibleItems = _filteredActivities(_items, _filter);
+    ref.listen<int>(ticketRealtimeTickProvider, (previous, next) {
+      if (previous != next) _refresh();
+    });
     ref.listen<_ActivityRightsAccess>(
       authControllerProvider.select(_activityRightsAccess),
       (previous, next) {
@@ -680,7 +697,8 @@ class ActivitiesHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _ActivitiesHistoryScreenState
-    extends ConsumerState<ActivitiesHistoryScreen> {
+    extends ConsumerState<ActivitiesHistoryScreen>
+    with WidgetsBindingObserver {
   final List<ActivityItem> _items = [];
   ActivityListMeta _meta = ActivityListMeta.empty;
   int _requestGeneration = 0;
@@ -693,6 +711,23 @@ class _ActivitiesHistoryScreenState
   String? _loadedQueryGameId;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) _refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final queryGameId =
         GoRouterState.of(context).uri.queryParameters['game_id'] ?? '';
@@ -700,6 +735,9 @@ class _ActivitiesHistoryScreenState
     final rightsAccess = _activityRightsAccess(
       ref.watch(authControllerProvider),
     );
+    ref.listen<int>(ticketRealtimeTickProvider, (previous, next) {
+      if (previous != next) _refresh();
+    });
     ref.listen<_ActivityRightsAccess>(
       authControllerProvider.select(_activityRightsAccess),
       (previous, next) {

@@ -261,8 +261,14 @@ class CustomerPushPlatform {
       }
     }
     try {
+      // iOS can present remote notifications directly while the app is open.
+      // Keep that path enabled even when local notifications are initialized;
+      // the local plugin is only needed for data-only foreground messages.
       final useSystemForegroundPresentation =
-          !platform._localNotificationsReady;
+          customerPushUsesSystemForegroundPresentation(
+            defaultTargetPlatform,
+            platform._localNotificationsReady,
+          );
       await messaging.setForegroundNotificationPresentationOptions(
         alert: useSystemForegroundPresentation,
         badge: useSystemForegroundPresentation,
@@ -378,7 +384,9 @@ class CustomerPushPlatform {
   Future<void> _onForegroundMessage(RemoteMessage message) async {
     final push = CustomerPushMessage.fromRemoteMessage(message);
     _foregroundMessages.add(push);
-    if (!_localNotificationsReady ||
+    if ((defaultTargetPlatform == TargetPlatform.iOS &&
+            message.notification != null) ||
+        !_localNotificationsReady ||
         (push.title.isEmpty && push.body.isEmpty)) {
       return;
     }
@@ -443,6 +451,14 @@ bool get _nativePushPlatform {
   if (kIsWeb) return false;
   return defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
+}
+
+@visibleForTesting
+bool customerPushUsesSystemForegroundPresentation(
+  TargetPlatform platform,
+  bool localNotificationsReady,
+) {
+  return platform == TargetPlatform.iOS || !localNotificationsReady;
 }
 
 CustomerPushMessage? _pushMessageFromPayload(String? payload) {

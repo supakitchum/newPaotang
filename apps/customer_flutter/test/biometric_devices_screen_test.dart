@@ -24,6 +24,11 @@ void main() {
     await _pumpScreen(tester);
     await tester.pumpAndSettle();
 
+    final devices = ProviderScope.containerOf(
+      tester.element(find.byType(BiometricDevicesScreen)),
+    ).read(biometricDevicesProvider);
+    expect(devices.hasValue, isTrue, reason: '${devices.error}');
+
     expect(find.byKey(const ValueKey('customer-fixed-hero')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('customer-fixed-content-region')),
@@ -283,6 +288,12 @@ Future<void> _pumpScreen(
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
+        appConfigProvider.overrideWithValue(
+          const AppConfig(
+            apiBaseUrl: 'https://example.test/api/v1',
+            defaultLocale: 'en-US',
+          ),
+        ),
         biometricDeviceRepositoryProvider.overrideWithValue(
           deviceRepository ?? _BiometricDeviceRepository(),
         ),

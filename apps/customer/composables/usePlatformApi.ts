@@ -1196,6 +1196,10 @@ export const usePlatformApi = () => {
       headers: idempotencyHeaders('customer-checkout')
     })
 
+    if (process.client) {
+      window.dispatchEvent(new Event('customer:purchase-settled'))
+    }
+
     return withLegacyData({
       code: 0,
       result: {

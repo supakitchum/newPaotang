@@ -13,7 +13,7 @@ final accountDeletionRepositoryProvider = Provider<AccountDeletionRepository>((
 
 final accountDeletionStatusProvider =
     FutureProvider.autoDispose<AccountDeletionStatus>((ref) async {
-      ref.keepForCustomerNavigation(duration: const Duration(seconds: 30));
+      ref.keepForCustomerSession(duration: const Duration(seconds: 30));
       return ref.watch(accountDeletionRepositoryProvider).load();
     });
 

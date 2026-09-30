@@ -12,7 +12,7 @@ final affiliateRepositoryProvider = Provider<AffiliateRepository>((ref) {
 
 final affiliateOverviewProvider = FutureProvider.autoDispose<AffiliateOverview>(
   (ref) async {
-    ref.keepForCustomerNavigation();
+    ref.keepForCustomerSession();
     return ref.watch(affiliateRepositoryProvider).overview();
   },
 );

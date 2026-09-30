@@ -20,6 +20,7 @@ use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Modules\Commerce\Services\CommerceService;
+use App\Modules\PartnerStore\Services\PublicAssetThumbnailService;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationDomainEventService;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
@@ -2554,6 +2555,9 @@ class TenantActivityService
         $thumbAsset = $row->relationLoaded('thumbAsset') ? $row->thumbAsset : null;
         $fullUrl = PublicUrl::normalizeAssetUrl($fullAsset?->public_url);
         $thumbUrl = PublicUrl::normalizeAssetUrl($thumbAsset?->public_url) ?: $fullUrl;
+        if ($thumbUrl !== null && $thumbUrl === $fullUrl && $fullAsset !== null) {
+            $thumbUrl = PublicAssetThumbnailService::url($fullAsset, $thumbUrl);
+        }
         $game = $row->relationLoaded('game') ? $row->game : null;
         $resultAt = $this->activityResultAt($game?->draw_at ?? null);
         $entryDeadlineAt = (string) $row->type === 'lucky_board' ? $this->luckyBoardEntryDeadlineAt($row) : null;

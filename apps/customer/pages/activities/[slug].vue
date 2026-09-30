@@ -762,11 +762,17 @@ const loadClaimProfile = async () => {
   }
 }
 
+let activityRequestGeneration = 0
 const loadActivity = async () => {
+  const generation = ++activityRequestGeneration
   isLoading.value = true
   try {
     const publicActivity = await platformApi.activityPublic(String(route.params.slug || ''))
+    if (generation !== activityRequestGeneration) return
     activity.value = publicActivity
+    rights.value = {}
+    entries.value = []
+    awards.value = []
 
     if (token.value && publicActivity?.id) {
       try {
@@ -774,6 +780,7 @@ const loadActivity = async () => {
           platformApi.customerActivity(publicActivity.id),
           restoreAuthState(true)
         ])
+        if (generation !== activityRequestGeneration) return
 
         if (customerActivity.status === 'fulfilled') {
           activity.value = customerActivity.value
@@ -786,8 +793,10 @@ const loadActivity = async () => {
         rights.value = activity.value?.rights || {}
         entries.value = Array.isArray(activity.value?.entries) ? activity.value.entries : []
         const awardResponse = await platformApi.activityAwards({ limit: 100 })
+        if (generation !== activityRequestGeneration) return
         awards.value = Array.isArray(awardResponse.data) ? awardResponse.data : []
       } catch (error) {
+        if (generation !== activityRequestGeneration) return
         console.log(error)
         rights.value = {}
         entries.value = []
@@ -795,10 +804,11 @@ const loadActivity = async () => {
       }
     }
   } catch (error) {
+    if (generation !== activityRequestGeneration) return
     console.log(error)
     activity.value = null
   } finally {
-    isLoading.value = false
+    if (generation === activityRequestGeneration) isLoading.value = false
   }
 }
 
@@ -973,6 +983,7 @@ const statusText = (status: string) => ({
 const formatInteger = (value: unknown) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })
 const formatBaht = (value: unknown) => Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' บาท'
 let entryDeadlineTimer: ReturnType<typeof setInterval> | null = null
+useCustomerActivityRefresh(loadActivity)
 
 onMounted(() => {
   if (!process.client) {
@@ -991,7 +1002,7 @@ onBeforeUnmount(() => {
   }
 })
 
-watch(() => route.params.slug, () => {
+watch([() => route.params.slug, token], () => {
   void loadActivity()
 }, { immediate: true })
 

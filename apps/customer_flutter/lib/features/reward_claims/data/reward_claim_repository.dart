@@ -11,7 +11,7 @@ final rewardClaimRepositoryProvider = Provider<RewardClaimRepository>((ref) {
 
 final rewardClaimDetailProvider = FutureProvider.autoDispose
     .family<RewardClaimItem, String>((ref, id) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(rewardClaimRepositoryProvider).detail(id);
     });
 

@@ -11,6 +11,7 @@ import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_back_navigation.dart';
 import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/navigation/pending_social_callback.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
@@ -573,7 +574,20 @@ class _PinScreenState extends ConsumerState<PinScreen>
     try {
       final router = GoRouter.of(context);
       customerBackNavigationHistory.completeAuthenticationTransition(router);
-      context.go(redirect ?? _safeRedirect());
+      final auth = ref.read(authControllerProvider);
+      final pending = ref.read(pendingSocialCallbackProvider);
+      if (auth.isAuthenticated &&
+          !auth.pinRequired &&
+          !auth.pinSetupRequired &&
+          !auth.isSecurityLocked &&
+          pending != null) {
+        ref.read(pendingSocialCallbackProvider.notifier).state = null;
+        router.go(
+          pending.isExpired ? '/profile/social-accounts' : pending.location,
+        );
+        return;
+      }
+      router.go(redirect ?? _safeRedirect());
     } catch (_) {
       // Tests can mount PinScreen without a GoRouter. In the real app this
       // path is always routed, so navigation resumes the original flow.

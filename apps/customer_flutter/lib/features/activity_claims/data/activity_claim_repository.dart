@@ -15,7 +15,7 @@ final activityClaimRepositoryProvider = Provider<ActivityClaimRepository>((
 
 final activityClaimDetailProvider = FutureProvider.autoDispose
     .family<ActivityClaimItem, String>((ref, id) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(activityClaimRepositoryProvider).detail(id);
     });
 

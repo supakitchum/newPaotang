@@ -5,6 +5,7 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/features/lottery/data/customer_revenue_cache.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
@@ -46,7 +47,7 @@ void main() {
     expect(find.text('แผงเลขนำโชค'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('ดูงวดที่แล้ว')).style?.color,
-      const Color(0xFF0875DF),
+      const Color(0xFF061C44),
     );
     expect(
       tester.widget<Text>(find.text('กิจกรรมทายเลข 2 ตัว')).style?.color,
@@ -58,7 +59,7 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('แผงเลขนำโชค')).style?.color,
-      const Color(0xFF0875DF),
+      const Color(0xFF061C44),
     );
     expect(tester.takeException(), isNull);
 
@@ -128,11 +129,7 @@ void main() {
     final repository = _FakeActivityRepository();
     final authController = _guestController();
 
-    await _pumpActivities(
-      tester,
-      repository,
-      authController: authController,
-    );
+    await _pumpActivities(tester, repository, authController: authController);
     await tester.pumpAndSettle();
 
     expect(repository.calls.map((call) => call.authenticated), [false]);
@@ -173,6 +170,47 @@ void main() {
     );
   });
 
+  testWidgets(
+    'paid ticket refresh updates rights on an already open activity page',
+    (tester) async {
+      final repository = _FakeActivityRepository(items: []);
+      await _pumpActivities(
+        tester,
+        repository,
+        authController: _authenticatedController(),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.calls, hasLength(1));
+
+      repository._items.add(_activityFixtures.first);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ActivitiesScreen)),
+      );
+      container
+          .read(customerRevenueCacheProvider)
+          .orderChanged(orderIds: ['paid_order']);
+      await tester.pumpAndSettle();
+
+      expect(repository.calls, hasLength(2));
+      expect(repository.calls.last.authenticated, isTrue);
+      expect(find.text('มีสิทธิ์ 2 สิทธิ์'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('activity page reloads rights after returning from background', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository();
+    await _pumpActivities(tester, repository);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(repository.calls, hasLength(2));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ActivitiesScreen uses Nuxt current loading copy', (
     tester,
   ) async {
@@ -192,9 +230,7 @@ void main() {
   ) async {
     await _pumpActivities(
       tester,
-      _FakeActivityRepository(
-        error: _apiException('ระบบกิจกรรมปิดปรับปรุง'),
-      ),
+      _FakeActivityRepository(error: _apiException('ระบบกิจกรรมปิดปรับปรุง')),
     );
     await tester.pumpAndSettle();
 
@@ -209,9 +245,7 @@ void main() {
   ) async {
     await _pumpActivities(
       tester,
-      _FakeActivityRepository(
-        error: StateError('internal activities failure'),
-      ),
+      _FakeActivityRepository(error: StateError('internal activities failure')),
     );
     await tester.pumpAndSettle();
 
@@ -351,62 +385,62 @@ void main() {
   });
 
   testWidgets(
-      'ActivitiesScreen re-sorts all loaded pages when later page has rights', (
-    tester,
-  ) async {
-    final repository = _PagedActivityRepository();
+    'ActivitiesScreen re-sorts all loaded pages when later page has rights',
+    (tester) async {
+      final repository = _PagedActivityRepository();
 
-    await _pumpActivities(
-      tester,
-      repository,
-      authController: _authenticatedController(),
-    );
-    await tester.pumpAndSettle();
+      await _pumpActivities(
+        tester,
+        repository,
+        authController: _authenticatedController(),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('คืนเงิน 5%'), findsOneWidget);
-    expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsNothing);
+      expect(find.text('คืนเงิน 5%'), findsOneWidget);
+      expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsNothing);
 
-    final loadMore = find.text('โหลดเพิ่มเติม');
-    await tester.ensureVisible(loadMore);
-    await tester.pumpAndSettle();
-    await tester.tap(loadMore);
-    await tester.pumpAndSettle();
+      final loadMore = find.text('โหลดเพิ่มเติม');
+      await tester.ensureVisible(loadMore);
+      await tester.pumpAndSettle();
+      await tester.tap(loadMore);
+      await tester.pumpAndSettle();
 
-    final withRightRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
-    final withoutRightRect = tester.getRect(find.text('คืนเงิน 5%'));
+      final withRightRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+      final withoutRightRect = tester.getRect(find.text('คืนเงิน 5%'));
 
-    expect(_isBeforeInReadingOrder(withRightRect, withoutRightRect), isTrue);
-    expect(repository.cursors, ['', 'cursor_2']);
-    expect(tester.takeException(), isNull);
-  });
+      expect(_isBeforeInReadingOrder(withRightRect, withoutRightRect), isTrue);
+      expect(repository.cursors, ['', 'cursor_2']);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-  testWidgets('ActivitiesScreen marks closed lucky boards and sorts them down',
-      (
-    tester,
-  ) async {
-    final repository = _FakeActivityRepository(
-      items: [_closedLuckyFixture, _activityFixtures.first],
-    );
+  testWidgets(
+    'ActivitiesScreen marks closed lucky boards and sorts them down',
+    (tester) async {
+      final repository = _FakeActivityRepository(
+        items: [_closedLuckyFixture, _activityFixtures.first],
+      );
 
-    await _pumpActivities(
-      tester,
-      repository,
-      authController: _authenticatedController(),
-    );
-    await tester.pumpAndSettle();
+      await _pumpActivities(
+        tester,
+        repository,
+        authController: _authenticatedController(),
+      );
+      await tester.pumpAndSettle();
 
-    final openRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
-    final closedRect = tester.getRect(find.text('กิจกรรมปิดรับแล้ว'));
+      final openRect = tester.getRect(find.text('กิจกรรมทายเลข 2 ตัว'));
+      final closedRect = tester.getRect(find.text('กิจกรรมปิดรับแล้ว'));
 
-    expect(_isBeforeInReadingOrder(openRect, closedRect), isTrue);
-    expect(find.text('หมดเวลาเข้าร่วมแล้ว'), findsOneWidget);
-    expect(find.text('หมดเวลาเข้าร่วม'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('หมดเวลาเข้าร่วม')).style?.color,
-      const Color(0xFFB42318),
-    );
-    expect(tester.takeException(), isNull);
-  });
+      expect(_isBeforeInReadingOrder(openRect, closedRect), isTrue);
+      expect(find.text('หมดเวลาเข้าร่วมแล้ว'), findsOneWidget);
+      expect(find.text('หมดเวลาเข้าร่วม'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('หมดเวลาเข้าร่วม')).style?.color,
+        const Color(0xFFB42318),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('ActivitiesScreen styles fully used lucky rights as used', (
     tester,
@@ -422,10 +456,7 @@ void main() {
 
     final badge = find.text('มีสิทธิ์ 0 สิทธิ์ (ใช้ครบแล้ว)');
     expect(badge, findsOneWidget);
-    expect(
-      tester.widget<Text>(badge).style?.color,
-      const Color(0xFF3157C8),
-    );
+    expect(tester.widget<Text>(badge).style?.color, const Color(0xFF3157C8));
     expect(tester.takeException(), isNull);
   });
 
@@ -444,10 +475,7 @@ void main() {
 
     final badge = find.text('มีสิทธิ์ 4 สิทธิ์');
     expect(badge, findsOneWidget);
-    expect(
-      tester.widget<Text>(badge).style?.color,
-      const Color(0xFF15803D),
-    );
+    expect(tester.widget<Text>(badge).style?.color, const Color(0xFF15803D));
     expect(find.text('หมดเวลาเข้าร่วม'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -477,27 +505,23 @@ Future<void> _pumpActivities(
       ),
       GoRoute(
         path: '/activities/:slug',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Activity detail')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Activity detail'))),
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Home')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Home'))),
       ),
       GoRoute(
         path: '/tickets',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Tickets')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Tickets'))),
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Profile')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Profile'))),
       ),
       GoRoute(
         path: '/pin',
@@ -511,9 +535,8 @@ Future<void> _pumpActivities(
       ),
       GoRoute(
         path: '/maintenance',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Maintenance route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Maintenance route'))),
       ),
     ],
   );
@@ -551,8 +574,8 @@ Future<void> _pumpActivities(
 
 class _FakeActivityRepository extends ActivityRepository {
   _FakeActivityRepository({List<ActivityItem>? items, this.error})
-      : _items = items ?? _activityFixtures,
-        super(_testApiClient(), (value) => value);
+    : _items = items ?? _activityFixtures,
+      super(_testApiClient(), (value) => value);
 
   final calls = <_ActivityCall>[];
   final List<ActivityItem> _items;
@@ -625,10 +648,10 @@ AuthController _authenticatedController() {
   final tokenStore = AuthTokenStore();
   final api = _testApiClient(tokenStore);
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = true
     ..pinRequired = false;
 }
@@ -647,22 +670,19 @@ AuthController _pinRequiredController({bool setupRequired = false}) {
   final tokenStore = AuthTokenStore();
   final api = _testApiClient(tokenStore);
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = true
     ..pinRequired = true
     ..pinSetupRequired = setupRequired;
 }
 
 MobileBootstrap _mobileBootstrap() {
-  return MobileBootstrap.fromJson(
-    const {
-      'site': {'display_name': 'กิจกรรมดี'},
-    },
-    defaultSiteName: 'กิจกรรมดี',
-  );
+  return MobileBootstrap.fromJson(const {
+    'site': {'display_name': 'กิจกรรมดี'},
+  }, defaultSiteName: 'กิจกรรมดี');
 }
 
 class _ActivityCall {
@@ -839,10 +859,7 @@ DioException _apiException(String message, {String code = ''}) {
     response: Response<Map<String, dynamic>>(
       requestOptions: requestOptions,
       statusCode: 503,
-      data: {
-        'message': message,
-        if (code.isNotEmpty) 'code': code,
-      },
+      data: {'message': message, if (code.isNotEmpty) 'code': code},
     ),
     type: DioExceptionType.badResponse,
   );

@@ -1421,6 +1421,7 @@ class SocialAuthProvider {
     this.brandColor,
     this.buttonBackgroundColor,
     this.buttonForegroundColor,
+    this.nativeClientId = '',
   });
 
   factory SocialAuthProvider.fromJson(Map<String, dynamic> json) {
@@ -1451,6 +1452,10 @@ class SocialAuthProvider {
     return SocialAuthProvider(
       provider: provider,
       label: label.isEmpty ? _defaultSocialProviderLabel(provider) : label,
+      nativeClientId: _stringFrom([
+        json['native_client_id'],
+        json['nativeClientId'],
+      ]),
       brandColor: _runtimeColorFrom([
         json['brand_color'],
         json['brandColor'],
@@ -1532,6 +1537,7 @@ class SocialAuthProvider {
   final Color? brandColor;
   final Color? buttonBackgroundColor;
   final Color? buttonForegroundColor;
+  final String nativeClientId;
 
   bool get supported => _supportedSocialProviders.contains(provider);
 }

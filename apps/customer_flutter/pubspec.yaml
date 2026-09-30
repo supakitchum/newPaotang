@@ -36,6 +36,9 @@ dependencies:
   device_info_plus: ^13.2.0
   package_info_plus: ^10.2.1
   passkeys: ^2.22.0
+  crypto: ^3.0.7
+  sign_in_with_apple: 8.1.0
+  google_sign_in: ^7.2.0
   flutter_line_sdk:
     git:
       url: https://github.com/line/flutter_line_sdk.git
@@ -50,7 +53,6 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   flutter_launcher_icons: ^0.14.4
-  crypto: ^3.0.7
   image: ^4.9.1
 
 flutter:

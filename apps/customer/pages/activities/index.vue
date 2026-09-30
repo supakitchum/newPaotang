@@ -27,7 +27,7 @@
 
       <div v-else class="activities-list">
         <NuxtLink v-for="activity in activities" :key="activity.id" class="activity-card" :to="`/activities/${activity.slug}`">
-          <img v-if="activity.image_thumb" :src="activity.image_thumb" :alt="activity.name">
+          <img v-if="activity.image_thumb" :src="activity.image_thumb" :alt="activity.name" loading="lazy" decoding="async">
           <div v-else class="activity-card-placeholder">
             <i class="bi bi-gift" />
           </div>
@@ -270,32 +270,39 @@ const redirectToActivityPin = async () => {
   return true
 }
 
+let activityRequestGeneration = 0
 const loadActivities = async () => {
+  const generation = ++activityRequestGeneration
   if (await redirectToActivityPin()) {
     return
   }
+  if (generation !== activityRequestGeneration) return
 
   isLoading.value = true
   try {
     loadedCustomerRights.value = false
     const params = { limit: 30 }
-    const response = canLoadCustomerRights.value
+    const authenticated = canLoadCustomerRights.value
+    const response = authenticated
       ? await platformApi.customerActivities(params)
       : await platformApi.activitiesPublic(params)
 
-    loadedCustomerRights.value = canLoadCustomerRights.value
+    if (generation !== activityRequestGeneration) return
+    loadedCustomerRights.value = authenticated
     activityMeta.value = response.meta || null
     activities.value = Array.isArray(response.data) ? sortActivitiesByRights(response.data) : []
   } catch (error) {
+    if (generation !== activityRequestGeneration) return
     console.log(error)
     activities.value = []
     activityMeta.value = null
   } finally {
-    isLoading.value = false
+    if (generation === activityRequestGeneration) isLoading.value = false
   }
 }
 
 onMounted(loadActivities)
+useCustomerActivityRefresh(loadActivities)
 
 watch([token, pinVerified, pinRequired, pinSetupRequired], loadActivities)
 

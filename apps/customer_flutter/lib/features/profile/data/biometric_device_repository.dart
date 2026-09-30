@@ -15,7 +15,7 @@ final biometricDeviceRepositoryProvider = Provider<BiometricDeviceRepository>((
 
 final biometricDevicesProvider =
     FutureProvider.autoDispose<List<BiometricDevice>>((ref) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(biometricDeviceRepositoryProvider).list();
     });
 

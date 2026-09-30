@@ -6,6 +6,7 @@ import '../core/auth/auth_controller.dart';
 import '../core/navigation/customer_back_navigation.dart';
 import '../core/navigation/customer_deep_link.dart';
 import '../core/navigation/customer_redirect.dart';
+import '../core/navigation/pending_social_callback.dart';
 import '../features/activity_claims/presentation/activity_claim_detail_screen.dart';
 import '../features/activity_claims/presentation/activity_claims_screen.dart';
 import '../features/activities/presentation/activity_detail_screen.dart';
@@ -77,6 +78,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: routerRefresh,
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
+      if (auth.isAuthenticated &&
+          (auth.pinRequired ||
+              auth.pinSetupRequired ||
+              auth.isSecurityLocked) &&
+          isSocialCallbackPath(state.uri.path)) {
+        ref.read(pendingSocialCallbackProvider.notifier).state =
+            PendingSocialCallback(state.uri.toString());
+        return auth.isSecurityLocked ? '/security-lock' : '/pin';
+      }
+      if (!auth.isAuthenticated &&
+          ref.read(pendingSocialCallbackProvider) != null) {
+        ref.read(pendingSocialCallbackProvider.notifier).state = null;
+      }
       final bootstrap = ref.read(mobileBootstrapProvider);
       final bootstrapData = bootstrap.valueOrNull;
       final maintenance = bootstrap.maybeWhen<MaintenanceConfig?>(

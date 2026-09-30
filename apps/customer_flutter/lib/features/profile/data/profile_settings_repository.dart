@@ -14,7 +14,7 @@ final profileSettingsRepositoryProvider = Provider<ProfileSettingsRepository>((
 
 final customerProfileSettingsProvider =
     FutureProvider.autoDispose<CustomerProfileSettings>((ref) async {
-      ref.keepForCustomerNavigation();
+      ref.keepForCustomerSession();
       return ref.watch(profileSettingsRepositoryProvider).load();
     });
 

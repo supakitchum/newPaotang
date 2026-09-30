@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:customer_flutter/core/auth/auth_controller.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
@@ -13,6 +14,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('web iOS and Android embed the same navy splash image', () async {
+    final expected = await File(appSplashBackgroundAsset).readAsBytes();
+    for (final path in [
+      'web/splash/siamblend_splash.jpg',
+      'ios/Runner/Assets.xcassets/SplashBackground.imageset/siamblend_splash.jpg',
+      'android/app/src/main/res/drawable-nodpi/siamblend_splash.jpg',
+    ]) {
+      expect(await File(path).readAsBytes(), expected, reason: path);
+    }
+  });
   testWidgets('AppSplashHost keeps splash for minimum duration then hides', (
     tester,
   ) async {
@@ -126,11 +137,11 @@ void main() {
     Material splashSurface() => tester.widget<Material>(
       find.byKey(const ValueKey('app-splash-surface')),
     );
-    expect(splashSurface().color, const Color(0xFF0B96DC));
+    expect(splashSurface().color, const Color(0xFF03102E));
 
     theme.value = const Color(0xFF16A085);
     await tester.pump();
-    expect(splashSurface().color, const Color(0xFF0B96DC));
+    expect(splashSurface().color, const Color(0xFF03102E));
     expect(find.byKey(const ValueKey('app-splash-background')), findsOneWidget);
   });
 

@@ -360,6 +360,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://example.test/api/v1',
+              defaultLocale: 'en-US',
+            ),
+          ),
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson(const {}),
           ),
@@ -408,6 +414,12 @@ Future<void> _pumpScreen(
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
+        appConfigProvider.overrideWithValue(
+          const AppConfig(
+            apiBaseUrl: 'https://example.test/api/v1',
+            defaultLocale: 'en-US',
+          ),
+        ),
         lineNotificationRepositoryProvider.overrideWithValue(
           lineRepository ?? _LineNotificationRepository(),
         ),

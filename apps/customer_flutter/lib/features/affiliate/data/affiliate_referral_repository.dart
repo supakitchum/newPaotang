@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -171,13 +173,31 @@ class AffiliateReferralService {
   final String Function() _webHost;
   final String Function() _webHref;
 
-  Future<String?> captureFromLocation(String location) async {
+  Future<String?> captureFromLocation(
+    String location, {
+    bool waitForTracking = true,
+  }) async {
     final refCode = extractAffiliateRefCode(location);
     if (refCode == null) return null;
 
     final scope = _hostScope();
     await _store.save(scope, refCode);
 
+    final tracking = _trackClick(scope, refCode, location);
+    if (waitForTracking) {
+      await tracking;
+    } else {
+      unawaited(tracking);
+    }
+
+    return refCode;
+  }
+
+  Future<void> _trackClick(
+    String scope,
+    String refCode,
+    String location,
+  ) async {
     try {
       await _repository.trackClick(
         refCode: refCode,
@@ -187,8 +207,6 @@ class AffiliateReferralService {
     } catch (_) {
       // Tracking must never block navigation or registration.
     }
-
-    return refCode;
   }
 
   Future<void> applyStored({bool registered = false}) async {

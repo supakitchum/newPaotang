@@ -394,6 +394,69 @@ class AuthRepository {
     return result;
   }
 
+  Future<SocialCallbackResult> nativeAppleLogin({
+    required String authorizationCode,
+    required String identityToken,
+    required String nonce,
+    String? email,
+    String? firstName,
+    String? lastName,
+    String purpose = 'login',
+    String? redirect,
+    bool auth = false,
+  }) async {
+    final redirectPath = redirect?.trim() ?? '';
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/apple/native',
+      auth: auth,
+      data: {
+        'authorization_code': authorizationCode,
+        'identity_token': identityToken,
+        'nonce': nonce,
+        'purpose': purpose,
+        'client': 'customer_flutter_native',
+        if ((email ?? '').trim().isNotEmpty) 'email': email!.trim(),
+        if ((firstName ?? '').trim().isNotEmpty)
+          'first_name': firstName!.trim(),
+        if ((lastName ?? '').trim().isNotEmpty) 'last_name': lastName!.trim(),
+        if (redirectPath.isNotEmpty)
+          'redirect': safeCustomerRedirect(redirectPath),
+      },
+    );
+    final result = SocialCallbackResult.fromJson(
+      asMap(response.data),
+      fallbackProvider: 'apple',
+    );
+    if (result.session != null) await _saveSession(result.session!);
+    return result;
+  }
+
+  Future<SocialCallbackResult> nativeGoogleLogin({
+    required String identityToken,
+    String purpose = 'login',
+    String? redirect,
+    bool auth = false,
+  }) async {
+    final redirectPath = redirect?.trim() ?? '';
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/google/native',
+      auth: auth,
+      data: {
+        'identity_token': identityToken,
+        'purpose': purpose,
+        'client': 'customer_flutter_native',
+        if (redirectPath.isNotEmpty)
+          'redirect': safeCustomerRedirect(redirectPath),
+      },
+    );
+    final result = SocialCallbackResult.fromJson(
+      asMap(response.data),
+      fallbackProvider: 'google',
+    );
+    if (result.session != null) await _saveSession(result.session!);
+    return result;
+  }
+
   Future<CustomerSession> lineLinkPhone({
     required String linkToken,
     required String phone,

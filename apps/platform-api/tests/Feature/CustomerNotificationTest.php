@@ -499,6 +499,51 @@ class CustomerNotificationTest extends TestCase
         ]);
     }
 
+    public function test_returning_customer_reuses_revoked_device_when_anonymous_installation_is_active(): void
+    {
+        $this->seedTenant('par_notify_returning', 'ten_notify_returning', 'notify-returning.test');
+        $this->seedCustomer('ten_notify_returning', 'cus_notify_returning', 'CUS-NOTIFY-RETURNING');
+        $customerToken = $this->customerToken('ten_notify_returning', 'cus_notify_returning');
+        $payload = [
+            'installation_id' => 'install_notify_returning_001',
+            'installation_secret' => 'secret_notify_returning_1234567890',
+            'platform' => 'ios',
+            'fcm_token' => str_repeat('returning-old-fcm-token-', 8),
+            'locale' => 'th-TH',
+        ];
+
+        $this->withToken($customerToken)
+            ->postJson('http://notify-returning.test/api/v1/customer/notification-devices', $payload)
+            ->assertCreated();
+        $ownedDevice = CustomerPushDevice::query()
+            ->where('customer_id', 'cus_notify_returning')
+            ->firstOrFail();
+        $this->withToken($customerToken)
+            ->deleteJson('http://notify-returning.test/api/v1/customer/notification-devices/install_notify_returning_001')
+            ->assertNoContent();
+
+        $newPayload = [
+            ...$payload,
+            'fcm_token' => str_repeat('returning-new-fcm-token-', 8),
+        ];
+        $this->postJson('http://notify-returning.test/api/v1/public/notification-installations', $newPayload)
+            ->assertCreated()
+            ->assertJsonPath('owner_state', 'anonymous');
+        $anonymousDevice = CustomerPushDevice::query()
+            ->whereNull('customer_id')
+            ->firstOrFail();
+
+        $this->withToken($customerToken)
+            ->postJson('http://notify-returning.test/api/v1/customer/notification-devices', $newPayload)
+            ->assertCreated()
+            ->assertJsonPath('owner_state', 'customer');
+
+        $this->assertDatabaseCount('customer_push_devices', 2);
+        $this->assertNull($ownedDevice->refresh()->revoked_at);
+        $this->assertSame($newPayload['fcm_token'], $ownedDevice->fcm_token_encrypted);
+        $this->assertNotNull($anonymousDevice->refresh()->revoked_at);
+    }
+
     public function test_device_registration_rejects_identifying_or_unbounded_metadata(): void
     {
         $this->seedTenant('par_notify_metadata', 'ten_notify_metadata', 'notify-metadata.test');

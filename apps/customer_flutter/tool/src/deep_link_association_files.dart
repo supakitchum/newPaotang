@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 const defaultCustomerDeepLinkPaths = <String>[
+  '/',
+  '/register',
   '/line/callback',
   '/social/*',
   '/reset-password',
@@ -70,10 +72,7 @@ Object buildAppleAppSiteAssociation({
           'paths': normalizedPaths,
           'components': [
             for (final path in normalizedPaths)
-              {
-                '/': path,
-                'comment': 'Customer Flutter deep link route',
-              },
+              {'/': path, 'comment': 'Customer Flutter deep link route'},
           ],
         },
       ],

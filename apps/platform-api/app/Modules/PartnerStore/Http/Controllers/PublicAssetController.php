@@ -2,6 +2,8 @@
 
 namespace App\Modules\PartnerStore\Http\Controllers;
 
+use App\Models\PlatformAsset;
+use App\Modules\PartnerStore\Services\PublicAssetThumbnailService;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,8 +19,10 @@ class PublicAssetController extends Controller
         'tenants/',
     ];
 
-    public function __construct(private readonly RuntimeStorageService $storage)
-    {
+    public function __construct(
+        private readonly RuntimeStorageService $storage,
+        private readonly PublicAssetThumbnailService $thumbnails,
+    ) {
     }
 
     public function show(Request $request, string $path): Response
@@ -32,8 +36,22 @@ class PublicAssetController extends Controller
         $routeKey = $this->storage->routeForStorageKey($path);
         $storageDriver = $this->storageDriver($request->query('storage_driver'));
 
-        if (! $this->storage->existsUsingDriver($routeKey, $path, $storageDriver)) {
-            return response('', 404, ['Cache-Control' => 'no-store']);
+        if ($request->query('variant') === 'thumb') {
+            $asset = PlatformAsset::query()
+                ->where('storage_key', $path)
+                ->where('purpose', 'tenant_activity_image')
+                ->where('status', 'committed')
+                ->first();
+            if ($asset !== null) {
+                $version = (string) $request->query('v', '');
+                if ($version !== '' && ! hash_equals((string) $asset->checksum_sha256, $version)) {
+                    return response('', 404, ['Cache-Control' => 'no-store']);
+                }
+                $bytes = $this->thumbnails->get($asset, $storageDriver);
+                if ($bytes !== null) {
+                    return $this->imageResponse($request, $bytes, 'image/webp', $version !== '');
+                }
+            }
         }
 
         $bytes = $this->storage->getUsingDriver($routeKey, $path, $storageDriver);
@@ -41,10 +59,24 @@ class PublicAssetController extends Controller
             return response('', 404, ['Cache-Control' => 'no-store']);
         }
 
-        return response($bytes, 200, [
-            'Content-Type' => $this->storage->mimeTypeUsingDriver($routeKey, $path, $storageDriver) ?: (string) config('lottery_images.content_type', 'image/webp'),
-            'Cache-Control' => (string) config('lottery_images.cache_control', 'public, max-age=31536000, immutable'),
-        ]);
+        $contentType = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes)
+            ?: (string) config('lottery_images.content_type', 'image/webp');
+
+        return $this->imageResponse($request, $bytes, $contentType);
+    }
+
+    private function imageResponse(Request $request, string $bytes, string $contentType, bool $immutable = true): Response
+    {
+        $response = response($bytes, 200, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => $immutable
+                ? (string) config('lottery_images.cache_control', 'public, max-age=31536000, immutable')
+                : 'public, max-age=300, must-revalidate',
+            'Content-Length' => (string) strlen($bytes),
+        ])->setEtag(hash('sha256', $bytes));
+        $response->isNotModified($request);
+
+        return $response;
     }
 
     private function hasAllowedPrefix(string $path): bool

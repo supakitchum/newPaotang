@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'customer_routes.dart';
 import 'router.dart';
 import '../core/auth/auth_controller.dart';
+import '../core/auth/native_google_auth_service.dart';
 import '../core/auth/customer_session_replacement_monitor.dart';
 import '../core/config/app_config.dart';
 import '../core/i18n/app_locale.dart';
@@ -63,6 +64,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
     final platformKey = ref.read(customerPlatformKeyProvider);
     if (platformKey.trim().toLowerCase() == 'web') return;
     if (ref.read(biometricPromptCoordinatorProvider).isActive) return;
+    if (ref.read(nativeGooglePromptCoordinatorProvider).isActive) return;
     if (_shouldLockForLifecycleState(state) && _currentRouteIsSensitive()) {
       ref.read(authControllerProvider).lockForAppLifecycle();
     }
@@ -176,6 +178,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
               key: const ValueKey('customer-system-ui-overlay'),
               value: systemUiOverlayStyle,
               child: CustomerDeepLinkListener(
+                router: router,
                 child: AppSplashHost(
                   child: CustomerRealtimeMonitor(
                     child: CustomerPushLifecycleMonitor(

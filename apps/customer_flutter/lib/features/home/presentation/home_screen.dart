@@ -42,7 +42,7 @@ import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/flexible_image.dart';
 
 final _homeCartProvider = FutureProvider.autoDispose<LotteryCart>((ref) async {
-  ref.keepForCustomerNavigation();
+  ref.keepForCustomerSession();
   ref.watch(cartRealtimeTickProvider);
   final auth = ref.watch(authControllerProvider);
   if (!auth.isAuthenticated || auth.pinRequired) {

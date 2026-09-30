@@ -6,10 +6,12 @@ import '../tool/src/deep_link_association_files.dart';
 
 void main() {
   test('buildAndroidAssetLinks creates Android app link relation', () {
-    final json = buildAndroidAssetLinks(
-      packageName: 'com.partner.customer',
-      sha256Fingerprints: ['AA:BB:CC', 'DD:EE:FF'],
-    ) as List<Object?>;
+    final json =
+        buildAndroidAssetLinks(
+              packageName: 'com.partner.customer',
+              sha256Fingerprints: ['AA:BB:CC', 'DD:EE:FF'],
+            )
+            as List<Object?>;
 
     final item = json.single as Map<String, Object?>;
     final target = item['target']! as Map<String, Object?>;
@@ -21,10 +23,12 @@ void main() {
   });
 
   test('buildAppleAppSiteAssociation creates callback app IDs and paths', () {
-    final json = buildAppleAppSiteAssociation(
-      teamId: 'ABCDE12345',
-      bundleId: 'com.partner.customer',
-    ) as Map<String, Object?>;
+    final json =
+        buildAppleAppSiteAssociation(
+              teamId: 'ABCDE12345',
+              bundleId: 'com.partner.customer',
+            )
+            as Map<String, Object?>;
 
     final applinks = json['applinks']! as Map<String, Object?>;
     final details = applinks['details']! as List<Object?>;
@@ -36,6 +40,8 @@ void main() {
     expect(detail['paths'], contains('/social/*'));
     expect(detail['paths'], contains('/reset-password'));
     expect(detail['paths'], contains('/checkout/pending'));
+    expect(detail['paths'], contains('/'));
+    expect(detail['paths'], contains('/register'));
 
     final components = detail['components']! as List<Object?>;
     expect(
@@ -49,16 +55,18 @@ void main() {
   });
 
   test('buildAppleAppSiteAssociation trims and deduplicates custom paths', () {
-    final json = buildAppleAppSiteAssociation(
-      teamId: 'ABCDE12345',
-      bundleId: 'com.partner.customer',
-      paths: const [
-        ' /social/* ',
-        '/social/*',
-        '/checkout/pending',
-        'https://partner.example.com/line/callback',
-      ],
-    ) as Map<String, Object?>;
+    final json =
+        buildAppleAppSiteAssociation(
+              teamId: 'ABCDE12345',
+              bundleId: 'com.partner.customer',
+              paths: const [
+                ' /social/* ',
+                '/social/*',
+                '/checkout/pending',
+                'https://partner.example.com/line/callback',
+              ],
+            )
+            as Map<String, Object?>;
 
     final applinks = json['applinks']! as Map<String, Object?>;
     final details = applinks['details']! as List<Object?>;

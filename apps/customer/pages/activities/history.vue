@@ -240,10 +240,13 @@ const redirectToActivityPin = async () => {
   return true
 }
 
+let activityRequestGeneration = 0
 const loadActivities = async () => {
+  const generation = ++activityRequestGeneration
   if (await redirectToActivityPin()) {
     return
   }
+  if (generation !== activityRequestGeneration) return
 
   isLoading.value = true
   try {
@@ -252,20 +255,23 @@ const loadActivities = async () => {
     const params = gameId
       ? { limit: 30, history: 1, game_id: gameId }
       : { limit: 30, history: 1 }
-    const response = canLoadCustomerRights.value
+    const authenticated = canLoadCustomerRights.value
+    const response = authenticated
       ? await platformApi.customerActivities(params)
       : await platformApi.activitiesPublic(params)
 
-    loadedCustomerRights.value = canLoadCustomerRights.value
+    if (generation !== activityRequestGeneration) return
+    loadedCustomerRights.value = authenticated
     activityMeta.value = response.meta || null
     selectedGameId.value = String(response.meta?.selected_game_id || gameId || '')
     activities.value = Array.isArray(response.data) ? sortActivitiesByRights(response.data) : []
   } catch (error) {
+    if (generation !== activityRequestGeneration) return
     console.log(error)
     activities.value = []
     activityMeta.value = null
   } finally {
-    isLoading.value = false
+    if (generation === activityRequestGeneration) isLoading.value = false
   }
 }
 
@@ -277,6 +283,7 @@ const handleGameChange = async () => {
 }
 
 onMounted(loadActivities)
+useCustomerActivityRefresh(loadActivities)
 
 watch([token, pinVerified, pinRequired, pinSetupRequired], loadActivities)
 watch(() => route.query.game_id, loadActivities)

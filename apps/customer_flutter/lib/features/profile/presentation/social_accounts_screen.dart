@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/auth/customer_social_account_repository.dart';
+import '../../../core/auth/native_apple_auth_service.dart';
+import '../../../core/auth/native_google_auth_service.dart';
 import '../../../core/auth/native_line_auth_service.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -29,9 +31,10 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(customerSocialAccountsProvider);
-    final runtimeProviders =
-        ref.watch(mobileBootstrapProvider).valueOrNull?.authProviders ??
-        const <SocialAuthProvider>[];
+    final runtimeProviders = nativeAppleProvidersForPlatform(
+      ref.watch(mobileBootstrapProvider).valueOrNull?.authProviders ??
+          const <SocialAuthProvider>[],
+    );
     final l10n = context.l10n;
 
     return AppShell(
@@ -109,7 +112,60 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
     if (_busyProvider.isNotEmpty) return;
     setState(() => _busyProvider = provider);
     try {
-      if (normalizeSocialAuthProvider(provider) == 'line') {
+      final normalizedProvider = normalizeSocialAuthProvider(provider);
+      if (normalizedProvider == 'google') {
+        final nativeResult = await ref
+            .read(nativeGoogleAuthServiceProvider)
+            .authenticate(
+              purpose: 'link',
+              redirect: '/profile/social-accounts',
+              auth: true,
+            );
+        if (!mounted) return;
+        if (nativeResult != null) {
+          ref.invalidate(customerSocialAccountsProvider);
+          final completed = await completeSocialAuthentication(
+            context: context,
+            ref: ref,
+            result: nativeResult,
+            fallbackRedirect: '/profile/social-accounts',
+          );
+          if (!mounted || completed) return;
+          throw StateError(
+            nativeResult.message.isEmpty
+                ? 'Google account could not be connected.'
+                : nativeResult.message,
+          );
+        }
+      }
+
+      if (normalizedProvider == 'apple') {
+        final nativeResult = await ref
+            .read(nativeAppleAuthServiceProvider)
+            .authenticate(
+              purpose: 'link',
+              redirect: '/profile/social-accounts',
+              auth: true,
+            );
+        if (!mounted) return;
+        if (nativeResult != null) {
+          ref.invalidate(customerSocialAccountsProvider);
+          final completed = await completeSocialAuthentication(
+            context: context,
+            ref: ref,
+            result: nativeResult,
+            fallbackRedirect: '/profile/social-accounts',
+          );
+          if (!mounted || completed) return;
+          throw StateError(
+            nativeResult.message.isEmpty
+                ? 'Apple account could not be connected.'
+                : nativeResult.message,
+          );
+        }
+      }
+
+      if (normalizedProvider == 'line') {
         final nativeResult = await ref
             .read(nativeLineAuthServiceProvider)
             .authenticate(
@@ -150,6 +206,10 @@ class _SocialAccountsScreenState extends ConsumerState<SocialAccountsScreen> {
           .read(customerLinkLauncherProvider)
           .openSocialLogin(provider, uri!);
       if (!opened) throw StateError('Social login could not be opened.');
+    } on NativeAppleLoginCancelled {
+      return;
+    } on NativeGoogleLoginCancelled {
+      return;
     } on NativeLineLoginCancelled {
       return;
     } catch (error) {

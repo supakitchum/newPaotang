@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/realtime/customer_revenue_refresh_ticks.dart';
+import '../../affiliate/data/affiliate_repository.dart';
 import '../../purchase_history/data/purchase_history_repository.dart';
 import '../../tickets/data/ticket_repository.dart';
 import '../../wallet/data/wallet_repository.dart';
@@ -46,6 +47,7 @@ class CustomerRevenueCache {
     if (!settlementChanged) return;
 
     _ref.invalidate(walletSummaryProvider);
+    _ref.invalidate(affiliateOverviewProvider);
     ticketsChanged(ticketIds: ticketIds);
   }
 }

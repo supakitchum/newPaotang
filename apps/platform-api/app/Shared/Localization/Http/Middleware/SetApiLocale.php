@@ -23,6 +23,10 @@ class SetApiLocale
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if ($request->is('api/v1/public/assets/*')) {
+            return $next($request);
+        }
+
         $locale = $this->resolveLocale($request);
 
         app()->setLocale($locale);

@@ -102,6 +102,20 @@ class TenantActivityTest extends TestCase
         $this->assertSame('resource_conflict', $second['error'] ?? null);
     }
 
+    public function test_customer_rights_are_fresh_on_the_first_request_after_purchase(): void
+    {
+        $this->insertActivePartnerTenantWithDomain('par_fresh_rights', 'ten_fresh_rights', 'fresh-rights.test');
+        $this->insertGame('gam_fresh_rights', 'open');
+        $token = $this->issueCustomerToken('ten_fresh_rights', 'cus_fresh_rights');
+        $this->insertLuckyActivity('ten_fresh_rights', 'gam_fresh_rights', 'act_fresh_rights', thresholdTickets: 2);
+        $url = 'http://fresh-rights.test/api/v1/customer/activities/act_fresh_rights';
+        $this->withToken($token)->getJson($url)->assertOk()->assertJsonPath('rights.earned_count', 0);
+
+        $this->insertPaidOrderWithTickets('par_fresh_rights', 'ten_fresh_rights', 'gam_fresh_rights', 'cus_fresh_rights', 'ord_fresh_rights', ['123455', '123456'], 16000);
+        $response = $this->withToken($token)->getJson($url)->assertOk()->assertJsonPath('rights.earned_count', 1);
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+    }
+
     public function test_lucky_board_cumulative_rights_are_ticket_blocks_consumed_across_activities(): void
     {
         $service = app(TenantActivityService::class);

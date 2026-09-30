@@ -3836,6 +3836,20 @@ void _checkIosEntitlements(
     ),
     issues,
   );
+
+  if (input.production &&
+      _normalizedSocialProviders(input.socialAuthProviders).contains('apple')) {
+    _requireAllSnippets(
+      source,
+      const ['com.apple.developer.applesignin', '<string>Default</string>'],
+      const ProductionPreflightIssue(
+        code: 'ios_sign_in_with_apple_entitlement_missing',
+        message:
+            'iOS production builds with Apple login must declare the Sign in with Apple entitlement.',
+      ),
+      issues,
+    );
+  }
 }
 
 void _checkIosXcconfig(
