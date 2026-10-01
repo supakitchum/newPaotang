@@ -1,0 +1,2 @@
+exit_status=0
+raw_fake_value_leak_count=0

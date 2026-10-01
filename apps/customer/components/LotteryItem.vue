@@ -1,5 +1,5 @@
 <template>
-  <article class="lottery-row" :class="{ 'is-lazy': loading }">
+  <article class="lottery-row" :class="{ 'is-lazy': loading, 'is-unavailable': isUnavailable }">
     <template v-if="!loading">
       <div class="d-flex justify-content-between align-items-start gap-3">
         <div class="ticket-brand">
@@ -7,31 +7,32 @@
           <span>สลากกินแบ่งรัฐบาล</span>
         </div>
         <NuxtLink
-          v-if="showMoreLink"
+          v-if="shouldShowMoreLink"
           class="blue-link"
-          :to="{ path: '/buy/more', query: { number: ticketNumber } }"
+          :to="moreLinkTo"
         >
           ดูเลขนี้เพิ่ม
         </NuxtLink>
       </div>
       <div class="lottery-main-row">
-        <div class="ticket-data-grid">
-          <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
-          <div class="ticket-meta-column">
-            <span>
-              <span class="tiny-label">งวดที่</span>
-              <span class="tiny-value">{{ drawNumber }}</span>
-            </span>
-          </div>
-          <div class="ticket-meta-column">
-            <span>
-              <span class="tiny-label">ชุดที่</span>
-              <span class="tiny-value">{{ setNumber }}</span>
-            </span>
+        <div class="lottery-display-grid">
+          <LotteryImage
+            v-if="showImage"
+            :src="ticket.image_url || ticket.image"
+            :thumb-src="ticket.image_thumb_url"
+            :status="ticket.image_status"
+            :error-message="ticket.image_error"
+            :number="ticketNumber"
+            variant="card"
+          />
+          <div class="ticket-data-grid">
+            <div class="ticket-number-column">
+              <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
+            </div>
           </div>
         </div>
         <button
-          v-if="ticket.selected && confirmRemove"
+          v-if="isSelectedInCartContext"
           class="remove-pill px-4 py-2"
           type="button"
           @click="$emit('remove')"
@@ -51,15 +52,20 @@
           v-else
           class="outline-pill px-4 py-2"
           type="button"
-          :disabled="isBooking || bookingDisabled"
+          :disabled="isBooking || bookingDisabled || isUnavailable"
           @click="handleBooking"
         >
           {{ selectButtonText }}
         </button>
       </div>
       <div class="d-flex justify-content-between align-items-center mt-2">
+        <span v-if="ticketCount > 1" class="ticket-count-badge">จำนวน {{ ticketCount }} ใบ</span>
         <div class="muted-text fw-medium">{{ sellerName }}</div>
-        <div class="price">{{ price }} บาท</div>
+        <div class="price" :class="priceTrendClass">
+          <i v-if="priceTrend === 'up'" class="bi bi-arrow-up-short price-trend-icon" aria-hidden="true" />
+          <i v-else-if="priceTrend === 'down'" class="bi bi-arrow-down-short price-trend-icon" aria-hidden="true" />
+          <span>{{ price }} บาท</span>
+        </div>
       </div>
     </template>
     <template v-else>
@@ -90,13 +96,23 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ticketPrice } from '~/data/lottery'
+import { getCartLotteryIdentityKeys, getCartLotteryNumber } from '~/composables/useCart'
+import type { CartLottery } from '~/composables/useCart'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   ticket: {
+    id?: string | number
     token?: string
     number: string
     full_number?: string
     lottery_number?: string
+    local_stock_item_id?: string | number
+    stock_ref?: string | number
+    reservation_id?: string | number
+    order_id?: string | number
+    game_id?: string | number
+    count?: number | string
+    group_count?: number | string
     seller?: string
     store_name?: string
     draw?: number | string
@@ -107,11 +123,30 @@ const props = defineProps<{
     selected?: boolean
     highlight?: string
     highlightDigits?: Array<string | null>
+    image?: string | null
+    image_url?: string | null
+    image_thumb_url?: string | null
+    image_status?: string | null
+    image_error?: string | null
+    price?: number | string
+    priceTrend?: 'up' | 'down' | null
+    priceFlashKey?: number | null
+    remaining_count?: number | null
+    availability_status?: string | null
+    status?: string | null
   }
   confirmRemove?: boolean
   loading?: boolean
   bookingDisabled?: boolean
-}>()
+  showImage?: boolean
+  showMoreLink?: boolean
+}>(), {
+  bookingDisabled: false,
+  confirmRemove: false,
+  loading: false,
+  showImage: true,
+  showMoreLink: true
+})
 
 const emit = defineEmits<{
   remove: []
@@ -119,47 +154,82 @@ const emit = defineEmits<{
   booked: [ticket: typeof props.ticket]
 }>()
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const route = useRoute()
 const { isAuthenticated } = useAuth()
-const { items, addBookedLottery, removeLottery, setCartItems } = useCart()
+const { items, hasItems, isExpired, addBookedLottery, removeLottery, setCartItems } = useCart()
+const { currentGame, refreshAppInit, isSaleClosedNow } = useAppInit()
 const { showAlert } = useAppAlert()
-const price = ticketPrice
 const isBooking = ref(false)
 const isCancelling = ref(false)
 const showUnavailableModal = ref(false)
 const shouldRemoveUnavailableTicket = ref(false)
-const getTicketNumber = (ticket: typeof props.ticket) => {
-  const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
-
-  return String(value)
-}
+const getTicketNumber = (ticket: Partial<CartLottery>) => getCartLotteryNumber(ticket)
 const ticketNumber = computed(() => getTicketNumber(props.ticket))
-const showMoreLink = computed(() => route.path !== '/buy/more')
+const shouldShowMoreLink = computed(() => props.showMoreLink !== false && route.path !== '/buy/more')
+const moreLinkTo = computed(() => ({
+  path: '/buy/more',
+  query: {
+    number: ticketNumber.value,
+    back: route.fullPath
+  }
+}))
+const cartItem = computed(() => {
+  const ticketKeys = getCartLotteryIdentityKeys(props.ticket)
+
+  if (ticketKeys.length > 0) {
+    const keySet = new Set(ticketKeys)
+    const matchedItem = items.value.find((item) => getCartLotteryIdentityKeys(item).some((key) => keySet.has(key)))
+
+    if (matchedItem) {
+      return matchedItem
+    }
+  }
+
+  return null
+})
+const isSelectedInCartContext = computed(() => Boolean(props.confirmRemove && props.ticket.selected))
+const isInCart = computed(() => isSelectedInCartContext.value || Boolean(cartItem.value))
+const isUnavailable = computed(() => {
+  if (isInCart.value) {
+    return false
+  }
+
+  const status = String(props.ticket.availability_status || props.ticket.status || '').toLowerCase()
+  const hasRemainingCount = props.ticket.remaining_count !== null && props.ticket.remaining_count !== undefined
+
+  return (hasRemainingCount && Number(props.ticket.remaining_count) <= 0) || ['sold_out', 'sold', 'reserved', 'unavailable'].includes(status)
+})
 const bookingDisabled = computed(() => Boolean(props.bookingDisabled))
+const showImage = computed(() => props.showImage !== false)
+const price = computed(() => {
+  const value = Number(props.ticket.price)
+
+  return Number.isFinite(value) && value > 0 ? value : ticketPrice
+})
+const ticketCount = computed(() => {
+  const value = Number(props.ticket.group_count ?? props.ticket.count ?? 1)
+
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1
+})
+const priceTrend = computed(() => props.ticket.priceTrend || null)
+const priceTrendClass = computed(() => ({
+  'price-flash-up': priceTrend.value === 'up',
+  'price-flash-down': priceTrend.value === 'down'
+}))
 const selectButtonText = computed(() => {
+  if (isUnavailable.value) {
+    return 'ขายหมดแล้ว'
+  }
+
   if (bookingDisabled.value) {
     return 'ปิดรับซื้อ'
   }
 
   return isBooking.value ? 'กำลังจอง' : 'เลือก'
 })
-const cartItem = computed(() => {
-  if (props.ticket.token) {
-    return items.value.find((item) => item.token === props.ticket.token) || null
-  }
-
-  return items.value.find((item) => item.number === ticketNumber.value) || null
-})
-const isInCart = computed(() => props.ticket.selected || Boolean(cartItem.value))
-const drawNumber = computed(() => props.ticket.draw ?? props.ticket.draw_no ?? props.ticket.game_no ?? 43)
-const setNumber = computed(() => {
-  const rawValue = props.ticket.set ?? props.ticket.sort_order ?? ''
-  const value = String(rawValue)
-
-  return value.length > 2 ? value.slice(-2) : value
-})
 const sellerName = computed(() => props.ticket.store_name ?? props.ticket.seller ?? '')
+const hasPayableCart = computed(() => hasItems.value && !isExpired.value)
 
 const openUnavailableModal = (shouldRemove = true) => {
   shouldRemoveUnavailableTicket.value = shouldRemove
@@ -169,7 +239,7 @@ const openUnavailableModal = (shouldRemove = true) => {
 const closeUnavailableModal = () => {
   showUnavailableModal.value = false
 
-  if (shouldRemoveUnavailableTicket.value) {
+  if (shouldRemoveUnavailableTicket.value && !isInCart.value) {
     emit('bookingUnavailable', props.ticket)
   }
 
@@ -184,10 +254,51 @@ const showCancelError = () => {
   })
 }
 
-const getTicketToken = () => {
-  const value = cartItem.value?.token || props.ticket.token || ''
+const reservationErrorCode = (error: any) => error?.response?.data?.error?.code || error?.response?.data?.code || ''
 
-  return String(value)
+const refreshCartFromServer = async () => {
+  try {
+    const response = await platformApi.loadCartLegacy()
+
+    if (response.data.code === 0) {
+      setCartItems(
+        response.data.carts || [],
+        response.data.result?.cart_order?.exp || null,
+        response.data.server_time || response.data.result?.cart_order?.created_at || null
+      )
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+const handleSaleClosedBookingAttempt = async (options: { refresh?: boolean } = {}) => {
+  if (options.refresh) {
+    await refreshAppInit()
+  }
+
+  if (!currentGame.value || !isSaleClosedNow()) {
+    return false
+  }
+
+  if (hasPayableCart.value) {
+    showAlert({
+      title: 'หมดเวลาจำหน่ายสลากแล้ว',
+      message: 'ขณะนี้หมดเวลาจำหน่ายสลากแล้ว กรุณาชำระเงินก่อนหมดเวลาชำระ',
+      variant: 'warning'
+    })
+    await navigateTo('/cart')
+    return true
+  }
+
+  showAlert({
+    title: 'หมดเวลาจำหน่ายสลากแล้ว',
+    message: 'ขณะนี้หมดเวลาจำหน่ายสลากแล้ว',
+    variant: 'warning'
+  })
+  await navigateTo('/waiting-result')
+
+  return true
 }
 
 const handleCancelBooking = async () => {
@@ -198,10 +309,7 @@ const handleCancelBooking = async () => {
   isCancelling.value = true
 
   try {
-    const response = await axios.post('/lotteries/cancel_booking', {
-      token: getTicketToken(),
-      full_number: getTicketNumber(cartItem.value || props.ticket)
-    })
+    const response = await platformApi.releaseReservationLegacy(cartItem.value || props.ticket)
 
     if (response.data.code !== 0) {
       showCancelError()
@@ -209,7 +317,7 @@ const handleCancelBooking = async () => {
     }
 
     if (Array.isArray(response.data.carts)) {
-      setCartItems(response.data.carts)
+      setCartItems(response.data.carts, response.data.result?.cart_order?.exp || null, response.data.server_time || response.data.result?.cart_order?.created_at || null)
     } else {
       removeLottery(cartItem.value || props.ticket)
     }
@@ -222,7 +330,7 @@ const handleCancelBooking = async () => {
 }
 
 const handleBooking = async () => {
-  if (isBooking.value || bookingDisabled.value) {
+  if (isBooking.value || bookingDisabled.value || isUnavailable.value) {
     return
   }
 
@@ -239,12 +347,15 @@ const handleBooking = async () => {
   isBooking.value = true
 
   try {
-    const response = await axios.post('/lotteries/booking', {
-      token: props.ticket.token
-    })
+    if (await handleSaleClosedBookingAttempt()) {
+      return
+    }
+
+    const response = await platformApi.reserveLegacy(props.ticket)
 
     if (response.data.code !== 0) {
-      openUnavailableModal()
+      await refreshCartFromServer()
+      openUnavailableModal(!isInCart.value)
       return
     }
 
@@ -258,13 +369,81 @@ const handleBooking = async () => {
       })
     }
 
-    addBookedLottery(bookedTicket, response.data.exp)
+    addBookedLottery(bookedTicket, response.data.exp, response.data.server_time || response.data.result?.reservation?.server_time || null)
     emit('booked', bookedTicket)
-  } catch (e) {
-    console.log(e)
-    openUnavailableModal(false)
+  } catch (error: any) {
+    if (reservationErrorCode(error) === 'reservation_unavailable' && await handleSaleClosedBookingAttempt({ refresh: true })) {
+      return
+    }
+
+    console.log(error)
+    await refreshCartFromServer()
+    openUnavailableModal(!isInCart.value)
   } finally {
     isBooking.value = false
   }
 }
 </script>
+
+<style scoped>
+.price {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+  min-width: 72px;
+  justify-content: flex-end;
+}
+
+.ticket-number-column {
+  width: 154px;
+  display: grid;
+  gap: 8px;
+}
+
+.ticket-count-badge {
+  align-self: stretch;
+  background: var(--app-soft);
+  border-radius: 999px;
+  color: var(--app-blue);
+  display: inline-flex;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.price-trend-icon {
+  font-size: 1.15em;
+  line-height: 1;
+}
+
+.price-flash-up {
+  animation: pricePulse 2s ease-out;
+  color: #15803d;
+}
+
+.price-flash-down {
+  animation: pricePulse 2s ease-out;
+  color: #dc2626;
+}
+
+@keyframes pricePulse {
+  0%,
+  55% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  20% {
+    opacity: 0.35;
+    transform: translateY(-1px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

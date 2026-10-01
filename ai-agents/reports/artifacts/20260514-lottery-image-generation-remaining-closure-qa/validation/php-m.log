@@ -1,0 +1,54 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-1e38d30a20b4 Creating
+ Container newpaotang-platform-api-run-1e38d30a20b4 Created
+[PHP Modules]
+bcmath
+Core
+ctype
+curl
+date
+dom
+fileinfo
+filter
+gd
+hash
+iconv
+json
+libxml
+mbstring
+mysqlnd
+openssl
+pcntl
+pcre
+PDO
+pdo_pgsql
+pdo_sqlite
+Phar
+posix
+random
+readline
+Reflection
+session
+SimpleXML
+sodium
+SPL
+sqlite3
+standard
+tokenizer
+xml
+xmlreader
+xmlwriter
+Zend OPcache
+zip
+zlib
+
+[Zend Modules]
+Zend OPcache
+
+
+exit_code=0

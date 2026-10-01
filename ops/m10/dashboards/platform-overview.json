@@ -1,0 +1,58 @@
+{
+  "uid": "newpaotang-m10-platform-overview",
+  "title": "NewPaotang M10 Platform Overview",
+  "tags": ["newpaotang", "m10", "template"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "type": "constant",
+        "query": "local",
+        "current": {
+          "text": "local",
+          "value": "local"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "API Error Rate",
+      "type": "timeseries",
+      "description": "Template panel. Production datasource is not configured in this repository.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(platform_api_errors_total{environment=\"$environment\"}[5m])) / sum(rate(platform_api_requests_total{environment=\"$environment\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Queue Lag",
+      "type": "timeseries",
+      "description": "Template panel for Horizon/queue supervision gate.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(platform_queue_lag_seconds{environment=\"$environment\"})"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Partner Sync Lag",
+      "type": "timeseries",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(platform_partner_sync_lag_seconds{environment=\"$environment\"}) by (partner_id, tenant_id)"
+        }
+      ]
+    }
+  ]
+}

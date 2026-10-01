@@ -1,0 +1,278 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Demo Alpha Lottery":
+    - generic: 
+    - text: Demo Alpha Lottery
+  - text: 
+  - button "":
+    - generic: 
+  - button "AL Alpha Owner":
+    - generic: AL
+    - generic: Alpha Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Tenant Menu
+        - link " Dashboard":
+          - /url: /admin/tenant/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Local Stock":
+          - /url: /admin/tenant/stock
+          - generic: 
+          - generic: Local Stock
+        - link " Stock Sync":
+          - /url: /admin/tenant/stock-sync
+          - generic: 
+          - generic: Stock Sync
+        - link " Price Rules":
+          - /url: /admin/tenant/price-rules
+          - generic: 
+          - generic: Price Rules
+        - link " Reservations":
+          - /url: /admin/tenant/reservations
+          - generic: 
+          - generic: Reservations
+        - link " Orders":
+          - /url: /admin/tenant/orders
+          - generic: 
+          - generic: Orders
+        - link " Customers":
+          - /url: /admin/tenant/customers
+          - generic: 
+          - generic: Customers
+        - link " Wallets":
+          - /url: /admin/tenant/wallets
+          - generic: 
+          - generic: Wallets
+        - link " Topups":
+          - /url: /admin/tenant/topups
+          - generic: 
+          - generic: Topups
+        - link " Tickets":
+          - /url: /admin/tenant/tickets
+          - generic: 
+          - generic: Tickets
+        - link " Agents":
+          - /url: /admin/tenant/growth/agents
+          - generic: 
+          - generic: Agents
+        - link " Agent Quotas":
+          - /url: /admin/tenant/growth/agent-quotas
+          - generic: 
+          - generic: Agent Quotas
+        - link " Payment Settings":
+          - /url: /admin/tenant/payment-settings
+          - generic: 
+          - generic: Payment Settings
+        - link " Affiliate Programs":
+          - /url: /admin/tenant/growth/affiliate-programs
+          - generic: 
+          - generic: Affiliate Programs
+        - link " Affiliate Accounts":
+          - /url: /admin/tenant/growth/affiliates
+          - generic: 
+          - generic: Affiliate Accounts
+        - link " Affiliate Links":
+          - /url: /admin/tenant/growth/affiliate-links
+          - generic: 
+          - generic: Affiliate Links
+        - link " Affiliate Attributions":
+          - /url: /admin/tenant/growth/attributions
+          - generic: 
+          - generic: Affiliate Attributions
+        - link " Commission Rules":
+          - /url: /admin/tenant/growth/commission-rules
+          - generic: 
+          - generic: Commission Rules
+        - link " Seo Settings":
+          - /url: /admin/tenant/seo
+          - generic: 
+          - generic: Seo Settings
+        - link " Maintenance":
+          - /url: /admin/tenant/maintenance
+          - generic: 
+          - generic: Maintenance
+        - link " Support Access Logs":
+          - /url: /admin/tenant/support-access
+          - generic: 
+          - generic: Support Access Logs
+        - link " Commission Transactions":
+          - /url: /admin/tenant/growth/commission-transactions
+          - generic: 
+          - generic: Commission Transactions
+        - link " Payouts":
+          - /url: /admin/tenant/growth/payouts
+          - generic: 
+          - generic: Payouts
+        - link " Reports":
+          - /url: /admin/tenant/reports
+          - generic: 
+          - generic: Reports
+        - link " Monitoring":
+          - /url: /admin/tenant/monitoring
+          - generic: 
+          - generic: Monitoring
+        - link " Usage":
+          - /url: /admin/tenant/usage
+          - generic: 
+          - generic: Usage
+        - link " Sync Logs":
+          - /url: /admin/tenant/sync-logs
+          - generic: 
+          - generic: Sync Logs
+        - link " Audit Logs":
+          - /url: /admin/tenant/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/tenant/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/tenant/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/tenant/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " Settings":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Settings
+      - text: 
+- main:
+  - heading "Topups detail" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Tenant
+    - listitem:  Tenant Finance
+    - listitem:  Topups detail
+  - link " Back":
+    - /url: /admin/tenant/topups
+    - generic: 
+    - text: Back
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Topups detail
+  - term: Id
+  - definition:
+    - code: top_qa_ctx_20260510
+  - term: Amount
+  - definition:
+    - code: "{ \"amount\": 50000, \"currency\": \"THB\" }"
+  - term: Bonus Amount
+  - definition:
+    - code: "{ \"amount\": 0, \"currency\": \"THB\" }"
+  - term: Status
+  - definition: pending_payment
+  - term: Transfer At
+  - definition: 2026-05-10T11:36:24.000000Z
+  - term: Created At
+  - definition: 2026-05-10T11:36:24.000000Z
+  - term: Payment
+  - definition:
+    - code: "{ \"qr_code\": null, \"redirect_url\": null, \"message\": null }"
+  - term: Tenant Id
+  - definition:
+    - code: ten_demo_alpha
+  - term: Reference
+  - definition: QA-TOPUP-CTX-20260510
+  - term: Channel
+  - definition: bank_transfer
+  - term: Customer
+  - definition:
+    - code: "{ \"id\": \"cus_qa_ctx_20260510\", \"tenant_id\": \"ten_demo_alpha\", \"name\": \"QA Context Customer\", \"phone\": \"+66020000010\", \"email\": \"qa.ctx.20260510@example.test\", \"status\": \"active\", \"avatar_url\": null }"
+  - term: Reviewed At
+  - definition:
+    - code: "-"
+  - term: Reviewed By Admin Id
+  - definition:
+    - code: "-"
+  - term: Wallet
+  - definition:
+    - code: "{ \"id\": \"wal_qa_ctx_20260510\", \"name\": \"QA Primary Wallet\", \"type\": \"primary\", \"balance\": { \"amount\": 250000, \"currency\": \"THB\" } }"
+  - term: Slip Url
+  - definition:
+    - code: "-"
+  - term: Provider Payload
+  - definition:
+    - code: "[]"
+  - term: Admin Note
+  - definition:
+    - code: "-"
+  - term: Audit
+  - definition:
+    - code: "[]"
+  - generic: Documented operations
+  - button " Approve" [active]:
+    - generic: 
+    - text: Approve
+  - button " Reject":
+    - generic: 
+    - text: Reject
+  - button " Cancel":
+    - generic: 
+    - text: Cancel
+  - dialog:
+    - heading "Approve" [level=6]
+    - button "Close"
+    - paragraph: Confirm approve for top_qa_ctx_20260510.
+    - term: Id
+    - definition: top_qa_ctx_20260510
+    - term: Tenant Id
+    - definition: ten_demo_alpha
+    - term: Reference
+    - definition: QA-TOPUP-CTX-20260510
+    - term: Customer Id
+    - definition: cus_qa_ctx_20260510
+    - term: Customer Name
+    - definition: QA Context Customer
+    - term: Customer Phone
+    - definition: "+66020000010"
+    - term: Status
+    - definition: pending_payment
+    - term: Amount Amount
+    - definition: "50000"
+    - term: Amount Currency
+    - definition: THB
+    - term: Channel
+    - definition: bank_transfer
+    - term: Customer Email
+    - definition: qa.ctx.20260510@example.test
+    - generic: Approved amount (minor units)
+    - spinbutton "Approved amount (minor units)"
+    - generic: Use the smallest currency unit, for example 10000 for THB 100.00.
+    - generic: Currency
+    - combobox "Currency":
+      - option "Select"
+      - option "THB" [selected]
+    - generic: Bonus amount (minor units)
+    - spinbutton "Bonus amount (minor units)": "0"
+    - generic: Use the smallest currency unit, for example 10000 for THB 100.00.
+    - generic: Currency
+    - combobox "Currency":
+      - option "Select"
+      - option "THB" [selected]
+    - checkbox "Notify customer" [checked]
+    - generic: Notify customer
+    - generic: Send customer-facing notification when the backend supports it.
+    - generic: Reason
+    - textbox
+    - button "Cancel"
+    - button "Confirm" [disabled]
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

@@ -7,8 +7,6 @@
     aria-live="polite"
   >
     <div class="app-splash-inner">
-      <BrandLogo />
-      <div class="app-splash-mark">L6</div>
       <div class="app-splash-loader" aria-hidden="true">
         <span />
       </div>

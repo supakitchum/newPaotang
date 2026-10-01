@@ -1,0 +1,230 @@
+{
+    "status": "blocked_external",
+    "generated_at": "2026-05-09T13:04:18.182782Z",
+    "production_approved": false,
+    "boundary": {
+        "local_dev_verifiable": true,
+        "dry_run": true,
+        "synthetic_seeded_data_only": true,
+        "external_services_called": false,
+        "long_lived_processes_started": false,
+        "destructive_production_operations_attempted": false,
+        "old_data_payloads_loaded": false,
+        "staging_approved": false,
+        "production_approved": false,
+        "client_delivery_approved": false,
+        "production_cutover_approved": false,
+        "production_rollback_approved": false
+    },
+    "old_data_migration_strategy": {
+        "status": "ready_local",
+        "artifact": "ops/m10/old-data-migration-strategy.md",
+        "supported_source_categories": [
+            "partners_and_tenants",
+            "domains_and_branding",
+            "admin_users_roles_and_menus",
+            "customers",
+            "wallet_balances_and_ledger_reconciliation_inputs",
+            "games_stock_allocations_and_local_stock",
+            "orders_tickets_payments_and_topups",
+            "reward_results_claims_agents_affiliates_reports"
+        ],
+        "unsupported_or_unknown_categories": [
+            "raw_passwords_or_password_hash_reuse",
+            "unversioned_event_payloads",
+            "base64_ticket_images",
+            "production_payment_provider_secrets",
+            "unmapped_legacy_statuses",
+            "records_without_tenant_or_partner_identity"
+        ],
+        "mapping_policy": {
+            "tenant_identity_required": true,
+            "current_platform_tables_are_target": true,
+            "status_mapping_must_be_explicit": true,
+            "unknown_records_go_to_reject_report": true
+        },
+        "idempotency_policy": {
+            "stable_legacy_source_key_required": true,
+            "replay_updates_same_target_record": true,
+            "payload_hash_conflicts_are_rejected": true,
+            "outbox_inbox_events_keep_event_id_or_idempotency_key": true
+        },
+        "redaction_policy": {
+            "customer_pii_not_emitted_in_readiness": true,
+            "old_data_payloads_not_emitted_in_readiness": true,
+            "secrets_reported_as_configured_or_redacted_only": true
+        },
+        "blockers": []
+    },
+    "rehearsal_fixtures": {
+        "status": "ready_local",
+        "artifact": "ops/m10/migration-rehearsal-fixtures.md",
+        "synthetic_seeded_data_only": true,
+        "real_old_data_dumps_committed": false,
+        "seeders_checked": [
+            "apps/platform-api/database/seeders/DatabaseSeeder.php",
+            "apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php",
+            "apps/platform-api/database/seeders/BootstrapAdminSeeder.php",
+            "apps/platform-api/database/seeders/DemoTenantSeeder.php"
+        ],
+        "missing_seeders": [],
+        "fixture_sources": [
+            "DatabaseSeeder",
+            "DefaultRbacMenuSeeder",
+            "BootstrapAdminSeeder",
+            "DemoTenantSeeder",
+            "feature_test_factories_and_fixtures"
+        ],
+        "blockers": []
+    },
+    "snapshot_requirements": {
+        "status": "blocked_external",
+        "artifact": "ops/m10/snapshot-requirements.md",
+        "artifact_present": true,
+        "database_snapshot": {
+            "required": true,
+            "scope": "PostgreSQL schema, tenant data, ledger/order/reward/report state, outbox/inbox, audit, monitoring state.",
+            "local_rehearsal_boundary": "Use migrate:fresh --seed only for local/test rehearsal; never as production rollback."
+        },
+        "object_storage_metadata_snapshot": {
+            "required": true,
+            "scope": "Ticket image keys, variants, CDN policy metadata, bucket prefixes, and ownership map only.",
+            "raw_objects_required_in_repo": false
+        },
+        "blockers": [
+            "real_database_snapshot_missing",
+            "real_object_storage_metadata_snapshot_missing",
+            "restore_rehearsal_evidence_missing"
+        ]
+    },
+    "cutover": {
+        "status": "blocked_external",
+        "artifact": "ops/m10/cutover-runbook.md",
+        "artifact_present": true,
+        "configured": {
+            "release_image_tag": false,
+            "migration_source_type": true
+        },
+        "redacted_config": {
+            "release_image_tag": null,
+            "migration_source_type": "[CONFIGURED]"
+        },
+        "operator_checkpoints": [
+            "preflight",
+            "release_tag_and_image_boundary",
+            "queue_pause_or_drain_decision",
+            "tenant_maintenance_decision",
+            "dry_run_then_production_safe_migration_boundary",
+            "health_smoke_runtime_readiness_checks",
+            "cloudflare_cdn_r2_checkpoints",
+            "monitoring_alert_checkpoint",
+            "abort_criteria",
+            "evidence_capture"
+        ],
+        "blockers": [
+            "release_image_tag_not_verified",
+            "production_cutover_window_not_approved",
+            "staging_rehearsal_not_completed",
+            "cloudflare_cdn_r2_production_evidence_missing",
+            "production_monitoring_alert_channels_not_verified"
+        ]
+    },
+    "rollback": {
+        "status": "blocked_external",
+        "artifact": "ops/m10/rollback-drill-runbook.md",
+        "artifact_present": true,
+        "configured": {
+            "previous_image_tag": false
+        },
+        "redacted_config": {
+            "previous_image_tag": null
+        },
+        "drill_requirements": [
+            "previous_image_tag",
+            "database_backward_compatibility_boundary",
+            "feature_flag_off_switch",
+            "queue_pause_resume_boundary",
+            "tenant_maintenance_boundary",
+            "object_storage_rollback_or_repair_boundary",
+            "post_rollback_health_smoke_checks",
+            "residual_repair_tasks_for_coordinator_review"
+        ],
+        "blockers": [
+            "previous_image_tag_missing",
+            "production_db_backward_compatibility_not_verified",
+            "object_storage_rollback_plan_not_verified",
+            "rollback_rehearsal_not_executed"
+        ]
+    },
+    "production_secret_boundary": {
+        "status": "blocked_external",
+        "artifact": "ops/m10/production-secret-boundary.md",
+        "artifact_present": true,
+        "configured": {
+            "source_dsn": false,
+            "source_token": false,
+            "object_storage_bucket": false,
+            "secret_reference": false
+        },
+        "redacted_config": {
+            "source_dsn": null,
+            "source_token": null,
+            "object_storage_bucket": null,
+            "secret_reference": null
+        },
+        "required_external_owner": "Coordinator/Ops approved secret manager outside committed files.",
+        "placeholder_only": true,
+        "blockers": [
+            "production_secret_management_missing",
+            "migration_source_credentials_missing",
+            "real_old_data_source_missing"
+        ]
+    },
+    "helpers": {
+        "status": "ready_local",
+        "items": [
+            {
+                "path": "scripts/platform-migration-rehearsal.sh",
+                "exists": true,
+                "docker_only": true
+            },
+            {
+                "path": "scripts/platform-cutover-preflight.sh",
+                "exists": true,
+                "docker_only": true
+            },
+            {
+                "path": "scripts/platform-rollback-drill.sh",
+                "exists": true,
+                "docker_only": true
+            }
+        ],
+        "blockers": []
+    },
+    "blockers": [
+        "real_database_snapshot_missing",
+        "real_object_storage_metadata_snapshot_missing",
+        "restore_rehearsal_evidence_missing",
+        "release_image_tag_not_verified",
+        "production_cutover_window_not_approved",
+        "staging_rehearsal_not_completed",
+        "cloudflare_cdn_r2_production_evidence_missing",
+        "production_monitoring_alert_channels_not_verified",
+        "previous_image_tag_missing",
+        "production_db_backward_compatibility_not_verified",
+        "object_storage_rollback_plan_not_verified",
+        "rollback_rehearsal_not_executed",
+        "production_secret_management_missing",
+        "migration_source_credentials_missing",
+        "real_old_data_source_missing"
+    ],
+    "docker_validation_commands": [
+        "docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json",
+        "docker compose run --rm platform-api php artisan migrate:status",
+        "docker compose exec platform-api php artisan platform:smoke --no-seed-login",
+        "docker compose exec platform-api php artisan platform:runtime:readiness --format=json",
+        "docker compose run --rm platform-api php artisan schedule:list",
+        "docker compose run --rm platform-api php artisan queue:work --once --tries=1 --timeout=30 --queue=default",
+        "docker compose run --rm platform-api php artisan list"
+    ]
+}

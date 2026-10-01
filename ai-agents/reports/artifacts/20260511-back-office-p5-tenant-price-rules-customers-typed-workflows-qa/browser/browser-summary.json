@@ -1,0 +1,392 @@
+{
+  "generated_at": "2026-05-11T15:35:46.371Z",
+  "app_base": "http://172.22.0.6:3000",
+  "run_id": "mp1d5tds",
+  "safe_fixture_refs": {
+    "price_code": "p5_ui_price_mp1d5tds",
+    "member_phone": "0898324059",
+    "member_email": "p5.ui.mp1d5tds@example.test"
+  },
+  "checks": {
+    "usedCustomerFrontend": false,
+    "menuPriceRulesClicked": true,
+    "menuCustomersClicked": true,
+    "priceRule": {
+      "createFieldsVisible": true,
+      "createStatus": 201,
+      "updateStatus": 200,
+      "archiveReasonInitiallyRequired": true,
+      "archiveStatus": 204
+    },
+    "customer": {
+      "createFieldsVisible": true,
+      "createStatus": 201,
+      "updateStatus": 200,
+      "statusReasonInitiallyRequired": true,
+      "statusChangeStatus": 200
+    }
+  },
+  "request_events": [
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "POST",
+      "path": "/admin/tenant/price-rules",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "code",
+        "name",
+        "rule_type",
+        "price_amount",
+        "currency",
+        "conditions",
+        "status"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "POST",
+      "path": "/admin/tenant/price-rules",
+      "status": 201
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "PATCH",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "code",
+        "name",
+        "rule_type",
+        "price_amount",
+        "currency",
+        "conditions",
+        "status"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "PATCH",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "DELETE",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "reason"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "DELETE",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "status": 204
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/price-rules/prr_01KRBTW3F570BB8WHBTNHFEE28",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "POST",
+      "path": "/admin/tenant/members",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "name",
+        "phone",
+        "email",
+        "password",
+        "status",
+        "send_invitation"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "POST",
+      "path": "/admin/tenant/members",
+      "status": 201
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "PATCH",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "name",
+        "phone",
+        "email",
+        "admin_note"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "PATCH",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "POST",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6/status",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "status",
+        "notify_member",
+        "reason"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "POST",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6/status",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members/cus_01KRBTW52N7894EMNYXC9F1RN6",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/members",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "01-tenant-dashboard-after-login.png",
+    "02-price-rules-list.png",
+    "03-price-rule-create-modal-fields.png",
+    "04-price-rule-list-after-create.png",
+    "05-price-rule-detail-after-create.png",
+    "06-price-rule-update-modal-prefill.png",
+    "07-price-rule-detail-after-update.png",
+    "08-price-rule-archive-modal-context.png",
+    "09-price-rule-detail-after-archive.png",
+    "10-customers-list.png",
+    "11-member-create-modal-empty-password.png",
+    "12-customers-list-after-create.png",
+    "13-member-detail-after-create.png",
+    "14-member-update-modal-prefill.png",
+    "15-member-detail-after-update.png",
+    "16-member-status-modal-context.png",
+    "17-member-detail-after-status.png",
+    "18-customers-suspended-filter.png"
+  ],
+  "unsafe_text_written_to_summary": false
+}

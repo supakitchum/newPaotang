@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "fixtures": {
+    "seo_page_id": "seo_01KRDTJRJPZCWB0000DX74ZDRV",
+    "seo_page_path": "/qa-seo-page-qa_seo_mp2gxl4l_37fd",
+    "redirect_id": "red_01KRDTJT64GWXVZAG05NB3JHA0",
+    "redirect_source_path": "/qa-old-seo-page-qa_seo_mp2gxl4l_37fd"
+  },
+  "screenshots": 14,
+  "networkEvents": 31,
+  "networkChecks": {
+    "listCallsHaveTenantHeaders": true,
+    "writesHaveIdempotency": true,
+    "noPageRedirectDetailGet": true,
+    "noCustomerApiSeen": true
+  }
+}

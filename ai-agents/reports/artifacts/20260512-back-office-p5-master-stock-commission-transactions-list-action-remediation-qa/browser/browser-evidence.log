@@ -1,0 +1,56 @@
+{
+  "result": "PASS",
+  "fixture": {
+    "run": "e1e1a97e",
+    "game_id": "gam_bmsct_e1e1a97e",
+    "stock_ids": [
+      "stk_bmscta_e1e1a97e",
+      "stk_bmsctb_e1e1a97e",
+      "stk_bmsctc_e1e1a97e"
+    ],
+    "commission_id": "com_bmsct_e1e1a97e",
+    "affiliate_account_id": "aff_bmsct_e1e1a97e",
+    "order_id": "ord_bmsct_e1e1a97e",
+    "commission_rule_id": "cmr_bmsct_e1e1a97e"
+  },
+  "screenshots": 10,
+  "networkEvents": 9,
+  "networkChecks": {
+    "centralListCallsHaveCentralScope": true,
+    "stockListCallsOnlySupportedQueryParams": true,
+    "stockExportPayloadOnlySupportedFields": true,
+    "tenantListCallsHaveTenantHeaders": true,
+    "writesHaveIdempotency": true,
+    "noStockDetailGet": true,
+    "noCommissionDetailGet": true,
+    "noCustomerApiSeen": true
+  },
+  "observations": {
+    "stockSupportedFilterRowCount": 3,
+    "stockExportModal": {
+      "text": "Export stock Confirm export stock for Central Stock. Game ID Status Select available allocated sold recalled Reason Cancel Confirm",
+      "contextItemCount": 0,
+      "ticketNumberFieldVisible": false
+    },
+    "commissionStatusFilter": {
+      "options": [
+        "All",
+        "Calculated",
+        "Approved",
+        "Reversed"
+      ],
+      "calculatedOptionPresent": true
+    },
+    "commissionApproveModal": {
+      "text": "Approve Confirm approve for com_bmsct_e1e1a97e. Id com_bmsct_e1e1a97e Tenant Id ten_demo_alpha Affiliate Account Id aff_bmsct_e1e1a97e Order Id ord_bmsct_e1e1a97e Commission Rule Id cmr_bmsct_e1e1a97e Transaction Type commission Status calculated Amount Amount 1500 Amount Currency THB Calculated At 2026-05-12T12:59:22.000000Z Reason Cancel Confirm",
+      "contextItemCount": 10,
+      "includesCommissionId": true,
+      "includesAffiliateAccountId": true,
+      "includesOrderId": true,
+      "includesCommissionRuleId": true,
+      "includesTransactionType": true,
+      "includesCalculatedStatus": true,
+      "includesAmount": true
+    }
+  }
+}

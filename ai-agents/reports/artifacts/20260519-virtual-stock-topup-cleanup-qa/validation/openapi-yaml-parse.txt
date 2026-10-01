@@ -1,0 +1,9 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-fcf2c0a6ff50 Creating
+ Container newpaotang-platform-api-run-fcf2c0a6ff50 Created
+OpenAPI YAML parsed

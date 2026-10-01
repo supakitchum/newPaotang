@@ -1,0 +1,405 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage" [active]:
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Partner Usage" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Partner Operations
+    - listitem:  Partner Usage
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Partner ID
+  - textbox
+  - generic: From
+  - textbox
+  - generic: To
+  - textbox
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Partner Usage
+  - table:
+    - rowgroup:
+      - row "Usage meter Partner Meter Value Limit Status Updated Actions":
+        - columnheader "Usage meter"
+        - columnheader "Partner"
+        - columnheader "Meter"
+        - columnheader "Value"
+        - columnheader "Limit"
+        - columnheader "Status"
+        - columnheader "Updated"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "pum_1c3b8986b9158d83bd85 par_demo_alpha queue_jobs 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_1c3b8986b9158d83bd85"
+        - cell "par_demo_alpha"
+        - cell "queue_jobs"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_1c3b8986b9158d83bd85
+      - row "pum_273f2e73f7b07e85605e par_demo_gamma image_bandwidth_gb 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_273f2e73f7b07e85605e"
+        - cell "par_demo_gamma"
+        - cell "image_bandwidth_gb"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_273f2e73f7b07e85605e
+      - row "pum_32dac8c3478542213f13 par_demo_beta sold_tickets 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_32dac8c3478542213f13"
+        - cell "par_demo_beta"
+        - cell "sold_tickets"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_32dac8c3478542213f13
+      - row "pum_3ac22169f8ca4315b13f par_demo_beta booking_requests 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_3ac22169f8ca4315b13f"
+        - cell "par_demo_beta"
+        - cell "booking_requests"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_3ac22169f8ca4315b13f
+      - row "pum_3c4d0350e7cebfb949d6 par_demo_beta orders 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_3c4d0350e7cebfb949d6"
+        - cell "par_demo_beta"
+        - cell "orders"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_3c4d0350e7cebfb949d6
+      - row "pum_41eff26d856ffb1efd8b par_demo_alpha sync_events 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_41eff26d856ffb1efd8b"
+        - cell "par_demo_alpha"
+        - cell "sync_events"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_41eff26d856ffb1efd8b
+      - row "pum_47a0b2785a22d968d446 par_demo_beta stock_synced 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_47a0b2785a22d968d446"
+        - cell "par_demo_beta"
+        - cell "stock_synced"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_47a0b2785a22d968d446
+      - row "pum_665d6d0b3dc64f7ac623 par_demo_gamma stock_synced 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_665d6d0b3dc64f7ac623"
+        - cell "par_demo_gamma"
+        - cell "stock_synced"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_665d6d0b3dc64f7ac623
+      - row "pum_696702f33449c90c3a9b par_demo_beta api_requests 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_696702f33449c90c3a9b"
+        - cell "par_demo_beta"
+        - cell "api_requests"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_696702f33449c90c3a9b
+      - row "pum_7b2b1de2ec62f04be5ae par_demo_gamma storage_gb 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_7b2b1de2ec62f04be5ae"
+        - cell "par_demo_gamma"
+        - cell "storage_gb"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_7b2b1de2ec62f04be5ae
+      - row "pum_8862867e5e74d548229e par_demo_alpha image_bandwidth_gb 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_8862867e5e74d548229e"
+        - cell "par_demo_alpha"
+        - cell "image_bandwidth_gb"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_8862867e5e74d548229e
+      - row "pum_89e971f945276774d064 par_demo_gamma checkout_requests 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_89e971f945276774d064"
+        - cell "par_demo_gamma"
+        - cell "checkout_requests"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_89e971f945276774d064
+      - row "pum_8ec11a90d71654198708 par_demo_gamma orders 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_8ec11a90d71654198708"
+        - cell "par_demo_gamma"
+        - cell "orders"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_8ec11a90d71654198708
+      - row "pum_914d1c6aad8d005a7e85 par_demo_beta image_bandwidth_gb 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_914d1c6aad8d005a7e85"
+        - cell "par_demo_beta"
+        - cell "image_bandwidth_gb"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_914d1c6aad8d005a7e85
+      - row "pum_a0b1065a0ac854d0770e par_demo_gamma sold_tickets 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_a0b1065a0ac854d0770e"
+        - cell "par_demo_gamma"
+        - cell "sold_tickets"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_a0b1065a0ac854d0770e
+      - row "pum_a1c1e7db64d07f4c7603 par_demo_alpha sold_tickets 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_a1c1e7db64d07f4c7603"
+        - cell "par_demo_alpha"
+        - cell "sold_tickets"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_a1c1e7db64d07f4c7603
+      - row "pum_a5c474b7de7e73a4e358 par_demo_alpha checkout_requests 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_a5c474b7de7e73a4e358"
+        - cell "par_demo_alpha"
+        - cell "checkout_requests"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_a5c474b7de7e73a4e358
+      - row "pum_abd8eba56aff24bde4c7 par_demo_alpha api_requests 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_abd8eba56aff24bde4c7"
+        - cell "par_demo_alpha"
+        - cell "api_requests"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_abd8eba56aff24bde4c7
+      - row "pum_c2ac576a7a80b6488a9d par_demo_gamma sync_events 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_c2ac576a7a80b6488a9d"
+        - cell "par_demo_gamma"
+        - cell "sync_events"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_c2ac576a7a80b6488a9d
+      - row "pum_c320312aac43e9ae7ef6 par_demo_gamma booking_requests 0 - Active 10 พ.ค. 2569 19:19 Detail":
+        - cell "pum_c320312aac43e9ae7ef6"
+        - cell "par_demo_gamma"
+        - cell "booking_requests"
+        - cell "0"
+        - cell "-"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:19"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/central/partner-usage/pum_c320312aac43e9ae7ef6
+  - generic: Cursor pagination
+  - button "Next ":
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

@@ -1,0 +1,16 @@
+{
+    "fixture_ready": true,
+    "game_id": "gam_boqa_alloc",
+    "partners": [
+        "par_boqa_single",
+        "par_boqa_multi",
+        "par_boqa_other",
+        "par_boqa_no_tenant"
+    ],
+    "tenants": [
+        "ten_boqa_single",
+        "ten_boqa_multi_a",
+        "ten_boqa_multi_b",
+        "ten_boqa_other"
+    ]
+}

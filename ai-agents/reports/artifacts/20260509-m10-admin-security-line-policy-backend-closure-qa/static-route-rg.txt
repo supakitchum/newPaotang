@@ -1,0 +1,64 @@
+apps/platform-api/routes/api.php:62:Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'login']);
+apps/platform-api/routes/api.php:63:Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
+apps/platform-api/routes/api.php:95:Route::post('/auth/admin/password/forgot', [AdminAccountSecurityController::class, 'forgotPassword']);
+apps/platform-api/routes/api.php:96:Route::post('/auth/admin/password/reset', [AdminAccountSecurityController::class, 'resetPassword']);
+apps/platform-api/routes/api.php:97:Route::post('/auth/admin/password/change', [AdminAccountSecurityController::class, 'changePassword'])
+apps/platform-api/routes/api.php:99:Route::get('/auth/admin/2fa', [AdminAccountSecurityController::class, 'twoFactorStatus'])
+apps/platform-api/routes/api.php:101:Route::delete('/auth/admin/2fa', [AdminAccountSecurityController::class, 'disableTwoFactor'])
+apps/platform-api/routes/api.php:103:Route::post('/auth/admin/2fa/setup', [AdminAccountSecurityController::class, 'setupTwoFactor'])
+apps/platform-api/routes/api.php:105:Route::post('/auth/admin/2fa/enable', [AdminAccountSecurityController::class, 'enableTwoFactor'])
+apps/platform-api/routes/api.php:107:Route::post('/auth/admin/2fa/recovery-codes', [AdminAccountSecurityController::class, 'rotateRecoveryCodes'])
+apps/platform-api/routes/api.php:109:Route::post('/auth/admin/2fa/verify', [AdminAccountSecurityController::class, 'verifyTwoFactor']);
+docs/openapi.yaml:293:  /auth/admin/password/forgot:
+docs/openapi.yaml:310:  /auth/admin/password/reset:
+docs/openapi.yaml:327:  /auth/admin/password/change:
+docs/openapi.yaml:345:  /auth/admin/2fa:
+docs/openapi.yaml:377:  /auth/admin/2fa/setup:
+docs/openapi.yaml:399:  /auth/admin/2fa/enable:
+docs/openapi.yaml:423:  /auth/admin/2fa/recovery-codes:
+docs/openapi.yaml:445:  /auth/admin/2fa/verify:
+docs/openapi.yaml:626:  /customer/auth/line/login:
+docs/openapi.yaml:651:  /customer/auth/line/callback:
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:53:            'POST api/v1/auth/admin/password/forgot',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:54:            'POST api/v1/auth/admin/password/reset',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:55:            'POST api/v1/auth/admin/password/change',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:56:            'GET|HEAD api/v1/auth/admin/2fa',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:57:            'DELETE api/v1/auth/admin/2fa',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:58:            'POST api/v1/auth/admin/2fa/setup',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:59:            'POST api/v1/auth/admin/2fa/enable',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:60:            'POST api/v1/auth/admin/2fa/recovery-codes',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:61:            'POST api/v1/auth/admin/2fa/verify',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:62:            'POST api/v1/customer/auth/line/login',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:63:            'GET|HEAD api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:22:            'POST api/v1/auth/admin/password/forgot',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:23:            'POST api/v1/auth/admin/password/reset',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:24:            'POST api/v1/auth/admin/password/change',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:25:            'GET|HEAD api/v1/auth/admin/2fa',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:26:            'DELETE api/v1/auth/admin/2fa',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:27:            'POST api/v1/auth/admin/2fa/setup',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:28:            'POST api/v1/auth/admin/2fa/enable',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:29:            'POST api/v1/auth/admin/2fa/recovery-codes',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:30:            'POST api/v1/auth/admin/2fa/verify',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:31:            'POST api/v1/customer/auth/line/login',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:32:            'GET|HEAD api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:43:        $this->postJson('/api/v1/auth/admin/password/forgot', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:78:        $this->postJson('/api/v1/auth/admin/password/reset', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:105:        $this->postJson('/api/v1/auth/admin/password/reset', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:113:        $this->postJson('/api/v1/auth/admin/password/reset', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:130:            ->postJson('/api/v1/auth/admin/password/change', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:161:            ->postJson('/api/v1/auth/admin/2fa/setup', [], [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:176:            ->postJson('/api/v1/auth/admin/2fa/setup', [], [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:187:            ->postJson('/api/v1/auth/admin/2fa/enable', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:206:        $verified = $this->postJson('/api/v1/auth/admin/2fa/verify', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:216:        $this->postJson('/api/v1/auth/admin/2fa/verify', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:222:            ->postJson('/api/v1/auth/admin/2fa/recovery-codes', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:235:            ->postJson('/api/v1/auth/admin/2fa/recovery-codes', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:253:            ->deleteJson('/api/v1/auth/admin/2fa', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:285:        $this->postJson('http://line-a.m10.test/api/v1/customer/auth/line/login')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:294:            'platform.line.callback_url' => 'https://line-a.m10.test/api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:297:        $redirect = $this->postJson('http://line-a.m10.test/api/v1/customer/auth/line/login', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:315:        $this->getJson('http://line-b.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:318:        $this->getJson('http://line-a-alt.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:327:        $this->getJson('http://line-a.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:340:        $this->getJson('http://line-a.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:182:        return $request->getSchemeAndHttpHost().'/api/v1/customer/auth/line/callback';

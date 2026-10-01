@@ -1,0 +1,23 @@
+{
+  "viewport": {
+    "w": 500,
+    "h": 765,
+    "scrollW": 500,
+    "clientW": 500,
+    "scrollH": 870
+  },
+  "path": "/admin/central/partners",
+  "headings": [
+    "Partners",
+    "Partners"
+  ],
+  "shell": {
+    "header": true,
+    "sidebar": true,
+    "simplebar": true,
+    "toggle": true
+  },
+  "horizontalOverflow": false,
+  "bodySample": " Central PL CENTRAL MENU Dashboard Games Rewards Prize Checking Master Stock Stock Generation Partners Partner Provisioning Partner Quotas Partner Monitoring Partner Usage Allocations Stock Recall Billing Plans Alert Policies Alert Events Reports Settlement Webhook Logs Audit Logs Admin Users Roles Permissions Menu Management System Settings Partners Admin Central Central Operations Partners Refresh Status All Active Suspended Provisioning Cursor Limit Apply filters Partners Partner Name Status Created Actions par_demo_alpha Demo Alpha Partner Active 8 พ.ค. 2569 11:29 Detail Provision Suspend par_demo_beta Demo Beta Partner Active 8 พ.ค. 2569 11:29 Detail Provision Suspend par_demo_gamma Dem",
+  "exceptions": []
+}

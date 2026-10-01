@@ -1,0 +1,135 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Laravel\Passkeys\Contracts\PasskeyUser;
+use Laravel\Passkeys\PasskeyAuthenticatable;
+
+class Customer extends BaseModel implements AuthenticatableContract, PasskeyUser
+{
+    use AuthenticatableTrait;
+    use BelongsToTenant;
+    use PasskeyAuthenticatable;
+
+    protected $table = 'customers';
+
+    protected $fillable = [
+        'id',
+        'tenant_id',
+        'customer_no',
+        'phone',
+        'name',
+        'first_name',
+        'last_name',
+        'status',
+        'deleted_at',
+        'phone_reuse_after',
+        'suspended_at',
+        'suspended_until',
+        'suspension_reason',
+        'suspended_by_admin_id',
+        'preferred_locale',
+        'created_at',
+        'updated_at',
+        'email',
+        'password_hash',
+        'pin_hash',
+        'pin_set_at',
+        'pin_changed_at',
+        'pin_failed_attempts',
+        'pin_locked_until',
+        'pin_last_verified_at',
+        'avatar_url',
+        'reward_payout_bank_account_json',
+        'reward_payout_bank_account_encrypted',
+        'auto_reward_claim_enabled',
+        'auto_reward_claim_payout_method',
+        'last_login_at',
+    ];
+
+    protected $hidden = [
+        'password_hash',
+        'pin_hash',
+        'reward_payout_bank_account_json',
+        'reward_payout_bank_account_encrypted',
+    ];
+
+    protected $casts = [
+        'last_login_at' => 'datetime',
+        'deleted_at' => 'datetime',
+        'phone_reuse_after' => 'datetime',
+        'suspended_at' => 'datetime',
+        'suspended_until' => 'datetime',
+        'pin_set_at' => 'datetime',
+        'pin_changed_at' => 'datetime',
+        'pin_locked_until' => 'datetime',
+        'pin_last_verified_at' => 'datetime',
+        'reward_payout_bank_account_json' => 'array',
+        'auto_reward_claim_enabled' => 'boolean',
+    ];
+
+    public function authSessions(): HasMany
+    {
+        return $this->hasMany(CustomerAuthSession::class, 'customer_id');
+    }
+
+    public function passkeys(): HasMany
+    {
+        return $this->hasMany(CustomerPasskey::class, 'user_id');
+    }
+
+    public function getAuthPasswordName(): string
+    {
+        return 'password_hash';
+    }
+
+    public function getPasskeyUsername(): string
+    {
+        return trim((string) ($this->email ?: $this->phone ?: $this->customer_no ?: $this->id));
+    }
+
+    public function getPasskeyDisplayName(): string
+    {
+        return trim((string) ($this->name ?: $this->getPasskeyUsername()));
+    }
+
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(Wallet::class, 'customer_id');
+    }
+
+    public function wallets(): HasMany
+    {
+        return $this->hasMany(Wallet::class, 'customer_id');
+    }
+
+    public function reservations(): HasMany
+    {
+        return $this->hasMany(StockReservation::class, 'customer_id');
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'customer_id');
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'customer_id');
+    }
+
+    public function topupRequests(): HasMany
+    {
+        return $this->hasMany(TopupRequest::class, 'customer_id');
+    }
+
+    public function rewardClaims(): HasMany
+    {
+        return $this->hasMany(RewardClaim::class, 'customer_id');
+    }
+}

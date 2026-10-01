@@ -1,0 +1,112 @@
+[
+  {
+    "path": "/admin/central/admin-users",
+    "expectedTitle": "Admin Users",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/roles",
+    "expectedTitle": "Roles And Permissions",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/menu-management",
+    "expectedTitle": "Menu Management",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/partner-monitoring",
+    "expectedTitle": "Partner Monitoring",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/partner-usage",
+    "expectedTitle": "Partner Usage",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/billing-plans",
+    "expectedTitle": "Billing Plans",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/alert-policies",
+    "expectedTitle": "Alert Policies",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/alert-events",
+    "expectedTitle": "Alert Events",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/system-settings",
+    "expectedTitle": "System Settings",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/central/webhook-logs",
+    "expectedTitle": "Webhook Logs",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "errorLogs": []
+  }
+]

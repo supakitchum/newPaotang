@@ -1,0 +1,29 @@
+apps/back-office/components/AdminConfirmAction.vue:298:const allocationPercentField = computed(() => formFields.value.find((field) => field.key === 'allocation_percent'))
+apps/back-office/components/AdminConfirmAction.vue:306:  const percent = numberOrNull(formState.allocation_percent)
+apps/back-office/components/AdminStockPatternCoverage.vue:2:  <div class="np-stock-pattern-coverage">
+apps/back-office/components/AdminStockPatternCoverage.vue:186:    <div class="np-stock-pattern-coverage__metric-grid mb-3">
+apps/back-office/components/AdminStockPatternCoverage.vue:1072:.np-stock-pattern-coverage__metric-grid {
+apps/back-office/components/AdminStockPatternCoverage.vue:1078:.np-stock-pattern-coverage__metric-grid > div {
+apps/back-office/components/AdminOperationsPage.vue:674:const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
+apps/back-office/components/AdminOperationsPage.vue:676:const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
+apps/back-office/components/AdminOperationsPage.vue:1051:      const response = await api.apiFetch('/admin/central/allocation-options/partners', {
+apps/back-office/components/AdminOperationsPage.vue:1057:      const response = await api.apiFetch('/admin/central/allocation-options/tenants', {
+apps/back-office/components/AdminOperationsPage.vue:1063:      const response = await api.apiFetch('/admin/central/allocation-options/games', {
+apps/back-office/components/AdminOperationsPage.vue:1130:    allocationPercent: numberOrNull(partner?.allocation_percent),
+apps/back-office/components/AdminOperationsPage.vue:1131:    allocationPercentBasisPoints: numberOrNull(partner?.allocation_percent_basis_points),
+apps/back-office/composables/useAdminOperationsCatalog.ts:232:  key: 'allocation_percent',
+apps/back-office/composables/useAdminOperationsCatalog.ts:390:const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status', 'allocation_percent', 'active_partner_percent']
+apps/back-office/composables/useAdminOperationsCatalog.ts:393:const allocationActionContext = ['id', 'partner_name', 'partner_code', 'partner_id', 'tenant_name', 'tenant_code', 'tenant_id', 'game_name', 'game_code', 'game_id', 'allocation_percent', 'allocated_count', 'remaining_count', 'recalled_count', 'status']
+apps/back-office/composables/useAdminOperationsCatalog.ts:1725:      { key: 'allocation_percent', label: 'Stock %', type: 'number', fallbackKeys: ['active_partner_percent', 'stock_percent'] },
+apps/back-office/composables/useAdminOperationsCatalog.ts:1737:        endpoint: '/admin/central/allocations/partner-percent',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2040:    slug: 'stock-pattern-coverage',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2123:      { key: 'allocation_percent', label: 'Percent', type: 'number' },
+apps/back-office/composables/useAdminOperationsCatalog.ts:2142:        route: adminUiRoute('central', 'stock-pattern-coverage?game_id={game_id}&scope_type=partner&scope_id={partner_id}'),
+apps/back-office/composables/useAdminOperationsCatalog.ts:2149:        route: adminUiRoute('central', 'stock-generation?game_id={game_id}&partner_id={partner_id}&tenant_id={tenant_id}&allocation_id={id}&status=allocated'),
+apps/back-office/composables/useAdminOperationsCatalog.ts:2154:        key: 'recall-all',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2156:        endpoint: '/admin/central/allocations/{allocation_id}/recall-all',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2162:        key: 'redistribute',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2164:        endpoint: '/admin/central/allocations/{allocation_id}/redistribute',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2168:        disabledReason: 'Redistribute is available after recall-all reaches recalled status.',
+apps/back-office/composables/useAdminOperationsCatalog.ts:2288:  'central:stock-generation': { target: 'stock', title: 'Stock Generation' },
+apps/back-office/composables/useAdminOperationsCatalog.ts:2290:  'central:stock-coverage': { target: 'stock-pattern-coverage', title: 'Stock Pattern Coverage' },

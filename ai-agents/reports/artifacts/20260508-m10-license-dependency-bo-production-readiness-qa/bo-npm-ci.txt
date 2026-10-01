@@ -1,0 +1,14 @@
+ Container newpaotang-back-office-run-58e037ac3cf7 Creating 
+ Container newpaotang-back-office-run-58e037ac3cf7 Created 
+
+added 948 packages, and audited 950 packages in 18s
+
+202 packages are looking for funding
+  run `npm fund` for details
+
+35 vulnerabilities (1 low, 8 moderate, 25 high, 1 critical)
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.

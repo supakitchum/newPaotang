@@ -1,0 +1,118 @@
+ Image newpaotang-platform-api Building
+ Image newpaotang-back-office Building
+ Image newpaotang-customer Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.67kB done
+#1 DONE 0.0s
+
+#2 [customer internal] load build definition from Dockerfile
+#2 transferring dockerfile: 589B done
+#2 DONE 0.0s
+
+#3 [platform-api internal] load build definition from Dockerfile
+#3 transferring dockerfile: 1.19kB done
+#3 DONE 0.0s
+
+#4 [back-office internal] load build definition from Dockerfile
+#4 transferring dockerfile: 650B done
+#4 DONE 0.0s
+
+#5 [back-office internal] load metadata for docker.io/library/node:22-alpine
+#5 ...
+
+#6 [auth] library/node:pull token for registry-1.docker.io
+#6 DONE 0.0s
+
+#7 [auth] library/php:pull token for registry-1.docker.io
+#7 DONE 0.0s
+
+#8 [auth] library/composer:pull token for registry-1.docker.io
+#8 DONE 0.0s
+
+#9 [platform-api internal] load metadata for docker.io/library/php:8.4-cli
+#9 ...
+
+#10 [platform-api internal] load metadata for docker.io/library/composer:2
+#10 DONE 1.7s
+
+#5 [back-office internal] load metadata for docker.io/library/node:22-alpine
+#5 DONE 1.7s
+
+#11 [back-office internal] load .dockerignore
+#11 transferring context: 2B done
+#11 DONE 0.0s
+
+#12 [customer internal] load .dockerignore
+#12 transferring context: 97B done
+#12 DONE 0.0s
+
+#13 [back-office development 1/2] FROM docker.io/library/node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f
+#13 DONE 0.0s
+
+#14 [customer development 2/2] WORKDIR /app
+#14 CACHED
+
+#15 [customer] exporting to image
+#15 exporting layers done
+#15 writing image sha256:007d374807ea27542b12c06d3a5d8698a7a1c1cc9f30f21ad29c8a42fff73886 done
+#15 naming to docker.io/library/newpaotang-customer done
+#15 DONE 0.0s
+
+#16 [customer] resolving provenance for metadata file
+#16 DONE 0.0s
+
+#17 [back-office internal] load build context
+#17 ...
+
+#9 [platform-api internal] load metadata for docker.io/library/php:8.4-cli
+#9 DONE 2.2s
+
+#18 [platform-api internal] load .dockerignore
+#18 transferring context: 106B done
+#18 DONE 0.0s
+
+#19 [platform-api base 1/4] FROM docker.io/library/php:8.4-cli@sha256:026ca9f219631274dc8ad045935485c9b9f3d4f44b2ec96649b64a07dba3bf1c
+#19 DONE 0.0s
+
+#20 [platform-api] FROM docker.io/library/composer:2@sha256:02062f7719ec9433a9d4256cfba1c792db96dc9db60a4a92e48264c9e166b877
+#20 DONE 0.0s
+
+#21 [platform-api base 2/4] RUN apt-get update     && apt-get install -y --no-install-recommends         git         unzip         libfreetype6-dev         libjpeg62-turbo-dev         libpng-dev         libwebp-dev         libpq-dev         libzip-dev         libonig-dev         libxml2-dev     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp     && docker-php-ext-install bcmath dom gd mbstring pcntl pdo_pgsql zip     && apt-get clean     && rm -rf /var/lib/apt/lists/*
+#21 CACHED
+
+#22 [platform-api base 3/4] COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+#22 CACHED
+
+#23 [platform-api base 4/4] WORKDIR /var/www/html
+#23 CACHED
+
+#24 [platform-api] exporting to image
+#24 exporting layers done
+#24 writing image sha256:6ae4c34e0a81f7a93d1f2088feb0bde9bf1cb1962b31b5a5451c64024dc02db2 done
+#24 naming to docker.io/library/newpaotang-platform-api done
+#24 DONE 0.0s
+
+#25 [platform-api] resolving provenance for metadata file
+#25 DONE 0.0s
+
+#17 [back-office internal] load build context
+#17 transferring context: 72B 0.6s done
+#17 DONE 0.6s
+
+#26 [back-office deps 3/4] COPY package*.json ./
+#26 CACHED
+
+#27 [back-office deps 4/4] RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+#27 CACHED
+
+#28 [back-office] exporting to image
+#28 exporting layers done
+#28 writing image sha256:9e5e93f58f33eb133f57400e0415d8f2b9bbadc46e46f6d201ac2937ef99b60e done
+#28 naming to docker.io/library/newpaotang-back-office done
+#28 DONE 0.0s
+
+#29 [back-office] resolving provenance for metadata file
+#29 DONE 0.0s
+ Image newpaotang-back-office Built
+ Image newpaotang-customer Built
+ Image newpaotang-platform-api Built

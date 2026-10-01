@@ -1,0 +1,101 @@
+{
+  "version": "2026-05-08",
+  "scope": "newpaotang-m10-cloudflare-waf-rate-limit-template",
+  "mode": "template_dry_run",
+  "production_approved": false,
+  "notes": [
+    "Template only. Do not deploy to a real Cloudflare zone without QA/Ops evidence and non-production approval.",
+    "Rules must be keyed by tenant host where Cloudflare supports it so one noisy tenant cannot exhaust shared capacity.",
+    "Webhook rules should allow known provider IP or signature-verified traffic and rate-limit unknown sources."
+  ],
+  "rules": [
+    {
+      "id": "public-tenant-pages-baseline",
+      "category": "public_tenant_pages",
+      "description": "Protect tenant public pages while allowing normal browsing and SEO fetches.",
+      "expression": "http.host ne \"\" and not starts_with(http.request.uri.path, \"/api/\")",
+      "action": "managed_challenge_on_suspicious_score",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 600,
+        "key": "ip_and_host"
+      }
+    },
+    {
+      "id": "public-stock-search-results",
+      "category": "public_stock_search_results",
+      "description": "Limit peak public stock search and reward/result reads per tenant host.",
+      "expression": "http.request.uri.path in {\"/api/v1/public/stock/search\" \"/api/v1/public/results/latest\"} or starts_with(http.request.uri.path, \"/api/v1/public/results/\")",
+      "action": "rate_limit",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 240,
+        "key": "ip_and_host"
+      }
+    },
+    {
+      "id": "customer-auth-booking-checkout",
+      "category": "customer_auth_booking_checkout",
+      "description": "Protect customer auth, reservation, checkout, wallet, topup, order, and ticket paths.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/customer/\")",
+      "action": "rate_limit",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 120,
+        "key": "ip_and_host"
+      }
+    },
+    {
+      "id": "admin-back-office",
+      "category": "admin_back_office",
+      "description": "Apply tighter limits and stronger challenge posture for central and tenant admin APIs.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/admin/\") or starts_with(http.request.uri.path, \"/api/v1/auth/admin/\")",
+      "action": "managed_challenge_and_rate_limit",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 90,
+        "key": "ip_and_host"
+      }
+    },
+    {
+      "id": "partner-sync-ingress",
+      "category": "partner_sync",
+      "description": "Protect partner sync event ingress from burst abuse while allowing authenticated partner clients.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/partner-sync/\")",
+      "action": "rate_limit",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 300,
+        "key": "ip_and_partner_headers"
+      }
+    },
+    {
+      "id": "payment-topup-webhooks",
+      "category": "payment_topup_webhooks",
+      "description": "Constrain payment and topup callback endpoints; provider signatures remain mandatory in application code.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/webhooks/payments/\") or starts_with(http.request.uri.path, \"/api/v1/webhooks/topups/\")",
+      "action": "rate_limit_and_log",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 180,
+        "key": "ip_and_path"
+      }
+    },
+    {
+      "id": "support-impersonation-sensitive",
+      "category": "support_impersonation_sensitive",
+      "description": "Apply strict challenge and logging for support access and impersonation-sensitive operations.",
+      "expression": "contains(http.request.uri.path, \"/support-access\") or contains(http.request.uri.path, \"/impersonate\") or contains(http.request.uri.path, \"/elevated-actions\")",
+      "action": "managed_challenge_and_log",
+      "rate_limit": {
+        "period_seconds": 60,
+        "requests_per_period": 30,
+        "key": "ip_and_host"
+      }
+    }
+  ],
+  "validation": {
+    "local_json_parse": "jq empty ops/m10/cloudflare-waf-rate-limit-rules.json",
+    "backend_report": "docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json"
+  }
+}

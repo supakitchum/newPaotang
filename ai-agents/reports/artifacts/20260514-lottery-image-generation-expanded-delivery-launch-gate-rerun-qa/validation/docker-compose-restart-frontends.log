@@ -1,0 +1,7 @@
+ Container newpaotang-back-office-1 Restarting
+ Container newpaotang-customer-1 Restarting
+ Container newpaotang-customer-1 Started
+ Container newpaotang-back-office-1 Started
+NAME                       IMAGE                    COMMAND                  SERVICE       CREATED       STATUS                  PORTS
+newpaotang-back-office-1   newpaotang-back-office   "docker-entrypoint.s…"   back-office   2 hours ago   Up Less than a second   0.0.0.0:3100->3100/tcp, [::]:3100->3100/tcp
+newpaotang-customer-1      newpaotang-customer      "docker-entrypoint.s…"   customer      2 hours ago   Up Less than a second   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp

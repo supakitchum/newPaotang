@@ -1,0 +1,21 @@
+[default] status=blocked_external; production_approved=False; external_cloudflare_calls_attempted=False; external_r2_calls_attempted=False
+[default] cdn_status=missing_cdn_or_r2_prerequisites; blockers=cdn_base_url_missing,r2_endpoint_or_bucket_missing,ticket_image_cdn_image_path_missing
+[default] configured.ticket_image_object_path=False; redacted.ticket_image_object_path=None
+[default] accepted_image_path_env=IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH; base_url_fallback_allowed=False
+[fake-no-image] status=blocked_external; production_approved=False; external_cloudflare_calls_attempted=False; external_r2_calls_attempted=False
+[fake-no-image] cdn_status=missing_ticket_image_evidence; blockers=ticket_image_cdn_image_path_missing
+[fake-no-image] configured.ticket_image_object_path=False; redacted.ticket_image_object_path=None
+[fake-no-image] accepted_image_path_env=IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH; base_url_fallback_allowed=False
+[fake-image-path] status=ready_local; production_approved=False; external_cloudflare_calls_attempted=False; external_r2_calls_attempted=False
+[fake-image-path] cdn_status=configured_dry_run; blockers=none
+[fake-image-path] configured.ticket_image_object_path=True; redacted.ticket_image_object_path=[CONFIGURED]
+[fake-image-path] accepted_image_path_env=IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH; base_url_fallback_allowed=False
+[fake-ticket-image-env] status=ready_local; production_approved=False; external_cloudflare_calls_attempted=False; external_r2_calls_attempted=False
+[fake-ticket-image-env] cdn_status=configured_dry_run; blockers=none
+[fake-ticket-image-env] configured.ticket_image_object_path=True; redacted.ticket_image_object_path=[CONFIGURED]
+[fake-ticket-image-env] accepted_image_path_env=IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH; base_url_fallback_allowed=False
+[fake-base-url-only] status=blocked_external; production_approved=False; external_cloudflare_calls_attempted=False; external_r2_calls_attempted=False
+[fake-base-url-only] cdn_status=missing_ticket_image_evidence; blockers=ticket_image_cdn_image_path_missing
+[fake-base-url-only] configured.ticket_image_object_path=False; redacted.ticket_image_object_path=None
+[fake-base-url-only] accepted_image_path_env=IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH; base_url_fallback_allowed=False
+[leak-check] fake-no-image raw_fake_value_leak_count=0; fake-image-path raw_fake_value_leak_count=0; fake-ticket-image-env raw_fake_value_leak_count=0; fake-base-url-only raw_fake_value_leak_count=0

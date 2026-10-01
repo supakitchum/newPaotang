@@ -1,0 +1,23 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-922397c11a92 Creating
+ Container newpaotang-platform-api-run-922397c11a92 Created
+
+  [30;43;1m WARN [39;49;22m[39m Tests\Feature\LotteryImageOperationsTest[39m
+  [33;1m![39;22m[90m [39m[90mlottery image background central admin manages background sets and[39m[90m… [39m [90m2.12s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image mix persists percentages and generation uses them[39m[90m [39m[33m→ f[39m[90m…[39m [90m0.58s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image readiness redacts storage queue runtime and reports m[39m[90m…[39m [90m0.56s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image ops retries pending assets after background registrat[39m[90m…[39m [90m0.59s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image readiness reports production ready when s3 queue runt[39m[90m…[39m [90m0.50s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image ops object keys cdn urls and cache contract are stabl[39m[90m…[39m [90m0.02s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image zip import central admin imports png zip and tenant i[39m[90m…[39m [90m1.09s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image zip import rejects non png or wrong count zip[39m[90m [39m[33m→ file_[39m[90m…[39m [90m0.53s[39m
+  [33;1m![39;22m[90m [39m[90mlottery image preview supports manual number modes and creates no r[39m[90m…[39m [90m0.62s[39m
+  [33;1m![39;22m[90m [39m[90mlottery branding preview uses route partner and rejects body overri[39m[90m…[39m [90m0.71s[39m
+
+  [90mTests:[39m    [33;1m10 warnings[39;22m[90m (185 assertions)[39m
+  [90mDuration:[39m [39m7.48s[39m

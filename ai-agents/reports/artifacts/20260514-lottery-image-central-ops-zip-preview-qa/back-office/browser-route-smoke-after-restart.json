@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-05-14T15:05:35.173Z",
+  "results": [
+    {
+      "requestedUrl": "http://localhost:3100/admin/central/lottery-images?game_id=gam_lottery",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/central/lottery-images?game_id=gam_lottery",
+      "title": "NewPaotang Back Office",
+      "hasAdminSignIn": true,
+      "hasInternalServerError": false,
+      "has500Heading": false,
+      "snapshotExcerpt": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    },
+    {
+      "requestedUrl": "http://localhost:3100/admin/central/partners/partner_demo/lottery-branding",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/central/partners/partner_demo/lottery-branding",
+      "title": "NewPaotang Back Office",
+      "hasAdminSignIn": true,
+      "hasInternalServerError": false,
+      "has500Heading": false,
+      "snapshotExcerpt": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    },
+    {
+      "requestedUrl": "http://localhost:3100/admin/tenant/dashboard",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/tenant/dashboard",
+      "title": "NewPaotang Back Office",
+      "hasAdminSignIn": true,
+      "hasInternalServerError": false,
+      "has500Heading": false,
+      "snapshotExcerpt": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    }
+  ]
+}

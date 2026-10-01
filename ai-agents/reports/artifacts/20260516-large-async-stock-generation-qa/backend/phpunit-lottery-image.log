@@ -1,0 +1,32 @@
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-c1add278a691 Creating 
+ Container newpaotang-platform-api-run-c1add278a691 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageOperationsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image background central admin manages background sets and[39m[90m… [39m [90m1.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image mix persists percentages and generation uses them[39m[90m     [39m [90m1.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image readiness redacts storage queue runtime and reports m[39m[90m…[39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image ops retries pending assets after background registrat[39m[90m…[39m [90m1.92s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image readiness reports production ready when s3 queue runt[39m[90m…[39m [90m0.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image ops object keys cdn urls and cache contract are stabl[39m[90m…[39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image zip import central admin imports image zip and tenant[39m[90m…[39m [90m4.00s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image zip import rejects non image zip[39m[90m                      [39m [90m0.49s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image zip import preserves full background frame without co[39m[90m…[39m [90m0.53s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image preview supports manual number modes and creates no r[39m[90m…[39m [90m0.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image layout persists global composition and preview accept[39m[90m…[39m [90m0.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery branding preview uses route partner and rejects body overri[39m[90m…[39m [90m0.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery branding preview renders assets uploaded through local dev[39m[90m… [39m [90m0.75s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image generation assigns background mix and generates centr[39m[90m…[39m [90m2.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image pending background command generates rows once their[39m[90m… [39m [90m2.59s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlottery image visual generation creates partner variant after stock[39m[90m…[39m [90m3.25s[39m  
+
+  [90mTests:[39m    [32;1m16 passed[39;22m[90m (479 assertions)[39m
+  [90mDuration:[39m [39m22.96s[39m
+

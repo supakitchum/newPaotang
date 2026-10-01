@@ -1,0 +1,789 @@
+ops/m10/backend-release-gate-ledger.md:5:Task: 20260509-m10-admin-security-line-policy-backend-closure-backend
+ops/m10/backend-release-gate-ledger.md:12:| Admin password lifecycle | ready_local_with_mail_boundary | Hashed reset tokens, expiry, single-use consumption, replay protection, enumeration-safe forgot, password confirmation, session revocation, audit redaction | Production mail provider/secret delivery policy remains external | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:13:| Admin 2FA lifecycle | ready_local_with_secret_boundary | Real TOTP, protected secret, hashed recovery codes, display-once codes, hashed expiring challenge tokens, replay protection, idempotency, audit redaction | Production secret manager/key rotation policy remains external | Coordinator/Security/Ops |
+ops/m10/backend-release-gate-ledger.md:14:| LINE auth policy boundary | guarded_provider | Exact tenant host binding, hashed state, expiry, single-use state validation, credential boundary, provider error handling, no fake provider success | LINE credentials, callback URL, provider token exchange, and account-linking policy remain external | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:21:| RBAC, tenant isolation, support impersonation | ready_local | Authenticated password/2FA routes enforce admin session; sensitive mutations use `support.block:change_password` and `support.block:change_2fa`; LINE state is tenant/exact-host bound | None for backend scope | QA Tester |
+ops/m10/backend-release-gate-ledger.md:23:| Audit and redaction | ready_local | Reset tokens, passwords, TOTP secret, recovery codes, challenge tokens, LINE state/code, and secret-like payloads are redacted | None for backend scope | QA Tester |
+ops/m10/backend-release-gate-ledger.md:24:| Session revocation | ready_local | Password reset/change and 2FA enable/disable/recovery-code flows revoke affected admin sessions | None | QA Tester |
+ops/m10/backend-release-gate-ledger.md:27:| Tenant payment settings/channels | ready_local_with_external_blocker | Prior safe route-policy closure remains unchanged and full suite passed | Payment provider credentials/activation policy missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:40:| Implemented secure backend | 9 | Admin password lifecycle and admin 2FA lifecycle routes. |
+ops/m10/backend-release-gate-ledger.md:41:| Implemented guarded provider boundary | 2 | LINE login/callback with tenant/exact-host bound state and no fake provider success. |
+ops/m10/backend-release-gate-ledger.md:49:| Admin password lifecycle | 3 | Implemented and ready for QA; production mail delivery remains external | QA Tester / Coordinator-Ops |
+ops/m10/backend-release-gate-ledger.md:51:| LINE auth | 2 | Registered with guarded provider boundary; provider success remains externally blocked | QA Tester / Coordinator-Ops |
+docs/m10-backend-completion-and-release-gate-closure.md:5:Task: 20260509-m10-admin-security-line-policy-backend-closure-backend
+docs/m10-backend-completion-and-release-gate-closure.md:10:This pass closed the final 11 OpenAPI app-route gaps left from the previous M10 route-policy closure: admin password lifecycle, admin 2FA lifecycle, and LINE customer auth policy boundaries.
+docs/m10-backend-completion-and-release-gate-closure.md:19:- Added ERD-backed persistence for hashed password reset tokens, protected 2FA settings, hashed recovery codes, hashed 2FA challenges, and tenant-bound customer external auth states.
+docs/m10-backend-completion-and-release-gate-closure.md:20:- Implemented admin password forgot/reset/change with enumeration-safe forgot, hashed reset tokens, expiry, single-use consumption, replay protection, password confirmation/policy validation, session revocation, audit, and redaction.
+docs/m10-backend-completion-and-release-gate-closure.md:21:- Implemented admin 2FA status/setup/enable/recovery-code rotation/verify/disable with real TOTP verification, protected retrievable TOTP secret, hashed recovery codes, display-once recovery codes, hashed expiring challenge tokens, replay protection, idempotency on documented write routes, audit, and redaction.
+docs/m10-backend-completion-and-release-gate-closure.md:22:- Added support impersonation blocks for password change and 2FA mutation routes using the existing sensitive-action middleware.
+docs/m10-backend-completion-and-release-gate-closure.md:23:- Added LINE login/callback routes with exact tenant host binding, hashed state validation, expiry, single-use state consumption, provider credential boundary, provider error handling, and no fake provider success.
+docs/m10-backend-completion-and-release-gate-closure.md:29:| `POST /auth/admin/password/forgot` | implemented | Enumeration-safe 202 response; stores only reset token hash; no raw token API output. |
+docs/m10-backend-completion-and-release-gate-closure.md:30:| `POST /auth/admin/password/reset` | implemented | Hash lookup, expiry, single-use token consumption, password confirmation, session revocation, audit redaction. |
+docs/m10-backend-completion-and-release-gate-closure.md:31:| `POST /auth/admin/password/change` | implemented | Authenticated admin only, current password check, confirmation, idempotency, session revocation, support impersonation block. |
+docs/m10-backend-completion-and-release-gate-closure.md:32:| `GET /auth/admin/2fa` | implemented | Authenticated status view; no secret or recovery code exposure. |
+docs/m10-backend-completion-and-release-gate-closure.md:33:| `DELETE /auth/admin/2fa` | implemented | Current password plus real TOTP verification, idempotency, support impersonation block, session revocation. |
+docs/m10-backend-completion-and-release-gate-closure.md:34:| `POST /auth/admin/2fa/setup` | implemented | Protected TOTP secret, hashed display-once recovery codes, idempotency replay without secret/code disclosure. |
+docs/m10-backend-completion-and-release-gate-closure.md:36:| `POST /auth/admin/2fa/recovery-codes` | implemented | Current password plus real TOTP, hashed new codes, display-once response, idempotency replay redacted. |
+docs/m10-backend-completion-and-release-gate-closure.md:37:| `POST /auth/admin/2fa/verify` | implemented | Hashed expiring challenge token, TOTP or unused recovery code, single-use challenge, replay protection, session issue on success. |
+docs/m10-backend-completion-and-release-gate-closure.md:38:| `POST /customer/auth/line/login` | guarded_provider | Exact tenant host binding and hashed state are implemented; returns provider-not-configured when LINE credentials are absent. |
+docs/m10-backend-completion-and-release-gate-closure.md:39:| `GET /customer/auth/line/callback` | guarded_provider | Validates tenant/host-bound state/code then blocks provider exchange pending approved LINE token/account-linking policy. |
+docs/m10-backend-completion-and-release-gate-closure.md:44:- Password change uses `support.block:change_password`.
+docs/m10-backend-completion-and-release-gate-closure.md:45:- 2FA setup, enable, recovery-code rotation, and disable use `support.block:change_2fa`.
+docs/m10-backend-completion-and-release-gate-closure.md:54:- LINE successful provider exchange and customer account linking remain blocked until Coordinator/Ops approves credentials, callback URL, token exchange, and linking/error policy.
+docs/m10-backend-completion-and-release-gate-closure.md:99:Backend implementation for the M10 admin security and LINE policy closure scope is ready for QA. Gate 5 is not triggered. Remaining production release blockers are external provider/ops readiness items, not OpenAPI route gaps.
+apps/platform-api/database/seeders/DemoTenantSeeder.php:166:                'password_hash' => Hash::make($this->tenantOwnerPassword()),
+apps/platform-api/database/seeders/DemoTenantSeeder.php:168:                'two_factor_enabled' => false,
+apps/platform-api/database/seeders/DemoTenantSeeder.php:404:        return (string) config('platform.seed.tenant_owner_password');
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:25:        $this->line('dry_run: '.($report['boundary']['dry_run'] ? 'true' : 'false'));
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:26:        $this->line('domains_total: '.$report['domains']['total']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:27:        $this->line('unsafe_active_domains: '.$report['domains']['unsafe_active']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:28:        $this->line('waf_cache_artifacts: '.$report['cache']['status']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:29:        $this->line('cdn_r2_ticket_images: '.$report['cdn_r2_ticket_images']['status']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:30:        $this->line('production_approved: false');
+apps/platform-api/database/seeders/BootstrapAdminSeeder.php:54:                'password_hash' => Hash::make($this->centralAdminPassword()),
+apps/platform-api/database/seeders/BootstrapAdminSeeder.php:56:                'two_factor_enabled' => false,
+apps/platform-api/database/seeders/BootstrapAdminSeeder.php:87:        return (string) config('platform.seed.central_admin_password');
+apps/platform-api/tests/Feature/AdminOperationsTest.php:150:                'password' => 'super-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:173:        $this->assertSame('[REDACTED]', $auditPayload['payload']['password']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:259:                'password' => 'central-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:260:                'token_hash' => 'central-token-hash',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:274:                'password_hash' => 'tenant-password-hash',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:304:        $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['password']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:305:        $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['token_hash']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:306:        $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['invitation_url']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:307:        $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['invitation_code']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:308:        $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['invite_link']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:323:        $this->assertSame('[REDACTED]', $tenantLogs[0]['payload']['password_hash']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:324:        $this->assertSame('[REDACTED]', $tenantLogs[0]['payload']['invitation_material']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:361:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:380:            'password' => 'secret-password',
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:37:            $this->line($name.': '.$result);
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:103:            $centralPassword = (string) config('platform.seed.central_admin_password');
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:104:            $tenantPassword = (string) config('platform.seed.tenant_owner_password');
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:110:            if (! Hash::check($centralPassword, (string) $central->password_hash)) {
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:114:            return Hash::check($tenantPassword, (string) $tenant->password_hash) ? 'ok' : 'failed';
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:428:            $code === 'dashboard' => 'ri-dashboard-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:429:            str_contains($code, 'stock') || str_contains($code, 'allocation') => 'ri-archive-stack-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:430:            str_contains($code, 'reward') || str_contains($code, 'prize') => 'ri-trophy-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:431:            str_contains($code, 'partner') => 'ri-building-4-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:432:            str_contains($code, 'quota') => 'ri-speed-up-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:433:            str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:434:            str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:435:            str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:436:            str_contains($code, 'audit') || str_contains($code, 'log') => 'ri-history-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:437:            str_contains($code, 'admin_user') => 'ri-user-settings-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:438:            str_contains($code, 'role') || str_contains($code, 'permission') => 'ri-shield-user-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:439:            str_contains($code, 'menu') => 'ri-menu-2-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:440:            str_contains($code, 'setting') || str_contains($code, 'seo') => 'ri-settings-3-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:441:            str_contains($code, 'maintenance') => 'ri-tools-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:442:            str_contains($code, 'support') => 'ri-customer-service-2-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:443:            str_contains($code, 'order') || str_contains($code, 'ticket') => 'ri-receipt-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:444:            str_contains($code, 'wallet') || str_contains($code, 'topup') || str_contains($code, 'payment') => 'ri-wallet-3-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:445:            str_contains($code, 'agent') || str_contains($code, 'affiliate') || str_contains($code, 'commission') => 'ri-team-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:446:            $scopeType === 'central' => 'ri-apps-2-line',
+apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php:447:            default => 'ri-dashboard-line',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:99:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:110:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:237:            ->assertJsonPath('provider', 'payment')
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:240:        $this->assertSame('[REDACTED]', $webhook['payload']['client_secret']);
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:284:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:300:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:392:                'password' => 'member-secret',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:397:            ->assertJsonMissingPath('password_hash')
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:581:            'provider' => 'payment',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:601:            'password_hash' => null,
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:25:        $this->line('queue_workers: '.$report['queue_workers']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:26:        $this->line('horizon: '.$report['horizon']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:27:        $this->line('reverb: '.$report['reverb']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:28:        $this->line('scheduler: '.$report['scheduler']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:29:        $this->line('production_approved: false');
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:38:class PrepareK6BaselineCommand extends Command
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:61:        $outputJson = $this->pathOption('output-json', storage_path('app/load-tests/k6-baseline-env.json'));
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:62:        $outputEnv = $this->pathOption('output-env', storage_path('app/load-tests/k6-baseline.env'));
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:72:        $this->line('Prepared M10 k6 baseline fixtures.');
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:73:        $this->line('fixture_json: '.$outputJson);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:74:        $this->line('fixture_env: '.$outputEnv);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:75:        $this->line('tenant_id: '.$fixture['fixture']['tenant_id']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:76:        $this->line('partner_id: '.$fixture['fixture']['partner_id']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:77:        $this->line('game_id: '.$fixture['env']['GAME_ID']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:78:        $this->line('reward_result_id: '.$fixture['env']['REWARD_RESULT_ID']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:120:                'available_k6_profiles' => ['smoke', 'baseline', 'release-candidate'],
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:169:        $partnerId = 'par_k6_baseline';
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:170:        $tenantId = 'ten_k6_baseline';
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:175:                'code' => 'k6_baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:176:                'name' => 'K6 Baseline Partner',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:188:                'code' => 'k6_baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:189:                'name' => 'K6 Baseline Tenant',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:236:                'password_hash' => Hash::make(Str::random(40)),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:238:                'two_factor_enabled' => false,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:260:                'code' => 'k6_baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:261:                'name' => 'K6 Baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:321:            'access_token_hash' => hash('sha256', $adminToken),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:322:            'refresh_token_hash' => hash('sha256', $adminRefreshToken),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:328:            'revoked_at' => null,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:339:            'access_token_hash' => hash('sha256', $customerToken),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:340:            'refresh_token_hash' => hash('sha256', $customerRefreshToken),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:343:            'revoked_at' => null,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:353:            'name' => 'K6 baseline '.$runId,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:359:            'revoked_at' => null,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:382:            'name' => 'K6 Baseline Game '.$runId,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:388:            'metadata_json' => json_encode(['source' => 'k6_baseline'], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:404:            'reason' => 'K6 local/dev baseline fixture',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:499:            'password_hash' => Hash::make(Str::random(32)),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:501:            'name' => 'K6 Baseline Customer',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:612:            'metadata_json' => json_encode(['source' => 'k6_baseline_reward'], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:705:        $lines = [];
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:708:            $lines[] = $key.'='.$value;
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:711:        file_put_contents($path, implode(PHP_EOL, $lines).PHP_EOL);
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:16:    public function test_remaining_safe_route_slice_and_admin_security_line_policy_routes_are_registered(): void
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:53:            'POST api/v1/auth/admin/password/forgot',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:54:            'POST api/v1/auth/admin/password/reset',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:55:            'POST api/v1/auth/admin/password/change',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:60:            'POST api/v1/auth/admin/2fa/recovery-codes',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:62:            'POST api/v1/customer/auth/line/login',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:63:            'GET|HEAD api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:145:                'provider_mode' => 'external_configured',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:154:            ->assertJsonPath('production_provider_ready', false)
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:155:            ->assertJsonPath('payment_provider_status', 'blocked_external')
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:167:                'provider' => 'external_payment',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:173:            ->assertJsonPath('provider_status', 'blocked_external')
+apps/platform-api/database/migrations/2026_05_06_000001_create_platform_core_tables.php:49:            $table->string('password_hash');
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:44:        $this->assertSame('[REDACTED]', $report['reverb']['redacted_config']['app_key']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:45:        $this->assertSame('[REDACTED]', $report['reverb']['redacted_config']['app_secret']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:168:        foreach (explode("\n", $this->workspaceFile('apps/platform-api/.env.example')) as $line) {
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:169:            if (str_starts_with($line, $key.'=')) {
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:170:                return substr($line, strlen($key) + 1);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:19:            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:24:        $this->line('status: '.$result['status']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:25:        $this->line('dry_run: '.($result['dry_run'] ? 'true' : 'false'));
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:26:        $this->line('partners_evaluated: '.$result['summary']['partners_evaluated']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:27:        $this->line('policies_evaluated: '.$result['summary']['policies_evaluated']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:28:        $this->line('alerts_detected: '.$result['summary']['alerts_detected']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:29:        $this->line('external_delivery_attempted: false');
+apps/platform-api/database/migrations/2026_05_06_000004_create_partner_provisioning_tables.php:155:            $table->timestampTz('revoked_at')->nullable();
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:25:        $this->line('dry_run: '.($report['boundary']['dry_run'] ? 'true' : 'false'));
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:26:        $this->line('fixtures: '.$report['rehearsal_fixtures']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:27:        $this->line('snapshots: '.$report['snapshot_requirements']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:28:        $this->line('cutover: '.$report['cutover']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:29:        $this->line('rollback: '.$report['rollback']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:30:        $this->line('production_approved: false');
+apps/platform-api/tests/Feature/CentralStockTest.php:152:        $this->assertContains('[REDACTED]', $secretValues);
+apps/platform-api/tests/Feature/RbacFoundationTest.php:101:            'password_hash' => 'hash',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:80:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:116:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:131:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:140:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:150:        $this->assertSame('[REDACTED]', $auditPayload['payload']['owner_password']);
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:151:        $this->assertStringNotContainsString('owner-password', json_encode($auditPayload, JSON_THROW_ON_ERROR));
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:171:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:300:        $this->assertNotNull(DB::table('partner_api_clients')->where('id', $created['id'])->value('revoked_at'));
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:314:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:377:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:385:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:393:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:504:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/PaymentWebhookTest.php:15:    public function test_PaymentWebhook_finalizes_external_payment_and_dedupes_provider_callback(): void
+apps/platform-api/tests/Feature/PaymentWebhookTest.php:68:        $this->assertSame(1, DB::table('webhook_callbacks')->where('provider', 'external_payment')->count());
+apps/platform-api/database/migrations/2026_05_09_000002_create_remaining_openapi_route_closure_tables.php:40:            $table->string('provider_mode')->default('manual_only');
+apps/platform-api/database/migrations/2026_05_09_000002_create_remaining_openapi_route_closure_tables.php:44:            $table->string('payment_provider_status')->default('blocked_external');
+apps/platform-api/database/migrations/2026_05_09_000002_create_remaining_openapi_route_closure_tables.php:58:            $table->string('provider')->default('manual');
+apps/platform-api/database/migrations/2026_05_09_000002_create_remaining_openapi_route_closure_tables.php:69:            $table->index(['tenant_id', 'provider']);
+apps/platform-api/tests/Feature/AdminAuthTest.php:24:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:33:                'challenge_token',
+apps/platform-api/tests/Feature/AdminAuthTest.php:34:                'user' => ['id', 'name', 'email', 'status', 'two_factor_enabled'],
+apps/platform-api/tests/Feature/AdminAuthTest.php:48:            'access_token_hash' => hash('sha256', $response['access_token']),
+apps/platform-api/tests/Feature/AdminAuthTest.php:49:            'refresh_token_hash' => hash('sha256', $response['refresh_token']),
+apps/platform-api/tests/Feature/AdminAuthTest.php:59:        $this->assertSame('[REDACTED]', $payload['password']);
+apps/platform-api/tests/Feature/AdminAuthTest.php:60:        $this->assertSame('[REDACTED]', $payload['access_token']);
+apps/platform-api/tests/Feature/AdminAuthTest.php:61:        $this->assertSame('[REDACTED]', $payload['refresh_token']);
+apps/platform-api/tests/Feature/AdminAuthTest.php:71:            'password' => 'wrong-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:79:        $this->assertStringNotContainsString('password_hash', $body);
+apps/platform-api/tests/Feature/AdminAuthTest.php:80:        $this->assertStringNotContainsString('wrong-password', $body);
+apps/platform-api/tests/Feature/AdminAuthTest.php:94:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:108:            ->where('refresh_token_hash', hash('sha256', $login['refresh_token']))
+apps/platform-api/tests/Feature/AdminAuthTest.php:109:            ->whereNotNull('revoked_at')
+apps/platform-api/tests/Feature/AdminAuthTest.php:184:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:208:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:230:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:238:            'access_token_hash' => hash('sha256', $accessToken),
+apps/platform-api/tests/Feature/AdminAuthTest.php:239:            'revoked_at' => null,
+apps/platform-api/tests/Feature/AdminRoleTest.php:306:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminRoleTest.php:326:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:15:            'platform.migration_rehearsal.source_dsn' => 'postgres://legacy-user:legacy-password@legacy-prod.internal/newpaotang',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:54:        $this->assertSame('[REDACTED]', $report['production_secret_boundary']['redacted_config']['source_dsn']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:55:        $this->assertSame('[REDACTED]', $report['production_secret_boundary']['redacted_config']['source_token']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:57:        $this->assertSame('[REDACTED]', $report['production_secret_boundary']['redacted_config']['secret_reference']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:63:            'postgres://legacy-user:legacy-password@legacy-prod.internal/newpaotang',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:110:        $this->assertStringContainsString('[REDACTED]', $secrets);
+apps/platform-api/tests/Feature/TenantReservationTest.php:126:        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+apps/platform-api/database/migrations/2026_05_06_000006_create_local_stock_booking_tables.php:28:            $table->string('access_token_hash', 64)->unique();
+apps/platform-api/database/migrations/2026_05_06_000006_create_local_stock_booking_tables.php:30:            $table->timestampTz('revoked_at')->nullable();
+apps/platform-api/database/migrations/2026_05_06_000006_create_local_stock_booking_tables.php:36:            $table->index(['tenant_id', 'customer_id', 'revoked_at']);
+apps/platform-api/tests/Feature/AdminUserTest.php:27:                'password' => 'temporary-secret',
+apps/platform-api/tests/Feature/AdminUserTest.php:42:        $this->assertTrue(Hash::check('temporary-secret', (string) DB::table('admin_users')->where('id', $created['id'])->value('password_hash')));
+apps/platform-api/tests/Feature/AdminUserTest.php:330:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminUserTest.php:350:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminUserTest.php:416:            'password_hash' => Hash::make('secret-password'),
+apps/platform-api/tests/Feature/AdminUserTest.php:418:            'two_factor_enabled' => false,
+apps/platform-api/tests/Feature/AdminUserTest.php:441:        $this->assertStringNotContainsString('password', $json);
+apps/platform-api/tests/Feature/AdminUserTest.php:442:        $this->assertStringNotContainsString('password_hash', $json);
+apps/platform-api/tests/Feature/AdminMenuTest.php:23:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:34:        $this->assertSame('ri-dashboard-line', $response[0]['icon']);
+apps/platform-api/tests/Feature/AdminMenuTest.php:56:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:72:        $this->assertSame('ri-receipt-line', $response[1]['icon']);
+apps/platform-api/tests/Feature/AdminMenuTest.php:88:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:113:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:135:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:51:        $this->assertSame('[REDACTED]', $report['cloudflare']['redacted_config']['api_token']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:56:        $this->assertSame('[REDACTED]', $report['cdn_r2_ticket_images']['redacted_config']['r2_access_key_id']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:57:        $this->assertSame('[REDACTED]', $report['cdn_r2_ticket_images']['redacted_config']['r2_secret_access_key']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:65:        $this->assertStringContainsString('[REDACTED]', $output);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:151:            'owner_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:261:        $runner = $this->workspaceFile('scripts/k6-run-baseline.sh');
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:25:        $this->line('environment: '.$report['environment']['name']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:26:        $this->line('partners: '.$report['summary']['partners']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:27:        $this->line('active_alert_policies: '.$report['summary']['active_alert_policies']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:28:        $this->line('production_approved: false');
+apps/platform-api/tests/Feature/SupportAccessTest.php:93:            'token_hash' => hash('sha256', $token),
+apps/platform-api/tests/Feature/SupportAccessTest.php:95:        $this->assertSame(0, DB::table('support_impersonation_sessions')->where('token_hash', $token)->count());
+apps/platform-api/tests/Feature/SupportAccessTest.php:104:            ->assertJsonMissing(['token_hash' => hash('sha256', $token)]);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:38:        $this->assertStringContainsString('[REDACTED]', $output);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:118:        $this->assertSame('[REDACTED]', $payload['channels']['webhook_url']);
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:67:            $table->timestampTz('revoked_at')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:93:            $table->timestampTz('revoked_at')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:132:            $table->string('token_hash', 64);
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:137:            $table->timestampTz('revoked_at')->nullable();
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:14:use App\Console\Commands\PrepareK6BaselineCommand;
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:44:            'load-tests:k6:prepare' => PrepareK6BaselineCommand::class,
+apps/platform-api/database/migrations/2026_05_06_000003_create_admin_auth_sessions.php:14:            $table->boolean('two_factor_enabled')->default(false)->after('status');
+apps/platform-api/database/migrations/2026_05_06_000003_create_admin_auth_sessions.php:20:            $table->string('access_token_hash', 64)->unique();
+apps/platform-api/database/migrations/2026_05_06_000003_create_admin_auth_sessions.php:21:            $table->string('refresh_token_hash', 64)->unique();
+apps/platform-api/database/migrations/2026_05_06_000003_create_admin_auth_sessions.php:27:            $table->timestampTz('revoked_at')->nullable();
+apps/platform-api/database/migrations/2026_05_06_000003_create_admin_auth_sessions.php:36:            $table->index(['tenant_id', 'revoked_at']);
+apps/platform-api/database/migrations/2026_05_06_000003_create_admin_auth_sessions.php:47:            $table->dropColumn(['name', 'phone', 'two_factor_enabled']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:13:            $table->string('password_hash')->nullable()->after('email');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:14:            $table->string('avatar_url')->nullable()->after('password_hash');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:20:            $table->string('refresh_token_hash', 64)->nullable()->unique()->after('access_token_hash');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:22:            $table->string('refreshed_from_id', 34)->nullable()->after('revoked_at');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:169:            $table->string('provider');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:177:            $table->string('provider_event_id')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:178:            $table->string('provider_reference')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:179:            $table->json('provider_payload_json')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:186:            $table->unique(['provider', 'reference']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:188:            $table->index(['provider', 'provider_event_id']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:189:            $table->index(['provider', 'provider_reference']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:198:            $table->string('provider')->default('manual');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:212:            $table->json('provider_payload_json')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:235:            $table->string('provider');
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:247:            $table->unique(['domain', 'provider', 'callback_key']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:248:            $table->index(['provider', 'created_at']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:272:            $table->dropColumn(['refresh_token_hash', 'refresh_expires_at', 'refreshed_from_id']);
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:276:            $table->dropColumn(['email', 'password_hash', 'avatar_url', 'last_login_at']);
+apps/platform-api/tests/Feature/MaintenanceTest.php:33:                'reason' => 'Payment provider maintenance',
+apps/platform-api/tests/Feature/MaintenanceTest.php:119:            'revoked_at' => null,
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:22:            'POST api/v1/auth/admin/password/forgot',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:23:            'POST api/v1/auth/admin/password/reset',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:24:            'POST api/v1/auth/admin/password/change',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:29:            'POST api/v1/auth/admin/2fa/recovery-codes',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:31:            'POST api/v1/customer/auth/line/login',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:32:            'GET|HEAD api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:38:    public function test_M10AdminSecurityLinePolicy_password_reset_uses_hashes_expiry_single_use_audit_redaction_and_session_revocation(): void
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:43:        $this->postJson('/api/v1/auth/admin/password/forgot', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:51:        $this->assertDatabaseHas('admin_password_reset_tokens', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:57:            ->where('action', 'admin.password_reset_requested')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:61:        $this->assertSame('[REDACTED]', $auditPayload['reset_token']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:63:        $knownToken = 'npa_prt_known_reset_token_for_m10_security';
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:64:        DB::table('admin_password_reset_tokens')->insert([
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:68:            'token_hash' => hash('sha256', $knownToken),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:78:        $this->postJson('/api/v1/auth/admin/password/reset', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:80:            'password' => 'new-secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:81:            'password_confirmation' => 'new-secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:83:            'Idempotency-Key' => 'reset-security-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:84:            'X-Request-Id' => 'req-reset-security-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:87:        $passwordHash = (string) DB::table('admin_users')->where('id', 'adm_security_reset')->value('password_hash');
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:88:        $this->assertTrue(Hash::check('new-secret-password', $passwordHash));
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:89:        $this->assertDatabaseHas('admin_password_reset_tokens', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:93:        $this->assertNotNull(DB::table('admin_auth_sessions')->where('access_token_hash', hash('sha256', $login['access_token']))->value('revoked_at'));
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:96:            ->where('action', 'admin.password_reset')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:100:        $this->assertSame('[REDACTED]', $resetAudit['token']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:101:        $this->assertSame('[REDACTED]', $resetAudit['password']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:102:        $this->assertSame('[REDACTED]', $resetAudit['password_confirmation']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:103:        $this->assertSame('[REDACTED]', $resetAudit['token_hash']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:105:        $this->postJson('/api/v1/auth/admin/password/reset', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:107:            'password' => 'new-secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:108:            'password_confirmation' => 'new-secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:110:            'Idempotency-Key' => 'reset-security-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:113:        $this->postJson('/api/v1/auth/admin/password/reset', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:115:            'password' => 'another-secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:116:            'password_confirmation' => 'another-secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:118:            'Idempotency-Key' => 'reset-security-password-new-key',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:122:    public function test_M10AdminSecurityLinePolicy_support_impersonation_blocks_sensitive_admin_password_actions(): void
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:130:            ->postJson('/api/v1/auth/admin/password/change', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:131:                'current_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:132:                'new_password' => 'blocked-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:133:                'new_password_confirmation' => 'blocked-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:135:                'Idempotency-Key' => 'support-block-change-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:145:            'action' => 'change_password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:155:    public function test_M10AdminSecurityLinePolicy_two_factor_uses_real_totp_hashed_recovery_codes_challenge_replay_protection_and_redacted_idempotency(): void
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:165:            ->assertJsonPath('two_factor_status', 'pending')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:166:            ->assertJsonPath('recovery_codes_display_once', true)
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:170:        $this->assertCount(8, $setup['recovery_codes']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:171:        $encryptedSecret = (string) DB::table('admin_two_factor_settings')->where('admin_user_id', 'adm_security_2fa')->value('secret_encrypted');
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:173:        $this->assertSame(0, DB::table('admin_two_factor_recovery_codes')->where('code_hash', $setup['recovery_codes'][0])->count());
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:181:            ->assertJsonPath('recovery_codes', [])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:182:            ->assertJsonPath('recovery_codes_display_once', false);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:184:        $totp = $this->totpCode($setup['secret']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:188:                'code' => $totp,
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:193:            ->assertJsonPath('two_factor_enabled', true)
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:194:            ->assertJsonPath('two_factor_status', 'active');
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:196:        $challenge = $this->postJson('/api/v1/auth/admin/login', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:198:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:207:            'challenge_token' => $challenge['challenge_token'],
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:208:            'code' => $this->totpCode($setup['secret']),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:217:            'challenge_token' => $challenge['challenge_token'],
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:218:            'code' => $this->totpCode($setup['secret']),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:222:            ->postJson('/api/v1/auth/admin/2fa/recovery-codes', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:223:                'current_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:224:                'code' => $this->totpCode($setup['secret']),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:229:            ->assertJsonPath('recovery_codes_display_once', true)
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:232:        $this->assertCount(8, $rotated['recovery_codes']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:235:            ->postJson('/api/v1/auth/admin/2fa/recovery-codes', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:236:                'current_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:237:                'code' => $this->totpCode($setup['secret']),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:242:            ->assertJsonPath('recovery_codes', [])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:243:            ->assertJsonPath('recovery_codes_display_once', false);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:245:        $recoveryAudit = json_decode((string) DB::table('audit_logs')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:246:            ->where('action', 'admin.2fa.recovery_codes_rotated')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:249:        $this->assertSame('[REDACTED]', $recoveryAudit['current_password']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:250:        $this->assertSame('[REDACTED]', $recoveryAudit['recovery_codes']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:254:                'current_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:255:                'code' => $this->totpCode($setup['secret']),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:263:            'two_factor_enabled' => false,
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:267:    public function test_M10AdminSecurityLinePolicy_line_routes_are_tenant_bound_and_do_not_fake_provider_success(): void
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:269:        $this->insertActivePartnerTenantWithDomain('par_line_a', 'ten_line_a', 'line-a.m10.test');
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:270:        $this->insertActivePartnerTenantWithDomain('par_line_b', 'ten_line_b', 'line-b.m10.test');
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:272:            'id' => 'dom_line_a_alt',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:273:            'partner_id' => 'par_line_a',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:274:            'tenant_id' => 'ten_line_a',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:275:            'host' => 'line-a-alt.m10.test',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:285:        $this->postJson('http://line-a.m10.test/api/v1/customer/auth/line/login')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:287:            ->assertJsonPath('error.code', 'provider_not_configured')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:288:            ->assertJsonPath('error.details.provider_status', 'blocked_external')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:289:            ->assertJsonPath('error.details.production_line_ready', false);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:292:            'platform.line.client_id' => 'line-client-id',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:293:            'platform.line.client_secret' => 'line-client-secret',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:294:            'platform.line.callback_url' => 'https://line-a.m10.test/api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:297:        $redirect = $this->postJson('http://line-a.m10.test/api/v1/customer/auth/line/login', [
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:301:            ->assertJsonPath('provider', 'line')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:302:            ->assertJsonPath('production_line_ready', false)
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:306:        $this->assertSame('line-client-id', $query['client_id']);
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:309:            'tenant_id' => 'ten_line_a',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:310:            'provider' => 'line',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:315:        $this->getJson('http://line-b.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:318:        $this->getJson('http://line-a-alt.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:322:            'tenant_id' => 'ten_line_a',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:327:        $this->getJson('http://line-a.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:329:            ->assertJsonPath('error.code', 'provider_exchange_blocked')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:330:            ->assertJsonPath('error.details.provider_status', 'blocked_external')
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:331:            ->assertJsonPath('error.details.production_line_ready', false)
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:332:            ->assertJsonPath('error.details.line_code', '[REDACTED]');
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:335:            'tenant_id' => 'ten_line_a',
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:340:        $this->getJson('http://line-a.m10.test/api/v1/customer/auth/line/callback?code=line-code&state='.$query['state'])
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:376:            'token_hash' => hash('sha256', $token),
+apps/platform-api/tests/Feature/M10AdminSecurityLinePolicyClosureTest.php:388:    private function totpCode(string $secret): string
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:11:        Schema::create('admin_password_reset_tokens', function (Blueprint $table): void {
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:15:            $table->string('token_hash', 64)->unique();
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:28:        Schema::create('admin_two_factor_settings', function (Blueprint $table): void {
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:44:        Schema::create('admin_two_factor_recovery_codes', function (Blueprint $table): void {
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:55:        Schema::create('admin_two_factor_challenges', function (Blueprint $table): void {
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:58:            $table->string('challenge_token_hash', 64)->unique();
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:76:            $table->string('provider');
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:87:            $table->index(['tenant_id', 'provider', 'status', 'expires_at']);
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:94:        Schema::dropIfExists('admin_two_factor_challenges');
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:95:        Schema::dropIfExists('admin_two_factor_recovery_codes');
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:96:        Schema::dropIfExists('admin_two_factor_settings');
+apps/platform-api/database/migrations/2026_05_09_000003_create_admin_security_line_policy_closure_tables.php:97:        Schema::dropIfExists('admin_password_reset_tokens');
+apps/platform-api/tests/Feature/AffiliateTest.php:137:        $this->assertStringContainsString('[REDACTED]', (string) $auditPayload);
+apps/platform-api/tests/Feature/CentralGameTest.php:105:        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:101:                'revoked_at' => null,
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:182:                    'revoked_at' => now(),
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:192:                        'revoked_at' => now(),
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:252:                'token_hash' => hash('sha256', $token),
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:257:                'revoked_at' => null,
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:383:            ->where('support_impersonation_sessions.token_hash', hash('sha256', $token))
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:405:            'reason' => 'Sensitive action is blocked during support impersonation.',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:424:            'reason' => 'Sensitive action is blocked during support impersonation.',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:467:            'revoked_at' => $this->dateString($request->revoked_at),
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:518:            'revoked_at' => $this->dateString($session->revoked_at),
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:21:        'password',
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:249:            'provider_mode' => 'manual_only',
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:253:            'payment_provider_status' => 'blocked_external',
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:256:                'production_provider_ready' => false,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:278:            'provider_mode' => array_key_exists('provider_mode', $source) ? trim((string) $source['provider_mode']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:282:            'payment_provider_status' => array_key_exists('payment_provider_status', $source) ? trim((string) $source['payment_provider_status']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:311:            array_key_exists('payment_provider_status', $payload)
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:312:            && ! in_array($payload['payment_provider_status'], ['blocked_external', 'local_dev_configured', 'manual_only', 'disabled'], true)
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:314:            $errors['payment_provider_status'][] = 'The payment_provider_status field is invalid.';
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:328:        foreach (['status', 'provider_mode', 'default_currency', 'allow_manual_topup', 'allow_external_payment'] as $field) {
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:334:        if (array_key_exists('payment_provider_status', $payload)) {
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:335:            $updates['payment_provider_status'] = $payload['payment_provider_status'];
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:341:                'production_provider_ready' => false,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:350:            $updates['payment_provider_status'] = $updates['payment_provider_status'] ?? 'blocked_external';
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:369:            'provider' => array_key_exists('provider', $payload) ? trim((string) $payload['provider']) : ($creating ? 'manual' : null),
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:375:                'production_provider_ready' => false,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:470:            'provider_mode' => (string) $settings->provider_mode,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:474:            'payment_provider_status' => (string) $settings->payment_provider_status,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:477:            'production_provider_ready' => false,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:494:            'provider' => (string) $channel->provider,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:499:            'provider_status' => $channel->provider === 'manual' ? 'manual_only' : 'blocked_external',
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:500:            'production_provider_ready' => false,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:525:                'production_provider_ready' => false,
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:153:                'password_hash' => Hash::make(array_key_exists('password', $payload) ? (string) $payload['password'] : Str::random(64)),
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:155:                'two_factor_enabled' => false,
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:192:            if (array_key_exists('password', $payload)) {
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:193:                $updates['password_hash'] = Hash::make((string) $payload['password']);
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:264:            'admin_users.two_factor_enabled',
+apps/platform-api/tests/Feature/BootstrapSeederTest.php:57:            'password' => 'NewPaotangAdmin!2026',
+apps/platform-api/tests/Feature/BootstrapSeederTest.php:69:            'password' => 'NewPaotangTenant!2026',
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:17:        $jsonPath = $dir.'/k6-baseline-env.json';
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:18:        $envPath = $dir.'/k6-baseline.env';
+apps/platform-api/app/Modules/Webhook/Http/Controllers/WebhookController.php:17:    public function payment(Request $request, string $provider): JsonResponse
+apps/platform-api/app/Modules/Webhook/Http/Controllers/WebhookController.php:19:        return $this->accepted($request, $this->commerce->acceptWebhook('payments', $provider, $request->all(), $request));
+apps/platform-api/app/Modules/Webhook/Http/Controllers/WebhookController.php:22:    public function topup(Request $request, string $provider): JsonResponse
+apps/platform-api/app/Modules/Webhook/Http/Controllers/WebhookController.php:24:        return $this->accepted($request, $this->commerce->acceptWebhook('topups', $provider, $request->all(), $request));
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:12:    private const PROVIDER = 'line';
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:22:            return $this->providerBlocked('provider_not_configured');
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:25:        $state = 'line_'.bin2hex(random_bytes(24));
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:32:            'provider' => self::PROVIDER,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:37:            'expires_at' => now()->addSeconds((int) config('platform.line.state_ttl_seconds', 600)),
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:41:                'provider_readiness' => 'configured_redirect_only',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:42:                'production_line_ready' => false,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:51:                'provider' => self::PROVIDER,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:52:                'provider_status' => 'configured_redirect_only',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:53:                'production_line_ready' => false,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:67:            return $this->providerBlocked('provider_not_configured');
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:93:                ->where('provider', self::PROVIDER)
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:128:            'error' => 'provider_exchange_blocked',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:130:                'provider' => self::PROVIDER,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:131:                'provider_status' => 'blocked_external',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:132:                'production_line_ready' => false,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:135:                'line_code' => '[REDACTED]',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:144:    private function providerBlocked(string $code): array
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:149:                'provider' => self::PROVIDER,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:150:                'provider_status' => 'blocked_external',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:151:                'production_line_ready' => false,
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:152:                'reason' => 'LINE channel credentials/provider exchange are not configured for this environment.',
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:159:        return trim((string) config('platform.line.client_id', '')) !== ''
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:160:            && trim((string) config('platform.line.client_secret', '')) !== '';
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:165:        return (string) config('platform.line.authorize_url', 'https://access.line.me/oauth2/v2.1/authorize').'?'.http_build_query([
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:167:            'client_id' => (string) config('platform.line.client_id'),
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:176:        $configured = trim((string) config('platform.line.callback_url', ''));
+apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php:182:        return $request->getSchemeAndHttpHost().'/api/v1/customer/auth/line/callback';
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:616:        $this->whereString($query, 'provider', $queryParams['provider'] ?? null);
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:1467:            'provider' => (string) $log->provider,
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:2013:        if (array_key_exists('password', $payload) && trim((string) $payload['password']) !== '') {
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:2014:            $updates['password_hash'] = Hash::make((string) $payload['password']);
+apps/platform-api/tests/Support/M8GrowthFixtures.php:38:            'password_hash' => null,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:40:        $replay = $this->idempotency->replayOrConflict(null, 'admin_password_reset', $emailHash, 'auth.admin.password.forgot', $idempotencyKey, ['email_hash' => $emailHash]);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:74:                    'token_hash' => $this->hashToken($token),
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:87:                    action: 'admin.password_reset_requested',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:88:                    targetType: 'admin_password_reset_token',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:92:                        'reset_token' => $token,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:103:                    action: 'admin.password_reset_requested',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:104:                    targetType: 'admin_password_reset_token',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:117:            $this->idempotency->storeResponse(null, 'admin_password_reset', $emailHash, 'auth.admin.password.forgot', $idempotencyKey, ['email_hash' => $emailHash], 202, null);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:132:            'token_hash' => $tokenHash,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:133:            'password_policy_version' => 'm10-local',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:136:        $replay = $this->idempotency->replayOrConflict(null, 'admin_password_reset', $tokenHash, 'auth.admin.password.reset', $idempotencyKey, $normalized);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:146:        $password = (string) ($payload['password'] ?? '');
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:148:        return DB::transaction(function () use ($request, $tokenHash, $password, $idempotencyKey, $normalized, $payload): array {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:150:                ->where('token_hash', $tokenHash)
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:174:                    'password_hash' => Hash::make($password),
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:191:                action: 'admin.password_reset',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:194:                payload: $payload + ['token_hash' => $tokenHash, 'sessions_revoked' => true],
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:200:            $this->idempotency->storeResponse(null, 'admin_password_reset', $tokenHash, 'auth.admin.password.reset', $idempotencyKey, $normalized, 204, null);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:214:            'password_policy_version' => 'm10-local',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:217:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.password.change', $idempotencyKey, $normalized);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:232:        if ($admin === null || ! Hash::check((string) ($payload['current_password'] ?? ''), (string) $admin->password_hash)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:239:                'password_hash' => Hash::make((string) $payload['new_password']),
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:248:            action: 'admin.password_changed',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:258:        $this->idempotency->storeResponse($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.password.change', $idempotencyKey, $normalized, 204, null);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:274:            'two_factor_enabled' => (bool) $context->adminUser['two_factor_enabled'],
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:275:            'two_factor_status' => $setting?->status ?? 'disabled',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:276:            'recovery_codes_remaining' => AdminTwoFactorRecoveryCode::query()
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:281:            'recovery_codes_display_once' => false,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:304:        $recoveryCodes = $this->generateRecoveryCodes();
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:307:        DB::transaction(function () use ($context, $secret, $recoveryCodes, $payload, $request, $settingId): void {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:327:            $this->insertRecoveryCodes($context->adminUser['id'], $recoveryCodes);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:333:                targetType: 'admin_two_factor_setting',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:336:                    'totp_secret' => $secret,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:337:                    'recovery_codes' => $recoveryCodes,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:346:        $resource = $this->twoFactorSetupResource($context, $secret, $recoveryCodes);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:390:                    'two_factor_enabled' => true,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:396:                'two_factor_enabled' => true,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:397:                'two_factor_status' => 'active',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:404:                targetType: 'admin_two_factor_setting',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:426:        $normalized = ['admin_user_id' => $context->adminUser['id'], 'action' => 'rotate_recovery_codes'];
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:427:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.recovery-codes', $idempotencyKey, $normalized);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:441:            if ($setting === null || $admin === null || ! Hash::check((string) ($payload['current_password'] ?? ''), (string) $admin->password_hash) || ! $this->verifyTotpCode($setting, (string) ($payload['code'] ?? ''))) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:445:            $recoveryCodes = $this->generateRecoveryCodes();
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:451:            $this->insertRecoveryCodes($context->adminUser['id'], $recoveryCodes);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:456:                'two_factor_enabled' => true,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:457:                'two_factor_status' => 'active',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:458:                'recovery_codes' => $recoveryCodes,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:459:                'recovery_codes_display_once' => true,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:465:                action: 'admin.2fa.recovery_codes_rotated',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:466:                targetType: 'admin_two_factor_recovery_code',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:468:                payload: $payload + ['recovery_codes' => $recoveryCodes, 'other_sessions_revoked' => true],
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:475:            $this->storeRedactedIdempotencyResponse($context, 'auth.admin.2fa.recovery-codes', $idempotencyKey, $normalized, 200, $resource);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:503:            if ($setting === null || $admin === null || ! Hash::check((string) ($payload['current_password'] ?? ''), (string) $admin->password_hash) || ! $this->verifyTotpCode($setting, (string) ($payload['code'] ?? ''))) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:523:                    'two_factor_enabled' => false,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:533:                targetType: 'admin_two_factor_setting',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:554:        $challengeToken = trim((string) ($payload['challenge_token'] ?? ''));
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:555:        $challengeHash = $this->hashToken($challengeToken);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:557:        return DB::transaction(function () use ($challengeHash, $payload, $request): array {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:558:            $challenge = AdminTwoFactorChallenge::query()
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:559:                ->where('challenge_token_hash', $challengeHash)
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:566:            if ($challenge === null) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:571:                ->whereKey($challenge->admin_user_id)
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:579:                && ((bool) $admin->two_factor_enabled)
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:583:                ->where('id', $challenge->id)
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:601:            $response = $this->adminAuth->issueSessionForChallenge($admin, $challenge);
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:609:                scopeType: (string) $challenge->scope_type,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:611:                targetType: 'admin_two_factor_challenge',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:612:                targetId: (string) $challenge->id,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:614:                tenantId: $challenge->tenant_id,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:628:    public function passwordResetRequestErrors(array $payload): array
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:641:        foreach (['token', 'password', 'password_confirmation'] as $field) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:647:        $this->passwordPolicyErrors($errors, 'password', (string) ($payload['password'] ?? ''));
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:649:        if (($payload['password'] ?? null) !== ($payload['password_confirmation'] ?? null)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:650:            $errors['password_confirmation'][] = 'The password confirmation does not match.';
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:664:        foreach (['current_password', 'new_password', 'new_password_confirmation'] as $field) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:670:        $this->passwordPolicyErrors($errors, 'new_password', (string) ($payload['new_password'] ?? ''));
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:672:        if (($payload['new_password'] ?? null) !== ($payload['new_password_confirmation'] ?? null)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:673:            $errors['new_password_confirmation'][] = 'The new password confirmation does not match.';
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:691:        if ($requireCurrentPassword && trim((string) ($payload['current_password'] ?? '')) === '') {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:692:            $errors['current_password'][] = 'The current_password field is required.';
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:706:        foreach (['challenge_token', 'code'] as $field) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:718:    private function passwordPolicyErrors(array &$errors, string $field, string $password): void
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:720:        if (strlen($password) < 8) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:764:            if (hash_equals($this->totpCode($secret, $counter + $offset), $code)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:775:        $recoveryCode = AdminTwoFactorRecoveryCode::query()
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:782:        if ($recoveryCode === null) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:787:            ->where('id', $recoveryCode->id)
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:796:    private function totpCode(string $secret, int $counter): string
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:876:     * @param array<int, string> $recoveryCodes
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:878:    private function insertRecoveryCodes(string $adminUserId, array $recoveryCodes): void
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:887:        ], $recoveryCodes));
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:891:     * @param array<int, string> $recoveryCodes
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:894:    private function twoFactorSetupResource(AdminSessionContext $context, string $secret, array $recoveryCodes): array
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:898:            'two_factor_enabled' => false,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:899:            'two_factor_status' => 'pending',
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:902:            'recovery_codes' => $recoveryCodes,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:903:            'recovery_codes_display_once' => true,
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:912:        return 'otpauth://totp/'.$label.'?secret='.$secret.'&issuer='.rawurlencode($issuer).'&digits=6&period=30';
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:929:        if (array_key_exists('recovery_codes', $redacted)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:930:            $redacted['recovery_codes'] = [];
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:933:        $redacted['recovery_codes_display_once'] = false;
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:960:            ->whereNull('revoked_at');
+apps/platform-api/app/Modules/Auth/Services/AdminAccountSecurityService.php:967:            'revoked_at' => now(),
+apps/platform-api/tests/Support/M5CommerceFixtures.php:31:            'password' => 'customer-secret',
+apps/platform-api/tests/Support/M5CommerceFixtures.php:32:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Support/AdminAuthFixtures.php:45:        string $password = 'secret-password',
+apps/platform-api/tests/Support/AdminAuthFixtures.php:53:            'password_hash' => Hash::make($password),
+apps/platform-api/tests/Support/AdminAuthFixtures.php:55:            'two_factor_enabled' => false,
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:304:                'revoked_at' => null,
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:352:                    'revoked_at' => now(),
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:535:            'revoked_at' => $this->dateString($bypass->revoked_at),
+apps/platform-api/app/Modules/Auth/Http/Controllers/AdminAccountSecurityController.php:29:            + $this->security->passwordResetRequestErrors($request->all());
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:51:            'password' => 'secret-password',
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:75:            'access_token_hash' => hash('sha256', $token),
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:77:            'revoked_at' => null,
+apps/platform-api/app/Models/CustomerAuthSession.php:18:        'access_token_hash',
+apps/platform-api/app/Models/CustomerAuthSession.php:20:        'revoked_at',
+apps/platform-api/app/Models/CustomerAuthSession.php:24:        'refresh_token_hash',
+apps/platform-api/app/Models/CustomerAuthSession.php:30:        'access_token_hash',
+apps/platform-api/app/Models/CustomerAuthSession.php:31:        'refresh_token_hash',
+apps/platform-api/app/Models/CustomerAuthSession.php:37:        'revoked_at' => 'datetime',
+apps/platform-api/app/Modules/Auth/Http/Controllers/AdminAuthController.php:26:            'password' => $request->input('password'),
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:332:                    'provider' => 'credit_card',
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:340:                    'provider_event_id' => null,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:341:                    'provider_reference' => $reference,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:342:                    'provider_payload_json' => null,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:355:                'provider' => $credit ? 'credit_card' : 'manual',
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:369:                'provider_payload_json' => null,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:910:    public function acceptWebhook(string $domain, string $provider, array $payload, Request $request): array
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:915:        return DB::transaction(function () use ($domain, $provider, $payload, $request, $callbackKey, $payloadHash): array {
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:918:                ->where('provider', $provider)
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:936:            $payment = $this->paymentForWebhook($domain, $provider, $payload);
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:937:            $topup = $this->topupForWebhook($domain, $provider, $payload, $payment);
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:949:                'provider' => $provider,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1137:            'provider' => 'external_payment',
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1145:            'provider_event_id' => null,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1146:            'provider_reference' => $reference,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1147:            'provider_payload_json' => null,
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1451:    private function paymentForWebhook(string $domain, string $provider, array $payload): ?object
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1463:        return Payment::where('provider', $provider)->where('reference', $reference)->first()
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1467:    private function topupForWebhook(string $domain, string $provider, array $payload, ?object $payment): ?object
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:1641:            'provider_payload' => $this->decodeJsonObject($topup->provider_payload_json),
+apps/platform-api/tests/Support/CentralStockFixtures.php:26:            'password' => 'secret-password',
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerAuthController.php:152:        foreach (['name', 'phone', 'password', 'password_confirmation'] as $field) {
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerAuthController.php:158:        if (($payload['password'] ?? null) !== ($payload['password_confirmation'] ?? null)) {
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerAuthController.php:159:            $errors['password_confirmation'][] = 'The password confirmation does not match.';
+apps/platform-api/tests/Feature/CustomerAuthTest.php:22:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:23:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:31:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:32:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:37:            ->assertJsonMissing(['password_hash'])
+apps/platform-api/tests/Feature/CustomerAuthTest.php:38:            ->assertJsonMissing(['access_token_hash'])
+apps/platform-api/tests/Feature/CustomerAuthTest.php:56:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:95:        $this->assertNotNull(DB::table('customer_auth_sessions')->where('access_token_hash', hash('sha256', $refreshed['token']))->value('revoked_at'));
+apps/platform-api/tests/Feature/CustomerAuthTest.php:107:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:108:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:153:        $this->assertNull(DB::table('customer_auth_sessions')->where('access_token_hash', $sessionHash)->value('revoked_at'));
+apps/platform-api/tests/Feature/CustomerAuthTest.php:166:        $this->assertNotNull(DB::table('customer_auth_sessions')->where('access_token_hash', $sessionHash)->value('revoked_at'));
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:62:                'password_hash' => Hash::make((string) $payload['password']),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:97:        $password = (string) ($payload['password'] ?? '');
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:99:        if ($username === '' || $password === '') {
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:112:        if ($customer === null || $customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:138:                ->where('refresh_token_hash', hash('sha256', $refreshToken))
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:140:                ->whereNull('revoked_at')
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:156:                    'revoked_at' => now(),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:164:                'revoked_at' => now(),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:176:            ->whereNull('revoked_at')
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:178:                'revoked_at' => now(),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:255:            'access_token_hash' => hash('sha256', $accessToken),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:256:            'refresh_token_hash' => hash('sha256', $refreshToken),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:259:            'revoked_at' => null,
+apps/platform-api/tests/Feature/TenantStockTest.php:113:        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerLineAuthController.php:16:        private readonly CustomerLineAuthService $lineAuth,
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerLineAuthController.php:28:        $result = $this->lineAuth->redirect($tenant, $request->all(), $request);
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerLineAuthController.php:41:        $result = $this->lineAuth->callback($tenant, $request->query(), $request);
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerLineAuthController.php:68:            'provider_not_configured', 'provider_exchange_blocked' => ApiErrorResponse::make(
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerLineAuthController.php:72:                'External login provider is not ready.',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:14:            'password' => 'secret-password',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:21:                'refresh_token_hash' => 'refresh-token-hash',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:33:        $this->assertSame('[REDACTED]', $redacted['password']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:34:        $this->assertSame('[REDACTED]', $redacted['payload_hash']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:35:        $this->assertSame('[REDACTED]', $redacted['invitation_url']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:36:        $this->assertSame('[REDACTED]', $redacted['invitation_code']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:37:        $this->assertSame('[REDACTED]', $redacted['invite_link']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:38:        $this->assertSame('[REDACTED]', $redacted['nested']['access_token']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:39:        $this->assertSame('[REDACTED]', $redacted['nested']['refresh_token_hash']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:40:        $this->assertSame('[REDACTED]', $redacted['nested']['client_secret']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:41:        $this->assertSame('[REDACTED]', $redacted['nested']['invite_payload']);
+apps/platform-api/tests/Unit/AuditLoggerTest.php:42:        $this->assertSame('[REDACTED]', $redacted['credentials']);
+apps/platform-api/app/Models/AdminTwoFactorChallenge.php:9:    protected $table = 'admin_two_factor_challenges';
+apps/platform-api/app/Models/AdminTwoFactorChallenge.php:14:        'challenge_token_hash',
+apps/platform-api/app/Models/AdminTwoFactorChallenge.php:26:        'challenge_token_hash',
+apps/platform-api/app/Models/TenantPaymentChannel.php:18:        'provider',
+apps/platform-api/app/Models/SupportImpersonationSession.php:23:        'token_hash',
+apps/platform-api/app/Models/SupportImpersonationSession.php:28:        'revoked_at',
+apps/platform-api/app/Models/SupportImpersonationSession.php:38:        'revoked_at' => 'datetime',
+apps/platform-api/app/Models/TenantPaymentSetting.php:17:        'provider_mode',
+apps/platform-api/app/Models/TenantPaymentSetting.php:21:        'payment_provider_status',
+apps/platform-api/app/Modules/PartnerStore/Services/PartnerStoreService.php:1249:                ->where('access_token_hash', hash('sha256', $token))
+apps/platform-api/app/Modules/PartnerStore/Services/PartnerStoreService.php:1250:                ->whereNull('revoked_at')
+apps/platform-api/app/Modules/PartnerStore/Services/PartnerStoreService.php:1268:                ->where('token_hash', hash('sha256', $supportToken))
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:84:                'raw_passwords_or_password_hash_reuse',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:87:                'production_payment_provider_secrets',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:360:        return $sensitive ? '[REDACTED]' : '[CONFIGURED]';
+apps/platform-api/app/Models/Payment.php:20:        'provider',
+apps/platform-api/app/Models/Payment.php:28:        'provider_event_id',
+apps/platform-api/app/Models/Payment.php:29:        'provider_reference',
+apps/platform-api/app/Models/Payment.php:30:        'provider_payload_json',
+apps/platform-api/app/Models/Payment.php:39:        'provider_payload_json' => 'array',
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:230:        if (array_key_exists('owner_password', $payload) && strlen((string) $payload['owner_password']) < 8) {
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:231:            $errors['owner_password'][] = 'The owner_password field must be at least 8 characters.';
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:484:                'revoked_at' => null,
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:516:                $updates['revoked_at'] = $payload['status'] === 'revoked' ? now() : null;
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:542:                'revoked_at' => now(),
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:615:        $ownerPassword = array_key_exists('owner_password', $payload) ? (string) $payload['owner_password'] : null;
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:639:                'password_hash' => Hash::make($ownerPassword ?? Str::random(64)),
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:641:                'two_factor_enabled' => false,
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:652:                $updates['password_hash'] = Hash::make($ownerPassword);
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:975:            'revoked_at' => $client->revoked_at,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:342:        return $sensitive ? '[REDACTED]' : '[CONFIGURED]';
+apps/platform-api/app/Models/PartnerApiClient.php:20:        'revoked_at',
+apps/platform-api/app/Models/PartnerApiClient.php:32:        'revoked_at' => 'datetime',
+apps/platform-api/app/Modules/Partner/Services/PartnerSyncService.php:43:            ->whereNull('revoked_at')
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:339:        return $sensitive ? '[REDACTED]' : '[CONFIGURED]';
+apps/platform-api/app/Shared/Audit/AuditLogger.php:72:                $redacted[$key] = '[REDACTED]';
+apps/platform-api/app/Models/CustomerExternalAuthState.php:17:        'provider',
+apps/platform-api/app/Shared/Auth/AdminSessionResolver.php:22:        $session = AdminAuthSession::where('access_token_hash', hash('sha256', $accessToken))
+apps/platform-api/app/Shared/Auth/AdminSessionResolver.php:23:            ->whereNull('revoked_at')
+apps/platform-api/app/Shared/Auth/AdminSessionResolver.php:43:                    'revoked_at' => now(),
+apps/platform-api/app/Shared/Auth/AdminSessionResolver.php:71:                'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
+apps/platform-api/app/Models/SupportAccessRequest.php:28:        'revoked_at',
+apps/platform-api/app/Models/SupportAccessRequest.php:38:        'revoked_at' => 'datetime',
+apps/platform-api/app/Models/PartnerTenantMaintenanceBypass.php:25:        'revoked_at',
+apps/platform-api/app/Models/PartnerTenantMaintenanceBypass.php:35:        'revoked_at' => 'datetime',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:203:            ['integration' => 'email', 'status' => 'placeholder_only', 'owner' => 'Coordinator/Production Ops', 'blocker' => 'SMTP/provider credentials and delivery verification are not available in this workspace.'],
+apps/platform-api/app/Models/Customer.php:24:        'password_hash',
+apps/platform-api/app/Models/Customer.php:30:        'password_hash',
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:31:     * @param array{email?: string, password?: string, scope?: string|null, tenant_id?: string|null} $payload
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:37:        $password = (string) ($payload['password'] ?? '');
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:39:        if ($email === '' || $password === '') {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:47:        if ($adminUser === null || ! Hash::check($password, (string) $adminUser->password_hash)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:59:        if ((bool) $adminUser->two_factor_enabled) {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:75:                'password' => $password,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:93:    public function issueSessionForChallenge(AdminUser $adminUser, object $challenge): ?array
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:97:        $activeScope = $this->scopeFromChallenge($scopes, $challenge);
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:120:                ->where('refresh_token_hash', $this->tokenHash($refreshToken))
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:121:                ->whereNull('revoked_at')
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:137:                    ->update(['revoked_at' => now(), 'updated_at' => now()]);
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:144:                ->update(['revoked_at' => now(), 'updated_at' => now()]);
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:165:            ->whereNull('revoked_at')
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:167:                'revoked_at' => now(),
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:217:            'access_token_hash' => $this->tokenHash($accessToken),
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:218:            'refresh_token_hash' => $this->tokenHash($refreshToken),
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:224:            'revoked_at' => null,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:237:            'challenge_token' => null,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:261:        $challengeToken = $this->newToken('npa_2fa');
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:262:        $challengeId = 'tfc_'.Str::ulid()->toBase32();
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:265:            'id' => $challengeId,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:267:            'challenge_token_hash' => $this->tokenHash($challengeToken),
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:281:            action: 'admin.2fa.challenge_created',
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:282:            targetType: 'admin_two_factor_challenge',
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:283:            targetId: $challengeId,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:288:                'challenge_token' => $challengeToken,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:301:            'challenge_token' => $challengeToken,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:462:    private function scopeFromChallenge(array $scopes, object $challenge): ?array
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:465:            if ($scope['scope'] !== $challenge->scope_type) {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:469:            if ($scope['scope_id'] !== $challenge->scope_id) {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:473:            if ($scope['scope'] === 'tenant' && $scope['tenant_id'] !== $challenge->tenant_id) {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:517:            'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:533:            'two_factor_enabled' => $admin['two_factor_enabled'],
+apps/platform-api/app/Models/WebhookCallback.php:14:        'provider',
+apps/platform-api/app/Models/AdminTwoFactorSetting.php:10:    protected $table = 'admin_two_factor_settings';
+apps/platform-api/app/Models/AdminTwoFactorSetting.php:43:    public function recoveryCodes(): HasMany
+apps/platform-api/app/Shared/Auth/CustomerSessionResolver.php:17:        $tenantId = CustomerAuthSession::where('access_token_hash', hash('sha256', $accessToken))
+apps/platform-api/app/Shared/Auth/CustomerSessionResolver.php:18:            ->whereNull('revoked_at')
+apps/platform-api/app/Shared/Auth/CustomerSessionResolver.php:31:        $session = CustomerAuthSession::where('access_token_hash', hash('sha256', $accessToken))
+apps/platform-api/app/Shared/Auth/CustomerSessionResolver.php:32:            ->whereNull('revoked_at')
+apps/platform-api/app/Models/TopupRequest.php:21:        'provider',
+apps/platform-api/app/Models/TopupRequest.php:35:        'provider_payload_json',
+apps/platform-api/app/Models/TopupRequest.php:45:        'provider_payload_json' => 'array',
+apps/platform-api/app/Shared/Observability/ObservabilityRedactor.php:27:                $redacted[$key] = '[REDACTED]';
+apps/platform-api/app/Models/AdminTwoFactorRecoveryCode.php:9:    protected $table = 'admin_two_factor_recovery_codes';
+apps/platform-api/app/Models/AdminPasswordResetToken.php:9:    protected $table = 'admin_password_reset_tokens';
+apps/platform-api/app/Models/AdminPasswordResetToken.php:15:        'token_hash',
+apps/platform-api/app/Models/AdminPasswordResetToken.php:26:        'token_hash',
+apps/platform-api/app/Models/AdminUser.php:15:        'password_hash',
+apps/platform-api/app/Models/AdminUser.php:21:        'two_factor_enabled',
+apps/platform-api/app/Models/AdminUser.php:25:        'password_hash',
+apps/platform-api/app/Models/AdminUser.php:29:        'two_factor_enabled' => 'boolean',
+apps/platform-api/app/Models/AdminAuthSession.php:17:        'access_token_hash',
+apps/platform-api/app/Models/AdminAuthSession.php:18:        'refresh_token_hash',
+apps/platform-api/app/Models/AdminAuthSession.php:24:        'revoked_at',
+apps/platform-api/app/Models/AdminAuthSession.php:32:        'access_token_hash',
+apps/platform-api/app/Models/AdminAuthSession.php:33:        'refresh_token_hash',
+apps/platform-api/app/Models/AdminAuthSession.php:39:        'revoked_at' => 'datetime',

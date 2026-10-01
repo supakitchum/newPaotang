@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "body": {
+    "id": "par_demo_alpha",
+    "tenant_id": "ten_demo_alpha",
+    "status": "active",
+    "created_at": "2026-05-10T12:19:24.000000Z",
+    "updated_at": "2026-05-10T12:19:24.000000Z",
+    "code": "demo_alpha",
+    "name": "Demo Alpha Partner",
+    "type": "white_label",
+    "tenants": [
+      {
+        "id": "ten_demo_alpha",
+        "partner_id": "par_demo_alpha",
+        "code": "demo_alpha",
+        "name": "Demo Alpha Lottery",
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z"
+      }
+    ],
+    "domains": [
+      {
+        "id": "dom_14f6d0741e76eca39c69",
+        "tenant_id": "ten_demo_alpha",
+        "host": "alpha.newpaotang.test",
+        "type": "subdomain",
+        "status": "active",
+        "is_primary": true,
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z"
+      }
+    ],
+    "runtime": {
+      "api_clients_total": 0,
+      "monitoring_status": "active",
+      "billing_status": "trial"
+    }
+  }
+}

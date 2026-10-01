@@ -1,0 +1,25 @@
+{
+  "captured": "before_browser_p3_workflows",
+  "token_persisted": false,
+  "login_statuses": {
+    "central": 200,
+    "tenant": 200
+  },
+  "statuses": {
+    "central_rewards_list": 200,
+    "central_settlement_detail": 200,
+    "central_settlements_list": 200,
+    "central_report_overview": 200,
+    "central_webhook_logs_list": 200,
+    "central_webhook_log_detail": 200,
+    "central_audit_logs": 200,
+    "tenant_report_overview": 200,
+    "tenant_sync_logs": 200,
+    "tenant_audit_logs": 200
+  },
+  "settlement_status": "pending",
+  "rewards_count": 0,
+  "webhook_status": "processed",
+  "tenant_report_scope": "tenant",
+  "tenant_report_tenant": "ten_demo_alpha"
+}

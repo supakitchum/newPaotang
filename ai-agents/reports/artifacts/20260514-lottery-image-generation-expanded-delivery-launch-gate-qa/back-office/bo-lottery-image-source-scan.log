@@ -1,0 +1,37 @@
+apps/back-office/pages/admin/central/dashboard.vue:5:        <NuxtLink to="/admin/central/lottery-images" class="btn btn-light btn-wave">
+apps/back-office/pages/admin/central/dashboard.vue:7:          Lottery Images
+apps/back-office/pages/admin/central/lottery-images/index.vue:2:  <AdminLotteryImageOperations />
+apps/back-office/scripts/check-lottery-image-operations.mjs:6:const componentPath = join(root, 'components/AdminLotteryImageOperations.vue')
+apps/back-office/scripts/check-lottery-image-operations.mjs:7:const pagePath = join(root, 'pages/admin/central/lottery-images/index.vue')
+apps/back-office/scripts/check-lottery-image-operations.mjs:13:  failures.push('Missing AdminLotteryImageOperations component')
+apps/back-office/scripts/check-lottery-image-operations.mjs:25:  '/admin/central/lottery-images/readiness',
+apps/back-office/scripts/check-lottery-image-operations.mjs:26:  '/admin/central/lottery-images/background-asset-sets',
+apps/back-office/scripts/check-lottery-image-operations.mjs:27:  '/admin/central/lottery-images/mix',
+apps/back-office/scripts/check-lottery-image-operations.mjs:28:  '/admin/central/lottery-images/retry-pending',
+apps/back-office/scripts/check-lottery-image-operations.mjs:29:  '/admin/central/lottery-images/production-readiness',
+apps/back-office/scripts/check-lottery-image-operations.mjs:33:  'idempotencyKey: api.idempotencyKey()',
+apps/back-office/scripts/check-lottery-image-operations.mjs:51:  'AdminLotteryImageOperations',
+apps/back-office/scripts/check-lottery-image-operations.mjs:59:if (!dashboard.includes('/admin/central/lottery-images')) {
+apps/back-office/components/AdminLotteryImageOperations.vue:3:    <AdminPageHeader title="Lottery Image Operations" :breadcrumbs="['Admin', 'Central', 'Lottery Images']">
+apps/back-office/components/AdminLotteryImageOperations.vue:36:            <label class="form-label" for="lottery-images-game-id">Game ID <span class="text-danger">*</span></label>
+apps/back-office/components/AdminLotteryImageOperations.vue:37:            <input id="lottery-images-game-id" v-model.trim="context.game_id" class="form-control" placeholder="gam_lottery">
+apps/back-office/components/AdminLotteryImageOperations.vue:40:            <label class="form-label" for="lottery-images-batch-id">Batch ID</label>
+apps/back-office/components/AdminLotteryImageOperations.vue:41:            <input id="lottery-images-batch-id" v-model.trim="context.batch_id" class="form-control" placeholder="Optional batch filter">
+apps/back-office/components/AdminLotteryImageOperations.vue:44:            <label class="form-label" for="lottery-images-version">Background Version</label>
+apps/back-office/components/AdminLotteryImageOperations.vue:45:            <input id="lottery-images-version" v-model.trim="context.version" class="form-control" placeholder="v1">
+apps/back-office/components/AdminLotteryImageOperations.vue:830:    const response = await api.apiFetch<ReadinessResponse>('/admin/central/lottery-images/readiness', {
+apps/back-office/components/AdminLotteryImageOperations.vue:856:    const response: any = await api.apiFetch('/admin/central/lottery-images/background-asset-sets', {
+apps/back-office/components/AdminLotteryImageOperations.vue:878:    const response = await api.apiFetch<MixResponse>('/admin/central/lottery-images/mix', {
+apps/back-office/components/AdminLotteryImageOperations.vue:896:    productionReadiness.value = await api.apiFetch<ProductionReadiness>('/admin/central/lottery-images/production-readiness', {
+apps/back-office/components/AdminLotteryImageOperations.vue:914:    const response = await api.apiFetch<MixResponse>('/admin/central/lottery-images/mix', {
+apps/back-office/components/AdminLotteryImageOperations.vue:917:      idempotencyKey: api.idempotencyKey(),
+apps/back-office/components/AdminLotteryImageOperations.vue:952:    const response = await api.apiFetch<BackgroundSet>('/admin/central/lottery-images/background-asset-sets', {
+apps/back-office/components/AdminLotteryImageOperations.vue:955:      idempotencyKey: api.idempotencyKey(),
+apps/back-office/components/AdminLotteryImageOperations.vue:1023:      idempotencyKey: api.idempotencyKey(),
+apps/back-office/components/AdminLotteryImageOperations.vue:1045:      idempotencyKey: api.idempotencyKey(),
+apps/back-office/components/AdminLotteryImageOperations.vue:1104:    const response = await api.apiFetch<BackgroundSet>(`/admin/central/lottery-images/background-asset-sets/${encodeURIComponent(statusConfirm.set.id)}`, {
+apps/back-office/components/AdminLotteryImageOperations.vue:1107:      idempotencyKey: api.idempotencyKey(),
+apps/back-office/components/AdminLotteryImageOperations.vue:1135:    retryResult.value = await api.apiFetch('/admin/central/lottery-images/retry-pending', {
+apps/back-office/components/AdminLotteryImageOperations.vue:1138:      idempotencyKey: api.idempotencyKey(),
+
+exit_code=0

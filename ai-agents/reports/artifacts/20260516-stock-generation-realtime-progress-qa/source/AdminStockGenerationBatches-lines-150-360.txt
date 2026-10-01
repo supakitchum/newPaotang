@@ -1,0 +1,211 @@
+  attempt_count: number
+  failure_reason?: string | null
+}
+
+type StockGenerationBatch = {
+  id: string
+  status: string
+  game_id?: string | null
+  requested_count?: number
+  generated_count?: number
+  total_rounds?: number
+  processed_rounds?: number
+  chunk_rounds?: number
+  failure_reason?: string | null
+  chunks?: StockGenerationBatchChunk[]
+  [key: string]: any
+}
+
+const props = withDefaults(defineProps<{
+  gameId?: string | number | null
+  submittedBatch?: StockGenerationBatch | null
+  refreshKey?: number
+  fallbackPollIntervalMs?: number
+}>(), {
+  gameId: '',
+  submittedBatch: null,
+  refreshKey: 0,
+  fallbackPollIntervalMs: 60000,
+})
+
+const emit = defineEmits<{
+  'active-change': [active: boolean]
+  progress: [batch: StockGenerationBatch | null]
+}>()
+
+const api = useAdminApi()
+const session = useAdminSession()
+const loading = ref(false)
+const detailLoading = ref(false)
+const error = ref<any>(null)
+const batches = ref<StockGenerationBatch[]>([])
+const batchDetail = ref<StockGenerationBatch | null>(null)
+const selectedBatchId = ref('')
+const requestSerial = ref(0)
+const lastProgressKey = ref('')
+let fallbackPollTimer: ReturnType<typeof setTimeout> | null = null
+
+const normalizedGameId = computed(() => String(props.gameId ?? '').trim())
+const realtimeChannelName = computed(() => normalizedGameId.value ? `private-admin.central.stock-generation.game.${normalizedGameId.value}` : '')
+const realtimeEnabled = computed(() => Boolean(normalizedGameId.value && session.isAuthenticated.value))
+const selectedBatch = computed(() => batchDetail.value || batches.value.find((batch) => batch.id === selectedBatchId.value) || null)
+const activeBatch = computed(() => selectedBatch.value && isActiveBatch(selectedBatch.value)
+  ? selectedBatch.value
+  : batches.value.find(isActiveBatch) || null)
+const detailRows = computed(() => selectedBatch.value?.chunks || [])
+const imageState = computed(() => imageDispatchState(selectedBatch.value))
+const fallbackPollIntervalMs = computed(() => Math.max(30000, Number(props.fallbackPollIntervalMs || 60000)))
+const realtime = useAdminRealtimeSubscription({
+  channelName: realtimeChannelName,
+  eventName: 'stock.generation.progress.updated',
+  enabled: realtimeEnabled,
+  onEvent: handleRealtimeProgressEvent,
+  onReconnect: handleRealtimeReconnect,
+})
+const realtimeStatus = computed(() => realtime.status.value)
+const realtimeSupportsPush = computed(() => ['connecting', 'authenticating', 'connected'].includes(realtimeStatus.value))
+const shouldUseFallbackPolling = computed(() => Boolean(activeBatch.value && !realtimeSupportsPush.value))
+const realtimeBadge = computed(() => realtimeConnectionBadge(realtimeStatus.value, realtime.isConfigured.value, fallbackPollIntervalMs.value))
+
+watch(
+  () => [normalizedGameId.value, props.refreshKey, session.isAuthenticated.value],
+  () => {
+    void loadBatches()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.submittedBatch,
+  (batch) => {
+    if (!batch?.id) {
+      return
+    }
+    registerBatch(batch)
+    void loadBatchDetail(batch.id)
+  },
+  { deep: true },
+)
+
+watch(
+  () => [shouldUseFallbackPolling.value, fallbackPollIntervalMs.value, realtimeStatus.value],
+  () => {
+    updateFallbackPolling()
+  },
+)
+
+onBeforeUnmount(() => {
+  stopFallbackPolling()
+})
+
+function manualRefresh() {
+  void loadBatches()
+}
+
+async function loadBatches() {
+  if (!import.meta.client) {
+    return
+  }
+
+  if (loading.value) {
+    return
+  }
+
+  error.value = null
+
+  if (!normalizedGameId.value || !session.isAuthenticated.value) {
+    batches.value = []
+    batchDetail.value = null
+    selectedBatchId.value = ''
+    updateActiveState()
+    stopFallbackPolling()
+    return
+  }
+
+  const serial = requestSerial.value + 1
+  requestSerial.value = serial
+  loading.value = true
+  try {
+    const response = await api.apiFetch('/admin/central/stock/generation-batches', {
+      scope: 'central',
+      query: {
+        game_id: normalizedGameId.value,
+        limit: 10,
+      },
+    })
+    if (requestSerial.value !== serial) {
+      return
+    }
+
+    batches.value = extractItems(response).map(normalizeBatch).filter((batch) => batch.id)
+    const nextSelected = activeBatch.value?.id
+      || (selectedBatchId.value && batches.value.some((batch) => batch.id === selectedBatchId.value) ? selectedBatchId.value : '')
+      || batches.value[0]?.id
+      || ''
+    selectedBatchId.value = nextSelected
+
+    if (nextSelected) {
+      await loadBatchDetail(nextSelected, serial)
+    } else {
+      batchDetail.value = null
+    }
+
+    updateActiveState()
+  } catch (err) {
+    if (requestSerial.value === serial) {
+      error.value = err
+    }
+  } finally {
+    if (requestSerial.value === serial) {
+      loading.value = false
+    }
+  }
+}
+
+async function loadBatchDetail(batchId: string, serial = requestSerial.value) {
+  if (!batchId || !session.isAuthenticated.value) {
+    return
+  }
+
+  detailLoading.value = true
+  try {
+    const response = await api.apiFetch(`/admin/central/stock/generation-batches/${encodeURIComponent(batchId)}`, {
+      scope: 'central',
+    })
+    if (serial !== requestSerial.value && serial !== 0) {
+      return
+    }
+
+    registerBatch(normalizeBatch(extractData(response)), false)
+  } catch (err) {
+    error.value = err
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function selectBatch(batchId: string) {
+  selectedBatchId.value = batchId
+  batchDetail.value = null
+  void loadBatchDetail(batchId)
+}
+
+function registerBatch(batch: StockGenerationBatch, select = true) {
+  const normalized = normalizeBatch(batch)
+  if (!normalized.id) {
+    return
+  }
+
+  const existingIndex = batches.value.findIndex((entry) => entry.id === normalized.id)
+  if (existingIndex >= 0) {
+    const existing = batches.value[existingIndex]
+    batches.value[existingIndex] = {
+      ...existing,
+      ...normalized,
+      chunks: normalized.chunks ?? existing.chunks,
+    }
+  } else {
+    batches.value = [normalized, ...batches.value]
+  }
+
+  if (select) {

@@ -1,0 +1,2595 @@
+{
+  "run_id": "p4qa1778429049462",
+  "tenant_id": "ten_demo_alpha",
+  "notes": [
+    "Tokens and secret-like fields redacted before writing artifact."
+  ],
+  "steps": [
+    {
+      "label": "login central/tenant",
+      "status": 200,
+      "body": {
+        "central_token": "[REDACTED]",
+        "tenant_token": "[REDACTED]"
+      }
+    },
+    {
+      "label": "central admin users before",
+      "method": "GET",
+      "path": "/admin/central/admin-users?limit=5",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "adm_platform_owner",
+            "tenant_id": null,
+            "name": "Platform Owner",
+            "email": "admin@newpaotang.test",
+            "phone": null,
+            "status": "active",
+            "roles": [
+              {
+                "id": "rol_c_super_admin",
+                "tenant_id": null,
+                "code": "super_admin",
+                "name": "Platform Super Admin",
+                "description": null,
+                "permissions": [
+                  "admin_user.manage",
+                  "asset.manage",
+                  "audit.view",
+                  "dashboard.view",
+                  "game.close",
+                  "game.create",
+                  "game.reward",
+                  "game.update",
+                  "game.view",
+                  "menu.manage",
+                  "partner.alert.manage",
+                  "partner.alert.view",
+                  "partner.api.manage",
+                  "partner.billing.manage",
+                  "partner.billing.view",
+                  "partner.create",
+                  "partner.monitoring.manage",
+                  "partner.monitoring.view",
+                  "partner.provision",
+                  "partner.quota.manage",
+                  "partner.suspend",
+                  "partner.update",
+                  "partner.usage.manage",
+                  "partner.usage.view",
+                  "partner.view",
+                  "report.view",
+                  "reward.audit",
+                  "reward.correct",
+                  "reward.create",
+                  "reward.publish",
+                  "reward.verify",
+                  "reward.view",
+                  "role.manage",
+                  "settlement.approve",
+                  "settlement.view",
+                  "stock.allocate",
+                  "stock.export",
+                  "stock.generate",
+                  "stock.recall",
+                  "stock.view",
+                  "support_access.audit",
+                  "system.settings.manage"
+                ],
+                "status": "active",
+                "version": 1,
+                "system_role": true,
+                "created_at": "2026-05-10T16:02:45.000000Z",
+                "updated_at": "2026-05-10T16:02:45.000000Z"
+              }
+            ],
+            "permissions": [
+              "admin_user.manage",
+              "asset.manage",
+              "audit.view",
+              "dashboard.view",
+              "game.close",
+              "game.create",
+              "game.reward",
+              "game.update",
+              "game.view",
+              "menu.manage",
+              "partner.alert.manage",
+              "partner.alert.view",
+              "partner.api.manage",
+              "partner.billing.manage",
+              "partner.billing.view",
+              "partner.create",
+              "partner.monitoring.manage",
+              "partner.monitoring.view",
+              "partner.provision",
+              "partner.quota.manage",
+              "partner.suspend",
+              "partner.update",
+              "partner.usage.manage",
+              "partner.usage.view",
+              "partner.view",
+              "report.view",
+              "reward.audit",
+              "reward.correct",
+              "reward.create",
+              "reward.publish",
+              "reward.verify",
+              "reward.view",
+              "role.manage",
+              "settlement.approve",
+              "settlement.view",
+              "stock.allocate",
+              "stock.export",
+              "stock.generate",
+              "stock.recall",
+              "stock.view",
+              "support_access.audit",
+              "system.settings.manage"
+            ],
+            "last_login_at": null,
+            "created_at": "2026-05-10T16:02:45.000000Z",
+            "updated_at": "2026-05-10T16:02:45.000000Z"
+          }
+        ],
+        "meta": {
+          "next_cursor": null,
+          "has_more": false
+        },
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "central role create",
+      "method": "POST",
+      "path": "/admin/central/roles",
+      "scope": "central",
+      "status": 201,
+      "body": {
+        "id": "rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+        "tenant_id": null,
+        "code": "p4_qa_central_role_p4qa1778429049462",
+        "name": "P4 QA Central Role p4qa1778429049462",
+        "description": null,
+        "permissions": [
+          "dashboard.view"
+        ],
+        "status": "active",
+        "version": 1,
+        "system_role": false,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "central role update",
+      "method": "PATCH",
+      "path": "/admin/central/roles/rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+        "tenant_id": null,
+        "code": "p4_qa_central_role_p4qa1778429049462",
+        "name": "P4 QA Central Role Updated p4qa1778429049462",
+        "description": null,
+        "permissions": [
+          "audit.view",
+          "dashboard.view"
+        ],
+        "status": "active",
+        "version": 2,
+        "system_role": false,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "central admin user create",
+      "method": "POST",
+      "path": "/admin/central/admin-users",
+      "scope": "central",
+      "status": 201,
+      "body": {
+        "id": "adm_01KR9A3F890BFPANWT24QGDM3X",
+        "tenant_id": null,
+        "name": "P4 QA Central User p4qa1778429049462",
+        "email": "p4qa1778429049462.central@example.test",
+        "phone": "020000999",
+        "status": "active",
+        "roles": [
+          {
+            "id": "rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+            "tenant_id": null,
+            "code": "p4_qa_central_role_p4qa1778429049462",
+            "name": "P4 QA Central Role Updated p4qa1778429049462",
+            "description": null,
+            "permissions": [
+              "audit.view",
+              "dashboard.view"
+            ],
+            "status": "active",
+            "version": 2,
+            "system_role": false,
+            "created_at": "2026-05-10T16:04:10.000000Z",
+            "updated_at": "2026-05-10T16:04:10.000000Z"
+          }
+        ],
+        "permissions": [
+          "audit.view",
+          "dashboard.view"
+        ],
+        "last_login_at": null,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "central admin user detail",
+      "method": "GET",
+      "path": "/admin/central/admin-users/adm_01KR9A3F890BFPANWT24QGDM3X",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "adm_01KR9A3F890BFPANWT24QGDM3X",
+        "tenant_id": null,
+        "name": "P4 QA Central User p4qa1778429049462",
+        "email": "p4qa1778429049462.central@example.test",
+        "phone": "020000999",
+        "status": "active",
+        "roles": [
+          {
+            "id": "rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+            "tenant_id": null,
+            "code": "p4_qa_central_role_p4qa1778429049462",
+            "name": "P4 QA Central Role Updated p4qa1778429049462",
+            "description": null,
+            "permissions": [
+              "audit.view",
+              "dashboard.view"
+            ],
+            "status": "active",
+            "version": 2,
+            "system_role": false,
+            "created_at": "2026-05-10T16:04:10.000000Z",
+            "updated_at": "2026-05-10T16:04:10.000000Z"
+          }
+        ],
+        "permissions": [
+          "audit.view",
+          "dashboard.view"
+        ],
+        "last_login_at": null,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "central admin user update",
+      "method": "PATCH",
+      "path": "/admin/central/admin-users/adm_01KR9A3F890BFPANWT24QGDM3X",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "adm_01KR9A3F890BFPANWT24QGDM3X",
+        "tenant_id": null,
+        "name": "P4 QA Central User Updated p4qa1778429049462",
+        "email": "p4qa1778429049462.central@example.test",
+        "phone": "020000999",
+        "status": "suspended",
+        "roles": [
+          {
+            "id": "rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+            "tenant_id": null,
+            "code": "p4_qa_central_role_p4qa1778429049462",
+            "name": "P4 QA Central Role Updated p4qa1778429049462",
+            "description": null,
+            "permissions": [
+              "audit.view",
+              "dashboard.view"
+            ],
+            "status": "active",
+            "version": 2,
+            "system_role": false,
+            "created_at": "2026-05-10T16:04:10.000000Z",
+            "updated_at": "2026-05-10T16:04:10.000000Z"
+          }
+        ],
+        "permissions": [
+          "audit.view",
+          "dashboard.view"
+        ],
+        "last_login_at": null,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "central admin user disable",
+      "method": "DELETE",
+      "path": "/admin/central/admin-users/adm_01KR9A3F890BFPANWT24QGDM3X",
+      "scope": "central",
+      "status": 204,
+      "body": null
+    },
+    {
+      "label": "central role archive",
+      "method": "DELETE",
+      "path": "/admin/central/roles/rol_01KR9A3F6B0KZTQM8RA3VSFYFM",
+      "scope": "central",
+      "status": 204,
+      "body": null
+    },
+    {
+      "label": "central menu before",
+      "method": "GET",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_c_a532f385303fc1100c93",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard",
+            "route": "/admin/central/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_9838a6112e8abbfed5c8",
+            "key": "games",
+            "code": "games",
+            "label": "Games",
+            "route": "/admin/central/games",
+            "category": "Lottery Operations",
+            "icon": "ri-apps-2-line",
+            "required_permission_code": "game.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_b9f5641809af03286e36",
+            "key": "rewards",
+            "code": "rewards",
+            "label": "Rewards",
+            "route": "/admin/central/rewards",
+            "category": "Lottery Operations",
+            "icon": "ri-trophy-line",
+            "required_permission_code": "reward.view",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "central menu save changed label",
+      "method": "PUT",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_c_a532f385303fc1100c93",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard QA p4qa1778429049462",
+            "route": "/admin/central/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_9838a6112e8abbfed5c8",
+            "key": "games",
+            "code": "games",
+            "label": "Games",
+            "route": "/admin/central/games",
+            "category": "Lottery Operations",
+            "icon": "ri-apps-2-line",
+            "required_permission_code": "game.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_b9f5641809af03286e36",
+            "key": "rewards",
+            "code": "rewards",
+            "label": "Rewards",
+            "route": "/admin/central/rewards",
+            "category": "Lottery Operations",
+            "icon": "ri-trophy-line",
+            "required_permission_code": "reward.view",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "central menu after changed label",
+      "method": "GET",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_c_a532f385303fc1100c93",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard QA p4qa1778429049462",
+            "route": "/admin/central/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_9838a6112e8abbfed5c8",
+            "key": "games",
+            "code": "games",
+            "label": "Games",
+            "route": "/admin/central/games",
+            "category": "Lottery Operations",
+            "icon": "ri-apps-2-line",
+            "required_permission_code": "game.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_b9f5641809af03286e36",
+            "key": "rewards",
+            "code": "rewards",
+            "label": "Rewards",
+            "route": "/admin/central/rewards",
+            "category": "Lottery Operations",
+            "icon": "ri-trophy-line",
+            "required_permission_code": "reward.view",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "central menu restore label",
+      "method": "PUT",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_c_a532f385303fc1100c93",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard",
+            "route": "/admin/central/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_9838a6112e8abbfed5c8",
+            "key": "games",
+            "code": "games",
+            "label": "Games",
+            "route": "/admin/central/games",
+            "category": "Lottery Operations",
+            "icon": "ri-apps-2-line",
+            "required_permission_code": "game.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_c_b9f5641809af03286e36",
+            "key": "rewards",
+            "code": "rewards",
+            "label": "Rewards",
+            "route": "/admin/central/rewards",
+            "category": "Lottery Operations",
+            "icon": "ri-trophy-line",
+            "required_permission_code": "reward.view",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_c_super_admin"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "central system settings before",
+      "method": "GET",
+      "path": "/admin/central/system-settings",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "platform_system_settings",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z",
+        "settings": {
+          "admin_api_version": "v1",
+          "bo_menu_completion_backend_gaps": "implemented",
+          "platform_name": "NewPaotang"
+        }
+      }
+    },
+    {
+      "label": "central system settings update",
+      "method": "PATCH",
+      "path": "/admin/central/system-settings",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "platform_system_settings",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z",
+        "settings": {
+          "admin_api_version": "v1",
+          "bo_menu_completion_backend_gaps": "implemented",
+          "platform_name": "NewPaotang",
+          "release_gate_note": "P4 QA p4qa1778429049462"
+        }
+      }
+    },
+    {
+      "label": "central system settings after update",
+      "method": "GET",
+      "path": "/admin/central/system-settings",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "platform_system_settings",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z",
+        "settings": {
+          "admin_api_version": "v1",
+          "bo_menu_completion_backend_gaps": "implemented",
+          "platform_name": "NewPaotang",
+          "release_gate_note": "P4 QA p4qa1778429049462"
+        }
+      }
+    },
+    {
+      "label": "central system settings restore",
+      "method": "PATCH",
+      "path": "/admin/central/system-settings",
+      "scope": "central",
+      "status": 200,
+      "body": {
+        "id": "platform_system_settings",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z",
+        "settings": {
+          "admin_api_version": "v1",
+          "bo_menu_completion_backend_gaps": "implemented",
+          "platform_name": "NewPaotang",
+          "release_gate_note": null
+        }
+      }
+    },
+    {
+      "label": "tenant admin users before",
+      "method": "GET",
+      "path": "/admin/tenant/admin-users?limit=5",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "adm_demo_alpha_owner",
+            "tenant_id": "ten_demo_alpha",
+            "name": "Alpha Owner",
+            "email": "owner@alpha.newpaotang.test",
+            "phone": null,
+            "status": "active",
+            "roles": [
+              {
+                "id": "rol_19750422dd978d210e0b",
+                "tenant_id": "ten_demo_alpha",
+                "code": "owner",
+                "name": "Tenant Owner",
+                "description": null,
+                "permissions": [
+                  "admin_user.manage",
+                  "affiliate.create",
+                  "affiliate.update",
+                  "affiliate.view",
+                  "affiliate_attribution.view",
+                  "affiliate_link.manage",
+                  "affiliate_link.view",
+                  "affiliate_program.manage",
+                  "affiliate_program.view",
+                  "agent.create",
+                  "agent.quota.manage",
+                  "agent.update",
+                  "agent.view",
+                  "asset.manage",
+                  "audit.view",
+                  "commission.approve",
+                  "commission.view",
+                  "commission_rule.manage",
+                  "commission_rule.view",
+                  "customer.create",
+                  "customer.suspend",
+                  "customer.update",
+                  "customer.view",
+                  "dashboard.view",
+                  "maintenance.bypass",
+                  "maintenance.schedule",
+                  "maintenance.update",
+                  "maintenance.view",
+                  "menu.manage",
+                  "monitoring.view",
+                  "order.cancel",
+                  "order.refund",
+                  "order.update",
+                  "order.view",
+                  "payment_settings.manage",
+                  "payment_settings.view",
+                  "payout.manage",
+                  "price_rule.manage",
+                  "price_rule.view",
+                  "report.view",
+                  "reservation.cancel",
+                  "reservation.view",
+                  "reward_claim.approve",
+                  "reward_claim.pay",
+                  "reward_claim.reject",
+                  "reward_claim.view",
+                  "role.manage",
+                  "seo.redirect.manage",
+                  "seo.update",
+                  "seo.view",
+                  "settings.manage",
+                  "settings.view",
+                  "stock.export",
+                  "stock.sync",
+                  "stock.view",
+                  "support_access.approve",
+                  "support_access.audit",
+                  "support_access.elevated_action",
+                  "support_access.impersonate_admin",
+                  "support_access.impersonate_customer",
+                  "support_access.request",
+                  "sync_log.view",
+                  "ticket.view",
+                  "topup.approve",
+                  "topup.cancel",
+                  "topup.reject",
+                  "topup.view",
+                  "usage.view",
+                  "wallet.adjust",
+                  "wallet.view"
+                ],
+                "status": "active",
+                "version": 1,
+                "system_role": true,
+                "created_at": "2026-05-10T16:02:45.000000Z",
+                "updated_at": "2026-05-10T16:02:45.000000Z"
+              }
+            ],
+            "permissions": [
+              "admin_user.manage",
+              "affiliate.create",
+              "affiliate.update",
+              "affiliate.view",
+              "affiliate_attribution.view",
+              "affiliate_link.manage",
+              "affiliate_link.view",
+              "affiliate_program.manage",
+              "affiliate_program.view",
+              "agent.create",
+              "agent.quota.manage",
+              "agent.update",
+              "agent.view",
+              "asset.manage",
+              "audit.view",
+              "commission.approve",
+              "commission.view",
+              "commission_rule.manage",
+              "commission_rule.view",
+              "customer.create",
+              "customer.suspend",
+              "customer.update",
+              "customer.view",
+              "dashboard.view",
+              "maintenance.bypass",
+              "maintenance.schedule",
+              "maintenance.update",
+              "maintenance.view",
+              "menu.manage",
+              "monitoring.view",
+              "order.cancel",
+              "order.refund",
+              "order.update",
+              "order.view",
+              "payment_settings.manage",
+              "payment_settings.view",
+              "payout.manage",
+              "price_rule.manage",
+              "price_rule.view",
+              "report.view",
+              "reservation.cancel",
+              "reservation.view",
+              "reward_claim.approve",
+              "reward_claim.pay",
+              "reward_claim.reject",
+              "reward_claim.view",
+              "role.manage",
+              "seo.redirect.manage",
+              "seo.update",
+              "seo.view",
+              "settings.manage",
+              "settings.view",
+              "stock.export",
+              "stock.sync",
+              "stock.view",
+              "support_access.approve",
+              "support_access.audit",
+              "support_access.elevated_action",
+              "support_access.impersonate_admin",
+              "support_access.impersonate_customer",
+              "support_access.request",
+              "sync_log.view",
+              "ticket.view",
+              "topup.approve",
+              "topup.cancel",
+              "topup.reject",
+              "topup.view",
+              "usage.view",
+              "wallet.adjust",
+              "wallet.view"
+            ],
+            "last_login_at": null,
+            "created_at": "2026-05-10T16:02:46.000000Z",
+            "updated_at": "2026-05-10T16:02:46.000000Z"
+          }
+        ],
+        "meta": {
+          "next_cursor": null,
+          "has_more": false
+        },
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "tenant role create",
+      "method": "POST",
+      "path": "/admin/tenant/roles",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 201,
+      "body": {
+        "id": "rol_01KR9A3FZME24XQQE0410K42GQ",
+        "tenant_id": "ten_demo_alpha",
+        "code": "p4_qa_tenant_role_p4qa1778429049462",
+        "name": "P4 QA Tenant Role p4qa1778429049462",
+        "description": null,
+        "permissions": [
+          "dashboard.view"
+        ],
+        "status": "active",
+        "version": 1,
+        "system_role": false,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "tenant role update",
+      "method": "PATCH",
+      "path": "/admin/tenant/roles/rol_01KR9A3FZME24XQQE0410K42GQ",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "rol_01KR9A3FZME24XQQE0410K42GQ",
+        "tenant_id": "ten_demo_alpha",
+        "code": "p4_qa_tenant_role_p4qa1778429049462",
+        "name": "P4 QA Tenant Role Updated p4qa1778429049462",
+        "description": null,
+        "permissions": [
+          "dashboard.view",
+          "order.view"
+        ],
+        "status": "active",
+        "version": 2,
+        "system_role": false,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "tenant admin user create",
+      "method": "POST",
+      "path": "/admin/tenant/admin-users",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 201,
+      "body": {
+        "id": "adm_01KR9A3G1PXH6RFJJ967M5ZXN6",
+        "tenant_id": "ten_demo_alpha",
+        "name": "P4 QA Tenant User p4qa1778429049462",
+        "email": "p4qa1778429049462.tenant@example.test",
+        "phone": "020000998",
+        "status": "invited",
+        "roles": [
+          {
+            "id": "rol_01KR9A3FZME24XQQE0410K42GQ",
+            "tenant_id": "ten_demo_alpha",
+            "code": "p4_qa_tenant_role_p4qa1778429049462",
+            "name": "P4 QA Tenant Role Updated p4qa1778429049462",
+            "description": null,
+            "permissions": [
+              "dashboard.view",
+              "order.view"
+            ],
+            "status": "active",
+            "version": 2,
+            "system_role": false,
+            "created_at": "2026-05-10T16:04:10.000000Z",
+            "updated_at": "2026-05-10T16:04:10.000000Z"
+          }
+        ],
+        "permissions": [
+          "dashboard.view",
+          "order.view"
+        ],
+        "last_login_at": null,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "tenant admin user detail",
+      "method": "GET",
+      "path": "/admin/tenant/admin-users/adm_01KR9A3G1PXH6RFJJ967M5ZXN6",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "adm_01KR9A3G1PXH6RFJJ967M5ZXN6",
+        "tenant_id": "ten_demo_alpha",
+        "name": "P4 QA Tenant User p4qa1778429049462",
+        "email": "p4qa1778429049462.tenant@example.test",
+        "phone": "020000998",
+        "status": "invited",
+        "roles": [
+          {
+            "id": "rol_01KR9A3FZME24XQQE0410K42GQ",
+            "tenant_id": "ten_demo_alpha",
+            "code": "p4_qa_tenant_role_p4qa1778429049462",
+            "name": "P4 QA Tenant Role Updated p4qa1778429049462",
+            "description": null,
+            "permissions": [
+              "dashboard.view",
+              "order.view"
+            ],
+            "status": "active",
+            "version": 2,
+            "system_role": false,
+            "created_at": "2026-05-10T16:04:10.000000Z",
+            "updated_at": "2026-05-10T16:04:10.000000Z"
+          }
+        ],
+        "permissions": [
+          "dashboard.view",
+          "order.view"
+        ],
+        "last_login_at": null,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:10.000000Z"
+      }
+    },
+    {
+      "label": "tenant admin user update",
+      "method": "PATCH",
+      "path": "/admin/tenant/admin-users/adm_01KR9A3G1PXH6RFJJ967M5ZXN6",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "adm_01KR9A3G1PXH6RFJJ967M5ZXN6",
+        "tenant_id": "ten_demo_alpha",
+        "name": "P4 QA Tenant User Updated p4qa1778429049462",
+        "email": "p4qa1778429049462.tenant@example.test",
+        "phone": "020000998",
+        "status": "suspended",
+        "roles": [
+          {
+            "id": "rol_01KR9A3FZME24XQQE0410K42GQ",
+            "tenant_id": "ten_demo_alpha",
+            "code": "p4_qa_tenant_role_p4qa1778429049462",
+            "name": "P4 QA Tenant Role Updated p4qa1778429049462",
+            "description": null,
+            "permissions": [
+              "dashboard.view",
+              "order.view"
+            ],
+            "status": "active",
+            "version": 2,
+            "system_role": false,
+            "created_at": "2026-05-10T16:04:10.000000Z",
+            "updated_at": "2026-05-10T16:04:10.000000Z"
+          }
+        ],
+        "permissions": [
+          "dashboard.view",
+          "order.view"
+        ],
+        "last_login_at": null,
+        "created_at": "2026-05-10T16:04:10.000000Z",
+        "updated_at": "2026-05-10T16:04:11.000000Z"
+      }
+    },
+    {
+      "label": "tenant admin user disable",
+      "method": "DELETE",
+      "path": "/admin/tenant/admin-users/adm_01KR9A3G1PXH6RFJJ967M5ZXN6",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 204,
+      "body": null
+    },
+    {
+      "label": "tenant role archive",
+      "method": "DELETE",
+      "path": "/admin/tenant/roles/rol_01KR9A3FZME24XQQE0410K42GQ",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 204,
+      "body": null
+    },
+    {
+      "label": "tenant menu before",
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_t_0123ecdaf7360c7a4b39",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard",
+            "route": "/admin/tenant/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_02800b6e0ff14a292f57",
+            "key": "local_stock",
+            "code": "local_stock",
+            "label": "Local Stock",
+            "route": "/admin/tenant/stock",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4644a5a526ec729b1ec1",
+            "key": "stock_sync",
+            "code": "stock_sync",
+            "label": "Stock Sync",
+            "route": "/admin/tenant/stock-sync",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.sync",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "tenant menu save changed label",
+      "method": "PUT",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_t_0123ecdaf7360c7a4b39",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard QA p4qa1778429049462",
+            "route": "/admin/tenant/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_02800b6e0ff14a292f57",
+            "key": "local_stock",
+            "code": "local_stock",
+            "label": "Local Stock",
+            "route": "/admin/tenant/stock",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4644a5a526ec729b1ec1",
+            "key": "stock_sync",
+            "code": "stock_sync",
+            "label": "Stock Sync",
+            "route": "/admin/tenant/stock-sync",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.sync",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "tenant menu after changed label",
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_t_0123ecdaf7360c7a4b39",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard QA p4qa1778429049462",
+            "route": "/admin/tenant/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_02800b6e0ff14a292f57",
+            "key": "local_stock",
+            "code": "local_stock",
+            "label": "Local Stock",
+            "route": "/admin/tenant/stock",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4644a5a526ec729b1ec1",
+            "key": "stock_sync",
+            "code": "stock_sync",
+            "label": "Stock Sync",
+            "route": "/admin/tenant/stock-sync",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.sync",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "tenant menu restore label",
+      "method": "PUT",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "id": "men_t_0123ecdaf7360c7a4b39",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard",
+            "route": "/admin/tenant/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "sort_order": 10,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_02800b6e0ff14a292f57",
+            "key": "local_stock",
+            "code": "local_stock",
+            "label": "Local Stock",
+            "route": "/admin/tenant/stock",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.view",
+            "sort_order": 20,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4644a5a526ec729b1ec1",
+            "key": "stock_sync",
+            "code": "stock_sync",
+            "label": "Stock Sync",
+            "route": "/admin/tenant/stock-sync",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.sync",
+            "sort_order": 30,
+            "status": "active",
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          }
+        ],
+        "data_truncated_to": 3
+      }
+    },
+    {
+      "label": "tenant maintenance before",
+      "method": "GET",
+      "path": "/admin/tenant/maintenance",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pms_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "inactive",
+        "active": false,
+        "mode": "scheduled",
+        "message": null,
+        "reason": null,
+        "reason_label": null,
+        "ticket_id": null,
+        "ticket_public_ref": null,
+        "scheduled_start_at": null,
+        "started_at": null,
+        "expected_end_at": null,
+        "ended_at": null,
+        "retry_after_seconds": null,
+        "allowed_routes": [],
+        "blocked_route_patterns": [],
+        "created_at": "2026-05-10 16:02:46",
+        "updated_at": "2026-05-10 16:02:46"
+      }
+    },
+    {
+      "label": "tenant maintenance inactive save",
+      "method": "PUT",
+      "path": "/admin/tenant/maintenance",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pms_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "inactive",
+        "active": false,
+        "mode": "scheduled",
+        "message": "P4 QA maintenance check p4qa1778429049462",
+        "reason": "P4 QA maintenance save p4qa1778429049462",
+        "reason_label": "P4 QA maintenance save p4qa1778429049462",
+        "ticket_id": null,
+        "ticket_public_ref": null,
+        "scheduled_start_at": null,
+        "started_at": null,
+        "expected_end_at": null,
+        "ended_at": "2026-05-10 16:04:11",
+        "retry_after_seconds": 60,
+        "allowed_routes": [],
+        "blocked_route_patterns": [],
+        "created_at": "2026-05-10 16:02:46",
+        "updated_at": "2026-05-10 16:04:11"
+      }
+    },
+    {
+      "label": "tenant maintenance bypass create",
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 201,
+      "body": {
+        "id": "byp_01KR9A3GP4W3Z57DX0XD8ZD5JA",
+        "tenant_id": "ten_demo_alpha",
+        "actor_type": "tenant_admin",
+        "actor_id": "adm_demo_alpha_owner",
+        "support_impersonation_session_id": null,
+        "status": "active",
+        "effective_status": "active",
+        "is_currently_active": true,
+        "reason": "P4 QA bypass create p4qa1778429049462",
+        "ticket_id": "QA-p4qa1778429049462",
+        "expires_at": null,
+        "revoked_at": null,
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11"
+      }
+    },
+    {
+      "label": "tenant maintenance bypass revoke",
+      "method": "DELETE",
+      "path": "/admin/tenant/maintenance/bypasses/byp_01KR9A3GP4W3Z57DX0XD8ZD5JA",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 204,
+      "body": null
+    },
+    {
+      "label": "tenant maintenance after",
+      "method": "GET",
+      "path": "/admin/tenant/maintenance",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pms_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "inactive",
+        "active": false,
+        "mode": "scheduled",
+        "message": "P4 QA maintenance check p4qa1778429049462",
+        "reason": "P4 QA maintenance save p4qa1778429049462",
+        "reason_label": "P4 QA maintenance save p4qa1778429049462",
+        "ticket_id": null,
+        "ticket_public_ref": null,
+        "scheduled_start_at": null,
+        "started_at": null,
+        "expected_end_at": null,
+        "ended_at": "2026-05-10 16:04:11",
+        "retry_after_seconds": 60,
+        "allowed_routes": [],
+        "blocked_route_patterns": [],
+        "created_at": "2026-05-10 16:02:46",
+        "updated_at": "2026-05-10 16:04:11"
+      }
+    },
+    {
+      "label": "tenant support access create",
+      "method": "POST",
+      "path": "/admin/tenant/support-access",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 201,
+      "body": {
+        "id": "sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+        "tenant_id": "ten_demo_alpha",
+        "status": "pending_approval",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request p4qa1778429049462",
+        "ticket_id": "SUP-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": null,
+        "approved_at": null,
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GS3T010KGB5TGYD2D32",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GS4D4N3ABG9A1EWCWEM",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request p4qa1778429049462",
+              "ticket_id": "SUP-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access detail",
+      "method": "GET",
+      "path": "/admin/tenant/support-access/sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+        "tenant_id": "ten_demo_alpha",
+        "status": "pending_approval",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request p4qa1778429049462",
+        "ticket_id": "SUP-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": null,
+        "approved_at": null,
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GS3T010KGB5TGYD2D32",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GS4D4N3ABG9A1EWCWEM",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request p4qa1778429049462",
+              "ticket_id": "SUP-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access approve",
+      "method": "POST",
+      "path": "/admin/tenant/support-access/sar_01KR9A3GS0MNAYZA21WK5BJ41X/approve",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+        "tenant_id": "ten_demo_alpha",
+        "status": "approved",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request p4qa1778429049462",
+        "ticket_id": "SUP-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": "adm_demo_alpha_owner",
+        "approved_at": "2026-05-10 16:04:11",
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GS3T010KGB5TGYD2D32",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "saa_01KR9A3GV9WC0CHKD1G3Z96P2C",
+            "action": "approved",
+            "status": "accepted",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GS4D4N3ABG9A1EWCWEM",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request p4qa1778429049462",
+              "ticket_id": "SUP-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GVA90FN1B8S5WXVBYZQ",
+            "event_type": "support_access.approved",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA approve p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access impersonate redacted",
+      "method": "POST",
+      "path": "/admin/tenant/support-access/sar_01KR9A3GS0MNAYZA21WK5BJ41X/impersonate",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+        "tenant_id": "ten_demo_alpha",
+        "status": "approved",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request p4qa1778429049462",
+        "ticket_id": "SUP-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": "adm_demo_alpha_owner",
+        "approved_at": "2026-05-10 16:04:11",
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "active_session": {
+          "id": "imp_01KR9A3GWFGD2XFJ143AQP5SA3",
+          "support_access_request_id": "[REDACTED]",
+          "target_user_id": "adm_demo_alpha_owner",
+          "target_user_type": "tenant_admin",
+          "scope": "tenant_admin_read",
+          "status": "active",
+          "token_last_four": "[REDACTED]",
+          "started_at": "2026-05-10 16:04:11",
+          "expires_at": "2026-05-10 16:34:11",
+          "revoked_at": null,
+          "ended_at": null,
+          "access_token": "[REDACTED]"
+        },
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GS3T010KGB5TGYD2D32",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "saa_01KR9A3GV9WC0CHKD1G3Z96P2C",
+            "action": "approved",
+            "status": "accepted",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GS4D4N3ABG9A1EWCWEM",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request p4qa1778429049462",
+              "ticket_id": "SUP-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GVA90FN1B8S5WXVBYZQ",
+            "event_type": "support_access.approved",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA approve p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GWGC2WDRTQ58QVQCSMB",
+            "event_type": "support_impersonation.started",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA impersonate p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA impersonate p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access elevated action",
+      "method": "POST",
+      "path": "/admin/tenant/support-access/sar_01KR9A3GS0MNAYZA21WK5BJ41X/elevated-actions",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 202,
+      "body": {
+        "id": "sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+        "tenant_id": "ten_demo_alpha",
+        "status": "approved",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request p4qa1778429049462",
+        "ticket_id": "SUP-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": "adm_demo_alpha_owner",
+        "approved_at": "2026-05-10 16:04:11",
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "active_session": {
+          "id": "imp_01KR9A3GWFGD2XFJ143AQP5SA3",
+          "support_access_request_id": "[REDACTED]",
+          "target_user_id": "adm_demo_alpha_owner",
+          "target_user_type": "tenant_admin",
+          "scope": "tenant_admin_read",
+          "status": "active",
+          "token_last_four": "[REDACTED]",
+          "started_at": "2026-05-10 16:04:11",
+          "expires_at": "2026-05-10 16:34:11",
+          "revoked_at": null,
+          "ended_at": null
+        },
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GS3T010KGB5TGYD2D32",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "saa_01KR9A3GV9WC0CHKD1G3Z96P2C",
+            "action": "approved",
+            "status": "accepted",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GS4D4N3ABG9A1EWCWEM",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request p4qa1778429049462",
+              "ticket_id": "SUP-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GVA90FN1B8S5WXVBYZQ",
+            "event_type": "support_access.approved",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA approve p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GWGC2WDRTQ58QVQCSMB",
+            "event_type": "support_impersonation.started",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA impersonate p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA impersonate p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GXK7BDKDSPS6205KTHB",
+            "event_type": "support_impersonation.elevated_action",
+            "action": "wallet_adjust",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA elevated p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA elevated p4qa1778429049462",
+              "action": "wallet_adjust"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access end session",
+      "method": "POST",
+      "path": "/admin/tenant/support-access/sar_01KR9A3GS0MNAYZA21WK5BJ41X/end-session",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "sar_01KR9A3GS0MNAYZA21WK5BJ41X",
+        "tenant_id": "ten_demo_alpha",
+        "status": "completed",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request p4qa1778429049462",
+        "ticket_id": "SUP-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": "adm_demo_alpha_owner",
+        "approved_at": "2026-05-10 16:04:11",
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": "2026-05-10 16:04:11",
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "active_session": {
+          "id": "imp_01KR9A3GWFGD2XFJ143AQP5SA3",
+          "support_access_request_id": "[REDACTED]",
+          "target_user_id": "adm_demo_alpha_owner",
+          "target_user_type": "tenant_admin",
+          "scope": "tenant_admin_read",
+          "status": "ended",
+          "token_last_four": "[REDACTED]",
+          "started_at": "2026-05-10 16:04:11",
+          "expires_at": "2026-05-10 16:34:11",
+          "revoked_at": null,
+          "ended_at": "2026-05-10 16:04:11"
+        },
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GS3T010KGB5TGYD2D32",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "saa_01KR9A3GV9WC0CHKD1G3Z96P2C",
+            "action": "approved",
+            "status": "accepted",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "saa_01KR9A3GYPSM7V3RXTC633ERF9",
+            "action": "ended_session",
+            "status": "accepted",
+            "reason": "P4 QA end session p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GS4D4N3ABG9A1EWCWEM",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request p4qa1778429049462",
+              "ticket_id": "SUP-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GVA90FN1B8S5WXVBYZQ",
+            "event_type": "support_access.approved",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA approve p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA approve p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GWGC2WDRTQ58QVQCSMB",
+            "event_type": "support_impersonation.started",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA impersonate p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA impersonate p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GXK7BDKDSPS6205KTHB",
+            "event_type": "support_impersonation.elevated_action",
+            "action": "wallet_adjust",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA elevated p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA elevated p4qa1778429049462",
+              "action": "wallet_adjust"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3GYQ3ANPA6ZE6D0D5RTH",
+            "event_type": "support_impersonation.ended",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA end session p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA end session p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access create for revoke",
+      "method": "POST",
+      "path": "/admin/tenant/support-access",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 201,
+      "body": {
+        "id": "sar_01KR9A3GZR1SFNZM2NGPZAQ2D8",
+        "tenant_id": "ten_demo_alpha",
+        "status": "pending_approval",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request revoke p4qa1778429049462",
+        "ticket_id": "SUPR-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": null,
+        "approved_at": null,
+        "revoked_by_admin_id": null,
+        "revoked_at": null,
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GZS8CYZDBGHK4MCRDY6",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request revoke p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GZTET96FWNTH9CYWBHE",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request revoke p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request revoke p4qa1778429049462",
+              "ticket_id": "SUPR-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant support access revoke",
+      "method": "POST",
+      "path": "/admin/tenant/support-access/sar_01KR9A3GZR1SFNZM2NGPZAQ2D8/revoke",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "sar_01KR9A3GZR1SFNZM2NGPZAQ2D8",
+        "tenant_id": "ten_demo_alpha",
+        "status": "revoked",
+        "target_user_id": "adm_demo_alpha_owner",
+        "target_user_type": "tenant_admin",
+        "scope": "tenant_admin_read",
+        "reason": "P4 QA support request revoke p4qa1778429049462",
+        "ticket_id": "SUPR-p4qa1778429049462",
+        "requested_by_admin_id": "adm_demo_alpha_owner",
+        "approved_by_admin_id": null,
+        "approved_at": null,
+        "revoked_by_admin_id": "adm_demo_alpha_owner",
+        "revoked_at": "2026-05-10 16:04:11",
+        "completed_at": null,
+        "expires_at": "2026-05-11 16:04:11",
+        "created_at": "2026-05-10 16:04:11",
+        "updated_at": "2026-05-10 16:04:11",
+        "approvals": [
+          {
+            "id": "saa_01KR9A3GZS8CYZDBGHK4MCRDY6",
+            "action": "requested",
+            "status": "accepted",
+            "reason": "P4 QA support request revoke p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "saa_01KR9A3H0TETQCJFSNDCGQD0PV",
+            "action": "revoked",
+            "status": "accepted",
+            "reason": "P4 QA revoke p4qa1778429049462",
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ],
+        "events": [
+          {
+            "id": "sie_01KR9A3GZTET96FWNTH9CYWBHE",
+            "event_type": "support_access.requested",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA support request revoke p4qa1778429049462",
+            "metadata": {
+              "target_user_type": "tenant_admin",
+              "target_user_id": "adm_demo_alpha_owner",
+              "scope": "tenant_admin_read",
+              "reason": "P4 QA support request revoke p4qa1778429049462",
+              "ticket_id": "SUPR-p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          },
+          {
+            "id": "sie_01KR9A3H0VQZQM3QRMYV16923G",
+            "event_type": "support_access.revoked",
+            "action": null,
+            "actor_admin_id": "adm_demo_alpha_owner",
+            "target_user_id": "adm_demo_alpha_owner",
+            "target_user_type": "tenant_admin",
+            "reason": "P4 QA revoke p4qa1778429049462",
+            "metadata": {
+              "reason": "P4 QA revoke p4qa1778429049462"
+            },
+            "created_at": "2026-05-10 16:04:11"
+          }
+        ]
+      }
+    },
+    {
+      "label": "tenant settings before",
+      "method": "GET",
+      "path": "/admin/tenant/settings",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pts_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:11.000000Z",
+        "site": {
+          "site_name": "Alpha Lucky Shop",
+          "display_name": "Demo Alpha Lottery",
+          "locale": "th-TH",
+          "timezone": "Asia/Bangkok",
+          "support_email": "support@alpha.newpaotang.test",
+          "support_phone": null
+        },
+        "seo": {
+          "default_title": "Alpha Lucky Shop",
+          "title_template": "%s | Alpha Lucky Shop",
+          "default_description": "Demo Alpha Lottery demo tenant for local development.",
+          "default_keywords": [
+            "demo_alpha",
+            "lottery",
+            "reward"
+          ],
+          "robots_default": "index,follow",
+          "canonical_base_url": "https://alpha.newpaotang.test",
+          "sitemap_enabled": true,
+          "robots_enabled": true
+        },
+        "maintenance": {
+          "id": "pms_b82a88f9f0b366cdd5ce",
+          "tenant_id": "ten_demo_alpha",
+          "status": "inactive",
+          "active": false,
+          "mode": "scheduled",
+          "message": "P4 QA maintenance check p4qa1778429049462",
+          "reason": "P4 QA maintenance save p4qa1778429049462",
+          "reason_label": "P4 QA maintenance save p4qa1778429049462",
+          "ticket_id": null,
+          "ticket_public_ref": null,
+          "scheduled_start_at": null,
+          "started_at": null,
+          "expected_end_at": null,
+          "ended_at": "2026-05-10 16:04:11",
+          "retry_after_seconds": 60,
+          "allowed_routes": [],
+          "blocked_route_patterns": [],
+          "created_at": "2026-05-10 16:02:46",
+          "updated_at": "2026-05-10 16:04:11"
+        },
+        "api": {
+          "base_url": "/api/v1",
+          "realtime_url": null,
+          "asset_cdn_base_url": "https://alpha.newpaotang.test"
+        },
+        "config_version": 2
+      }
+    },
+    {
+      "label": "tenant settings update",
+      "method": "PATCH",
+      "path": "/admin/tenant/settings",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pts_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:11.000000Z",
+        "site": {
+          "site_name": "Alpha Lucky Shop QA p4qa1778429049462",
+          "display_name": "Demo Alpha Lottery",
+          "locale": "th-TH",
+          "timezone": "Asia/Bangkok",
+          "support_email": "support@alpha.newpaotang.test",
+          "support_phone": null
+        },
+        "seo": {
+          "default_title": "Alpha Lucky Shop",
+          "title_template": "%s | Alpha Lucky Shop",
+          "default_description": "Demo Alpha Lottery demo tenant for local development.",
+          "default_keywords": [
+            "lottery",
+            "qa"
+          ],
+          "robots_default": "index,follow",
+          "canonical_base_url": "https://alpha.newpaotang.test",
+          "sitemap_enabled": true,
+          "robots_enabled": true
+        },
+        "maintenance": {
+          "id": "pms_b82a88f9f0b366cdd5ce",
+          "tenant_id": "ten_demo_alpha",
+          "status": "inactive",
+          "active": false,
+          "mode": "scheduled",
+          "message": "P4 QA maintenance check p4qa1778429049462",
+          "reason": "P4 QA maintenance save p4qa1778429049462",
+          "reason_label": "P4 QA maintenance save p4qa1778429049462",
+          "ticket_id": null,
+          "ticket_public_ref": null,
+          "scheduled_start_at": null,
+          "started_at": null,
+          "expected_end_at": null,
+          "ended_at": "2026-05-10 16:04:11",
+          "retry_after_seconds": 60,
+          "allowed_routes": [],
+          "blocked_route_patterns": [],
+          "created_at": "2026-05-10 16:02:46",
+          "updated_at": "2026-05-10 16:04:11"
+        },
+        "api": {
+          "base_url": "/api/v1",
+          "realtime_url": null,
+          "asset_cdn_base_url": "https://alpha.newpaotang.test"
+        },
+        "config_version": 3
+      }
+    },
+    {
+      "label": "tenant settings after update",
+      "method": "GET",
+      "path": "/admin/tenant/settings",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pts_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:11.000000Z",
+        "site": {
+          "site_name": "Alpha Lucky Shop QA p4qa1778429049462",
+          "display_name": "Demo Alpha Lottery",
+          "locale": "th-TH",
+          "timezone": "Asia/Bangkok",
+          "support_email": "support@alpha.newpaotang.test",
+          "support_phone": null
+        },
+        "seo": {
+          "default_title": "Alpha Lucky Shop",
+          "title_template": "%s | Alpha Lucky Shop",
+          "default_description": "Demo Alpha Lottery demo tenant for local development.",
+          "default_keywords": [
+            "lottery",
+            "qa"
+          ],
+          "robots_default": "index,follow",
+          "canonical_base_url": "https://alpha.newpaotang.test",
+          "sitemap_enabled": true,
+          "robots_enabled": true
+        },
+        "maintenance": {
+          "id": "pms_b82a88f9f0b366cdd5ce",
+          "tenant_id": "ten_demo_alpha",
+          "status": "inactive",
+          "active": false,
+          "mode": "scheduled",
+          "message": "P4 QA maintenance check p4qa1778429049462",
+          "reason": "P4 QA maintenance save p4qa1778429049462",
+          "reason_label": "P4 QA maintenance save p4qa1778429049462",
+          "ticket_id": null,
+          "ticket_public_ref": null,
+          "scheduled_start_at": null,
+          "started_at": null,
+          "expected_end_at": null,
+          "ended_at": "2026-05-10 16:04:11",
+          "retry_after_seconds": 60,
+          "allowed_routes": [],
+          "blocked_route_patterns": [],
+          "created_at": "2026-05-10 16:02:46",
+          "updated_at": "2026-05-10 16:04:11"
+        },
+        "api": {
+          "base_url": "/api/v1",
+          "realtime_url": null,
+          "asset_cdn_base_url": "https://alpha.newpaotang.test"
+        },
+        "config_version": 3
+      }
+    },
+    {
+      "label": "tenant settings restore",
+      "method": "PATCH",
+      "path": "/admin/tenant/settings",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "pts_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "site": {
+          "site_name": "Alpha Lucky Shop",
+          "display_name": "Demo Alpha Lottery",
+          "locale": "th-TH",
+          "timezone": "Asia/Bangkok",
+          "support_email": "support@alpha.newpaotang.test",
+          "support_phone": null
+        },
+        "seo": {
+          "default_title": "Alpha Lucky Shop",
+          "title_template": "%s | Alpha Lucky Shop",
+          "default_description": "Demo Alpha Lottery demo tenant for local development.",
+          "default_keywords": [
+            "lottery",
+            "qa"
+          ],
+          "robots_default": "index,follow",
+          "canonical_base_url": "https://alpha.newpaotang.test",
+          "sitemap_enabled": true,
+          "robots_enabled": true
+        },
+        "maintenance": {
+          "id": "pms_b82a88f9f0b366cdd5ce",
+          "tenant_id": "ten_demo_alpha",
+          "status": "inactive",
+          "active": false,
+          "mode": "scheduled",
+          "message": "P4 QA maintenance check p4qa1778429049462",
+          "reason": "P4 QA maintenance save p4qa1778429049462",
+          "reason_label": "P4 QA maintenance save p4qa1778429049462",
+          "ticket_id": null,
+          "ticket_public_ref": null,
+          "scheduled_start_at": null,
+          "started_at": null,
+          "expected_end_at": null,
+          "ended_at": "2026-05-10 16:04:11",
+          "retry_after_seconds": 60,
+          "allowed_routes": [],
+          "blocked_route_patterns": [],
+          "created_at": "2026-05-10 16:02:46",
+          "updated_at": "2026-05-10 16:04:11"
+        },
+        "api": {
+          "base_url": "/api/v1",
+          "realtime_url": null,
+          "asset_cdn_base_url": "https://alpha.newpaotang.test"
+        },
+        "config_version": 4
+      }
+    },
+    {
+      "label": "tenant theme before",
+      "method": "GET",
+      "path": "/admin/tenant/theme",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "ptt_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:02:46.000000Z",
+        "brand": {
+          "logo_url": null,
+          "favicon_url": null,
+          "og_image_url": null
+        },
+        "theme": {
+          "primary_color": "#0F766E",
+          "secondary_color": "#2563EB",
+          "accent_color": "#F59E0B",
+          "background_color": "#FFFFFF",
+          "text_color": "#111827",
+          "font_family": "Inter, sans-serif"
+        },
+        "config_version": 1
+      }
+    },
+    {
+      "label": "tenant theme update",
+      "method": "PATCH",
+      "path": "/admin/tenant/theme",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "ptt_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "brand": {
+          "logo_url": "https://cdn.example.test/p4qa1778429049462.png",
+          "favicon_url": null,
+          "og_image_url": null
+        },
+        "theme": {
+          "primary_color": "#123456",
+          "secondary_color": "#2563EB",
+          "accent_color": "#F59E0B",
+          "background_color": "#FFFFFF",
+          "text_color": "#111827",
+          "font_family": "Inter, sans-serif"
+        },
+        "config_version": 2
+      }
+    },
+    {
+      "label": "tenant theme after update",
+      "method": "GET",
+      "path": "/admin/tenant/theme",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "ptt_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "brand": {
+          "logo_url": "https://cdn.example.test/p4qa1778429049462.png",
+          "favicon_url": null,
+          "og_image_url": null
+        },
+        "theme": {
+          "primary_color": "#123456",
+          "secondary_color": "#2563EB",
+          "accent_color": "#F59E0B",
+          "background_color": "#FFFFFF",
+          "text_color": "#111827",
+          "font_family": "Inter, sans-serif"
+        },
+        "config_version": 2
+      }
+    },
+    {
+      "label": "tenant theme restore",
+      "method": "PATCH",
+      "path": "/admin/tenant/theme",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "ptt_b82a88f9f0b366cdd5ce",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:02:46.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "brand": {
+          "logo_url": null,
+          "favicon_url": null,
+          "og_image_url": null
+        },
+        "theme": {
+          "primary_color": "#0F766E",
+          "secondary_color": "#2563EB",
+          "accent_color": "#F59E0B",
+          "background_color": "#FFFFFF",
+          "text_color": "#111827",
+          "font_family": "Inter, sans-serif"
+        },
+        "config_version": 3
+      }
+    },
+    {
+      "label": "tenant domain create",
+      "method": "POST",
+      "path": "/admin/tenant/domains",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 201,
+      "body": {
+        "id": "dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+        "tenant_id": "ten_demo_alpha",
+        "status": "pending_verification",
+        "created_at": "2026-05-10T16:04:12.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "host": "p4qa1778429049462.newpaotang.test",
+        "type": "subdomain",
+        "is_primary": false,
+        "verified_at": "2026-05-10T16:04:12.000000Z",
+        "ssl_ready_at": "2026-05-10T16:04:12.000000Z",
+        "dns_verified_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_proxy_verified_at": "2026-05-10T16:04:12.000000Z",
+        "https_enforced_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_readiness_checked_at": "2026-05-10T16:04:12.000000Z",
+        "readiness": {
+          "dns_verified": true,
+          "ssl_ready": true,
+          "cloudflare_proxy_verified": true,
+          "https_enforced": true,
+          "local_only": true
+        }
+      }
+    },
+    {
+      "label": "tenant domain detail",
+      "method": "GET",
+      "path": "/admin/tenant/domains/dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+        "tenant_id": "ten_demo_alpha",
+        "status": "pending_verification",
+        "created_at": "2026-05-10T16:04:12.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "host": "p4qa1778429049462.newpaotang.test",
+        "type": "subdomain",
+        "is_primary": false,
+        "verified_at": "2026-05-10T16:04:12.000000Z",
+        "ssl_ready_at": "2026-05-10T16:04:12.000000Z",
+        "dns_verified_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_proxy_verified_at": "2026-05-10T16:04:12.000000Z",
+        "https_enforced_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_readiness_checked_at": "2026-05-10T16:04:12.000000Z",
+        "readiness": {
+          "dns_verified": true,
+          "ssl_ready": true,
+          "cloudflare_proxy_verified": true,
+          "https_enforced": true,
+          "local_only": true
+        }
+      }
+    },
+    {
+      "label": "tenant domain verify",
+      "method": "POST",
+      "path": "/admin/tenant/domains/dom_01KR9A3H9GV2CRAPEVGWPK66ED/verify",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 202,
+      "body": {
+        "id": "dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T16:04:12.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "host": "p4qa1778429049462.newpaotang.test",
+        "type": "subdomain",
+        "is_primary": false,
+        "verified_at": "2026-05-10T16:04:12.000000Z",
+        "ssl_ready_at": "2026-05-10T16:04:12.000000Z",
+        "dns_verified_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_proxy_verified_at": "2026-05-10T16:04:12.000000Z",
+        "https_enforced_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_readiness_checked_at": "2026-05-10T16:04:12.000000Z",
+        "readiness": {
+          "dns_verified": true,
+          "ssl_ready": true,
+          "cloudflare_proxy_verified": true,
+          "https_enforced": true,
+          "local_only": true
+        }
+      }
+    },
+    {
+      "label": "tenant domain update",
+      "method": "PATCH",
+      "path": "/admin/tenant/domains/dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 200,
+      "body": {
+        "id": "dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+        "tenant_id": "ten_demo_alpha",
+        "status": "suspended",
+        "created_at": "2026-05-10T16:04:12.000000Z",
+        "updated_at": "2026-05-10T16:04:12.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "host": "p4qa1778429049462.newpaotang.test",
+        "type": "subdomain",
+        "is_primary": false,
+        "verified_at": "2026-05-10T16:04:12.000000Z",
+        "ssl_ready_at": "2026-05-10T16:04:12.000000Z",
+        "dns_verified_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_proxy_verified_at": "2026-05-10T16:04:12.000000Z",
+        "https_enforced_at": "2026-05-10T16:04:12.000000Z",
+        "cloudflare_readiness_checked_at": "2026-05-10T16:04:12.000000Z",
+        "readiness": {
+          "dns_verified": true,
+          "ssl_ready": true,
+          "cloudflare_proxy_verified": true,
+          "https_enforced": true,
+          "local_only": true
+        }
+      }
+    },
+    {
+      "label": "tenant domain delete",
+      "method": "DELETE",
+      "path": "/admin/tenant/domains/dom_01KR9A3H9GV2CRAPEVGWPK66ED",
+      "scope": "tenant",
+      "tenant_id": "ten_demo_alpha",
+      "status": 204,
+      "body": null
+    }
+  ]
+}

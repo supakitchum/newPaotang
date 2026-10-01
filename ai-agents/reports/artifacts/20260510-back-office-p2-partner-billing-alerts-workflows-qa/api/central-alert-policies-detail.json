@@ -1,0 +1,29 @@
+{
+  "status": 200,
+  "body": {
+    "id": "pap_0cc95a0cc378926f2929",
+    "tenant_id": null,
+    "status": "active",
+    "created_at": "2026-05-10T12:19:24.000000Z",
+    "updated_at": "2026-05-10T12:19:24.000000Z",
+    "partner_id": "par_demo_alpha",
+    "partner": {
+      "id": "par_demo_alpha",
+      "code": "demo_alpha",
+      "name": "Demo Alpha Partner",
+      "status": "active"
+    },
+    "policy_key": "sync_lag_high",
+    "severity": "warning",
+    "config": {
+      "metric": "sync_pending_age",
+      "threshold": {
+        "pending_older_than_seconds": 300,
+        "minimum_pending": 1
+      },
+      "window_seconds": 300,
+      "description": "Partner inbox/outbox rows stayed pending beyond the local threshold.",
+      "data_source": "sync_inbox, sync_outbox"
+    }
+  }
+}

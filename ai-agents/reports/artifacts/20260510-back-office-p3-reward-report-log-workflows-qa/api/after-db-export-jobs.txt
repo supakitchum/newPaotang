@@ -1,0 +1,5 @@
+               id               |  scope  |   tenant_id    | report_key | format | status | requested_by_admin_id |                                                                              filters_json
+--------------------------------+---------+----------------+------------+--------+--------+-----------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ exj_01KR93Y05SE1NM7ZMV5S4XBPNP | central | ten_demo_alpha | overview   | csv    | ready  | adm_platform_owner    | {"source":"report","report_key":"overview","format":"csv","tenant_id":"ten_demo_alpha","date_from":"2026-05-01","date_to":"2026-05-10","filters":{"group_by":"tenant"}}
+ exj_01KR948CRTV7MYECPKGJ8ZB6VQ | tenant  | ten_demo_alpha | overview   | csv    | ready  | adm_demo_alpha_owner  | {"source":"report","report_key":"overview","format":"csv","tenant_id":"ten_demo_alpha","date_from":"2026-05-01","date_to":"2026-05-10","filters":{"group_by":"day"}}
+(2 rows)

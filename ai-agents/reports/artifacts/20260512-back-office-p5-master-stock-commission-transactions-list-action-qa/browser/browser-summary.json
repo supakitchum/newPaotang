@@ -1,0 +1,217 @@
+{
+  "result": "FAIL",
+  "baseUrl": "http://172.22.0.6:3000",
+  "tenantId": "ten_demo_alpha",
+  "fixture": {
+    "run": "13e46128",
+    "game_id": "gam_bmsct_13e46128",
+    "stock_ids": [
+      "stk_bmscta_13e46128",
+      "stk_bmsctb_13e46128",
+      "stk_bmsctc_13e46128"
+    ],
+    "commission_id": "com_bmsct_13e46128",
+    "affiliate_account_id": "aff_bmsct_13e46128",
+    "order_id": "ord_bmsct_13e46128",
+    "commission_rule_id": "cmr_bmsct_13e46128"
+  },
+  "usedCustomerFrontend": false,
+  "menu": {
+    "centralStockClicked": true,
+    "tenantCommissionTransactionsClicked": true
+  },
+  "workflows": {
+    "stock_supported_filter_found_fixture": true,
+    "stock_rows_expose_inspection_context": false,
+    "stock_supported_filter_row_count": 3,
+    "stock_export_reason_required": true,
+    "stock_export_submitted": true,
+    "commission_list_found_fixture": true,
+    "commission_supported_status_filter_available_for_approvable_rows": false,
+    "commission_rows_expose_inspection_context": false,
+    "commission_approve_reason_required": true,
+    "commission_approve_submitted": true,
+    "commission_post_approve_status_visible": true
+  },
+  "observations": {
+    "stockNumberFilter": {
+      "present": true,
+      "requestSentUnsupportedNumber": true,
+      "rowCountAfterExactNumber": 3,
+      "unrelatedNumberStillVisible": false
+    },
+    "stockExportModal": {
+      "text": "Export stock Confirm export stock for Central Stock. Game ID Status Select available allocated sold recalled Ticket number Reason Cancel Confirm",
+      "contextItemCount": 0,
+      "ticketNumberFieldVisible": true
+    },
+    "commissionStatusFilter": {
+      "options": [
+        "All",
+        "Pending",
+        "Approved",
+        "Rejected",
+        "Paid"
+      ],
+      "calculatedOptionPresent": false
+    },
+    "commissionApproveModal": {
+      "text": "Approve Confirm approve for com_bmsct_13e46128. Reason Cancel Confirm",
+      "contextItemCount": 0,
+      "includesCommissionId": true,
+      "includesAffiliateAccountId": false,
+      "includesAmount": false
+    }
+  },
+  "screenshots": [
+    "01-central-dashboard.png",
+    "02-central-stock-initial.png",
+    "03-central-stock-supported-filter.png",
+    "04-central-stock-unsupported-number-filter.png",
+    "05-central-stock-export-modal.png",
+    "06-central-stock-after-export.png",
+    "07-tenant-dashboard.png",
+    "08-tenant-commission-initial.png",
+    "09-tenant-commission-calculated-filter.png",
+    "10-tenant-commission-approve-modal.png",
+    "11-tenant-commission-approved-filter.png"
+  ],
+  "network": [
+    {
+      "method": "GET",
+      "path": "/admin/central/stock?limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/stock?game_id=gam_bmsct_13e46128&status=available&limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/stock?game_id=gam_bmsct_13e46128&status=available&number=910001&limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/stock/exports",
+      "status": 202,
+      "payload_keys": [
+        "game_id",
+        "filters",
+        "filters.status",
+        "reason"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/stock?game_id=gam_bmsct_13e46128&status=available&number=910001&limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/commission-transactions?limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/commission-transactions?limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/commission-transactions/com_bmsct_13e46128/approve",
+      "status": 200,
+      "payload_keys": [
+        "reason"
+      ],
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/commission-transactions?limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/commission-transactions?status=approved&limit=20",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    }
+  ],
+  "currentUrl": "http://172.22.0.6:3000/admin/tenant/growth/commission-transactions",
+  "networkChecks": {
+    "centralListCallsHaveCentralScope": true,
+    "tenantListCallsHaveTenantHeaders": true,
+    "writesHaveIdempotency": true,
+    "noStockDetailGet": true,
+    "noCommissionDetailGet": true,
+    "noCustomerApiSeen": true
+  }
+}

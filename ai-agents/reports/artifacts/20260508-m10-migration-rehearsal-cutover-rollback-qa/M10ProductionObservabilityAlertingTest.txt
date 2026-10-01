@@ -1,0 +1,11 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10ProductionObservabilityAlertingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mobservability report command emits safe machine readable inventory[39m[90m  [39m [90m2.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault alert policies are seeded for each demo partner[39m[90m             [39m [90m1.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check dry run includes partner tenant labels and writes no ev[39m[90m…[39m [90m1.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check can write safe local database event with redacted paylo[39m[90m…[39m [90m1.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv and ops artifacts keep release boundary and tenant config rules[39m[90m [39m [90m0.02s[39m  
+
+  [90mTests:[39m    [32;1m5 passed[39;22m[90m (81 assertions)[39m
+  [90mDuration:[39m [39m5.67s[39m
+

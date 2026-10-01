@@ -1,0 +1,8 @@
+API-first tenant order customer context validation: PASS
+GET /admin/tenant/orders status: 200
+GET /admin/tenant/orders/{order_id} status: 200
+Authenticated tenant scope headers used: X-Admin-Scope=tenant, X-Tenant-Id=ten_demo_alpha
+Validated order id: ord_qa_ctx_20260510
+Nested customer fields present: id=cus_qa_ctx_20260510, name=QA Context Customer, phone=+66020000010, email=qa.ctx.20260510@example.test
+Fallback behavior note: fallback not needed for this seeded order because nested customer object is complete.
+Secrets/tokens: login response and bearer token were not written to artifact files.

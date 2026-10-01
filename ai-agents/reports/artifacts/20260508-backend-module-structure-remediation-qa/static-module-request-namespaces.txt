@@ -1,0 +1,6 @@
+apps/platform-api/app/Modules/SupportAccess/Http/Requests/SupportAccessRequestValidator.php:3:namespace App\Modules\SupportAccess\Http\Requests;
+apps/platform-api/app/Modules/Maintenance/Http/Requests/MaintenanceRequestValidator.php:3:namespace App\Modules\Maintenance\Http\Requests;
+apps/platform-api/app/Modules/Reward/Http/Requests/RewardClaimRequestValidator.php:3:namespace App\Modules\Reward\Http\Requests;
+apps/platform-api/app/Modules/Growth/Http/Requests/ReportRequestValidator.php:3:namespace App\Modules\Growth\Http\Requests;
+apps/platform-api/app/Modules/Growth/Http/Requests/GrowthRequestValidator.php:3:namespace App\Modules\Growth\Http\Requests;
+apps/platform-api/app/Modules/Commerce/Http/Requests/CommerceRequestValidator.php:3:namespace App\Modules\Commerce\Http\Requests;

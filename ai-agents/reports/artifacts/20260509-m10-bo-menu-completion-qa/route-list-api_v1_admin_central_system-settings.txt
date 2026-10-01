@@ -1,0 +1,6 @@
+
+  GET|HEAD    api/v1/admin/central/system-settings App\Modules\AdminOperation…
+  PATCH       api/v1/admin/central/system-settings App\Modules\AdminOperation…
+
+                                                            Showing [2] routes
+

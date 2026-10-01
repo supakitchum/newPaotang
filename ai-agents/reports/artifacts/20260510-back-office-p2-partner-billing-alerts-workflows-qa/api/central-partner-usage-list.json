@@ -1,0 +1,551 @@
+{
+  "status": 200,
+  "body": {
+    "data": [
+      {
+        "id": "pum_1c3b8986b9158d83bd85",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "queue_jobs",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_273f2e73f7b07e85605e",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "image_bandwidth_gb",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_32dac8c3478542213f13",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "sold_tickets",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_3ac22169f8ca4315b13f",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "booking_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_3c4d0350e7cebfb949d6",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "orders",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_41eff26d856ffb1efd8b",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "sync_events",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_47a0b2785a22d968d446",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "stock_synced",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_665d6d0b3dc64f7ac623",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "stock_synced",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_696702f33449c90c3a9b",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "api_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_7b2b1de2ec62f04be5ae",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "storage_gb",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_8862867e5e74d548229e",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "image_bandwidth_gb",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_89e971f945276774d064",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "checkout_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_8ec11a90d71654198708",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "orders",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_914d1c6aad8d005a7e85",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "image_bandwidth_gb",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_a0b1065a0ac854d0770e",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "sold_tickets",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_a1c1e7db64d07f4c7603",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "sold_tickets",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_a5c474b7de7e73a4e358",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "checkout_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_abd8eba56aff24bde4c7",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "api_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_c2ac576a7a80b6488a9d",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "sync_events",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_c320312aac43e9ae7ef6",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "booking_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_d07aa4a1b162f6c28f5c",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "queue_jobs",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_d0e8eda10a59001c1c11",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "stock_synced",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_d7c0e882c962d40bf281",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "booking_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_d9fad9a18c84178a5f47",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "storage_gb",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_e0d714730daf3173f75d",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "meter_key": "orders",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_e487e017963ba4d1f62c",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "queue_jobs",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_f97c21a3ce51cabcdc47",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "sync_events",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_faa693e6a30ad974ffe4",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "checkout_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_fce8e9e0198216dccca9",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "meter_key": "api_requests",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      },
+      {
+        "id": "pum_fdafd23762882f0ec077",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "meter_key": "storage_gb",
+        "value": 0,
+        "limit_value": null,
+        "recent_summaries": []
+      }
+    ],
+    "meta": {
+      "next_cursor": null,
+      "has_more": false
+    }
+  }
+}

@@ -15,8 +15,9 @@
       </div>
       <LotteryItem
         v-for="(ticket, index) in tickets"
-        :key="`${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`"
+        :key="ticketKey(ticket, index)"
         :ticket="ticket"
+        :show-image="false"
         @booking-unavailable="removeLottery"
       />
       <div v-if="showEmptyState" class="empty-lottery-state">
@@ -47,6 +48,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 interface MoreNumberTicket {
   token?: string
+  local_stock_item_id?: string
   number: string
   full_number?: string
   lottery_number?: string
@@ -60,6 +62,12 @@ interface MoreNumberTicket {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 interface MorePagination {
@@ -74,10 +82,11 @@ definePageMeta({
 })
 
 const route = useRoute()
-const router = useRouter()
-const axios = useAxios()
+const platformApi = usePlatformApi()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const tickets = ref<MoreNumberTicket[]>([])
 const pagination = ref<MorePagination | null>(null)
+const currentGameId = ref('')
 const isLoadingInitial = ref(false)
 const isLoadingMore = ref(false)
 let scrollContainer: HTMLElement | null = null
@@ -97,14 +106,22 @@ const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
 const showSkeletonItems = computed(() => isLoadingInitial.value && tickets.value.length === 0)
 const showEmptyState = computed(() => !isLoadingInitial.value && !isLoadingMore.value && tickets.value.length === 0)
+useCustomerStockRealtime({
+  gameId: currentGameId,
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(tickets, payload, { gameId: currentGameId }),
+  includePresence: true,
+})
+
+const safeBackPath = computed(() => {
+  const value = Array.isArray(route.query.back) ? route.query.back[0] : route.query.back
+  const path = String(value || '')
+
+  return path.startsWith('/') && !path.startsWith('//') ? path : '/buy'
+})
 
 const goBack = () => {
-  if (process.client && window.history.length > 1) {
-    router.back()
-    return
-  }
-
-  navigateTo('/buy')
+  navigateTo(safeBackPath.value, { replace: true })
 }
 
 const buildSearchPayload = () => {
@@ -141,6 +158,26 @@ const updateSearchResult = (responseData: any, append = false) => {
 
   tickets.value = append ? [...tickets.value, ...nextTickets] : nextTickets
   pagination.value = result.pagination || null
+  currentGameId.value = String(result.game_id || currentGameId.value || '')
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  tickets.value = tickets.value.map((ticket) => (
+    getTicketNumber(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
 }
 
 const search = async (append = false) => {
@@ -150,14 +187,11 @@ const search = async (append = false) => {
     return
   }
 
-  const params: Record<string, string | number> = {}
-
-  if (append && pagination.value?.seed) {
-    params.seed = pagination.value.seed
-    params.page = currentPage.value + 1
-  }
-
-  const response = await axios.post('/lotteries/search', buildSearchPayload(), { params })
+  const response = await platformApi.searchStockLegacy({
+    number: String(buildSearchPayload().full_number || ''),
+    cursor: append ? pagination.value?.seed || null : null,
+    page: append ? currentPage.value + 1 : 1
+  })
 
   if (response.data.code === 0) {
     updateSearchResult(response.data, append)
@@ -201,6 +235,8 @@ const removeLottery = (ticket: MoreNumberTicket) => {
     return `${item.number}-${item.sort_order ?? item.set ?? ''}` !== `${ticket.number}-${ticket.sort_order ?? ticket.set ?? ''}`
   })
 }
+
+const ticketKey = (ticket: MoreNumberTicket, index: number) => String(ticket.token || ticket.local_stock_item_id || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
 
 onMounted(async () => {
   isLoadingInitial.value = true

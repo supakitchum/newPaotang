@@ -1,0 +1,24 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-0f284ab6ab4b Creating
+ Container newpaotang-platform-api-run-0f284ab6ab4b Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageOperationsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image background central admin manages background sets and[39m[90m… [39m [90m1.97s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image mix persists percentages and generation uses them[39m[90m     [39m [90m0.56s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image readiness redacts storage queue runtime and reports m[39m[90m…[39m [90m0.56s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image ops retries pending assets after background registrat[39m[90m…[39m [90m0.75s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image readiness reports production ready when s3 queue runt[39m[90m…[39m [90m0.62s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image ops object keys cdn urls and cache contract are stabl[39m[90m…[39m [90m0.02s[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image generation assigns background mix and generates centr[39m[90m…[39m [90m1.60s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image pending background command generates rows once their[39m[90m… [39m [90m0.64s[39m
+  [32;1m✓[39;22m[90m [39m[90mlottery image visual generation creates partner variant after stock[39m[90m…[39m [90m1.30s[39m
+
+  [90mTests:[39m    [32;1m9 passed[39;22m[90m (241 assertions)[39m
+  [90mDuration:[39m [39m8.14s[39m

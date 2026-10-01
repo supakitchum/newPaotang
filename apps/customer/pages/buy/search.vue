@@ -23,8 +23,10 @@
       <FilterPills/>
       <LotteryItem
           v-for="(ticket, index) in lotteries"
-          :key="`${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`"
+          :key="ticketKey(ticket, index)"
           :ticket="ticket"
+          :show-image="false"
+          :show-more-link="!lastSearchWasExact"
           @booking-unavailable="removeLottery"
       />
       <template v-if="showSkeletonItems">
@@ -32,6 +34,7 @@
             v-for="item in skeletonItems"
             :key="`search-loading-${item}`"
             :ticket="skeletonTicket"
+            :show-image="false"
             loading
         />
       </template>
@@ -40,6 +43,7 @@
             v-for="item in skeletonItems"
             :key="`search-loading-more-${item}`"
             :ticket="skeletonTicket"
+            :show-image="false"
             loading
         />
       </template>
@@ -52,9 +56,19 @@
 
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import {
+  getStockSearchTicketIdentity,
+  getStockSearchTicketNumber,
+  getStockSearchTicketNumberKey,
+  isExactSixDigitSearch as hasExactSixDigitSearch,
+  mergeStockSearchTickets
+} from '~/utils/stockSearchIdentity.js'
 
 interface LotteryTicket {
+  id?: string | number
   token?: string
+  local_stock_item_id?: string
+  stock_ref?: string | number
   number: string
   full_number?: string
   lottery_number?: string
@@ -68,6 +82,12 @@ interface LotteryTicket {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 interface SearchPagination {
@@ -82,15 +102,20 @@ definePageMeta({
   requiresAuth: false
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const route = useRoute()
 const { currentDrawDate: displayDrawDate } = useAppInit()
-const searchDigits = ref<string[]>(['', '', '', '', '', ''])
-const lotteries = ref<LotteryTicket[]>([])
-const pagination = ref<SearchPagination | null>(null)
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
+const searchDigits = useState<string[]>('buy_search_digits', () => ['', '', '', '', '', ''])
+const lotteries = useState<LotteryTicket[]>('buy_search_lotteries', () => [])
+const pagination = useState<SearchPagination | null>('buy_search_pagination', () => null)
+const currentGameId = useState<string>('buy_search_game_id', () => '')
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
-const hasSearched = ref(false)
+const hasSearched = useState<boolean>('buy_search_has_searched', () => false)
+const lastSearchWasExact = useState<boolean>('buy_search_last_exact', () => false)
+const searchRandomSeed = useState<string | null>('buy_search_random_seed', () => null)
+const cachedScrollTop = useState<number>('buy_search_scroll_top', () => 0)
 let scrollContainer: HTMLElement | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
@@ -108,40 +133,31 @@ const searchTitle = computed(() => isStoreSearch.value ? 'ค้นหาเล�
 const currentPage = computed(() => pagination.value?.current_page ?? pagination.value?.page ?? 1)
 const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
+const isExactSearch = computed(() => hasExactSixDigitSearch(searchDigits.value))
 const showSkeletonItems = computed(() => isSearching.value && lotteries.value.length === 0)
 const showEmptyState = computed(() => hasSearched.value && !isSearching.value && !isLoadingMore.value && lotteries.value.length === 0)
+useCustomerStockRealtime({
+  gameId: currentGameId,
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
+  includePresence: true,
+})
 
 const handleDigitsUpdate = (digits: string[]) => {
   searchDigits.value = digits.slice(0, 6)
 }
 
-const buildSearchPayload = () => {
-  const number = searchNumber.value
-  const full_number = number.map((digit) => digit ?? '').join('')
+const buildSearchDigits = () => searchNumber.value.slice(0, 6)
 
-  const payload: Record<string, string | Array<string | null> | null> = {
-    number,
-    full_number,
-    n1: number[0],
-    n2: number[1],
-    n3: number[2],
-    n4: number[3],
-    n5: number[4],
-    n6: number[5]
-  }
+const createRandomSeed = () => (
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+)
 
-  if (storeId.value) {
-    payload.store_id = storeId.value
-  }
+const getTicketNumber = (ticket: Partial<LotteryTicket>) => getStockSearchTicketNumber(ticket)
 
-  return payload
-}
-
-const getTicketNumber = (ticket: Partial<LotteryTicket>) => {
-  const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
-
-  return String(value)
-}
+const ticketNumberKey = (ticket: Partial<LotteryTicket>) => getStockSearchTicketNumberKey(ticket)
 
 const withHighlight = (ticket: LotteryTicket): LotteryTicket => ({
   ...ticket,
@@ -149,12 +165,34 @@ const withHighlight = (ticket: LotteryTicket): LotteryTicket => ({
   highlightDigits: searchNumber.value
 })
 
-const updateSearchResult = (responseData: any, append = false) => {
+const updateSearchResult = (responseData: any, append = false, preserveDuplicateFullNumbers = isExactSearch.value) => {
   const result = responseData.result || {}
   const nextLotteries = (result.lotteries || []).map(withHighlight)
 
-  lotteries.value = append ? [...lotteries.value, ...nextLotteries] : nextLotteries
+  lotteries.value = mergeStockSearchTickets(append ? [...lotteries.value, ...nextLotteries] : nextLotteries, {
+    preserveDuplicateFullNumbers
+  })
   pagination.value = result.pagination || null
+  currentGameId.value = String(result.game_id || currentGameId.value || '')
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  lotteries.value = lotteries.value.map((ticket) => (
+    ticketNumberKey(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
 }
 
 const search = async () => {
@@ -162,12 +200,24 @@ const search = async () => {
   hasSearched.value = true
   lotteries.value = []
   pagination.value = null
+  cachedScrollTop.value = 0
 
   try {
-    const response = await axios.post('/lotteries/search', buildSearchPayload())
+    const digits = buildSearchDigits()
+    const isExactResult = hasExactSixDigitSearch(digits)
+    const randomSeed = createRandomSeed()
+
+    lastSearchWasExact.value = isExactResult
+    searchRandomSeed.value = randomSeed
+
+    const response = await platformApi.searchStockLegacy({
+      digits,
+      storeId: storeId.value || undefined,
+      randomSeed
+    })
 
     if (response.data.code === 0) {
-      updateSearchResult(response.data)
+      updateSearchResult(response.data, false, isExactResult)
     }
   } catch (e) {
     console.log(e)
@@ -184,15 +234,21 @@ const loadNextPage = async () => {
   isLoadingMore.value = true
 
   try {
-    const response = await axios.post('/offline/lotteries/search', buildSearchPayload(), {
-      params: {
-        seed: pagination.value?.seed,
-        page: currentPage.value + 1
-      }
+    const digits = buildSearchDigits()
+    const randomSeed = searchRandomSeed.value || createRandomSeed()
+
+    searchRandomSeed.value = randomSeed
+
+    const response = await platformApi.searchStockLegacy({
+      digits,
+      storeId: storeId.value || undefined,
+      randomSeed,
+      cursor: pagination.value?.seed || null,
+      page: currentPage.value + 1
     })
 
     if (response.data.code === 0) {
-      updateSearchResult(response.data, true)
+      updateSearchResult(response.data, true, hasExactSixDigitSearch(digits))
     }
   } catch (e) {
     console.log(e)
@@ -217,25 +273,42 @@ const clearSearch = () => {
   searchDigits.value = ['', '', '', '', '', '']
   lotteries.value = []
   pagination.value = null
+  currentGameId.value = ''
   hasSearched.value = false
+  lastSearchWasExact.value = false
+  searchRandomSeed.value = null
+  cachedScrollTop.value = 0
 }
 
 const removeLottery = (ticket: LotteryTicket) => {
+  const ticketIdentity = getStockSearchTicketIdentity(ticket)
+
   lotteries.value = lotteries.value.filter((item) => {
-    if (ticket.token) {
-      return item.token !== ticket.token
+    if (ticketIdentity) {
+      return getStockSearchTicketIdentity(item) !== ticketIdentity
     }
 
     return `${item.number}-${item.sort_order ?? item.set ?? ''}` !== `${ticket.number}-${ticket.sort_order ?? ticket.set ?? ''}`
   })
 }
 
+const ticketKey = (ticket: LotteryTicket, index: number) => String(getStockSearchTicketIdentity(ticket) || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
+
 onMounted(() => {
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, {passive: true})
+  requestAnimationFrame(() => {
+    if (scrollContainer && cachedScrollTop.value > 0) {
+      scrollContainer.scrollTop = cachedScrollTop.value
+    }
+  })
 })
 
 onBeforeUnmount(() => {
+  if (scrollContainer) {
+    cachedScrollTop.value = scrollContainer.scrollTop
+  }
+
   scrollContainer?.removeEventListener('scroll', handleScroll)
 })
 </script>

@@ -1,0 +1,213 @@
+{
+  "result": "PASS",
+  "baseUrl": "http://172.22.0.6:3000",
+  "fixtures": {
+    "unlocked_partner_id": "par_lba_un_dfbc7682",
+    "locked_partner_id": "par_lba_lo_dfbc7682"
+  },
+  "usedCustomerFrontend": false,
+  "routeChecks": {
+    "central_route_renders": true,
+    "tenant_route_does_not_render_branding_form": true
+  },
+  "workflows": {
+    "unlocked_read_uses_central_scope": true,
+    "unlocked_state_metadata_visible": true,
+    "client_rejects_unsupported_file_type": true,
+    "client_rejects_large_file": true,
+    "selected_file_previews_visible": true,
+    "unlocked_upload_commit_save_completed": true,
+    "locked_state_visible": true,
+    "locked_controls_disabled": true
+  },
+  "observations": {
+    "unlockedInitialText": "Partner Lottery Branding Admin Central Partners par_lba_un_dfbc7682 Lottery Branding Partners Refresh Save assets Status Ready Generated images 0 Version v1 Asset set pba_01KRH7817MVRWHP1XVP10MYCW0 Branding Assets Central scope only Version Logo QR Committed No preview Replace asset PNG or WebP, up to 5 MB. Current asset Asset ID ast_01KRH78117EY65EKV02WG4B6SZ File logo_qr.webp Type image/webp Size 1.0 KB Storage central/assets/ast_01KRH78117EY65EKV02WG4B6SZ/logo-qr.webp Clear Upload Right Sidebar Committed No preview Replace asset PNG or WebP, up to 5 MB. Current asset Asset ID ast_01KRH78136QHQ9WWE6Q2AXCHEK File right_sidebar.webp Type image/webp Size 1.0 KB Storage central/assets/ast_01KRH78136QHQ9WWE6Q2AXCHEK/right-sidebar.webp Clear Upload Logo Bottom Committed No preview Replace asset PNG or WebP, up to 5 MB. Current asset Asset ID ast_01KRH7815F6X8S3D9QPWBM8YJ5 File logo_bottom.webp Type image/webp Size 1.0 KB Storage central/assets/ast_01KRH7815F6X8S3D9QPWBM8YJ5/logo-bottom.webp Clear Upload Editable Updated 13 พ.ค. 2569 17:48 Save assets",
+    "lockedText": "Partner Lottery Branding Admin Central Partners par_lba_lo_dfbc7682 Lottery Branding Partners Refresh Save assets This partner is locked because partner-branded images already exist. generated_image_count: 1 | lock_reason: partner_images_already_generated Status Locked Generated images 1 Version v1 Asset set Not set Branding Assets Central scope only Version Logo QR Missing No preview Replace asset PNG or WebP, up to 5 MB. Current asset Asset ID - File - Type - Size - Storage - Clear Upload Right Sidebar Missing No preview Replace asset PNG or WebP, up to 5 MB. Current asset Asset ID - File - Type - Size - Storage - Clear Upload Logo Bottom Missing No preview Replace asset PNG or WebP, up to 5 MB. Current asset Asset ID - File - Type - Size - Storage - Clear Upload Locked Updated - Save assets"
+  },
+  "screenshots": [
+    "01-central-unlocked-initial.png",
+    "02-unsupported-file-validation.png",
+    "03-large-file-validation.png",
+    "04-selected-file-previews.png",
+    "05-unlocked-after-save.png",
+    "06-locked-state.png",
+    "07-tenant-route-attempt.png"
+  ],
+  "network": [
+    {
+      "method": "GET",
+      "path": "/admin/central/partners/par_lba_un_dfbc7682/lottery-branding-assets",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/assets/uploads",
+      "status": 201,
+      "payload_keys": [
+        "purpose",
+        "file_name",
+        "content_type",
+        "size_bytes",
+        "checksum_sha256",
+        "metadata",
+        "metadata.partner_id",
+        "metadata.branding_slot",
+        "metadata.version"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/assets/ast_01KRH7BS3HGP6NNNA9XJ0X6MKF/commit",
+      "status": 200,
+      "payload_keys": [
+        "checksum_sha256",
+        "metadata",
+        "metadata.partner_id",
+        "metadata.branding_slot",
+        "metadata.version",
+        "metadata.file_name"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/assets/uploads",
+      "status": 201,
+      "payload_keys": [
+        "purpose",
+        "file_name",
+        "content_type",
+        "size_bytes",
+        "checksum_sha256",
+        "metadata",
+        "metadata.partner_id",
+        "metadata.branding_slot",
+        "metadata.version"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/assets/ast_01KRH7BSBAE78AVV413RVW4KYX/commit",
+      "status": 200,
+      "payload_keys": [
+        "checksum_sha256",
+        "metadata",
+        "metadata.partner_id",
+        "metadata.branding_slot",
+        "metadata.version",
+        "metadata.file_name"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/assets/uploads",
+      "status": 201,
+      "payload_keys": [
+        "purpose",
+        "file_name",
+        "content_type",
+        "size_bytes",
+        "checksum_sha256",
+        "metadata",
+        "metadata.partner_id",
+        "metadata.branding_slot",
+        "metadata.version"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/assets/ast_01KRH7BSG8X3M480F3S1WRZXS3/commit",
+      "status": 200,
+      "payload_keys": [
+        "checksum_sha256",
+        "metadata",
+        "metadata.partner_id",
+        "metadata.branding_slot",
+        "metadata.version",
+        "metadata.file_name"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/central/partners/par_lba_un_dfbc7682/lottery-branding-assets",
+      "status": 200,
+      "payload_keys": [
+        "version",
+        "assets",
+        "assets.logo_qr",
+        "assets.logo_qr.asset_id",
+        "assets.right_sidebar",
+        "assets.right_sidebar.asset_id",
+        "assets.logo_bottom",
+        "assets.logo_bottom.asset_id"
+      ],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": true,
+        "authorization_present": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/partners/par_lba_lo_dfbc7682/lottery-branding-assets",
+      "status": 200,
+      "payload_keys": [],
+      "headers": {
+        "x_admin_scope": "central",
+        "x_tenant_id": null,
+        "idempotency_key_present": false,
+        "authorization_present": true
+      }
+    }
+  ],
+  "networkChecks": {
+    "readCallsHaveCentralScope": true,
+    "uploadIntentCallsHaveCentralScopeAndIdempotency": true,
+    "commitCallsHaveCentralScopeAndIdempotency": true,
+    "saveCallUsesNestedAssetPayloadAndIdempotency": true,
+    "noCustomerApiSeen": true
+  }
+}

@@ -1,0 +1,214 @@
+:root {
+  --np-admin-accent: #0d6efd;
+}
+
+body {
+  min-width: 320px;
+}
+
+.page {
+  min-height: 100vh;
+  min-width: 0;
+  width: 100%;
+}
+
+.app-content {
+  min-height: calc(100vh - 8rem);
+}
+
+.main-content.app-content,
+.main-content.app-content > .container-fluid {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.authentication .container {
+  min-height: 100vh;
+}
+
+.np-login-media {
+  background: linear-gradient(rgba(13, 110, 253, 0.86), rgba(14, 165, 233, 0.76)), url('/admin-template/assets/images/media/media-33.jpg') center/cover;
+}
+
+.np-kpi-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.np-sidebar-backdrop {
+  display: none;
+}
+
+.np-support-token {
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.np-admin-code,
+.np-admin-json,
+.np-admin-json-editor {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.np-admin-json {
+  max-height: 34rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8125rem;
+}
+
+.np-admin-json-editor {
+  min-height: 28rem;
+  font-size: 0.8125rem;
+}
+
+.np-admin-link-card {
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.np-admin-link-card:hover {
+  color: inherit;
+  transform: translateY(-1px);
+  box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.08);
+}
+
+.np-admin-restore-card {
+  width: min(100%, 26rem);
+}
+
+.side-menu__item.router-link-active {
+  color: var(--primary-color);
+  background-color: rgba(var(--primary-rgb), 0.08);
+}
+
+.main-sidebar {
+  z-index: 1040;
+}
+
+.app-header {
+  z-index: 1030;
+}
+
+@media (max-width: 991.98px) {
+  .app-header,
+  .main-content.app-content,
+  .footer {
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  .app-header {
+    padding-inline-start: 0 !important;
+  }
+
+  .main-header-container {
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+
+  .main-header-container .header-content-left,
+  .main-header-container .header-content-right {
+    min-width: 0;
+  }
+
+  .main-header-container .header-content-right {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .main-header-container .header-content-right .btn {
+    min-width: 0;
+  }
+
+  .main-header-container .header-content-right .dropdown-toggle {
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-sidebar {
+    width: min(15rem, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  [dir='rtl'] .app-sidebar {
+    transform: translateX(100%);
+  }
+
+  .main-sidebar {
+    width: 100%;
+    transform: none;
+  }
+
+  [data-toggled='close'] .app-sidebar {
+    transform: translateX(-100%) !important;
+  }
+
+  [data-toggled='close'][dir='rtl'] .app-sidebar {
+    transform: translateX(100%) !important;
+  }
+
+  [data-toggled='open'] .app-sidebar {
+    transform: translateX(0) !important;
+  }
+
+  [data-toggled='open'] .np-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    z-index: 1035;
+  }
+
+  .app-content {
+    margin-inline-start: 0 !important;
+  }
+
+  .main-content.app-content {
+    padding-inline: 0;
+  }
+
+  .main-content.app-content > .container-fluid {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+
+  .card.custom-card,
+  .row > * {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .app-header .header-logo {
+    display: none;
+  }
+
+  .main-header-container .header-content-left {
+    flex: 0 0 auto;
+  }
+
+  .main-header-container .header-content-right {
+    flex: 1 1 auto;
+  }
+
+  .main-header-container .header-content-right .dropdown-toggle {
+    max-width: 9.5rem;
+  }
+
+  .main-header-container .header-content-right > .dropdown:last-child .dropdown-toggle {
+    padding-inline: 0.5rem;
+  }
+}

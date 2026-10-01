@@ -1,0 +1,14 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-be8a34aab430 Creating
+ Container newpaotang-platform-api-run-be8a34aab430 Created
+
+  [30;43;1m WARN [39;49;22m[39m Tests\Feature\CentralGameTest[39m
+  [33;1m![39;22m[90m [39m[90mcentral game lifecycle is permissioned idempotency guarded audited[39m[90m… [39m [90m2.11s[39m
+
+  [90mTests:[39m    [33;1m1 warning[39;22m[90m (25 assertions)[39m
+  [90mDuration:[39m [39m2.24s[39m

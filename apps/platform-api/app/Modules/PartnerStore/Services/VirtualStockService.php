@@ -1,0 +1,3304 @@
+<?php
+
+namespace App\Modules\PartnerStore\Services;
+
+use App\Jobs\ProcessVirtualStockProfileGenerationJob;
+use App\Models\Game;
+use App\Models\LocalStockItem;
+use App\Models\PartnerTenant;
+use App\Models\StockGenerationBatch;
+use App\Models\StockItem;
+use App\Models\StockReservation;
+use App\Models\StockReservationItem;
+use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
+use App\Modules\CentralStock\Services\StockCoverageRealtimeService;
+use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
+use App\Modules\Pricing\Services\LotterySalePriceService;
+use App\Shared\Audit\AuditLogger;
+use App\Shared\Auth\AdminSessionContext;
+use App\Shared\Auth\CustomerSessionContext;
+use App\Support\PublicUrl;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
+class VirtualStockService
+{
+    private const MAX_BP = 10000;
+    private const UNLIMITED = 2147483647;
+    private const SEARCH_SHUFFLE_SEQUENCE_LIMIT = 50001;
+    private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
+    private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
+
+    private bool $searchCacheActive = false;
+
+    /**
+     * @var array<string, array<string, mixed>>
+     */
+    private array $searchCache = [];
+
+    public function __construct(
+        private readonly StockCoverageRealtimeService $coverageRealtime,
+        private readonly AuditLogger $auditLogger,
+        private readonly VirtualLotteryImageService $virtualImages,
+        private readonly LotterySalePriceService $salePrices,
+    ) {
+    }
+
+    public function isGeneratePayload(array $payload): bool
+    {
+        $mode = (string) ($payload['generation_mode'] ?? '');
+
+        if (in_array($mode, ['quota_random', 'quota', 'physical'], true)) {
+            return false;
+        }
+
+        return $mode === 'virtual_profile'
+            || ($payload['stock_mode'] ?? null) === 'virtual'
+            || array_key_exists('set_distribution', $payload);
+    }
+
+    public function isEnabledForGame(string $gameId): bool
+    {
+        return DB::table('stock_supply_profiles')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    public function refreshPartnerGeneratedPatternCountsForGame(string $gameId): void
+    {
+        $profile = DB::table('stock_supply_profiles')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->first();
+
+        if ($profile === null) {
+            return;
+        }
+
+        $this->refreshPartnerGeneratedPatternCounts((string) $profile->id, $gameId, now());
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public function validateGeneratePayload(array $payload): array
+    {
+        $errors = $this->retiredGenerationFieldErrors($payload);
+        $gameId = trim((string) ($payload['game_id'] ?? ''));
+        $mode = trim((string) ($payload['generation_mode'] ?? ''));
+
+        if ($mode !== 'virtual_profile') {
+            $errors['generation_mode'][] = 'The generation_mode field must be virtual_profile.';
+        }
+
+        if ($gameId === '' || ! Game::where('id', $gameId)->where('status', 'open')->exists()) {
+            $errors['game_id'][] = 'The game_id field must reference an open game.';
+        }
+
+        if ($this->currentBaseCount() < 1) {
+            $errors['base_lottery_numbers'][] = 'Base lottery numbers must be seeded before generating virtual stock.';
+        }
+
+        $distribution = $this->normalizeSetDistribution($payload['set_distribution'] ?? []);
+        $totalBp = array_sum(array_column($distribution, 'percent_basis_points'));
+        $partnerDistribution = $this->normalizePartnerDistribution($payload['partner_distribution'] ?? []);
+        $partnerDistributionBp = array_sum(array_column($partnerDistribution, 'percent_basis_points'));
+
+        if ($totalBp > self::MAX_BP) {
+            $errors['set_distribution'][] = 'The set distribution total percent may not exceed 100.';
+        }
+
+        if ($partnerDistributionBp > self::MAX_BP) {
+            $errors['partner_distribution'][] = 'The partner distribution total percent may not exceed 100.';
+        }
+
+        foreach ($distribution as $index => $row) {
+            if ($row['set_size'] < 1 || $row['set_size'] > 99) {
+                $errors['set_distribution.'.$index.'.set_size'][] = 'The set size must be between 1 and 99.';
+            }
+
+            if ($row['percent_basis_points'] < 0) {
+                $errors['set_distribution.'.$index.'.percent'][] = 'The percent must be zero or greater.';
+            }
+        }
+
+        foreach ($partnerDistribution as $index => $row) {
+            if (! DB::table('partners')->where('id', $row['partner_id'])->exists()) {
+                $errors['partner_distribution.'.$index.'.partner_id'][] = 'The partner_id field must reference an existing partner.';
+            }
+
+            if ($row['percent_basis_points'] < 1) {
+                $errors['partner_distribution.'.$index.'.percent'][] = 'The percent must be greater than zero.';
+            }
+        }
+
+        foreach ($this->normalizePartnerLimits($payload['partner_limits'] ?? []) as $index => $row) {
+            if (! DB::table('partners')->where('id', $row['partner_id'])->exists()) {
+                $errors['partner_limits.'.$index.'.partner_id'][] = 'The partner_id field must reference an existing partner.';
+            }
+
+            foreach (['back2_limit', 'back3_limit', 'front3_limit'] as $field) {
+                $centralLimit = $this->normalizeLimitRow($payload['central_limits'] ?? [])[$field];
+                if ($centralLimit !== null && $row[$field] !== null && $row[$field] > $centralLimit) {
+                    $errors['partner_limits.'.$index.'.'.$field][] = 'The '.$field.' field may not exceed the central effective limit of '.$centralLimit.'.';
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function generateProfile(array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        $result = DB::transaction(function () use ($payload, $actor, $request): array {
+            $gameId = trim((string) $payload['game_id']);
+            $idempotencyKey = (string) $request->header('Idempotency-Key');
+            $distribution = $this->normalizeSetDistribution($payload['set_distribution'] ?? []);
+            $partnerDistribution = $this->normalizePartnerDistribution($payload['partner_distribution'] ?? []);
+            $coverageDefaults = $this->stockPatternCoverageDefaults();
+            $hasCentralLimits = array_key_exists('central_limits', $payload);
+            $centralLimits = $hasCentralLimits
+                ? $this->normalizeLimitRow($payload['central_limits'] ?? $coverageDefaults['central'])
+                : ['back2_limit' => null, 'back3_limit' => null, 'front3_limit' => null];
+            if ($hasCentralLimits && ! $this->hasAnyLimit($centralLimits)) {
+                $centralLimits = $this->normalizeLimitRow($coverageDefaults['central']);
+            }
+            $partnerLimits = $this->normalizePartnerLimits($payload['partner_limits'] ?? []);
+            $payloadForHash = [
+                'game_id' => $gameId,
+                'generation_mode' => 'virtual_profile',
+                'set_distribution' => $distribution,
+                'partner_distribution' => $partnerDistribution,
+                'central_limits' => $centralLimits,
+                'partner_limits' => $partnerLimits,
+            ];
+            $payloadHash = $this->payloadHash($payloadForHash);
+            $batchId = $this->stableId('stb', 'virtual-profile:'.$actor->adminUser['id'].':'.$idempotencyKey.':'.$payloadHash);
+            $existing = $idempotencyKey !== ''
+                ? StockGenerationBatch::query()
+                    ->where('type', 'virtual_profile')
+                    ->where('created_by_admin_id', $actor->adminUser['id'])
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first()
+                : null;
+
+            if ($existing !== null) {
+                if ((string) $existing->payload_hash !== $payloadHash) {
+                    return ['error' => 'idempotency_conflict'];
+                }
+
+                return ['batch' => $this->batchResource($existing), 'created' => false];
+            }
+
+            $now = now();
+            $baseCount = $this->currentBaseCount();
+            $baseRange = $this->baseLotteryRange();
+            $layerCapacity = $this->profileTotalCapacity($distribution, $baseCount);
+            $game = Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->first();
+
+            if ($game === null) {
+                return ['error' => 'resource_conflict'];
+            }
+
+            $profile = DB::table('stock_supply_profiles')
+                ->where('game_id', $gameId)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+            $isTopUp = $profile !== null;
+            $profileId = $profile === null
+                ? $this->stableId('vsp', 'virtual-profile:'.$gameId.':'.$batchId)
+                : (string) $profile->id;
+            $profileSeed = $profile === null
+                ? $this->internalSeed('profile', $gameId.':'.$batchId)
+                : (string) $profile->seed;
+            $layerId = $this->stableId('vsl', 'virtual-layer:'.$batchId);
+            $layerSeed = $this->internalSeed('layer', $batchId.':'.$payloadHash);
+            $payloadJson = $payloadForHash + [
+                'profile_id' => $profileId,
+                'profile_seed' => $profileSeed,
+                'layer_id' => $layerId,
+                'layer_seed' => $layerSeed,
+                'base_count' => $baseCount,
+                'base_range' => $baseRange,
+                'layer_capacity' => $layerCapacity,
+                'top_up' => $isTopUp,
+                'request_meta' => [
+                    'request_id' => (string) ($request->header('X-Request-Id') ?: ''),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ],
+            ];
+
+            StockGenerationBatch::query()->insert([
+                'id' => $batchId,
+                'game_id' => $gameId,
+                'type' => 'virtual_profile',
+                'status' => 'queued',
+                'requested_count' => $layerCapacity,
+                'generated_count' => 0,
+                'total_rounds' => 4,
+                'processed_rounds' => 0,
+                'chunk_rounds' => 1,
+                'range_start' => $baseRange['min'],
+                'range_end' => $baseRange['max'],
+                'number_digits' => 6,
+                'idempotency_key' => $idempotencyKey,
+                'payload_hash' => $payloadHash,
+                'created_by_admin_id' => $actor->adminUser['id'],
+                'payload_json' => json_encode($payloadJson, JSON_THROW_ON_ERROR),
+                'started_at' => null,
+                'completed_at' => null,
+                'failed_at' => null,
+                'failure_reason' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return ['batch' => $this->batchResource(StockGenerationBatch::where('id', $batchId)->first()), 'created' => true];
+        });
+
+        if (($result['error'] ?? null) !== null) {
+            return $result;
+        }
+
+        $batch = $result['batch'] ?? [];
+        if (($result['created'] ?? false) === true && isset($batch['id'])) {
+            $this->broadcastProfileGenerationProgress((string) $batch['id'], 'stock_generation.batch.queued');
+            ProcessVirtualStockProfileGenerationJob::dispatch((string) $batch['id']);
+            $batch = $this->batchResource(StockGenerationBatch::where('id', (string) $batch['id'])->first());
+        }
+
+        return $batch;
+    }
+
+    public function processQueuedProfileGeneration(string $batchId): void
+    {
+        $started = DB::transaction(function () use ($batchId): bool {
+            $batch = StockGenerationBatch::query()
+                ->whereKey($batchId)
+                ->where('type', 'virtual_profile')
+                ->lockForUpdate()
+                ->first();
+
+            if ($batch === null || (string) $batch->status !== 'queued') {
+                return false;
+            }
+
+            $now = now();
+            StockGenerationBatch::query()->whereKey($batchId)->update([
+                'status' => 'processing',
+                'processed_rounds' => 1,
+                'started_at' => $batch->started_at ?? $now,
+                'failed_at' => null,
+                'failure_reason' => null,
+                'updated_at' => $now,
+            ]);
+
+            return true;
+        });
+
+        if (! $started) {
+            return;
+        }
+
+        $this->broadcastProfileGenerationProgress($batchId, 'stock_generation.batch.processing');
+
+        try {
+            $gameId = DB::transaction(function () use ($batchId): string {
+                $batch = StockGenerationBatch::query()
+                    ->whereKey($batchId)
+                    ->where('type', 'virtual_profile')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($batch === null) {
+                    throw new \RuntimeException('stock_generation_batch_not_found');
+                }
+
+                if ((string) $batch->status === 'completed') {
+                    return (string) $batch->game_id;
+                }
+
+                if ((string) $batch->status !== 'processing') {
+                    throw new \RuntimeException('stock_generation_batch_not_processing');
+                }
+
+                $payload = $this->decodeJsonArray($batch->payload_json ?? null);
+                $gameId = (string) ($payload['game_id'] ?? $batch->game_id);
+                $distribution = $this->decodeJsonArray($payload['set_distribution'] ?? []);
+                $partnerDistribution = $this->decodeJsonArray($payload['partner_distribution'] ?? []);
+                $centralLimits = $this->decodeJsonArray($payload['central_limits'] ?? []);
+                $partnerLimits = $this->decodeJsonArray($payload['partner_limits'] ?? []);
+                $baseCount = (int) ($payload['base_count'] ?? $this->currentBaseCount());
+                $layerCapacity = (int) ($payload['layer_capacity'] ?? $this->profileTotalCapacity($distribution, $baseCount));
+                $layerId = (string) ($payload['layer_id'] ?? $this->stableId('vsl', 'virtual-layer:'.$batchId));
+                $layerSeed = (string) ($payload['layer_seed'] ?? $this->internalSeed('layer', $batchId.':'.(string) $batch->payload_hash));
+                $now = now();
+                $game = Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->first();
+
+                if ($game === null) {
+                    throw new \RuntimeException('game_not_open');
+                }
+
+                $profile = DB::table('stock_supply_profiles')
+                    ->where('game_id', $gameId)
+                    ->where('status', 'active')
+                    ->lockForUpdate()
+                    ->first();
+                $isTopUp = $profile !== null;
+                $profileId = $profile === null
+                    ? (string) ($payload['profile_id'] ?? $this->stableId('vsp', 'virtual-profile:'.$gameId.':'.$batchId))
+                    : (string) $profile->id;
+                $profileSeed = $profile === null
+                    ? (string) ($payload['profile_seed'] ?? $this->internalSeed('profile', $gameId.':'.$batchId))
+                    : (string) $profile->seed;
+
+                if ($profile === null) {
+                    DB::table('stock_supply_profiles')->insert([
+                        'id' => $profileId,
+                        'game_id' => $gameId,
+                        'status' => 'active',
+                        'seed' => $profileSeed,
+                        'base_count' => $baseCount,
+                        'total_capacity' => 0,
+                        'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                        'created_by_admin_id' => $batch->created_by_admin_id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+
+                $this->replaceVirtualStockSettings($gameId, $partnerDistribution, $centralLimits, $partnerLimits, $now);
+
+                DB::table('virtual_stock_supply_layers')->insert([
+                    'id' => $layerId,
+                    'profile_id' => $profileId,
+                    'batch_id' => $batchId,
+                    'game_id' => $gameId,
+                    'status' => 'active',
+                    'layer_seed' => $layerSeed,
+                    'base_count' => $baseCount,
+                    'total_capacity' => $layerCapacity,
+                    'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                    'created_by_admin_id' => $batch->created_by_admin_id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                StockGenerationBatch::query()->whereKey($batchId)->update([
+                    'processed_rounds' => 2,
+                    'updated_at' => $now,
+                ]);
+
+                $this->storeCentralGeneratedPatternCounts(
+                    profileId: $profileId,
+                    sourceId: $layerId,
+                    gameId: $gameId,
+                    seed: $layerSeed,
+                    distribution: $distribution,
+                    now: $now,
+                );
+
+                StockGenerationBatch::query()->whereKey($batchId)->update([
+                    'processed_rounds' => 3,
+                    'updated_at' => $now,
+                ]);
+
+                $this->refreshPartnerGeneratedPatternCounts($profileId, $gameId, $now);
+
+                $combinedCapacity = (int) DB::table('virtual_stock_supply_layers')
+                    ->where('profile_id', $profileId)
+                    ->where('status', 'active')
+                    ->sum('total_capacity');
+
+                DB::table('stock_supply_profiles')->where('id', $profileId)->update([
+                    'base_count' => $baseCount,
+                    'total_capacity' => $combinedCapacity,
+                    'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                    'updated_at' => $now,
+                ]);
+
+                $payloadForHash = [
+                    'game_id' => $gameId,
+                    'generation_mode' => 'virtual_profile',
+                    'set_distribution' => $distribution,
+                    'partner_distribution' => $partnerDistribution,
+                    'central_limits' => $centralLimits,
+                    'partner_limits' => $partnerLimits,
+                ];
+                $payload['profile_id'] = $profileId;
+                $payload['profile_seed'] = $profileSeed;
+                $payload['layer_id'] = $layerId;
+                $payload['layer_seed'] = $layerSeed;
+                $payload['base_count'] = $baseCount;
+                $payload['layer_capacity'] = $layerCapacity;
+                $payload['total_capacity'] = $combinedCapacity;
+                $payload['top_up'] = $isTopUp;
+
+                StockGenerationBatch::query()->whereKey($batchId)->update([
+                    'status' => 'completed',
+                    'generated_count' => $layerCapacity,
+                    'processed_rounds' => 4,
+                    'payload_json' => json_encode($payload, JSON_THROW_ON_ERROR),
+                    'completed_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                $requestMeta = is_array($payload['request_meta'] ?? null) ? $payload['request_meta'] : [];
+                $this->auditLogger->logAdminWrite(
+                    (string) $batch->created_by_admin_id,
+                    'central',
+                    'stock.generated',
+                    'stock_generation_batch',
+                    $batchId,
+                    [
+                        'idempotency_key' => (string) $batch->idempotency_key,
+                        'payload' => $payloadForHash,
+                        'profile_id' => $profileId,
+                        'layer_id' => $layerId,
+                        'layer_capacity' => $layerCapacity,
+                        'total_capacity' => $combinedCapacity,
+                        'top_up' => $isTopUp,
+                    ],
+                    null,
+                    null,
+                    (string) ($requestMeta['request_id'] ?? ''),
+                    $requestMeta['ip_address'] ?? null,
+                    $requestMeta['user_agent'] ?? null,
+                );
+
+                return $gameId;
+            });
+
+            $this->coverageRealtime->broadcastGameSupplyChangedAfterCommit($gameId);
+            $this->broadcastProfileGenerationProgress($batchId, 'stock_generation.batch.completed');
+        } catch (\Throwable $exception) {
+            $this->markProfileGenerationFailed($batchId, $exception);
+            $this->broadcastProfileGenerationProgress($batchId, 'stock_generation.batch.failed');
+        }
+    }
+
+    private function markProfileGenerationFailed(string $batchId, \Throwable $exception): void
+    {
+        $message = mb_substr($exception->getMessage(), 0, 1000);
+        StockGenerationBatch::query()
+            ->whereKey($batchId)
+            ->where('type', 'virtual_profile')
+            ->update([
+                'status' => 'failed',
+                'failed_at' => now(),
+                'failure_reason' => $message,
+                'updated_at' => now(),
+            ]);
+
+        Log::warning('Virtual stock profile generation failed.', [
+            'batch_id' => $batchId,
+            'message' => $message,
+        ]);
+    }
+
+    private function broadcastProfileGenerationProgress(string $batchId, string $eventType): void
+    {
+        $batch = StockGenerationBatch::query()->whereKey($batchId)->first();
+
+        if ($batch === null || (string) $batch->type !== 'virtual_profile') {
+            return;
+        }
+
+        try {
+            StockGenerationProgressUpdated::dispatch($this->profileGenerationProgressPayload($batch, $eventType));
+        } catch (\Throwable $exception) {
+            Log::warning('Virtual stock generation realtime progress broadcast failed.', [
+                'batch_id' => $batchId,
+                'event_type' => $eventType,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function profileGenerationProgressPayload(object $batch, string $eventType): array
+    {
+        $payload = $this->decodeJsonArray($batch->payload_json ?? null);
+        $requestedCount = (int) $batch->requested_count;
+        $generatedCount = (int) $batch->generated_count;
+
+        if ((string) $batch->status === 'completed') {
+            $generatedCount = max($generatedCount, $requestedCount);
+        }
+
+        return [
+            'event_type' => $eventType,
+            'batch_id' => (string) $batch->id,
+            'id' => (string) $batch->id,
+            'game_id' => (string) $batch->game_id,
+            'type' => (string) $batch->type,
+            'status' => (string) $batch->status,
+            'stock_mode' => 'virtual',
+            'requested_count' => $requestedCount,
+            'generated_count' => $generatedCount,
+            'total_rounds' => (int) ($batch->total_rounds ?? 0),
+            'processed_rounds' => (int) ($batch->processed_rounds ?? 0),
+            'chunk_rounds' => (int) ($batch->chunk_rounds ?? 0),
+            'profile_id' => $payload['profile_id'] ?? null,
+            'layer_id' => $payload['layer_id'] ?? null,
+            'layer_capacity' => (int) ($payload['layer_capacity'] ?? $requestedCount),
+            'total_capacity' => (int) ($payload['total_capacity'] ?? $payload['layer_capacity'] ?? $requestedCount),
+            'top_up' => (bool) ($payload['top_up'] ?? false),
+            'started_at' => $batch->started_at,
+            'completed_at' => $batch->completed_at,
+            'failed_at' => $batch->failed_at,
+            'failure_reason' => $batch->failure_reason,
+            'image_dispatch_status' => null,
+            'updated_at' => $batch->updated_at,
+        ];
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}|null
+     */
+    public function searchLocalStock(string $tenantId, string $partnerId, array $queryParams, int $limit): ?array
+    {
+        $previousCacheActive = $this->searchCacheActive;
+        $previousSearchCache = $this->searchCache;
+        $this->searchCacheActive = true;
+        $this->searchCache = [];
+
+        try {
+            return $this->searchLocalStockWithCache($tenantId, $partnerId, $queryParams, $limit);
+        } finally {
+            $this->searchCacheActive = $previousCacheActive;
+            $this->searchCache = $previousSearchCache;
+        }
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}|null
+     */
+    private function searchLocalStockWithCache(string $tenantId, string $partnerId, array $queryParams, int $limit): ?array
+    {
+        $gameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $profile = $this->activeProfile($gameId);
+
+        if ($profile === null) {
+            return null;
+        }
+
+        if (! $this->hasActiveTenantVirtualAllocation($tenantId, $partnerId, $gameId)) {
+            return $this->emptySearchResult($gameId);
+        }
+
+        $number = preg_replace('/\D+/', '', trim((string) ($queryParams['number'] ?? ''))) ?? '';
+        $mode = $this->publicSearchMode($queryParams, $number);
+
+        if ($mode !== 'random') {
+            return $this->searchLocalStockCopyAware($tenantId, $partnerId, $gameId, $profile, $queryParams, $number, $mode, $limit);
+        }
+
+        $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $quotaUsage = $cursor['quota_usage'];
+        $trackedQuotaKeys = $this->trackedSearchQuotaKeys($partnerId, $queryParams, $number);
+        $rows = [];
+        $deferredRandomRows = [];
+        $visited = 0;
+        $offset = $cursor['number_offset'];
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $offset) as $candidate) {
+            $visited++;
+            $offset++;
+            $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+
+            if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                break;
+            }
+
+            if ($availability['remaining_count'] <= 0) {
+                if ($visited > 50000 && $rows !== []) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $copyIndexes = $this->availableCopyIndexes($partnerId, $candidate, $availability);
+
+            foreach ($copyIndexes as $copyIndexOffset => $copyIndex) {
+                if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                    break 2;
+                }
+
+                $resource = $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability);
+                $quotaUsage = $this->incrementSearchQuotaUsage($quotaUsage, $availability, $trackedQuotaKeys);
+
+                if ($mode === 'random' && $copyIndexOffset > 0) {
+                    $deferredRandomRows[] = $resource;
+                    continue;
+                }
+
+                $rows[] = $resource;
+
+                if (count($rows) + count($deferredRandomRows) >= $limit) {
+                    break 2;
+                }
+            }
+
+            if ($visited > 50000 && $rows !== []) {
+                break;
+            }
+        }
+
+        $hasMore = false;
+        if ($mode === 'random') {
+            $rows = $this->interleaveAdjacentFullNumbers([...$rows, ...$deferredRandomRows]);
+        }
+        $rows = array_slice($rows, 0, $limit);
+        $hasMore = count($rows) >= $limit && $this->hasMoreSearchCandidates(
+            $tenantId,
+            $partnerId,
+            $gameId,
+            $profile,
+            $queryParams,
+            $number,
+            $mode,
+            $offset,
+            $trackedQuotaKeys,
+            $quotaUsage,
+        );
+
+        return [
+            'data' => $rows,
+            'meta' => [
+                'game_id' => $gameId,
+                'next_cursor' => $hasMore ? $this->encodeTenantStockCursor([
+                    'number_offset' => $offset,
+                    'copy_offset' => 0,
+                    'quota_usage' => $quotaUsage,
+                ]) : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $profile
+     * @param array<string, true> $trackedQuotaKeys
+     * @param array<string, int> $quotaUsage
+     */
+    private function hasMoreSearchCandidates(
+        string $tenantId,
+        string $partnerId,
+        string $gameId,
+        array $profile,
+        array $queryParams,
+        string $number,
+        string $mode,
+        int $offset,
+        array $trackedQuotaKeys,
+        array $quotaUsage,
+    ): bool {
+        $visited = 0;
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $offset) as $candidate) {
+            $visited++;
+            $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+
+            if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                return false;
+            }
+
+            if ($availability['remaining_count'] > 0) {
+                return true;
+            }
+
+            if ($visited > 50000) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $profile
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function searchLocalStockCopyAware(
+        string $tenantId,
+        string $partnerId,
+        string $gameId,
+        array $profile,
+        array $queryParams,
+        string $number,
+        string $mode,
+        int $limit,
+    ): array {
+        $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $quotaUsage = $cursor['quota_usage'];
+        $trackedQuotaKeys = $this->trackedSearchQuotaKeys($partnerId, $queryParams, $number);
+        $rows = [];
+        $numberOffset = $cursor['number_offset'];
+        $firstCandidate = true;
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $numberOffset) as $candidate) {
+            $copyOffset = $firstCandidate ? $cursor['copy_offset'] : 0;
+            $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+
+            if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                break;
+            }
+
+            $copyIndexes = $availability['remaining_count'] > 0
+                ? $this->availableCopyIndexes($partnerId, $candidate, $availability)
+                : [];
+            $copyCount = count($copyIndexes);
+            $firstCandidate = false;
+
+            foreach (array_slice($copyIndexes, $copyOffset) as $localCopyPosition => $copyIndex) {
+                if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                    break 2;
+                }
+
+                $nextCopyOffset = $copyOffset + $localCopyPosition + 1;
+                $nextQuotaUsage = $this->incrementSearchQuotaUsage($quotaUsage, $availability, $trackedQuotaKeys);
+                $nextCursor = $nextCopyOffset < $copyCount
+                    ? ['number_offset' => $numberOffset, 'copy_offset' => $nextCopyOffset, 'quota_usage' => $nextQuotaUsage]
+                    : ['number_offset' => $numberOffset + 1, 'copy_offset' => 0, 'quota_usage' => $nextQuotaUsage];
+
+                $rows[] = [
+                    'resource' => $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability),
+                    'cursor' => $this->encodeTenantStockCursor($nextCursor),
+                ];
+                $quotaUsage = $nextQuotaUsage;
+
+                if (count($rows) >= $limit + 1) {
+                    break 2;
+                }
+            }
+
+            $numberOffset++;
+        }
+
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+        $lastRow = $rows === [] ? null : $rows[array_key_last($rows)];
+
+        return [
+            'data' => array_map(fn (array $row): array => $row['resource'], $rows),
+            'meta' => [
+                'game_id' => $gameId,
+                'next_cursor' => $hasMore && $lastRow !== null ? (string) $lastRow['cursor'] : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}|null
+     */
+    public function listTenantStock(string $tenantId, string $partnerId, array $queryParams, int $limit): ?array
+    {
+        $gameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $gameId = $gameId !== '' ? $gameId : $this->defaultTenantStockGameId($tenantId, $partnerId);
+        $profile = $this->activeProfile($gameId);
+
+        if ($profile === null) {
+            return null;
+        }
+
+        if (! $this->hasActiveTenantVirtualAllocation($tenantId, $partnerId, $gameId)) {
+            return $this->emptyTenantStockResult($gameId, $partnerId, $tenantId);
+        }
+
+        $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $number = preg_replace('/\D+/', '', trim((string) ($queryParams['number'] ?? ''))) ?? '';
+        $mode = (string) ($queryParams['mode'] ?? 'search');
+        $rows = [];
+        $numberOffset = $cursor['number_offset'];
+        $firstCandidate = true;
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $numberOffset) as $candidate) {
+            $copyOffset = $firstCandidate ? $cursor['copy_offset'] : 0;
+            $assignedCopyIndexes = $this->availableAssignedCopyIndexes($partnerId, $gameId, $candidate, $profile);
+            $firstCandidate = false;
+
+            foreach (array_slice($assignedCopyIndexes, $copyOffset) as $localCopyPosition => $copyIndex) {
+                $nextCopyOffset = $copyOffset + $localCopyPosition + 1;
+                $nextCursor = $nextCopyOffset < count($assignedCopyIndexes)
+                    ? ['number_offset' => $numberOffset, 'copy_offset' => $nextCopyOffset]
+                    : ['number_offset' => $numberOffset + 1, 'copy_offset' => 0];
+
+                $rows[] = [
+                    'resource' => $this->tenantVirtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex),
+                    'cursor' => $this->encodeTenantStockCursor($nextCursor),
+                ];
+
+                if (count($rows) >= $limit + 1) {
+                    break 2;
+                }
+            }
+
+            $numberOffset++;
+        }
+
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+        $lastRow = $rows === [] ? null : $rows[array_key_last($rows)];
+
+        return [
+            'data' => array_map(fn (array $row): array => $row['resource'], $rows),
+            'meta' => [
+                'game_id' => $gameId,
+                'stock_mode' => 'virtual',
+                'allocated_count' => $this->allocatedCountForPartner($gameId, $partnerId, $tenantId),
+                'used_count' => $this->usedCountForPartner($gameId, $partnerId),
+                'next_cursor' => $hasMore && $lastRow !== null ? (string) $lastRow['cursor'] : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findTenantStock(string $tenantId, string $partnerId, string $stockItemId): ?array
+    {
+        $ref = $this->parseVirtualRef($stockItemId);
+
+        if ($ref === null || $ref['tenant_id'] !== $tenantId) {
+            return null;
+        }
+
+        $profile = $this->activeProfile($ref['game_id']);
+
+        if ($profile === null) {
+            return null;
+        }
+
+        $copyIndexes = $this->availableAssignedCopyIndexes($partnerId, $ref['game_id'], $ref['full_number'], $profile);
+
+        return in_array($ref['copy_index'], $copyIndexes, true)
+            ? $this->tenantVirtualStockResource($tenantId, $partnerId, $ref['game_id'], $ref['full_number'], $ref['copy_index'])
+            : null;
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: string}|null
+     */
+    public function createReservation(string $tenantId, string $partnerId, CustomerSessionContext $customer, array $payload, Request $request): ?array
+    {
+        $itemIds = array_values(array_map('strval', $payload['local_stock_item_ids'] ?? []));
+        sort($itemIds);
+
+        if ($itemIds === [] || ! $this->containsVirtualRefs($itemIds)) {
+            return null;
+        }
+
+        $normalizedPayload = [
+            'game_id' => trim((string) $payload['game_id']),
+            'local_stock_item_ids' => $itemIds,
+        ];
+        $payloadHash = $this->payloadHash($normalizedPayload);
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+        $existing = StockReservation::query()
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customer->customerId())
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+
+        if ($existing !== null) {
+            if ((string) $existing->payload_hash !== $payloadHash) {
+                return ['error' => 'idempotency_conflict'];
+            }
+
+            return ['resource' => $this->reservationResourceById((string) $existing->id)];
+        }
+
+        return DB::transaction(function () use ($tenantId, $partnerId, $customer, $request, $itemIds, $normalizedPayload, $payloadHash, $idempotencyKey): array {
+            $gameId = $normalizedPayload['game_id'];
+            $profile = $this->activeProfile($gameId);
+
+            if ($profile === null || count($itemIds) !== count(array_unique($itemIds))) {
+                return ['error' => 'reservation_unavailable'];
+            }
+
+            $now = now();
+            $game = Game::query()
+                ->where('id', $gameId)
+                ->where('status', 'open')
+                ->where('sale_start_at', '<=', $now)
+                ->where('close_at', '>', $now)
+                ->lockForUpdate()
+                ->first();
+
+            if ($game === null) {
+                return ['error' => 'reservation_unavailable'];
+            }
+
+            $firstActiveReservation = StockReservation::query()
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customer->customerId())
+                ->where('status', 'active')
+                ->where('expires_at', '>', $now)
+                ->orderBy('expires_at')
+                ->lockForUpdate()
+                ->first(['expires_at']);
+            $reservationId = 'res_'.Str::ulid()->toBase32();
+            $expiresAt = $firstActiveReservation?->expires_at ?? $now->copy()->addMinutes(15);
+            $localIds = [];
+            $events = [];
+
+            foreach ($itemIds as $itemId) {
+                $ref = $this->parseVirtualRef($itemId);
+
+                if ($ref === null || $ref['tenant_id'] !== $tenantId || $ref['game_id'] !== $gameId) {
+                    return ['error' => 'reservation_unavailable'];
+                }
+
+                $availability = $this->lockedAvailabilityForNumber($tenantId, $partnerId, $gameId, $ref['full_number'], $profile);
+
+                if ($availability['remaining_count'] <= 0 || ! in_array($ref['copy_index'], $this->availableCopyIndexes($partnerId, $ref['full_number'], $availability), true)) {
+                    return ['error' => 'reservation_unavailable'];
+                }
+
+                $localIds[] = $this->materializeVirtualStock(
+                    tenantId: $tenantId,
+                    partnerId: $partnerId,
+                    gameId: $gameId,
+                    fullNumber: $ref['full_number'],
+                    copyIndex: $ref['copy_index'],
+                    stockRef: $itemId,
+                    now: $now,
+                );
+
+                $this->incrementVirtualCounters($gameId, $tenantId, $partnerId, $ref['full_number'], reservedDelta: 1, soldDelta: 0);
+                $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, $ref['full_number'], $tenantId);
+                $events[] = $this->availabilityPayload($tenantId, $partnerId, $gameId, $ref['full_number'], $customer->customerId());
+            }
+
+            StockReservation::query()->insert([
+                'id' => $reservationId,
+                'tenant_id' => $tenantId,
+                'customer_id' => $customer->customerId(),
+                'game_id' => $gameId,
+                'status' => 'active',
+                'expires_at' => $expiresAt,
+                'released_at' => null,
+                'cancelled_at' => null,
+                'converted_at' => null,
+                'idempotency_key' => $idempotencyKey,
+                'payload_hash' => $payloadHash,
+                'released_idempotency_key' => null,
+                'released_payload_hash' => null,
+                'cancelled_idempotency_key' => null,
+                'cancelled_payload_hash' => null,
+                'cancelled_by_admin_id' => null,
+                'cancel_reason' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $stockRows = LocalStockItem::query()
+                ->where('tenant_id', $tenantId)
+                ->whereIn('id', $localIds)
+                ->orderBy('id')
+                ->get()
+                ->all();
+            $pricing = $this->salePrices->allocatePricesForStockRows($tenantId, $stockRows);
+
+            StockReservationItem::query()->insert(array_map(fn (string $localId): array => [
+                'reservation_id' => $reservationId,
+                'local_stock_item_id' => $localId,
+                'tenant_id' => $tenantId,
+                'game_id' => $gameId,
+                'status' => 'active',
+                'price_amount' => (int) ($pricing['items'][$localId]['amount'] ?? 0),
+                'currency' => (string) ($pricing['items'][$localId]['currency'] ?? 'THB'),
+                'sale_price_rule_snapshot_json' => json_encode($pricing['items'][$localId]['snapshot'] ?? [], JSON_THROW_ON_ERROR),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $localIds));
+
+            $this->refreshActiveCartSalePriceSnapshots($tenantId, $customer->customerId(), $gameId, $now);
+            $this->broadcastAfterCommit($events);
+
+            return ['resource' => $this->reservationResourceById($reservationId)];
+        });
+    }
+
+    private function refreshActiveCartSalePriceSnapshots(string $tenantId, string $customerId, string $gameId, mixed $now): void
+    {
+        $stockRows = StockReservationItem::query()
+            ->join('stock_reservations', 'stock_reservations.id', '=', 'stock_reservation_items.reservation_id')
+            ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
+            ->where('stock_reservation_items.tenant_id', $tenantId)
+            ->where('stock_reservation_items.game_id', $gameId)
+            ->where('stock_reservation_items.status', 'active')
+            ->where('stock_reservations.customer_id', $customerId)
+            ->where('stock_reservations.status', 'active')
+            ->where('stock_reservations.expires_at', '>', $now)
+            ->whereNotNull('local_stock_items.virtual_stock_ref')
+            ->orderBy('stock_reservation_items.reservation_id')
+            ->orderBy('local_stock_items.id')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.reservation_id as reservation_item_reservation_id',
+            )
+            ->get()
+            ->all();
+
+        if ($stockRows === []) {
+            return;
+        }
+
+        $pricing = $this->salePrices->allocatePricesForStockRows($tenantId, $stockRows);
+
+        foreach ($stockRows as $stock) {
+            $price = $pricing['items'][(string) $stock->id] ?? null;
+
+            if ($price === null) {
+                continue;
+            }
+
+            StockReservationItem::query()
+                ->where('reservation_id', (string) $stock->reservation_item_reservation_id)
+                ->where('local_stock_item_id', (string) $stock->id)
+                ->update([
+                    'price_amount' => (int) ($price['amount'] ?? 0),
+                    'currency' => (string) ($price['currency'] ?? 'THB'),
+                    'sale_price_rule_snapshot_json' => json_encode($price['snapshot'] ?? [], JSON_THROW_ON_ERROR),
+                    'updated_at' => $now,
+                ]);
+        }
+    }
+
+    public function releaseReservationCounters(object $reservation, string $tenantId, string $partnerId, ?string $customerId = null): void
+    {
+        $rows = $this->virtualReservationRows((string) $reservation->id, $tenantId);
+        $events = [];
+
+        foreach ($rows as $row) {
+            $this->incrementVirtualCounters((string) $reservation->game_id, $tenantId, $partnerId, (string) $row->full_number, reservedDelta: -1, soldDelta: 0);
+            $this->coverageRealtime->broadcastNumberChangedAfterCommit((string) $reservation->game_id, $partnerId, (string) $row->full_number, $tenantId);
+            $events[] = $this->availabilityPayload($tenantId, $partnerId, (string) $reservation->game_id, (string) $row->full_number, $customerId);
+        }
+
+        $this->broadcastAfterCommit($events);
+    }
+
+    /**
+     * @param array<int, object> $stockRows
+     */
+    public function convertReservedRowsToSold(array $stockRows, string $tenantId, string $partnerId, string $gameId, ?string $customerId = null): void
+    {
+        $events = [];
+
+        foreach ($stockRows as $row) {
+            if (($row->virtual_stock_ref ?? null) === null) {
+                continue;
+            }
+
+            $this->incrementVirtualCounters($gameId, $tenantId, $partnerId, (string) $row->full_number, reservedDelta: -1, soldDelta: 1);
+            $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, (string) $row->full_number, $tenantId);
+            $events[] = $this->availabilityPayload($tenantId, $partnerId, $gameId, (string) $row->full_number, $customerId);
+        }
+
+        $this->broadcastAfterCommit($events);
+    }
+
+    /**
+     * @param array<int, string> $itemIds
+     */
+    private function containsVirtualRefs(array $itemIds): bool
+    {
+        foreach ($itemIds as $itemId) {
+            if (str_starts_with($itemId, 'vstock:')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cachedSearchValue(string $bucket, string $key, callable $resolver): mixed
+    {
+        if (! $this->searchCacheActive) {
+            return $resolver();
+        }
+
+        if (! array_key_exists($bucket, $this->searchCache)) {
+            $this->searchCache[$bucket] = [];
+        }
+
+        if (! array_key_exists($key, $this->searchCache[$bucket])) {
+            $this->searchCache[$bucket][$key] = $resolver();
+        }
+
+        return $this->searchCache[$bucket][$key];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function activeProfile(string $gameId): ?array
+    {
+        if ($gameId === '') {
+            return null;
+        }
+
+        return $this->cachedSearchValue('active_profile', $gameId, function () use ($gameId): ?array {
+            $profile = DB::table('stock_supply_profiles')
+                ->where('game_id', $gameId)
+                ->where('status', 'active')
+                ->first();
+
+            if ($profile === null) {
+                return null;
+            }
+
+            return [
+                'id' => (string) $profile->id,
+                'game_id' => (string) $profile->game_id,
+                'seed' => (string) $profile->seed,
+                'set_distribution' => $this->decodeJsonArray($profile->set_distribution_json),
+                'base_count' => (int) $profile->base_count,
+                'total_capacity' => (int) $profile->total_capacity,
+                'layers' => $this->activeLayersForProfile($profile),
+            ];
+        });
+    }
+
+    /**
+     * @return array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}>
+     */
+    private function activeLayersForProfile(object $profile): array
+    {
+        $rows = DB::table('virtual_stock_supply_layers')
+            ->where('profile_id', (string) $profile->id)
+            ->where('status', 'active')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return [[
+                'id' => (string) $profile->id,
+                'seed' => (string) $profile->seed,
+                'set_distribution' => $this->decodeJsonArray($profile->set_distribution_json),
+                'total_capacity' => (int) $profile->total_capacity,
+            ]];
+        }
+
+        return $rows->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'seed' => (string) $row->layer_seed,
+            'set_distribution' => $this->decodeJsonArray($row->set_distribution_json),
+            'total_capacity' => (int) $row->total_capacity,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function candidateNumbers(array $queryParams, string $number, string $mode, int $cursor): \Generator
+    {
+        $front3 = preg_replace('/\D+/', '', (string) ($queryParams['front3'] ?? '')) ?? '';
+        $back3 = preg_replace('/\D+/', '', (string) ($queryParams['back3'] ?? '')) ?? '';
+        $back2 = preg_replace('/\D+/', '', (string) ($queryParams['back2'] ?? '')) ?? '';
+        $positionalPattern = $this->positionalNumberPattern($queryParams);
+
+        if ($positionalPattern === null && strlen($number) >= 6) {
+            $fullNumber = substr($number, 0, 6);
+            if ($cursor > 0) {
+                return;
+            }
+
+            $exists = DB::table('base_lottery_numbers')
+                ->where('full_number', $fullNumber)
+                ->when($front3 !== '', fn ($query) => $query->where('front3', substr($front3, 0, 3)))
+                ->when($back3 !== '', fn ($query) => $query->where('back3', substr($back3, 0, 3)))
+                ->when($back2 !== '', fn ($query) => $query->where('back2', substr($back2, 0, 2)))
+                ->exists();
+
+            if ($exists) {
+                yield $fullNumber;
+            }
+
+            return;
+        }
+
+        $query = DB::table('base_lottery_numbers')->select('full_number');
+
+        if ($front3 !== '') {
+            $query->where('front3', substr($front3, 0, 3));
+        }
+
+        if ($back3 !== '') {
+            $query->where('back3', substr($back3, 0, 3));
+        }
+
+        if ($back2 !== '') {
+            $query->where('back2', substr($back2, 0, 2));
+        }
+
+        if ($positionalPattern !== null) {
+            $query->where('full_number', 'like', $positionalPattern);
+        } elseif ($number !== '') {
+            $this->applyNumberSuffixFilter($query, $number);
+        }
+
+        if ($mode === 'random') {
+            $randomSeed = trim((string) ($queryParams['random_seed'] ?? $queryParams['game_id'] ?? 'virtual-stock'));
+            yield from $this->seededShuffledCandidates(
+                $query,
+                'public-stock-random:'.$randomSeed,
+                max(0, $cursor),
+                $this->candidateNumberMask($queryParams, $number, $positionalPattern),
+            );
+
+            return;
+        }
+
+        if (
+            trim((string) ($queryParams['sort_by'] ?? '')) === ''
+            && $this->shouldShuffleSearchCandidates($queryParams, $number, $positionalPattern)
+        ) {
+            $seed = $this->searchCandidateShuffleSeed($queryParams, $number, $positionalPattern);
+            yield from $this->seededShuffledCandidates(
+                $query,
+                $seed,
+                max(0, $cursor),
+                $this->candidateNumberMask($queryParams, $number, $positionalPattern),
+            );
+
+            return;
+        }
+
+        if (($queryParams['sort_by'] ?? null) === 'full_number' && strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc') {
+            $query->orderByDesc('full_number');
+        } else {
+            $query->orderBy('full_number');
+        }
+
+        foreach ($query->offset(max(0, $cursor))->limit(50001)->get() as $row) {
+            yield (string) $row->full_number;
+        }
+    }
+
+    private function publicSearchMode(array $queryParams, string $number): string
+    {
+        return strlen($number) >= 6 && ! $this->hasPositionalDigitSearch($queryParams)
+            ? 'search'
+            : 'random';
+    }
+
+    private function hasPositionalDigitSearch(array $queryParams): bool
+    {
+        foreach (range(1, 6) as $position) {
+            if (trim((string) ($queryParams['d'.$position] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int, string|null>|null $mask
+     */
+    private function seededShuffledCandidates(mixed $query, string $seed, int $cursor, ?array $mask = null): \Generator
+    {
+        $total = (int) (clone $query)->count();
+        $sequenceLimit = min(self::SEARCH_SHUFFLE_SEQUENCE_LIMIT, $total);
+
+        if ($total < 1 || $cursor >= $sequenceLimit) {
+            return;
+        }
+
+        if ($total <= self::SEARCH_SHUFFLE_SEQUENCE_LIMIT) {
+            $numbers = (clone $query)
+                ->orderBy('full_number')
+                ->pluck('full_number')
+                ->map(fn (mixed $value): string => (string) $value)
+                ->all();
+
+            $this->sortCandidatesBySeed($numbers, $seed);
+
+            foreach (array_slice($numbers, max(0, $cursor), self::SEARCH_SHUFFLE_SEQUENCE_LIMIT) as $fullNumber) {
+                yield $fullNumber;
+            }
+
+            return;
+        }
+
+        if ($mask !== null) {
+            yield from $this->seededMaskedCandidateNumbers($mask, $seed, $cursor, $sequenceLimit);
+
+            return;
+        }
+
+        $seedOffset = $this->hashScore($seed) % max(1, $total);
+        $position = max(0, $cursor);
+
+        while ($position < $sequenceLimit) {
+            $orderedOffset = ($seedOffset + ($position * $this->permutationStep($seed, $total))) % $total;
+            $row = (clone $query)->orderBy('full_number')->offset($orderedOffset)->limit(1)->first();
+
+            if ($row !== null) {
+                yield (string) $row->full_number;
+            }
+
+            $position++;
+        }
+    }
+
+    /**
+     * @param array<int, string|null> $mask
+     */
+    private function seededMaskedCandidateNumbers(array $mask, string $seed, int $cursor, int $sequenceLimit): \Generator
+    {
+        $unknownPositions = array_values(array_filter(
+            array_keys($mask),
+            fn (int $position): bool => $mask[$position] === null,
+        ));
+        $domain = $this->pow10(count($unknownPositions));
+
+        if ($domain < 1 || $cursor >= $domain) {
+            return;
+        }
+
+        $start = $this->hashScore($seed.':start') % $domain;
+        $step = $this->permutationStep($seed.':step', $domain);
+        $position = max(0, $cursor);
+        $maxPosition = min($sequenceLimit, $domain);
+        $batchSize = 512;
+
+        while ($position < $maxPosition) {
+            $candidates = [];
+
+            while (count($candidates) < $batchSize && $position < $maxPosition) {
+                $index = ($start + ($position * $step)) % $domain;
+                $candidates[] = $this->numberFromMask($mask, $unknownPositions, $index);
+                $position++;
+            }
+
+            $existing = DB::table('base_lottery_numbers')
+                ->whereIn('full_number', $candidates)
+                ->pluck('full_number')
+                ->mapWithKeys(fn (mixed $value): array => [(string) $value => true])
+                ->all();
+
+            foreach ($candidates as $candidate) {
+                if (isset($existing[$candidate])) {
+                    yield $candidate;
+                }
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string|null>|null
+     */
+    private function candidateNumberMask(array $queryParams, string $number, ?string $positionalPattern): ?array
+    {
+        $mask = array_fill(0, 6, null);
+        $applyDigit = function (int $position, string $digit) use (&$mask): bool {
+            if ($mask[$position] !== null && $mask[$position] !== $digit) {
+                return false;
+            }
+
+            $mask[$position] = $digit;
+
+            return true;
+        };
+
+        if ($positionalPattern !== null) {
+            foreach (str_split($positionalPattern) as $index => $digit) {
+                if ($digit !== '_' && ! $applyDigit($index, $digit)) {
+                    return null;
+                }
+            }
+        }
+
+        foreach ([['front3', 0], ['back3', 3], ['back2', 4]] as [$field, $offset]) {
+            $value = preg_replace('/\D+/', '', (string) ($queryParams[$field] ?? '')) ?? '';
+            $length = $field === 'back2' ? 2 : 3;
+
+            if ($value === '') {
+                continue;
+            }
+
+            foreach (str_split(substr($value, 0, $length)) as $index => $digit) {
+                if (! $applyDigit($offset + $index, $digit)) {
+                    return null;
+                }
+            }
+        }
+
+        if ($number !== '') {
+            foreach (str_split($number) as $index => $digit) {
+                $position = 6 - strlen($number) + $index;
+
+                if ($position >= 0 && ! $applyDigit($position, $digit)) {
+                    return null;
+                }
+            }
+        }
+
+        return $mask;
+    }
+
+    /**
+     * @param array<int, string|null> $mask
+     * @param array<int, int> $unknownPositions
+     */
+    private function numberFromMask(array $mask, array $unknownPositions, int $index): string
+    {
+        $digits = str_split(str_pad((string) $index, count($unknownPositions), '0', STR_PAD_LEFT));
+
+        foreach ($unknownPositions as $digitIndex => $position) {
+            $mask[$position] = $digits[$digitIndex] ?? '0';
+        }
+
+        return implode('', $mask);
+    }
+
+    private function pow10(int $power): int
+    {
+        return (int) (10 ** max(0, $power));
+    }
+
+    private function permutationStep(string $seed, int $domain): int
+    {
+        if ($domain <= 1) {
+            return 1;
+        }
+
+        $step = ($this->hashScore($seed) % ($domain - 1)) + 1;
+
+        while ($this->greatestCommonDivisor($step, $domain) !== 1) {
+            $step++;
+
+            if ($step >= $domain) {
+                $step = 1;
+            }
+        }
+
+        return $step;
+    }
+
+    private function greatestCommonDivisor(int $left, int $right): int
+    {
+        while ($right !== 0) {
+            [$left, $right] = [$right, $left % $right];
+        }
+
+        return abs($left);
+    }
+
+    private function shouldShuffleSearchCandidates(array $queryParams, string $number, ?string $positionalPattern): bool
+    {
+        if ($positionalPattern !== null) {
+            return true;
+        }
+
+        if ($number !== '') {
+            return strlen($number) < 6;
+        }
+
+        foreach (['front3', 'back3', 'back2'] as $field) {
+            if (trim((string) ($queryParams[$field] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function searchCandidateShuffleSeed(array $queryParams, string $number, ?string $positionalPattern): string
+    {
+        $parts = [
+            'public-stock-search',
+            trim((string) ($queryParams['random_seed'] ?? '')),
+            trim((string) ($queryParams['game_id'] ?? '')),
+            trim((string) ($queryParams['store_id'] ?? '')),
+            $number,
+            $positionalPattern ?? '',
+            trim((string) ($queryParams['front3'] ?? '')),
+            trim((string) ($queryParams['back3'] ?? '')),
+            trim((string) ($queryParams['back2'] ?? '')),
+        ];
+
+        return implode('|', $parts);
+    }
+
+    /**
+     * @param array<int, string> $numbers
+     */
+    private function sortCandidatesBySeed(array &$numbers, string $seed): void
+    {
+        usort($numbers, function (string $left, string $right) use ($seed): int {
+            $leftScore = $this->hashScore($seed.':'.$left);
+            $rightScore = $this->hashScore($seed.':'.$right);
+
+            return $leftScore === $rightScore
+                ? strcmp($left, $right)
+                : $leftScore <=> $rightScore;
+        });
+    }
+
+    private function positionalNumberPattern(array $queryParams): ?string
+    {
+        $pattern = [];
+        $hasDigit = false;
+
+        foreach (range(1, 6) as $position) {
+            $value = trim((string) ($queryParams['d'.$position] ?? ''));
+
+            if (preg_match('/^[0-9]$/', $value) === 1) {
+                $pattern[] = $value;
+                $hasDigit = true;
+                continue;
+            }
+
+            $pattern[] = '_';
+        }
+
+        return $hasDigit ? implode('', $pattern) : null;
+    }
+
+    private function applyNumberSuffixFilter($query, string $number): void
+    {
+        if (strlen($number) === 3) {
+            $query->where('back3', $number);
+            return;
+        }
+
+        if (strlen($number) === 2) {
+            $query->where('back2', $number);
+            return;
+        }
+
+        $query->where('full_number', 'like', '%'.$number);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function interleaveAdjacentFullNumbers(array $rows): array
+    {
+        $groups = [];
+        $order = [];
+
+        foreach ($rows as $row) {
+            $fullNumber = (string) ($row['full_number'] ?? '');
+
+            if (! array_key_exists($fullNumber, $groups)) {
+                $groups[$fullNumber] = [];
+                $order[] = $fullNumber;
+            }
+
+            $groups[$fullNumber][] = $row;
+        }
+
+        if (count($groups) < 2) {
+            return $rows;
+        }
+
+        $result = [];
+        $lastNumber = null;
+
+        while (count($result) < count($rows)) {
+            $nextNumber = null;
+
+            foreach ($order as $number) {
+                if ($number === $lastNumber || ($groups[$number] ?? []) === []) {
+                    continue;
+                }
+
+                if ($nextNumber === null || count($groups[$number]) > count($groups[$nextNumber])) {
+                    $nextNumber = $number;
+                }
+            }
+
+            $nextNumber ??= collect($order)->first(fn (string $number): bool => ($groups[$number] ?? []) !== []);
+
+            if ($nextNumber === null) {
+                break;
+            }
+
+            $result[] = array_shift($groups[$nextNumber]);
+            $lastNumber = $nextNumber;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function availabilityForNumber(string $tenantId, string $partnerId, string $gameId, string $fullNumber, array $profile): array
+    {
+        $capacity = $this->capacityForNumber($fullNumber, $profile);
+        $assignedCopyIndexes = $this->partnerCopyIndexes($partnerId, $gameId, $fullNumber, $profile);
+        $assigned = count($assignedCopyIndexes);
+        $fullUsed = $this->counterUsed($gameId, 'partner', $partnerId, 'full_number', $fullNumber);
+        $front3 = substr($fullNumber, 0, 3);
+        $back3 = substr($fullNumber, -3);
+        $back2 = substr($fullNumber, -2);
+        $centralLimits = $this->limitSettings($gameId, 'central', 'central');
+        $partnerLimits = $this->limitSettings($gameId, 'partner', $partnerId);
+        $patternLimits = [
+            [
+                'key' => $this->searchQuotaKey('central', 'central', 'front3', $front3),
+                'remaining' => $this->remainingForPattern($gameId, 'central', 'central', 'front3', $front3, $centralLimits['front3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('central', 'central', 'back3', $back3),
+                'remaining' => $this->remainingForPattern($gameId, 'central', 'central', 'back3', $back3, $centralLimits['back3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('central', 'central', 'back2', $back2),
+                'remaining' => $this->remainingForPattern($gameId, 'central', 'central', 'back2', $back2, $centralLimits['back2_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('partner', $partnerId, 'front3', $front3),
+                'remaining' => $this->remainingForPattern($gameId, 'partner', $partnerId, 'front3', $front3, $partnerLimits['front3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('partner', $partnerId, 'back3', $back3),
+                'remaining' => $this->remainingForPattern($gameId, 'partner', $partnerId, 'back3', $back3, $partnerLimits['back3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('partner', $partnerId, 'back2', $back2),
+                'remaining' => $this->remainingForPattern($gameId, 'partner', $partnerId, 'back2', $back2, $partnerLimits['back2_limit']),
+            ],
+        ];
+        $remaining = min(
+            max(0, $assigned - $fullUsed),
+            ...array_map(fn (array $row): int => (int) $row['remaining'], $patternLimits),
+        );
+
+        return [
+            'capacity' => $capacity,
+            'partner_assigned_count' => $assigned,
+            'partner_copy_indexes' => $assignedCopyIndexes,
+            'partner_full_used_count' => $fullUsed,
+            'pattern_limits' => $patternLimits,
+            'remaining_count' => max(0, $remaining),
+            'availability_status' => $remaining > 0 ? 'available' : 'sold_out',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lockedAvailabilityForNumber(string $tenantId, string $partnerId, string $gameId, string $fullNumber, array $profile): array
+    {
+        $this->lockCounterRows($gameId, $partnerId, $fullNumber);
+
+        return $this->availabilityForNumber($tenantId, $partnerId, $gameId, $fullNumber, $profile);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function availableCopyIndexes(string $partnerId, string $fullNumber, array $availability): array
+    {
+        $skip = (int) $availability['partner_full_used_count'];
+        $remaining = (int) $availability['remaining_count'];
+        $copyIndexes = array_values($availability['partner_copy_indexes']);
+
+        return array_slice($copyIndexes, $skip, $remaining);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function availableAssignedCopyIndexes(string $partnerId, string $gameId, string $fullNumber, array $profile): array
+    {
+        $copyIndexes = $this->partnerCopyIndexes($partnerId, $gameId, $fullNumber, $profile);
+        $used = $this->counterUsed($gameId, 'partner', $partnerId, 'full_number', $fullNumber);
+
+        return array_slice(array_values($copyIndexes), $used);
+    }
+
+    private function materializeVirtualStock(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex, string $stockRef, mixed $now): string
+    {
+        $stockId = $this->stableId('stk', $stockRef);
+        $localId = $this->stableId('lsi', $tenantId.':'.$stockRef);
+        $numberParts = [
+            'front3' => substr($fullNumber, 0, 3),
+            'back3' => substr($fullNumber, -3),
+            'back2' => substr($fullNumber, -2),
+        ];
+        $existing = LocalStockItem::query()->where('tenant_id', $tenantId)->where('id', $localId)->lockForUpdate()->first();
+
+        if ($existing !== null && $existing->status !== 'available') {
+            throw new \RuntimeException('virtual stock item is not available');
+        }
+
+        StockItem::query()->updateOrInsert(
+            ['id' => $stockId],
+            [
+                'game_id' => $gameId,
+                'batch_id' => null,
+                'full_number' => $fullNumber,
+                'front3' => $numberParts['front3'],
+                'back3' => $numberParts['back3'],
+                'back2' => $numberParts['back2'],
+                'status' => 'allocated',
+                'partner_id' => $partnerId,
+                'tenant_id' => $tenantId,
+                'allocation_id' => null,
+                'virtual_stock_ref' => $stockRef,
+                'virtual_copy_index' => $copyIndex,
+                'recall_reason' => null,
+                'recalled_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        );
+
+        LocalStockItem::query()->updateOrInsert(
+            ['id' => $localId],
+            [
+                'tenant_id' => $tenantId,
+                'partner_id' => $partnerId,
+                'store_id' => $tenantId,
+                'game_id' => $gameId,
+                'stock_item_id' => $stockId,
+                'allocation_id' => null,
+                'virtual_stock_ref' => $stockRef,
+                'virtual_copy_index' => $copyIndex,
+                'full_number' => $fullNumber,
+                'front3' => $numberParts['front3'],
+                'back3' => $numberParts['back3'],
+                'back2' => $numberParts['back2'],
+                'status' => 'reserved',
+                'reserved_at' => $now,
+                'sold_at' => null,
+                'synced_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        );
+
+        return $localId;
+    }
+
+    private function incrementVirtualCounters(string $gameId, string $tenantId, string $partnerId, string $fullNumber, int $reservedDelta, int $soldDelta): void
+    {
+        $dimensions = [
+            ['central', 'central', 'full_number', $fullNumber],
+            ['central', 'central', 'front3', substr($fullNumber, 0, 3)],
+            ['central', 'central', 'back3', substr($fullNumber, -3)],
+            ['central', 'central', 'back2', substr($fullNumber, -2)],
+            ['partner', $partnerId, 'full_number', $fullNumber],
+            ['partner', $partnerId, 'front3', substr($fullNumber, 0, 3)],
+            ['partner', $partnerId, 'back3', substr($fullNumber, -3)],
+            ['partner', $partnerId, 'back2', substr($fullNumber, -2)],
+        ];
+
+        foreach ($dimensions as [$scopeType, $scopeId, $dimension, $value]) {
+            $row = $this->ensureCounterRow($gameId, $scopeType, $scopeId, $dimension, $value);
+            DB::table('virtual_stock_counters')->where('id', $row->id)->update([
+                'reserved_count' => max(0, (int) $row->reserved_count + $reservedDelta),
+                'sold_count' => max(0, (int) $row->sold_count + $soldDelta),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    private function lockCounterRows(string $gameId, string $partnerId, string $fullNumber): void
+    {
+        $keys = [
+            ['central', 'central', 'full_number', $fullNumber],
+            ['central', 'central', 'front3', substr($fullNumber, 0, 3)],
+            ['central', 'central', 'back3', substr($fullNumber, -3)],
+            ['central', 'central', 'back2', substr($fullNumber, -2)],
+            ['partner', $partnerId, 'full_number', $fullNumber],
+            ['partner', $partnerId, 'front3', substr($fullNumber, 0, 3)],
+            ['partner', $partnerId, 'back3', substr($fullNumber, -3)],
+            ['partner', $partnerId, 'back2', substr($fullNumber, -2)],
+        ];
+
+        usort($keys, fn (array $left, array $right): int => strcmp(implode(':', $left), implode(':', $right)));
+
+        foreach ($keys as [$scopeType, $scopeId, $dimension, $value]) {
+            $this->ensureCounterRow($gameId, $scopeType, $scopeId, $dimension, $value);
+        }
+    }
+
+    private function ensureCounterRow(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value): object
+    {
+        $id = $this->stableId('vsc', $gameId.':'.$scopeType.':'.$scopeId.':'.$dimension.':'.$value);
+        $now = now();
+
+        DB::table('virtual_stock_counters')->updateOrInsert(
+            ['id' => $id],
+            [
+                'game_id' => $gameId,
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+                'dimension' => $dimension,
+                'value' => $value,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        );
+
+        return DB::table('virtual_stock_counters')->where('id', $id)->lockForUpdate()->first();
+    }
+
+    private function counterUsed(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value): int
+    {
+        $key = implode('|', [$gameId, $scopeType, $scopeId, $dimension, $value]);
+
+        return (int) $this->cachedSearchValue('counter_used', $key, function () use ($gameId, $scopeType, $scopeId, $dimension, $value): int {
+            $row = DB::table('virtual_stock_counters')
+                ->where('game_id', $gameId)
+                ->where('scope_type', $scopeType)
+                ->where('scope_id', $scopeId)
+                ->where('dimension', $dimension)
+                ->where('value', $value)
+                ->first();
+
+            return $row === null ? 0 : (int) $row->reserved_count + (int) $row->sold_count;
+        });
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function trackedSearchQuotaKeys(string $partnerId, array $queryParams, string $number): array
+    {
+        $constraints = [];
+        $front3 = preg_replace('/\D+/', '', (string) ($queryParams['front3'] ?? '')) ?? '';
+        $back3 = preg_replace('/\D+/', '', (string) ($queryParams['back3'] ?? '')) ?? '';
+        $back2 = preg_replace('/\D+/', '', (string) ($queryParams['back2'] ?? '')) ?? '';
+
+        if ($front3 !== '') {
+            $constraints['front3'] = substr($front3, 0, 3);
+        }
+
+        if ($back3 !== '') {
+            $constraints['back3'] = substr($back3, 0, 3);
+        }
+
+        if ($back2 !== '') {
+            $constraints['back2'] = substr($back2, 0, 2);
+        }
+
+        $positionalDigits = [];
+        foreach (range(1, 6) as $position) {
+            $digit = trim((string) ($queryParams['d'.$position] ?? ''));
+            $positionalDigits[$position] = preg_match('/^[0-9]$/', $digit) === 1 ? $digit : null;
+        }
+
+        if ($positionalDigits[1] !== null && $positionalDigits[2] !== null && $positionalDigits[3] !== null) {
+            $constraints['front3'] ??= $positionalDigits[1].$positionalDigits[2].$positionalDigits[3];
+        }
+
+        if ($positionalDigits[4] !== null && $positionalDigits[5] !== null && $positionalDigits[6] !== null) {
+            $constraints['back3'] ??= $positionalDigits[4].$positionalDigits[5].$positionalDigits[6];
+        }
+
+        if ($positionalDigits[5] !== null && $positionalDigits[6] !== null) {
+            $constraints['back2'] ??= $positionalDigits[5].$positionalDigits[6];
+        }
+
+        if ($number !== '') {
+            if (strlen($number) >= 6) {
+                $fullNumber = substr($number, 0, 6);
+                $constraints['front3'] ??= substr($fullNumber, 0, 3);
+                $constraints['back3'] ??= substr($fullNumber, -3);
+                $constraints['back2'] ??= substr($fullNumber, -2);
+            } elseif (strlen($number) >= 3) {
+                $constraints['back3'] ??= substr($number, -3);
+                $constraints['back2'] ??= substr($number, -2);
+            } elseif (strlen($number) === 2) {
+                $constraints['back2'] ??= $number;
+            }
+        }
+
+        $keys = [];
+        foreach ($constraints as $dimension => $value) {
+            if (! in_array($dimension, ['front3', 'back3', 'back2'], true) || $value === '') {
+                continue;
+            }
+
+            $keys[$this->searchQuotaKey('central', 'central', $dimension, $value)] = true;
+            $keys[$this->searchQuotaKey('partner', $partnerId, $dimension, $value)] = true;
+        }
+
+        return $keys;
+    }
+
+    private function searchQuotaKey(string $scopeType, string $scopeId, string $dimension, string $value): string
+    {
+        return $scopeType.':'.$scopeId.':'.$dimension.':'.$value;
+    }
+
+    /**
+     * @param array<string, mixed> $availability
+     * @param array<string, true> $trackedQuotaKeys
+     * @param array<string, int> $quotaUsage
+     */
+    private function searchQuotaDepleted(array $availability, array $trackedQuotaKeys, array $quotaUsage): bool
+    {
+        if ($trackedQuotaKeys === []) {
+            return false;
+        }
+
+        foreach ($availability['pattern_limits'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $key = (string) ($row['key'] ?? '');
+            if (! isset($trackedQuotaKeys[$key])) {
+                continue;
+            }
+
+            $remaining = (int) ($row['remaining'] ?? 0);
+            if ($remaining < self::UNLIMITED && ($quotaUsage[$key] ?? 0) >= $remaining) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, int> $quotaUsage
+     * @param array<string, mixed> $availability
+     * @param array<string, true> $trackedQuotaKeys
+     * @return array<string, int>
+     */
+    private function incrementSearchQuotaUsage(array $quotaUsage, array $availability, array $trackedQuotaKeys): array
+    {
+        if ($trackedQuotaKeys === []) {
+            return $quotaUsage;
+        }
+
+        foreach ($availability['pattern_limits'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $key = (string) ($row['key'] ?? '');
+            if (! isset($trackedQuotaKeys[$key])) {
+                continue;
+            }
+
+            $quotaUsage[$key] = ($quotaUsage[$key] ?? 0) + 1;
+        }
+
+        return $quotaUsage;
+    }
+
+    private function remainingForPattern(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value, int $limit): int
+    {
+        $effectiveLimit = $this->effectiveLimit($gameId, $scopeType, $scopeId, $dimension, $value, $limit);
+
+        if ($effectiveLimit >= self::UNLIMITED) {
+            return self::UNLIMITED;
+        }
+
+        return max(0, $effectiveLimit - $this->counterUsed($gameId, $scopeType, $scopeId, $dimension, $value));
+    }
+
+    private function effectiveLimit(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value, int $defaultLimit): int
+    {
+        $key = implode('|', [$gameId, $scopeType, $scopeId, $dimension, $value, $defaultLimit]);
+
+        return (int) $this->cachedSearchValue('effective_limit', $key, function () use ($gameId, $scopeType, $scopeId, $dimension, $value, $defaultLimit): int {
+            $override = DB::table('stock_sale_limit_overrides')
+                ->where('game_id', $gameId)
+                ->where('scope_type', $scopeType)
+                ->where('scope_id', $scopeId)
+                ->where('dimension', $dimension)
+                ->where('value', $value)
+                ->value('limit');
+
+            return $override === null ? $defaultLimit : (int) $override;
+        });
+    }
+
+    /**
+     * @return array{back2_limit: int, back3_limit: int, front3_limit: int}
+     */
+    private function limitSettings(string $gameId, string $scopeType, string $scopeId): array
+    {
+        $key = implode('|', [$gameId, $scopeType, $scopeId]);
+
+        return $this->cachedSearchValue('limit_settings', $key, function () use ($gameId, $scopeType, $scopeId): array {
+            $fallback = $this->stockPatternCoverageDefaults()[$scopeType === 'partner' ? 'partner' : 'central'];
+            $row = DB::table('stock_sale_limit_settings')
+                ->where('game_id', $gameId)
+                ->where('scope_type', $scopeType)
+                ->where('scope_id', $scopeId)
+                ->first();
+
+            return [
+                'back2_limit' => $row?->back2_limit === null ? $fallback['back2_limit'] : (int) $row->back2_limit,
+                'back3_limit' => $row?->back3_limit === null ? $fallback['back3_limit'] : (int) $row->back3_limit,
+                'front3_limit' => $row?->front3_limit === null ? $fallback['front3_limit'] : (int) $row->front3_limit,
+            ];
+        });
+    }
+
+    /**
+     * @return array{central: array{back2_limit: int, back3_limit: int, front3_limit: int}, partner: array{back2_limit: int, back3_limit: int, front3_limit: int}}
+     */
+    private function stockPatternCoverageDefaults(): array
+    {
+        return $this->cachedSearchValue('stock_pattern_coverage_defaults', 'current', function (): array {
+            $defaults = [
+                'central' => ['back2_limit' => 500, 'back3_limit' => 300, 'front3_limit' => 200],
+                'partner' => ['back2_limit' => 200, 'back3_limit' => 100, 'front3_limit' => 80],
+            ];
+            $value = DB::table('platform_system_settings')
+                ->where('key', self::STOCK_PATTERN_COVERAGE_SETTING_KEY)
+                ->value('value_json');
+            $decoded = is_string($value) ? json_decode($value, true) : null;
+
+            if (! is_array($decoded)) {
+                return $defaults;
+            }
+
+            foreach (['central', 'partner'] as $scope) {
+                if (! is_array($decoded[$scope] ?? null)) {
+                    continue;
+                }
+
+                foreach (['back2_limit', 'back3_limit', 'front3_limit'] as $field) {
+                    if (array_key_exists($field, $decoded[$scope]) && $decoded[$scope][$field] !== null && $decoded[$scope][$field] !== '') {
+                        $defaults[$scope][$field] = max(0, (int) $decoded[$scope][$field]);
+                    }
+                }
+            }
+
+            return $defaults;
+        });
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function partnerCopyIndexes(string $partnerId, string $gameId, string $fullNumber, array $profile): array
+    {
+        $layers = is_array($profile['layers'] ?? null) ? $profile['layers'] : [];
+        $allocationRowsByLayer = $this->allocationRowsByLayer($gameId, $layers);
+        $copyIndexes = [];
+        $offset = 0;
+
+        foreach ($layers as $layer) {
+            if (! is_array($layer)) {
+                continue;
+            }
+
+            $layerId = (string) ($layer['id'] ?? '');
+            $layerCapacity = $this->capacityForLayer(
+                $fullNumber,
+                (string) ($layer['seed'] ?? $profile['seed']),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+            $rows = $allocationRowsByLayer[$layerId] ?? [];
+
+            for ($localIndex = 0; $localIndex < $layerCapacity; $localIndex++) {
+                $copyIndex = $offset + $localIndex;
+                $owner = $this->ownerPartnerForCopy($rows, $fullNumber, $copyIndex);
+
+                if ($owner === $partnerId) {
+                    $copyIndexes[] = $copyIndex;
+                }
+            }
+
+            $offset += $layerCapacity;
+        }
+
+        return $copyIndexes;
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array<string, array<int, array{partner_id: string, bp: int}>>
+     */
+    private function allocationRowsByLayer(string $gameId, array $layers): array
+    {
+        $layerIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
+
+        if ($layerIds === []) {
+            return [];
+        }
+
+        return $this->cachedSearchValue('allocation_rows_by_layer', $gameId.'|'.implode(',', $layerIds), function () use ($gameId, $layerIds): array {
+            $rowsByLayer = array_fill_keys($layerIds, []);
+            $rows = DB::table('partner_stock_allocations')
+                ->where('game_id', $gameId)
+                ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+                ->whereNotNull('allocation_percent_basis_points')
+                ->where('allocation_percent_basis_points', '>', 0)
+                ->orderBy('partner_id')
+                ->orderBy('id')
+                ->get([
+                    'partner_id',
+                    'allocation_percent_basis_points',
+                    'supply_layer_ids_json',
+                ]);
+
+            foreach ($rows as $row) {
+                $snapshotLayerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds);
+
+                foreach (array_values(array_intersect($layerIds, $snapshotLayerIds)) as $layerId) {
+                    $rowsByLayer[$layerId][] = [
+                        'partner_id' => (string) $row->partner_id,
+                        'bp' => (int) $row->allocation_percent_basis_points,
+                    ];
+                }
+            }
+
+            return $rowsByLayer;
+        });
+    }
+
+    private function defaultTenantStockGameId(string $tenantId, string $partnerId): string
+    {
+        $gameId = DB::table('partner_stock_allocations')
+            ->join('stock_supply_profiles', 'stock_supply_profiles.game_id', '=', 'partner_stock_allocations.game_id')
+            ->join('games', 'games.id', '=', 'partner_stock_allocations.game_id')
+            ->where('partner_stock_allocations.partner_id', $partnerId)
+            ->where('partner_stock_allocations.tenant_id', $tenantId)
+            ->whereIn('partner_stock_allocations.status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->where('partner_stock_allocations.allocated_count', '>', 0)
+            ->where('stock_supply_profiles.status', 'active')
+            ->where('games.status', 'open')
+            ->orderByDesc('partner_stock_allocations.created_at')
+            ->orderByDesc('partner_stock_allocations.id')
+            ->value('partner_stock_allocations.game_id');
+
+        return $gameId === null ? '' : (string) $gameId;
+    }
+
+    private function allocatedCountForPartner(string $gameId, string $partnerId, string $tenantId): int
+    {
+        return (int) DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->sum('allocated_count');
+    }
+
+    private function hasActiveTenantVirtualAllocation(string $tenantId, string $partnerId, string $gameId): bool
+    {
+        return DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->where('allocated_count', '>', 0)
+            ->exists();
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function emptySearchResult(string $gameId): array
+    {
+        return [
+            'data' => [],
+            'meta' => [
+                'game_id' => $gameId,
+                'next_cursor' => null,
+                'has_more' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function emptyTenantStockResult(string $gameId, string $partnerId, string $tenantId): array
+    {
+        return [
+            'data' => [],
+            'meta' => [
+                'game_id' => $gameId,
+                'stock_mode' => 'virtual',
+                'allocated_count' => $this->allocatedCountForPartner($gameId, $partnerId, $tenantId),
+                'used_count' => $this->usedCountForPartner($gameId, $partnerId),
+                'next_cursor' => null,
+                'has_more' => false,
+            ],
+        ];
+    }
+
+    private function usedCountForPartner(string $gameId, string $partnerId): int
+    {
+        return (int) DB::table('virtual_stock_counters')
+            ->where('game_id', $gameId)
+            ->where('scope_type', 'partner')
+            ->where('scope_id', $partnerId)
+            ->where('dimension', 'full_number')
+            ->selectRaw('COALESCE(SUM(reserved_count + sold_count), 0) as used_count')
+            ->value('used_count');
+    }
+
+    /**
+     * @return array{number_offset: int, copy_offset: int, quota_usage: array<string, int>}
+     */
+    private function decodeTenantStockCursor(mixed $cursor): array
+    {
+        if ($cursor === null || trim((string) $cursor) === '') {
+            return ['number_offset' => 0, 'copy_offset' => 0, 'quota_usage' => []];
+        }
+
+        if (ctype_digit((string) $cursor)) {
+            return ['number_offset' => max(0, (int) $cursor), 'copy_offset' => 0, 'quota_usage' => []];
+        }
+
+        try {
+            $decoded = json_decode((string) base64_decode((string) $cursor, true), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return ['number_offset' => 0, 'copy_offset' => 0, 'quota_usage' => []];
+        }
+
+        if (! is_array($decoded)) {
+            return ['number_offset' => 0, 'copy_offset' => 0, 'quota_usage' => []];
+        }
+
+        $quotaUsage = [];
+        if (is_array($decoded['quota_usage'] ?? null)) {
+            foreach ($decoded['quota_usage'] as $key => $value) {
+                $key = trim((string) $key);
+                if ($key === '') {
+                    continue;
+                }
+
+                $quotaUsage[$key] = max(0, (int) $value);
+            }
+        }
+
+        return [
+            'number_offset' => max(0, (int) ($decoded['number_offset'] ?? 0)),
+            'copy_offset' => max(0, (int) ($decoded['copy_offset'] ?? 0)),
+            'quota_usage' => $quotaUsage,
+        ];
+    }
+
+    /**
+     * @param array{number_offset: int, copy_offset: int, quota_usage?: array<string, int>} $cursor
+     */
+    private function encodeTenantStockCursor(array $cursor): string
+    {
+        if (($cursor['quota_usage'] ?? []) === []) {
+            unset($cursor['quota_usage']);
+        }
+
+        return base64_encode(json_encode($cursor, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param array<int, array{partner_id: string, bp: int}> $rows
+     */
+    private function ownerPartnerForCopy(array $rows, string $fullNumber, int $copyIndex): ?string
+    {
+        $score = $this->hashScore($fullNumber.':'.$copyIndex.':partner') % self::MAX_BP;
+        $cursor = 0;
+
+        foreach ($rows as $row) {
+            $cursor = min(self::MAX_BP, $cursor + max(0, (int) $row['bp']));
+
+            if ($score < $cursor) {
+                return $row['partner_id'];
+            }
+        }
+
+        return null;
+    }
+
+    private function capacityForNumber(string $fullNumber, array $profile): int
+    {
+        $layers = $profile['layers'] ?? [];
+        $capacity = 0;
+
+        foreach ($layers as $layer) {
+            if (! is_array($layer)) {
+                continue;
+            }
+
+            $capacity += $this->capacityForLayer(
+                $fullNumber,
+                (string) ($layer['seed'] ?? $profile['seed']),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+        }
+
+        return max(0, $capacity);
+    }
+
+    /**
+     * @param array<int|string, mixed> $distribution
+     */
+    private function capacityForLayer(string $fullNumber, string $seed, array $distribution): int
+    {
+        $score = $this->hashScore($seed.':'.$fullNumber.':set') % self::MAX_BP;
+        $cursor = 0;
+
+        foreach ($distribution as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $cursor += (int) ($row['percent_basis_points'] ?? 0);
+
+            if ($score < $cursor) {
+                return max(1, (int) ($row['set_size'] ?? 1));
+            }
+        }
+
+        return 1;
+    }
+
+    /**
+     * @return array<int, array{set_size: int, percent_basis_points: int}>
+     */
+    private function normalizeSetDistribution(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $percent = $row['percent_basis_points'] ?? $row['percent'] ?? 0;
+            $basisPoints = is_numeric($percent) && (float) $percent <= 100
+                ? (int) round(((float) $percent) * 100)
+                : (int) $percent;
+
+            $rows[] = [
+                'set_size' => max(1, (int) ($row['set_size'] ?? $row['size'] ?? 1)),
+                'percent_basis_points' => max(0, $basisPoints),
+            ];
+        }
+
+        usort($rows, fn (array $left, array $right): int => $left['set_size'] <=> $right['set_size']);
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array{partner_id: string, percent_basis_points: int}>
+     */
+    private function normalizePartnerDistribution(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $partnerId = trim((string) ($row['partner_id'] ?? ''));
+            if ($partnerId === '') {
+                continue;
+            }
+
+            $rows[] = [
+                'partner_id' => $partnerId,
+                'percent_basis_points' => $this->percentBasisPoints($row['percent_basis_points'] ?? $row['percent'] ?? 0),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array{back2_limit: ?int, back3_limit: ?int, front3_limit: ?int}
+     */
+    private function normalizeLimitRow(mixed $value): array
+    {
+        if (! is_array($value)) {
+            $value = [];
+        }
+
+        return [
+            'back2_limit' => $this->nullablePositiveInteger($value['back2_limit'] ?? $value['back2'] ?? null),
+            'back3_limit' => $this->nullablePositiveInteger($value['back3_limit'] ?? $value['back3'] ?? null),
+            'front3_limit' => $this->nullablePositiveInteger($value['front3_limit'] ?? $value['front3'] ?? null),
+        ];
+    }
+
+    /**
+     * @return array<int, array{partner_id: string, back2_limit: ?int, back3_limit: ?int, front3_limit: ?int}>
+     */
+    private function normalizePartnerLimits(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $partnerId = trim((string) ($row['partner_id'] ?? ''));
+            if ($partnerId === '') {
+                continue;
+            }
+
+            $limits = $this->normalizeLimitRow($row);
+            if (! $this->hasAnyLimit($limits)) {
+                continue;
+            }
+
+            $rows[] = ['partner_id' => $partnerId] + $limits;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, array{partner_id: string, percent_basis_points: int}> $partnerDistribution
+     * @param array{back2_limit: ?int, back3_limit: ?int, front3_limit: ?int} $centralLimits
+     * @param array<int, array{partner_id: string, back2_limit: ?int, back3_limit: ?int, front3_limit: ?int}> $partnerLimits
+     */
+    private function replaceVirtualStockSettings(string $gameId, array $partnerDistribution, array $centralLimits, array $partnerLimits, mixed $now): void
+    {
+        if ($partnerDistribution !== []) {
+            DB::table('stock_partner_distributions')->where('game_id', $gameId)->delete();
+
+            foreach ($partnerDistribution as $row) {
+                DB::table('stock_partner_distributions')->insert([
+                    'id' => $this->stableId('spd', $gameId.':'.$row['partner_id']),
+                    'game_id' => $gameId,
+                    'partner_id' => $row['partner_id'],
+                    'tenant_id' => $this->tenantIdForPartner($row['partner_id']),
+                    'percent_basis_points' => $row['percent_basis_points'],
+                    'status' => 'active',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        if ($this->hasAnyLimit($centralLimits)) {
+            DB::table('stock_sale_limit_settings')->updateOrInsert(
+                ['id' => $this->stableId('ssl', $gameId.':central:central')],
+                [
+                    'game_id' => $gameId,
+                    'scope_type' => 'central',
+                    'scope_id' => 'central',
+                    'back2_limit' => $centralLimits['back2_limit'],
+                    'back3_limit' => $centralLimits['back3_limit'],
+                    'front3_limit' => $centralLimits['front3_limit'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            );
+        }
+
+        foreach ($partnerLimits as $row) {
+            DB::table('stock_sale_limit_settings')->updateOrInsert(
+                ['id' => $this->stableId('ssl', $gameId.':partner:'.$row['partner_id'])],
+                [
+                    'game_id' => $gameId,
+                    'scope_type' => 'partner',
+                    'scope_id' => $row['partner_id'],
+                    'back2_limit' => $row['back2_limit'],
+                    'back3_limit' => $row['back3_limit'],
+                    'front3_limit' => $row['front3_limit'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            );
+        }
+    }
+
+    /**
+     * @param array<int, array{set_size: int, percent_basis_points: int}> $distribution
+     */
+    private function storeCentralGeneratedPatternCounts(
+        string $profileId,
+        string $sourceId,
+        string $gameId,
+        string $seed,
+        array $distribution,
+        mixed $now,
+    ): void {
+        $caseSql = $this->capacityCaseSql($distribution);
+
+        DB::statement(
+            <<<SQL
+            WITH scored AS (
+                SELECT
+                    full_number,
+                    back2,
+                    back3,
+                    front3,
+                    {$caseSql} AS capacity
+                FROM (
+                    SELECT
+                        full_number,
+                        back2,
+                        back3,
+                        front3,
+                        ((('x' || substr(encode(sha256((? || ':' || full_number || ':set')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) AS score
+                    FROM base_lottery_numbers
+                ) base_scores
+            )
+            INSERT INTO virtual_stock_pattern_generated_counts (
+                id,
+                profile_id,
+                source_id,
+                game_id,
+                scope_type,
+                scope_id,
+                dimension,
+                value,
+                generated_count,
+                created_at,
+                updated_at
+            )
+            SELECT
+                substr(md5(? || ':central:central:' || dimension || ':' || value), 1, 40),
+                ?,
+                ?,
+                ?,
+                'central',
+                'central',
+                dimension,
+                value,
+                SUM(capacity)::bigint,
+                ?::timestamptz,
+                ?::timestamptz
+            FROM scored
+            CROSS JOIN LATERAL (VALUES ('back2', back2), ('back3', back3), ('front3', front3)) AS pattern(dimension, value)
+            GROUP BY dimension, value
+            ON CONFLICT (source_id, scope_type, scope_id, dimension, value)
+            DO UPDATE SET
+                generated_count = EXCLUDED.generated_count,
+                updated_at = EXCLUDED.updated_at
+            SQL,
+            [$seed, $sourceId, $profileId, $sourceId, $gameId, $now, $now],
+        );
+    }
+
+    private function refreshPartnerGeneratedPatternCounts(string $profileId, string $gameId, mixed $now): void
+    {
+        DB::table('virtual_stock_pattern_generated_counts')
+            ->where('profile_id', $profileId)
+            ->where('game_id', $gameId)
+            ->where('scope_type', 'partner')
+            ->delete();
+
+        $hasPartnerAllocation = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->exists();
+
+        if (! $hasPartnerAllocation) {
+            return;
+        }
+
+        $sources = DB::table('virtual_stock_supply_layers')
+            ->where('profile_id', $profileId)
+            ->where('status', 'active')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['id', 'layer_seed', 'set_distribution_json']);
+
+        if ($sources->isEmpty()) {
+            $profile = DB::table('stock_supply_profiles')->where('id', $profileId)->first();
+            if ($profile === null) {
+                return;
+            }
+
+            $sources = collect([(object) [
+                'id' => (string) $profile->id,
+                'layer_seed' => (string) $profile->seed,
+                'set_distribution_json' => $profile->set_distribution_json,
+            ]]);
+        }
+
+        $sourceIds = $sources->map(fn (object $source): string => (string) $source->id)->all();
+
+        foreach ($sources as $source) {
+            $ranges = $this->partnerAllocationRangesForSource($gameId, (string) $source->id, $sourceIds);
+
+            if ($ranges === []) {
+                continue;
+            }
+
+            $this->storePartnerGeneratedPatternCounts(
+                profileId: $profileId,
+                sourceId: (string) $source->id,
+                gameId: $gameId,
+                seed: (string) $source->layer_seed,
+                distribution: $this->decodeJsonArray($source->set_distribution_json),
+                partnerRanges: $ranges,
+                now: $now,
+            );
+        }
+    }
+
+    /**
+     * @param array<int, string> $activeSourceIds
+     * @return array<int, array{partner_id: string, start_bp: int, end_bp: int}>
+     */
+    private function partnerAllocationRangesForSource(string $gameId, string $sourceId, array $activeSourceIds): array
+    {
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->orderBy('partner_id')
+            ->orderBy('id')
+            ->get(['partner_id', 'allocation_percent_basis_points', 'supply_layer_ids_json']);
+        $ranges = [];
+        $cursor = 0;
+
+        foreach ($rows as $row) {
+            $layerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $activeSourceIds);
+
+            if (! in_array($sourceId, $layerIds, true)) {
+                continue;
+            }
+
+            $basisPoints = max(0, (int) $row->allocation_percent_basis_points);
+
+            if ($basisPoints < 1) {
+                continue;
+            }
+
+            $start = $cursor;
+            $cursor = min(self::MAX_BP, $cursor + $basisPoints);
+
+            if ($cursor > $start) {
+                $ranges[] = [
+                    'partner_id' => (string) $row->partner_id,
+                    'start_bp' => $start,
+                    'end_bp' => $cursor,
+                ];
+            }
+        }
+
+        return $ranges;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $distribution
+     * @param array<int, array{partner_id: string, start_bp: int, end_bp: int}> $partnerRanges
+     */
+    private function storePartnerGeneratedPatternCounts(
+        string $profileId,
+        string $sourceId,
+        string $gameId,
+        string $seed,
+        array $distribution,
+        array $partnerRanges,
+        mixed $now,
+    ): void {
+        $caseSql = $this->capacityCaseSql($distribution);
+        $rangeSql = implode(', ', array_fill(0, count($partnerRanges), '(?, ?, ?)'));
+        $rangeParams = [];
+
+        foreach ($partnerRanges as $range) {
+            $rangeParams[] = $range['partner_id'];
+            $rangeParams[] = $range['start_bp'];
+            $rangeParams[] = $range['end_bp'];
+        }
+
+        DB::statement(
+            <<<SQL
+            WITH partner_ranges(partner_id, start_bp, end_bp) AS (
+                VALUES {$rangeSql}
+            ),
+            scored AS (
+                SELECT
+                    full_number,
+                    back2,
+                    back3,
+                    front3,
+                    {$caseSql} AS capacity
+                FROM (
+                    SELECT
+                        full_number,
+                        back2,
+                        back3,
+                        front3,
+                        ((('x' || substr(encode(sha256((? || ':' || full_number || ':set')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) AS score
+                    FROM base_lottery_numbers
+                ) base_scores
+            ),
+            assigned AS (
+                SELECT
+                    partner_ranges.partner_id,
+                    scored.back2,
+                    scored.back3,
+                    scored.front3
+                FROM scored
+                JOIN LATERAL generate_series(0, scored.capacity - 1) AS copy(copy_index) ON scored.capacity > 0
+                JOIN partner_ranges
+                  ON ((('x' || substr(encode(sha256((scored.full_number || ':' || copy.copy_index::text || ':partner')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) >= partner_ranges.start_bp::bigint
+                 AND ((('x' || substr(encode(sha256((scored.full_number || ':' || copy.copy_index::text || ':partner')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) < partner_ranges.end_bp::bigint
+            )
+            INSERT INTO virtual_stock_pattern_generated_counts (
+                id,
+                profile_id,
+                source_id,
+                game_id,
+                scope_type,
+                scope_id,
+                dimension,
+                value,
+                generated_count,
+                created_at,
+                updated_at
+            )
+            SELECT
+                substr(md5(? || ':partner:' || partner_id || ':' || dimension || ':' || value), 1, 40),
+                ?,
+                ?,
+                ?,
+                'partner',
+                partner_id,
+                dimension,
+                value,
+                COUNT(*)::bigint,
+                ?::timestamptz,
+                ?::timestamptz
+            FROM assigned
+            CROSS JOIN LATERAL (VALUES ('back2', back2), ('back3', back3), ('front3', front3)) AS pattern(dimension, value)
+            GROUP BY partner_id, dimension, value
+            ON CONFLICT (source_id, scope_type, scope_id, dimension, value)
+            DO UPDATE SET
+                generated_count = EXCLUDED.generated_count,
+                updated_at = EXCLUDED.updated_at
+            SQL,
+            [...$rangeParams, $seed, $sourceId, $profileId, $sourceId, $gameId, $now, $now],
+        );
+    }
+
+    /**
+     * @param array<int, array{set_size: int, percent_basis_points: int}> $distribution
+     */
+    private function capacityCaseSql(array $distribution): string
+    {
+        $cursor = 0;
+        $clauses = [];
+
+        foreach ($distribution as $row) {
+            $basisPoints = max(0, (int) ($row['percent_basis_points'] ?? 0));
+            if ($basisPoints < 1) {
+                continue;
+            }
+
+            $cursor = min(self::MAX_BP, $cursor + $basisPoints);
+            $setSize = max(1, (int) ($row['set_size'] ?? 1));
+            $clauses[] = 'WHEN score < '.$cursor.' THEN '.$setSize;
+        }
+
+        return $clauses === [] ? '1' : 'CASE '.implode(' ', $clauses).' ELSE 1 END';
+    }
+
+    private function percentBasisPoints(mixed $percent): int
+    {
+        return is_numeric($percent) && (float) $percent <= 100
+            ? max(0, (int) round(((float) $percent) * 100))
+            : max(0, (int) $percent);
+    }
+
+    private function nullablePositiveInteger(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return max(0, (int) $value);
+    }
+
+    /**
+     * @param array{back2_limit: ?int, back3_limit: ?int, front3_limit: ?int} $limits
+     */
+    private function hasAnyLimit(array $limits): bool
+    {
+        return $limits['back2_limit'] !== null
+            || $limits['back3_limit'] !== null
+            || $limits['front3_limit'] !== null;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function retiredGenerationFieldErrors(array $payload): array
+    {
+        $errors = [];
+        $retiredFields = [
+            'total_count',
+            'back2_count_per_number',
+            'back3_count_per_number',
+            'front3_count_per_number',
+            'start_number',
+            'from_number',
+            'range_start',
+            'end_number',
+            'to_number',
+            'range_end',
+            'count',
+            'requested_count',
+            'number_digits',
+            'digits',
+        ];
+
+        foreach ($retiredFields as $field) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '') {
+                $errors[$field][] = 'This field is retired for stock generation. Use generation_mode=virtual_profile and set_distribution.';
+            }
+        }
+
+        return $errors;
+    }
+
+    private function tenantIdForPartner(string $partnerId): ?string
+    {
+        $tenantId = DB::table('partner_tenants')
+            ->where('partner_id', $partnerId)
+            ->orderBy('id')
+            ->value('id');
+
+        return $tenantId === null ? null : (string) $tenantId;
+    }
+
+    private function currentBaseCount(): int
+    {
+        return (int) DB::table('base_lottery_numbers')->count();
+    }
+
+    /**
+     * @return array{min: ?string, max: ?string}
+     */
+    private function baseLotteryRange(): array
+    {
+        return [
+            'min' => DB::table('base_lottery_numbers')->min('full_number'),
+            'max' => DB::table('base_lottery_numbers')->max('full_number'),
+        ];
+    }
+
+    private function profileTotalCapacity(array $distribution, int $baseCount): int
+    {
+        $usedBp = 0;
+        $capacity = 0;
+
+        foreach ($distribution as $row) {
+            $bp = min(self::MAX_BP - $usedBp, (int) $row['percent_basis_points']);
+            $count = (int) floor($baseCount * ($bp / self::MAX_BP));
+            $capacity += $count * max(1, (int) $row['set_size']);
+            $usedBp += $bp;
+        }
+
+        $capacity += ($baseCount - (int) floor($baseCount * ($usedBp / self::MAX_BP))) * 1;
+
+        return $capacity;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function virtualStockResource(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex, array $availability): array
+    {
+        $stockRef = $this->virtualRef($tenantId, $gameId, $fullNumber, $copyIndex);
+        $preview = $this->virtualImages->previewDescriptor($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
+        $price = $this->effectiveUnitPrice($tenantId, $gameId);
+
+        return [
+            'id' => $stockRef,
+            'token' => $stockRef,
+            'local_stock_item_id' => $stockRef,
+            'stock_ref' => $stockRef,
+            'game_id' => $gameId,
+            'full_number' => $fullNumber,
+            'front3' => substr($fullNumber, 0, 3),
+            'back3' => substr($fullNumber, -3),
+            'back2' => substr($fullNumber, -2),
+            'virtual_copy_index' => $copyIndex,
+            'remaining_count' => (int) $availability['remaining_count'],
+            'availability_status' => (string) $availability['availability_status'],
+            'status' => (string) $availability['availability_status'],
+            'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
+            'price_rule_summary' => $this->salePrices->summary($price),
+            'preview_image_url' => $preview['url'],
+            'image_thumb_url' => $preview['url'],
+            'image_url' => null,
+            'image_status' => $preview['status'],
+            'image_error' => $preview['error'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function effectiveUnitPrice(string $tenantId, string $gameId): array
+    {
+        return $this->cachedSearchValue('effective_unit_price', $tenantId.'|'.$gameId, fn (): array => $this->salePrices->effectivePrice($tenantId, $gameId, 1));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tenantVirtualStockResource(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex): array
+    {
+        $stockRef = $this->virtualRef($tenantId, $gameId, $fullNumber, $copyIndex);
+        $preview = $this->virtualImages->previewDescriptor($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
+        $now = now()->toISOString();
+
+        return [
+            'id' => $stockRef,
+            'game_id' => $gameId,
+            'full_number' => $fullNumber,
+            'front3' => substr($fullNumber, 0, 3),
+            'back3' => substr($fullNumber, -3),
+            'back2' => substr($fullNumber, -2),
+            'status' => 'available',
+            'stock_ref' => $stockRef,
+            'stock_mode' => 'virtual',
+            'virtual_copy_index' => $copyIndex,
+            'remaining_count' => 1,
+            'availability_status' => 'available',
+            'price' => ['amount' => 0, 'currency' => 'THB'],
+            'price_rule_summary' => null,
+            'image_thumb_url' => $preview['url'],
+            'image_url' => null,
+            'preview_image_url' => $preview['url'],
+            'image_status' => $preview['status'],
+            'image_error' => $preview['error'],
+            'tenant_id' => $tenantId,
+            'partner_id' => $partnerId,
+            'stock_item_id' => $stockRef,
+            'allocation_id' => null,
+            'owner_customer_id' => null,
+            'owner' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+            'synced_at' => $now,
+            'reserved_at' => null,
+            'sold_at' => null,
+        ];
+    }
+
+    private function virtualRef(string $tenantId, string $gameId, string $fullNumber, int $copyIndex): string
+    {
+        return 'vstock:'.$tenantId.':'.$gameId.':'.$fullNumber.':'.$copyIndex;
+    }
+
+    /**
+     * @return array{tenant_id: string, game_id: string, full_number: string, copy_index: int}|null
+     */
+    private function parseVirtualRef(string $ref): ?array
+    {
+        $parts = explode(':', $ref);
+
+        if (count($parts) !== 5 || $parts[0] !== 'vstock' || ! preg_match('/^[0-9]{6}$/', $parts[3])) {
+            return null;
+        }
+
+        return [
+            'tenant_id' => $parts[1],
+            'game_id' => $parts[2],
+            'full_number' => $parts[3],
+            'copy_index' => max(0, (int) $parts[4]),
+        ];
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    private function virtualReservationRows(string $reservationId, string $tenantId): array
+    {
+        return StockReservationItem::query()
+            ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
+            ->where('stock_reservation_items.reservation_id', $reservationId)
+            ->where('stock_reservation_items.tenant_id', $tenantId)
+            ->whereNotNull('local_stock_items.virtual_stock_ref')
+            ->select('local_stock_items.*')
+            ->lockForUpdate()
+            ->get()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function availabilityPayload(string $tenantId, string $partnerId, string $gameId, string $fullNumber, ?string $customerId = null): array
+    {
+        $profile = $this->activeProfile($gameId);
+        $availability = $profile === null
+            ? ['remaining_count' => 0, 'availability_status' => 'sold_out']
+            : $this->availabilityForNumber($tenantId, $partnerId, $gameId, $fullNumber, $profile);
+
+        return [
+            'tenant_id' => $tenantId,
+            'partner_id' => $partnerId,
+            'customer_id' => $customerId,
+            'game_id' => $gameId,
+            'full_number' => $fullNumber,
+            'front3' => substr($fullNumber, 0, 3),
+            'back3' => substr($fullNumber, -3),
+            'back2' => substr($fullNumber, -2),
+            'remaining_count' => (int) $availability['remaining_count'],
+            'status' => (string) $availability['availability_status'],
+            'stock_mode' => 'virtual',
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $events
+     */
+    private function broadcastAfterCommit(array $events): void
+    {
+        if ($events === []) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($events): void {
+            foreach ($events as $payload) {
+                try {
+                    StockAvailabilityUpdated::dispatch($payload);
+                } catch (\Throwable $exception) {
+                    Log::warning('Stock availability realtime broadcast failed.', [
+                        'game_id' => $payload['game_id'] ?? null,
+                        'full_number' => $payload['full_number'] ?? null,
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
+            }
+        });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function reservationResourceById(string $reservationId): ?array
+    {
+        $reservation = StockReservation::where('id', $reservationId)->first();
+
+        if ($reservation === null) {
+            return null;
+        }
+
+        $items = StockReservationItem::query()
+            ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
+            ->where('stock_reservation_items.reservation_id', $reservationId)
+            ->orderBy('local_stock_items.id')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.price_amount as reservation_price_amount',
+                'stock_reservation_items.currency as reservation_currency',
+                'stock_reservation_items.sale_price_rule_snapshot_json as reservation_sale_price_rule_snapshot_json',
+            )
+            ->get()
+            ->all();
+        $pricing = $this->salePrices->pricesForReservationStockRows((string) $reservation->tenant_id, $items);
+
+        return [
+            'id' => (string) $reservation->id,
+            'game_id' => (string) $reservation->game_id,
+            'status' => (string) $reservation->status,
+            'expires_at' => $this->dateTimeIso($reservation->expires_at),
+            'expires_in_seconds' => $this->remainingSeconds($reservation->expires_at),
+            'server_time' => now()->toISOString(),
+            'items' => array_map(fn (object $stock): array => $this->reservationItemResource($stock, $pricing['items'][(string) $stock->id] ?? null), $items),
+            'total' => ['amount' => (int) $pricing['total_amount'], 'currency' => (string) $pricing['currency']],
+            'tenant_id' => (string) $reservation->tenant_id,
+            'customer_id' => (string) $reservation->customer_id,
+            'created_at' => $reservation->created_at,
+            'updated_at' => $reservation->updated_at,
+        ];
+    }
+
+    private function dateTimeIso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $value)->toISOString();
+    }
+
+    private function remainingSeconds(mixed $expiresAt): int
+    {
+        if ($expiresAt === null || $expiresAt === '') {
+            return 0;
+        }
+
+        return max(0, Carbon::parse((string) $expiresAt)->getTimestamp() - now()->getTimestamp());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reservationItemResource(object $stock, ?array $pricing = null): array
+    {
+        $preview = ['url' => null, 'status' => $stock->image_generation_status, 'error' => $stock->image_generation_error];
+        $price = $pricing === null ? $this->salePrices->effectivePrice((string) $stock->tenant_id, (string) $stock->game_id, 1) : null;
+
+        if ($stock->virtual_stock_ref !== null && $stock->image_thumb_url === null) {
+            $preview = $this->virtualImages->previewDescriptor(
+                (string) $stock->tenant_id,
+                (string) $stock->partner_id,
+                (string) $stock->game_id,
+                (string) $stock->full_number,
+                (int) ($stock->virtual_copy_index ?? 0),
+            );
+        }
+
+        return [
+            'id' => (string) $stock->id,
+            'game_id' => (string) $stock->game_id,
+            'full_number' => (string) $stock->full_number,
+            'front3' => $stock->front3,
+            'back3' => $stock->back3,
+            'back2' => $stock->back2,
+            'status' => (string) $stock->status,
+            'stock_ref' => $stock->virtual_stock_ref,
+            'remaining_count' => null,
+            'availability_status' => (string) $stock->status,
+            'price' => [
+                'amount' => (int) ($pricing['amount'] ?? $price['amount']),
+                'currency' => (string) ($pricing['currency'] ?? $price['currency']),
+            ],
+            'price_rule_summary' => $pricing['summary'] ?? $this->salePrices->summary($price),
+            'preview_image_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? $preview['url']),
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? $preview['url']),
+            'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url),
+            'image_status' => $stock->image_generation_status ?? $preview['status'],
+            'image_error' => $stock->image_generation_error ?? $preview['error'],
+        ];
+    }
+
+    private function batchResource(?object $batch): array
+    {
+        if ($batch === null) {
+            return [];
+        }
+
+        $payload = $this->decodeJsonArray($batch->payload_json ?? null);
+        $requestedCount = (int) $batch->requested_count;
+        $generatedCount = (int) $batch->generated_count;
+
+        if ((string) $batch->type === 'virtual_profile' && (string) $batch->status === 'completed') {
+            $generatedCount = max($generatedCount, $requestedCount);
+        }
+
+        return [
+            'id' => (string) $batch->id,
+            'game_id' => (string) $batch->game_id,
+            'type' => (string) $batch->type,
+            'status' => (string) $batch->status,
+            'requested_count' => $requestedCount,
+            'generated_count' => $generatedCount,
+            'range_start' => $batch->range_start,
+            'range_end' => $batch->range_end,
+            'number_digits' => (int) $batch->number_digits,
+            'stock_mode' => 'virtual',
+            'profile_id' => $payload['profile_id'] ?? null,
+            'layer_id' => $payload['layer_id'] ?? null,
+            'layer_capacity' => (int) ($payload['layer_capacity'] ?? $batch->requested_count),
+            'top_up' => (bool) ($payload['top_up'] ?? false),
+            'total_capacity' => (int) ($payload['total_capacity'] ?? $payload['layer_capacity'] ?? $batch->requested_count),
+            'created_at' => $batch->created_at,
+            'updated_at' => $batch->updated_at,
+            'completed_at' => $batch->completed_at,
+        ];
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private function decodeJsonArray(mixed $json): array
+    {
+        if (is_array($json)) {
+            return $json;
+        }
+
+        if ($json === null || $json === '') {
+            return [];
+        }
+
+        $decoded = json_decode((string) $json, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<int, string> $fallbackLayerIds
+     * @return array<int, string>
+     */
+    private function snapshotLayerIds(mixed $json, array $fallbackLayerIds): array
+    {
+        $decoded = $this->decodeJsonArray($json);
+        $ids = array_values(array_filter(array_map(
+            fn (mixed $value): string => trim((string) $value),
+            $decoded,
+        )));
+
+        return $ids === [] ? $fallbackLayerIds : $ids;
+    }
+
+    private function hashScore(string $seed): int
+    {
+        return (int) hexdec(substr(hash('sha256', $seed), 0, 8));
+    }
+
+    private function payloadHash(array $payload): string
+    {
+        ksort($payload);
+
+        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    private function internalSeed(string $scope, string $value): string
+    {
+        return hash('sha256', 'virtual-stock:'.$scope.':'.$value);
+    }
+
+    private function stableId(string $prefix, string $seed): string
+    {
+        return $prefix.'_'.substr(sha1($seed), 0, 20);
+    }
+}

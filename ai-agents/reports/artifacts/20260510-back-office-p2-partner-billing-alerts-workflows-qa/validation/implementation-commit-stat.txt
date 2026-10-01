@@ -1,0 +1,7 @@
+3c6750a back-office-p2-partner-billing-alerts-workflows: add typed BO workflows
+ apps/back-office/components/AdminConfirmAction.vue |   2 +-
+ .../back-office/components/AdminOperationsPage.vue |   2 +-
+ .../composables/useAdminOperationsCatalog.ts       | 322 ++++++++++++++++-----
+ apps/back-office/scripts/check.mjs                 |   2 +
+ docs/back-office-crud-coverage.md                  |  16 +-
+ 5 files changed, 268 insertions(+), 76 deletions(-)

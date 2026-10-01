@@ -21,12 +21,6 @@
         <div v-for="store in stores" :key="store.id" class="store-row">
           <span class="store-icon"><i class="bi bi-shop" /></span>
           <span class="store-name fw-bold flex-grow-1 fs-5">{{ store.name }}</span>
-          <NuxtLink
-            class="outline-pill store-view-button py-2"
-            :to="{ path: '/stores/lotteries', query: { store_id: store.id } }"
-          >
-            ดูร้านค้า
-          </NuxtLink>
         </div>
         <div v-if="showEmptyState" class="empty-lottery-state">
           ไม่พบร้านค้า
@@ -35,14 +29,12 @@
           <div v-for="item in skeletonStores" :key="`store-loading-${item}`" class="store-row store-row-placeholder">
             <span class="store-icon store-icon-placeholder" />
             <span class="store-name-placeholder" />
-            <span class="store-button-placeholder" />
           </div>
         </template>
         <template v-if="isLoadingMore">
           <div v-for="item in skeletonStores" :key="`store-loading-more-${item}`" class="store-row store-row-placeholder">
             <span class="store-icon store-icon-placeholder" />
             <span class="store-name-placeholder" />
-            <span class="store-button-placeholder" />
           </div>
         </template>
       </div>
@@ -73,12 +65,13 @@ definePageMeta({
   requiresAuth: false
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const searchText = ref('')
 const stores = ref<StoreItem[]>([])
 const pagination = ref<StorePagination | null>(null)
 const seed = ref<string | number>('')
 const page = ref(1)
+const perPage = 20
 const isLoadingInitial = ref(false)
 const isLoadingMore = ref(false)
 let scrollContainer: HTMLElement | null = null
@@ -104,7 +97,12 @@ const getPostData = () => ({
 })
 
 const getStores = async (append = false) => {
-  const response = await axios.post('/stock-store', getPostData())
+  const response = await platformApi.storesLegacy({
+    q: searchText.value || undefined,
+    cursor: seed.value || null,
+    page: page.value,
+    limit: perPage
+  })
 
   if (response.data.code !== 0) {
     return

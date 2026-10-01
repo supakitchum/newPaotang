@@ -1,0 +1,4 @@
+     id      |  status   |   event_type    |   tenant_id
+-------------+-----------+-----------------+----------------
+ sin_p3_qa10 | processed | p3.qa.synced.v1 | ten_demo_alpha
+(1 row)

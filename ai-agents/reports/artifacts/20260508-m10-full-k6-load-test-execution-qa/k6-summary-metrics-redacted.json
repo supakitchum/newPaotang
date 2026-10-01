@@ -1,0 +1,54 @@
+{
+  "run_dir": "load-tests/results/20260508T072215Z",
+  "skipped": [
+    {
+      "reason": "Local/dev baseline has no Cloudflare CDN/R2 ticket image path. Set CDN_BASE_URL and IMAGE_PATH to run this scenario.",
+      "scenario": "ticket-image-cdn-spike",
+      "status": "skipped"
+    }
+  ],
+  "summaries": [
+    {
+      "checks_failed": 0,
+      "checks_passed": 6,
+      "http_req_duration_p95_ms": 72.13571825,
+      "http_req_failed_rate": 0,
+      "scenario": "checkout-wallet-consistency"
+    },
+    {
+      "checks_failed": 0,
+      "checks_passed": 6,
+      "http_req_duration_p95_ms": 62.75614549999999,
+      "http_req_failed_rate": 0,
+      "scenario": "concurrent-booking-same-stock"
+    },
+    {
+      "checks_failed": 0,
+      "checks_passed": 20,
+      "http_req_duration_p95_ms": 52.097960399999984,
+      "http_req_failed_rate": 0,
+      "scenario": "customer-stock-search"
+    },
+    {
+      "checks_failed": 0,
+      "checks_passed": 85,
+      "http_req_duration_p95_ms": 47.758624999999995,
+      "http_req_failed_rate": 0,
+      "scenario": "partner-tenant-burst-sync"
+    },
+    {
+      "checks_failed": 0,
+      "checks_passed": 6,
+      "http_req_duration_p95_ms": 57.251884999999994,
+      "http_req_failed_rate": 0,
+      "scenario": "reward-checking-queue-chunk"
+    },
+    {
+      "checks_failed": 0,
+      "checks_passed": 38,
+      "http_req_duration_p95_ms": 41.1506973,
+      "http_req_failed_rate": 0,
+      "scenario": "reward-publish-spike"
+    }
+  ]
+}

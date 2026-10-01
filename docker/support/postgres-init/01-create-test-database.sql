@@ -1,0 +1,1 @@
+CREATE DATABASE newpaotang_support_test;

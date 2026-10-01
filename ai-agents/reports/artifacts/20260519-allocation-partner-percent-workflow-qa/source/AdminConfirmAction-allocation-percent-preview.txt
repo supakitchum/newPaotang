@@ -1,0 +1,51 @@
+const reason = ref('')
+const payloadJson = ref('')
+const formState = reactive<Record<string, any>>({})
+
+const formFields = computed(() => props.formFields || [])
+const visibleFormFields = computed(() => formFields.value.filter(isFieldVisible))
+const sourceRecord = computed(() => props.recordContext?.__raw || props.recordContext || {})
+const contextItems = computed(() => (props.contextFields || [])
+  .map((key) => ({
+    key,
+    label: labelize(key),
+    value: formatContextValue(getPath(sourceRecord.value, key)),
+  }))
+  .filter((item) => item.value !== '-')
+  .slice(0, 13))
+const partnerField = computed(() => formFields.value.find((field) => field.key === 'partner_id'))
+const tenantField = computed(() => formFields.value.find((field) => field.key === 'tenant_id'))
+const gameField = computed(() => formFields.value.find((field) => field.key === 'game_id'))
+const allocationPercentField = computed(() => formFields.value.find((field) => field.key === 'allocation_percent'))
+const selectedPartnerOption = computed(() => partnerField.value ? findOption(partnerField.value, formState.partner_id) : null)
+const selectedGameOption = computed(() => gameField.value ? findOption(gameField.value, formState.game_id) : null)
+const allocationPreviewMetrics = computed(() => {
+  if (!allocationPercentField.value) {
+    return []
+  }
+
+  const percent = numberOrNull(formState.allocation_percent)
+  const generatedSupply = optionNumber(selectedGameOption.value, 'generatedSupplyCount')
+  const estimatedAllocation = generatedSupply !== null && percent !== null
+    ? Math.floor((generatedSupply * percent) / 100)
+    : null
+  const partnerExistingPercent = optionNumber(selectedPartnerOption.value, 'allocationPercent')
+
+  return [
+    { key: 'supply', label: 'Estimated supply', value: formatNumberOrDash(generatedSupply) },
+    { key: 'percent', label: 'Percent', value: percent === null ? '-' : `${formatNumber(percent)}%` },
+    { key: 'estimate', label: 'Estimated allocation', value: formatNumberOrDash(estimatedAllocation) },
+    { key: 'active', label: 'Existing partner %', value: partnerExistingPercent === null ? '-' : `${formatNumber(partnerExistingPercent)}%` },
+    { key: 'remaining', label: 'Existing remaining', value: formatContextValue(getPath(sourceRecord.value, 'remaining_count')) },
+  ]
+})
+
+const missingRequired = computed(() => {
+  if (props.requiresReason && reason.value.trim() === '') {
+    return true
+  }
+
+  return visibleFormFields.value.some((field) => {
+    if (!field.required) return false
+    if (field.type === 'datetime-range') {
+      return isBlank(formState[rangeStartFormKey(field)]) || isBlank(formState[rangeEndFormKey(field)])

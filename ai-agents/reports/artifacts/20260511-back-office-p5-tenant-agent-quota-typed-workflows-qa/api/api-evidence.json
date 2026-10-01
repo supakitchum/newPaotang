@@ -1,0 +1,175 @@
+{
+    "generated_at": "2026-05-11T16:11:55+00:00",
+    "api_base": "http://platform-api:8000/api/v1",
+    "scope": "tenant",
+    "tenant_id": "ten_demo_alpha",
+    "run_id": "01krbwyccrfd5s6ajk3n3mv6qa",
+    "safe_fixture_ids": {
+        "agent_id": "agt_01KRBWYCQDPTJXZCCCMAKERT6T"
+    },
+    "events": [
+        {
+            "label": "agent-create",
+            "method": "POST",
+            "path": "/admin/tenant/agents",
+            "status": 201,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "code",
+                "name",
+                "phone",
+                "email",
+                "store_id",
+                "status",
+                "metadata"
+            ],
+            "checks": {
+                "tenant_id_matches": true,
+                "id_present": true,
+                "metadata_round_trip": true
+            }
+        },
+        {
+            "label": "agent-detail-after-create",
+            "method": "GET",
+            "path": "/admin/tenant/agents/{agent_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "id_matches": true,
+                "code_matches": true,
+                "quotas_array_present": true
+            }
+        },
+        {
+            "label": "agent-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/agents/{agent_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "code",
+                "name",
+                "phone",
+                "email",
+                "store_id",
+                "status",
+                "metadata"
+            ],
+            "checks": {
+                "code_updated": true,
+                "name_updated": true,
+                "metadata_array_round_trip": true
+            }
+        },
+        {
+            "label": "agent-list-filter-inactive",
+            "method": "GET",
+            "path": "/admin/tenant/agents?status=inactive",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "updated_agent_found": true,
+                "cursor_meta_present": true
+            }
+        },
+        {
+            "label": "agent-route-quota-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/agents/{agent_id}/quotas",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "game_id",
+                "quota_count",
+                "used_count",
+                "status",
+                "payload",
+                "reason"
+            ],
+            "checks": {
+                "quota_count_updated": true,
+                "used_count_updated": true,
+                "payload_round_trip": true
+            }
+        },
+        {
+            "label": "agent-detail-after-agent-route-quota",
+            "method": "GET",
+            "path": "/admin/tenant/agents/{agent_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "quota_count_visible": true
+            }
+        },
+        {
+            "label": "dedicated-agent-quota-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/agents/{agent_id}/quotas",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "game_id",
+                "quota_count",
+                "used_count",
+                "status",
+                "payload",
+                "reason"
+            ],
+            "checks": {
+                "quota_count_updated": true,
+                "used_count_updated": true,
+                "status_updated": true,
+                "payload_array_round_trip": true
+            }
+        },
+        {
+            "label": "agent-detail-after-dedicated-quota",
+            "method": "GET",
+            "path": "/admin/tenant/agents/{agent_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "quota_status_visible": true,
+                "quota_count_visible": true
+            }
+        }
+    ]
+}

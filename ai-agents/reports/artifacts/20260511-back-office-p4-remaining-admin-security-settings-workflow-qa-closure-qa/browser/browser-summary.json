@@ -1,0 +1,754 @@
+{
+  "run_id": "browser-p4-mp0tnk54",
+  "tenant_id": "ten_demo_alpha",
+  "rows": {
+    "central:admin_users": {
+      "route": "/admin/central/admin-users",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "real_api_rows_visible": 1,
+      "create_modal": {
+        "text_has_reason": true,
+        "fields": {
+          "Name": 2,
+          "Email": 2,
+          "Temporary password": 1,
+          "Status": 2,
+          "Role IDs": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "update_modal": {
+        "has_context": true,
+        "text": "Update Confirm update for adm_platform_owner. Id adm_platform_owner Name Platform Owner Email admin@newpaotang.test Status active Roles 0 Id rol_c_super_admin Roles 0 Name Platform Super Admin Permissions 0 admin_user.manage Name Email Phone Status Select active invited suspended disabled Temporary password Role IDs One role ID per line. Use IDs from the roles page for the same scope. Reason Cancel Confirm",
+        "fields": {
+          "Name": 4,
+          "Email": 3,
+          "Phone": 1,
+          "Status": 3,
+          "Temporary password": 1,
+          "Role IDs": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "delete_or_archive_modal": {
+        "has_reason": true,
+        "has_context": true,
+        "confirm_disabled_without_reason": true,
+        "text": "Disable Confirm disable for adm_platform_owner. Id adm_platform_owner Name Platform Owner Email admin@newpaotang.test Status active Roles 0 Id rol_c_super_admin Roles 0 Name Platform Super Admin Permissions 0 admin_user.manage Reason Cancel Confirm"
+      }
+    },
+    "central:roles_permissions": {
+      "route": "/admin/central/roles",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "real_api_rows_visible": 2,
+      "create_modal": {
+        "text_has_reason": true,
+        "fields": {
+          "Role name": 1,
+          "Role code": 1,
+          "Status": 2,
+          "Permission codes": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "update_modal": {
+        "has_context": true,
+        "text": "Update Confirm update for rol_01KRAV2H0C3FK1329XZJGF29E2. Id rol_01KRAV2H0C3FK1329XZJGF29E2 Code qa_central_role_qa_p4_admin_6a01750e5803 Name QA Central Role Updated qa-p4-admin-6a01750e5803 Status archived Permissions 0 audit.view Permissions 1 dashboard.view System Role false Role name Role code Status Select active archived Permission codes One permission code per line. Backend validates codes against the current scope. Reason Cancel Confirm",
+        "fields": {
+          "Role name": 1,
+          "Role code": 1,
+          "Status": 3,
+          "Permission codes": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "delete_or_archive_modal": {
+        "has_reason": true,
+        "has_context": true,
+        "confirm_disabled_without_reason": true,
+        "text": "Archive Confirm archive for rol_01KRAV2H0C3FK1329XZJGF29E2. Id rol_01KRAV2H0C3FK1329XZJGF29E2 Code qa_central_role_qa_p4_admin_6a01750e5803 Name QA Central Role Updated qa-p4-admin-6a01750e5803 Status archived Permissions 0 audit.view Permissions 1 dashboard.view System Role false Reason Cancel Confirm"
+      }
+    },
+    "central:system_settings": {
+      "route": "/admin/central/system-settings",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "typed_field_counts": {
+        "Platform name": 1,
+        "Admin API version": 1,
+        "Release gate note": 1,
+        "BO backend gap status": 1
+      },
+      "json_editor_count": 0,
+      "save_button_visible": 1
+    },
+    "tenant:admin_users": {
+      "route": "/admin/tenant/admin-users",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "real_api_rows_visible": 1,
+      "create_modal": {
+        "text_has_reason": true,
+        "fields": {
+          "Name": 2,
+          "Email": 2,
+          "Send invitation": 1,
+          "Role IDs": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "update_modal": {
+        "has_context": true,
+        "text": "Update Confirm update for adm_demo_alpha_owner. Id adm_demo_alpha_owner Tenant Id ten_demo_alpha Name Alpha Owner Email owner@alpha.newpaotang.test Status active Roles 0 Id rol_19750422dd978d210e0b Roles 0 Name Tenant Owner Permissions 0 admin_user.manage Name Email Phone Status Select active invited suspended disabled Temporary password Role IDs One role ID per line. Use IDs from the roles page for the same scope. Reason Cancel Confirm",
+        "fields": {
+          "Name": 4,
+          "Email": 3,
+          "Phone": 1,
+          "Status": 4,
+          "Temporary password": 1,
+          "Role IDs": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "delete_or_archive_modal": {
+        "has_reason": true,
+        "has_context": true,
+        "confirm_disabled_without_reason": true,
+        "text": "Disable Confirm disable for adm_demo_alpha_owner. Id adm_demo_alpha_owner Tenant Id ten_demo_alpha Name Alpha Owner Email owner@alpha.newpaotang.test Status active Roles 0 Id rol_19750422dd978d210e0b Roles 0 Name Tenant Owner Permissions 0 admin_user.manage Reason Cancel Confirm"
+      }
+    },
+    "tenant:roles_permissions": {
+      "route": "/admin/tenant/roles",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "real_api_rows_visible": 2,
+      "create_modal": {
+        "text_has_reason": true,
+        "fields": {
+          "Role name": 1,
+          "Role code": 1,
+          "Status": 2,
+          "Permission codes": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "update_modal": {
+        "has_context": true,
+        "text": "Update Confirm update for rol_19750422dd978d210e0b. Id rol_19750422dd978d210e0b Tenant Id ten_demo_alpha Code owner Name Tenant Owner Status active Permissions 0 admin_user.manage Permissions 1 affiliate.create System Role true Role name Role code Status Select active archived Permission codes One permission code per line. Backend validates codes against the current scope. Reason Cancel Confirm",
+        "fields": {
+          "Role name": 1,
+          "Role code": 1,
+          "Status": 3,
+          "Permission codes": 1,
+          "Reason": 1,
+          "confirm_disabled_initially": true
+        }
+      },
+      "delete_or_archive_modal": {
+        "has_reason": true,
+        "has_context": true,
+        "confirm_disabled_without_reason": true,
+        "text": "Archive Confirm archive for rol_19750422dd978d210e0b. Id rol_19750422dd978d210e0b Tenant Id ten_demo_alpha Code owner Name Tenant Owner Status active Permissions 0 admin_user.manage Permissions 1 affiliate.create System Role true Reason Cancel Confirm"
+      }
+    },
+    "tenant:support_access_logs": {
+      "route": "/admin/tenant/support-access",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "create_modal": {
+        "has_contract_scopes": true,
+        "has_allowed_target_types": true,
+        "has_ticket_and_reason": true
+      },
+      "create_status": 201,
+      "reason_guard_disabled_initially": {
+        "Approve": true,
+        "Revoke": true,
+        "Start impersonation": true,
+        "Log elevated action": true,
+        "End session": true
+      },
+      "actions_enabled_with_reason": {
+        "Approve": true,
+        "Revoke": true,
+        "Start impersonation": true,
+        "Log elevated action": true,
+        "End session": true
+      },
+      "approve_status": 200,
+      "token_text_visible_after_approve": 0
+    },
+    "tenant:settings": {
+      "route": "/admin/tenant/settings",
+      "menu_link_count": 1,
+      "hard_refresh_kept_session": true,
+      "typed_field_counts": {
+        "Site name": 1,
+        "SEO title": 1,
+        "Maintenance active": 1,
+        "API base URL": 1,
+        "Logo URL": 1,
+        "Primary color": 1
+      },
+      "add_domain": {
+        "has_host": true,
+        "has_status": true,
+        "has_primary": true,
+        "has_reason": true,
+        "confirm_disabled_without_reason_or_host": true
+      },
+      "domain_detail": {
+        "has_host_context": true
+      },
+      "verify_modal": {
+        "has_domain_context": true,
+        "has_reason": true,
+        "confirm_disabled_without_reason": true
+      },
+      "delete_modal": {
+        "has_domain_context": true,
+        "has_reason": true,
+        "confirm_disabled_without_reason": true
+      }
+    }
+  },
+  "requests": [
+    {
+      "method": "POST",
+      "url": "/api/v1/auth/admin/login",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": [
+        "email",
+        "scope",
+        "tenant_id"
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/dashboard/summary",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/admin-users?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/admin-users?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/roles?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/roles?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/system-settings",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/system-settings",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/central/admin-users?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/dashboard/summary",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/admin-users?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/admin-users?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/roles?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/roles?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/support-access?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/support-access?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/tenant/support-access",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": "idk_mp0toju7_ut2z8bmlbdge"
+      },
+      "post_data_keys": [
+        "reason",
+        "scope",
+        "target_user_id",
+        "target_user_type",
+        "ticket_id"
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/support-access/sar_01KRAVNHWF5H819H8MT399M371",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/tenant/support-access/sar_01KRAVNHWF5H819H8MT399M371/approve",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": "idk_mp0tojys_1si18tl1uzeht9"
+      },
+      "post_data_keys": [
+        "reason"
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/settings",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/domains?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/theme",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/settings",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/domains?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/theme",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/domains/dom_14f6d0741e76eca39c69",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/settings",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/domains?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/theme",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data_keys": null
+    }
+  ],
+  "console_warnings": [
+    {
+      "type": "error",
+      "text": "%cerror%c [nuxt] error caught during app initialization \n      background: #c0392b;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      H3Error: Failed to fetch"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the sourc"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    }
+  ],
+  "mobile": {
+    "central:/admin/central/admin-users": {
+      "url": "/admin/central/admin-users",
+      "login_visible": 0,
+      "body_width": 390,
+      "viewport_width": 390
+    },
+    "tenant:/admin/tenant/settings": {
+      "url": "/admin/tenant/settings",
+      "login_visible": 0,
+      "body_width": 390,
+      "viewport_width": 390
+    }
+  }
+}

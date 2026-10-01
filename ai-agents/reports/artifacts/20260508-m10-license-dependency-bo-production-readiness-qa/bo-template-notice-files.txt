@@ -1,0 +1,2 @@
+apps/back-office/public/admin-template/NOTICE.md
+apps/back-office/public/admin-template/README.md

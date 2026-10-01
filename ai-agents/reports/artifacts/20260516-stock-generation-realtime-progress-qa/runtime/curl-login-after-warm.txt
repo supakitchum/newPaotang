@@ -1,0 +1,31 @@
+HTTP/1.1 200 OK
+content-type: text/html;charset=utf-8
+x-powered-by: Nuxt
+date: Sat, 16 May 2026 06:49:27 GMT
+connection: close
+content-length: 4836
+
+<!DOCTYPE html><html  lang="en" dir="ltr" data-nav-layout="vertical" data-theme-mode="light" data-menu-styles="light" data-header-styles="light" data-vertical-style="closed" data-width="fullwidth" data-menu-position="fixed" data-header-position="fixed"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NewPaotang Back Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script id="unhead:payload" type="application/json">{"title":"NewPaotang Back Office"}</script>
+<link rel="icon" href="/admin-template/assets/images/brand-logos/favicon.ico">
+<link id="style" rel="stylesheet" href="/admin-template/assets/libs/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/admin-template/assets/css/styles.css">
+<link rel="stylesheet" href="/admin-template/assets/css/icons.css">
+<link rel="stylesheet" href="/admin-template/assets/libs/node-waves/waves.min.css">
+<link rel="stylesheet" href="/admin-template/assets/libs/simplebar/simplebar.min.css">
+<link rel="stylesheet" href="/_nuxt/assets/css/admin-foundation.css">
+<link rel="stylesheet" href="/_nuxt/node_modules/sweetalert2/dist/sweetalert2.min.css">
+<link rel="stylesheet" href="/_nuxt/components/AdminDataTable.vue?vue&type=style&index=0&scoped=f4aad6a1&lang.css">
+<link rel="stylesheet" href="/_nuxt/components/AdminRewardPrizes.vue?vue&type=style&index=0&scoped=12442ae5&lang.css">
+<link rel="stylesheet" href="/_nuxt/components/AdminStockSummaryWidgets.vue?vue&type=style&index=0&scoped=ff14c5c8&lang.css">
+<link rel="stylesheet" href="/_nuxt/components/AdminStockGenerationBatches.vue?vue&type=style&index=0&scoped=78366649&lang.css">
+<link rel="stylesheet" href="/_nuxt/components/AdminConfirmAction.vue?vue&type=style&index=0&scoped=b460224a&lang.css">
+<link rel="stylesheet" href="/_nuxt/node_modules/@nuxt/ui-templates/dist/templates/error-404.vue?vue&type=style&index=0&scoped=bc8852ab&lang.css">
+<link rel="modulepreload" as="script" crossorigin href="/_nuxt/app/node_modules/nuxt/dist/app/entry.js">
+<script type="module" src="/_nuxt/@vite/client" crossorigin></script>
+<script type="module" src="/_nuxt/app/node_modules/nuxt/dist/app/entry.js" crossorigin></script></head><body><div id="__nuxt"><!--[--><div class="authentication"><div class="container"><div class="row align-items-center justify-content-center min-vh-100"><div class="col-xl-9 col-lg-10"><div class="card custom-card overflow-hidden"><div class="row g-0"><div class="col-lg-6 d-none d-lg-flex np-login-media text-white p-5 align-items-end"><div><h1 class="fw-semibold mb-3">NewPaotang Back Office</h1><p class="mb-0 opacity-75">Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.</p></div></div><div class="col-lg-6"><div class="card-body p-4 p-lg-5"><div class="mb-4"><img src="/admin-template/assets/images/brand-logos/desktop-logo.png" alt="NewPaotang" height="34" class="mb-3"><h4 class="mb-1">Admin sign in</h4><p class="text-muted mb-0">Use an approved central or tenant admin account.</p></div><!----><!----><form><div class="mb-3"><label class="form-label">Email</label><input value="" type="email" class="form-control" autocomplete="username" required></div><div class="mb-3"><label class="form-label">Password</label><input value="" type="password" class="form-control" autocomplete="current-password" required></div><div class="row g-2"><div class="col-sm-5"><label class="form-label">Scope</label><select class="form-select"><option value="central" selected>Central</option><option value="tenant">Tenant</option></select></div><div class="col-sm-7"><label class="form-label">Tenant ID</label><input value="" class="form-control" disabled placeholder="Required for tenant login"></div></div><button class="btn btn-primary btn-wave w-100 mt-4" type="submit"><!----> Sign in </button></form><div class="alert alert-info mt-4 mb-0"><i class="ri-shield-check-line me-2"></i> Backend authorization remains the source of truth after login. </div></div></div></div></div></div></div></div></div><!--]--></div><div id="teleports"></div><script type="application/json" id="__NUXT_LOGS__">[[]]</script><script type="application/json" id="__NUXT_DATA__" data-ssr="true">[["Reactive",1],{"data":2,"state":3,"once":9,"_errors":10,"serverRendered":11,"path":12},{},{"$sadmin-session":4,"$sadmin-toast":5},{"accessToken":5,"refreshToken":5,"user":5,"scopes":6,"activeScope":7,"activeTenantId":5,"restored":8},null,[],"central",false,["Set"],{},true,"/login"]</script>
+<script>window.__NUXT__={};window.__NUXT__.config={public:{adminApiBase:"http://localhost:8000/api/v1",adminRealtimeUrl:"",adminRealtimeKey:"newpaotang-admin"},app:{baseURL:"/",buildAssetsDir:"/_nuxt/",cdnURL:""}}</script></body></html>

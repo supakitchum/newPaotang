@@ -2,7 +2,7 @@
   <div
     v-if="alertState.visible"
     class="modal-overlay app-alert-overlay"
-    @click.self="closeAlert"
+    @click.self.stop.prevent="closeAlert"
   >
     <section
       class="app-alert-modal"
@@ -16,7 +16,7 @@
       </div>
       <h2 id="app-alert-title">{{ alertTitle }}</h2>
       <p>{{ alertState.message }}</p>
-      <button class="primary-pill app-alert-button" type="button" @click="closeAlert">
+      <button class="primary-pill app-alert-button" type="button" @click.stop.prevent="closeAlert">
         {{ alertState.button }}
       </button>
     </section>

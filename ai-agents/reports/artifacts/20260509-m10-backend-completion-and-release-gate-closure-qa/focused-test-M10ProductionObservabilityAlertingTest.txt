@@ -1,0 +1,20 @@
+Running M10ProductionObservabilityAlertingTest
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-ea50cf979452 Creating 
+ Container newpaotang-platform-api-run-ea50cf979452 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10ProductionObservabilityAlertingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mobservability report command emits safe machine readable inventory[39m[90m  [39m [90m2.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault alert policies are seeded for each demo partner[39m[90m             [39m [90m1.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check dry run includes partner tenant labels and writes no ev[39m[90m…[39m [90m1.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check can write safe local database event with redacted paylo[39m[90m…[39m [90m1.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv and ops artifacts keep release boundary and tenant config rules[39m[90m [39m [90m0.02s[39m  
+
+  [90mTests:[39m    [32;1m5 passed[39;22m[90m (81 assertions)[39m
+  [90mDuration:[39m [39m5.64s[39m
+

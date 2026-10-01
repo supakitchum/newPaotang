@@ -1,0 +1,83 @@
+{
+  "status": 200,
+  "body": {
+    "data": [
+      {
+        "id": "pmp_5b8eeb609343b015752e",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:25.000000Z",
+        "updated_at": "2026-05-10T12:19:25.000000Z",
+        "partner_id": "par_demo_gamma",
+        "partner": {
+          "id": "par_demo_gamma",
+          "code": "demo_gamma",
+          "name": "Demo Gamma Partner",
+          "status": "active"
+        },
+        "health_status": "unknown",
+        "checks": [
+          {
+            "id": "phc_b8cfb28cbae7de08cf3a",
+            "tenant_id": "ten_demo_gamma",
+            "check_key": "site_config",
+            "health_status": "unknown",
+            "checked_at": null
+          }
+        ]
+      },
+      {
+        "id": "pmp_7d9e7816a95946bae865",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_beta",
+        "partner": {
+          "id": "par_demo_beta",
+          "code": "demo_beta",
+          "name": "Demo Beta Partner",
+          "status": "active"
+        },
+        "health_status": "unknown",
+        "checks": [
+          {
+            "id": "phc_30f2194f59e131fe919a",
+            "tenant_id": "ten_demo_beta",
+            "check_key": "site_config",
+            "health_status": "unknown",
+            "checked_at": null
+          }
+        ]
+      },
+      {
+        "id": "pmp_bb8ba141b0d386ad79bd",
+        "tenant_id": null,
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "health_status": "unknown",
+        "checks": [
+          {
+            "id": "phc_6775f4e095778a998864",
+            "tenant_id": "ten_demo_alpha",
+            "check_key": "site_config",
+            "health_status": "unknown",
+            "checked_at": null
+          }
+        ]
+      }
+    ],
+    "meta": {
+      "next_cursor": null,
+      "has_more": false
+    }
+  }
+}

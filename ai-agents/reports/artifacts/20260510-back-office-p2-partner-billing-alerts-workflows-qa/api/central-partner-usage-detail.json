@@ -1,0 +1,21 @@
+{
+  "status": 200,
+  "body": {
+    "id": "pum_1c3b8986b9158d83bd85",
+    "tenant_id": null,
+    "status": "active",
+    "created_at": "2026-05-10T12:19:24.000000Z",
+    "updated_at": "2026-05-10T12:19:24.000000Z",
+    "partner_id": "par_demo_alpha",
+    "partner": {
+      "id": "par_demo_alpha",
+      "code": "demo_alpha",
+      "name": "Demo Alpha Partner",
+      "status": "active"
+    },
+    "meter_key": "queue_jobs",
+    "value": 0,
+    "limit_value": null,
+    "recent_summaries": []
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "currentRouteEvidence": {
+    "selects": [
+      {
+        "index": 0,
+        "options": [
+          "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)"
+        ],
+        "selected": "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)",
+        "value": "gam_01KRNMWTAHF07YGN365E00NW42"
+      },
+      {
+        "index": 1,
+        "options": [
+          "All",
+          "Available",
+          "Allocated",
+          "Sold",
+          "Recalled"
+        ],
+        "selected": "All",
+        "value": ""
+      }
+    ],
+    "url": "http://localhost:3100/admin/central/stock-generation"
+  },
+  "relevant": "        - link \" Games\":\n          - /url: /admin/central/games\n          - generic: Games\n        - link \" Stock Generation\":\n          - generic: Stock Generation\n        - link \" Allocations\":\n          - /url: /admin/central/allocations\n          - generic: Allocations\n        - link \" Stock Recall\":\n          - /url: /admin/central/stock-recall\n          - generic: Stock Recall\n  - heading \"Stock Generation\" [level=2]\n    - listitem:  Stock Generation\n  - generic: Game\n    - option \"งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)\" [selected]\n    - option \"All\" [selected]\n    - option \"Allocated\"\n    - option \"Recalled\"\n  - paragraph: Total tickets\n  - text: Game gam_01KRNMWTAHF07YGN365E00NW42\n  - paragraph: 2-tail coverage\n  - paragraph: 3-tail coverage\n  - paragraph: 3-front coverage\n  - paragraph: Status totals\n  - text: Available, allocated, sold, recalled, and voided\n  - generic: Allocated\n  - generic: Recalled\n  - button \" Import stock\":\n    - text: Import stock\n  - button \" Generate stock\":\n    - text: Generate stock\n  - button \" Export stock\":\n    - text: Export stock\n  - generic: Stock Generation\n      - row \"Number Tickets Available Allocated Sold Recalled Game Updated Actions\":\n        - columnheader \"Allocated\":\n          - button \"Allocated\":\n            - generic: Allocated\n        - columnheader \"Recalled\":\n          - button \"Recalled\":\n            - generic: Recalled\n        - columnheader \"Game\":\n          - button \"Game\":\n            - generic: Game"
+}

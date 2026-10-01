@@ -1,0 +1,20 @@
+Confirm menu save
+
+Review the scope and changed menu items before saving this full menu tree.
+
+Scope
+Tenant
+Menu items
+32
+Changed items
+1
+Reason
+browser-closure-mp0shzly tenant menu confirmation
+Item	Changed context
+
+Dashboard [TENANT-BROWSER-QA]
+men_t_0123ecdaf7360c7a4b39
+
+Label:DashboardDashboard [TENANT-BROWSER-QA]
+Cancel
+Confirm save

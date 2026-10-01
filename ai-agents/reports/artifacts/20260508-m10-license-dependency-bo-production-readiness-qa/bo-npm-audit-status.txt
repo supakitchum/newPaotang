@@ -1,0 +1,2 @@
+npm_audit_exit_status=1
+Node parsing skipped on host per Docker runtime policy; summary parsed later with non-runtime file tools if needed.

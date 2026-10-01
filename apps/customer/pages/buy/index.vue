@@ -29,8 +29,9 @@
 
       <LotteryItem
         v-for="(ticket, index) in lotteries"
-        :key="`${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`"
+        :key="ticketKey(ticket, index)"
         :ticket="ticket"
+        :show-image="false"
         :booking-disabled="!canBuyLottery"
         @booking-unavailable="removeLottery"
       />
@@ -59,7 +60,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 interface LotteryTicket {
   token?: string
+  local_stock_item_id?: string
   number: string
+  full_number?: string
+  lottery_number?: string
   seller?: string
   store_name?: string
   draw?: number | string
@@ -69,19 +73,29 @@ interface LotteryTicket {
   sort_order?: number | string
   selected?: boolean
   highlight?: string
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
-const axios = useAxios()
-const { isAuthenticated, clearAuthToken } = useAuth()
-const { currentDrawDate: drawDate } = useAppInit()
-const lotteries = ref<LotteryTicket[]>([])
-const seed = ref<string | null>(null)
-const nextCursor = ref<string | null>(null)
+const platformApi = usePlatformApi()
+const { clearAuthToken } = useAuth()
+const { currentDrawDate: drawDate, currentGame } = useAppInit()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
+const lotteries = useState<LotteryTicket[]>('buy_browse_lotteries', () => [])
+const seed = useState<string | null>('buy_browse_seed', () => null)
+const randomSeed = useState<string | null>('buy_browse_random_seed', () => null)
+const nextCursor = useState<string | null>('buy_browse_next_cursor', () => null)
+const currentGameId = useState<string>('buy_browse_game_id', () => '')
+const cachedScrollTop = useState<number>('buy_browse_scroll_top', () => 0)
 const isLoadingInitial = ref(false)
 const isRefreshing = ref(false)
 const isLoadingMore = ref(false)
 const cooldownSeconds = ref(0)
-const canBuyLottery = ref(true)
+const canBuyLottery = useState<boolean>('buy_browse_can_buy', () => true)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 let scrollContainer: HTMLElement | null = null
 
@@ -112,6 +126,63 @@ const refreshButtonText = computed(() => {
 
   return 'แสดงเลขใหม่'
 })
+useCustomerStockRealtime({
+  gameId: currentGameId,
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
+  includePresence: true,
+})
+
+const currentAppGameId = computed(() => String(currentGame.value?.id || ''))
+const hasReusableBrowseState = computed(() => lotteries.value.length > 0 && Boolean(randomSeed.value) && (!currentAppGameId.value || !currentGameId.value || currentGameId.value === currentAppGameId.value))
+
+const createRandomSeed = () => (
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+)
+
+const ensureRandomSeed = () => {
+  if (!randomSeed.value) {
+    randomSeed.value = createRandomSeed()
+  }
+
+  return randomSeed.value
+}
+
+const ticketNumberKey = (ticket: Partial<LotteryTicket>) => String(ticket.full_number || ticket.number || ticket.lottery_number || '').replace(/\D/g, '').slice(0, 6)
+
+const uniqueByNumber = (tickets: LotteryTicket[]) => {
+  const seenNumbers = new Set<string>()
+
+  return tickets.filter((ticket) => {
+    const number = ticketNumberKey(ticket)
+
+    if (!number || seenNumbers.has(number)) {
+      return false
+    }
+
+    seenNumbers.add(number)
+
+    return true
+  })
+}
+
+const arrangeNonAdjacentNumbers = (tickets: LotteryTicket[]) => {
+  const pending = [...tickets]
+  const arranged: LotteryTicket[] = []
+
+  while (pending.length > 0) {
+    const previousNumber = arranged.length > 0 ? ticketNumberKey(arranged[arranged.length - 1]) : ''
+    const nextIndex = pending.findIndex((ticket) => ticketNumberKey(ticket) !== previousNumber)
+    const index = nextIndex >= 0 ? nextIndex : 0
+    const [nextTicket] = pending.splice(index, 1)
+
+    arranged.push(nextTicket)
+  }
+
+  return arranged
+}
 
 const startCooldown = () => {
   cooldownSeconds.value = 10
@@ -132,25 +203,19 @@ const startCooldown = () => {
 
 async function getData(options: { append?: boolean, cursor?: string | null } = {}) {
   try {
-    const params: Record<string, string> = {}
-    const endpoint = isAuthenticated.value ? '/stores' : '/lotteries/guest'
-
-    if (seed.value) {
-      params.seed = seed.value
-    }
-
-    if (options.cursor) {
-      params.cursor = options.cursor
-    }
-
-    const response = await axios.get(endpoint, { params })
+    const response = await platformApi.searchStockLegacy({
+      mode: 'random',
+      randomSeed: ensureRandomSeed(),
+      cursor: options.cursor || null
+    })
     if (response.data.code === 0) {
       const result = response.data.result || {}
       const pagination = response.data.result.pagination || {}
       const nextLotteries = response.data.result.lotteries || []
+      currentGameId.value = String(result.game_id || currentGameId.value || '')
       canBuyLottery.value = result.bet_status !== 0
-      lotteries.value = options.append ? [...lotteries.value, ...nextLotteries] : nextLotteries
-      seed.value = pagination.seed || seed.value
+      lotteries.value = uniqueByNumber(arrangeNonAdjacentNumbers(options.append ? [...lotteries.value, ...nextLotteries] : nextLotteries))
+      seed.value = randomSeed.value
       nextCursor.value = pagination.next_cursor || null
     }
   } catch (e) {
@@ -159,11 +224,31 @@ async function getData(options: { append?: boolean, cursor?: string | null } = {
     if (status === 401) {
       clearAuthToken()
       seed.value = null
+      randomSeed.value = null
       nextCursor.value = null
     }
 
     console.log(e)
   }
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  lotteries.value = lotteries.value.map((ticket) => (
+    ticketNumberKey(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
 }
 
 const loadNextPage = async () => {
@@ -194,8 +279,10 @@ const handleRefresh = async () => {
   }
 
   isRefreshing.value = true
-  seed.value = null
+  randomSeed.value = createRandomSeed()
+  seed.value = randomSeed.value
   nextCursor.value = null
+  cachedScrollTop.value = 0
   lotteries.value = []
   await getData()
   isRefreshing.value = false
@@ -212,15 +299,33 @@ const removeLottery = (ticket: LotteryTicket) => {
   })
 }
 
+const ticketKey = (ticket: LotteryTicket, index: number) => String(ticket.token || ticket.local_stock_item_id || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
+
 onMounted(async () => {
-  isLoadingInitial.value = true
-  await getData()
-  isLoadingInitial.value = false
+  if (!hasReusableBrowseState.value) {
+    isLoadingInitial.value = true
+    randomSeed.value = createRandomSeed()
+    seed.value = randomSeed.value
+    nextCursor.value = null
+    lotteries.value = []
+    await getData()
+    isLoadingInitial.value = false
+  }
+
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
+  requestAnimationFrame(() => {
+    if (scrollContainer && cachedScrollTop.value > 0) {
+      scrollContainer.scrollTop = cachedScrollTop.value
+    }
+  })
 })
 
 onBeforeUnmount(() => {
+  if (scrollContainer) {
+    cachedScrollTop.value = scrollContainer.scrollTop
+  }
+
   if (cooldownTimer) {
     clearInterval(cooldownTimer)
   }

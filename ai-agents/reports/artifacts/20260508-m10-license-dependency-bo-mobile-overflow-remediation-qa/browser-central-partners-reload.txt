@@ -1,0 +1,281 @@
+summary={
+  "label": "browser-central-partners-reload",
+  "url": "http://127.0.0.1:3100/admin/central/partners",
+  "hasLogin": false,
+  "hasRestore": false,
+  "hasPartners": true,
+  "hasTenantMaintenance": false,
+  "hasAgents": false,
+  "hasTenantScope": false,
+  "logsCount": 12
+}
+
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - navigation:
+    - text: 
+    - list:
+      - listitem: Central Menu
+      - link " Dashboard":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: Dashboard
+      - link " Games":
+        - /url: /admin/central/games
+        - generic: 
+        - generic: Games
+      - link " Rewards":
+        - /url: /admin/central/rewards
+        - generic: 
+        - generic: Rewards
+      - link " Prize Checking":
+        - /url: /admin/central/rewards
+        - generic: 
+        - generic: Prize Checking
+      - link " Master Stock":
+        - /url: /admin/central/stock
+        - generic: 
+        - generic: Master Stock
+      - link " Stock Generation":
+        - /url: /admin/central/stock
+        - generic: 
+        - generic: Stock Generation
+      - link " Partners":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Partners
+      - link " Partner Provisioning":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Partner Provisioning
+      - link " Partner Quotas":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Partner Quotas
+      - link " Partner Monitoring":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Partner Monitoring
+      - link " Partner Usage":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Partner Usage
+      - link " Allocations":
+        - /url: /admin/central/allocations
+        - generic: 
+        - generic: Allocations
+      - link " Stock Recall":
+        - /url: /admin/central/stock
+        - generic: 
+        - generic: Stock Recall
+      - link " Billing Plans":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Billing Plans
+      - link " Alert Policies":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Alert Policies
+      - link " Alert Events":
+        - /url: /admin/central/partners
+        - generic: 
+        - generic: Alert Events
+      - link " Reports":
+        - /url: /admin/central/reports
+        - generic: 
+        - generic: Reports
+      - link " Settlement":
+        - /url: /admin/central/settlements
+        - generic: 
+        - generic: Settlement
+      - link " Webhook Logs":
+        - /url: /admin/central/audit-logs
+        - generic: 
+        - generic: Webhook Logs
+      - link " Audit Logs":
+        - /url: /admin/central/audit-logs
+        - generic: 
+        - generic: Audit Logs
+      - link " Admin Users":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: Admin Users
+      - link " Roles Permissions":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: Roles Permissions
+      - link " Menu Management":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: Menu Management
+      - link " System Settings":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: System Settings
+    - text: 
+- main:
+  - heading "Partners" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Partners
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Active"
+    - option "Suspended"
+    - option "Provisioning"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Partners
+  - table:
+    - rowgroup:
+      - row "Partner Name Status Created Actions":
+        - columnheader "Partner"
+        - columnheader "Name"
+        - columnheader "Status"
+        - columnheader "Created"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "par_demo_alpha Demo Alpha Partner Active 8 พ.ค. 2569 23:57 Detail Provision Suspend":
+        - cell "par_demo_alpha"
+        - cell "Demo Alpha Partner"
+        - cell "Active":
+          - generic: Active
+        - cell "8 พ.ค. 2569 23:57"
+        - cell "Detail Provision Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_alpha
+          - button "Provision"
+          - button "Suspend"
+      - row "par_demo_beta Demo Beta Partner Active 8 พ.ค. 2569 23:57 Detail Provision Suspend":
+        - cell "par_demo_beta"
+        - cell "Demo Beta Partner"
+        - cell "Active":
+          - generic: Active
+        - cell "8 พ.ค. 2569 23:57"
+        - cell "Detail Provision Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_beta
+          - button "Provision"
+          - button "Suspend"
+      - row "par_demo_gamma Demo Gamma Partner Active 8 พ.ค. 2569 23:57 Detail Provision Suspend":
+        - cell "par_demo_gamma"
+        - cell "Demo Gamma Partner"
+        - cell "Active":
+          - generic: Active
+        - cell "8 พ.ค. 2569 23:57"
+        - cell "Detail Provision Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_gamma
+          - button "Provision"
+          - button "Suspend"
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       
+
+logs=[
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.sidemenu-toggle.header-link.btn.btn-icon.btn-light.btn-wave.me-2.waves-effect.waves-light \n  - rendered on server: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:29.939Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.btn.btn-light.btn-wave.dropdown-toggle.waves-effect.waves-light \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:29.940Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.btn.btn-icon.btn-light.btn-wave.me-2.waves-effect.waves-light \n  - rendered on server: class=\"btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:29.940Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.btn.btn-light.btn-wave.dropdown-toggle.d-flex.align-items-center.waves-effect.waves-light \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:29.941Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      div.simplebar-wrapper  \n- expected on client: nav \n  at <AdminSidebar menus= Array(0) loading=false client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:29.941Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      div.main-sidebar \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= Array(0) loading=false client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:29.942Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.sidemenu-toggle.header-link.btn.btn-icon.btn-light.btn-wave.me-2.waves-effect.waves-light \n  - rendered on server: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:30.716Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.btn.btn-light.btn-wave.dropdown-toggle.waves-effect.waves-light \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:30.717Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.btn.btn-icon.btn-light.btn-wave.me-2.waves-effect.waves-light \n  - rendered on server: class=\"btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:30.718Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      button.btn.btn-light.btn-wave.dropdown-toggle.d-flex.align-items-center.waves-effect.waves-light \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:30.718Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      div.simplebar-wrapper  \n- expected on client: nav \n  at <AdminSidebar menus= Array(0) loading=false client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:30.719Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "warn",
+    "message": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      div.main-sidebar \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= Array(0) loading=false client-ready=false > \n  at <Admin ref=Ref< [object] > > \n  at <LayoutLoader key=\"admin\" layoutProps= Object name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= Object key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>",
+    "timestamp": "2026-05-08T17:01:30.719Z",
+    "url": "http://127.0.0.1:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  }
+]

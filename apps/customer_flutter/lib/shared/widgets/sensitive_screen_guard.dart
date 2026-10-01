@@ -1,0 +1,166 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/auth/auth_controller.dart';
+import '../../core/i18n/customer_localizations.dart';
+import '../../core/security/screen_security_service.dart';
+
+class SensitiveScreenGuard extends ConsumerStatefulWidget {
+  const SensitiveScreenGuard({
+    required this.route,
+    required this.child,
+    this.enabled = true,
+    this.androidFlagSecure,
+    this.androidProtectRecentAppPreview,
+    this.iosScreenshotPolicy,
+    this.iosScreenCaptureOverlay,
+    this.iosExitApp,
+    this.privacyOverlayTitle,
+    this.privacyOverlayDescription,
+    this.lockOnCapture = true,
+    super.key,
+  });
+
+  final String route;
+  final Widget child;
+  final bool enabled;
+  final bool? androidFlagSecure;
+  final bool? androidProtectRecentAppPreview;
+  final String? iosScreenshotPolicy;
+  final bool? iosScreenCaptureOverlay;
+  final bool? iosExitApp;
+  final String? privacyOverlayTitle;
+  final String? privacyOverlayDescription;
+  final bool lockOnCapture;
+
+  @override
+  ConsumerState<SensitiveScreenGuard> createState() =>
+      _SensitiveScreenGuardState();
+}
+
+class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
+  late final ScreenSecurityService _screenSecurity;
+  StreamSubscription<ScreenSecurityEvent>? _subscription;
+  Future<void> _protectionQueue = Future<void>.value();
+
+  @override
+  void initState() {
+    super.initState();
+    _screenSecurity = ref.read(screenSecurityServiceProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncProtection();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant SensitiveScreenGuard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.route != widget.route ||
+        oldWidget.enabled != widget.enabled ||
+        oldWidget.androidFlagSecure != widget.androidFlagSecure ||
+        oldWidget.androidProtectRecentAppPreview !=
+            widget.androidProtectRecentAppPreview ||
+        oldWidget.iosScreenshotPolicy != widget.iosScreenshotPolicy ||
+        oldWidget.iosScreenCaptureOverlay != widget.iosScreenCaptureOverlay ||
+        oldWidget.iosExitApp != widget.iosExitApp ||
+        oldWidget.privacyOverlayTitle != widget.privacyOverlayTitle ||
+        oldWidget.privacyOverlayDescription !=
+            widget.privacyOverlayDescription ||
+        oldWidget.lockOnCapture != widget.lockOnCapture) {
+      _syncProtection();
+    }
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    _queueProtectionUpdate(_screenSecurity.disable);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+
+  void _syncProtection() {
+    if (!widget.enabled) {
+      _subscription?.cancel();
+      _subscription = null;
+      _queueProtectionUpdate(
+        () => _screenSecurity.disable(
+          route: widget.route,
+          allowRouteExemption: true,
+        ),
+      );
+      return;
+    }
+
+    _subscription ??= _screenSecurity.events.listen(_handleSecurityEvent);
+    final l10n = context.l10n;
+    final route = widget.route;
+    final privacyOverlayTitle = widget.privacyOverlayTitle;
+    final privacyOverlayDescription = widget.privacyOverlayDescription;
+    final securityCaptureTitle = l10n.securityCaptureTitle;
+    final securityCaptureDescription = l10n.securityCaptureDescription;
+    final androidFlagSecure = widget.androidFlagSecure;
+    final androidProtectRecentAppPreview =
+        widget.androidProtectRecentAppPreview;
+    final iosScreenshotPolicy = widget.iosScreenshotPolicy;
+    final iosScreenCaptureOverlay = widget.iosScreenCaptureOverlay;
+    final iosExitApp = widget.iosExitApp;
+    _queueProtectionUpdate(
+      () => _screenSecurity.enable(
+        route: route,
+        overlayTitle: _runtimeCopy(
+          privacyOverlayTitle,
+          securityCaptureTitle,
+        ),
+        overlayDescription: _runtimeCopy(
+          privacyOverlayDescription,
+          securityCaptureDescription,
+        ),
+        androidFlagSecure: androidFlagSecure,
+        androidProtectRecentAppPreview: androidProtectRecentAppPreview,
+        iosScreenshotPolicy: iosScreenshotPolicy,
+        iosScreenCaptureOverlay: iosScreenCaptureOverlay,
+        iosExitApp: iosExitApp,
+      ),
+    );
+  }
+
+  void _queueProtectionUpdate(Future<void> Function() operation) {
+    _protectionQueue = _protectionQueue.then<void>(
+      (_) => operation(),
+      onError: (_, __) => operation(),
+    );
+  }
+
+  void _handleSecurityEvent(ScreenSecurityEvent event) {
+    if (!mounted) return;
+    if (!screenSecurityRoutesMatch(event.route, widget.route)) return;
+    final route = event.route.isEmpty
+        ? normalizeScreenSecurityRoute(widget.route)
+        : normalizeScreenSecurityRoute(event.route);
+    unawaited(
+      ref.read(screenSecurityAuditServiceProvider).record(
+            event: event,
+            route: route,
+          ),
+    );
+    if (event.event == 'screen_capture_ended') return;
+    if (!_shouldLockForSecurityEvent(event)) return;
+    ref.read(authControllerProvider).lockForScreenSecurity();
+  }
+
+  bool _shouldLockForSecurityEvent(ScreenSecurityEvent event) {
+    if (event.event == 'screen_security_exit_requested') return true;
+    return widget.lockOnCapture;
+  }
+
+  String _runtimeCopy(String? value, String fallback) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? fallback : trimmed;
+  }
+}

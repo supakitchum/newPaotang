@@ -1,0 +1,18 @@
+## Protected stale marker redirect with -L
+HTTP/1.1 302 Found
+location: /login?redirect=/admin/tenant/maintenance
+content-type: text/html
+date: Fri, 08 May 2026 12:27:47 GMT
+connection: close
+content-length: 127
+
+HTTP/1.1 200 OK
+content-type: text/html;charset=utf-8
+x-powered-by: Nuxt
+date: Fri, 08 May 2026 12:27:47 GMT
+connection: close
+content-length: 3952
+
+
+follow_body_contains_tenant_maintenance=no
+follow_body_contains_login=yes

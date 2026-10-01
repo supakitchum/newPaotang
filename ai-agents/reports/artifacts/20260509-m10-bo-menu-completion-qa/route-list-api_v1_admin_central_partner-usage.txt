@@ -1,0 +1,6 @@
+
+  GET|HEAD       api/v1/admin/central/partner-usage App\Modules\AdminOperatio…
+  GET|HEAD       api/v1/admin/central/partner-usage/{usage_meter_id} App\Modu…
+
+                                                            Showing [2] routes
+

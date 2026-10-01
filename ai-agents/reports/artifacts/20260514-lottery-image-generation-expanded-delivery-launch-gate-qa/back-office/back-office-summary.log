@@ -1,0 +1,78 @@
+== npm-lint ==
+npm-lint exit_code=0
+   Container newpaotang-back-office-run-e7f7f4b31210 Creating
+   Container newpaotang-back-office-run-e7f7f4b31210 Created
+
+  > lint
+  > node scripts/check.mjs lint
+
+  lint passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, protected deep-link marker bridge, mobile no-overflow shell guardrails, menu completion fallback guardrails, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.
+  exit_code=0
+
+== npm-test ==
+npm-test exit_code=0
+   Container newpaotang-back-office-run-01492792b11f Creating
+   Container newpaotang-back-office-run-01492792b11f Created
+
+  > test
+  > node scripts/check.mjs test
+
+  test passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, protected deep-link marker bridge, mobile no-overflow shell guardrails, menu completion fallback guardrails, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.
+  exit_code=0
+
+== npm-build ==
+npm-build exit_code=0
+    ├─ .output/server/chunks/build/error-404-Gx5-X6yS.mjs (4.86 kB) (1.91 kB gzip)
+    ├─ .output/server/chunks/build/error-404-Gx5-X6yS.mjs.map (2.16 kB) (723 B gzip)
+    ├─ .output/server/chunks/build/error-404-styles.D2F6Efd_.mjs (3.82 kB) (1.23 kB gzip)
+    ├─ .output/server/chunks/build/error-404-styles.D2F6Efd_.mjs.map (296 B) (194 B gzip)
+    ├─ .output/server/chunks/build/error-500-D6ipXphn.mjs (3.97 kB) (1.6 kB gzip)
+    ├─ .output/server/chunks/build/error-500-D6ipXphn.mjs.map (1.56 kB) (556 B gzip)
+    ├─ .output/server/chunks/build/error-500-styles.CU3Y-oSM.mjs (2.15 kB) (857 B gzip)
+    ├─ .output/server/chunks/build/error-500-styles.CU3Y-oSM.mjs.map (296 B) (195 B gzip)
+    ├─ .output/server/chunks/build/index-2YgZE5wP.mjs (19.5 kB) (4.15 kB gzip)
+    ├─ .output/server/chunks/build/index-2YgZE5wP.mjs.map (16.3 kB) (3.27 kB gzip)
+    ├─ .output/server/chunks/build/index-B3-Uj9QZ.mjs (1.3 kB) (585 B gzip)
+    ├─ .output/server/chunks/build/index-B3-Uj9QZ.mjs.map (861 B) (400 B gzip)
+    ├─ .output/server/chunks/build/index-BabADJUJ.mjs (978 B) (455 B gzip)
+    ├─ .output/server/chunks/build/index-BabADJUJ.mjs.map (1.04 kB) (419 B gzip)
+    ├─ .output/server/chunks/build/index-CWJD4xaw.mjs (1.31 kB) (586 B gzip)
+    ├─ .output/server/chunks/build/index-CWJD4xaw.mjs.map (861 B) (400 B gzip)
+    ├─ .output/server/chunks/build/index-JSNt0Qvj.mjs (55.1 kB) (9.85 kB gzip)
+    ├─ .output/server/chunks/build/index-JSNt0Qvj.mjs.map (44.9 kB) (7.3 kB gzip)
+    ├─ .output/server/chunks/build/login-MyrP6WJY.mjs (4.48 kB) (1.69 kB gzip)
+    ├─ .output/server/chunks/build/login-MyrP6WJY.mjs.map (2.5 kB) (797 B gzip)
+    ├─ .output/server/chunks/build/lottery-branding-BNChs8RE.mjs (25.1 kB) (5.69 kB gzip)
+    ├─ .output/server/chunks/build/lottery-branding-BNChs8RE.mjs.map (22.2 kB) (4.39 kB gzip)
+    ├─ .output/server/chunks/build/maintenance-D9-lRmjR.mjs (36 kB) (6.23 kB gzip)
+    ├─ .output/server/chunks/build/maintenance-D9-lRmjR.mjs.map (30.6 kB) (5.12 kB gzip)
+    ├─ .output/server/chunks/build/nuxt-link-DYHlkpO6.mjs (7.04 kB) (2.02 kB gzip)
+    ├─ .output/server/chunks/build/nuxt-link-DYHlkpO6.mjs.map (6.12 kB) (1.53 kB gzip)
+    ├─ .output/server/chunks/build/server.mjs (58.9 kB) (13.4 kB gzip)
+    ├─ .output/server/chunks/build/server.mjs.map (324 B) (213 B gzip)
+    ├─ .output/server/chunks/build/styles.mjs (1.72 kB) (456 B gzip)
+    ├─ .output/server/chunks/build/styles.mjs.map (957 B) (288 B gzip)
+    ├─ .output/server/chunks/build/useAdminApi-DCu284_u.mjs (6.55 kB) (2.29 kB gzip)
+    ├─ .output/server/chunks/build/useAdminApi-DCu284_u.mjs.map (7 kB) (1.77 kB gzip)
+    ├─ .output/server/chunks/build/virtual_public-BPNoyAWL.mjs (244 B) (200 B gzip)
+    ├─ .output/server/chunks/build/virtual_public-BPNoyAWL.mjs.map (191 B) (163 B gzip)
+    ├─ .output/server/chunks/routes/renderer.mjs (14.7 kB) (4.64 kB gzip)
+    ├─ .output/server/chunks/routes/renderer.mjs.map (402 B) (217 B gzip)
+    ├─ .output/server/chunks/runtime.mjs (338 kB) (63.3 kB gzip)
+    ├─ .output/server/chunks/runtime.mjs.map (3.02 kB) (789 B gzip)
+    ├─ .output/server/chunks/virtual/_virtual_spa-template.mjs (94 B) (100 B gzip)
+    ├─ .output/server/chunks/virtual/_virtual_spa-template.mjs.map (90 B) (98 B gzip)
+    ├─ .output/server/index.mjs (283 B) (188 B gzip)
+    └─ .output/server/package.json (705 B) (352 B gzip)
+  Σ Total size: 3.03 MB (663 kB gzip)
+  [nitro] ✔ You can preview this build using node .output/server/index.mjs
+  exit_code=0
+
+== structural-lottery-image-ops ==
+structural-lottery-image-ops exit_code=0
+   Container newpaotang-back-office-run-07514f64ff20 Creating
+   Container newpaotang-back-office-run-07514f64ff20 Created
+  lottery image operations check passed
+  exit_code=0
+
+overall_exit_code=0

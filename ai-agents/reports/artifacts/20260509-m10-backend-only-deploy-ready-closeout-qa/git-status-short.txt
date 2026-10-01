@@ -1,0 +1,6 @@
+?? ai-agents/handoffs/20260509-m10-backend-only-deploy-ready-closeout-backend-handoff.md
+?? ai-agents/handoffs/20260509-m10-backend-only-deploy-ready-closeout-planning-orchestrator-handoff.md
+?? ai-agents/handoffs/20260509-m10-backend-only-deploy-ready-closeout-qa-task-orchestrator-handoff.md
+?? ai-agents/reports/artifacts/20260509-m10-backend-only-deploy-ready-closeout-qa/
+?? ai-agents/tasks/20260509-m10-backend-only-deploy-ready-closeout-backend.md
+?? ai-agents/tasks/20260509-m10-backend-only-deploy-ready-closeout-qa.md

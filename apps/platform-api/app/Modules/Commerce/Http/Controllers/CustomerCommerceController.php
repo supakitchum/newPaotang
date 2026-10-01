@@ -1,0 +1,334 @@
+<?php
+
+namespace App\Modules\Commerce\Http\Controllers;
+
+use App\Shared\Auth\ApiErrorResponse;
+use App\Shared\Auth\CustomerSessionContext;
+use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\Commerce\Services\CommerceService;
+use App\Shared\Http\RequestHeaderValidator;
+use App\Modules\PartnerStore\Services\PartnerStoreService;
+use App\Modules\Commerce\Http\Requests\CommerceRequestValidator;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+
+class CustomerCommerceController extends Controller
+{
+    public function __construct(
+        private readonly PartnerStoreService $partnerStore,
+        private readonly CommerceService $commerce,
+        private readonly RequestHeaderValidator $headers,
+        private readonly CommerceRequestValidator $validator,
+        private readonly CustomerAuthService $auth,
+    ) {
+    }
+
+    public function cart(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $this->partnerStore->expireCustomerReservations($tenant['tenant_id'], $customer->customerId());
+
+        return response()->json($this->commerce->cartForCustomer($tenant['tenant_id'], $customer));
+    }
+
+    public function checkout(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $errors = $this->headers->idempotencyKeyErrors($request) + $this->validator->checkoutErrors($request->all());
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        $pinVerification = $this->auth->verifyPinOrAssertionForContext($customer, $request->all());
+
+        if (isset($pinVerification['error'])) {
+            return $this->writeResult($request, $pinVerification);
+        }
+
+        return $this->writeResult($request, $this->commerce->checkout($tenant, $customer, $request->all(), $request), 201);
+    }
+
+    public function wallet(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->walletsForCustomer($tenant['tenant_id'], $customer));
+    }
+
+    public function walletLedger(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->walletLedgerForCustomer($tenant['tenant_id'], $customer, $request->query()));
+    }
+
+    public function orders(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->customerOrders($tenant['tenant_id'], $customer, $request->query()));
+    }
+
+    public function order(Request $request, string $order_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $order = $this->commerce->customerOrder($tenant['tenant_id'], $customer, $order_id);
+
+        return $order === null ? ApiErrorResponse::notFound($request) : response()->json($order);
+    }
+
+    public function tickets(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->customerTickets($tenant['tenant_id'], $customer, $request->query()));
+    }
+
+    public function ticketHistory(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->customerTickets($tenant['tenant_id'], $customer, $request->query(), true));
+    }
+
+    public function ticket(Request $request, string $ticket_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $ticket = $this->commerce->customerTicket($tenant['tenant_id'], $customer, $ticket_id);
+
+        return $ticket === null ? ApiErrorResponse::notFound($request) : response()->json($ticket);
+    }
+
+    public function topups(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->customerTopups($tenant['tenant_id'], $customer, $request->query()));
+    }
+
+    public function createTopup(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'payment_write');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $slipFile = $request->file('slip');
+        $payloadErrors = $this->validator->customerTopupErrors($request->all())
+            + $this->validator->topupSlipErrors($slipFile instanceof \Illuminate\Http\UploadedFile ? $slipFile : null);
+
+        if ($payloadErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $payloadErrors);
+        }
+
+        return $this->writeResult($request, $this->commerce->createCustomerTopup($tenant['tenant_id'], $customer, $request->all(), $request), 201);
+    }
+
+    public function createCreditTopup(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'payment_write');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $slipFile = $request->file('slip');
+        $payloadErrors = $this->validator->customerTopupErrors($request->all(), true)
+            + $this->validator->topupSlipErrors($slipFile instanceof \Illuminate\Http\UploadedFile ? $slipFile : null);
+
+        if ($payloadErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $payloadErrors);
+        }
+
+        return $this->writeResult($request, $this->commerce->createCustomerTopup($tenant['tenant_id'], $customer, $request->all(), $request, true), 201);
+    }
+
+    public function topup(Request $request, string $topup_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $topup = $this->commerce->customerTopup($tenant['tenant_id'], $customer, $topup_id);
+
+        return $topup === null ? ApiErrorResponse::notFound($request) : response()->json($topup);
+    }
+
+    public function uploadTopupSlip(Request $request, string $topup_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'payment_write');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $slipFile = $request->file('slip');
+        $errors = $this->headers->idempotencyKeyErrors($request)
+            + $this->validator->requiredTopupSlipErrors($slipFile instanceof \Illuminate\Http\UploadedFile ? $slipFile : null);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->commerce->uploadCustomerTopupSlip($tenant['tenant_id'], $customer, $topup_id, $request->all(), $request));
+    }
+
+    public function cancelTopup(Request $request, string $topup_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'payment_write');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        return $this->writeResult($request, $this->commerce->cancelCustomerTopup($tenant['tenant_id'], $customer, $topup_id, $request->all(), $request));
+    }
+
+    /**
+     * @return array{0: array<string, mixed>, 1: CustomerSessionContext, 2: JsonResponse|null}
+     */
+    private function tenantCustomer(Request $request, bool|string $blockMaintenance = true): array
+    {
+        $result = $this->partnerStore->tenantContextForRequest($request, $blockMaintenance);
+
+        if (isset($result['error'])) {
+            return [[], new CustomerSessionContext([], []), $this->tenantError($request, $result['error'])];
+        }
+
+        $customer = $request->attributes->get('customer_session');
+
+        if (! $customer instanceof CustomerSessionContext) {
+            return [[], new CustomerSessionContext([], []), ApiErrorResponse::authenticationRequired($request)];
+        }
+
+        if ($customer->tenantId() !== $result['context']['tenant_id']) {
+            return [[], $customer, ApiErrorResponse::permissionDenied($request)];
+        }
+
+        return [$result['context'], $customer, null];
+    }
+
+    /**
+     * @param array{resource?: array<string, mixed>|null, status?: int, error?: string, field?: string} $result
+     */
+    private function writeResult(Request $request, array $result, int $defaultStatus = 200): JsonResponse
+    {
+        $paymentField = trim((string) ($result['field'] ?? 'channel')) ?: 'channel';
+
+        return match ($result['error'] ?? null) {
+            'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
+            'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'reservation_unavailable' => ApiErrorResponse::reservationUnavailable($request),
+            'reservation_expired' => ApiErrorResponse::reservationExpired($request),
+            'wallet_insufficient_balance' => ApiErrorResponse::walletInsufficientBalance($request),
+            'affiliate_wallet_unavailable' => ApiErrorResponse::make($request, 409, 'affiliate_wallet_unavailable', 'An active affiliate wallet is required for this payment method.'),
+            'affiliate_wallet_insufficient_balance' => ApiErrorResponse::make($request, 409, 'affiliate_wallet_insufficient_balance', 'The affiliate wallet balance is insufficient.'),
+            'not_found' => ApiErrorResponse::notFound($request),
+            'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
+            'pin_required' => ApiErrorResponse::customerPinRequired($request),
+            'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
+            'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
+            'pin_assertion_invalid' => ApiErrorResponse::make($request, 403, 'pin_assertion_invalid', 'The biometric PIN assertion is invalid or expired.'),
+            'payment_method_disabled' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment method is currently disabled.']]),
+            'payment_provider_not_configured' => ApiErrorResponse::validationFailed($request, [$paymentField => ['This payment provider is not configured. Please contact the store.']]),
+            'payment_provider_managed' => ApiErrorResponse::validationFailed($request, ['slip' => ['This payment method does not require a transfer slip.']]),
+            'payment_provider_not_supported' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment provider is not supported.']]),
+            'payment_provider_invalid_response',
+            'payment_provider_outcome_unknown',
+            'payment_provider_unavailable',
+            'payment_provider_failed',
+            'payment_provider_cancel_failed' => ApiErrorResponse::make($request, 502, $result['error'] ?? 'payment_provider_failed', $this->safePaymentProviderMessage($result['error'] ?? null)),
+            'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
+            default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
+        };
+    }
+
+    private function safePaymentProviderMessage(?string $code): string
+    {
+        return match ($code) {
+            'payment_provider_outcome_unknown' => 'The payment provider did not confirm the request. Please check this top-up before trying again.',
+            'payment_provider_invalid_response' => 'The payment provider returned an invalid response. Please try again later.',
+            default => 'The payment provider could not process this request. Please try again later.',
+        };
+    }
+
+    /**
+     * @param array{status: int, code: string, message: string, retry_after_seconds?: int|null} $error
+     */
+    private function tenantError(Request $request, array $error): JsonResponse
+    {
+        if ($error['code'] === 'maintenance_active') {
+            return ApiErrorResponse::maintenanceActive($request, $error['retry_after_seconds'] ?? null);
+        }
+
+        return ApiErrorResponse::make($request, $error['status'], $error['code'], $error['message']);
+    }
+}

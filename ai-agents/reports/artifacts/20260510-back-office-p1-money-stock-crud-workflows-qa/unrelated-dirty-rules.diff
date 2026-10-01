@@ -1,0 +1,71 @@
+diff --git a/ai-agents/prompts/open-chat-bo-develop.md b/ai-agents/prompts/open-chat-bo-develop.md
+index 6e9fdd5..5c99113 100644
+--- a/ai-agents/prompts/open-chat-bo-develop.md
++++ b/ai-agents/prompts/open-chat-bo-develop.md
+@@ -42,6 +42,8 @@ admin_dashboard_template/Meno_esbuild
+ ห้าม hardcode permission เป็น authorization จริง
+ ห้ามแก้ backend logic
+ ห้ามแก้ customer frontend
++ห้ามทำ QA task เอง
++ห้ามส่งงานตรงให้ QA Tester
+ ถ้าไม่มี task file ที่ระบุ BO Develop ให้หยุดและขอ Orchestrator task ก่อน
+ ```
+ 
+@@ -54,6 +56,7 @@ admin_dashboard_template/Meno_esbuild
+ 4. ทำเฉพาะ scope ที่ได้รับ
+ 5. รัน validation ตาม task ผ่าน Docker container เท่านั้น
+ 6. เขียน handoff ลง ai-agents/handoffs/YYYYMMDD-<task-key>-bo-develop-handoff.md
++7. ระบุ Next Agent เป็น Orchestrator เท่านั้น เพื่อให้ Orchestrator แตก QA task ต่อ
+ ```
+ 
+ รูปแบบ handoff ต้องมี:
+@@ -66,5 +69,5 @@ API endpoints consumed
+ responsive/error/loading states handled
+ commands/tests run
+ known risks/questions
+-Next Agent
++Next Agent: Orchestrator
+ ```
+diff --git a/ai-agents/roles/bo-develop.md b/ai-agents/roles/bo-develop.md
+index f585104..58d80c2 100644
+--- a/ai-agents/roles/bo-develop.md
++++ b/ai-agents/roles/bo-develop.md
+@@ -34,6 +34,17 @@ admin_dashboard_template/Meno_esbuild
+ ห้าม hardcode real sidebar permission
+ ห้ามแก้ backend logic
+ ห้ามแก้ customer frontend
++ห้ามทำ QA task เอง
++ห้ามส่งงานตรงให้ QA Tester
++ห้ามสร้างหรือแก้ QA report เว้นแต่ Coordinator สั่งชัดเจน
++```
++
++## QA Handoff Rule
++
++เมื่อ BO Develop ทำงานเสร็จ ต้องส่งงานกลับ `Orchestrator` เท่านั้น เพื่อให้ Orchestrator เป็นผู้แตก QA task ให้ QA Tester
++
++```text
++BO Develop -> Orchestrator -> QA Tester
+ ```
+ 
+ ## Template Rule
+@@ -49,7 +60,7 @@ UI pages/components changed
+ template references used
+ API endpoints consumed
+ responsive/error/loading states handled
+-next agent, usually QA Tester or Orchestrator
++next agent must be Orchestrator
+ ```
+ 
+ Validation commands must use Docker only, for example:
+diff --git a/ai-agents/rules/global-rules.md b/ai-agents/rules/global-rules.md
+index e791e11..a151db4 100644
+--- a/ai-agents/rules/global-rules.md
++++ b/ai-agents/rules/global-rules.md
+@@ -72,6 +72,7 @@ Coordinator ยังต้องคุม Gate 5 ก่อนขึ้น miles
+ ```text
+ Backend Develop ห้ามแก้ UI ยกเว้น Coordinator สั่งชัดเจน
+ BO Develop ห้ามแก้ backend logic ยกเว้น Coordinator สั่งชัดเจน
++BO Develop ห้ามทำ QA task เอง และต้องส่งงานกลับ Orchestrator เท่านั้นหลังจบ implementation
+ Customer Develop ห้าม rewrite customer flow เดิม ยกเว้น Coordinator อนุมัติ
+ QA Tester ห้ามแก้ implementation ยกเว้น Coordinator สั่งให้ช่วยแก้ test fixture หรือ test code
+ Orchestrator ห้าม implement code ยกเว้น Coordinator สั่งชัดเจน

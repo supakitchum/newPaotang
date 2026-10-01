@@ -1,0 +1,650 @@
+{
+    "generated_at": "2026-05-11T06:19:58+00:00",
+    "run_id": "qa-p4-admin-6a01750e5803",
+    "tenant_id": "ten_demo_alpha",
+    "checks": [
+        {
+            "method": "POST",
+            "path": "/auth/admin/login",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/auth/admin/login",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "GET",
+            "path": "/admin/central/roles",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "GET",
+            "path": "/admin/central/admin-users",
+            "query": {
+                "limit": 20
+            },
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/central/admin-users",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-admin-create"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/central/admin-users/adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/central/admin-users/adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-admin-update"
+        },
+        {
+            "method": "DELETE",
+            "path": "/admin/central/admin-users/adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 204,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-admin-disable"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/central/admin-users/adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 404,
+            "ok": false,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/central/roles",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-role-create"
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/central/roles/rol_01KRAV2H0C3FK1329XZJGF29E2",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-role-update"
+        },
+        {
+            "method": "DELETE",
+            "path": "/admin/central/roles/rol_01KRAV2H0C3FK1329XZJGF29E2",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 204,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-role-archive"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/central/system-settings",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/central/system-settings",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-settings-save"
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/central/system-settings",
+            "query": null,
+            "scope": "central",
+            "tenant": null,
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-central-settings-restore"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/roles",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/admin-users",
+            "query": {
+                "limit": 20
+            },
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/admin-users",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-admin-create"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/admin-users/adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/admin-users/adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-admin-update"
+        },
+        {
+            "method": "DELETE",
+            "path": "/admin/tenant/admin-users/adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 204,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-admin-disable"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/admin-users/adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 404,
+            "ok": false,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/roles",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-role-create"
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/roles/rol_01KRAV2HK269SP6387VYTK0C5T",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-role-update"
+        },
+        {
+            "method": "DELETE",
+            "path": "/admin/tenant/roles/rol_01KRAV2HK269SP6387VYTK0C5T",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 204,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-role-archive"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/settings",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/settings",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-settings-save"
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/settings",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-settings-restore"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/theme",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/theme",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-theme-save"
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/theme",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-tenant-theme-restore"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/domains",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/domains",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-domain-create"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/domains/dom_01KRAV2HW23Q3BGBP92226198E",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "PATCH",
+            "path": "/admin/tenant/domains/dom_01KRAV2HW23Q3BGBP92226198E",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-domain-update"
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/domains/dom_01KRAV2HW23Q3BGBP92226198E/verify",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 202,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-domain-verify"
+        },
+        {
+            "method": "DELETE",
+            "path": "/admin/tenant/domains/dom_01KRAV2HW23Q3BGBP92226198E",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 204,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-domain-delete"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/support-access",
+            "query": {
+                "limit": 20
+            },
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-create"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J1HWSBECY59WSKCMRQJ",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J1HWSBECY59WSKCMRQJ/approve",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-approve"
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J1HWSBECY59WSKCMRQJ/impersonate",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-impersonate"
+        },
+        {
+            "method": "GET",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J1HWSBECY59WSKCMRQJ",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": null
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J1HWSBECY59WSKCMRQJ/elevated-actions",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 202,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-elevated"
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J1HWSBECY59WSKCMRQJ/end-session",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-end"
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 201,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-revoke-create"
+        },
+        {
+            "method": "POST",
+            "path": "/admin/tenant/support-access/sar_01KRAV2J97RPNWXFXBNJMXR7JD/revoke",
+            "query": null,
+            "scope": "tenant",
+            "tenant": "ten_demo_alpha",
+            "status": 200,
+            "ok": true,
+            "idempotency_key": "qa-p4-admin-6a01750e5803-support-revoke"
+        }
+    ],
+    "auth": {
+        "central_user_id": "adm_platform_owner",
+        "tenant_user_id": "adm_demo_alpha_owner",
+        "tenant_active_scope": null,
+        "tenant_active_tenant_id": null
+    },
+    "central_admin_users": {
+        "created": {
+            "id": "adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "tenant_id": null,
+            "email": "qa-p4-admin-6a01750e5803-central-admin@example.test",
+            "name": "QA Central Admin qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "role_ids": [
+                "rol_c_super_admin"
+            ],
+            "contains_secret_keys": false
+        },
+        "detail_opened": {
+            "id": "adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "tenant_id": null,
+            "email": "qa-p4-admin-6a01750e5803-central-admin@example.test",
+            "name": "QA Central Admin qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "role_ids": [
+                "rol_c_super_admin"
+            ],
+            "contains_secret_keys": false
+        },
+        "updated": {
+            "id": "adm_01KRAV2GMBDEHCY8C56XFGKYJM",
+            "tenant_id": null,
+            "email": "qa-p4-admin-6a01750e5803-central-admin@example.test",
+            "name": "QA Central Admin Updated qa-p4-admin-6a01750e5803",
+            "status": "suspended",
+            "role_ids": [
+                "rol_c_super_admin"
+            ],
+            "contains_secret_keys": false
+        },
+        "disable_status": 204,
+        "detail_after_disable_status": 404,
+        "db_status_after_disable": "disabled",
+        "secret_keys_displayed": false
+    },
+    "central_roles_permissions": {
+        "created": {
+            "id": "rol_01KRAV2H0C3FK1329XZJGF29E2",
+            "tenant_id": null,
+            "code": "qa_central_role_qa_p4_admin_6a01750e5803",
+            "name": "QA Central Role qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "permissions": [
+                "dashboard.view"
+            ],
+            "version": 1
+        },
+        "updated": {
+            "id": "rol_01KRAV2H0C3FK1329XZJGF29E2",
+            "tenant_id": null,
+            "code": "qa_central_role_qa_p4_admin_6a01750e5803",
+            "name": "QA Central Role Updated qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "permissions": [
+                "audit.view",
+                "dashboard.view"
+            ],
+            "version": 2
+        },
+        "archive_status": 204
+    },
+    "central_system_settings": {
+        "before_release_gate_note": null,
+        "saved_release_gate_note": "QA closure qa-p4-admin-6a01750e5803",
+        "restored_release_gate_note": null
+    },
+    "tenant_admin_users": {
+        "created": {
+            "id": "adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "tenant_id": "ten_demo_alpha",
+            "email": "qa-p4-admin-6a01750e5803-tenant-admin@example.test",
+            "name": "QA Tenant Admin qa-p4-admin-6a01750e5803",
+            "status": "invited",
+            "role_ids": [
+                "rol_19750422dd978d210e0b"
+            ],
+            "contains_secret_keys": false
+        },
+        "detail_opened": {
+            "id": "adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "tenant_id": "ten_demo_alpha",
+            "email": "qa-p4-admin-6a01750e5803-tenant-admin@example.test",
+            "name": "QA Tenant Admin qa-p4-admin-6a01750e5803",
+            "status": "invited",
+            "role_ids": [
+                "rol_19750422dd978d210e0b"
+            ],
+            "contains_secret_keys": false
+        },
+        "updated": {
+            "id": "adm_01KRAV2H74KARW0FKFHQWN4B4M",
+            "tenant_id": "ten_demo_alpha",
+            "email": "qa-p4-admin-6a01750e5803-tenant-admin@example.test",
+            "name": "QA Tenant Admin Updated qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "role_ids": [
+                "rol_19750422dd978d210e0b"
+            ],
+            "contains_secret_keys": false
+        },
+        "disable_status": 204,
+        "detail_after_disable_status": 404,
+        "db_status_after_disable": "disabled",
+        "secret_keys_displayed": false
+    },
+    "tenant_roles_permissions": {
+        "created": {
+            "id": "rol_01KRAV2HK269SP6387VYTK0C5T",
+            "tenant_id": "ten_demo_alpha",
+            "code": "qa_tenant_role_qa_p4_admin_6a01750e5803",
+            "name": "QA Tenant Role qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "permissions": [
+                "dashboard.view"
+            ],
+            "version": 1
+        },
+        "updated": {
+            "id": "rol_01KRAV2HK269SP6387VYTK0C5T",
+            "tenant_id": "ten_demo_alpha",
+            "code": "qa_tenant_role_qa_p4_admin_6a01750e5803",
+            "name": "QA Tenant Role Updated qa-p4-admin-6a01750e5803",
+            "status": "active",
+            "permissions": [
+                "dashboard.view",
+                "order.view"
+            ],
+            "version": 2
+        },
+        "archive_status": 204
+    },
+    "tenant_settings": {
+        "site_saved": "Alpha Lucky Shop QA qa-p4-admin-6a01750e5803",
+        "site_restored": "Alpha Lucky Shop",
+        "theme_saved": "#123456",
+        "theme_restored": "#0F766E",
+        "domain": {
+            "id": "dom_01KRAV2HW23Q3BGBP92226198E",
+            "host": "qa-p4-admin-6a01750e5803.qa-domain.test",
+            "detail_opened": true,
+            "updated_status": "dns_verified",
+            "verify_status": 202,
+            "delete_status": 204
+        }
+    },
+    "tenant_support_access_logs": {
+        "customer_fixture_id": "cus_qa-p4-admin-6a01750e5803",
+        "created_id": "sar_01KRAV2J1HWSBECY59WSKCMRQJ",
+        "detail_opened": true,
+        "approved_status": "approved",
+        "impersonation_status": "active",
+        "one_time_token_returned_redacted": true,
+        "token_absent_after_detail_reload": true,
+        "elevated_action_status": 202,
+        "end_session_status": "completed",
+        "revoked_status": "revoked"
+    }
+}

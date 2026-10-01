@@ -1,0 +1,14 @@
+load-tests/README.md:27:The runner defaults to `K6_PROFILE=smoke` and writes `*.summary.json` artifacts under `load-tests/results/<run-id>/`.
+load-tests/README.md:32:K6_PROFILE=baseline scripts/k6-run-baseline.sh
+load-tests/README.md:33:K6_PROFILE=release-candidate scripts/k6-run-baseline.sh
+load-tests/README.md:46:The first six scenarios run against local/dev API fixtures. `ticket-image-cdn-spike.js` remains a runnable CDN/object-storage template; the baseline runner records a skipped artifact unless `CDN_BASE_URL` and `IMAGE_PATH` are supplied for a real Cloudflare/CDN/R2 ticket image path.
+docs/m10-deployment-monitoring-load-test.md:5:This document records the first backend/ops foundation for Milestone 10. It makes release-readiness measurable for local/dev and QA, but it is not staging, production, or client-delivery approval.
+docs/m10-deployment-monitoring-load-test.md:93:## Cloudflare And HTTPS Readiness Gates
+docs/m10-deployment-monitoring-load-test.md:95:Public launch is blocked until these are verified outside local Docker:
+docs/m10-deployment-monitoring-load-test.md:98:Cloudflare proxy enabled for every public tenant domain
+docs/m10-deployment-monitoring-load-test.md:202:`scripts/k6-run-baseline.sh` runs k6 through `grafana/k6` Docker with `K6_PROFILE=smoke` by default. Larger `baseline` and `release-candidate` profiles are available through `K6_PROFILE`.
+docs/m10-deployment-monitoring-load-test.md:218:`ticket-image-cdn-spike.js` is runnable when `CDN_BASE_URL` and `IMAGE_PATH` point at a real CDN/object-storage ticket image. Local/dev does not provision Cloudflare/R2 ticket images, so the baseline runner emits `ticket-image-cdn-spike.skipped.json` with that blocker instead of claiming coverage.
+docs/m10-deployment-monitoring-load-test.md:241:verify Cloudflare HTTPS and cache-bypass rules
+docs/m10-deployment-monitoring-load-test.md:282:Cloudflare account/API integration
+ai-agents/handoffs/20260508-m10-full-k6-load-test-execution-backend-develop-handoff.md:12:- เพิ่ม profile helper สำหรับ k6 (`K6_PROFILE=smoke|baseline|release-candidate`) และปรับ 7 scenario scripts ให้ใช้ env/fixture artifact เดียวกัน
+ai-agents/handoffs/20260508-m10-full-k6-load-test-execution-backend-develop-handoff.md:125:- Ticket image CDN spike is blocked locally until real `CDN_BASE_URL` and `IMAGE_PATH` are provided from Cloudflare/R2 or equivalent CDN test fixture.

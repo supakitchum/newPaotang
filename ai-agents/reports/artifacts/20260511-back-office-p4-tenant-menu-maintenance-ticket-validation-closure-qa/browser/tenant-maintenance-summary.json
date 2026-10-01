@@ -1,0 +1,83 @@
+{
+  "maintenanceLinkCount": 1,
+  "disabledInitial": true,
+  "disabledMissingTicket": true,
+  "helperVisible": true,
+  "helperClass": "form-text text-danger",
+  "noPostAfterEnterMissingTicket": true,
+  "enabledWithTicket": true,
+  "createStatus": 201,
+  "createdBypass": {
+    "id": "byp_01KRASSSGGG2TBD5MRJQMM1H8Y",
+    "ticket_id_present": true
+  },
+  "cleanup": "revoked through API cleanup",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/maintenance",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/maintenance/events?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/maintenance/bypasses?limit=20&status=active",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/tenant/maintenance/bypasses",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": "idk_mp0siksi_139y0581fud429"
+      },
+      "post_data": {
+        "actor_type": "tenant_admin",
+        "actor_id": "adm_demo_alpha_owner",
+        "reason": "browser-closure-mp0shzly missing-ticket UI guard",
+        "ticket_id": "QA-browser-closure-mp0shzly",
+        "expires_at": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/maintenance/bypasses?limit=20&status=active",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/maintenance/events?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    }
+  ]
+}

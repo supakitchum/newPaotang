@@ -1,0 +1,400 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Invoice Details</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Pages
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item" aria-current="page"><a href="javascript:void(0);">Invoice</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Invoice Details</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start::row-1 -->
+                <div class="row">
+                    <div class="col-xl-9">
+                        <div class="card custom-card">
+                            <div class="card-header d-md-flex d-block">
+                                <div class="h5 mb-0 d-sm-flex d-bllock align-items-center">
+                                    <div class="avatar avatar-sm">
+                                        <img src="../assets/images/brand-logos/toggle-logo.png" alt="">
+                                    </div>
+                                    <div class="ms-sm-2 ms-0 mt-sm-0 mt-2">
+                                        <div class="h6 fw-medium mb-0">Shopping Invoice : <span class="text-primary">#SPK8140-2099</span></div>
+                                    </div>
+                                </div>
+                                <div class="ms-auto mt-md-0 mt-2">
+                                    <button class="btn btn-sm btn-secondary me-1" onclick="javascript:window.print();">Print<i class="ri-printer-line ms-1 align-middle d-inline-block"></i></button>
+                                    <button class="btn btn-sm btn-primary">Save As PDF<i class="ri-file-pdf-line ms-1 align-middle d-inline-block"></i></button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row gy-3">
+                                    <div class="col-xl-12">
+                                        <div class="row mx-0 bg-primary bg-opacity-10 p-3 rounded">
+                                            <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6">
+                                                <p class="text-muted mb-2">
+                                                    Billing From :
+                                                </p>
+                                                <p class="fw-bold mb-1">
+                                                    SPRUKO TECHNOLOGIES
+                                                </p>
+                                                <p class="mb-1 text-muted">
+                                                    Mig-1-11,Manroe street
+                                                </p>
+                                                <p class="mb-1 text-muted">
+                                                    Georgetown,Washington D.C,USA,200071
+                                                </p>
+                                                <p class="mb-1 text-muted">
+                                                    sprukotrust.Meno@gmail.com
+                                                </p>
+                                                <p class="mb-1 text-muted">
+                                                    (555) 555-1234
+                                                </p>
+                                                <p class="text-muted">For more information check for <a href="javascript:void(0);" class="text-primary fw-medium"><u>GSTIN</u></a> Details.</p>
+                                            </div>
+                                            <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 ms-auto mt-sm-0 mt-3">
+                                                <p class="text-muted mb-2">
+                                                    Billing To :
+                                                </p>
+                                                <p class="fw-bold mb-1">
+                                                    Arjun Arora
+                                                </p>
+                                                <p class="text-muted mb-1">
+                                                    Lig-22-1,20 Covington Place
+                                                </p>
+                                                <p class="text-muted mb-1">
+                                                    New Castle,de, United States,19320
+                                                </p>
+                                                <p class="text-muted mb-1">
+                                                    jackmiller2134@gmail.com
+                                                </p>
+                                                <p class="text-muted">
+                                                    +1 202-918-2132
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-3">
+                                        <p class="fw-medium text-muted mb-1">Invoice ID :</p>
+                                        <p class="fs-15 mb-1">#SPK120219890</p>
+                                    </div>
+                                    <div class="col-xl-3">
+                                        <p class="fw-medium text-muted mb-1">Date Issued :</p>
+                                        <p class="fs-15 mb-1">29,Nov 2024 - <span class="text-muted fs-12">12:42PM</span></p>
+                                      </div>
+                                    <div class="col-xl-3">
+                                        <p class="fw-medium text-muted mb-1">Due Date :</p>
+                                        <p class="fs-15 mb-1">29,Dec 2024</p>
+                                    </div>
+                                    <div class="col-xl-3">
+                                        <p class="fw-medium text-muted mb-1">Due Amount :</p>
+                                        <p class="fs-16 mb-1 fw-medium">$2,570.42</p>
+                                    </div>
+                                    <div class="col-xl-12">
+                                        <div class="table-responsive">
+                                            <table class="table nowrap text-nowrap border mt-4">
+                                                <thead>
+                                                    <tr>
+                                                        <th>BRAND NAME</th>
+                                                        <th>DESCRIPTION</th>
+                                                        <th>QUANTITY</th>
+                                                        <th>PRICE PER UNIT</th>
+                                                        <th>TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-medium">
+                                                                Dapzem & Co (Sweatshirt)
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="text-muted">
+                                                                Branded hoodie ethnic style
+                                                            </div>
+                                                        </td>
+                                                        <td class="product-quantity-container">
+                                                            2
+                                                        </td>
+                                                        <td>
+                                                            $60
+                                                        </td>
+                                                        <td>
+                                                            $120
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-medium">
+                                                                Denim Winjo (Jacket)
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="text-muted">
+                                                                Vintage pure leather Jacket
+                                                            </div>
+                                                        </td>
+                                                        <td class="product-quantity-container">
+                                                            1
+                                                        </td>
+                                                        <td>
+                                                            $249
+                                                        </td>
+                                                        <td>
+                                                            $249
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-medium">
+                                                                Jimmy Lolfiger (Winter Coat)
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="text-muted">
+                                                                Unisex jacket for men & women
+                                                            </div>
+                                                        </td>
+                                                        <td class="product-quantity-container">
+                                                           1
+                                                        </td>
+                                                        <td>
+                                                            $499
+                                                        </td>
+                                                        <td>
+                                                            $499
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-medium">
+                                                                Blueberry & Co
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="text-muted">
+                                                                Light colored sweater form blueberry
+                                                            </div>
+                                                        </td>
+                                                        <td class="product-quantity-container">
+                                                            3
+                                                        </td>
+                                                        <td>
+                                                            $299
+                                                        </td>
+                                                        <td>
+                                                            $897
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-medium">
+                                                                Denim Corporation
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div class="text-muted">
+                                                                Flap pockets denim jackets for men
+                                                            </div>
+                                                        </td>
+                                                        <td class="product-quantity-container">
+                                                            1
+                                                        </td>
+                                                        <td>
+                                                            $599
+                                                        </td>
+                                                        <td>
+                                                            $599
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td colspan="3"></td>
+                                                        <td colspan="2">
+                                                            <table class="table table-sm text-nowrap mb-0 table-borderless">
+                                                                <tbody>
+                                                                    <tr>
+                                                                        <th scope="row">
+                                                                            <p class="mb-0">Sub Total :</p>
+                                                                        </th>
+                                                                        <td>
+                                                                            <p class="mb-0 fw-medium fs-15">$3,487.59</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th scope="row">
+                                                                            <p class="mb-0">Avail Discount :</p>
+                                                                        </th>
+                                                                        <td>
+                                                                            <p class="mb-0 fw-medium fs-15">$45.00</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th scope="row">
+                                                                            <p class="mb-0">Coupon Discount <span class="text-success">(10%)</span> :</p>
+                                                                        </th>
+                                                                        <td>
+                                                                            <p class="mb-0 fw-medium fs-15">$348.76</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th scope="row">
+                                                                            <p class="mb-0">Vat <span class="text-danger">(20%)</span> :</p>
+                                                                        </th>
+                                                                        <td>
+                                                                            <p class="mb-0 fw-medium fs-15">$697.52</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th scope="row">
+                                                                            <p class="mb-0">Due Till Date :</p>
+                                                                        </th>
+                                                                        <td>
+                                                                            <p class="mb-0 fw-medium fs-15">$0</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th scope="row">
+                                                                            <p class="mb-0 fs-14">Total :</p>
+                                                                        </th>
+                                                                        <td>
+                                                                            <p class="mb-0 fw-medium fs-16 text-success">$3,487.59</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>                                                            
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-12">
+                                        <div>
+                                            <label for="invoice-note" class="form-label">Note:</label>
+                                            <textarea class="form-control form-control-light" id="invoice-note" rows="3">Once the invoice has been verified by the accounts payable team and recorded, the only task left is to send it for approval before releasing the payment</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer text-end">
+                                <button class="btn btn-success">Download <i class="ri-download-2-line ms-1 align-middle"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Mode Of Payment
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row gy-3">
+                                    <div class="col-xl-12">
+                                        <p class="fs-14 fw-medium">
+                                        UPI Payment
+                                        </p>
+                                        <p>
+                                            <span class="fw-medium text-muted fs-12">Name On Card :</span> Arjun Arora
+                                        </p>
+                                        <p>
+                                            <span class="fw-medium text-muted fs-12">Card Number :</span> 9876 5432 1098 XXXX
+                                        </p>
+                                        <p>
+                                            <span class="fw-medium text-muted fs-12">Total Amount :</span> <span class="text-success fw-medium fs-14">$3487.59</span>
+                                        </p>
+                                        <p>
+                                            <span class="fw-medium text-muted fs-12">Issue Date :</span> 05,Dec 2024
+                                        </p>
+                                        <p>
+                                            <span class="fw-medium text-muted fs-12">Due Date :</span> 20,Jan 2025 - <span class="text-danger fs-12 fw-medium">40 days due</span>
+                                        </p>
+                                        <p>
+                                            <span class="fw-medium text-muted fs-12">Invoice Status : <span class="badge bg-warning-transparent">Unpaid</span></span>
+                                        </p>
+                                        <div class="alert alert-warning" role="alert">
+                                            Please make sure to pay the invoice bill within 40 days.
+                                        </div>                                        
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!--End::row-1 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+    
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+    <script>
+        function PrintMe(){
+            window.print();
+        }
+    </script>
+
+</body>
+
+</html>

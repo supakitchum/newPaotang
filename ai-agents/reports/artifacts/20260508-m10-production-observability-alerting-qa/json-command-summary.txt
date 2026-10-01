@@ -1,0 +1,12 @@
+observability_status=ready_local
+boundary={'local_dev_verifiable': True, 'staging_approved': False, 'production_approved': False, 'client_delivery_approved': False}
+summary={'partners': 3, 'active_monitoring_profiles': 3, 'active_usage_meters': 30, 'active_alert_policies': 39, 'health_checks': 3, 'usage_events': 0, 'daily_usage_summaries': 0, 'alert_events': 0, 'missing_required_alert_policies': []}
+schema_readiness={'partner_usage_events': True, 'partner_daily_usage_summaries': True, 'partner_alert_events': True}
+alert_channels={'enabled': True, 'local_channels': ['database', 'log'], 'configured_channels': ['database', 'log'], 'external_delivery_enabled': False, 'webhook_url': '[REDACTED]', 'production_placeholders': ['webhook', 'email', 'sentry', 'grafana', 'datadog', 'new_relic']}
+required_alert_policies=api_error_rate_high,booking_fail_rate_high,checkout_fail_rate_high,sync_lag_high,queue_lag_high,reward_check_failure,permission_denied_spike,cross_tenant_access_attempt
+external_blockers=6
+dry_run_summary={'partners_evaluated': 3, 'policies_evaluated': 24, 'alerts_detected': 0, 'events_delivered': 0}
+dry_run_boundary={'local_dev_verifiable': True, 'external_delivery_attempted': False, 'production_approved': False}
+non_dry_run_summary={'partners_evaluated': 3, 'policies_evaluated': 24, 'alerts_detected': 0, 'events_delivered': 0}
+non_dry_run_boundary={'local_dev_verifiable': True, 'external_delivery_attempted': False, 'production_approved': False}
+dry_run_states={'no_data': 9, 'ok': 15}

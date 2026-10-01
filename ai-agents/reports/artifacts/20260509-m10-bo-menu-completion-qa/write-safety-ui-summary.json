@@ -1,0 +1,23 @@
+[
+  {
+    "route": "/admin/central/billing-plans",
+    "collectionAction": "Create billing plan",
+    "buttonCount": 1,
+    "payloadModal": true,
+    "executed": false
+  },
+  {
+    "route": "/admin/tenant/price-rules",
+    "collectionAction": "Create price rule",
+    "buttonCount": 1,
+    "payloadModal": true,
+    "executed": false
+  },
+  {
+    "route": "/admin/tenant/customers/[id]",
+    "detailJsonEditor": false,
+    "statusPayloadAndReasonModal": false,
+    "executed": false,
+    "detailLinks": 0
+  }
+]

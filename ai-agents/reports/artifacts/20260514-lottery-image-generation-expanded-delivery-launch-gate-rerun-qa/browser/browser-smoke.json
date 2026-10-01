@@ -1,0 +1,71 @@
+{
+  "checkedAt": "2026-05-14T12:25:45.560Z",
+  "results": [
+    {
+      "requestedUrl": "http://localhost:3000/search",
+      "finalUrl": "http://localhost:3000/result",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "hasLoginHeading": false,
+      "snapshotExcerpt": "- main:\n  - generic: 12:25\n  - generic: \n  - text: \"200\"\n  - button \"กลับ\":\n    - generic: \n  - heading \"ผลรางวัลสลากฯ\" [level=1]\n  - generic: \n  - generic: กำลังโหลดผลรางวัล\n  - heading \"ผลรางวัลสลากฯ ย้อนหลัง\" [level=2]\n  - generic: กำลังโหลดข้อมูลงวดย้อนหลัง\n  - generic: คุณสามารถขึ้นเงินรางวัลได้ที่ ธนาคารกรุงไทย ธ.ก.ส. ออมสิน ทุกสาขา หรือสำนักงานสลากกินแบ่งรัฐบาล\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "requestedUrl": "http://localhost:3000/checkout",
+      "finalUrl": "http://localhost:3000/login?redirect=/checkout",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "hasLoginHeading": true,
+      "snapshotExcerpt": "- main:\n  - generic: \n  - text: สลากดิจิทัล\n  - heading \"เข้าสู่ระบบ\" [level=1]\n  - paragraph: ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว\n  - heading \"ยืนยันตัวตน\" [level=2]\n  - paragraph: ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ\n  - generic: เบอร์โทรศัพท์\n  - generic: \n  - textbox \"เบอร์โทรศัพท์ \":\n    - /placeholder: กรอกเบอร์โทรศัพท์\n  - generic: รหัสผ่าน\n  - generic: \n  - textbox \"รหัสผ่าน  แสดงรหัสผ่าน\":\n    - /placeholder: กรอกรหัสผ่าน\n  - button \"แสดงรหัสผ่าน\":\n    - generic: \n  - checkbox \"จดจำการเข้าสู่ระบบ\" [checked]\n  - generic: จดจำการเข้าสู่ระบบ\n  - link \"ลืมรหัสผ่าน?\":\n    - /url: /login\n  - button \"เข้าสู่ระบบ\"\n  - generic: หรือ\n  - button \" เข้าสู่ระบบด้วย Line\":\n    - generic: \n    - generic: เข้าสู่ระบบด้วย Line\n  - generic: ยังไม่มีบัญชี?\n  - link \"สมัครใช้งาน\":\n    - /url: /register\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "requestedUrl": "http://localhost:3000/success",
+      "finalUrl": "http://localhost:3000/login?redirect=/success",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "hasLoginHeading": true,
+      "snapshotExcerpt": "- main:\n  - generic: \n  - text: สลากดิจิทัล\n  - heading \"เข้าสู่ระบบ\" [level=1]\n  - paragraph: ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว\n  - heading \"ยืนยันตัวตน\" [level=2]\n  - paragraph: ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ\n  - generic: เบอร์โทรศัพท์\n  - generic: \n  - textbox \"เบอร์โทรศัพท์ \":\n    - /placeholder: กรอกเบอร์โทรศัพท์\n  - generic: รหัสผ่าน\n  - generic: \n  - textbox \"รหัสผ่าน  แสดงรหัสผ่าน\":\n    - /placeholder: กรอกรหัสผ่าน\n  - button \"แสดงรหัสผ่าน\":\n    - generic: \n  - checkbox \"จดจำการเข้าสู่ระบบ\" [checked]\n  - generic: จดจำการเข้าสู่ระบบ\n  - link \"ลืมรหัสผ่าน?\":\n    - /url: /login\n  - button \"เข้าสู่ระบบ\"\n  - generic: หรือ\n  - button \" เข้าสู่ระบบด้วย Line\":\n    - generic: \n    - generic: เข้าสู่ระบบด้วย Line\n  - generic: ยังไม่มีบัญชี?\n  - link \"สมัครใช้งาน\":\n    - /url: /register\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "requestedUrl": "http://localhost:3000/tickets",
+      "finalUrl": "http://localhost:3000/login?redirect=/tickets",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "hasLoginHeading": true,
+      "snapshotExcerpt": "- main:\n  - generic: \n  - text: สลากดิจิทัล\n  - heading \"เข้าสู่ระบบ\" [level=1]\n  - paragraph: ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว\n  - heading \"ยืนยันตัวตน\" [level=2]\n  - paragraph: ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ\n  - generic: เบอร์โทรศัพท์\n  - generic: \n  - textbox \"เบอร์โทรศัพท์ \":\n    - /placeholder: กรอกเบอร์โทรศัพท์\n  - generic: รหัสผ่าน\n  - generic: \n  - textbox \"รหัสผ่าน  แสดงรหัสผ่าน\":\n    - /placeholder: กรอกรหัสผ่าน\n  - button \"แสดงรหัสผ่าน\":\n    - generic: \n  - checkbox \"จดจำการเข้าสู่ระบบ\" [checked]\n  - generic: จดจำการเข้าสู่ระบบ\n  - link \"ลืมรหัสผ่าน?\":\n    - /url: /login\n  - button \"เข้าสู่ระบบ\"\n  - generic: หรือ\n  - button \" เข้าสู่ระบบด้วย Line\":\n    - generic: \n    - generic: เข้าสู่ระบบด้วย Line\n  - generic: ยังไม่มีบัญชี?\n  - link \"สมัครใช้งาน\":\n    - /url: /register\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "requestedUrl": "http://localhost:3100/admin/central/lottery-images",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/central/lottery-images",
+      "title": "NewPaotang Back Office",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "hasLoginHeading": false,
+      "snapshotExcerpt": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    },
+    {
+      "requestedUrl": "http://localhost:3100/admin/central/dashboard",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/central/dashboard",
+      "title": "NewPaotang Back Office",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "hasLoginHeading": false,
+      "snapshotExcerpt": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    }
+  ]
+}

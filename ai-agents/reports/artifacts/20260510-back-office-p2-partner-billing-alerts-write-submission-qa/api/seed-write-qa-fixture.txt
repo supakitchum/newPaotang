@@ -1,0 +1,10 @@
+BEGIN
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+COMMIT
+         marker          | provision_partners | games | event_policies | alert_events
+-------------------------+--------------------+-------+----------------+--------------
+ write_qa_fixture_counts |                  1 |     1 |              1 |            1
+(1 row)

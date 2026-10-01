@@ -19,36 +19,28 @@
       <TicketStub
         v-else-if="selectedTicket"
         :number="ticketNumber"
-        :draw="getTicketDraw(selectedTicket, selectedGame)"
-        :set="getTicketSet(selectedTicket)"
         :status="getTicketStatusText(selectedTicket)"
+        :is-winning="isWinningTicket(selectedTicket)"
+        :prize-title="getTicketPrizeTitle(selectedTicket)"
+        :prize-amount="formatPrizeAmount(getTicketPrizeAmount(selectedTicket))"
+        :prizes="getTicketRewardPrizes(selectedTicket)"
+        :claim-label="isTicketClaimable(selectedTicket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+        :claim-to="getTicketClaimTo(selectedTicket)"
       />
 
       <div v-else class="empty-lottery-state">
         ไม่พบสลากฯ
       </div>
     </section>
-    <div v-if="selectedTicket" class="modal-overlay">
-      <section class="ticket-modal">
-        <div class="d-flex justify-content-center align-items-start mb-3">
-          <div class="d-flex align-items-center gap-3">
-            <BrandLogo />
-            <span class="lottery-six fs-2">L6</span>
-          </div>
-          <button class="icon-back-button ms-auto text-dark fs-2" type="button" aria-label="กลับ" @click="goBack">
-            <i class="bi bi-x-lg" />
-          </button>
-        </div>
-        <img v-if="ticketImageUrl" class="ticket-image-preview" :src="ticketImageUrl" :alt="ticketNumber">
-        <div v-else class="ticket-art">ขายแล้ว</div>
-        <div class="d-flex align-items-center gap-3 p-3 mt-3" style="background:#edf8ff;margin:0 -18px;border-radius:0 0 12px 12px;">
-          <div class="rounded-3 d-grid place-center text-white fw-bold" style="width:44px;height:44px;background:#1298d7">เป๋าตัง</div>
-          <div class="fw-semibold">
-            สลากฯ ใบนี้ขายที่บริการ ‘สลากหกหลัก’<br>บนแอปฯ เป๋าตังเท่านั้น
-          </div>
-        </div>
-      </section>
-    </div>
+    <TicketImageModal
+      v-if="selectedTicket"
+      :number="ticketNumber"
+      :image-url="selectedTicket.image_url || ''"
+      :image-thumb-url="selectedTicket.image_thumb_url || ''"
+      :image-status="selectedTicket.image_status || ''"
+      :image-error="selectedTicket.image_error || ''"
+      @close="goBack"
+    />
   </MobileShell>
 </template>
 
@@ -60,18 +52,21 @@ definePageMeta({
   requiresAuth: true
 })
 
-const router = useRouter()
 const route = useRoute()
 const { currentDrawDate } = useAppInit()
 const {
   fetchTickets,
   getGameDate,
+  getTicketGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketDraw,
-  getTicketSet,
-  getTicketImageUrl,
-  getTicketStatusText
+  getTicketStatusText,
+  isWinningTicket,
+  getTicketPrizeAmount,
+  getTicketRewardPrizes,
+  getTicketPrizeTitle,
+  isTicketClaimable,
+  getTicketClaimTo
 } = useUserTickets()
 const selectedTicket = ref<UserTicket | null>(null)
 const selectedGame = ref<UserTicketGame | null>(null)
@@ -98,15 +93,19 @@ const requestedGameId = computed(() => {
 })
 const ticketNumber = computed(() => getTicketNumber(selectedTicket.value))
 const ticketCount = computed(() => selectedTicket.value ? getTicketCount(selectedTicket.value) : 0)
-const drawDate = computed(() => getGameDate(selectedGame.value) || currentDrawDate.value)
-const ticketImageUrl = computed(() => getTicketImageUrl(selectedTicket.value))
+const drawDate = computed(() => getTicketGameDate(selectedTicket.value) || getGameDate(selectedGame.value) || currentDrawDate.value)
 
-const goBack = () => {
-  if (process.client && window.history.length > 1) {
-    router.back()
-    return
+const formatPrizeAmount = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return ''
   }
 
+  return amount.toLocaleString('th-TH', {
+    maximumFractionDigits: 0
+  })
+}
+
+const goBack = () => {
   navigateTo(isHistoryView.value ? '/tickets/history' : '/tickets')
 }
 

@@ -1,0 +1,343 @@
+URL: http://localhost:3101/admin/central/stock-generation
+TITLE: NewPaotang Back Office
+
+- banner:
+  - button "Toggle sidebar"
+  - button " Central":
+    - generic: 
+    - generic: Central
+  - text: 
+  - button "Search":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - navigation:
+    - text: 
+    - list:
+      - listitem: Central Menu
+      - link " Dashboard":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: Dashboard
+      - link " Lottery Operations ":
+        - /url: "#"
+        - generic: 
+        - generic: Lottery Operations
+        - generic: 
+      - list:
+        - link " Games":
+          - /url: /admin/central/games
+          - text: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - text: 
+          - generic: Rewards
+        - link " Master Stock":
+          - /url: /admin/central/master-stock
+          - text: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock-generation
+          - text: 
+          - generic: Stock Generation
+        - link " Stock Settings":
+          - /url: /admin/central/stock-settings
+          - text: 
+          - generic: Stock Settings
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - text: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock-recall
+          - text: 
+          - generic: Stock Recall
+      - link " Partner Operations ":
+        - /url: "#"
+        - generic: 
+        - generic: Partner Operations
+        - generic: 
+      - text:        
+      - link " Finance And Reports ":
+        - /url: "#"
+        - generic: 
+        - generic: Finance And Reports
+        - generic: 
+      - text:  
+      - link " Administration ":
+        - /url: "#"
+        - generic: 
+        - generic: Administration
+        - generic: 
+      - text:      
+    - text: 
+- main:
+  - heading "Stock Generation" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Stock Generation
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Game
+  - combobox:
+    - option "QA Topup Draw (qa_topup_190526) (Current)" [selected]
+  - generic: Number search
+  - textbox
+  - generic: Front 3
+  - textbox
+  - generic: Back 3
+  - textbox
+  - generic: Back 2
+  - textbox
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Available"
+    - option "Allocated"
+    - option "Sold"
+    - option "Recalled"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - paragraph: Generated supply
+  - heading "2" [level=4]
+  - text: Batch stb_730a80c60372a4c49386
+  - generic: 
+  - paragraph: 2-tail max limit
+  - heading "200" [level=4]
+  - text: Configured across 100 patterns
+  - generic: 
+  - generic: Generated 2
+  - generic: Limit left 199
+  - generic: Sellable 1
+  - generic: Used 1
+  - paragraph: 3-tail max limit
+  - heading "2,000" [level=4]
+  - text: Configured across 1,000 patterns
+  - generic: 
+  - generic: Generated 2
+  - generic: Limit left 1,999
+  - generic: Sellable 1
+  - generic: Used 1
+  - paragraph: 3-front max limit
+  - heading "2,000" [level=4]
+  - text: Configured across 1,000 patterns
+  - generic: 
+  - generic: Generated 2
+  - generic: Limit left 1,999
+  - generic: Sellable 1
+  - generic: Used 1
+  - paragraph: Status totals
+  - heading "2" [level=4]
+  - text: Available, allocated, sold, recalled, and voided
+  - generic: 
+  - generic: Available
+  - strong: "0"
+  - generic: Allocated
+  - strong: "2"
+  - generic: Sold
+  - strong: "0"
+  - generic: Recalled
+  - strong: "0"
+  - generic: Voided
+  - strong: "0"
+  - generic: Generation progress
+  - paragraph: Queued, processing, completed, and failed stock generation batches for the selected game.
+  - generic: 
+  - text: Connecting realtime
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - table:
+    - rowgroup:
+      - row "Batch Status Run Generated Requested Actions":
+        - columnheader "Batch":
+          - button "Batch":
+            - generic: Batch
+            - generic: 
+        - columnheader "Status":
+          - button "Status":
+            - generic: Status
+            - generic: 
+        - columnheader "Run":
+          - button "Run":
+            - generic: Run
+            - generic: 
+        - columnheader "Generated":
+          - button "Generated":
+            - generic: Generated
+            - generic: 
+        - columnheader "Requested":
+          - button "Requested":
+            - generic: Requested
+            - generic: 
+        - columnheader "Actions"
+    - rowgroup:
+      - row "stb_730a80c60372a4c49386 Completed Initial 1 1 View":
+        - cell "stb_730a80c60372a4c49386"
+        - cell "Completed":
+          - generic: Completed
+        - cell "Initial":
+          - generic: Initial
+        - cell "1"
+        - cell "1"
+        - cell "View":
+          - button "View"
+      - row "stb_93a041fc294e69ec9af0 Completed Initial 1 1 View":
+        - cell "stb_93a041fc294e69ec9af0"
+        - cell "Completed":
+          - generic: Completed
+        - cell "Initial":
+          - generic: Initial
+        - cell "1"
+        - cell "1"
+        - cell "View":
+          - button "View"
+  - generic: Page 1 · 10 rows per page
+  - list:
+    - button "Previous" [disabled]
+    - button "Next" [disabled]
+  - heading "Batch stb_730a80c60372a4c49386" [level=6]
+  - generic: Game gam_qa_topup
+  - generic: Completed
+  - generic: Initial virtual generate
+  - generic: Images not reported by batch API
+  - generic: Requested
+  - strong: "1"
+  - generic: Generated
+  - strong: "1"
+  - generic: Rounds
+  - strong: 0 / 0
+  - generic: Chunk rounds
+  - strong: "0"
+  - generic: Added capacity
+  - strong: "0"
+  - generic: Total capacity
+  - strong: "0"
+  - term: Type
+  - definition: Virtual Profile
+  - term: Stock mode
+  - definition: Virtual
+  - term: Profile
+  - definition: "-"
+  - term: Layer
+  - definition: "-"
+  - term: Range
+  - definition: 123456 - 123456
+  - term: Started
+  - definition: 19 พ.ค. 2569 20:03
+  - term: Completed
+  - definition: 19 พ.ค. 2569 20:03
+  - term: Updated
+  - definition: 19 พ.ค. 2569 20:03
+  - generic: Stock row progress
+  - strong: 100%
+  - generic: Documented operations
+  - button " Import stock":
+    - generic: 
+    - text: Import stock
+  - button " Generate stock" [active]:
+    - generic: 
+    - text: Generate stock
+  - button " Export stock":
+    - generic: 
+    - text: Export stock
+  - generic: Stock Generation
+  - table:
+    - rowgroup:
+      - row "Number Tickets Available Allocated Sold Recalled Game Updated Actions":
+        - columnheader "Number":
+          - button "Number":
+            - generic: Number
+            - generic: 
+        - columnheader "Tickets":
+          - button "Tickets":
+            - generic: Tickets
+            - generic: 
+        - columnheader "Available":
+          - button "Available":
+            - generic: Available
+            - generic: 
+        - columnheader "Allocated":
+          - button "Allocated":
+            - generic: Allocated
+            - generic: 
+        - columnheader "Sold":
+          - button "Sold":
+            - generic: Sold
+            - generic: 
+        - columnheader "Recalled":
+          - button "Recalled":
+            - generic: Recalled
+            - generic: 
+        - columnheader "Game":
+          - button "Game":
+            - generic: Game
+            - generic: 
+        - columnheader "Updated":
+          - button "Updated":
+            - generic: Updated
+            - generic: 
+        - columnheader "Actions"
+    - rowgroup:
+      - row "123456 2 1 1 0 0 gam_qa_topup 19 พ.ค. 2569 20:03 View number":
+        - cell "123456"
+        - cell "2"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "gam_qa_topup"
+        - cell "19 พ.ค. 2569 20:03"
+        - cell "View number":
+          - button "View number"
+  - generic: Page 1 · 20 rows per page
+  - list:
+    - button "Previous" [disabled]
+    - button "Next" [disabled]
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       
+- dialog:
+  - heading "Generate stock" [level=6]
+  - button "Close"
+  - paragraph: Confirm generate stock for Stock Generation.
+  - generic: Current game *
+  - combobox "Current game *":
+    - option "QA Topup Draw (qa_topup_190526) (Current)" [selected]
+  - generic: Generate or top up virtual stock only for the current open draw.
+  - generic: Set distribution
+  - generic: Set size
+  - generic: Percent
+  - spinbutton: "2"
+  - spinbutton: "10"
+  - generic: "%"
+  - button "":
+    - generic: 
+  - spinbutton: "3"
+  - spinbutton: "15"
+  - generic: "%"
+  - button "":
+    - generic: 
+  - button " Add set":
+    - generic: 
+    - text: Add set
+  - generic: Percent controls added virtual capacity; the remaining percent defaults to single-ticket capacity. Deterministic internals are managed by the system.
+  - generic: Reason
+  - textbox
+  - button "Cancel"
+  - button "Confirm" [disabled]

@@ -1,0 +1,21 @@
+{
+    "captured": "before_browser_filter",
+    "token_persisted": false,
+    "login_status": 200,
+    "statuses": {
+        "tenant_sync_logs_all": 200,
+        "tenant_sync_logs_processed": 200
+    },
+    "processed_query": "status=processed&limit=20",
+    "processed_row_ids": [
+        "sin_p3_filter10"
+    ],
+    "fixture_seen": true,
+    "tenant_ids": [
+        "ten_demo_alpha"
+    ],
+    "meta": {
+        "next_cursor": null,
+        "has_more": false
+    }
+}

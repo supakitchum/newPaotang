@@ -1,0 +1,19 @@
+BEGIN
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+COMMIT
+      marker       | orders | customers | wallets | reservations | topups 
+-------------------+--------+-----------+---------+--------------+--------
+ qa_fixture_counts |      1 |         1 |       1 |            1 |      1
+(1 row)
+

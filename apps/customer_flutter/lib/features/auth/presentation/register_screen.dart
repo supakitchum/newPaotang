@@ -1,0 +1,884 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/auth/auth_controller.dart';
+import '../../../core/auth/auth_repository.dart';
+import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_redirect.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
+import '../../affiliate/data/affiliate_referral_repository.dart';
+import 'auth_keyboard.dart';
+import 'auth_visual_tokens.dart';
+import 'register_otp_screen.dart';
+
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _firstName = TextEditingController();
+  final _lastName = TextEditingController();
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
+
+  bool _acceptedTerms = false;
+  bool _submitting = false;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
+  String _formError = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = ref.read(registerOtpFlowProvider);
+    if (draft != null) {
+      _firstName.text = draft.firstName;
+      _lastName.text = draft.lastName;
+      _phone.text = draft.phone;
+      _password.text = draft.password;
+      _confirmPassword.text = draft.passwordConfirmation;
+      _acceptedTerms = true;
+    }
+    _firstName.addListener(_clearFormError);
+    _lastName.addListener(_clearFormError);
+    _phone.addListener(_clearFormError);
+    _password.addListener(_clearFormError);
+    _confirmPassword.addListener(_clearFormError);
+  }
+
+  @override
+  void dispose() {
+    _firstName.removeListener(_clearFormError);
+    _lastName.removeListener(_clearFormError);
+    _phone.removeListener(_clearFormError);
+    _password.removeListener(_clearFormError);
+    _confirmPassword.removeListener(_clearFormError);
+    _firstName.dispose();
+    _lastName.dispose();
+    _phone.dispose();
+    _password.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final siteName =
+        ref.watch(mobileBootstrapProvider).valueOrNull?.siteName.trim() ?? '';
+    final heroBadge = siteName.isEmpty
+        ? context.l10n.registerHeroBadge
+        : context.l10n.registerHeroBadgeForSite(siteName);
+    return Scaffold(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      body: DecoratedBox(
+        decoration: BoxDecoration(color: colorScheme.surface),
+        child: SafeArea(
+          key: const ValueKey('register-screen-safe-area'),
+          top: false,
+          child: Form(
+            key: _formKey,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _RegisterHeroSection(
+                      minHeight: constraints.maxWidth >= 720 ? 300 : 258,
+                      badgeLabel: heroBadge,
+                    ),
+                    _RegisterSheet(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: _buildFormCard(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormCard(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.10),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 24, 18, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.registerFormTitle,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.registerFormDescription,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                height: 1.35,
+              ),
+            ),
+            if (_formError.trim().isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _RegisterErrorPanel(message: _formError),
+            ],
+            const SizedBox(height: 22),
+            _buildNameFields(context),
+            const SizedBox(height: 16),
+            _RegisterFieldLabel(label: l10n.registerPhoneLabel),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _phone,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              style: authInputTextStyle(context),
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
+              decoration: _registerInputDecoration(
+                context,
+                hintText: l10n.registerPhoneHint,
+                prefixIcon: const Icon(Icons.phone_android_outlined),
+              ),
+              validator: _phoneValidator,
+            ),
+            const SizedBox(height: 16),
+            _RegisterFieldLabel(label: l10n.registerPasswordLabel),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _password,
+              autofillHints: const [AutofillHints.newPassword],
+              style: authInputTextStyle(context),
+              obscureText: !_showPassword,
+              textInputAction: TextInputAction.next,
+              decoration: _registerInputDecoration(
+                context,
+                hintText: l10n.registerPasswordHint,
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() => _showPassword = !_showPassword),
+                  icon: _showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  tooltip: _showPassword
+                      ? l10n.registerHidePassword
+                      : l10n.registerShowPassword,
+                ),
+              ),
+              validator: _required,
+            ),
+            const SizedBox(height: 16),
+            _RegisterFieldLabel(label: l10n.registerConfirmPasswordLabel),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _confirmPassword,
+              autofillHints: const [AutofillHints.newPassword],
+              style: authInputTextStyle(context),
+              obscureText: !_showConfirmPassword,
+              textInputAction: TextInputAction.done,
+              decoration: _registerInputDecoration(
+                context,
+                hintText: l10n.registerConfirmPasswordHint,
+                prefixIcon: const Icon(Icons.verified_user_outlined),
+                suffixIcon: authInputActionButton(
+                  context,
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(
+                          () => _showConfirmPassword = !_showConfirmPassword,
+                        ),
+                  icon: _showConfirmPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  tooltip: _showConfirmPassword
+                      ? l10n.registerHidePassword
+                      : l10n.registerShowPassword,
+                ),
+              ),
+              validator: (value) {
+                if ((value ?? '').isEmpty) {
+                  return l10n.authConfirmPasswordRequired;
+                }
+                if (value != _password.text) {
+                  return l10n.authPasswordMismatch;
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildTermsTile(context),
+            const SizedBox(height: 20),
+            authPrimaryActionButton(
+              onPressed: _submitting ? null : _submit,
+              height: 54,
+              fontSize: 18,
+              label: _submitting
+                  ? l10n.registerSubmitting
+                  : l10n.registerSubmit,
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    l10n.registerLoginPrompt,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () {
+                          ref.read(registerOtpFlowProvider.notifier).state =
+                              null;
+                          context.go(
+                            customerLoginRouteForRedirect(_currentRedirect()),
+                          );
+                        },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(l10n.loginTitle),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNameFields(BuildContext context) {
+    final l10n = context.l10n;
+    final firstNameField = _RegisterLabeledField(
+      label: l10n.registerFirstNameLabel,
+      child: TextFormField(
+        controller: _firstName,
+        autofillHints: const [AutofillHints.givenName],
+        style: authInputTextStyle(context),
+        decoration: _registerInputDecoration(
+          context,
+          hintText: l10n.registerFirstNameHint,
+          prefixIcon: const Icon(Icons.person_outline),
+        ),
+        textInputAction: TextInputAction.next,
+        validator: _required,
+      ),
+    );
+    final lastNameField = _RegisterLabeledField(
+      label: l10n.registerLastNameLabel,
+      child: TextFormField(
+        controller: _lastName,
+        autofillHints: const [AutofillHints.familyName],
+        style: authInputTextStyle(context),
+        decoration: _registerInputDecoration(
+          context,
+          hintText: l10n.registerLastNameHint,
+          prefixIcon: const Icon(Icons.badge_outlined),
+        ),
+        textInputAction: TextInputAction.next,
+        validator: _required,
+      ),
+    );
+
+    return Column(
+      children: [firstNameField, const SizedBox(height: 16), lastNameField],
+    );
+  }
+
+  Widget _buildTermsTile(BuildContext context) {
+    return _RegisterConsentRow(
+      checked: _acceptedTerms,
+      disabled: _submitting,
+      label: context.l10n.registerTerms,
+      onChanged: (value) {
+        setState(() {
+          _acceptedTerms = value;
+          _formError = '';
+        });
+      },
+    );
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!_acceptedTerms) {
+      _showFormError(context.l10n.registerTermsRequired);
+      return;
+    }
+
+    final failedMessage = context.l10n.registerFailed;
+    setState(() {
+      _formError = '';
+      _submitting = true;
+    });
+    try {
+      try {
+        final result = await ref
+            .read(authRepositoryProvider)
+            .requestOtp(phone: _phone.text, purpose: 'register');
+        if (!mounted) return;
+        final redirect = _currentRedirect();
+        ref.read(registerOtpFlowProvider.notifier).state = RegisterOtpFlowState(
+          firstName: _firstName.text.trim(),
+          lastName: _lastName.text.trim(),
+          phone: _phone.text,
+          password: _password.text,
+          passwordConfirmation: _confirmPassword.text,
+          redirect: redirect,
+          otpRequest: result,
+        );
+        await dismissAuthKeyboard(
+          context,
+          waitForAnimation: true,
+          finishAutofillContext: true,
+        );
+        if (!mounted) return;
+        context.go(customerRegisterOtpRouteForRedirect(redirect));
+      } catch (error) {
+        if (!_canRegisterWithoutOtp(error)) rethrow;
+        await _register();
+        await ref
+            .read(affiliateReferralServiceProvider)
+            .applyStored(registered: true);
+        if (mounted) _goAfterRegistration();
+      }
+    } catch (error) {
+      if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: _currentRedirect(),
+      );
+      if (!mounted || handled) return;
+      _showFormError(_registrationErrorMessage(error, failedMessage));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _register() {
+    return ref
+        .read(authControllerProvider)
+        .register(
+          firstName: _firstName.text.trim(),
+          lastName: _lastName.text.trim(),
+          phone: _phone.text,
+          password: _password.text,
+          passwordConfirmation: _confirmPassword.text,
+        );
+  }
+
+  String? _required(String? value) =>
+      (value ?? '').trim().isEmpty ? context.l10n.authFieldRequired : null;
+
+  String? _phoneValidator(String? value) {
+    final phone = value ?? '';
+    if (!RegExp(r'^\d{9,10}$').hasMatch(phone)) {
+      return context.l10n.authPhoneInvalid;
+    }
+    return null;
+  }
+
+  bool _canRegisterWithoutOtp(Object error) {
+    final info = ApiErrorInfo.fromObject(error);
+    return info.isOptionalSmsOtpProviderMissing;
+  }
+
+  String _registrationErrorMessage(Object error, String fallback) {
+    final message = ApiErrorInfo.fromObject(error).message.trim();
+    if (message.isEmpty) return fallback;
+    if (error is DioException || error is Map) return message;
+    return fallback;
+  }
+
+  void _clearFormError() {
+    if (_formError.isEmpty || !mounted || _submitting) return;
+    setState(() => _formError = '');
+  }
+
+  void _showFormError(String message) {
+    if (!mounted) return;
+    final normalized = message.trim();
+    if (normalized.isEmpty) return;
+    setState(() => _formError = normalized);
+  }
+
+  void _goAfterRegistration() {
+    ref.read(registerOtpFlowProvider.notifier).state = null;
+    final auth = ref.read(authControllerProvider);
+    final redirect = _currentRedirect();
+    context.go(
+      customerPostAuthRouteForRedirect(
+        redirect: redirect,
+        pinRequired: auth.pinRequired,
+        pinSetupRequired: auth.pinSetupRequired,
+      ),
+    );
+  }
+
+  String _currentRedirect() {
+    try {
+      return safeCustomerRedirect(
+        GoRouterState.of(context).uri.queryParameters['redirect'],
+      );
+    } catch (_) {
+      return '/';
+    }
+  }
+}
+
+class _RegisterErrorPanel extends StatelessWidget {
+  const _RegisterErrorPanel({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.error.withValues(alpha: 0.14)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline, color: colorScheme.error, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RegisterHeroSection extends StatelessWidget {
+  const _RegisterHeroSection({
+    required this.minHeight,
+    required this.badgeLabel,
+  });
+
+  final double minHeight;
+  final String badgeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minHeight),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              AppTheme.heroGradientEnd(colorScheme.primary),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            const _RegisterHeroAccents(),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 920),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    34 + MediaQuery.paddingOf(context).top,
+                    20,
+                    104,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.16,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 13,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.person_add_alt_1_outlined,
+                                    color: colorScheme.onPrimary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    badgeLabel,
+                                    style: textTheme.labelLarge?.copyWith(
+                                      color: colorScheme.onPrimary,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            context.l10n.registerTitle,
+                            style: textTheme.headlineLarge?.copyWith(
+                              color: colorScheme.onPrimary,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            context.l10n.registerHeroDescription,
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.9,
+                              ),
+                              fontSize: 17,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RegisterHeroAccents extends StatelessWidget {
+  const _RegisterHeroAccents();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Positioned(
+              right: -76,
+              bottom: -126,
+              child: Container(
+                width: 344,
+                height: 344,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.secondary.withValues(alpha: 0.34),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 34,
+              bottom: 34,
+              child: Container(
+                width: 116,
+                height: 116,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.tertiary.withValues(alpha: 0.86),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -78,
+              top: 26,
+              child: Transform.rotate(
+                angle: -0.58,
+                child: Container(
+                  width: 360,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(44),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 82,
+              bottom: 40,
+              child: Transform.rotate(
+                angle: -0.58,
+                child: Container(
+                  width: 310,
+                  height: 78,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(42),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RegisterSheet extends StatelessWidget {
+  const _RegisterSheet({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Transform.translate(
+      offset: const Offset(0, -78),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 24, 18, 44),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RegisterLabeledField extends StatelessWidget {
+  const _RegisterLabeledField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _RegisterFieldLabel(label: label),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
+
+class _RegisterFieldLabel extends StatelessWidget {
+  const _RegisterFieldLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _RegisterConsentRow extends StatelessWidget {
+  const _RegisterConsentRow({
+    required this.checked,
+    required this.disabled,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final bool checked;
+  final bool disabled;
+  final String label;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = !disabled;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      checked: checked,
+      enabled: enabled,
+      label: label,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: enabled ? () => onChanged(!checked) : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 2, 0, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: _RegisterConsentBox(
+                    checked: checked,
+                    disabled: disabled,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ExcludeSemantics(
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: enabled ? 1 : 0.58,
+                        ),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RegisterConsentBox extends StatelessWidget {
+  const _RegisterConsentBox({required this.checked, required this.disabled});
+
+  final bool checked;
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final borderColor = disabled
+        ? colorScheme.outlineVariant
+        : checked
+        ? colorScheme.primary
+        : colorScheme.outlineVariant;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      width: 17,
+      height: 17,
+      decoration: BoxDecoration(
+        color: checked && !disabled ? colorScheme.primary : colorScheme.surface,
+        border: Border.all(color: borderColor, width: 1.4),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: checked
+          ? Icon(
+              Icons.check,
+              color: disabled
+                  ? colorScheme.onSurfaceVariant
+                  : colorScheme.onPrimary,
+              size: 13,
+            )
+          : null,
+    );
+  }
+}
+
+InputDecoration _registerInputDecoration(
+  BuildContext context, {
+  required String hintText,
+  required Widget prefixIcon,
+  Widget? suffixIcon,
+}) {
+  return authInputDecoration(
+    context,
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+  );
+}

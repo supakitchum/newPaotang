@@ -1,0 +1,146 @@
+== phpunit-partner-branding ==
+phpunit-partner-branding exit_code=0
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-platform-api-run-56db6d35196a Creating
+   Container newpaotang-platform-api-run-56db6d35196a Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerLotteryBrandingAssetTest[39m
+    [32;1m✓[39;22m[90m [39m[90mcentral partner lottery branding assets are central only and lock a[39m[90m…[39m [90m3.88s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (24 assertions)[39m
+    [90mDuration:[39m [39m4.93s[39m
+
+  exit_code=0
+
+== phpunit-lottery-image ==
+phpunit-lottery-image exit_code=0
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-a14a045c58cc Creating
+   Container newpaotang-platform-api-run-a14a045c58cc Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageOperationsTest[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image background central admin manages background sets and[39m[90m… [39m [90m3.55s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image mix persists percentages and generation uses them[39m[90m     [39m [90m0.60s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image readiness redacts storage queue runtime and reports m[39m[90m…[39m [90m1.11s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image ops retries pending assets after background registrat[39m[90m…[39m [90m1.16s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image readiness reports production ready when s3 queue runt[39m[90m…[39m [90m0.96s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image ops object keys cdn urls and cache contract are stabl[39m[90m…[39m [90m0.06s[39m
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageTest[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image generation assigns background mix and generates centr[39m[90m…[39m [90m2.88s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image pending background command generates rows once their[39m[90m… [39m [90m1.24s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image visual generation creates partner variant after stock[39m[90m…[39m [90m4.26s[39m
+
+    [90mTests:[39m    [32;1m9 passed[39;22m[90m (241 assertions)[39m
+    [90mDuration:[39m [39m16.21s[39m
+
+  exit_code=0
+
+== phpunit-lottery-image-visual ==
+phpunit-lottery-image-visual exit_code=0
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-007af93421d0 Creating
+   Container newpaotang-platform-api-run-007af93421d0 Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageTest[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image visual generation creates partner variant after stock[39m[90m…[39m [90m6.00s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (51 assertions)[39m
+    [90mDuration:[39m [39m6.35s[39m
+
+  exit_code=0
+
+== phpunit-lottery-image-operations ==
+phpunit-lottery-image-operations exit_code=0
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-platform-api-run-e338077b117e Creating
+   Container newpaotang-platform-api-run-e338077b117e Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageOperationsTest[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image background central admin manages background sets and[39m[90m… [39m [90m4.89s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image mix persists percentages and generation uses them[39m[90m     [39m [90m0.71s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image readiness redacts storage queue runtime and reports m[39m[90m…[39m [90m1.50s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image ops retries pending assets after background registrat[39m[90m…[39m [90m1.47s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image readiness reports production ready when s3 queue runt[39m[90m…[39m [90m1.18s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image ops object keys cdn urls and cache contract are stabl[39m[90m…[39m [90m0.04s[39m
+
+    [90mTests:[39m    [32;1m6 passed[39;22m[90m (97 assertions)[39m
+    [90mDuration:[39m [39m10.63s[39m
+
+  exit_code=0
+
+== readiness-json ==
+readiness-json exit_code=0
+   Container newpaotang-platform-api-run-6df800ef1fdf Created
+  {
+      "configured": true,
+      "disk": "lottery_images",
+      "disk_driver": "local",
+      "bucket_present": false,
+      "region_present": false,
+      "endpoint_present": false,
+      "cdn_base_url_present": true,
+      "queue_configured": true,
+      "runtime_webp_ready": true,
+      "secrets_redacted": true,
+      "production_ready": false,
+      "blocking_reasons": [
+          "object_storage_disk_not_s3_compatible",
+          "object_storage_bucket_missing",
+          "object_storage_region_missing"
+      ],
+      "queues": {
+          "queue_configured": true,
+          "jobs_can_run": true,
+          "connection": "redis",
+          "required_queue_names": [
+              "stock-image-generation",
+              "stock-partner-image-generation"
+          ],
+          "central_queue": "stock-image-generation",
+          "partner_queue": "stock-partner-image-generation",
+          "worker_commands": [
+              "php artisan queue:work --queue=stock-image-generation",
+              "php artisan queue:work --queue=stock-partner-image-generation"
+          ]
+      }
+  }
+  exit_code=0
+
+== pending-backgrounds-dry-run ==
+pending-backgrounds-dry-run exit_code=0
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-e348405b4d80 Creating
+   Container newpaotang-platform-api-run-e348405b4d80 Created
+  Pending central ready: 0
+  Pending central dispatched: 0
+  Pending partner ready: 0
+  Pending partner dispatched: 0
+  exit_code=0
+
+overall_exit_code=0

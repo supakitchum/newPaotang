@@ -1,0 +1,585 @@
+- banner:
+  - button "Toggle sidebar"
+  - button " Central":
+    - generic: 
+    - generic: Central
+  - text: 
+  - button "Search":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Lottery Operations ":
+          - /url: "#"
+          - generic: 
+          - generic: Lottery Operations
+          - generic: 
+        - list:
+          - link " Games":
+            - /url: /admin/central/games
+            - text: 
+            - generic: Games
+          - link " Rewards":
+            - /url: /admin/central/rewards
+            - text: 
+            - generic: Rewards
+          - link " Master Stock":
+            - /url: /admin/central/master-stock
+            - text: 
+            - generic: Master Stock
+          - link " Stock Generation":
+            - /url: /admin/central/stock-generation
+            - text: 
+            - generic: Stock Generation
+          - link " Allocations":
+            - /url: /admin/central/allocations
+            - text: 
+            - generic: Allocations
+          - link " Stock Recall":
+            - /url: /admin/central/stock-recall
+            - text: 
+            - generic: Stock Recall
+        - link " Partner Operations ":
+          - /url: "#"
+          - generic: 
+          - generic: Partner Operations
+          - generic: 
+        - text:        
+        - link " Finance And Reports ":
+          - /url: "#"
+          - generic: 
+          - generic: Finance And Reports
+          - generic: 
+        - text:  
+        - link " Administration ":
+          - /url: "#"
+          - generic: 
+          - generic: Administration
+          - generic: 
+        - text:      
+      - text: 
+- main:
+  - heading "Stock Generation" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Stock Generation
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Game
+  - combobox:
+    - option "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)" [selected]
+  - generic: Number search
+  - textbox
+  - generic: Front 3
+  - textbox
+  - generic: Back 3
+  - textbox
+  - generic: Back 2
+  - textbox
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Available"
+    - option "Allocated"
+    - option "Sold"
+    - option "Recalled"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - paragraph: Total tickets
+  - heading "101,000" [level=4]
+  - text: Game gam_01KRNMWTAHF07YGN365E00NW42
+  - generic: 
+  - paragraph: 2-tail coverage
+  - heading "100 / 100" [level=4]
+  - text: Distinct values covered
+  - generic: 
+  - generic: Missing 0
+  - generic: Min 1,010
+  - generic: Max 1,010
+  - generic: Tickets 101,000
+  - paragraph: 3-tail coverage
+  - heading "1,000 / 1,000" [level=4]
+  - text: Distinct values covered
+  - generic: 
+  - generic: Missing 0
+  - generic: Min 101
+  - generic: Max 101
+  - generic: Tickets 101,000
+  - paragraph: 3-front coverage
+  - heading "1,000 / 1,000" [level=4]
+  - text: Distinct values covered
+  - generic: 
+  - generic: Missing 0
+  - generic: Min 101
+  - generic: Max 101
+  - generic: Tickets 101,000
+  - paragraph: Status totals
+  - heading "101,000" [level=4]
+  - text: Available, allocated, sold, recalled, and voided
+  - generic: 
+  - generic: Available
+  - strong: 101,000
+  - generic: Allocated
+  - strong: "0"
+  - generic: Sold
+  - strong: "0"
+  - generic: Recalled
+  - strong: "0"
+  - generic: Voided
+  - strong: "0"
+  - generic: Generation progress
+  - paragraph: Queued, processing, completed, and failed stock generation batches for the selected game.
+  - generic: 
+  - text: Fallback 60s
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - button "stb_ab7b6ea4daeff9128e13 Completed 100,000 / 100,000 tickets 100%":
+    - generic: stb_ab7b6ea4daeff9128e13
+    - generic: Completed
+    - generic: 100,000 / 100,000 tickets
+    - generic: 100%
+  - button "stb_4bda1bbe94e6c74a0a7b Completed 1,000 / 1,000 tickets 100%":
+    - generic: stb_4bda1bbe94e6c74a0a7b
+    - generic: Completed
+    - generic: 1,000 / 1,000 tickets
+    - generic: 100%
+  - heading "Batch stb_ab7b6ea4daeff9128e13" [level=6]
+  - generic: Game gam_01KRNMWTAHF07YGN365E00NW42
+  - generic: Completed
+  - generic: Images not reported by batch API
+  - generic: Requested
+  - strong: 100,000
+  - generic: Generated
+  - strong: 100,000
+  - generic: Rounds
+  - strong: 100 / 100
+  - generic: Chunk rounds
+  - strong: "5"
+  - generic: Stock row progress
+  - strong: 100%
+  - table:
+    - rowgroup:
+      - row "Chunk Status Rounds Attempts":
+        - columnheader "Chunk"
+        - columnheader "Status"
+        - columnheader "Rounds"
+        - columnheader "Attempts"
+    - rowgroup:
+      - row "1 Completed 5 1":
+        - cell "1"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "2 Completed 5 1":
+        - cell "2"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "3 Completed 5 1":
+        - cell "3"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "4 Completed 5 1":
+        - cell "4"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "5 Completed 5 1":
+        - cell "5"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "6 Completed 5 1":
+        - cell "6"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "7 Completed 5 1":
+        - cell "7"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "8 Completed 5 1":
+        - cell "8"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "9 Completed 5 1":
+        - cell "9"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "10 Completed 5 1":
+        - cell "10"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "11 Completed 5 1":
+        - cell "11"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "12 Completed 5 1":
+        - cell "12"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "13 Completed 5 1":
+        - cell "13"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "14 Completed 5 1":
+        - cell "14"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "15 Completed 5 1":
+        - cell "15"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "16 Completed 5 1":
+        - cell "16"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "17 Completed 5 1":
+        - cell "17"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "18 Completed 5 1":
+        - cell "18"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "19 Completed 5 1":
+        - cell "19"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+      - row "20 Completed 5 1":
+        - cell "20"
+        - cell "Completed":
+          - generic: Completed
+        - cell "5"
+        - cell "1"
+  - generic: Documented operations
+  - button " Import stock":
+    - generic: 
+    - text: Import stock
+  - button " Generate stock":
+    - generic: 
+    - text: Generate stock
+  - button " Export stock":
+    - generic: 
+    - text: Export stock
+  - generic: Stock Generation
+  - table:
+    - rowgroup:
+      - row "Number Tickets Available Allocated Sold Recalled Game Updated Actions":
+        - columnheader "Number":
+          - button "Number":
+            - generic: Number
+            - generic: 
+        - columnheader "Tickets":
+          - button "Tickets":
+            - generic: Tickets
+            - generic: 
+        - columnheader "Available":
+          - button "Available":
+            - generic: Available
+            - generic: 
+        - columnheader "Allocated":
+          - button "Allocated":
+            - generic: Allocated
+            - generic: 
+        - columnheader "Sold":
+          - button "Sold":
+            - generic: Sold
+            - generic: 
+        - columnheader "Recalled":
+          - button "Recalled":
+            - generic: Recalled
+            - generic: 
+        - columnheader "Game":
+          - button "Game":
+            - generic: Game
+            - generic: 
+        - columnheader "Updated":
+          - button "Updated":
+            - generic: Updated
+            - generic: 
+        - columnheader "Actions"
+    - rowgroup:
+      - row "000014 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:01 View tickets":
+        - cell "000014"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:01"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000031 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:00 View tickets":
+        - cell "000031"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:00"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000045 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:22 View tickets":
+        - cell "000045"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:22"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000072 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:56 View tickets":
+        - cell "000072"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:56"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000088 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:00 View tickets":
+        - cell "000088"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:00"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000092 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:54 View tickets":
+        - cell "000092"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:54"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000112 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:57 View tickets":
+        - cell "000112"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:57"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000143 2 2 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:58 View tickets":
+        - cell "000143"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:58"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000161 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:55 View tickets":
+        - cell "000161"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:55"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000174 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:53 View tickets":
+        - cell "000174"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:53"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000176 2 2 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:11 View tickets":
+        - cell "000176"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:11"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000207 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:28 View tickets":
+        - cell "000207"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:28"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000208 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:15 View tickets":
+        - cell "000208"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:15"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000211 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:40 View tickets":
+        - cell "000211"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:40"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000220 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:52 View tickets":
+        - cell "000220"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:52"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000226 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:56 View tickets":
+        - cell "000226"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:56"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000245 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:53 View tickets":
+        - cell "000245"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:53"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000250 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:57 View tickets":
+        - cell "000250"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:57"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000254 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 12:58 View tickets":
+        - cell "000254"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 12:58"
+        - cell "View tickets":
+          - button "View tickets"
+      - row "000268 1 1 0 0 0 gam_01KRNMWTAHF07YGN365E00NW42 16 พ.ค. 2569 13:30 View tickets":
+        - cell "000268"
+        - cell "1"
+        - cell "1"
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "gam_01KRNMWTAHF07YGN365E00NW42"
+        - cell "16 พ.ค. 2569 13:30"
+        - cell "View tickets":
+          - button "View tickets"
+  - generic: Page 1 · 20 rows per page
+  - list:
+    - button "Previous" [disabled]
+    - button "Next"
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

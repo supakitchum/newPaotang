@@ -1,0 +1,489 @@
+{
+  "generated_at": "2026-05-11T14:36:00.206Z",
+  "game_code": "p5_games_ui_1b12dq",
+  "checks": {
+    "initial_list": {
+      "menu_link_count": 2,
+      "route": "/admin/central/games",
+      "row_count": 2,
+      "has_error_alert": false
+    },
+    "create_modal": {
+      "fields": [
+        "Game code *",
+        "Game name *",
+        "Draw at *",
+        "Close at",
+        "Initial status *"
+      ],
+      "input_types": [
+        {
+          "id": "admin-confirm-code",
+          "tag": "input",
+          "type": "text",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-name",
+          "tag": "input",
+          "type": "text",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-draw_at",
+          "tag": "input",
+          "type": "datetime-local",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-close_at",
+          "tag": "input",
+          "type": "datetime-local",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-status",
+          "tag": "select",
+          "type": "",
+          "value": "",
+          "options": [
+            "",
+            "draft",
+            "open"
+          ]
+        }
+      ],
+      "confirm_disabled_initially": true,
+      "text_sample": "Create game Confirm create game for Games. Game code * Use lowercase letters, numbers, underscores, or hyphens. Game name * Draw at * Close at Optional sales close date-time before draw. Initial status * Select draft open Cancel Confirm",
+      "confirm_disabled_after_required_fields": false
+    },
+    "after_create": {
+      "row_text": "gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG p5_games_ui_1b12dq P5 Games UI 1b12dq Draft 20 มิ.ย. 2569 12:00 19 มิ.ย. 2569 12:00 Detail Update Close Archive",
+      "has_created_row": true,
+      "has_error_alert": false
+    },
+    "detail_after_create": {
+      "route": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "text_sample": "Central PL Platform Owner CENTRAL MENU Dashboard Games Rewards Prize Checking Master Stock Stock Generation Partners Partner Provisioning Partner Quotas Partner Monitoring Partner Usage Allocations Stock Recall Billing Plans Alert Policies Alert Events Reports Settlement Webhook Logs Audit Logs Admin Users Roles Permissions Menu Management System Settings Games detail Admin Central Central Games Games detail Back Refresh Games detail Id gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG Code p5_games_ui_1b12dq Name P5 Games UI 1b12dq Draw At 2026-06-20T12:00:00.000000Z Close At 2026-06-19T12:00:00.000000Z Server Time 2026-05-11T14:36:03.924922Z Status draft Closed At - Archived At - Created At 2026-05-11T14:36:03.000000Z Updated At 2026-05-11T14:36:03.000000Z Documented operations Update Close Archive NewPaotang Back Office · Meno template foundation · 2026",
+      "includes_created_code": true,
+      "includes_draft_status": true,
+      "has_error_alert": false
+    },
+    "update_modal": {
+      "fields": [
+        "Game code",
+        "Game name",
+        "Draw at",
+        "Close at",
+        "Lifecycle transition"
+      ],
+      "input_types": [
+        {
+          "id": "admin-confirm-code",
+          "tag": "input",
+          "type": "text",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-name",
+          "tag": "input",
+          "type": "text",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-draw_at",
+          "tag": "input",
+          "type": "datetime-local",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-close_at",
+          "tag": "input",
+          "type": "datetime-local",
+          "value": "",
+          "options": []
+        },
+        {
+          "id": "admin-confirm-status",
+          "tag": "select",
+          "type": "",
+          "value": "",
+          "options": [
+            "",
+            "open",
+            "reward_recorded",
+            "reward_checking",
+            "reward_verified",
+            "reward_published"
+          ]
+        }
+      ],
+      "confirm_disabled_initially": false,
+      "text_sample": "Update Confirm update for gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG. Id gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG Code p5_games_ui_1b12dq Name P5 Games UI 1b12dq Status draft Draw At 2026-06-20T12:00:00.000000Z Close At 2026-06-19T12:00:00.000000Z Game code Use lowercase letters, numbers, underscores, or hyphens. Game name Draw at Close at Leave blank to keep the current close date unchanged. Lifecycle transition Select open reward_recorded reward_checking reward_verified reward_published Optional. Backend allows only the next valid transition, such as draft to open or closed to reward_recorded. Cancel Confirm"
+    },
+    "after_update": {
+      "route": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "text_sample": "Central PL Platform Owner CENTRAL MENU Dashboard Games Rewards Prize Checking Master Stock Stock Generation Partners Partner Provisioning Partner Quotas Partner Monitoring Partner Usage Allocations Stock Recall Billing Plans Alert Policies Alert Events Reports Settlement Webhook Logs Audit Logs Admin Users Roles Permissions Menu Management System Settings Games detail Admin Central Central Games Games detail Back Refresh Games detail Id gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG Code p5_games_ui_1b12dq Name P5 Games UI 1b12dq Open Draw At 2026-06-20T12:00:00.000000Z Close At 2026-06-18T12:00:00.000000Z Server Time 2026-05-11T14:36:04.947448Z Status open Closed At - Archived At - Created At 2026-05-11T14:36:03.000000Z Updated At 2026-05-11T14:36:04.000000Z Documented operations Update Close Archive NewPaotang Back Office · Meno template foundation · 2026",
+      "includes_updated_name": true,
+      "includes_open_status": true,
+      "has_error_alert": false
+    },
+    "close_modal": {
+      "has_reason": true,
+      "has_context_code": true,
+      "has_context_status": true,
+      "confirm_disabled_without_reason": true
+    },
+    "after_close": {
+      "text_sample": "Central PL Platform Owner CENTRAL MENU Dashboard Games Rewards Prize Checking Master Stock Stock Generation Partners Partner Provisioning Partner Quotas Partner Monitoring Partner Usage Allocations Stock Recall Billing Plans Alert Policies Alert Events Reports Settlement Webhook Logs Audit Logs Admin Users Roles Permissions Menu Management System Settings Games detail Admin Central Central Games Games detail Back Refresh Games detail Id gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG Code p5_games_ui_1b12dq Name P5 Games UI 1b12dq Open Draw At 2026-06-20T12:00:00.000000Z Close At 2026-06-18T12:00:00.000000Z Server Time 2026-05-11T14:36:05.640227Z Status closed Closed At 2026-05-11T14:36:05.000000Z Archived At - Created At 2026-05-11T14:36:03.000000Z Updated At 2026-05-11T14:36:05.000000Z Documented operations Update Close Archive NewPaotang Back Office · Meno template foundation · 2026",
+      "includes_closed_status": true,
+      "has_error_alert": false
+    },
+    "archive_modal": {
+      "has_reason": true,
+      "has_context_code": true,
+      "has_context_status": true,
+      "confirm_disabled_without_reason": true
+    },
+    "after_archive": {
+      "route": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "text_sample": "Central PL Platform Owner CENTRAL MENU Dashboard Games Rewards Prize Checking Master Stock Stock Generation Partners Partner Provisioning Partner Quotas Partner Monitoring Partner Usage Allocations Stock Recall Billing Plans Alert Policies Alert Events Reports Settlement Webhook Logs Audit Logs Admin Users Roles Permissions Menu Management System Settings Games detail Admin Central Central Games Games detail Back Refresh Games detail Id gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG Code p5_games_ui_1b12dq Name P5 Games UI 1b12dq Open Draw At 2026-06-20T12:00:00.000000Z Close At 2026-06-18T12:00:00.000000Z Server Time 2026-05-11T14:36:06.441474Z Status archived Closed At 2026-05-11T14:36:05.000000Z Archived At 2026-05-11T14:36:06.000000Z Created At 2026-05-11T14:36:03.000000Z Updated At 2026-05-11T14:36:06.000000Z Documented operations Update Close Archive NewPaotang Back Office · Meno template foundati",
+      "includes_archived_status": true,
+      "has_error_alert": false
+    },
+    "hard_refresh_detail": {
+      "route": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "login_visible": false,
+      "includes_archived_status": true
+    },
+    "archived_filter": {
+      "row_count": 3,
+      "includes_game_code": true,
+      "has_error_alert": false
+    },
+    "reward_published_empty": {
+      "row_count": 0,
+      "coherent_empty_state": true,
+      "has_error_alert": false
+    }
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/dashboard/summary",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/central/games",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": true
+      },
+      "post_data_keys": [
+        "code",
+        "name",
+        "draw_at",
+        "close_at",
+        "status"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": true
+      },
+      "post_data_keys": [
+        "code",
+        "name",
+        "draw_at",
+        "close_at",
+        "status"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG/close",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": true
+      },
+      "post_data_keys": [
+        "reason"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG/archive",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": true
+      },
+      "post_data_keys": [
+        "reason"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/menu",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games?limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games?status=archived&limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/central/games?status=reward_published&limit=20",
+      "headers": {
+        "x-admin-scope": "central",
+        "x-tenant-id": null,
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "path": "/admin/central/games?limit=20",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/games",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games?limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG/close",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG/archive",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games/gam_01KRBQEV9V1P5PKG7Y6NFJ9GVG",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games?limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games?status=archived&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/games?status=reward_published&limit=20",
+      "status": 200
+    }
+  ],
+  "console_messages": [
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"sidemenu-toggle header-link btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the sourc"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"btn btn-icon btn-light btn-wave me-2 waves-effect waves-light\"\n  - expected on client: class=\"btn btn-icon btn-light btn-wave me-2\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center waves-effect waves-light\"\n  - expected on client: class=\"btn btn-light btn-wave dropdown-toggle d-flex align-items-center\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    }
+  ]
+}

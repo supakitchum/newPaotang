@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-05-14T12:25:16.893Z",
+  "results": [
+    {
+      "route": "/admin/central/lottery-images",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/login?redirect=/admin/central/lottery-images",
+      "bodyLength": 4055,
+      "title": "NewPaotang Back Office",
+      "errorMatches": [],
+      "hasLoginText": false
+    },
+    {
+      "route": "/admin/central/dashboard",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/login?redirect=/admin/central/dashboard",
+      "bodyLength": 4050,
+      "title": "NewPaotang Back Office",
+      "errorMatches": [],
+      "hasLoginText": false
+    }
+  ]
+}

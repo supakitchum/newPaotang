@@ -1,0 +1,17 @@
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:3:namespace App\Modules\SupportAccess\Services;
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:3:namespace App\Modules\Maintenance\Services;
+apps/platform-api/app/Modules/Reward/Services/RewardService.php:3:namespace App\Modules\Reward\Services;
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:3:namespace App\Modules\Partner\Services;
+apps/platform-api/app/Modules/Commerce/Services/CommerceService.php:3:namespace App\Modules\Commerce\Services;
+apps/platform-api/app/Modules/PartnerStore/Services/PartnerStoreService.php:3:namespace App\Modules\PartnerStore\Services;
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:3:namespace App\Modules\Tenancy\Services;
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:3:namespace App\Modules\Auth\Services;
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:3:namespace App\Modules\AdminOperations\Services;
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:3:namespace App\Modules\Auth\Services;
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:3:namespace App\Modules\CentralStock\Services;
+apps/platform-api/app/Modules/Rbac/Services/PermissionService.php:3:namespace App\Modules\Rbac\Services;
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:3:namespace App\Modules\Rbac\Services;
+apps/platform-api/app/Modules/Growth/Services/GrowthService.php:3:namespace App\Modules\Growth\Services;
+apps/platform-api/app/Modules/Rbac/Services/RoleManagementService.php:3:namespace App\Modules\Rbac\Services;
+apps/platform-api/app/Modules/Rbac/Services/MenuService.php:3:namespace App\Modules\Rbac\Services;
+apps/platform-api/app/Modules/Rbac/Services/MenuManagementService.php:3:namespace App\Modules\Rbac\Services;

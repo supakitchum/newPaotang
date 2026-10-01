@@ -1,0 +1,5 @@
+INSERT 0 1
+       id        |  status   |       event_type       |   tenant_id    |   partner_id   |   consumer
+-----------------+-----------+------------------------+----------------+----------------+---------------
+ sin_p3_filter10 | processed | p3.qa.filter.synced.v1 | ten_demo_alpha | par_demo_alpha | tenant-worker
+(1 row)

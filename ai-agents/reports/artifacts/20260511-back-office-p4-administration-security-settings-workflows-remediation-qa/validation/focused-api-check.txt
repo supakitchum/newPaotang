@@ -1,0 +1,7 @@
+ Container newpaotang-back-office-run-e6f070310aad Creating
+ Container newpaotang-back-office-run-e6f070310aad Created
+{
+  "ok": true,
+  "checks": 19,
+  "missing_ticket_direct_api_status": 201
+}

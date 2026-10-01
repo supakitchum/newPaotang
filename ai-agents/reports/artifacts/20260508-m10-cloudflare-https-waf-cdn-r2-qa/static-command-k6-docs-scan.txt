@@ -1,0 +1,68 @@
+docs/m10-deployment-monitoring-load-test.md:110:docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json
+docs/m10-deployment-monitoring-load-test.md:130:CDN_BASE_URL
+docs/m10-deployment-monitoring-load-test.md:276:ticket-image-cdn-spike.js: CDN/object-storage image spike placeholder; requires CDN base URL and image path
+docs/m10-deployment-monitoring-load-test.md:281:`ticket-image-cdn-spike.js` is runnable when `CDN_BASE_URL` and `IMAGE_PATH` point at a real CDN/object-storage ticket image. Local/dev does not provision Cloudflare/R2 ticket images, so the baseline runner emits `ticket-image-cdn-spike.skipped.json` with that blocker instead of claiming coverage.
+docs/m10-deployment-monitoring-load-test.md:283:`ticket-image-cdn-spike.js` intentionally ignores normal API `BASE_URL`. The scenario and `scripts/k6-run-baseline.sh` only claim ticket-image CDN/R2 coverage when explicit `CDN_BASE_URL` and `IMAGE_PATH` are supplied.
+scripts/ticket-image-cdn-check.sh:6:CDN_URL=${CDN_BASE_URL:-}
+scripts/ticket-image-cdn-check.sh:7:IMAGE=${IMAGE_PATH:-}
+scripts/ticket-image-cdn-check.sh:11:  "$K6_IMAGE" inspect /scripts/ticket-image-cdn-spike.js
+scripts/ticket-image-cdn-check.sh:14:  echo "ticket-image-cdn-spike: blocked until explicit CDN_BASE_URL and IMAGE_PATH are supplied for a real CDN/R2 image."
+scripts/ticket-image-cdn-check.sh:20:  -e CDN_BASE_URL="$CDN_URL" \
+scripts/ticket-image-cdn-check.sh:21:  -e IMAGE_PATH="$IMAGE" \
+scripts/ticket-image-cdn-check.sh:23:  "$K6_IMAGE" run /scripts/ticket-image-cdn-spike.js
+scripts/platform-cloudflare-readiness.sh:8:docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json
+scripts/k6-run-baseline.sh:45:if [ "${IMAGE_PATH:-}" != "" ] && [ "${CDN_BASE_URL:-}" != "" ]; then
+scripts/k6-run-baseline.sh:46:  run_k6 ticket-image-cdn-spike.js
+scripts/k6-run-baseline.sh:48:  cat > "$RUN_DIR/ticket-image-cdn-spike.skipped.json" <<'JSON'
+scripts/k6-run-baseline.sh:50:  "scenario": "ticket-image-cdn-spike",
+scripts/k6-run-baseline.sh:52:  "reason": "Local/dev baseline has no Cloudflare CDN/R2 ticket image path. Set CDN_BASE_URL and IMAGE_PATH to run this scenario."
+ops/m10/cloudflare-cache-bypass-rules.json:73:    "backend_report": "docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json"
+ops/m10/ticket-image-cdn-load-test-runbook.md:10:CDN_BASE_URL points at Cloudflare/CDN/R2 infrastructure
+ops/m10/ticket-image-cdn-load-test-runbook.md:11:IMAGE_PATH points at an existing immutable ticket image object
+ops/m10/ticket-image-cdn-load-test-runbook.md:20:docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js
+ops/m10/ticket-image-cdn-load-test-runbook.md:25:Without `CDN_BASE_URL` and `IMAGE_PATH`, the helper inspects the script and prints a blocker:
+ops/m10/ticket-image-cdn-load-test-runbook.md:34:CDN_BASE_URL=https://cdn.example.test IMAGE_PATH=/tenants/ten_demo_alpha/games/game_1/tickets/sample.webp scripts/ticket-image-cdn-check.sh
+ops/m10/ticket-image-cdn-load-test-runbook.md:39:`scripts/k6-run-baseline.sh` runs the six API-backed scenarios locally. It runs `ticket-image-cdn-spike.js` only when both `CDN_BASE_URL` and `IMAGE_PATH` are present. If either value is missing, it writes `ticket-image-cdn-spike.skipped.json`.
+ops/m10/ticket-image-cdn-load-test-runbook.md:41:The k6 script intentionally ignores `BASE_URL` and rejects `CDN_BASE_URL` values that are exactly the same as `BASE_URL`.
+load-tests/k6/ticket-image-cdn-spike.js:5:const CDN_BASE_URL = __ENV.CDN_BASE_URL || '';
+load-tests/k6/ticket-image-cdn-spike.js:6:const IMAGE_PATH = __ENV.IMAGE_PATH || '';
+load-tests/k6/ticket-image-cdn-spike.js:17:  requireEnv(['CDN_BASE_URL', 'IMAGE_PATH'], 'ticket image CDN/R2 spike testing');
+load-tests/k6/ticket-image-cdn-spike.js:19:  if (!/^https?:\/\//.test(CDN_BASE_URL)) {
+load-tests/k6/ticket-image-cdn-spike.js:20:    throw new Error('CDN_BASE_URL must be an absolute http(s) CDN/R2 URL for ticket image CDN/R2 spike testing.');
+load-tests/k6/ticket-image-cdn-spike.js:23:  if ((__ENV.BASE_URL || '') !== '' && CDN_BASE_URL === __ENV.BASE_URL) {
+load-tests/k6/ticket-image-cdn-spike.js:24:    throw new Error('CDN_BASE_URL must be explicit CDN/R2 infrastructure; BASE_URL is intentionally ignored for ticket image coverage.');
+load-tests/k6/ticket-image-cdn-spike.js:27:  const base = CDN_BASE_URL.replace(/\/$/, '');
+load-tests/k6/ticket-image-cdn-spike.js:28:  const path = IMAGE_PATH.replace(/^\//, '');
+ops/m10/cloudflare-waf-rate-limit-rules.json:99:    "backend_report": "docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json"
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:10:    protected $signature = 'platform:cloudflare:readiness {--format=table : Output format: table or json}';
+apps/platform-api/tests/Feature/M10DeploymentReadinessTest.php:102:        foreach (['DB_HOST', 'REDIS_HOST', 'QUEUE_CONNECTION', 'CACHE_STORE', 'SESSION_DRIVER', 'CDN_BASE_URL', 'REVERB_HOST', 'PLATFORM_METRICS_ENABLED'] as $key) {
+apps/platform-api/tests/Feature/M10DeploymentReadinessTest.php:126:            'ticket-image-cdn-spike.js',
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:10:docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:65:docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:70:docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:80:real ticket-image CDN load test remains blocked until CDN_BASE_URL and IMAGE_PATH point at CDN/R2
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:112:            'CDN_BASE_URL' => '',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:113:            'IMAGE_PATH' => '',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:133:                    'reason' => 'Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path.',
+ops/m10/r2-ticket-image-strategy.md:40:CDN_BASE_URL points at the CDN hostname, not platform API BASE_URL
+ops/m10/r2-ticket-image-strategy.md:41:sample IMAGE_PATH exists and returns 200 through CDN
+ops/m10/r2-ticket-image-strategy.md:44:k6 ticket-image-cdn-spike runs with explicit CDN_BASE_URL and IMAGE_PATH
+ops/m10/r2-ticket-image-strategy.md:53:CDN_BASE_URL=
+ops/m10/r2-ticket-image-strategy.md:54:IMAGE_PATH=
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:35:            'platform:cloudflare:readiness' => PlatformCloudflareReadinessCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:54:        $this->assertTrue($commands['platform:cloudflare:readiness']->getDefinition()->hasOption('format'));
+load-tests/README.md:44:- `ticket-image-cdn-spike.js`
+load-tests/README.md:46:The first six scenarios run against local/dev API fixtures. `ticket-image-cdn-spike.js` remains a runnable CDN/object-storage template; the baseline runner records a skipped artifact unless `CDN_BASE_URL` and `IMAGE_PATH` are supplied for a real Cloudflare/CDN/R2 ticket image path.
+load-tests/README.md:48:`ticket-image-cdn-spike.js` intentionally ignores normal API `BASE_URL`. CDN/R2 coverage is only claimable with explicit `CDN_BASE_URL` and `IMAGE_PATH`.
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:34:        $exitCode = Artisan::call('platform:cloudflare:readiness', ['--format' => 'json']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:158:            'CDN_BASE_URL=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:194:        $ticketScript = $this->workspaceFile('load-tests/k6/ticket-image-cdn-spike.js');
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:197:        $this->assertStringContainsString("requireEnv(['CDN_BASE_URL', 'IMAGE_PATH']", $ticketScript);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:199:        $this->assertStringNotContainsString('__ENV.CDN_BASE_URL || __ENV.BASE_URL', $ticketScript);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:200:        $this->assertStringContainsString('[ "${IMAGE_PATH:-}" != "" ] && [ "${CDN_BASE_URL:-}" != "" ]', $runner);
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:49:            'CDN_BASE_URL',
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:50:            'IMAGE_PATH',
+apps/platform-api/app/Console/README.md:13:M10 Cloudflare/CDN readiness uses `platform:cloudflare:readiness --format=json` as a Docker-safe local/dev verifier. It emits blockers and keeps `production_approved=false`; it does not call or mutate Cloudflare/R2.
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:44:                'docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json',
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:45:                'docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js',
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:46:                'docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" -e CDN_BASE_URL=https://cdn.example.test -e IMAGE_PATH=/tickets/sample.png grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js',

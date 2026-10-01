@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-05-14T15:05:10.722Z",
+  "results": [
+    {
+      "requestedUrl": "http://localhost:3100/admin/central/lottery-images?game_id=gam_lottery",
+      "finalUrl": "http://localhost:3100/admin/central/lottery-images?game_id=gam_lottery",
+      "title": "500 - | Nuxt",
+      "hasAdminSignIn": false,
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "snapshotExcerpt": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    },
+    {
+      "requestedUrl": "http://localhost:3100/admin/central/partners/partner_demo/lottery-branding",
+      "finalUrl": "http://localhost:3100/admin/central/partners/partner_demo/lottery-branding",
+      "title": "500 - | Nuxt",
+      "hasAdminSignIn": false,
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "snapshotExcerpt": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    },
+    {
+      "requestedUrl": "http://localhost:3100/admin/tenant/dashboard",
+      "finalUrl": "http://localhost:3100/admin/tenant/dashboard",
+      "title": "500 - | Nuxt",
+      "hasAdminSignIn": false,
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "snapshotExcerpt": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    }
+  ]
+}

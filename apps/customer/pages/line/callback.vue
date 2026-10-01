@@ -14,13 +14,23 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import type {AuthUser} from '~/composables/useAuth'
+import {handlesCustomerPinInline} from '~/utils/customerAuthRoutes'
 
 interface LineCallbackResponse {
   code: number
   token: string
+  refresh_token?: string
   user: AuthUser
+  line_link_required?: boolean
+  link_token?: string
+  line_profile?: Record<string, any>
+  password_reset_ready?: boolean
+  password_reset_token?: string
+  expires_at?: string
+  pin_required?: boolean
+  pin_setup_required?: boolean
   order_id?: string
   message?: string
 }
@@ -30,10 +40,17 @@ definePageMeta({
 })
 
 const route = useRoute()
-const axios = useAxios()
-const {lineRedirect, isAuthenticated, setAuthToken, setAuthUser, clearLineRedirect} = useAuth()
+const platformApi = usePlatformApi()
+const {lineRedirect, isAuthenticated, pinSetupRequired, pinRequired, setAuthSession, clearLineRedirect} = useAuth()
+const { applyStoredRef } = useAffiliateReferral()
 const {refreshAppInit} = useAppInit()
 const statusText = ref('กรุณารอสักครู่ ระบบกำลังยืนยันข้อมูลจาก LINE')
+const hasLineCallbackParams = computed(() => (
+  typeof route.query.code === 'string' &&
+  route.query.code.trim() !== '' &&
+  typeof route.query.state === 'string' &&
+  route.query.state.trim() !== ''
+))
 
 const getSafeRedirect = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -47,26 +64,110 @@ const getSafeRedirect = (value: unknown) => {
   return value
 }
 
+const navigateToPin = async (redirectTo: string) => {
+  clearLineRedirect()
+  await navigateTo({
+    path: '/pin',
+    query: {
+      redirect: redirectTo
+    }
+  })
+}
+
+const needsPinUnlock = (response: LineCallbackResponse) => Boolean(
+  response?.pin_setup_required ||
+  response?.pin_required ||
+  response?.user?.pin_setup_required ||
+  response?.user?.pin_required
+)
+
+const responseNeedsPinSetup = (response: LineCallbackResponse) => Boolean(
+  response?.pin_setup_required ||
+  response?.user?.pin_setup_required
+)
+
+const responseNeedsPinVerification = (response: LineCallbackResponse) => Boolean(
+  response?.pin_required ||
+  response?.user?.pin_required
+)
+
+const shouldUseInlinePinRedirect = (response: LineCallbackResponse, redirectTo: string) => (
+  !responseNeedsPinSetup(response) &&
+  responseNeedsPinVerification(response) &&
+  handlesCustomerPinInline(redirectTo)
+)
+
 onMounted(async () => {
-  if (isAuthenticated.value) {
+  if (isAuthenticated.value && !hasLineCallbackParams.value) {
     const redirectTo = getSafeRedirect(lineRedirect.value)
+
+    if (pinSetupRequired.value || (pinRequired.value && !handlesCustomerPinInline(redirectTo))) {
+      await navigateToPin(redirectTo)
+      return
+    }
+
     clearLineRedirect()
+    await applyStoredRef()
     await refreshAppInit()
     await navigateTo(redirectTo)
     return
   }
 
+  if (!hasLineCallbackParams.value) {
+    statusText.value = 'ไม่พบข้อมูลยืนยันจาก LINE กรุณาลองเชื่อมต่อใหม่อีกครั้ง'
+    return
+  }
+
   try {
-    const lineCallback = {params: route.query};
-    const response = await axios.get<LineCallbackResponse>('/line/callback', lineCallback)
+    const response = await platformApi.lineCallback(route.query) as LineCallbackResponse
 
-    if (response.data.code === 0) {
-      setAuthToken(response.data.token)
-      setAuthUser(response.data.user)
-      await refreshAppInit(response.data.token)
+    if (response.code === 0) {
+      if (response.password_reset_ready && response.password_reset_token) {
+        clearLineRedirect()
+        await navigateTo({
+          path: '/reset-password',
+          query: {
+            token: response.password_reset_token,
+            source: 'line'
+          }
+        })
+        return
+      }
 
-      if (response.data?.order_id) {
-        await navigateTo(`payment?id=${response.data?.order_id}`);
+      if (response.line_link_required && response.link_token) {
+        const redirectTo = getSafeRedirect(lineRedirect.value)
+        await navigateTo({
+          path: '/line/link-phone',
+          query: {
+            token: response.link_token,
+            redirect: redirectTo,
+            name: response.line_profile?.display_name || '',
+            picture_url: response.line_profile?.picture_url || ''
+          }
+        })
+        return
+      }
+
+      setAuthSession(response)
+      await applyStoredRef()
+
+      if (needsPinUnlock(response)) {
+        const redirectTo = getSafeRedirect(lineRedirect.value)
+
+        if (shouldUseInlinePinRedirect(response, redirectTo)) {
+          clearLineRedirect()
+          await navigateTo(redirectTo)
+          return
+        }
+
+        await navigateToPin(redirectTo)
+        return
+      }
+
+      await refreshAppInit(response.token)
+
+      if (response?.order_id) {
+        await navigateTo(`payment?id=${response?.order_id}`);
       }else{
         const redirectTo = getSafeRedirect(lineRedirect.value)
         clearLineRedirect()
@@ -76,7 +177,7 @@ onMounted(async () => {
       return
     }
 
-    statusText.value = response.data.message || 'ไม่สามารถเข้าสู่ระบบด้วย LINE ได้'
+    statusText.value = response.message || 'ไม่สามารถเข้าสู่ระบบด้วย LINE ได้'
   } catch {
     statusText.value = 'ไม่สามารถเชื่อมต่อเพื่อเข้าสู่ระบบด้วย LINE ได้'
   }

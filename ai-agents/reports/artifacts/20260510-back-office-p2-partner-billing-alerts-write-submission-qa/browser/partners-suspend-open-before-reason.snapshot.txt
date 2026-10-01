@@ -1,0 +1,254 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Partners" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Partners
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Search
+  - textbox
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Draft"
+    - option "Active"
+    - option "Suspended"
+    - option "Closed"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Documented operations
+  - button " Create partner":
+    - generic: 
+    - text: Create partner
+  - generic: Partners
+  - table:
+    - rowgroup:
+      - row "Partner Code Name Type Status Updated Actions":
+        - columnheader "Partner"
+        - columnheader "Code"
+        - columnheader "Name"
+        - columnheader "Type"
+        - columnheader "Status"
+        - columnheader "Updated"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "par_demo_alpha demo_alpha Demo Alpha Partner white_label Active 10 พ.ค. 2569 19:50 Detail Update Suspend":
+        - cell "par_demo_alpha"
+        - cell "demo_alpha"
+        - cell "Demo Alpha Partner"
+        - cell "white_label"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_alpha
+          - button "Update"
+          - button "Suspend"
+      - row "par_demo_beta demo_beta Demo Beta Partner white_label Active 10 พ.ค. 2569 19:50 Detail Update Suspend":
+        - cell "par_demo_beta"
+        - cell "demo_beta"
+        - cell "Demo Beta Partner"
+        - cell "white_label"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_beta
+          - button "Update"
+          - button "Suspend"
+      - row "par_demo_gamma demo_gamma Demo Gamma Partner white_label Active 10 พ.ค. 2569 19:50 Detail Update Suspend":
+        - cell "par_demo_gamma"
+        - cell "demo_gamma"
+        - cell "Demo Gamma Partner"
+        - cell "white_label"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_gamma
+          - button "Update"
+          - button "Suspend"
+      - row "par_01KR8Z8K1YVMQX83FMV0PA6WYY p2_write_qa_partner_20260510 P2 Write QA Partner Updated internal Active 10 พ.ค. 2569 19:54 Detail Update Suspend":
+        - cell "par_01KR8Z8K1YVMQX83FMV0PA6WYY"
+        - cell "p2_write_qa_partner_20260510"
+        - cell "P2 Write QA Partner Updated"
+        - cell "internal"
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:54"
+        - cell "Detail Update Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_01KR8Z8K1YVMQX83FMV0PA6WYY
+          - button "Update"
+          - button "Suspend" [active]
+      - row "par_p2_write_prov10 p2_write_qa_provision_20260510 P2 Write QA Provision Partner partner_store Draft 10 พ.ค. 2569 19:51 Detail Update Suspend":
+        - cell "par_p2_write_prov10"
+        - cell "p2_write_qa_provision_20260510"
+        - cell "P2 Write QA Provision Partner"
+        - cell "partner_store"
+        - cell "Draft":
+          - generic: Draft
+        - cell "10 พ.ค. 2569 19:51"
+        - cell "Detail Update Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_p2_write_prov10
+          - button "Update"
+          - button "Suspend"
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+  - dialog:
+    - heading "Suspend" [level=6]
+    - button "Close"
+    - paragraph: Confirm suspend for par_01KR8Z8K1YVMQX83FMV0PA6WYY.
+    - term: Id
+    - definition: par_01KR8Z8K1YVMQX83FMV0PA6WYY
+    - term: Code
+    - definition: p2_write_qa_partner_20260510
+    - term: Name
+    - definition: P2 Write QA Partner Updated
+    - term: Type
+    - definition: internal
+    - term: Status
+    - definition: active
+    - generic: Reason
+    - textbox
+    - button "Cancel"
+    - button "Confirm" [disabled]
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

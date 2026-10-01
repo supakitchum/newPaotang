@@ -1,0 +1,44 @@
+[
+  {
+    "virtual_copy_index": 0,
+    "virtual_stock_ref": "vstock:ten_qa_topup:gam_qa_topup:123456:0",
+    "owner": {
+      "type": "partner",
+      "label": "partner",
+      "partner_id": "par_qa_topup",
+      "tenant_id": "ten_qa_topup",
+      "agent_id": null
+    },
+    "owner_type": "partner",
+    "owner_label": "partner",
+    "stock_item_id": "stk_310fe836fda1c924c0ff",
+    "local_stock_item_id": "lsi_90b45102c6a450b6c8af",
+    "status": "reserved",
+    "materialized": true,
+    "image_url": "https://cdn.example.test/qa-topup/local-123456.png",
+    "image_thumb_url": "https://cdn.example.test/qa-topup/local-123456-thumb.png",
+    "image_generation_status": "completed",
+    "image_generation_error": null
+  },
+  {
+    "virtual_copy_index": 1,
+    "virtual_stock_ref": "vstock:ten_qa_topup:gam_qa_topup:123456:1",
+    "owner": {
+      "type": "partner",
+      "label": "partner",
+      "partner_id": "par_qa_topup",
+      "tenant_id": "ten_qa_topup",
+      "agent_id": null
+    },
+    "owner_type": "partner",
+    "owner_label": "partner",
+    "stock_item_id": null,
+    "local_stock_item_id": null,
+    "status": "available",
+    "materialized": false,
+    "image_url": null,
+    "image_thumb_url": null,
+    "image_generation_status": null,
+    "image_generation_error": null
+  }
+]

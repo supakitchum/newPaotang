@@ -1,0 +1,130 @@
+{
+  "partners": {
+    "listHasSeededRows": true,
+    "detailHasPartnerContext": true,
+    "createTypedFields": true,
+    "updateTypedFields": true,
+    "suspendContext": true,
+    "suspendConfirmDisabled": true,
+    "evidence": [
+      "central-partners-list-from-menu",
+      "central-partners-detail",
+      "central-partners-create-form",
+      "central-partners-update-form",
+      "central-partners-suspend-modal"
+    ]
+  },
+  "partnerProvisioning": {
+    "listHasSeededRows": true,
+    "detailAvailable": true,
+    "provisionTypedFields": true,
+    "provisionContextAndReason": true,
+    "provisionConfirmDisabled": true,
+    "suspendContextAndReason": true,
+    "suspendConfirmDisabled": true,
+    "evidence": [
+      "central-partner-provisioning-list-from-menu",
+      "central-partner-provisioning-detail",
+      "central-partner-provisioning-provision-modal",
+      "central-partner-provisioning-suspend-modal"
+    ]
+  },
+  "partnerQuotas": {
+    "listHasFixture": true,
+    "createTypedFields": true,
+    "createConfirmDisabled": true,
+    "updateContextAndPrefill": true,
+    "evidence": [
+      "central-partner-quotas-list-from-menu",
+      "central-partner-quotas-create-form",
+      "central-partner-quotas-update-form"
+    ]
+  },
+  "partnerMonitoring": {
+    "listHasRows": true,
+    "detailAvailable": true,
+    "noUpdateActionList": true,
+    "permissionAmbiguity": "backend PATCH requires partner.monitoring.manage; menu is partner.monitoring.view",
+    "evidence": [
+      "central-partner-monitoring-list-from-menu",
+      "central-partner-monitoring-detail"
+    ]
+  },
+  "partnerUsage": {
+    "listHasRows": true,
+    "detailAvailable": true,
+    "noUpdateActionList": true,
+    "permissionAmbiguity": "backend PATCH requires partner.usage.manage; menu is partner.usage.view",
+    "evidence": [
+      "central-partner-usage-list-from-menu",
+      "central-partner-usage-detail"
+    ]
+  },
+  "billingPlans": {
+    "listHasFixture": true,
+    "detailAvailable": true,
+    "createTypedFields": true,
+    "createNoRawJsonOnly": true,
+    "createConfirmDisabled": true,
+    "updateTypedPrefill": true,
+    "updateNoRawJsonOnly": true,
+    "evidence": [
+      "central-billing-plans-list-from-menu",
+      "central-billing-plans-detail",
+      "central-billing-plans-create-form",
+      "central-billing-plans-update-form"
+    ]
+  },
+  "alertPolicies": {
+    "listHasRows": true,
+    "detailAvailable": true,
+    "createTypedFields": true,
+    "createNoRawJsonOnly": true,
+    "createConfirmDisabled": true,
+    "updateTypedPrefill": true,
+    "updateNoRawJsonOnly": true,
+    "evidence": [
+      "central-alert-policies-list-from-menu",
+      "central-alert-policies-detail",
+      "central-alert-policies-create-form",
+      "central-alert-policies-update-form"
+    ]
+  },
+  "alertEvents": {
+    "listHasFixture": true,
+    "detailAvailable": true,
+    "acknowledgeContext": true,
+    "acknowledgeReasonGuard": true,
+    "resolveContext": true,
+    "resolveReasonGuard": true,
+    "evidence": [
+      "central-alert-events-list-from-menu",
+      "central-alert-events-detail",
+      "central-alert-events-acknowledge-modal",
+      "central-alert-events-resolve-modal"
+    ]
+  },
+  "mobile": [
+    {
+      "name": "central-partners-mobile-390x844",
+      "url": "http://localhost:3100/admin/central/partners",
+      "hasNeedle": true,
+      "hasMain": true,
+      "hasTable": true
+    },
+    {
+      "name": "central-billing-plans-mobile-390x844",
+      "url": "http://localhost:3100/admin/central/billing-plans",
+      "hasNeedle": true,
+      "hasMain": true,
+      "hasTable": true
+    },
+    {
+      "name": "central-alert-events-mobile-390x844",
+      "url": "http://localhost:3100/admin/central/alert-events",
+      "hasNeedle": true,
+      "hasMain": true,
+      "hasTable": true
+    }
+  ]
+}

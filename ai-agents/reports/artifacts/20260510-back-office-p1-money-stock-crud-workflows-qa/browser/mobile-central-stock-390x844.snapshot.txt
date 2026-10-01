@@ -1,0 +1,65 @@
+- banner:
+  - button "":
+    - generic: 
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL":
+    - generic: PL
+  - text: 
+- complementary:
+  - navigation:
+    - text: 
+    - list:
+      - listitem: Central Menu
+      - listitem: Loading menu...
+    - text: 
+- main:
+  - heading "Central Stock" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Central Stock
+  - button "Refresh" [disabled]: Refresh
+  - generic: Game ID
+  - textbox
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Available"
+    - option "Allocated"
+    - option "Sold"
+    - option "Recalled"
+  - generic: Number
+  - textbox
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Documented operations
+  - button " Import stock":
+    - generic: 
+    - text: Import stock
+  - button " Generate stock":
+    - generic: 
+    - text: Generate stock
+  - button " Export stock":
+    - generic: 
+    - text: Export stock
+  - generic: Central Stock
+  - status "Loading"
+  - generic: Loading...
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text: 

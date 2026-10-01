@@ -1,0 +1,199 @@
+url=http://127.0.0.1:3100/admin/central/partners
+
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Partners" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Partners
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Active"
+    - option "Suspended"
+    - option "Provisioning"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Partners
+  - table:
+    - rowgroup:
+      - row "Partner Name Status Created Actions":
+        - columnheader "Partner"
+        - columnheader "Name"
+        - columnheader "Status"
+        - columnheader "Created"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "par_demo_alpha Demo Alpha Partner Active 8 พ.ค. 2569 20:13 Detail Provision Suspend":
+        - cell "par_demo_alpha"
+        - cell "Demo Alpha Partner"
+        - cell "Active":
+          - generic: Active
+        - cell "8 พ.ค. 2569 20:13"
+        - cell "Detail Provision Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_alpha
+          - button "Provision"
+          - button "Suspend"
+      - row "par_demo_beta Demo Beta Partner Active 8 พ.ค. 2569 20:13 Detail Provision Suspend":
+        - cell "par_demo_beta"
+        - cell "Demo Beta Partner"
+        - cell "Active":
+          - generic: Active
+        - cell "8 พ.ค. 2569 20:13"
+        - cell "Detail Provision Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_beta
+          - button "Provision"
+          - button "Suspend"
+      - row "par_demo_gamma Demo Gamma Partner Active 8 พ.ค. 2569 20:13 Detail Provision Suspend":
+        - cell "par_demo_gamma"
+        - cell "Demo Gamma Partner"
+        - cell "Active":
+          - generic: Active
+        - cell "8 พ.ค. 2569 20:13"
+        - cell "Detail Provision Suspend":
+          - link "Detail":
+            - /url: /admin/central/partners/par_demo_gamma
+          - button "Provision"
+          - button "Suspend"
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       
+
+logs=[]

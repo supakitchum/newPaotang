@@ -1,0 +1,167 @@
+name: Customer Flutter
+
+on:
+  pull_request:
+    paths:
+      - "apps/customer_flutter/**"
+      - ".github/workflows/customer-flutter.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: customer-flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/customer_flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed lib test tool integration_test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Web smoke test
+        run: flutter test -d chrome test/customer_app_smoke_test.dart --reporter compact
+
+      - name: Generate deep link association files
+        run: |
+          set -euo pipefail
+          dart run tool/generate_link_files.dart \
+            --output-dir build/link-association-ci \
+            --android-package com.partner.customer \
+            --sha256-fingerprint AA:BB:CC:DD:EE:FF \
+            --ios-team-id ABCDE12345 \
+            --ios-bundle-id com.partner.customer
+          python3 -m json.tool build/link-association-ci/.well-known/assetlinks.json >/dev/null
+          python3 -m json.tool build/link-association-ci/.well-known/apple-app-site-association >/dev/null
+
+      - name: Production input preflight
+        run: |
+          set -euo pipefail
+          dart run tool/production_preflight.dart \
+            --target all \
+            --api-base-url https://partner.example.com/api/v1 \
+            --app-display-name "Partner Lottery" \
+            --android-package com.partner.customer \
+            --android-callback-scheme partnerlottery \
+            --android-callback-host partner.example.com \
+            --android-store-file /secure/release.jks \
+            --android-store-password "***" \
+            --android-key-alias release \
+            --android-key-password "***" \
+            --ios-team-id ABCDE12345 \
+            --ios-bundle-id com.partner.customer \
+            --ios-url-scheme partnerlottery \
+            --ios-associated-domain applinks:partner.example.com \
+            --social-provider line \
+            --social-provider google \
+            --social-provider apple
+
+      - name: Native security file preflight
+        run: |
+          set -euo pipefail
+          dart run tool/production_preflight.dart \
+            --target all \
+            --check-files \
+            --skip-android-signing \
+            --api-base-url https://partner.example.com/api/v1 \
+            --app-display-name "Partner Lottery" \
+            --android-package com.partner.customer \
+            --android-callback-scheme partnerlottery \
+            --android-callback-host partner.example.com \
+            --ios-team-id ABCDE12345 \
+            --ios-bundle-id com.partner.customer \
+            --ios-url-scheme partnerlottery \
+            --ios-associated-domain applinks:partner.example.com \
+            --social-provider line \
+            --social-provider google \
+            --social-provider apple
+
+  build-web-android:
+    name: Build web and Android
+    runs-on: ubuntu-latest
+    needs: verify
+    defaults:
+      run:
+        working-directory: apps/customer_flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --dart-define=API_BASE_URL=/api/v1 --no-wasm-dry-run
+
+      - name: Build Android debug APK
+        run: flutter build apk --debug --dart-define=API_BASE_URL=/api/v1
+
+      - name: Build Android release smoke APK
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-release-smoke
+          keytool -genkeypair -v \
+            -keystore build/ci-release-smoke/customer-flutter-ci-release.jks \
+            -storepass changeit \
+            -keypass changeit \
+            -alias ci-release \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -dname "CN=Customer Flutter CI,O=NewPaotang,L=Bangkok,C=TH"
+          CUSTOMER_FLUTTER_APPLICATION_ID=com.partner.customer \
+          CUSTOMER_FLUTTER_APP_LABEL="Partner Lottery" \
+          CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME=partnerlottery \
+          CUSTOMER_FLUTTER_AUTH_CALLBACK_HOST=partner.example.com \
+          CUSTOMER_FLUTTER_STORE_FILE="$PWD/build/ci-release-smoke/customer-flutter-ci-release.jks" \
+          CUSTOMER_FLUTTER_STORE_PASSWORD=changeit \
+          CUSTOMER_FLUTTER_KEY_ALIAS=ci-release \
+          CUSTOMER_FLUTTER_KEY_PASSWORD=changeit \
+          flutter build apk --release --dart-define=API_BASE_URL=/api/v1
+
+  build-ios:
+    name: Build iOS simulator
+    runs-on: macos-latest
+    needs: verify
+    defaults:
+      run:
+        working-directory: apps/customer_flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Precache iOS artifacts
+        run: flutter precache --ios
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS simulator
+        run: flutter build ios --simulator --dart-define=API_BASE_URL=/api/v1

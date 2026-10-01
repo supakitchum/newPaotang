@@ -1,0 +1,4 @@
+{
+  "stockCoverageHref": "/admin/central/stock-pattern-coverage?game_id=gam_boqa_alloc&scope_type=partner&scope_id=par_boqa_single",
+  "remainingStockHref": "/admin/central/stock-generation?game_id=gam_boqa_alloc&partner_id=par_boqa_single&tenant_id=ten_boqa_single&allocation_id=alc_01KS0MYHXH96RMN6WYVG5GNE7R&status=allocated"
+}

@@ -1,5 +1,3 @@
-# Deploy branch: keep only production deploy source files.
-
 # OS/editor files
 .DS_Store
 .idea/
@@ -16,7 +14,7 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# Dependencies and generated output
+# Dependencies and build output
 node_modules/
 vendor/
 .nuxt/
@@ -24,19 +22,30 @@ vendor/
 dist/
 build/
 coverage/
+.nyc_output/
 .cache/
 tmp/
 temp/
 *.tmp
 
-# Developer-only project data
-ai-agents/
-admin_dashboard_template/
-docs/
-document/
-document.zip
-compose.yaml
+# Local deployment/runtime data
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+apps/platform-api/storage/framework/views/*.php
+.phpunit.result.cache
+apps/support-api/storage/framework/testing/
+docker/support/keys/*.pem
 
-# App-specific AI/dev context
-apps/customer/AI_PROJECT_CONTEXT.md
-apps/customer/public/reference/
+# Local QA evidence can contain runtime credentials.
+ai-agents/reports/artifacts/**/after-api-evidence.php
+
+# Local archives / duplicated source bundles
+document.zip
+backups/
+
+# Admin template: keep source reference, skip generated/heavy output
+admin_dashboard_template/**/dist/
+admin_dashboard_template/Documentation/assets/
+admin_dashboard_template/Meno_gulp/

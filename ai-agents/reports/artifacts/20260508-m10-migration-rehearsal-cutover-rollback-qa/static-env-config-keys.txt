@@ -1,0 +1,21 @@
+apps/platform-api/config/platform.php:51:        'source_type' => env('MIGRATION_REHEARSAL_SOURCE_TYPE', 'synthetic_seeded_only'),
+apps/platform-api/config/platform.php:52:        'source_dsn' => env('MIGRATION_REHEARSAL_SOURCE_DSN'),
+apps/platform-api/config/platform.php:53:        'source_token' => env('MIGRATION_REHEARSAL_SOURCE_TOKEN'),
+apps/platform-api/config/platform.php:54:        'object_storage_bucket' => env('MIGRATION_REHEARSAL_OBJECT_STORAGE_BUCKET'),
+apps/platform-api/config/platform.php:55:        'secret_reference' => env('MIGRATION_REHEARSAL_SECRET_REFERENCE'),
+apps/platform-api/config/platform.php:56:        'release_image_tag' => env('PLATFORM_RELEASE_IMAGE_TAG'),
+apps/platform-api/config/platform.php:57:        'previous_image_tag' => env('PLATFORM_PREVIOUS_IMAGE_TAG'),
+apps/platform-api/.env.example:69:MIGRATION_REHEARSAL_SOURCE_TYPE=synthetic_seeded_only
+apps/platform-api/.env.example:70:MIGRATION_REHEARSAL_SOURCE_DSN=
+apps/platform-api/.env.example:71:MIGRATION_REHEARSAL_SOURCE_TOKEN=
+apps/platform-api/.env.example:72:MIGRATION_REHEARSAL_OBJECT_STORAGE_BUCKET=
+apps/platform-api/.env.example:73:MIGRATION_REHEARSAL_SECRET_REFERENCE=
+apps/platform-api/.env.example:74:PLATFORM_RELEASE_IMAGE_TAG=
+apps/platform-api/.env.example:75:PLATFORM_PREVIOUS_IMAGE_TAG=
+ops/m10/production-secret-boundary.md:18:MIGRATION_REHEARSAL_SOURCE_TYPE
+ops/m10/production-secret-boundary.md:19:MIGRATION_REHEARSAL_SOURCE_DSN
+ops/m10/production-secret-boundary.md:20:MIGRATION_REHEARSAL_SOURCE_TOKEN
+ops/m10/production-secret-boundary.md:21:MIGRATION_REHEARSAL_OBJECT_STORAGE_BUCKET
+ops/m10/production-secret-boundary.md:22:MIGRATION_REHEARSAL_SECRET_REFERENCE
+ops/m10/production-secret-boundary.md:23:PLATFORM_RELEASE_IMAGE_TAG
+ops/m10/production-secret-boundary.md:24:PLATFORM_PREVIOUS_IMAGE_TAG

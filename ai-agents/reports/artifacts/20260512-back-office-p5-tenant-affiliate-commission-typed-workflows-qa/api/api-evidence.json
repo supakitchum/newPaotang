@@ -1,0 +1,578 @@
+{
+    "result": "PASS",
+    "run": "5ef57eaf",
+    "base_url": "http://platform-api:8000/api/v1",
+    "tenant_id": "ten_demo_alpha",
+    "fixtures": {
+        "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+        "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+        "affiliate_link_id": "afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+        "commission_rule_id": "cmr_01KRDNJ0RXY5AY432WVSD4APAV"
+    },
+    "checks": {
+        "program_create_update_archive": true,
+        "affiliate_create_update_no_archive": true,
+        "link_create_update_archive": true,
+        "rule_create_update_archive": true,
+        "filters_found_safe_rows": true,
+        "all_writes_had_idempotency_key": true,
+        "tenant_scope_headers_present": true
+    },
+    "events": [
+        {
+            "label": "login",
+            "method": "POST",
+            "path": "/auth/admin/login",
+            "status": 200,
+            "payload_keys": [
+                "email",
+                "scope",
+                "tenant_id"
+            ],
+            "headers": {
+                "authorization_present": false
+            },
+            "resource": {
+                "scope": null,
+                "tenant_id": null,
+                "access_token_present": true,
+                "refresh_token_present": true
+            }
+        },
+        {
+            "label": "program-create",
+            "method": "POST",
+            "path": "/admin/tenant/affiliate-programs",
+            "status": 201,
+            "query_keys": [],
+            "payload_keys": [
+                "code",
+                "name",
+                "status",
+                "starts_at",
+                "ends_at",
+                "metadata",
+                "metadata.source",
+                "metadata.run"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "tenant_id": "ten_demo_alpha",
+                "code": "qa_program_5ef57eaf",
+                "name": "QA Program 5ef57eaf",
+                "status": "active",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "program-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/affiliate-programs/afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "name",
+                "status",
+                "metadata"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "tenant_id": "ten_demo_alpha",
+                "code": "qa_program_5ef57eaf",
+                "name": "QA Program Updated 5ef57eaf",
+                "status": "inactive",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "program-filter-inactive",
+            "method": "GET",
+            "path": "/admin/tenant/affiliate-programs",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "affiliate-create",
+            "method": "POST",
+            "path": "/admin/tenant/affiliates",
+            "status": 201,
+            "query_keys": [],
+            "payload_keys": [
+                "code",
+                "name",
+                "phone",
+                "email",
+                "status",
+                "currency",
+                "payout_profile",
+                "payout_profile.method",
+                "payout_profile.account_ref",
+                "metadata",
+                "metadata.source",
+                "metadata.run"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "tenant_id": "ten_demo_alpha",
+                "code": "qa_affiliate_5ef57eaf",
+                "name": "QA Affiliate 5ef57eaf",
+                "status": "active",
+                "metadata_type": "array",
+                "payout_profile_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "affiliate-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/affiliates/aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "name",
+                "status",
+                "payout_profile",
+                "metadata"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "tenant_id": "ten_demo_alpha",
+                "code": "qa_affiliate_5ef57eaf",
+                "name": "QA Affiliate Updated 5ef57eaf",
+                "status": "inactive",
+                "metadata_type": "array",
+                "payout_profile_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "affiliate-filter-status",
+            "method": "GET",
+            "path": "/admin/tenant/affiliates",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "link-create",
+            "method": "POST",
+            "path": "/admin/tenant/affiliate-links",
+            "status": 201,
+            "query_keys": [],
+            "payload_keys": [
+                "affiliate_account_id",
+                "affiliate_program_id",
+                "code",
+                "url",
+                "status",
+                "metadata",
+                "metadata.source",
+                "metadata.run"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+                "tenant_id": "ten_demo_alpha",
+                "affiliate_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "code": "qa_link_5ef57eaf",
+                "status": "active",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "link-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/affiliate-links/afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "status",
+                "metadata"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+                "tenant_id": "ten_demo_alpha",
+                "affiliate_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "code": "qa_link_5ef57eaf",
+                "status": "inactive",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "link-filter-affiliate",
+            "method": "GET",
+            "path": "/admin/tenant/affiliate-links",
+            "status": 200,
+            "query_keys": [
+                "affiliate_id",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "afl_01KRDNJ0NKTP1A76WSZKTNRMWQ"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "rule-create",
+            "method": "POST",
+            "path": "/admin/tenant/commission-rules",
+            "status": 201,
+            "query_keys": [],
+            "payload_keys": [
+                "affiliate_program_id",
+                "affiliate_account_id",
+                "code",
+                "name",
+                "rule_type",
+                "amount",
+                "amount.amount",
+                "amount.currency",
+                "rate_bps",
+                "status",
+                "metadata",
+                "metadata.source",
+                "metadata.run"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "cmr_01KRDNJ0RXY5AY432WVSD4APAV",
+                "tenant_id": "ten_demo_alpha",
+                "affiliate_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "code": "qa_rule_5ef57eaf",
+                "name": "QA Rule 5ef57eaf",
+                "rule_type": "fixed_per_order",
+                "status": "active",
+                "amount": {
+                    "amount": 125,
+                    "currency": "THB"
+                },
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "rule-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/commission-rules/cmr_01KRDNJ0RXY5AY432WVSD4APAV",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "name",
+                "rule_type",
+                "amount",
+                "amount.amount",
+                "amount.currency",
+                "rate_bps",
+                "status",
+                "metadata"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "cmr_01KRDNJ0RXY5AY432WVSD4APAV",
+                "tenant_id": "ten_demo_alpha",
+                "affiliate_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "code": "qa_rule_5ef57eaf",
+                "name": "QA Rule Updated 5ef57eaf",
+                "rule_type": "per_ticket",
+                "status": "inactive",
+                "amount": {
+                    "amount": 175,
+                    "currency": "THB"
+                },
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "rule-filter-affiliate-account",
+            "method": "GET",
+            "path": "/admin/tenant/commission-rules",
+            "status": 200,
+            "query_keys": [
+                "affiliate_account_id",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "cmr_01KRDNJ0RXY5AY432WVSD4APAV"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "rule-archive",
+            "method": "DELETE",
+            "path": "/admin/tenant/commission-rules/cmr_01KRDNJ0RXY5AY432WVSD4APAV",
+            "status": 204,
+            "query_keys": [],
+            "payload_keys": [
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": null
+        },
+        {
+            "label": "rule-detail-after-archive",
+            "method": "GET",
+            "path": "/admin/tenant/commission-rules/cmr_01KRDNJ0RXY5AY432WVSD4APAV",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "cmr_01KRDNJ0RXY5AY432WVSD4APAV",
+                "tenant_id": "ten_demo_alpha",
+                "affiliate_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "code": "qa_rule_5ef57eaf",
+                "name": "QA Rule Updated 5ef57eaf",
+                "rule_type": "per_ticket",
+                "status": "archived",
+                "amount": {
+                    "amount": 175,
+                    "currency": "THB"
+                },
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "link-archive",
+            "method": "DELETE",
+            "path": "/admin/tenant/affiliate-links/afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+            "status": 204,
+            "query_keys": [],
+            "payload_keys": [
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": null
+        },
+        {
+            "label": "link-detail-after-archive",
+            "method": "GET",
+            "path": "/admin/tenant/affiliate-links/afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "afl_01KRDNJ0NKTP1A76WSZKTNRMWQ",
+                "tenant_id": "ten_demo_alpha",
+                "affiliate_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_account_id": "aff_01KRDNJ0JC7YGZH5NAYR4PQ7ZQ",
+                "affiliate_program_id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "code": "qa_link_5ef57eaf",
+                "status": "archived",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "program-archive",
+            "method": "DELETE",
+            "path": "/admin/tenant/affiliate-programs/afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+            "status": 204,
+            "query_keys": [],
+            "payload_keys": [
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": null
+        },
+        {
+            "label": "program-detail-after-archive",
+            "method": "GET",
+            "path": "/admin/tenant/affiliate-programs/afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "afp_01KRDNJ0FH5TWMQ78N2NGRC8AB",
+                "tenant_id": "ten_demo_alpha",
+                "code": "qa_program_5ef57eaf",
+                "name": "QA Program Updated 5ef57eaf",
+                "status": "archived",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        }
+    ]
+}

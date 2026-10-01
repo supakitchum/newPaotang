@@ -1,0 +1,16 @@
+BASE_URL=<redacted>
+TENANT_HOST=<redacted>
+TENANT_ID=<redacted>
+PARTNER_ID=<redacted>
+GAME_ID=<redacted>
+REWARD_GAME_ID=<redacted>
+SEARCH_NUMBER=<redacted>
+LOCAL_STOCK_ITEM_ID=<redacted>
+RESERVATION_ID=<redacted>
+CUSTOMER_TOKEN=<redacted>
+ADMIN_TOKEN=<redacted>
+PARTNER_TOKEN=<redacted>
+PARTNER_SYNC_PATH=<redacted>
+REWARD_RESULT_ID=<redacted>
+CDN_BASE_URL=<redacted>
+IMAGE_PATH=<redacted>

@@ -1,0 +1,661 @@
+{
+    "captured": "after_browser_writes",
+    "token_persisted": false,
+    "paths": {
+        "partners_list_by_q": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "par_01KR8Z8K1YVMQX83FMV0PA6WYY",
+                        "tenant_id": null,
+                        "status": "suspended",
+                        "created_at": "2026-05-10T12:54:43.000000Z",
+                        "updated_at": "2026-05-10T12:55:30.000000Z",
+                        "code": "p2_write_qa_partner_20260510",
+                        "name": "P2 Write QA Partner Updated",
+                        "type": "internal",
+                        "tenants": [],
+                        "domains": [],
+                        "runtime": {
+                            "api_clients_total": 0,
+                            "monitoring_status": null,
+                            "billing_status": null
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "created_partner_detail": {
+            "status": 200,
+            "body": {
+                "id": "par_01KR8Z8K1YVMQX83FMV0PA6WYY",
+                "tenant_id": null,
+                "status": "suspended",
+                "created_at": "2026-05-10T12:54:43.000000Z",
+                "updated_at": "2026-05-10T12:55:30.000000Z",
+                "code": "p2_write_qa_partner_20260510",
+                "name": "P2 Write QA Partner Updated",
+                "type": "internal",
+                "tenants": [],
+                "domains": [],
+                "runtime": {
+                    "api_clients_total": 0,
+                    "monitoring_status": null,
+                    "billing_status": null
+                }
+            }
+        },
+        "provision_partner_detail": {
+            "status": 200,
+            "body": {
+                "id": "par_p2_write_prov10",
+                "tenant_id": "ten_abe101f668d91e1f7723",
+                "status": "suspended",
+                "created_at": "2026-05-10T12:51:18.000000Z",
+                "updated_at": "2026-05-10T12:56:36.000000Z",
+                "code": "p2_write_qa_provision_20260510",
+                "name": "P2 Write QA Provision Partner",
+                "type": "partner_store",
+                "tenants": [
+                    {
+                        "id": "ten_abe101f668d91e1f7723",
+                        "partner_id": "par_p2_write_prov10",
+                        "code": "p2_write_qa_tenant_20260510",
+                        "name": "P2 Write QA Tenant",
+                        "status": "suspended",
+                        "created_at": "2026-05-10T12:56:25.000000Z",
+                        "updated_at": "2026-05-10T12:56:36.000000Z"
+                    }
+                ],
+                "domains": [
+                    {
+                        "id": "dom_f2401e5de37e36f87465",
+                        "tenant_id": "ten_abe101f668d91e1f7723",
+                        "host": "p2-write-qa-20260510.newpaotang.test",
+                        "type": "subdomain",
+                        "status": "suspended",
+                        "is_primary": true,
+                        "created_at": "2026-05-10T12:56:25.000000Z",
+                        "updated_at": "2026-05-10T12:56:36.000000Z"
+                    }
+                ],
+                "runtime": {
+                    "api_clients_total": 0,
+                    "monitoring_status": "suspended",
+                    "billing_status": "suspended"
+                }
+            }
+        },
+        "partner_quotas_list_by_partner_game": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "pqt_869c57706fa7e14c6e5e",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T13:00:25.000000Z",
+                        "updated_at": "2026-05-10T13:01:34.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "game_id": "gam_p2_write_qa10",
+                        "quota_count": 85,
+                        "allocated_count": 0,
+                        "remaining_count": 85
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "billing_plans_list": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "bpl_01KR8ZQ8C7M60HE43SD1V51DS1",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T13:02:44.000000Z",
+                        "updated_at": "2026-05-10T13:03:24.000000Z",
+                        "code": "p2_write_qa_plan_20260510",
+                        "name": "P2 Write QA Plan Updated",
+                        "monthly_fee": {
+                            "amount": 223400,
+                            "currency": "THB"
+                        },
+                        "features": {
+                            "affiliate": true,
+                            "custom_domain": true,
+                            "priority_support": false
+                        },
+                        "limits": {
+                            "tenants": 8,
+                            "api_requests": 223456,
+                            "alert_policies": 11
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "billing_plan_detail": {
+            "status": 200,
+            "body": {
+                "id": "bpl_01KR8ZQ8C7M60HE43SD1V51DS1",
+                "tenant_id": null,
+                "status": "active",
+                "created_at": "2026-05-10T13:02:44.000000Z",
+                "updated_at": "2026-05-10T13:03:24.000000Z",
+                "code": "p2_write_qa_plan_20260510",
+                "name": "P2 Write QA Plan Updated",
+                "monthly_fee": {
+                    "amount": 223400,
+                    "currency": "THB"
+                },
+                "features": {
+                    "affiliate": true,
+                    "custom_domain": true,
+                    "priority_support": false
+                },
+                "limits": {
+                    "tenants": 8,
+                    "api_requests": 223456,
+                    "alert_policies": 11
+                }
+            }
+        },
+        "alert_policies_list_by_partner": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "pal_01KR8ZSV9688WKP11PEQRHJ5HX",
+                        "tenant_id": null,
+                        "status": "paused",
+                        "created_at": "2026-05-10T13:04:08.000000Z",
+                        "updated_at": "2026-05-10T13:08:42.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "p2_write_qa_policy_20260510",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "write_qa_metric_updated",
+                            "threshold_seconds": 900,
+                            "window_seconds": 180,
+                            "description": "P2 write-submission QA policy updated"
+                        }
+                    },
+                    {
+                        "id": "pap_0dce4518e6b954e7d074",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "sync_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "sync_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner inbox/outbox rows stayed pending beyond the local threshold.",
+                            "data_source": "sync_inbox, sync_outbox"
+                        }
+                    },
+                    {
+                        "id": "pap_3fd86e7f163bea91590f",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "payment_callback_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "payment_callback_failure_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Payment callback failure evaluation uses webhook callback rows where present.",
+                            "data_source": "webhook_callbacks"
+                        }
+                    },
+                    {
+                        "id": "pap_50d90900cae25e21e970",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "image_cdn_hit_ratio_low",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "image_cdn_hit_ratio",
+                            "threshold": {
+                                "ratio_below": 0.9
+                            },
+                            "window_seconds": 300,
+                            "description": "CDN hit ratio needs production CDN analytics before real evaluation.",
+                            "data_source": "Cloudflare/CDN analytics production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_51e75bc1b52a8754b31f",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "cross_tenant_access_attempt",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "cross_tenant_access_attempt_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Cross-tenant access attempts were recorded.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_5ae840e14ce618beaf33",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "queue_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "queue_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Laravel queue jobs stayed available beyond the local threshold.",
+                            "data_source": "jobs"
+                        }
+                    },
+                    {
+                        "id": "pap_6f7de241399edff92014",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "checkout_fail_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "checkout_failure_rate",
+                            "threshold": {
+                                "rate": 0.03,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Checkout failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_7b1a3fcd12ff95fd0499",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "storage_quota_near_limit",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "storage_quota_ratio",
+                            "threshold": {
+                                "ratio_above": 0.8
+                            },
+                            "window_seconds": 3600,
+                            "description": "Storage quota evaluation requires object storage usage feed.",
+                            "data_source": "R2/S3 usage production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_7fd6c8fe9ccebd1b1f78",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "booking_fail_rate_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "booking_failure_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Booking failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_d016e3257ec896d6b6ba",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "permission_denied_spike",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "permission_denied_count",
+                            "threshold": {
+                                "count": 10
+                            },
+                            "window_seconds": 300,
+                            "description": "Permission denied audit events exceeded the local threshold.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_d17b2f834afa38a8b559",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_rate_limit_exceeded",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "rate_limited_count",
+                            "threshold": {
+                                "count": 50
+                            },
+                            "window_seconds": 300,
+                            "description": "Rate-limited request count exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries.rate_limited_count"
+                        }
+                    },
+                    {
+                        "id": "pap_dd7e8cac88434aeaaffb",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_error_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "api_error_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "API error rate exceeded the local policy threshold.",
+                            "data_source": "partner_daily_usage_summaries.error_count/api_request_count"
+                        }
+                    },
+                    {
+                        "id": "pap_f1857e8de03c5ba7d8af",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "reward_check_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "reward_check_failed_items",
+                            "threshold": {
+                                "failed_items": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Reward checking produced failed items for a tenant.",
+                            "data_source": "reward_check_items"
+                        }
+                    },
+                    {
+                        "id": "pap_f3a71f1cc7e72d7ef336",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "default_health",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "partner_health_status",
+                            "threshold": {
+                                "health_status": [
+                                    "critical"
+                                ]
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner health check moved to a critical state.",
+                            "data_source": "partner_health_checks"
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "alert_policy_detail": {
+            "status": 200,
+            "body": {
+                "id": "pal_01KR8ZSV9688WKP11PEQRHJ5HX",
+                "tenant_id": null,
+                "status": "paused",
+                "created_at": "2026-05-10T13:04:08.000000Z",
+                "updated_at": "2026-05-10T13:08:42.000000Z",
+                "partner_id": "par_demo_gamma",
+                "partner": {
+                    "id": "par_demo_gamma",
+                    "code": "demo_gamma",
+                    "name": "Demo Gamma Partner",
+                    "status": "active"
+                },
+                "policy_key": "p2_write_qa_policy_20260510",
+                "severity": "critical",
+                "config": {
+                    "metric": "write_qa_metric_updated",
+                    "threshold_seconds": 900,
+                    "window_seconds": 180,
+                    "description": "P2 write-submission QA policy updated"
+                }
+            }
+        },
+        "alert_event_detail": {
+            "status": 200,
+            "body": {
+                "id": "pae_p2_write_event10",
+                "tenant_id": "ten_demo_alpha",
+                "status": "resolved",
+                "created_at": "2026-05-10T12:51:18.000000Z",
+                "updated_at": "2026-05-10T13:05:23.000000Z",
+                "partner_id": "par_demo_alpha",
+                "partner": {
+                    "id": "par_demo_alpha",
+                    "code": "demo_alpha",
+                    "name": "Demo Alpha Partner",
+                    "status": "active"
+                },
+                "alert_policy_id": "pap_p2_write_event10",
+                "policy_key": "p2_write_qa_event_policy",
+                "severity": "warning",
+                "channel": "database",
+                "title": "P2 Write QA alert event",
+                "message": "Safe local write-submission QA event.",
+                "labels": {
+                    "source": "write-submission-qa"
+                },
+                "payload": {
+                    "sample": true
+                },
+                "dry_run": true,
+                "triggered_at": "2026-05-10T12:51:18.000000Z",
+                "delivered_at": null
+            }
+        }
+    },
+    "extracted": {
+        "created_partner": {
+            "id": "par_01KR8Z8K1YVMQX83FMV0PA6WYY",
+            "code": "p2_write_qa_partner_20260510",
+            "name": "P2 Write QA Partner Updated",
+            "type": "internal",
+            "status": "suspended"
+        },
+        "provision_partner": {
+            "id": "par_p2_write_prov10",
+            "status": "suspended",
+            "tenant_status": "suspended",
+            "domain_status": "suspended"
+        },
+        "partner_quota": {
+            "id": "pqt_869c57706fa7e14c6e5e",
+            "partner_id": "par_demo_beta",
+            "game_id": "gam_p2_write_qa10",
+            "quota_count": 85,
+            "allocated_count": 0,
+            "remaining_count": 85,
+            "status": "active"
+        },
+        "billing_plan": {
+            "id": "bpl_01KR8ZQ8C7M60HE43SD1V51DS1",
+            "code": "p2_write_qa_plan_20260510",
+            "name": "P2 Write QA Plan Updated",
+            "monthly_fee_amount": 223400,
+            "monthly_fee_currency": "THB",
+            "status": "active",
+            "limits": {
+                "tenants": 8,
+                "api_requests": 223456,
+                "alert_policies": 11
+            },
+            "features": {
+                "affiliate": true,
+                "custom_domain": true,
+                "priority_support": false
+            }
+        },
+        "alert_policy": {
+            "id": "pal_01KR8ZSV9688WKP11PEQRHJ5HX",
+            "partner_id": "par_demo_gamma",
+            "policy_key": "p2_write_qa_policy_20260510",
+            "severity": "critical",
+            "status": "paused",
+            "config": {
+                "metric": "write_qa_metric_updated",
+                "threshold_seconds": 900,
+                "window_seconds": 180,
+                "description": "P2 write-submission QA policy updated"
+            }
+        },
+        "alert_event": {
+            "id": "pae_p2_write_event10",
+            "status": "resolved",
+            "acknowledged_at": null,
+            "resolved_at": null
+        }
+    }
+}

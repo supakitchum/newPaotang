@@ -1,0 +1,498 @@
+URL: http://localhost:3101/admin/central/stock-pattern-coverage
+TITLE: NewPaotang Back Office
+
+- banner:
+  - button "Toggle sidebar"
+  - button " Central":
+    - generic: 
+    - generic: Central
+  - text: 
+  - button "Search":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - navigation:
+    - text: 
+    - list:
+      - listitem: Central Menu
+      - link " Dashboard":
+        - /url: /admin/central/dashboard
+        - generic: 
+        - generic: Dashboard
+      - link " Lottery Operations ":
+        - /url: "#"
+        - generic: 
+        - generic: Lottery Operations
+        - generic: 
+      - text:       
+      - link " Partner Operations ":
+        - /url: "#"
+        - generic: 
+        - generic: Partner Operations
+        - generic: 
+      - text:        
+      - link " Finance And Reports ":
+        - /url: "#"
+        - generic: 
+        - generic: Finance And Reports
+        - generic: 
+      - text:  
+      - link " Administration ":
+        - /url: "#"
+        - generic: 
+        - generic: Administration
+        - generic: 
+      - text:      
+    - text: 
+- main:
+  - heading "Stock Pattern Coverage" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Operations
+    - listitem:  Stock Pattern Coverage
+  - generic: Stock Pattern Coverage
+  - paragraph: Central and partner limits for back/front number patterns.
+  - generic "Stock coverage websocket is connected.":
+    - generic: 
+    - text: Realtime
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Game
+  - combobox "Game":
+    - option "Select game"
+    - option "QA No Agent Draw (qa_noagent_190526)"
+    - option "QA Topup Draw (qa_topup_190526) (Current)" [selected]
+  - generic: Dimension
+  - combobox "Dimension":
+    - option "Back 2" [selected]
+    - option "Back 3"
+    - option "Front 3"
+  - generic: Scope
+  - combobox "Scope":
+    - option "Central" [selected]
+    - option "Partner"
+  - generic: Scope ID
+  - textbox "Scope ID" [disabled]:
+    - /placeholder: Partner ID
+    - text: central
+  - generic: Pattern search
+  - textbox "Pattern search":
+    - /placeholder: 00, 001, 999
+  - generic: Rows
+  - spinbutton "Rows": "20"
+  - button "Reset"
+  - button "Apply" [active]
+  - generic: Default limits for selected scope
+  - generic: Back 2
+  - spinbutton "Back 2": "2"
+  - generic: Back 3
+  - spinbutton "Back 3": "2"
+  - generic: Front 3
+  - spinbutton "Front 3": "2"
+  - button "Load defaults"
+  - button "Save scope limits"
+  - generic: Per-pattern override
+  - generic: Pattern value
+  - textbox "Pattern value":
+    - /placeholder: "00"
+  - generic: Override limit
+  - spinbutton "Override limit"
+  - button "Clear"
+  - button "Save override" [disabled]
+  - generic: Patterns
+  - strong: "100"
+  - generic: Generated
+  - strong: "2"
+  - generic: Reserved
+  - strong: "1"
+  - generic: Sold
+  - strong: "0"
+  - generic: Limit total
+  - strong: "200"
+  - generic: Sellable
+  - strong: "1"
+  - generic: Coverage rows
+  - table:
+    - rowgroup:
+      - row "Pattern Scope Generated Reserved Sold Default Override Effective Remaining limit Sellable Ceiling Actions":
+        - columnheader "Pattern":
+          - button "Pattern":
+            - generic: Pattern
+            - generic: 
+        - columnheader "Scope":
+          - button "Scope":
+            - generic: Scope
+            - generic: 
+        - columnheader "Generated":
+          - button "Generated":
+            - generic: Generated
+            - generic: 
+        - columnheader "Reserved":
+          - button "Reserved":
+            - generic: Reserved
+            - generic: 
+        - columnheader "Sold":
+          - button "Sold":
+            - generic: Sold
+            - generic: 
+        - columnheader "Default":
+          - button "Default":
+            - generic: Default
+            - generic: 
+        - columnheader "Override":
+          - button "Override":
+            - generic: Override
+            - generic: 
+        - columnheader "Effective":
+          - button "Effective":
+            - generic: Effective
+            - generic: 
+        - columnheader "Remaining limit":
+          - button "Remaining limit":
+            - generic: Remaining limit
+            - generic: 
+        - columnheader "Sellable":
+          - button "Sellable":
+            - generic: Sellable
+            - generic: 
+        - columnheader "Ceiling":
+          - button "Ceiling":
+            - generic: Ceiling
+            - generic: 
+        - columnheader "Actions"
+    - rowgroup:
+      - row "00 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "00"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "01 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "01"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "02 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "02"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "03 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "03"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "04 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "04"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "05 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "05"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "06 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "06"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "07 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "07"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "08 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "08"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "09 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "09"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "10 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "10"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "11 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "11"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "12 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "12"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "13 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "13"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "14 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "14"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "15 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "15"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "16 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "16"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "17 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "17"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "18 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "18"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+      - row "19 Central 0 0 0 2 - 2 2 0 Exceeds supply Use override":
+        - cell "19"
+        - cell "Central":
+          - generic: Central
+        - cell "0"
+        - cell "0"
+        - cell "0"
+        - cell "2"
+        - cell "-"
+        - cell "2"
+        - cell "2"
+        - cell "0"
+        - cell "Exceeds supply":
+          - generic: Exceeds supply
+        - cell "Use override":
+          - button "Use override"
+  - generic: Page 1 · 20 rows per page
+  - list:
+    - button "Previous" [disabled]
+    - button "Next"
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

@@ -1,0 +1,281 @@
+{
+  "generated_at": "2026-05-11T13:59:19.741Z",
+  "tenant_id": "ten_demo_alpha",
+  "route": "/admin/tenant/tickets",
+  "checks": {
+    "initial": {
+      "menu_link_count": 1,
+      "option_values": [
+        {
+          "value": "",
+          "label": "All"
+        },
+        {
+          "value": "active",
+          "label": "Active"
+        },
+        {
+          "value": "open",
+          "label": "Open"
+        },
+        {
+          "value": "pending",
+          "label": "Pending"
+        },
+        {
+          "value": "resolved",
+          "label": "Resolved"
+        },
+        {
+          "value": "closed",
+          "label": "Closed"
+        }
+      ],
+      "has_active_option": true,
+      "preserves_existing_options": true,
+      "row_count": 1,
+      "first_row_text": "tic_p5_read - Active - Detail",
+      "has_error_alert": false
+    },
+    "active_filter": {
+      "row_count": 1,
+      "first_row_text": "tic_p5_read - Active - Detail",
+      "includes_fixture_ticket": true,
+      "includes_active_status": true,
+      "has_error_alert": false
+    },
+    "detail": {
+      "detail_link_count": 1,
+      "route": "/admin/tenant/tickets/tic_p5_read",
+      "text_sample": "Demo Alpha Lottery AL Alpha Owner TENANT MENU Dashboard Local Stock Stock Sync Price Rules Reservations Orders Customers Wallets Topups Tickets Agents Agent Quotas Payment Settings Affiliate Programs Affiliate Accounts Affiliate Links Affiliate Attributions Commission Rules Seo Settings Maintenance Support Access Logs Commission Transactions Payouts Reports Monitoring Usage Sync Logs Audit Logs Admin Users Roles Permissions Menu Management Settings Tickets detail Admin Tenant Tenant Support Tickets detail Back Refresh Tickets detail Id tic_p5_read Game Id gam_p5_ticket_filter Full Number 951511 Status active Image Thumb Url - Image Url - Tenant Id ten_demo_alpha Order { \"id\": \"ord_p5_ticket_filter\", \"status\": \"paid\", \"total\": { \"amount\": 8000, \"currency\": \"THB\" }, \"redirect_url\": null, \"tickets\": [ { \"id\": \"tic_p5_read\", \"game_id\": \"gam_p5_ticket_filter\", \"full_number\": \"951511\", \"status",
+      "includes_fixture_ticket": true,
+      "includes_active_status": true,
+      "has_error_alert": false
+    },
+    "detail_hard_refresh": {
+      "route": "/admin/tenant/tickets/tic_p5_read",
+      "login_visible": false
+    },
+    "closed_empty": {
+      "row_count": 0,
+      "coherent_empty_state": true,
+      "has_error_alert": false
+    },
+    "cursor_empty": {
+      "route": "/admin/tenant/tickets",
+      "row_count": 0,
+      "coherent_empty_state": true,
+      "has_error_alert": false
+    },
+    "mobile_active_filter": {
+      "route": "/admin/tenant/tickets",
+      "login_visible": false,
+      "row_count": 1,
+      "text_sample": "Demo Alpha Lottery AL TENANT MENU Dashboard Local Stock Stock Sync Price Rules Reservations Orders Customers Wallets Topups Tickets Agents Agent Quotas Payment Settings Affiliate Programs Affiliate Accounts Affiliate Links Affiliate Attributions Commission Rules Seo Settings Maintenance Support Access Logs Commission Transactions Payouts Reports Monitoring Usage Sync Logs Audit Logs Admin Users Roles Permissions Menu Management Settings Tickets Admin Tenant Tenant Support Tickets Refresh Status All Active Open Pending Resolved Closed Cursor Limit Apply filters Tickets Ticket Customer Status Created Actions tic_p5_read - Active - Detail Cursor"
+    }
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/dashboard/summary",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?status=active&limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets/tic_p5_read",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets/tic_p5_read",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?status=closed&limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?status=active&cursor=tic_p5_read&limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/menu",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tenant/tickets?status=active&limit=20",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key-present": false
+      },
+      "post_data_keys": []
+    }
+  ],
+  "console_messages": [
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ."
+    },
+    {
+      "type": "warning",
+      "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} ke"
+    }
+  ]
+}

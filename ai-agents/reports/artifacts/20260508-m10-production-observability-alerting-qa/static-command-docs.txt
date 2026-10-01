@@ -1,0 +1,43 @@
+docs/m10-deployment-monitoring-load-test.md:197:docker compose exec platform-api php artisan platform:observability:report --format=json
+docs/m10-deployment-monitoring-load-test.md:198:docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:201:`platform:observability:report` emits a redacted JSON signal inventory for API, DB, cache, queue, partner sync, booking, checkout, reward, support access, security, and usage/billing signals. `platform:alerts:check --dry-run` evaluates default policies without writing events or calling external providers. Running the alert command without `--dry-run` can write safe local `partner_alert_events` rows and redacted log entries when `PLATFORM_ALERTS_ENABLED=true`.
+docs/backend-console-commands.md:43:| `platform:observability:report` | `platform:observability:report {--format=table}` | `App\Shared\Observability\ObservabilityReportService::report()` |
+docs/backend-console-commands.md:44:| `platform:alerts:check` | `platform:alerts:check {--dry-run} {--format=table}` | `App\Shared\Observability\AlertEvaluationService::evaluate()` |
+docs/backend-console-commands.md:60:platform:observability:report --format=json -> safe machine-readable M10 signal inventory
+docs/backend-console-commands.md:61:platform:alerts:check --dry-run --format=json -> safe local/dev alert policy evaluation
+docs/backend-console-commands.md:76:docker compose run --rm platform-api php artisan platform:observability:report --format=json
+docs/backend-console-commands.md:77:docker compose run --rm platform-api php artisan platform:alerts:check --dry-run --format=json
+ops/m10/alert-channel-runbook.md:8:docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json
+ops/m10/alert-channel-runbook.md:16:docker compose exec platform-api php artisan platform:alerts:check --format=json
+scripts/platform-observability-report.sh:4:docker compose exec platform-api php artisan platform:observability:report --format=json
+ops/m10/observability-signal-inventory.md:8:docker compose exec platform-api php artisan platform:observability:report --format=json
+ops/m10/observability-signal-inventory.md:15:| API request/error/latency | partial | health endpoints, logs, `partner_daily_usage_summaries` | `platform:observability:report` |
+ops/m10/observability-signal-inventory.md:18:| Queue lag | partial | `jobs`, worker command path | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:19:| Partner sync lag | ready local | `sync_inbox`, `sync_outbox` | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:20:| Booking failures | partial | daily summary/error counters where present | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:21:| Checkout/wallet failures | partial | daily summary/error counters where present | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:22:| Reward check failures | ready local | `reward_check_items` | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:23:| Support access/security | ready local | support impersonation tables, `audit_logs` | `platform:observability:report` |
+ops/m10/observability-signal-inventory.md:24:| Usage/billing sink | ready local | `partner_usage_meters`, `partner_usage_events`, `partner_daily_usage_summaries` | `platform:observability:report` |
+scripts/platform-alerts-check.sh:4:docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:10:    protected $signature = 'platform:alerts:check {--dry-run : Evaluate without writing local alert events} {--format=table : Output format: table or json}';
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:10:    protected $signature = 'platform:observability:report {--format=table : Output format: table or json}';
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:23:        $exitCode = Artisan::call('platform:observability:report', ['--format' => 'json']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:64:        $exitCode = Artisan::call('platform:alerts:check', ['--dry-run' => true, '--format' => 'json']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:93:        $exitCode = Artisan::call('platform:alerts:check', ['--format' => 'json']);
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:32:            'platform:observability:report' => PlatformObservabilityReportCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:33:            'platform:alerts:check' => PlatformAlertsCheckCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:49:        $this->assertTrue($commands['platform:observability:report']->getDefinition()->hasOption('format'));
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:50:        $this->assertTrue($commands['platform:alerts:check']->getDefinition()->hasOption('dry-run'));
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:51:        $this->assertTrue($commands['platform:alerts:check']->getDefinition()->hasOption('format'));
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:181:            $this->signal('api', 'API request/error/latency', 'partial', 'health endpoints, access logs, partner_daily_usage_summaries', 'docker compose exec platform-api php artisan platform:observability:report --format=json', 'External APM/edge latency is a production integration gate.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:185:            $this->signal('partner_sync', 'Partner inbox/outbox lag', 'ready_local', 'sync_inbox, sync_outbox', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', null),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:186:            $this->signal('booking', 'Booking failure readiness', 'partial', 'partner_daily_usage_summaries and application logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Dedicated booking failure counters are not yet production-fed.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:187:            $this->signal('checkout', 'Checkout/wallet failure readiness', 'partial', 'partner_daily_usage_summaries and application logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Dedicated checkout failure counters are not yet production-fed.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:188:            $this->signal('reward', 'Reward checking failure readiness', 'ready_local', 'reward_check_items', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', null),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:189:            $this->signal('support_access', 'Support access audit readiness', 'ready_local', 'support_impersonation_events, support_impersonation_blocked_actions, audit_logs', 'docker compose exec platform-api php artisan platform:observability:report --format=json', null),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:190:            $this->signal('security', 'Permission denied and cross-tenant signal readiness', 'partial', 'audit_logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Production edge/WAF security events remain external integration gates.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:191:            $this->signal('usage_billing', 'Usage metering and daily summary sink', 'ready_local', 'partner_usage_meters, partner_usage_events, partner_daily_usage_summaries', 'docker compose exec platform-api php artisan platform:observability:report --format=json', null),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:347:            'message' => 'Local database alert event generated by platform:alerts:check.',
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:77:                'docker compose exec platform-api php artisan platform:observability:report --format=json',
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:78:                'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json',

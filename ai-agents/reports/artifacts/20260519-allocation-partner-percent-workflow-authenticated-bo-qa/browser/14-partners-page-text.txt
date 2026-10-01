@@ -1,0 +1,71 @@
+Partners
+Admin
+Central
+Central Operations
+Partners
+ Refresh
+Search
+Status
+All
+Draft
+Active
+Suspended
+Closed
+Cursor
+Limit
+ Apply filters
+Documented operations
+ Create partner
+Partners
+Partner	Code	Name	Type	Stock %	Status	Updated	Actions
+par_boqa_multi	boqa_multi	BOQA Multi Partner	partner_store	-	Active	19 พ.ค. 2569 17:34
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+
+par_boqa_no_tenant	boqa_no_tenant	BOQA No Tenant Partner	partner_store	-	Active	19 พ.ค. 2569 17:34
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+
+par_boqa_other	boqa_other	BOQA Other Partner	partner_store	-	Active	19 พ.ค. 2569 17:34
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+
+par_boqa_single	boqa_single	BOQA Single Partner	partner_store	-	Active	19 พ.ค. 2569 17:34
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+
+par_demo_alpha	demo_alpha	Demo Alpha Partner	white_label	-	Active	19 พ.ค. 2569 05:49
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+
+par_demo_beta	demo_beta	Demo Beta Partner	white_label	-	Active	19 พ.ค. 2569 05:49
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+
+par_demo_gamma	demo_gamma	Demo Gamma Partner	white_label	-	Active	19 พ.ค. 2569 05:49
+Detail
+Update
+Edit stock percent
+Lottery branding
+Suspend
+Page 1 · 20 rows per page
+Previous
+Next

@@ -1,0 +1,471 @@
+<!-- include mainhead.html"-->
+
+<!-- Sweetalerts CSS -->
+<link rel="stylesheet" href="../assets/libs/sweetalert2/sweetalert2.min.css">
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Page Header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Cart</h1>
+                        <div class="">
+                            <nav>
+                                <ol class="breadcrumb mb-0">
+                                    <li class="breadcrumb-item"><a href="javascript:void(0);">Pages</a></li>
+                                    <li class="breadcrumb-item active" aria-current="page">Cart</li>
+                                </ol>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Page Header Close -->
+
+                <!-- Start:: Row-1 -->
+                <div class="row">
+                    <div class="col-xl-9">
+                        <div class="card custom-card overflow-hidden" id="cart-container-delete">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Cart Items
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th>
+                                                    Product Name
+                                                </th>
+                                                <th>
+                                                    Price
+                                                </th>
+                                                <th>
+                                                    Quantity
+                                                </th>
+                                                <th>
+                                                    Total
+                                                </th>
+                                                <th>
+                                                    Action
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td class="cart-items01">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-3">
+                                                            <span class="avatar avatar-xxl bg-light">
+                                                                <img src="../assets/images/ecommerce/png/14.png" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <div class="mb-1 fs-14 fw-semibold">
+                                                                <a href="javascript:void(0);">Digital Camera <span class="badge bg-pink-transparent fs-9"><i class="ri-discount-percent-line fs-10"></i>20 OFF</span></a>
+                                                            </div>
+                                                            <div class="d-flex gap-4 flex-wrap mb-1 align-items-center">
+                                                                <div>
+                                                                    <span class="me-1">Size:</span><span class="fw-medium text-muted">Medium</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="me-1">Color:</span><span class="fw-medium text-muted">Light Shade</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="badge bg-success">In Stock</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold fs-14">
+                                                        $554
+                                                    </div>
+                                                </td>
+                                                <td class="product-quantity-container">
+                                                    <div class="input-group flex-nowrap cart-input-group">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-minus border-end-0"><i class="ri-subtract-line"></i></button>
+                                                        <input type="number" class="form-control form-control-sm text-center" aria-label="quantity" value="1">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-plus border-start-0"><i class="ri-add-line"></i></button>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fs-14 fw-semibold">
+                                                        $554
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="wishlist.html" class="btn btn-icon btn-primary btn-sm me-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Add To Wishlist"><i class="ri-heart-line"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-icon btn-pink btn-sm btn-delete" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Remove From cart">
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="cart-items01">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-3">
+                                                            <span class="avatar avatar-xxl bg-light">
+                                                                <img src="../assets/images/ecommerce/png/10.png" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <div class="mb-1 fs-14 fw-semibold">
+                                                                <a href="javascript:void(0);">Ceramic Kettle</a>
+                                                            </div>
+                                                            <div class="d-flex gap-4 flex-wrap mb-1 align-items-center">
+                                                                <div>
+                                                                    <span class="me-1">Size:</span><span class="fw-normal text-muted">Semi Medium</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="me-1">Color:</span><span class="fw-normal text-muted">Glow Yellow</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="badge bg-danger">Out Of Stock</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold fs-14">
+                                                        $187
+                                                    </div>
+                                                </td>
+                                                <td class="product-quantity-container">
+                                                    <div class="input-group flex-nowrap cart-input-group">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-minus border-end-0"><i class="ri-subtract-line"></i></button>
+                                                        <input type="number" class="form-control form-control-sm text-center" aria-label="quantity" value="2">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-plus border-start-0"><i class="ri-add-line"></i></button>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fs-14 fw-semibold">
+                                                        $374
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="wishlist.html" class="btn btn-icon btn-primary btn-sm me-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Add To Wishlist"><i class="ri-heart-line"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-icon btn-pink btn-sm btn-delete" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Remove From cart">
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="cart-items01">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-3">
+                                                            <span class="avatar avatar-xxl bg-light">
+                                                                <img src="../assets/images/ecommerce/png/23.png" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <div class="mb-1 fs-14 fw-semibold">
+                                                                <a href="javascript:void(0);">Matrides Shoes <span class="badge bg-info-transparent fs-9"><i class="ri-discount-percent-line fs-10"></i> 12 OFF</span></a>
+                                                            </div>
+                                                            <div class="d-flex gap-4 flex-wrap mb-1 align-items-center">
+                                                                <div>
+                                                                    <span class="me-1">Size:</span><span class="fw-normal text-muted">8</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="me-1">Color:</span><span class="fw-normal text-muted">Blue</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="badge bg-success">In Stock</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold fs-14">
+                                                        $503
+                                                    </div>
+                                                </td>
+                                                <td class="product-quantity-container">
+                                                    <div class="input-group flex-nowrap cart-input-group">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-minus border-end-0"><i class="ri-subtract-line"></i></button>
+                                                        <input type="number" class="form-control form-control-sm text-center" aria-label="quantity" value="2">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-plus border-start-0"><i class="ri-add-line"></i></button>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fs-14 fw-semibold">
+                                                        $1,006
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="wishlist.html" class="btn btn-icon btn-primary btn-sm me-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Add To Wishlist"><i class="ri-heart-line"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-icon btn-pink btn-sm btn-delete" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Remove From cart">
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="cart-items01">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-3">
+                                                            <span class="avatar avatar-xxl bg-light">
+                                                                <img src="../assets/images/ecommerce/png/6.png" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <div class="mb-1 fs-14 fw-semibold">
+                                                                <a href="javascript:void(0);">Long Length Chair</a>
+                                                            </div>
+                                                            <div class="d-flex gap-4 flex-wrap mb-1 align-items-center">
+                                                                <div>
+                                                                    <span class="me-1">Size:</span><span class="fw-normal text-muted">Small</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="me-1">Color:</span><span class="fw-normal text-muted">Orange</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="badge bg-danger">Out of Stock</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold fs-14">
+                                                        $248
+                                                    </div>
+                                                </td>
+                                                <td class="product-quantity-container">
+                                                    <div class="input-group flex-nowrap cart-input-group">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-minus border-end-0"><i class="ri-subtract-line"></i></button>
+                                                        <input type="number" class="form-control form-control-sm text-center" aria-label="quantity" value="1">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-plus border-start-0"><i class="ri-add-line"></i></button>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fs-14 fw-semibold">
+                                                        $248
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="wishlist.html" class="btn btn-icon btn-primary btn-sm me-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Add To Wishlist"><i class="ri-heart-line"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-icon btn-pink btn-sm btn-delete" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Remove From cart">
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="cart-items01">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-3">
+                                                            <span class="avatar avatar-xxl bg-light">
+                                                                <img src="../assets/images/ecommerce/png/11.png" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <div class="mb-1 fs-14 fw-semibold">
+                                                                <a href="javascript:void(0);">Over Coat</a>
+                                                            </div>
+                                                            <div class="d-flex gap-4 flex-wrap mb-1 align-items-center">
+                                                                <div>
+                                                                    <span class="me-1">Size:</span><span class="fw-medium text-muted">Medium(M)</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="me-1">Color:</span><span class="fw-medium text-muted">Blue</span>
+                                                                </div>
+                                                            </div>
+                                                            <span class="badge bg-success">In Stock</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold fs-14">
+                                                        $1,299
+                                                    </div>
+                                                </td>
+                                                <td class="product-quantity-container">
+                                                    <div class="input-group flex-nowrap cart-input-group">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-minus border-end-0"><i class="ri-subtract-line"></i></button>
+                                                        <input type="number" class="form-control form-control-sm text-center" aria-label="quantity" value="1">
+                                                        <button type="button" aria-label="button" class="btn btn-icon btn-wave btn-sm btn-primary product-quantity-plus border-start-0"><i class="ri-add-line"></i></button>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="fs-14 fw-semibold">
+                                                        $1,299
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="wishlist.html" class="btn btn-icon btn-primary btn-sm me-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Add To Wishlist"><i class="ri-heart-line"></i></a>
+                                                    <a href="javascript:void(0);" class="btn btn-icon btn-pink btn-sm btn-delete" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Remove From cart">
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card d-none" id="cart-empty-cart">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Empty Cart
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="cart-empty text-center">
+                                    <span class="svg-muted">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="" width="24" height="24" viewbox="0 0 24 24"><path d="M18.6 16.5H8.9c-.9 0-1.6-.6-1.9-1.4L4.8 6.7c0-.1 0-.3.1-.4.1-.1.2-.1.4-.1h17.1c.1 0 .3.1.4.2.1.1.1.3.1.4L20.5 15c-.2.8-1 1.5-1.9 1.5zM5.9 7.1 8 14.8c.1.4.5.8 1 .8h9.7c.5 0 .9-.3 1-.8l2.1-7.7H5.9z"/><path d="M6 10.9 3.7 2.5H1.3v-.9H4c.2 0 .4.1.4.3l2.4 8.7-.8.3zM8.1 18.8 6 11l.9-.3L9 18.5z"/><path d="M20.8 20.4h-.9V20c0-.7-.6-1.3-1.3-1.3H8.9c-.7 0-1.3.6-1.3 1.3v.5h-.9V20c0-1.2 1-2.2 2.2-2.2h9.7c1.2 0 2.2 1 2.2 2.2v.4z"/><path d="M8.9 22.2c-1.2 0-2.2-1-2.2-2.2s1-2.2 2.2-2.2c1.2 0 2.2 1 2.2 2.2s-1 2.2-2.2 2.2zm0-3.5c-.7 0-1.3.6-1.3 1.3 0 .7.6 1.3 1.3 1.3.8 0 1.3-.6 1.3-1.3 0-.7-.5-1.3-1.3-1.3zM18.6 22.2c-1.2 0-2.2-1-2.2-2.2s1-2.2 2.2-2.2c1.2 0 2.2 1 2.2 2.2s-.9 2.2-2.2 2.2zm0-3.5c-.8 0-1.3.6-1.3 1.3 0 .7.6 1.3 1.3 1.3.7 0 1.3-.6 1.3-1.3 0-.7-.5-1.3-1.3-1.3z"/></svg>
+                                    </span>
+                                    <h3 class="fw-bold mb-1">Your Cart is Empty</h3>
+                                    <h5 class="mb-3">Add some items to make me happy :)</h5>
+                                    <a href="products.html" class="btn btn-primary btn-wave m-3" data-abc="true">continue shopping <i class="bi bi-arrow-right ms-1"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3">	
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Order Summary
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="p-3 border-bottom border-block-end-dashed">
+                                    <label for="promo-code" class="fw-medium mb-0">Have a Promo Code?</label>
+                                    <div class="fs-11 text-muted mb-3">Apply Your Promo Code for an Instant Discount!</div>
+                                    <div class="input-group mb-0">
+                                        <input type="text" class="form-control form-control-sm" id="promo-code" name="promo-code" placeholder="Enter Promo Code" aria-label="Enter Promo Code" aria-describedby="coupons">
+                                        <button class="btn btn-primary" type="button" id="coupons">Apply</button>
+                                    </div>
+                                </div>
+                                <div class="p-3 pb-2">
+                                    <p class="mb-2 fw-semibold">Delivery:</p>
+                                    <ul class="nav nav-tabs tab-style-8 scaleX rounded cart-summary-nav gap-2" id="myTab4" role="tablist">
+                                        <li class="nav-item flex-fill me-0" role="presentation">
+                                            <button class="nav-link w-100 active" id="freeshipping" data-bs-toggle="tab" data-bs-target="#freeshipping-pane" type="button" role="tab" aria-controls="freeshipping-pane" aria-selected="true">Free Shipping</button>
+                                        </li>
+                                        <li class="nav-item flex-fill" role="presentation">
+                                            <button class="nav-link w-100" id="expressshipping-tab" data-bs-toggle="tab" data-bs-target="#expressshipping-tab-pane" type="button" role="tab" aria-controls="expressshipping-tab-pane" aria-selected="false" tabindex="-1">Express Shipping</button>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="p-3 border-bottom border-block-end-dashed tab-content">
+                                    <div class="tab-pane show active overflow-hidden p-0 border-0" id="freeshipping-pane" role="tabpanel" aria-labelledby="freeshipping" tabindex="0">
+                                        <div class="fs-12 text-muted mb-3"><i class="ri-information-fill"></i> Delivered Within 7 Days</div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Sub Total</div>
+                                            <div class="fw-medium fs-14">$2,547</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Discount</div>
+                                            <div class="fw-medium fs-14 text-success">20% - $124</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Delivery Charges</div>
+                                            <div class="fw-medium fs-14 text-danger">- $0</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Service Tax (18%)</div>
+                                            <div class="fw-medium fs-14">- $12</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between h5">
+                                            <div class="fs-16">Total :</div>
+                                            <div class="fw-semibold"> $2,254</div>
+                                        </div>
+                                        <div class="d-grid">
+                                            <a href="checkout.html" class="btn btn-primary btn-wave mb-2">Proceed To Checkout</a>
+                                            <a href="products.html" class="btn btn-secondary-light btn-wave">Continue Shopping</a>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane overflow-hidden p-0 border-0" id="expressshipping-tab-pane" role="tabpanel" aria-labelledby="expressshipping-tab" tabindex="0">
+                                        <div class="fs-12 text-muted mb-3"><i class="ri-information-fill"></i> Delivered by Tomorrow</div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Sub Total</div>
+                                            <div class="fw-medium fs-14">$2,547</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Discount</div>
+                                            <div class="fw-medium fs-14 text-success">20% - $124</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Delivery Charges</div>
+                                            <div class="fw-medium fs-14 text-danger">- $15</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                            <div class="text-muted">Service Tax (18%)</div>
+                                            <div class="fw-medium fs-14">- $12</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between h5">
+                                            <div class="fs-16">Total :</div>
+                                            <div class="fw-semibold"> $2,546</div>
+                                        </div>
+                                        <div class="d-grid">
+                                            <a href="checkout.html" class="btn btn-primary btn-wave mb-2">Proceed To Checkout</a>
+                                            <a href="products.html" class="btn btn-secondary-light btn-wave">Continue Shopping</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: Row-1 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+
+    <!-- Sweetalerts JS -->
+    <script src="../assets/libs/sweetalert2/sweetalert2.min.js"></script>
+
+    <!-- Internal cart JS -->
+    <script src="../assets/js/cart.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+</body>
+
+</html>

@@ -30,6 +30,14 @@
         <div v-if="activeSearch" class="muted-text fw-semibold">ผลการค้นหา “{{ activeSearch }}”</div>
       </div>
 
+      <div v-if="winningTicketCount > 0" class="ticket-win-banner mb-3">
+        <div>
+          <strong>ยินดีด้วย!</strong>
+          <span>คุณถูกรางวัล {{ winningTicketCountText }} ใบ</span>
+        </div>
+        <i class="bi bi-coin" />
+      </div>
+
       <div v-if="isLoadingInitial" class="empty-lottery-state">
         กำลังโหลดสลากฯ
       </div>
@@ -39,18 +47,27 @@
       </div>
 
       <div v-else-if="tickets.length" class="d-grid gap-3">
-        <NuxtLink
-          v-for="(ticket, index) in tickets"
+        <div
+          v-for="(ticket, index) in displayTickets"
           :key="getTicketKey(ticket, index)"
-          :to="{ path: '/tickets/view', query: getTicketQuery(ticket) }"
+          class="ticket-card-button"
+          role="button"
+          tabindex="0"
+          @click="openTicketModal(ticket)"
+          @keydown.enter.prevent="openTicketModal(ticket)"
+          @keydown.space.prevent="openTicketModal(ticket)"
         >
           <TicketStub
             :number="getTicketNumber(ticket)"
-            :draw="getTicketDraw(ticket, currentGame)"
-            :set="getTicketSet(ticket)"
             :status="getTicketStatusText(ticket)"
+            :is-winning="isWinningTicket(ticket)"
+            :prize-title="getTicketPrizeTitle(ticket)"
+            :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+            :prizes="getTicketRewardPrizes(ticket)"
+            :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+            :claim-to="getTicketClaimTo(ticket)"
           />
-        </NuxtLink>
+        </div>
       </div>
 
       <div v-else class="empty-lottery-state">
@@ -71,6 +88,15 @@
         เมนู ‘สลากฯ ของฉัน’ เป็นการบันทึกเลขสลากฯ หากถูกรางวัล ระบบจะแจ้งผลรางวัลในหน้านี้
       </p>
     </section>
+    <TicketImageModal
+      v-if="selectedTicket"
+      :number="getTicketNumber(selectedTicket)"
+      :image-url="selectedTicket.image_url || ''"
+      :image-thumb-url="selectedTicket.image_thumb_url || ''"
+      :image-status="selectedTicket.image_status || ''"
+      :image-error="selectedTicket.image_error || ''"
+      @close="selectedTicket = null"
+    />
   </MobileShell>
 </template>
 
@@ -89,11 +115,17 @@ const tabs = [
 const {
   fetchTickets,
   getGameDate,
+  getTicketGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketDraw,
-  getTicketSet,
-  getTicketStatusText
+  getTicketStatusText,
+  isWinningTicket,
+  getTicketPrizeAmount,
+  getTicketRewardPrizes,
+  getTicketPrizeTitle,
+  isTicketClaimable,
+  sortTicketsForCurrentDraw,
+  getTicketClaimTo
 } = useUserTickets()
 const { currentDrawDate } = useAppInit()
 const perPage = 20
@@ -109,22 +141,26 @@ const showSearch = ref(false)
 const searchInput = ref<HTMLInputElement | null>(null)
 const searchInputValue = ref('')
 const activeSearch = ref('')
+const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
-const drawDate = computed(() => getGameDate(currentGame.value) || currentDrawDate.value)
+const displayTickets = computed(() => sortTicketsForCurrentDraw(tickets.value))
+const drawDate = computed(() => getGameDate(currentGame.value) || getTicketGameDate(displayTickets.value[0]) || currentDrawDate.value)
 const loadedTicketCount = computed(() => tickets.value.reduce((total, ticket) => total + getTicketCount(ticket), 0))
 const totalTicketCount = computed(() => apiTotalTicketCount.value || loadedTicketCount.value)
 const hasMore = computed(() => currentPage.value < lastPage.value)
+const winningTicketCount = computed(() => tickets.value.reduce((total, ticket) => (
+  total + (isWinningTicket(ticket) ? getTicketCount(ticket) : 0)
+), 0))
+const winningTicketCountText = computed(() => winningTicketCount.value.toLocaleString('th-TH'))
 
 const getTicketKey = (ticket: UserTicket, index: number) => (
   `${ticket.id || ticket.order_id || getTicketNumber(ticket)}-${index}`
 )
 
-const getTicketQuery = (ticket: UserTicket) => ({
-  number: getTicketNumber(ticket),
-  game_id: String(ticket.game_id || currentGame.value?.id || ''),
-  order_id: ticket.order_id ? String(ticket.order_id) : undefined
-})
+const openTicketModal = (ticket: UserTicket) => {
+  selectedTicket.value = ticket
+}
 
 const fetchTicketPage = async (page = 1) => {
   if (page === 1) {
@@ -153,15 +189,38 @@ const fetchTicketPage = async (page = 1) => {
   } finally {
     isLoadingInitial.value = false
     isLoadingMore.value = false
+    void maybeLoadNextPageIfNeeded()
   }
 }
 
-const loadNextPage = () => {
+const loadNextPage = async () => {
   if (!hasMore.value || isLoadingInitial.value || isLoadingMore.value) {
     return
   }
 
-  fetchTicketPage(currentPage.value + 1)
+  await fetchTicketPage(currentPage.value + 1)
+}
+
+const scrollRoot = () => {
+  if (!process.client) {
+    return null
+  }
+
+  return loadMoreSentinel.value?.closest('.app-scroll') as HTMLElement | null
+}
+
+const maybeLoadNextPageIfNeeded = async () => {
+  await nextTick()
+
+  const root = scrollRoot()
+
+  if (!root || loadError.value || !hasMore.value || isLoadingInitial.value || isLoadingMore.value) {
+    return
+  }
+
+  if (root.scrollHeight <= root.clientHeight + 220) {
+    await loadNextPage()
+  }
 }
 
 const setupLoadObserver = async () => {
@@ -172,12 +231,15 @@ const setupLoadObserver = async () => {
   }
 
   loadObserver?.disconnect()
+  const root = scrollRoot()
+
   loadObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) {
-      loadNextPage()
+      void loadNextPage()
     }
   }, {
-    rootMargin: '180px 0px'
+    root,
+    rootMargin: '240px 0px 280px'
   })
   loadObserver.observe(loadMoreSentinel.value)
 }
@@ -203,6 +265,16 @@ const clearSearch = () => {
   searchInputValue.value = ''
   activeSearch.value = ''
   fetchTicketPage(1)
+}
+
+const formatPrizeAmount = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return ''
+  }
+
+  return amount.toLocaleString('th-TH', {
+    maximumFractionDigits: 0
+  })
 }
 
 onMounted(async () => {
@@ -258,10 +330,72 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: 999px;
   padding: 0 12px;
-  background: #0b69dc;
+  background: var(--app-blue-mid);
   color: #fff;
   font-size: 14px;
   font-weight: 700;
+}
+
+.ticket-win-banner {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 18px;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255, 255, 255, .7) 0 18px, transparent 19px),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .24) 0 8px, transparent 8px 22px),
+    linear-gradient(105deg, #fff4bf 0%, #ffe28a 100%);
+  color: #8b5c03;
+  box-shadow: 0 8px 18px rgba(176, 121, 13, .12);
+}
+
+.ticket-win-banner div {
+  display: grid;
+  gap: 4px;
+}
+
+.ticket-win-banner strong {
+  color: #a56800;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.ticket-win-banner span {
+  color: #7a5509;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ticket-win-banner i {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .48);
+  color: #f4a900;
+  font-size: 32px;
+}
+
+.ticket-card-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.ticket-card-button:focus-visible {
+  border-radius: 14px;
+  outline: 3px solid rgba(13, 110, 253, .35);
+  outline-offset: 3px;
 }
 
 .ticket-load-sentinel {

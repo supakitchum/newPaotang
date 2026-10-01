@@ -1,0 +1,46 @@
+back-office-1  | ℹ .nuxt/dist directory has been removed. Restarting Nuxt...
+back-office-1  | ℹ Vite client warmed up in 2100ms
+back-office-1  | ℹ Vite server warmed up in 2314ms
+back-office-1  | [nitro] ✔ Nuxt Nitro server built in 662 ms
+back-office-1  |
+back-office-1  |  WARN  [Vue Router warn]: No match found for location with path "/robots.txt?494100"
+back-office-1  |
+back-office-1  |
+back-office-1  |  WARN  [Vue Router warn]: No match found for location with path "/robots.txt"
+back-office-1  |
+back-office-1  |
+back-office-1  | > dev
+back-office-1  | > nuxt dev --host 0.0.0.0 --port 3100
+back-office-1  |
+back-office-1  | Nuxt 3.11.2 with Nitro 2.9.6
+back-office-1  |
+back-office-1  |  ERROR  (node:18) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+back-office-1  | (Use node --trace-deprecation ... to show where the warning was created)
+back-office-1  |
+back-office-1  |
+back-office-1  |
+back-office-1  |               █▀▀▀▀▀▀▀███▀█▀▀▀███▀▀▀▀▀▀▀█
+back-office-1  |               █ █▀▀▀█ █▄█▄█▀▄█ ▀█ █▀▀▀█ █
+back-office-1  |               █ █   █ █▄ ▄█▄▄▀▄▄█ █   █ █
+back-office-1  |               █ ▀▀▀▀▀ █ ▄▀▄ ▄▀▄▀█ ▀▀▀▀▀ █
+back-office-1  |               █▀▀▀▀▀█▀▀▀ ▄ █▀▄█▄▀█▀█▀█▀██
+back-office-1  |               █▄▄▀█▀ ▀ ▄█ █▄█▄▀█▄▀▀▀▀█ ▀█
+back-office-1  |               █▄▀█▄█ ▀█▄▀▀█ ▀▄ ▀█▀ ▀█▀▀ █
+back-office-1  |               █ █ ▀▄ ▀▀███▀▀█▄▀█▀█▀█ █ ▀█
+back-office-1  |               █ █▄ ▄█▀▄ ▄█ █▀██ ▀▀▀▀▄▀█▄█
+back-office-1  |               █▀▀▀▀▀▀▀█ ███▄█▄▄ █▀█   ▀▀█
+back-office-1  |               █ █▀▀▀█ █▀▄██ ▀█  ▀▀▀  ▀ ▀█
+back-office-1  |               █ █   █ █ █▀▀▀ ▀ ▄▀▄▄▄█ ▄ █
+back-office-1  |               █ ▀▀▀▀▀ █  █ ▀█▄▀▄█▄   ▀▀ █
+back-office-1  |               ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+back-office-1  |
+back-office-1  |   ➜ Local:    http://0.0.0.0:3100/
+back-office-1  |   ➜ Network:  http://172.22.0.4:3100/ [QR code]
+back-office-1  |
+back-office-1  |
+back-office-1  |  ERROR  (node:26) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+back-office-1  | (Use node --trace-deprecation ... to show where the warning was created)
+back-office-1  |
+back-office-1  | ℹ Vite client warmed up in 2243ms
+back-office-1  | ℹ Vite server warmed up in 2380ms
+back-office-1  | [nitro] ✔ Nuxt Nitro server built in 703 ms

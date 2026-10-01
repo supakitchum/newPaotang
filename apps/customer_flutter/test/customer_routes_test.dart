@@ -1,0 +1,491 @@
+import 'dart:io';
+
+import 'package:customer_flutter/app/customer_routes.dart';
+import 'package:customer_flutter/core/i18n/customer_localizations.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('customer route registry has unique route paths', () {
+    final paths = customerFeatureRoutes.map((route) => route.path).toList();
+    expect(paths.toSet(), hasLength(paths.length));
+  });
+
+  test('customer route registry has unique localization keys', () {
+    final keys = customerFeatureRoutes.map((route) => route.key).toList();
+    expect(keys.toSet(), hasLength(keys.length));
+  });
+
+  test('customer route registry metadata does not contain localized copy', () {
+    final thaiPattern = RegExp(r'[ก-๙]');
+    final localizedMetadata = customerFeatureRoutes.where(
+      (route) =>
+          thaiPattern.hasMatch(route.key) ||
+          (route.descriptionKey != null &&
+              thaiPattern.hasMatch(route.descriptionKey!)),
+    );
+
+    expect(localizedMetadata, isEmpty);
+  });
+
+  test('customer route localization keys resolve to display copy', () {
+    final l10n = CustomerLocalizations.fallback;
+    for (final route in customerFeatureRoutes) {
+      expect(
+        l10n.customerRouteTitle(route.key),
+        isNot('routes.${route.key}.title'),
+      );
+      if (route.descriptionKey != null) {
+        expect(
+          l10n.customerRouteDescription(route.descriptionKey!),
+          isNot('routes.${route.descriptionKey}.description'),
+        );
+      }
+    }
+  });
+
+  test('customer route registry covers core Nuxt customer surfaces', () {
+    final paths = customerFeatureRoutes.map((route) => route.path).toSet();
+
+    expect(
+      paths,
+      containsAll({
+        '/',
+        '/buy',
+        '/search',
+        '/cart',
+        '/checkout',
+        '/checkout/pending',
+        '/support',
+        '/support/new',
+        '/support/tickets',
+        '/support/tickets/:ticketId',
+        '/tickets',
+        '/tickets/search',
+        '/tickets/history',
+        '/my-wallet',
+        '/topup',
+        '/topup/:topupId',
+        '/topup/history',
+        '/reward-claims',
+        '/activity-claims',
+        '/activities',
+        '/activities/:slug',
+        '/affiliate',
+        '/affiliate/rankings',
+        '/affiliate/withdraw',
+        '/affiliate/commissions',
+        '/affiliate/payouts',
+        '/news',
+        '/news/:slug',
+        '/profile',
+        '/profile/language',
+        '/profile/biometrics',
+        '/profile/social-accounts',
+        '/profile/account-deletion',
+        '/purchase-history',
+        '/purchase-history/:orderId',
+        '/login',
+        '/login/otp',
+        '/register',
+        '/forgot-password',
+        '/reset-password',
+        '/line/link-phone',
+        '/social/:provider/callback',
+        '/social/:provider/link-phone',
+        '/pin',
+        '/maintenance',
+      }),
+    );
+  });
+
+  test('customer route registry covers all existing Nuxt page routes', () {
+    final paths = customerFeatureRoutes.map((route) => route.path).toSet();
+
+    const nuxtPageRoutes = {
+      '/',
+      '/account-suspended',
+      '/activities',
+      '/activities/:slug',
+      '/activities/history',
+      '/activity-claims',
+      '/activity-claims/:claimId',
+      '/affiliate',
+      '/affiliate/withdraw',
+      '/affiliate/commissions',
+      '/affiliate/payouts',
+      '/buy',
+      '/buy/more',
+      '/buy/search',
+      '/search',
+      '/cart',
+      '/checkout',
+      '/countdown',
+      '/forgot-password',
+      '/line/callback',
+      '/line/link-phone',
+      '/social/:provider/callback',
+      '/social/:provider/link-phone',
+      '/login',
+      '/lottery-knowledge',
+      '/maintenance',
+      '/my-wallet',
+      '/news',
+      '/news/:slug',
+      '/pin',
+      '/profile',
+      '/profile/auto-reward',
+      '/profile/account-deletion',
+      '/profile/line-notifications',
+      '/profile/reward-bank',
+      '/purchase-history',
+      '/purchase-history/:orderId',
+      '/register',
+      '/reset-password',
+      '/result',
+      '/result/full',
+      '/results',
+      '/results/full',
+      '/reward-claims',
+      '/reward-claims/:claimId',
+      '/stores',
+      '/stores/lotteries',
+      '/success',
+      '/term-reward',
+      '/terms',
+      '/privacy',
+      '/tickets',
+      '/tickets/claim/:ticketId',
+      '/tickets/history',
+      '/tickets/view',
+      '/topup',
+      '/topup/history',
+      '/wait-result',
+      '/waiting-result',
+    };
+
+    expect(paths, containsAll(nuxtPageRoutes));
+  });
+
+  test('customer route registry stays in sync with Nuxt page files', () {
+    final pagesDirectory = Directory('../customer/pages');
+    if (!pagesDirectory.existsSync()) {
+      return;
+    }
+
+    final flutterPaths = customerFeatureRoutes
+        .map((route) => route.path)
+        .toSet();
+    final nuxtPaths = pagesDirectory
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.vue'))
+        .map((file) => _nuxtPageRouteForFile(file, pagesDirectory))
+        .toSet();
+
+    expect(flutterPaths, containsAll(nuxtPaths));
+  });
+
+  test('customer router declares every registered feature route', () {
+    final routerSource = File('lib/app/router.dart').readAsStringSync();
+    final routerPaths = RegExp(r"GoRoute\(\s*path:\s*'([^']+)'")
+        .allMatches(routerSource)
+        .map((match) => match.group(1))
+        .whereType<String>()
+        .toSet();
+    final registeredPaths = customerFeatureRoutes
+        .map((route) => route.path)
+        .toSet();
+
+    expect(routerPaths, containsAll(registeredPaths));
+  });
+
+  test('customer route registry includes every declared router path', () {
+    final routerSource = File('lib/app/router.dart').readAsStringSync();
+    final routerPaths = RegExp(r"GoRoute\(\s*path:\s*'([^']+)'")
+        .allMatches(routerSource)
+        .map((match) => match.group(1))
+        .whereType<String>()
+        .toSet();
+    final registeredPaths = customerFeatureRoutes
+        .map((route) => route.path)
+        .toSet();
+
+    expect(registeredPaths, containsAll(routerPaths));
+  });
+
+  test('profile screen links to the same core menu flows as Nuxt profile', () {
+    final profileSource = File(
+      'lib/features/profile/presentation/profile_screen.dart',
+    ).readAsStringSync();
+
+    const expectedProfileLinks = {
+      "path: '/my-wallet'",
+      "path: '/purchase-history'",
+      "path: '/reward-claims'",
+      "path: '/activity-claims'",
+      "path: '/activities'",
+      "path: '/affiliate'",
+      "path: '/profile/reward-bank'",
+      "path: '/profile/auto-reward'",
+      "path: '/profile/line-notifications'",
+      "path: '/profile/language'",
+      "path: '/news'",
+      "path: '/terms'",
+      "path: '/privacy'",
+      "path: '/profile/account-deletion'",
+      "path: '/lottery-knowledge'",
+      "path: '/support'",
+    };
+
+    for (final link in expectedProfileLinks) {
+      expect(profileSource, contains(link));
+    }
+  });
+
+  test(
+    'customer route registry includes mobile-only social provider routes',
+    () {
+      final paths = customerFeatureRoutes.map((route) => route.path).toSet();
+
+      expect(paths, contains('/social/:provider/callback'));
+      expect(paths, contains('/social/:provider/link-phone'));
+    },
+  );
+
+  test('customer router does not include production placeholder fallback', () {
+    final routerSource = File('lib/app/router.dart').readAsStringSync();
+
+    expect(routerSource, isNot(contains('FeaturePlaceholderScreen')));
+    expect(routerSource, isNot(contains('feature_shell')));
+    expect(routerSource, isNot(contains('for (final feature')));
+  });
+
+  test(
+    'public customer paths include unauthenticated content and auth entry points',
+    () {
+      expect(publicCustomerPaths, contains('/'));
+      expect(publicCustomerPaths, contains('/activities'));
+      expect(publicCustomerPaths, contains('/activities/:slug'));
+      expect(publicCustomerPaths, contains('/login'));
+      expect(publicCustomerPaths, contains('/login/otp'));
+      expect(publicCustomerPaths, contains('/register'));
+      expect(publicCustomerPaths, contains('/news'));
+      expect(publicCustomerPaths, contains('/terms'));
+      expect(publicCustomerPaths, isNot(contains('/my-wallet')));
+      expect(publicCustomerPaths, isNot(contains('/tickets')));
+    },
+  );
+
+  test('sensitive customer routes are not public routes', () {
+    final sensitivePublicRoutes = customerFeatureRoutes
+        .where((route) => route.sensitive && route.public)
+        .map((route) => route.path)
+        .toList();
+
+    expect(sensitivePublicRoutes, isEmpty);
+  });
+
+  test('financial, identity, and claim routes are marked sensitive', () {
+    final sensitivePaths = customerFeatureRoutes
+        .where((route) => route.sensitive)
+        .map((route) => route.path)
+        .toSet();
+
+    expect(
+      sensitivePaths,
+      containsAll({
+        '/cart',
+        '/checkout',
+        '/tickets',
+        '/tickets/search',
+        '/tickets/history',
+        '/tickets/view',
+        '/tickets/claim/:ticketId',
+        '/my-wallet',
+        '/reward-claims',
+        '/reward-claims/:claimId',
+        '/activity-claims',
+        '/activity-claims/:claimId',
+        '/profile',
+        '/profile/language',
+        '/profile/auto-reward',
+        '/profile/biometrics',
+        '/profile/social-accounts',
+        '/profile/line-notifications',
+        '/profile/reward-bank',
+        '/security-lock',
+        '/purchase-history',
+        '/purchase-history/:orderId',
+        '/pin',
+        '/success',
+        '/support',
+        '/support/new',
+        '/support/tickets',
+        '/support/tickets/:ticketId',
+      }),
+    );
+
+    expect(
+      sensitivePaths.intersection({
+        '/topup',
+        '/topup/:topupId',
+        '/topup/history',
+        '/affiliate',
+        '/affiliate/referral',
+        '/affiliate/rankings',
+        '/affiliate/campaigns',
+        '/affiliate/withdraw',
+        '/affiliate/commissions',
+        '/affiliate/payouts',
+      }),
+      isEmpty,
+    );
+  });
+
+  test('customer route sensitivity matcher handles dynamic and tenant routes', () {
+    expect(isSensitiveCustomerPath('/'), isFalse);
+    expect(isSensitiveCustomerPath('/news/announcement'), isFalse);
+    expect(isSensitiveCustomerPath('/my-wallet'), isTrue);
+    expect(isSensitiveCustomerPath('/topup'), isFalse);
+    expect(isSensitiveCustomerPath('/topup/history'), isFalse);
+    expect(isSensitiveCustomerPath('/topup/request_123'), isFalse);
+    expect(isSensitiveCustomerPath('/affiliate'), isFalse);
+    expect(isSensitiveCustomerPath('/affiliate/referral'), isFalse);
+    expect(isSensitiveCustomerPath('/affiliate/rankings'), isFalse);
+    expect(
+      isSensitiveCustomerPath(
+        '/topup/request_123',
+        extraSensitiveRoutes: const ['/topup/*'],
+      ),
+      isFalse,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/affiliate/withdraw',
+        extraSensitiveRoutes: const ['/affiliate'],
+      ),
+      isFalse,
+    );
+    expect(isSensitiveCustomerPath('/support/tickets/stic_123'), isTrue);
+    expect(isSensitiveCustomerPath('/my-wallet?tab=summary'), isTrue);
+    expect(isSensitiveCustomerPath('/tickets/claim/ticket_123'), isTrue);
+    expect(isSensitiveCustomerPath('/reward-claims/claim_123'), isTrue);
+    expect(isSensitiveCustomerPath('/activity-claims/claim_123'), isTrue);
+    expect(isSensitiveCustomerPath('/purchase-history/order_123'), isTrue);
+    expect(
+      isSensitiveCustomerPath(
+        'https://shop.example.test/reward-claims/claim_123?tab=receipt',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'https://shop.example.test/#/activity-claims/claim_123?tab=summary',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '#route=%2Fcheckout%2Fpending%3Forder_id%3Dord_1',
+      ),
+      isTrue,
+    );
+    expect(
+      normalizeCustomerRoutePath(
+        'https%3A%2F%2Fshop.example.test%2Fmy-wallet%3Ftab%3Dsummary',
+      ),
+      '/my-wallet',
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'https%3A%2F%2Fshop.example.test%2Freward-claims%2Fclaim_123%3Ftab%3Dreceipt',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'returnUrl=https%3A%2F%2Fshop.example.test%2Factivity-claims%2Fclaim_123%3Ftab%3Dsummary',
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        'targetUrl=https%253A%252F%252Fshop.example.test%252Fcheckout%252Fpending%253Forder_id%253Dord_1',
+      ),
+      isTrue,
+    );
+    expect(
+      isPublicCustomerPath('https://shop.example.test/news/announcement?ref=1'),
+      isTrue,
+    );
+    expect(
+      customerFeatureByPath(
+        'https://shop.example.test/tickets/claim/ticket_123?from=history',
+      )?.key,
+      'ticket_claim',
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/custom-sensitive/profile',
+        extraSensitiveRoutes: const ['/custom-sensitive'],
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/tenant-claims/claim_123',
+        extraSensitiveRoutes: const ['/tenant-claims/:claimId'],
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/tenant-claims/claim_123/receipt',
+        extraSensitiveRoutes: const ['/tenant-claims/*'],
+      ),
+      isTrue,
+    );
+    expect(
+      isSensitiveCustomerPath(
+        '/tenant-claims',
+        extraSensitiveRoutes: const ['/tenant-claims/*'],
+      ),
+      isFalse,
+    );
+    expect(
+      isCustomerRoutePatternMatch('/social/*', '/social/google/callback'),
+      isTrue,
+    );
+  });
+}
+
+String _nuxtPageRouteForFile(File file, Directory pagesDirectory) {
+  final rootPath = pagesDirectory.absolute.path;
+  final filePath = file.absolute.path;
+  final relative = filePath
+      .substring(rootPath.length + 1)
+      .replaceAll(Platform.pathSeparator, '/')
+      .replaceAll('.vue', '');
+  final parts = relative
+      .split('/')
+      .where((part) => part.isNotEmpty && part != 'index')
+      .map(_nuxtRoutePart)
+      .toList(growable: false);
+
+  return parts.isEmpty ? '/' : '/${parts.join('/')}';
+}
+
+String _nuxtRoutePart(String part) {
+  if (!part.startsWith('[') || !part.endsWith(']')) return part;
+  final rawName = part.substring(1, part.length - 1);
+  return ':${_camelCaseParam(rawName)}';
+}
+
+String _camelCaseParam(String value) {
+  final pieces = value.split('_').where((piece) => piece.isNotEmpty).toList();
+  if (pieces.isEmpty) return value;
+  return pieces.first +
+      pieces.skip(1).map((piece) {
+        return piece.substring(0, 1).toUpperCase() + piece.substring(1);
+      }).join();
+}

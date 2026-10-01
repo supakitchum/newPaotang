@@ -1,0 +1,7 @@
+## develop...origin/develop
+ M ai-agents/prompts/open-chat-bo-develop.md
+ M ai-agents/roles/bo-develop.md
+ M ai-agents/rules/global-rules.md
+?? ai-agents/reports/artifacts/20260510-back-office-p1-money-stock-crud-workflows-qa/
+?? apps/platform-api/storage/framework/views/275c7c02e2528e6029079c885e2d2418.php
+?? apps/platform-api/storage/framework/views/dd310000961f2d208873a737c27d849a.php

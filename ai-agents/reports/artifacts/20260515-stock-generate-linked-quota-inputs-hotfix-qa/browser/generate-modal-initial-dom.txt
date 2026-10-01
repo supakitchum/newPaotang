@@ -1,0 +1,32 @@
+  - generic: Game
+    - option "All" [selected]
+    - option "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)"
+    - option "All" [selected]
+    - option "Allocated"
+    - option "Recalled"
+  - generic: Select a game to load stock generation summary widgets.
+  - button " Generate stock" [active]:
+    - text: Generate stock
+      - row "Number Tickets Available Allocated Sold Recalled Game Updated Actions":
+        - columnheader "Allocated":
+          - button "Allocated":
+            - generic: Allocated
+        - columnheader "Recalled":
+          - button "Recalled":
+            - generic: Recalled
+        - columnheader "Game":
+          - button "Game":
+            - generic: Game
+    - heading "Generate stock" [level=6]
+    - paragraph: Confirm generate stock for Central Stock.
+    - generic: Current game *
+    - combobox "Current game *":
+      - option "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)" [selected]
+    - generic: Generate stock only for the current open draw.
+    - generic: Stock quota check
+    - generic: 2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.
+    - generic: 2-tail
+    - generic: 3-tail
+    - generic: 3-front
+    - generic: Enter total tickets or one quota value before submitting.
+    - button "Cancel"

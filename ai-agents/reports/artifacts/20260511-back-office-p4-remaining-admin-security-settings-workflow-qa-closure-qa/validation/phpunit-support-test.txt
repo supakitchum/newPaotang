@@ -1,0 +1,24 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-4e64ef2bd9fb Creating
+ Container newpaotang-platform-api-run-4e64ef2bd9fb Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BoMenuCompletionBackendGapTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral bo gap endpoints enforce rbac and support operational reads[39m[90m…[39m [90m2.10s[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant bo gap endpoints are tenant scoped and support members price[39m[90m…[39m [90m1.40s[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BootstrapSeederTest[39m
+  [32;1m✓[39;22m[90m [39m[90mseeded menu routes support back office navigation[39m[90m                   [39m [90m1.12s[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10AdminSecurityLinePolicyClosureTest[39m
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy support impersonation blocks sensiti[39m[90m…[39m [90m0.52s[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\SupportAccessTest[39m
+  [32;1m✓[39;22m[90m [39m[90msupport access approval impersonation hashes token and keeps tenant[39m[90m…[39m [90m0.69s[39m
+
+  [90mTests:[39m    [32;1m5 passed[39;22m[90m (146 assertions)[39m
+  [90mDuration:[39m [39m5.94s[39m

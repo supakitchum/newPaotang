@@ -8,9 +8,15 @@ export interface LotteryReward {
 }
 
 export interface LotteryRewardGame {
-  id?: number
+  id?: number | string
   name?: string
-  status?: number
+  status?: number | string
+  resultStatus?: string
+  result_status?: string
+  officialStatus?: string
+  official_status?: string
+  completionPercent?: number
+  completion_percent?: number
   rewards?: LotteryReward[]
 }
 
@@ -40,6 +46,18 @@ const rewardTitles: Record<string, string> = {
   reward_two_digit: 'เลขท้าย 2 ตัว'
 }
 
+const rewardDefinitions: Record<string, { count: number, digits: number, amount: number }> = {
+  reward_1: { count: 1, digits: 6, amount: 6000000 },
+  reward_2: { count: 5, digits: 6, amount: 200000 },
+  reward_3: { count: 10, digits: 6, amount: 80000 },
+  reward_4: { count: 50, digits: 6, amount: 40000 },
+  reward_5: { count: 100, digits: 6, amount: 20000 },
+  reward_beside_1: { count: 2, digits: 6, amount: 100000 },
+  reward_three_digit_1: { count: 2, digits: 3, amount: 4000 },
+  reward_three_digit_2: { count: 2, digits: 3, amount: 4000 },
+  reward_two_digit: { count: 1, digits: 2, amount: 2000 }
+}
+
 const rewardOrder = [
   'reward_1',
   'reward_two_digit',
@@ -52,6 +70,46 @@ const rewardOrder = [
   'reward_5'
 ]
 
+export const isDisplayableRewardNumber = (number: unknown) => {
+  const value = String(number || '').trim()
+
+  return value !== '' && value !== '-' && !value.startsWith('pending_')
+}
+
+export const isResolvedRewardNumber = (number: unknown) => {
+  const value = String(number || '').trim()
+
+  return isDisplayableRewardNumber(value) && !/^x+$/i.test(value)
+}
+
+export const getRewardPlaceholder = (slug: string) => {
+  const digits = rewardDefinitions[slug]?.digits || 6
+
+  return 'x'.repeat(digits)
+}
+
+export const isPublishedRewardResult = (game: LotteryRewardGame | null | undefined) => {
+  if (!game) {
+    return false
+  }
+
+  const sourceStatus = String(
+    game.officialStatus
+    || game.official_status
+    || game.resultStatus
+    || game.result_status
+    || ''
+  ).trim().toLowerCase()
+
+  if (sourceStatus) {
+    return sourceStatus === 'published'
+  }
+
+  return Number(game.status) === 2 || String(game.status || '').toLowerCase() === 'published'
+}
+
+export const isUnofficialRewardResult = (game: LotteryRewardGame | null | undefined) => Boolean(game) && !isPublishedRewardResult(game)
+
 const toNumbers = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return []
@@ -60,6 +118,29 @@ const toNumbers = (value: unknown): string[] => {
   return value
     .filter((item) => item !== null && item !== undefined && `${item}` !== '')
     .map((item) => `${item}`)
+}
+
+const toDisplayNumber = (value: unknown, slug: string) => {
+  const normalized = String(value || '').trim()
+
+  if (!normalized || normalized === '-' || normalized.startsWith('pending_') || /^x+$/i.test(normalized)) {
+    return getRewardPlaceholder(slug)
+  }
+
+  return normalized
+}
+
+const toDisplayNumbers = (value: unknown, slug: string, fillMissing = true): string[] => {
+  const numbers = toNumbers(value).map((number) => toDisplayNumber(number, slug))
+  const expectedCount = rewardDefinitions[slug]?.count || 0
+
+  if (fillMissing && expectedCount > 0) {
+    while (numbers.length < expectedCount) {
+      numbers.push(getRewardPlaceholder(slug))
+    }
+  }
+
+  return numbers
 }
 
 export const formatRewardAmount = (value: number | string | undefined) => {
@@ -81,8 +162,16 @@ export const useLotteryReward = () => {
     return toNumbers(getReward(game, slug)?.number)
   }
 
+  const getDisplayRewardNumbers = (game: LotteryRewardGame | null | undefined, slug: string) => {
+    if (!game) {
+      return []
+    }
+
+    return toDisplayNumbers(getReward(game, slug)?.number, slug)
+  }
+
   const getRewardAmount = (game: LotteryRewardGame | null | undefined, slug: string) => {
-    return formatRewardAmount(getReward(game, slug)?.reward)
+    return formatRewardAmount(getReward(game, slug)?.reward ?? rewardDefinitions[slug]?.amount)
   }
 
   const getRewardGroups = (game: LotteryRewardGame | null | undefined): LotteryRewardGroup[] => {
@@ -93,30 +182,48 @@ export const useLotteryReward = () => {
         return {
           key: slug,
           title: rewardTitles[slug] || reward?.name || slug,
-          amount: formatRewardAmount(reward?.reward),
-          numbers: toNumbers(reward?.number)
+          amount: formatRewardAmount(reward?.reward ?? rewardDefinitions[slug]?.amount),
+          numbers: game ? toDisplayNumbers(reward?.number, slug) : []
         }
       })
       .filter((group) => group.numbers.length > 0)
   }
 
   const toSummary = (game: LotteryRewardGame | null | undefined): LotteryRewardSummary => {
-    const front3 = getRewardNumbers(game, 'reward_three_digit_1')
-    const last3 = getRewardNumbers(game, 'reward_three_digit_2')
+    const front3 = getDisplayRewardNumbers(game, 'reward_three_digit_1')
+    const last3 = getDisplayRewardNumbers(game, 'reward_three_digit_2')
 
     return {
-      first: getRewardNumbers(game, 'reward_1')[0] || '-',
+      first: getDisplayRewardNumbers(game, 'reward_1')[0] || '-',
       front3: front3.length ? front3 : ['-'],
-      last2: getRewardNumbers(game, 'reward_two_digit')[0] || '-',
+      last2: getDisplayRewardNumbers(game, 'reward_two_digit')[0] || '-',
       last3: last3.length ? last3 : ['-']
     }
+  }
+
+  const hasResolvedRewardResult = (game: LotteryRewardGame | null | undefined) => {
+    const summary = toSummary(game)
+
+    return [
+      summary.first,
+      summary.last2,
+      ...summary.front3,
+      ...summary.last3
+    ].some(isResolvedRewardNumber)
   }
 
   return {
     getReward,
     getRewardNumbers,
+    getDisplayRewardNumbers,
+    getRewardPlaceholder,
     getRewardAmount,
     getRewardGroups,
+    hasResolvedRewardResult,
+    isPublishedRewardResult,
+    isDisplayableRewardNumber,
+    isResolvedRewardNumber,
+    isUnofficialRewardResult,
     toSummary
   }
 }

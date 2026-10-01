@@ -1,0 +1,92 @@
+{
+  "centralDashboardMobileQa": {
+    "label": "browser-central-dashboard",
+    "url": "http://127.0.0.1:3100/admin/central/dashboard",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": true,
+    "hasTenantMaintenance": false,
+    "hasAgents": false,
+    "hasTenantScope": false,
+    "logsCount": 0
+  },
+  "centralPartnersMobileQa": {
+    "label": "browser-central-partners-reload",
+    "url": "http://127.0.0.1:3100/admin/central/partners",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": true,
+    "hasTenantMaintenance": false,
+    "hasAgents": false,
+    "hasTenantScope": false,
+    "logsCount": 12
+  },
+  "tenantDashboardMobileQa": {
+    "label": "browser-tenant-dashboard",
+    "url": "http://127.0.0.1:3100/admin/tenant/dashboard",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": false,
+    "hasTenantMaintenance": false,
+    "hasAgents": true,
+    "hasTenantScope": true,
+    "logsCount": 12
+  },
+  "tenantMaintenanceDesktopMobileQa": {
+    "label": "browser-tenant-maintenance-desktop-reload",
+    "url": "http://127.0.0.1:3100/admin/tenant/maintenance",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": false,
+    "hasTenantMaintenance": true,
+    "hasAgents": true,
+    "hasTenantScope": true,
+    "logsCount": 20
+  },
+  "tenantAgentsMobileQa": {
+    "label": "browser-tenant-agents-reload",
+    "url": "http://127.0.0.1:3100/admin/tenant/growth/agents",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": false,
+    "hasTenantMaintenance": false,
+    "hasAgents": true,
+    "hasTenantScope": true,
+    "logsCount": 30
+  },
+  "mobileClosedSummaryQa": {
+    "label": "browser-mobile-tenant-maintenance-closed-reload",
+    "url": "http://127.0.0.1:3100/admin/tenant/maintenance",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": false,
+    "hasTenantMaintenance": true,
+    "hasAgents": true,
+    "hasTenantScope": true,
+    "logsCount": 30
+  },
+  "mobileOpenSummaryQa": {
+    "label": "browser-mobile-tenant-maintenance-sidebar-open",
+    "url": "http://127.0.0.1:3100/admin/tenant/maintenance",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": false,
+    "hasTenantMaintenance": true,
+    "hasAgents": true,
+    "hasTenantScope": true,
+    "logsCount": 30
+  },
+  "closeCountMobileQa": 1,
+  "mobileReclosedSummaryQa": {
+    "label": "browser-mobile-tenant-maintenance-sidebar-reclosed",
+    "url": "http://127.0.0.1:3100/admin/tenant/maintenance",
+    "hasLogin": false,
+    "hasRestore": false,
+    "hasPartners": false,
+    "hasTenantMaintenance": true,
+    "hasAgents": true,
+    "hasTenantScope": true,
+    "logsCount": 30
+  },
+  "note": "Browser API in this session exposes screenshots/DOM but not evaluate/boundingBox; scrollWidth numeric measurement unavailable."
+}

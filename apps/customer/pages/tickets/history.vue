@@ -14,12 +14,12 @@
         </button>
       </div>
       <hr>
-      <div v-if="historyGame" class="d-flex justify-content-between align-items-center mb-3">
+      <div v-if="tickets.length" class="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <div class="muted-text fw-semibold">สลากฯ งวดวันที่</div>
-          <h2 class="fs-5 fw-bold">{{ drawDate }}</h2>
+          <div class="muted-text fw-semibold">สลากฯ ย้อนหลัง</div>
+          <h2 class="fs-5 fw-bold">{{ historyTitle }}</h2>
         </div>
-        <button class="outline-pill"><i class="bi bi-share me-2" />แชร์ผลให้เพื่อนรู้</button>
+        <span class="history-ticket-count">{{ tickets.length.toLocaleString('th-TH') }} รายการ</span>
       </div>
 
       <div v-if="tickets.length" class="rounded-3 p-3 mb-4 d-flex align-items-center justify-content-between" style="background:linear-gradient(110deg,#dfffe9,#fff6cf);">
@@ -35,19 +35,36 @@
         {{ loadError }}
       </div>
 
-      <div v-else-if="visibleTickets.length" class="d-grid gap-3">
-        <NuxtLink
-          v-for="(ticket, index) in visibleTickets"
-          :key="getTicketKey(ticket, index)"
-          :to="{ path: '/tickets/view', query: getTicketQuery(ticket) }"
-        >
-          <TicketStub
-            :number="getTicketNumber(ticket)"
-            :draw="getTicketDraw(ticket, historyGame)"
-            :set="getTicketSet(ticket)"
-            :status="getTicketStatusText(ticket)"
-          />
-        </NuxtLink>
+      <div v-else-if="visibleTickets.length" class="ticket-history-groups">
+        <section v-for="group in visibleTicketGroups" :key="group.key" class="ticket-history-group">
+          <div class="ticket-history-group-head">
+            <span>งวดวันที่</span>
+            <strong>{{ group.drawDate || '-' }}</strong>
+          </div>
+          <div class="d-grid gap-3">
+            <div
+              v-for="(ticket, index) in group.tickets"
+              :key="getTicketKey(ticket, index)"
+              class="ticket-card-button"
+              role="button"
+              tabindex="0"
+              @click="openTicketModal(ticket)"
+              @keydown.enter.prevent="openTicketModal(ticket)"
+              @keydown.space.prevent="openTicketModal(ticket)"
+            >
+              <TicketStub
+                :number="getTicketNumber(ticket)"
+                :status="getTicketStatusText(ticket)"
+                :is-winning="isWinningTicket(ticket)"
+                :prize-title="getTicketPrizeTitle(ticket)"
+                :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+                :prizes="getTicketRewardPrizes(ticket)"
+                :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+                :claim-to="getTicketClaimTo(ticket)"
+              />
+            </div>
+          </div>
+        </section>
       </div>
 
       <div v-else-if="showOnlyWinning" class="empty-lottery-state">
@@ -68,11 +85,20 @@
 
       <div ref="loadMoreSentinel" class="ticket-load-sentinel" />
     </section>
+    <TicketImageModal
+      v-if="selectedTicket"
+      :number="getTicketNumber(selectedTicket)"
+      :image-url="selectedTicket.image_url || ''"
+      :image-thumb-url="selectedTicket.image_thumb_url || ''"
+      :image-status="selectedTicket.image_status || ''"
+      :image-error="selectedTicket.image_error || ''"
+      @close="selectedTicket = null"
+    />
   </MobileShell>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { UserTicket, UserTicketGame } from '~/composables/useUserTickets'
 
 definePageMeta({
@@ -86,11 +112,16 @@ const tabs = [
 const {
   fetchTickets,
   getGameDate,
+  getTicketGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketDraw,
-  getTicketSet,
-  getTicketStatusText
+  getTicketStatusText,
+  isWinningTicket,
+  getTicketPrizeAmount,
+  getTicketRewardPrizes,
+  getTicketPrizeTitle,
+  isTicketClaimable,
+  getTicketClaimTo
 } = useUserTickets()
 const tickets = ref<UserTicket[]>([])
 const historyGame = ref<UserTicketGame | null>(null)
@@ -101,12 +132,45 @@ const showOnlyWinning = ref(false)
 const currentPage = ref(1)
 const lastPage = ref(1)
 const perPage = 20
+const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
-const drawDate = computed(() => getGameDate(historyGame.value))
+const groupTicketsByGame = (sourceTickets: UserTicket[]) => {
+  const groups: Array<{ key: string, drawDate: string, tickets: UserTicket[] }> = []
+  const groupIndexes = new Map<string, number>()
+
+  sourceTickets.forEach((ticket) => {
+    const drawDate = getTicketGameDate(ticket) || '-'
+    const key = String(ticket.game?.id || ticket.game_id || drawDate)
+    const existingIndex = groupIndexes.get(key)
+
+    if (existingIndex === undefined) {
+      groupIndexes.set(key, groups.length)
+      groups.push({
+        key,
+        drawDate,
+        tickets: [ticket]
+      })
+
+      return
+    }
+
+    groups[existingIndex].tickets.push(ticket)
+  })
+
+  return groups
+}
+const drawDate = computed(() => getGameDate(historyGame.value) || getTicketGameDate(tickets.value[0]))
 const winningTickets = computed(() => tickets.value.filter((ticket) => [4, 5].includes(Number(ticket.status))))
 const visibleTickets = computed(() => showOnlyWinning.value ? winningTickets.value : tickets.value)
+const ticketGroups = computed(() => groupTicketsByGame(tickets.value))
+const visibleTicketGroups = computed(() => groupTicketsByGame(visibleTickets.value))
 const hasMore = computed(() => currentPage.value < lastPage.value)
+const historyTitle = computed(() => (
+  ticketGroups.value.length === 1
+    ? (drawDate.value || 'งวดที่ออกผลแล้ว')
+    : `ทุกงวดที่ออกผลแล้ว ${ticketGroups.value.length.toLocaleString('th-TH')} งวด`
+))
 const summaryText = computed(() => {
   if (winningTickets.value.length > 0) {
     return `ยินดีด้วย คุณมีสลากฯ ถูกรางวัล ${winningTickets.value.reduce((total, ticket) => total + getTicketCount(ticket), 0)} ใบ`
@@ -119,14 +183,21 @@ const getTicketKey = (ticket: UserTicket, index: number) => (
   `${ticket.id || ticket.order_id || getTicketNumber(ticket)}-${index}`
 )
 
-const getTicketQuery = (ticket: UserTicket) => ({
-  number: getTicketNumber(ticket),
-  game_id: String(ticket.game_id || historyGame.value?.id || ''),
-  order_id: ticket.order_id ? String(ticket.order_id) : undefined,
-  from: 'history'
-})
+const formatPrizeAmount = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return ''
+  }
 
-const fetchHistoryPage = async (gameId: number | string, page = 1) => {
+  return amount.toLocaleString('th-TH', {
+    maximumFractionDigits: 0
+  })
+}
+
+const openTicketModal = (ticket: UserTicket) => {
+  selectedTicket.value = ticket
+}
+
+const fetchHistoryPage = async (page = 1) => {
   if (page === 1) {
     isLoading.value = true
   } else {
@@ -137,7 +208,7 @@ const fetchHistoryPage = async (gameId: number | string, page = 1) => {
 
   try {
     const historyResponse = await fetchTickets({
-      gameId,
+      history: true,
       page,
       perPage
     })
@@ -152,15 +223,38 @@ const fetchHistoryPage = async (gameId: number | string, page = 1) => {
   } finally {
     isLoading.value = false
     isLoadingMore.value = false
+    void maybeLoadNextPageIfNeeded()
   }
 }
 
-const loadNextPage = () => {
-  if (!historyGame.value?.id || !hasMore.value || isLoading.value || isLoadingMore.value || showOnlyWinning.value) {
+const loadNextPage = async () => {
+  if (!hasMore.value || isLoading.value || isLoadingMore.value) {
     return
   }
 
-  fetchHistoryPage(historyGame.value.id, currentPage.value + 1)
+  await fetchHistoryPage(currentPage.value + 1)
+}
+
+const scrollRoot = () => {
+  if (!process.client) {
+    return null
+  }
+
+  return loadMoreSentinel.value?.closest('.app-scroll') as HTMLElement | null
+}
+
+const maybeLoadNextPageIfNeeded = async () => {
+  await nextTick()
+
+  const root = scrollRoot()
+
+  if (!root || loadError.value || !hasMore.value || isLoading.value || isLoadingMore.value) {
+    return
+  }
+
+  if (root.scrollHeight <= root.clientHeight + 220) {
+    await loadNextPage()
+  }
 }
 
 const setupLoadObserver = async () => {
@@ -171,26 +265,26 @@ const setupLoadObserver = async () => {
   }
 
   loadObserver?.disconnect()
+  const root = scrollRoot()
+
   loadObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) {
-      loadNextPage()
+      void loadNextPage()
     }
   }, {
-    rootMargin: '180px 0px'
+    root,
+    rootMargin: '240px 0px 280px'
   })
   loadObserver.observe(loadMoreSentinel.value)
 }
 
+watch(showOnlyWinning, () => {
+  void maybeLoadNextPageIfNeeded()
+})
+
 onMounted(async () => {
   try {
-    const currentResponse = await fetchTickets()
-    const previousGame = currentResponse.games[1] || null
-
-    historyGame.value = previousGame
-
-    if (previousGame?.id) {
-      await fetchHistoryPage(previousGame.id)
-    }
+    await fetchHistoryPage()
   } catch (error: any) {
     console.log(error)
     loadError.value = error?.response?.data?.message || 'โหลดสลากฯ ย้อนหลังไม่สำเร็จ'
@@ -209,6 +303,62 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.ticket-card-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.ticket-card-button:focus-visible {
+  border-radius: 14px;
+  outline: 3px solid rgba(13, 110, 253, .35);
+  outline-offset: 3px;
+}
+
+.history-ticket-count {
+  background: #eef6ff;
+  border-radius: 999px;
+  color: #0b63c7;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 7px 12px;
+}
+
+.ticket-history-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.ticket-history-group {
+  display: grid;
+  gap: 10px;
+}
+
+.ticket-history-group-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-history-group-head span {
+  color: #7b8798;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ticket-history-group-head strong {
+  color: #193767;
+  font-size: 15px;
+  font-weight: 900;
+}
+
 .ticket-load-sentinel {
   height: 1px;
 }

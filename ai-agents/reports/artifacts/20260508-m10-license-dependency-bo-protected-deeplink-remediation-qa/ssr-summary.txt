@@ -1,0 +1,4 @@
+/admin/central/partners no_marker_status=302 no_marker_location=/login?redirect=/admin/central/partners marker_status=200 marker_location= restore_shell=true login_text=false protected_text=false
+/admin/tenant/maintenance no_marker_status=302 no_marker_location=/login?redirect=/admin/tenant/maintenance marker_status=200 marker_location= restore_shell=true login_text=false protected_text=false
+/admin/tenant/growth/agents no_marker_status=302 no_marker_location=/login?redirect=/admin/tenant/growth/agents marker_status=200 marker_location= restore_shell=true login_text=false protected_text=false
+bad_marker /admin/tenant/maintenance status=302 location=/login?redirect=/admin/tenant/maintenance clears_cookie=true

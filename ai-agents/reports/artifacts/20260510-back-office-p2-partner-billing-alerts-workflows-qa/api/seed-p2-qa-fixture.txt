@@ -1,0 +1,10 @@
+BEGIN
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+COMMIT
+        marker        | games | quotas | billing_plans | alert_events
+----------------------+-------+--------+---------------+--------------
+ p2_qa_fixture_counts |     1 |      1 |             1 |            1
+(1 row)

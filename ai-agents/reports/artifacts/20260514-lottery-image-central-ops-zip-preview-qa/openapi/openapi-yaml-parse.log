@@ -1,0 +1,13 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-10d47f051ae6 Creating
+ Container newpaotang-platform-api-run-10d47f051ae6 Created
+
+Fatal error: Uncaught Error: Class "Symfony\Component\Yaml\Yaml" not found in Command line code:1
+Stack trace:
+#0 {main}
+  thrown in Command line code on line 1

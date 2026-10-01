@@ -1,0 +1,29 @@
+insertOrIgnore generation source scan
+
+normal insert evidence
+apps/platform-api/app/Jobs/GenerateStockBatchChunkJob.php:12:class GenerateStockBatchChunkJob implements ShouldQueue
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:17:            $table->text('failure_reason')->nullable();
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:21:        Schema::create('stock_generation_batch_chunks', function (Blueprint $table): void {
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:32:            $table->text('failure_reason')->nullable();
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:36:            $table->unique(['batch_id', 'chunk_index'], 'stock_generation_batch_chunks_batch_index_unique');
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:37:            $table->index(['batch_id', 'status'], 'stock_generation_batch_chunks_batch_status_index');
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:38:            $table->index(['status', 'created_at'], 'stock_generation_batch_chunks_status_created_index');
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:44:        Schema::dropIfExists('stock_generation_batch_chunks');
+apps/platform-api/database/migrations/2026_05_16_000001_add_async_stock_generation_batches.php:54:                'failure_reason',
+apps/platform-api/app/Jobs/DispatchStockBatchImageJobs.php:12:class DispatchStockBatchImageJobs implements ShouldQueue
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:5:use App\Jobs\DispatchStockBatchImageJobs;
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:7:use App\Jobs\GenerateStockBatchChunkJob;
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1004:            GenerateStockBatchChunkJob::dispatch((string) $chunkId);
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1782:        $chunkRounds = min($back3Count, $this->asyncChunkRounds());
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1853:                'failure_reason' => null,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1931:                'failure_reason' => null,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1976:                    'failure_reason' => null,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1984:                    'failure_reason' => null,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2023:            DispatchStockBatchImageJobs::dispatch($completedBatchId);
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2087:            DispatchStockBatchImageJobs::dispatch($batchId, end($stockIds), $limit);
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2106:                'failure_reason' => $message,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2114:                'failure_reason' => $message,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2148:    private function asyncChunkRounds(): int
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2223:            StockItem::query()->insert($chunk);
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2540:            'failure_reason' => $batch->failure_reason ?? null,
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2559:                    'failure_reason' => $chunk->failure_reason,

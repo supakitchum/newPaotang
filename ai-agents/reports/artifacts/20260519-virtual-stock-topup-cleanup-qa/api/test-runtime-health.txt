@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Host: localhost:8001
+Connection: close
+X-Powered-By: PHP/8.4.21
+Cache-Control: no-cache, private
+Date: Tue, 19 May 2026 12:58:40 GMT
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+
+{"status":"ok","checks":{"app":"ok","database":"ok","cache":"ok"}}

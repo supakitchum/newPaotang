@@ -38,14 +38,22 @@
       </div>
       <div class="col-7">
         <div class="muted-text">เลขหน้า 3 ตัว</div>
-        <div class="result-number small">{{ result.front3.join(' ') }}</div>
+        <div class="result-number small result-number-list">
+          <span v-for="number in result.front3" :key="`front3-${number}`">{{ number }}</span>
+        </div>
       </div>
       <div class="col-5">
         <div class="muted-text">เลขท้าย 3 ตัว</div>
-        <div class="result-number small">{{ result.last3.join(' ') }}</div>
+        <div class="result-number small result-number-list">
+          <span v-for="number in result.last3" :key="`last3-${number}`">{{ number }}</span>
+        </div>
       </div>
     </div>
   </section>
+  <div v-if="unofficial" class="result-unofficial-alert mb-0">
+    <i class="bi bi-exclamation-triangle-fill me-2" />
+    <span>ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ</span>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -56,6 +64,7 @@ const props = withDefaults(defineProps<{
   date: string
   link?: string
   variant?: 'default' | 'featured' | 'history'
+  unofficial?: boolean
   result: {
     first: string
     front3: string[]
@@ -63,7 +72,8 @@ const props = withDefaults(defineProps<{
     last3: string[]
   }
 }>(), {
-  variant: 'default'
+  variant: 'default',
+  unofficial: false
 })
 
 const formattedDate = computed(() => formatDrawDateText(props.date))

@@ -1,0 +1,86 @@
+const _guestOnlyRedirectPaths = {
+  '/login',
+  '/login/otp',
+  '/register',
+  '/register/otp',
+  '/forgot-password',
+  '/reset-password',
+};
+
+const _blockedRedirectPaths = {
+  ..._guestOnlyRedirectPaths,
+  '/pin',
+  '/line/callback',
+  '/line/link-phone',
+  '/social',
+};
+
+String safeCustomerRedirect(String? value) {
+  final redirect = value?.trim() ?? '';
+  if (redirect.isEmpty ||
+      !redirect.startsWith('/') ||
+      redirect.startsWith('//')) {
+    return '/';
+  }
+
+  final uri = Uri.tryParse(redirect);
+  if (uri == null || uri.hasScheme || uri.host.isNotEmpty) {
+    return '/';
+  }
+
+  if (_blockedRedirectPaths.contains(uri.path) ||
+      uri.path.startsWith('/social/')) {
+    return '/';
+  }
+
+  return redirect;
+}
+
+String customerPostAuthRouteForRedirect({
+  required String? redirect,
+  required bool pinRequired,
+  required bool pinSetupRequired,
+}) {
+  final safeRedirect = safeCustomerRedirect(redirect);
+  if (pinSetupRequired || pinRequired) {
+    return customerPinRouteForRedirect(safeRedirect);
+  }
+  return safeRedirect;
+}
+
+String customerRouteWithRedirect(String path, String? redirect) {
+  final safeRedirect = safeCustomerRedirect(redirect);
+  if (safeRedirect == '/') return path;
+  return Uri(
+    path: path,
+    queryParameters: {'redirect': safeRedirect},
+  ).toString();
+}
+
+String customerLoginRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/login', redirect);
+}
+
+String customerLoginOtpRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/login/otp', redirect);
+}
+
+String customerRegisterRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/register', redirect);
+}
+
+String customerRegisterOtpRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/register/otp', redirect);
+}
+
+String customerPinRouteForRedirect(String? redirect) {
+  return customerRouteWithRedirect('/pin', redirect);
+}
+
+String customerCheckoutPendingRouteForOrder(String? orderId) {
+  final id = orderId?.trim() ?? '';
+  return Uri(
+    path: '/checkout/pending',
+    queryParameters: {if (id.isNotEmpty) 'order_id': id},
+  ).toString();
+}

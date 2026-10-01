@@ -1,0 +1,4 @@
+newpaotang-platform-api-run-561def9edc01 0.0.0.0:8002->8000/tcp, [::]:8002->8000/tcp
+newpaotang-platform-api-run-83ecc36865fa 0.0.0.0:8081->8080/tcp, [::]:8081->8080/tcp
+newpaotang-back-office-run-9fa9a9eaa396 0.0.0.0:3101->3000/tcp, [::]:3101->3000/tcp
+newpaotang-platform-api-run-f0ca7c279d18 0.0.0.0:8001->8000/tcp, [::]:8001->8000/tcp

@@ -1,0 +1,41 @@
+{
+  "scope_headers": {
+    "X-Admin-Scope": "tenant",
+    "X-Tenant-Id": "ten_demo_alpha"
+  },
+  "http_status": "200",
+  "id": "ord_qa_ctx_20260510",
+  "tenant_id": "ten_demo_alpha",
+  "reference": "QA-CTX-20260510",
+  "status": "paid",
+  "payment_status": "paid",
+  "total": {
+    "amount": 12000,
+    "currency": "THB"
+  },
+  "ticket_count": 1,
+  "customer": {
+    "id": "cus_qa_ctx_20260510",
+    "tenant_id": "ten_demo_alpha",
+    "name": "QA Context Customer",
+    "phone": "+66020000010",
+    "email": "qa.ctx.20260510@example.test",
+    "status": "active",
+    "avatar_url": null
+  },
+  "game_id": "gam_qa_ctx_20260510",
+  "wallet": {
+    "id": "wal_qa_ctx_20260510",
+    "balance": {
+      "amount": 250000,
+      "currency": "THB"
+    }
+  },
+  "tickets": [
+    {
+      "id": "tic_qa_ctx_20260510",
+      "full_number": "981234",
+      "status": "active"
+    }
+  ]
+}

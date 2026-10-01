@@ -1,15 +1,19 @@
 import { computed } from 'vue'
 import type { CartLottery } from '~/composables/useCart'
+import { toSerializableError, type SerializableError } from '~/utils/serializableError'
 import { formatDrawDateText } from '~/utils/formatDrawDate'
 
-export const APP_INIT_TTL_MS = 60 * 1000
+export const APP_INIT_TTL_MS = 5 * 60 * 1000
 
 export interface AppInitGame {
   id?: number | string
   name?: string
   status?: number | string
+  sale_start_at?: string
   start_at?: string
+  close_at?: string
   end_at?: string
+  server_time?: string
   [key: string]: unknown
 }
 
@@ -19,6 +23,7 @@ export interface AppInitOrder {
   exp?: string | number | null
   created_at?: string
   updated_at?: string
+  server_time?: string
   status?: number | string
   [key: string]: unknown
 }
@@ -36,20 +41,6 @@ export interface AppInitData {
 
 let initFetchPromise: Promise<AppInitData | null> | null = null
 let initFetchVersion = 0
-
-const addMinutes = (value: unknown, minutes: number) => {
-  if (!value) {
-    return null
-  }
-
-  const timestamp = Date.parse(String(value))
-
-  if (Number.isNaN(timestamp)) {
-    return null
-  }
-
-  return new Date(timestamp + minutes * 60 * 1000).toISOString()
-}
 
 const getTicketNumber = (ticket: Partial<CartLottery>) => {
   const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
@@ -101,6 +92,10 @@ const extractCartItems = (data: AppInitData | null) => {
     return carts.map(normalizeTicket).filter((ticket) => ticket.number)
   }
 
+  if (Array.isArray(carts)) {
+    return []
+  }
+
   const cartOrder = extractOrder(carts) || extractOrder(data.cart_order) || extractOrder(data.orders) || extractOrder(data.order) || extractOrder(data.waiting)
   const lotteries = Array.isArray(cartOrder?.lotteries) ? cartOrder.lotteries : []
 
@@ -108,9 +103,23 @@ const extractCartItems = (data: AppInitData | null) => {
 }
 
 const extractCartExp = (data: AppInitData | null) => {
+  if (Array.isArray(data?.carts) && data.carts.length === 0) {
+    return null
+  }
+
   const cartOrder = extractOrder(data?.cart_order) || extractOrder(data?.orders) || extractOrder(data?.order) || extractOrder(data?.carts) || extractOrder(data?.waiting)
 
-  return cartOrder?.exp || addMinutes(cartOrder?.created_at, 15)
+  return cartOrder?.exp || null
+}
+
+const extractCartServerTime = (data: AppInitData | null) => {
+  if (Array.isArray(data?.carts) && data.carts.length === 0) {
+    return null
+  }
+
+  const cartOrder = extractOrder(data?.cart_order) || extractOrder(data?.orders) || extractOrder(data?.order) || extractOrder(data?.carts) || extractOrder(data?.waiting)
+
+  return cartOrder?.server_time || cartOrder?.updated_at || cartOrder?.created_at || null
 }
 
 const normalizeInitData = (responseData: any): AppInitData => {
@@ -136,9 +145,30 @@ const isSaleRoute = (path: string) => (
 
 const isCartOrPaymentRoute = (path: string) => (
   path === '/cart' ||
-  path === '/checkout' ||
-  path === '/topup'
+  path === '/checkout'
 )
+
+const isTopupRoute = (path: string) => path === '/topup' || path.startsWith('/topup/')
+
+const parseTimestampMs = (value: unknown) => {
+  if (!value) {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return value < 1000000000000 ? value * 1000 : value
+  }
+
+  const numericValue = Number(value)
+
+  if (Number.isFinite(numericValue)) {
+    return numericValue < 1000000000000 ? numericValue * 1000 : numericValue
+  }
+
+  const dateValue = Date.parse(String(value))
+
+  return Number.isNaN(dateValue) ? null : dateValue
+}
 
 export const useAppInit = () => {
   const data = useState<AppInitData | null>('app_init_data', () => null)
@@ -146,13 +176,35 @@ export const useAppInit = () => {
   const fetchedAt = useState<number>('app_init_fetched_at', () => 0)
   const isLoading = useState<boolean>('app_init_loading', () => false)
   const isReady = useState<boolean>('app_init_ready', () => false)
-  const error = useState<unknown>('app_init_error', () => null)
-  const axios = useAxios()
-  const { items, setCartItems } = useCart()
+  const error = useState<SerializableError | null>('app_init_error', () => null)
+  const platformApi = usePlatformApi()
+  const { items, remainingMilliseconds, setCartItems } = useCart()
 
   const currentGame = computed(() => data.value?.game || null)
   const currentStatus = computed(() => Number(data.value?.status ?? 0))
   const currentDrawDate = computed(() => formatDrawDateText(currentGame.value?.name))
+  const saleStartAt = computed(() => parseTimestampMs(currentGame.value?.start_at || currentGame.value?.sale_start_at || null))
+  const saleCloseAt = computed(() => parseTimestampMs(currentGame.value?.end_at || currentGame.value?.close_at || null))
+  const hasActiveCart = computed(() => items.value.length > 0 && remainingMilliseconds.value > 0)
+  const hasPublishedResult = computed(() => currentStatus.value === 2)
+  const currentTimeMs = () => {
+    const serverTime = parseTimestampMs(currentGame.value?.server_time || null)
+
+    return serverTime === null ? Date.now() : serverTime + Math.max(0, Date.now() - fetchedAt.value)
+  }
+  const isSaleNotStartedNow = () => (
+    currentStatus.value === 1 &&
+    saleStartAt.value !== null &&
+    currentTimeMs() < saleStartAt.value
+  )
+  const isSaleClosedNow = () => (
+    currentStatus.value !== 1 ||
+    (saleCloseAt.value !== null && currentTimeMs() >= saleCloseAt.value)
+  )
+  const isWaitingForResultNow = () => isSaleClosedNow() && !hasPublishedResult.value
+  const isSaleNotStarted = computed(() => isSaleNotStartedNow())
+  const isSaleClosed = computed(() => currentStatus.value !== 1)
+  const isWaitingForResult = computed(() => isSaleClosed.value && !hasPublishedResult.value)
   const waiting = computed(() => data.value?.waiting || [])
   const hasWaiting = computed(() => isFilledValue(waiting.value))
   const isExpired = () => !data.value || Date.now() >= expiresAt.value
@@ -172,7 +224,7 @@ export const useAppInit = () => {
       return
     }
 
-    setCartItems(cartItems, extractCartExp(initData))
+    setCartItems(cartItems, extractCartExp(initData), extractCartServerTime(initData))
   }
 
   const fetchAppInit = async (options: { force?: boolean, token?: string | null } = {}) => {
@@ -186,12 +238,7 @@ export const useAppInit = () => {
       error.value = null
 
       try {
-        const response = await axios.get('/init', {
-          headers: options.token ? {
-            Authorization: `Bearer ${options.token}`
-          } : undefined
-        })
-        const nextData = normalizeInitData(response.data)
+        const nextData = normalizeInitData(await platformApi.loadAppInit({ force: options.force }))
         const now = Date.now()
 
         if (requestVersion === initFetchVersion) {
@@ -206,7 +253,7 @@ export const useAppInit = () => {
         return nextData
       } catch (e) {
         if (requestVersion === initFetchVersion) {
-          error.value = e
+          error.value = toSerializableError(e)
         }
 
         return data.value
@@ -246,22 +293,48 @@ export const useAppInit = () => {
       return null
     }
 
+    if (isTopupRoute(path)) {
+      return null
+    }
+
     const status = currentStatus.value
+    const saleNotStarted = isSaleNotStartedNow()
+    const waitingForResult = isWaitingForResultNow()
 
-    if (path === '/countdown' && status !== 3) {
-      return status === 1 ? '/buy' : '/result'
+    if (path === '/countdown') {
+      if (saleNotStarted) {
+        return null
+      }
+
+      if (status === 1) {
+        return '/buy'
+      }
+
+      return status === 2 ? '/result' : '/waiting-result'
     }
 
-    if (status === 2 && (isSaleRoute(path) || isCartOrPaymentRoute(path))) {
-      return '/result'
-    }
-
-    if (status === 3 && (isSaleRoute(path) || isCartOrPaymentRoute(path))) {
+    if (saleNotStarted && (isSaleRoute(path) || path === '/waiting-result')) {
       return '/countdown'
     }
 
-    if (status === 0 && isSaleRoute(path)) {
+    if (path === '/waiting-result' && status === 2) {
+      return null
+    }
+
+    if (path === '/waiting-result' && !waitingForResult) {
+      return status === 1 ? '/buy' : '/result'
+    }
+
+    if (status === 2 && path !== '/' && (isSaleRoute(path) || isCartOrPaymentRoute(path))) {
       return '/result'
+    }
+
+    if (waitingForResult && isSaleRoute(path)) {
+      return hasActiveCart.value ? '/cart' : '/waiting-result'
+    }
+
+    if (waitingForResult && isCartOrPaymentRoute(path) && !hasActiveCart.value) {
+      return '/waiting-result'
     }
 
     return null
@@ -272,6 +345,16 @@ export const useAppInit = () => {
     currentGame,
     currentStatus,
     currentDrawDate,
+    saleStartAt,
+    saleCloseAt,
+    hasActiveCart,
+    hasPublishedResult,
+    isSaleNotStarted,
+    isSaleClosed,
+    isWaitingForResult,
+    isSaleNotStartedNow,
+    isSaleClosedNow,
+    isWaitingForResultNow,
     waiting,
     hasWaiting,
     expiresAt,

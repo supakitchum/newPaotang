@@ -1,0 +1,428 @@
+ M ai-agents/BOARD.md
+ M ai-agents/README.md
+ M ai-agents/decisions/20260506-m1-platform-core-decision.md
+ M ai-agents/prompts/open-chat-backend-develop.md
+ M ai-agents/prompts/open-chat-bo-develop.md
+ M ai-agents/prompts/open-chat-coordinator.md
+ M ai-agents/prompts/open-chat-customer-develop.md
+ M ai-agents/prompts/open-chat-orchestrator.md
+ M ai-agents/prompts/open-chat-qa-tester.md
+ M ai-agents/prompts/orchestrator-task-template.md
+ M ai-agents/roles/backend-develop.md
+ M ai-agents/roles/bo-develop.md
+ M ai-agents/roles/customer-develop.md
+ M ai-agents/roles/qa-tester.md
+ M ai-agents/rules/global-rules.md
+ M ai-agents/workflow/stage-gates.md
+ M apps/customer/.env.example
+ M apps/customer/assets/scss/main.css
+ M apps/customer/components/BrandLogo.vue
+ M apps/customer/components/LotteryItem.vue
+ M apps/customer/components/ResultFullPage.vue
+ M apps/customer/composables/useAppInit.ts
+ M apps/customer/composables/useAuth.ts
+ M apps/customer/composables/useUserTickets.ts
+ M apps/customer/middleware/init.global.ts
+ M apps/customer/nuxt.config.ts
+ M apps/customer/pages/buy/index.vue
+ M apps/customer/pages/buy/more.vue
+ M apps/customer/pages/buy/search.vue
+ M apps/customer/pages/cart.vue
+ M apps/customer/pages/checkout.vue
+ M apps/customer/pages/index.vue
+ M apps/customer/pages/line/callback.vue
+ M apps/customer/pages/login.vue
+ M apps/customer/pages/profile.vue
+ M apps/customer/pages/register.vue
+ M apps/customer/pages/result/full.vue
+ M apps/customer/pages/result/index.vue
+ M apps/customer/pages/results/index.vue
+ M apps/customer/pages/stores/index.vue
+ M apps/customer/pages/stores/lotteries.vue
+ M apps/customer/pages/success.vue
+ M apps/customer/pages/tickets/history.vue
+ M apps/customer/pages/topup/history.vue
+ M apps/customer/pages/topup/index.vue
+ M apps/customer/plugins/axios.ts
+ M compose.yaml
+ M docs/workspace-app-structure.md
+ M document/08_IMPLEMENTATION_ROADMAP.md
+ M document/09_AI_WORK_INSTRUCTIONS.md
+ M document/11_DEPLOYMENT_WHITE_LABEL.md
+ M document/15_EXECUTION_PLAN.md
+ M document/README.md
+?? .github/
+?? ai-agents/decisions/20260506-m1-admin-auth-menu-read-approval-decision.md
+?? ai-agents/decisions/20260506-m1-admin-auth-menu-read-decision.md
+?? ai-agents/decisions/20260506-m1-admin-auth-menu-read-qa-review-decision.md
+?? ai-agents/decisions/20260506-m1-admin-operations-foundation-approval-decision.md
+?? ai-agents/decisions/20260506-m1-admin-operations-foundation-decision.md
+?? ai-agents/decisions/20260506-m1-admin-operations-foundation-qa-review-decision.md
+?? ai-agents/decisions/20260506-m1-admin-role-management-approval-decision.md
+?? ai-agents/decisions/20260506-m1-admin-role-management-decision.md
+?? ai-agents/decisions/20260506-m1-admin-user-management-approval-decision.md
+?? ai-agents/decisions/20260506-m1-admin-user-management-decision.md
+?? ai-agents/decisions/20260506-m1-platform-core-approval-decision.md
+?? ai-agents/decisions/20260506-m1-platform-core-qa-review-decision.md
+?? ai-agents/decisions/20260506-m1-rbac-menu-seeders-approval-decision.md
+?? ai-agents/decisions/20260506-m1-rbac-menu-seeders-decision.md
+?? ai-agents/decisions/20260506-m2-partner-provisioning-core-approval-decision.md
+?? ai-agents/decisions/20260506-m2-partner-provisioning-core-decision.md
+?? ai-agents/decisions/20260506-m2-partner-provisioning-core-qa-review-decision.md
+?? ai-agents/decisions/20260506-m3-central-stock-allocation-approval-decision.md
+?? ai-agents/decisions/20260506-m3-central-stock-allocation-decision.md
+?? ai-agents/decisions/20260506-m3-central-stock-allocation-qa-review-decision.md
+?? ai-agents/decisions/20260506-m4-local-stock-booking-decision.md
+?? ai-agents/decisions/20260506-m4-local-stock-booking-qa-review-decision.md
+?? ai-agents/decisions/20260507-back-office-admin-foundation-approval-decision.md
+?? ai-agents/decisions/20260507-back-office-admin-foundation-decision.md
+?? ai-agents/decisions/20260507-back-office-operations-page-slice-1-decision.md
+?? ai-agents/decisions/20260507-backend-architecture-compliance-remediation-approval-decision.md
+?? ai-agents/decisions/20260507-backend-architecture-compliance-remediation-decision.md
+?? ai-agents/decisions/20260507-backend-eloquent-call-style-revision-decision.md
+?? ai-agents/decisions/20260507-backend-laravel-eloquent-standardization-decision.md
+?? ai-agents/decisions/20260507-backend-model-adoption-remediation-decision.md
+?? ai-agents/decisions/20260507-backend-model-adoption-remediation-qa-review-decision.md
+?? ai-agents/decisions/20260507-backend-model-remediation-decision.md
+?? ai-agents/decisions/20260507-backend-structure-console-remediation-approval-decision.md
+?? ai-agents/decisions/20260507-backend-structure-console-remediation-decision.md
+?? ai-agents/decisions/20260507-m4-local-stock-booking-approval-decision.md
+?? ai-agents/decisions/20260507-m5-checkout-wallet-sold-sync-approval-decision.md
+?? ai-agents/decisions/20260507-m5-checkout-wallet-sold-sync-decision.md
+?? ai-agents/decisions/20260507-m5-checkout-wallet-sold-sync-qa-review-decision.md
+?? ai-agents/decisions/20260507-m6-customer-api-integration-approval-decision.md
+?? ai-agents/decisions/20260507-m6-customer-api-integration-decision.md
+?? ai-agents/decisions/20260507-m6-customer-api-integration-qa-review-decision.md
+?? ai-agents/decisions/20260507-m7-reward-result-engine-approval-decision.md
+?? ai-agents/decisions/20260507-m7-reward-result-engine-decision.md
+?? ai-agents/decisions/20260507-m7-reward-result-engine-qa-review-decision.md
+?? ai-agents/decisions/20260507-m8-affiliate-agent-reports-settlement-approval-decision.md
+?? ai-agents/decisions/20260507-m8-affiliate-agent-reports-settlement-decision.md
+?? ai-agents/decisions/20260507-m8-affiliate-agent-reports-settlement-qa-review-decision.md
+?? ai-agents/decisions/20260507-m9-maintenance-support-security-approval-decision.md
+?? ai-agents/decisions/20260507-m9-maintenance-support-security-decision.md
+?? ai-agents/decisions/20260508-back-office-authenticated-navigation-remediation-decision.md
+?? ai-agents/decisions/20260508-back-office-authenticated-visual-qa-decision.md
+?? ai-agents/decisions/20260508-back-office-operations-page-slice-1-approval-decision.md
+?? ai-agents/decisions/20260508-back-office-operations-page-slice-1-remediation-decision.md
+?? ai-agents/decisions/20260508-backend-bootstrap-seeders-approval-decision.md
+?? ai-agents/decisions/20260508-backend-bootstrap-seeders-decision.md
+?? ai-agents/decisions/20260508-backend-laravel-eloquent-standardization-approval-decision.md
+?? ai-agents/decisions/20260508-backend-module-structure-remediation-approval-decision.md
+?? ai-agents/decisions/20260508-backend-module-structure-remediation-decision.md
+?? ai-agents/decisions/20260508-m10-deployment-monitoring-load-test-approval-decision.md
+?? ai-agents/decisions/20260508-m10-full-k6-load-test-execution-approval-decision.md
+?? ai-agents/decisions/20260508-m10-release-gate-follow-up-planning-decision.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-logout-idempotency-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-logout-idempotency-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-logout-idempotency-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-qa-review-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-auth-menu-read-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-audit-redaction-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-audit-redaction-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-audit-redaction-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-foundation-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-foundation-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-foundation-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-foundation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-foundation-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-operations-foundation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-role-management-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-role-management-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-role-management-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-role-management-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-role-management-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-user-management-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-user-management-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-user-management-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-user-management-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-admin-user-management-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-tenant-resolution-tests-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-tenant-resolution-tests-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-platform-core-tenant-resolution-tests-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-rbac-menu-seeders-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-rbac-menu-seeders-backend-handoff.md
+?? ai-agents/handoffs/20260506-m1-rbac-menu-seeders-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m1-rbac-menu-seeders-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m1-rbac-menu-seeders-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-provisioning-core-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-provisioning-core-backend-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-provisioning-core-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-provisioning-core-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-provisioning-core-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-provisioning-core-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-suspend-admin-access-backend-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-suspend-admin-access-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m2-partner-suspend-admin-access-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m3-allocation-idempotency-replay-backend-handoff.md
+?? ai-agents/handoffs/20260506-m3-allocation-idempotency-replay-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m3-allocation-idempotency-replay-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m3-central-stock-allocation-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m3-central-stock-allocation-backend-handoff.md
+?? ai-agents/handoffs/20260506-m3-central-stock-allocation-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m3-central-stock-allocation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m3-central-stock-allocation-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m3-central-stock-allocation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m4-local-stock-booking-backend-handoff.md
+?? ai-agents/handoffs/20260506-m4-local-stock-booking-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m4-local-stock-booking-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m4-local-stock-booking-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260506-m4-local-stock-booking-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m4-stock-search-store-filter-backend-handoff.md
+?? ai-agents/handoffs/20260506-m4-stock-search-store-filter-orchestrator-handoff.md
+?? ai-agents/handoffs/20260506-m4-stock-search-store-filter-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-admin-foundation-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-admin-foundation-bo-handoff.md
+?? ai-agents/handoffs/20260507-back-office-admin-foundation-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-admin-foundation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-admin-foundation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-operations-page-slice-1-bo-handoff.md
+?? ai-agents/handoffs/20260507-back-office-operations-page-slice-1-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-operations-page-slice-1-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-back-office-operations-page-slice-1-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-architecture-compliance-remediation-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-architecture-compliance-remediation-backend-handoff.md
+?? ai-agents/handoffs/20260507-backend-architecture-compliance-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-architecture-compliance-remediation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-architecture-compliance-remediation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-eloquent-call-style-revision-backend-handoff.md
+?? ai-agents/handoffs/20260507-backend-eloquent-call-style-revision-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-eloquent-call-style-revision-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-laravel-eloquent-standardization-backend-handoff.md
+?? ai-agents/handoffs/20260507-backend-laravel-eloquent-standardization-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-laravel-eloquent-standardization-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-laravel-eloquent-standardization-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-exception-doc-revision-backend-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-exception-doc-revision-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-exception-doc-revision-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-remediation-backend-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-remediation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-remediation-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-adoption-remediation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-model-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-structure-console-remediation-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-structure-console-remediation-backend-handoff.md
+?? ai-agents/handoffs/20260507-backend-structure-console-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-backend-structure-console-remediation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-backend-structure-console-remediation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m4-local-stock-booking-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m5-checkout-wallet-sold-sync-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m5-checkout-wallet-sold-sync-backend-handoff.md
+?? ai-agents/handoffs/20260507-m5-checkout-wallet-sold-sync-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m5-checkout-wallet-sold-sync-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m5-checkout-wallet-sold-sync-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m5-checkout-wallet-sold-sync-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m5-customer-auth-host-isolation-backend-handoff.md
+?? ai-agents/handoffs/20260507-m5-customer-auth-host-isolation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m5-customer-auth-host-isolation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m6-auth-ticket-history-revision-customer-handoff.md
+?? ai-agents/handoffs/20260507-m6-auth-ticket-history-revision-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m6-auth-ticket-history-revision-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m6-customer-api-integration-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m6-customer-api-integration-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m6-customer-api-integration-customer-handoff.md
+?? ai-agents/handoffs/20260507-m6-customer-api-integration-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m6-customer-api-integration-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m6-customer-api-integration-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-claim-payout-validation-revision-backend-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-claim-payout-validation-revision-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-claim-payout-validation-revision-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-result-engine-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-result-engine-backend-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-result-engine-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-result-engine-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-result-engine-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m7-reward-result-engine-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m8-affiliate-agent-reports-settlement-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m8-affiliate-agent-reports-settlement-backend-handoff.md
+?? ai-agents/handoffs/20260507-m8-affiliate-agent-reports-settlement-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m8-affiliate-agent-reports-settlement-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m8-affiliate-agent-reports-settlement-qa-review-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m8-affiliate-agent-reports-settlement-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m8-payout-attribution-status-revision-backend-handoff.md
+?? ai-agents/handoffs/20260507-m8-payout-attribution-status-revision-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m8-payout-attribution-status-revision-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m9-maintenance-support-security-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m9-maintenance-support-security-backend-handoff.md
+?? ai-agents/handoffs/20260507-m9-maintenance-support-security-coordinator-handoff.md
+?? ai-agents/handoffs/20260507-m9-maintenance-support-security-orchestrator-handoff.md
+?? ai-agents/handoffs/20260507-m9-maintenance-support-security-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-authenticated-navigation-remediation-bo-handoff.md
+?? ai-agents/handoffs/20260508-back-office-authenticated-navigation-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-authenticated-navigation-remediation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-authenticated-navigation-remediation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-authenticated-visual-qa-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-authenticated-visual-qa-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-operations-page-slice-1-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-operations-page-slice-1-remediation-bo-handoff.md
+?? ai-agents/handoffs/20260508-back-office-operations-page-slice-1-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-operations-page-slice-1-remediation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-back-office-operations-page-slice-1-remediation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-backend-bootstrap-seeders-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-backend-bootstrap-seeders-backend-handoff.md
+?? ai-agents/handoffs/20260508-backend-laravel-eloquent-standardization-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-backend-module-structure-remediation-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-backend-module-structure-remediation-backend-handoff.md
+?? ai-agents/handoffs/20260508-backend-module-structure-remediation-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-backend-module-structure-remediation-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-backend-module-structure-remediation-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-m10-deployment-monitoring-load-test-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-m10-deployment-monitoring-load-test-backend-handoff.md
+?? ai-agents/handoffs/20260508-m10-deployment-monitoring-load-test-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-m10-full-k6-load-test-execution-approval-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-m10-full-k6-load-test-execution-backend-develop-handoff.md
+?? ai-agents/handoffs/20260508-m10-full-k6-load-test-execution-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-m10-production-observability-alerting-backend-handoff.md
+?? ai-agents/handoffs/20260508-m10-production-observability-alerting-planning-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-m10-production-observability-alerting-qa-task-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-m10-release-gate-follow-up-planning-coordinator-handoff.md
+?? ai-agents/handoffs/20260508-m10-release-gate-follow-up-planning-orchestrator-handoff.md
+?? ai-agents/handoffs/20260508-main-plan-next-slice-orchestrator-handoff.md
+?? ai-agents/reports/20260506-m1-admin-auth-logout-idempotency-qa-report.md
+?? ai-agents/reports/20260506-m1-admin-auth-menu-read-qa-report.md
+?? ai-agents/reports/20260506-m1-admin-operations-audit-redaction-qa-report.md
+?? ai-agents/reports/20260506-m1-admin-operations-foundation-qa-report.md
+?? ai-agents/reports/20260506-m1-admin-role-management-qa-report.md
+?? ai-agents/reports/20260506-m1-admin-user-management-qa-report.md
+?? ai-agents/reports/20260506-m1-platform-core-qa-report.md
+?? ai-agents/reports/20260506-m1-platform-core-tenant-resolution-tests-qa-report.md
+?? ai-agents/reports/20260506-m1-rbac-menu-seeders-qa-report.md
+?? ai-agents/reports/20260506-m2-partner-provisioning-core-qa-report.md
+?? ai-agents/reports/20260506-m2-partner-suspend-admin-access-qa-report.md
+?? ai-agents/reports/20260506-m3-allocation-idempotency-replay-qa-report.md
+?? ai-agents/reports/20260506-m3-central-stock-allocation-qa-report.md
+?? ai-agents/reports/20260506-m4-local-stock-booking-qa-report.md
+?? ai-agents/reports/20260506-m4-stock-search-store-filter-qa-report.md
+?? ai-agents/reports/20260507-back-office-admin-foundation-qa-report.md
+?? ai-agents/reports/20260507-back-office-operations-page-slice-1-qa-report.md
+?? ai-agents/reports/20260507-backend-architecture-compliance-remediation-qa-report.md
+?? ai-agents/reports/20260507-backend-laravel-eloquent-standardization-qa-report.md
+?? ai-agents/reports/20260507-backend-model-adoption-exception-doc-revision-qa-report.md
+?? ai-agents/reports/20260507-backend-model-adoption-remediation-qa-report.md
+?? ai-agents/reports/20260507-backend-structure-console-remediation-qa-report.md
+?? ai-agents/reports/20260507-m5-checkout-wallet-sold-sync-qa-report.md
+?? ai-agents/reports/20260507-m5-customer-auth-host-isolation-qa-report.md
+?? ai-agents/reports/20260507-m6-auth-ticket-history-revision-qa-report.md
+?? ai-agents/reports/20260507-m6-customer-api-integration-qa-report.md
+?? ai-agents/reports/20260507-m7-reward-claim-payout-validation-revision-qa-report.md
+?? ai-agents/reports/20260507-m7-reward-result-engine-qa-report.md
+?? ai-agents/reports/20260507-m8-affiliate-agent-reports-settlement-qa-report.md
+?? ai-agents/reports/20260507-m8-payout-attribution-status-revision-qa-report.md
+?? ai-agents/reports/20260507-m9-maintenance-support-security-qa-report.md
+?? ai-agents/reports/20260508-back-office-authenticated-navigation-remediation-qa-report.md
+?? ai-agents/reports/20260508-back-office-authenticated-visual-qa-report.md
+?? ai-agents/reports/20260508-back-office-operations-page-slice-1-remediation-qa-report.md
+?? ai-agents/reports/20260508-backend-bootstrap-seeders-qa-report.md
+?? ai-agents/reports/20260508-backend-module-structure-remediation-qa-report.md
+?? ai-agents/reports/20260508-m10-deployment-monitoring-load-test-qa-report.md
+?? ai-agents/reports/20260508-m10-full-k6-load-test-execution-qa-report.md
+?? ai-agents/reports/artifacts/
+?? ai-agents/tasks/20260506-m1-admin-auth-logout-idempotency-backend.md
+?? ai-agents/tasks/20260506-m1-admin-auth-logout-idempotency-qa.md
+?? ai-agents/tasks/20260506-m1-admin-auth-menu-read-backend.md
+?? ai-agents/tasks/20260506-m1-admin-auth-menu-read-qa.md
+?? ai-agents/tasks/20260506-m1-admin-operations-audit-redaction-backend.md
+?? ai-agents/tasks/20260506-m1-admin-operations-audit-redaction-qa.md
+?? ai-agents/tasks/20260506-m1-admin-operations-foundation-backend.md
+?? ai-agents/tasks/20260506-m1-admin-operations-foundation-qa.md
+?? ai-agents/tasks/20260506-m1-admin-role-management-backend.md
+?? ai-agents/tasks/20260506-m1-admin-role-management-qa.md
+?? ai-agents/tasks/20260506-m1-admin-user-management-backend.md
+?? ai-agents/tasks/20260506-m1-admin-user-management-qa.md
+?? ai-agents/tasks/20260506-m1-platform-core-backend.md
+?? ai-agents/tasks/20260506-m1-platform-core-qa.md
+?? ai-agents/tasks/20260506-m1-platform-core-tenant-resolution-tests-backend.md
+?? ai-agents/tasks/20260506-m1-platform-core-tenant-resolution-tests-qa.md
+?? ai-agents/tasks/20260506-m1-rbac-menu-seeders-backend.md
+?? ai-agents/tasks/20260506-m1-rbac-menu-seeders-qa.md
+?? ai-agents/tasks/20260506-m2-partner-provisioning-core-backend.md
+?? ai-agents/tasks/20260506-m2-partner-provisioning-core-qa.md
+?? ai-agents/tasks/20260506-m2-partner-suspend-admin-access-backend.md
+?? ai-agents/tasks/20260506-m2-partner-suspend-admin-access-qa.md
+?? ai-agents/tasks/20260506-m3-allocation-idempotency-replay-backend.md
+?? ai-agents/tasks/20260506-m3-allocation-idempotency-replay-qa.md
+?? ai-agents/tasks/20260506-m3-central-stock-allocation-backend.md
+?? ai-agents/tasks/20260506-m3-central-stock-allocation-qa.md
+?? ai-agents/tasks/20260506-m4-local-stock-booking-backend.md
+?? ai-agents/tasks/20260506-m4-local-stock-booking-qa.md
+?? ai-agents/tasks/20260506-m4-stock-search-store-filter-backend.md
+?? ai-agents/tasks/20260506-m4-stock-search-store-filter-qa.md
+?? ai-agents/tasks/20260507-back-office-admin-foundation-bo.md
+?? ai-agents/tasks/20260507-back-office-admin-foundation-qa.md
+?? ai-agents/tasks/20260507-back-office-operations-page-slice-1-bo.md
+?? ai-agents/tasks/20260507-back-office-operations-page-slice-1-qa.md
+?? ai-agents/tasks/20260507-backend-architecture-compliance-remediation-backend.md
+?? ai-agents/tasks/20260507-backend-architecture-compliance-remediation-qa.md
+?? ai-agents/tasks/20260507-backend-eloquent-call-style-revision-backend.md
+?? ai-agents/tasks/20260507-backend-laravel-eloquent-standardization-backend.md
+?? ai-agents/tasks/20260507-backend-laravel-eloquent-standardization-qa.md
+?? ai-agents/tasks/20260507-backend-model-adoption-exception-doc-revision-backend.md
+?? ai-agents/tasks/20260507-backend-model-adoption-exception-doc-revision-qa.md
+?? ai-agents/tasks/20260507-backend-model-adoption-remediation-backend.md
+?? ai-agents/tasks/20260507-backend-model-adoption-remediation-qa.md
+?? ai-agents/tasks/20260507-backend-structure-console-remediation-backend.md
+?? ai-agents/tasks/20260507-backend-structure-console-remediation-qa.md
+?? ai-agents/tasks/20260507-m5-checkout-wallet-sold-sync-backend.md
+?? ai-agents/tasks/20260507-m5-checkout-wallet-sold-sync-qa.md
+?? ai-agents/tasks/20260507-m5-customer-auth-host-isolation-backend.md
+?? ai-agents/tasks/20260507-m5-customer-auth-host-isolation-qa.md
+?? ai-agents/tasks/20260507-m6-auth-ticket-history-revision-customer.md
+?? ai-agents/tasks/20260507-m6-auth-ticket-history-revision-qa.md
+?? ai-agents/tasks/20260507-m6-customer-api-integration-customer.md
+?? ai-agents/tasks/20260507-m6-customer-api-integration-qa.md
+?? ai-agents/tasks/20260507-m7-reward-claim-payout-validation-revision-backend.md
+?? ai-agents/tasks/20260507-m7-reward-claim-payout-validation-revision-qa.md
+?? ai-agents/tasks/20260507-m7-reward-result-engine-backend.md
+?? ai-agents/tasks/20260507-m7-reward-result-engine-qa.md
+?? ai-agents/tasks/20260507-m8-affiliate-agent-reports-settlement-backend.md
+?? ai-agents/tasks/20260507-m8-affiliate-agent-reports-settlement-qa.md
+?? ai-agents/tasks/20260507-m8-payout-attribution-status-revision-backend.md
+?? ai-agents/tasks/20260507-m8-payout-attribution-status-revision-qa.md
+?? ai-agents/tasks/20260507-m9-maintenance-support-security-backend.md
+?? ai-agents/tasks/20260507-m9-maintenance-support-security-qa.md
+?? ai-agents/tasks/20260508-back-office-authenticated-navigation-remediation-bo.md
+?? ai-agents/tasks/20260508-back-office-authenticated-navigation-remediation-qa.md
+?? ai-agents/tasks/20260508-back-office-authenticated-visual-qa.md
+?? ai-agents/tasks/20260508-back-office-operations-page-slice-1-remediation-bo.md
+?? ai-agents/tasks/20260508-back-office-operations-page-slice-1-remediation-qa.md
+?? ai-agents/tasks/20260508-backend-bootstrap-seeders-qa.md
+?? ai-agents/tasks/20260508-backend-module-structure-remediation-backend.md
+?? ai-agents/tasks/20260508-backend-module-structure-remediation-qa.md
+?? ai-agents/tasks/20260508-m10-deployment-monitoring-load-test-backend.md
+?? ai-agents/tasks/20260508-m10-deployment-monitoring-load-test-qa.md
+?? ai-agents/tasks/20260508-m10-full-k6-load-test-execution-backend.md
+?? ai-agents/tasks/20260508-m10-full-k6-load-test-execution-qa.md
+?? ai-agents/tasks/20260508-m10-production-observability-alerting-backend.md
+?? ai-agents/tasks/20260508-m10-production-observability-alerting-qa.md
+?? apps/back-office/
+?? apps/customer/composables/usePlatformApi.ts
+?? apps/customer/composables/useSiteConfig.ts
+?? apps/customer/composables/useTenantSeo.ts
+?? apps/customer/pages/maintenance.vue
+?? apps/customer/server/
+?? apps/platform-api/
+?? docs/back-office-admin-foundation.md
+?? docs/backend-architecture-compliance.md
+?? docs/backend-bootstrap-seeders.md
+?? docs/backend-console-commands.md
+?? docs/backend-maintenance-support.md
+?? docs/backend-model-layer.md
+?? docs/backend-query-builder-exceptions.md
+?? docs/backend-request-validation.md
+?? docs/docker-runtime-policy.md
+?? docs/m10-deployment-monitoring-load-test.md
+?? load-tests/
+?? ops/
+?? scripts/

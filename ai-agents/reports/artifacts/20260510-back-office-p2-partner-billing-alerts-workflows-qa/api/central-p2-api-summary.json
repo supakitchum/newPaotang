@@ -1,0 +1,21 @@
+{
+  "scope_header": "X-Admin-Scope: central",
+  "ids": {
+    "partner_id": "par_demo_alpha",
+    "quota_id": "pqt_p2_qa_20260510",
+    "monitoring_profile_id": "pmp_5b8eeb609343b015752e",
+    "usage_meter_id": "pum_1c3b8986b9158d83bd85",
+    "billing_plan_id": "pbp_p2_qa_20260510",
+    "alert_policy_id": "pap_0cc95a0cc378926f2929",
+    "alert_event_id": "pae_p2_qa_20260510"
+  },
+  "list_counts": {
+    "central-partners-list": 3,
+    "central-partner-quotas-list": 1,
+    "central-partner-monitoring-list": 3,
+    "central-partner-usage-list": 30,
+    "central-billing-plans-list": 1,
+    "central-alert-policies-list": 39,
+    "central-alert-events-list": 1
+  }
+}

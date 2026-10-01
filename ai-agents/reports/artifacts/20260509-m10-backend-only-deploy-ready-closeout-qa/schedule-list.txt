@@ -1,0 +1,15 @@
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-platform-api-run-163d0fb65b3c Creating 
+ Container newpaotang-platform-api-run-163d0fb65b3c Created 
+
+  *    * * * *  php artisan stock:reservations:expire --limit=100  Next Due: 22 seconds from now
+  *    * * * *  php artisan stock:sold:sync --limit=100  Next Due: 22 seconds from now
+  */5  * * * *  php artisan reward:check --chunk=100  Next Due: 22 seconds from now
+  */10 * * * *  php artisan commission:calculate --limit=100  Next Due: 5 minutes from now
+  */5  * * * *  php artisan platform:alerts:check --dry-run --format=json  Next Due: 22 seconds from now
+

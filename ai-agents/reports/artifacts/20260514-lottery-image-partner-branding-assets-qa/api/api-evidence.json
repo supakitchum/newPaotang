@@ -1,0 +1,509 @@
+{
+    "result": "PASS",
+    "run": "dfbc7682",
+    "base_url": "http:\/\/platform-api:8000\/api\/v1",
+    "fixtures": {
+        "unlocked_partner_id": "par_lba_un_dfbc7682",
+        "locked_partner_id": "par_lba_lo_dfbc7682",
+        "asset_ids": {
+            "logo_qr": "ast_01KRH78117EY65EKV02WG4B6SZ",
+            "right_sidebar": "ast_01KRH78136QHQ9WWE6Q2AXCHEK",
+            "logo_bottom": "ast_01KRH7815F6X8S3D9QPWBM8YJ5"
+        }
+    },
+    "checks": {
+        "unlocked_initial_missing_and_editable": true,
+        "tenant_scope_rejected": true,
+        "save_payload_nested_asset_ids": true,
+        "unlocked_save_ready": true,
+        "post_save_metadata_present": true,
+        "local_dev_metadata_only_not_production_ready": true,
+        "locked_state_reported": true,
+        "locked_forced_save_conflicts": true,
+        "central_writes_have_scope_and_idempotency": true
+    },
+    "events": [
+        {
+            "label": "central-login",
+            "method": "POST",
+            "path": "\/auth\/admin\/login",
+            "status": 200,
+            "payload_keys": [
+                "email",
+                "scope",
+                "tenant_id"
+            ],
+            "headers": {
+                "x_admin_scope": null,
+                "x_tenant_id": null,
+                "x_request_id_present": false,
+                "idempotency_key_present": false,
+                "authorization_present": false
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": null,
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": null,
+                "file_name": null,
+                "storage_mode": null,
+                "production_storage_ready": null,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "tenant-login",
+            "method": "POST",
+            "path": "\/auth\/admin\/login",
+            "status": 200,
+            "payload_keys": [
+                "email",
+                "scope",
+                "tenant_id"
+            ],
+            "headers": {
+                "x_admin_scope": null,
+                "x_tenant_id": null,
+                "x_request_id_present": false,
+                "idempotency_key_present": false,
+                "authorization_present": false
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": null,
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": null,
+                "file_name": null,
+                "storage_mode": null,
+                "production_storage_ready": null,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "unlocked-read-before",
+            "method": "GET",
+            "path": "\/admin\/central\/partners\/par_lba_un_dfbc7682\/lottery-branding-assets",
+            "status": 200,
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": "par_lba_un_dfbc7682",
+                "asset_set_id": null,
+                "version": null,
+                "status": "missing",
+                "locked": false,
+                "lock_reason": null,
+                "generated_image_count": 0,
+                "asset_id": null,
+                "file_name": null,
+                "storage_mode": null,
+                "production_storage_ready": null,
+                "asset_slots": [
+                    "logo_qr",
+                    "right_sidebar",
+                    "logo_bottom"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "tenant-central-put-rejected",
+            "method": "PUT",
+            "path": "\/admin\/central\/partners\/par_lba_un_dfbc7682\/lottery-branding-assets",
+            "status": 403,
+            "payload_keys": [
+                "version",
+                "assets",
+                "assets.logo_qr",
+                "assets.logo_qr.asset_id",
+                "assets.right_sidebar",
+                "assets.right_sidebar.asset_id",
+                "assets.logo_bottom",
+                "assets.logo_bottom.asset_id"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": "permission_denied"
+        },
+        {
+            "label": "upload-logo_qr",
+            "method": "POST",
+            "path": "\/admin\/central\/assets\/uploads",
+            "status": 201,
+            "payload_keys": [
+                "purpose",
+                "file_name",
+                "content_type",
+                "size_bytes",
+                "checksum_sha256",
+                "metadata",
+                "metadata.partner_id",
+                "metadata.branding_slot",
+                "metadata.version"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": null,
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": "ast_01KRH78117EY65EKV02WG4B6SZ",
+                "file_name": null,
+                "storage_mode": "local_dev_metadata_only",
+                "production_storage_ready": false,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "commit-logo_qr",
+            "method": "POST",
+            "path": "\/admin\/central\/assets\/ast_01KRH78117EY65EKV02WG4B6SZ\/commit",
+            "status": 200,
+            "payload_keys": [
+                "checksum_sha256",
+                "metadata",
+                "metadata.partner_id",
+                "metadata.branding_slot",
+                "metadata.version",
+                "metadata.file_name"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": "committed",
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": "ast_01KRH78117EY65EKV02WG4B6SZ",
+                "file_name": "logo_qr.webp",
+                "storage_mode": "local_dev_metadata_only",
+                "production_storage_ready": false,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "upload-right_sidebar",
+            "method": "POST",
+            "path": "\/admin\/central\/assets\/uploads",
+            "status": 201,
+            "payload_keys": [
+                "purpose",
+                "file_name",
+                "content_type",
+                "size_bytes",
+                "checksum_sha256",
+                "metadata",
+                "metadata.partner_id",
+                "metadata.branding_slot",
+                "metadata.version"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": null,
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": "ast_01KRH78136QHQ9WWE6Q2AXCHEK",
+                "file_name": null,
+                "storage_mode": "local_dev_metadata_only",
+                "production_storage_ready": false,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "commit-right_sidebar",
+            "method": "POST",
+            "path": "\/admin\/central\/assets\/ast_01KRH78136QHQ9WWE6Q2AXCHEK\/commit",
+            "status": 200,
+            "payload_keys": [
+                "checksum_sha256",
+                "metadata",
+                "metadata.partner_id",
+                "metadata.branding_slot",
+                "metadata.version",
+                "metadata.file_name"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": "committed",
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": "ast_01KRH78136QHQ9WWE6Q2AXCHEK",
+                "file_name": "right_sidebar.webp",
+                "storage_mode": "local_dev_metadata_only",
+                "production_storage_ready": false,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "upload-logo_bottom",
+            "method": "POST",
+            "path": "\/admin\/central\/assets\/uploads",
+            "status": 201,
+            "payload_keys": [
+                "purpose",
+                "file_name",
+                "content_type",
+                "size_bytes",
+                "checksum_sha256",
+                "metadata",
+                "metadata.partner_id",
+                "metadata.branding_slot",
+                "metadata.version"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": null,
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": "ast_01KRH7815F6X8S3D9QPWBM8YJ5",
+                "file_name": null,
+                "storage_mode": "local_dev_metadata_only",
+                "production_storage_ready": false,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "commit-logo_bottom",
+            "method": "POST",
+            "path": "\/admin\/central\/assets\/ast_01KRH7815F6X8S3D9QPWBM8YJ5\/commit",
+            "status": 200,
+            "payload_keys": [
+                "checksum_sha256",
+                "metadata",
+                "metadata.partner_id",
+                "metadata.branding_slot",
+                "metadata.version",
+                "metadata.file_name"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": null,
+                "asset_set_id": null,
+                "version": null,
+                "status": "committed",
+                "locked": null,
+                "lock_reason": null,
+                "generated_image_count": null,
+                "asset_id": "ast_01KRH7815F6X8S3D9QPWBM8YJ5",
+                "file_name": "logo_bottom.webp",
+                "storage_mode": "local_dev_metadata_only",
+                "production_storage_ready": false,
+                "asset_slots": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "unlocked-save",
+            "method": "PUT",
+            "path": "\/admin\/central\/partners\/par_lba_un_dfbc7682\/lottery-branding-assets",
+            "status": 200,
+            "payload_keys": [
+                "version",
+                "assets",
+                "assets.logo_qr",
+                "assets.logo_qr.asset_id",
+                "assets.right_sidebar",
+                "assets.right_sidebar.asset_id",
+                "assets.logo_bottom",
+                "assets.logo_bottom.asset_id"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": "par_lba_un_dfbc7682",
+                "asset_set_id": "pba_01KRH7817MVRWHP1XVP10MYCW0",
+                "version": "v1",
+                "status": "ready",
+                "locked": false,
+                "lock_reason": null,
+                "generated_image_count": 0,
+                "asset_id": null,
+                "file_name": null,
+                "storage_mode": null,
+                "production_storage_ready": null,
+                "asset_slots": [
+                    "logo_qr",
+                    "right_sidebar",
+                    "logo_bottom"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "unlocked-read-after",
+            "method": "GET",
+            "path": "\/admin\/central\/partners\/par_lba_un_dfbc7682\/lottery-branding-assets",
+            "status": 200,
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": "par_lba_un_dfbc7682",
+                "asset_set_id": "pba_01KRH7817MVRWHP1XVP10MYCW0",
+                "version": "v1",
+                "status": "ready",
+                "locked": false,
+                "lock_reason": null,
+                "generated_image_count": 0,
+                "asset_id": null,
+                "file_name": null,
+                "storage_mode": null,
+                "production_storage_ready": null,
+                "asset_slots": [
+                    "logo_qr",
+                    "right_sidebar",
+                    "logo_bottom"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "locked-read",
+            "method": "GET",
+            "path": "\/admin\/central\/partners\/par_lba_lo_dfbc7682\/lottery-branding-assets",
+            "status": 200,
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "partner_id": "par_lba_lo_dfbc7682",
+                "asset_set_id": null,
+                "version": null,
+                "status": "locked",
+                "locked": true,
+                "lock_reason": "partner_images_already_generated",
+                "generated_image_count": 1,
+                "asset_id": null,
+                "file_name": null,
+                "storage_mode": null,
+                "production_storage_ready": null,
+                "asset_slots": [
+                    "logo_qr",
+                    "right_sidebar",
+                    "logo_bottom"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "locked-forced-save",
+            "method": "PUT",
+            "path": "\/admin\/central\/partners\/par_lba_lo_dfbc7682\/lottery-branding-assets",
+            "status": 409,
+            "payload_keys": [
+                "version",
+                "assets",
+                "assets.logo_qr",
+                "assets.logo_qr.asset_id",
+                "assets.right_sidebar",
+                "assets.right_sidebar.asset_id",
+                "assets.logo_bottom",
+                "assets.logo_bottom.asset_id"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": "resource_conflict"
+        }
+    ]
+}

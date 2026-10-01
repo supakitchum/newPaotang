@@ -1,0 +1,11 @@
+configured_count=22
+ownership_count=22
+missing=none
+unknown=none
+duplicate_ownership=none
+duplicate_profile_queue=none
+report_build_profile=growth-reporting
+checkout_finalize_profile=customer-commerce-critical
+reward_check_high_profile=reward-critical
+report_separated_from_checkout=True
+report_separated_from_reward_high=True

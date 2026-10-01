@@ -1,0 +1,100 @@
+{
+  "states": [
+    {
+      "label": "central-dashboard",
+      "path": "/admin/central/dashboard",
+      "h1": "Central Dashboard",
+      "hasHeader": true,
+      "hasSidebar": true,
+      "menuItems": 48,
+      "cards": 5,
+      "tables": 0,
+      "dropdowns": 4,
+      "simplebar": true,
+      "signIn": false,
+      "error": false,
+      "snippet": " Central\nPL\nPlatform Owner\nCENTRAL MENU\nDashboard\nGames\nRewards\nPrize Checking\nMaster Stock\nStock Generation\nPartners\nPartner Provisioning\nPartner Quotas\nPartner Monitoring\nPartner Usage\nAllocations\nStock Recall\nBilling Plans\nAlert Policies\nAlert Events\nReports\nSettlement\nWebhook Logs\nAudit Logs\nAdmin Users\nRoles Permissions\nMenu Management\nSystem Settings\nCentral Dashboard\nAdmin\nCentral\nDashboard\n Refresh\n\nPartners\n\n3\n\nActive tenants\n\n3\n\nAdmin users\n\n4\n\nAudit logs\n\n5\nActivity\nNo active alerts\n\nCentral dashboard alerts will appear here when backend returns them.\n\nNewPaotang Back Office \u00b7 Meno "
+    },
+    {
+      "label": "central-partners-client-nav",
+      "path": "/admin/central/dashboard",
+      "h1": "Central Dashboard",
+      "hasHeader": true,
+      "hasSidebar": true,
+      "menuItems": 48,
+      "cards": 5,
+      "tables": 0,
+      "dropdowns": 4,
+      "simplebar": true,
+      "signIn": false,
+      "error": false,
+      "snippet": " Central\nPL\nPlatform Owner\nCENTRAL MENU\nDashboard\nGames\nRewards\nPrize Checking\nMaster Stock\nStock Generation\nPartners\nPartner Provisioning\nPartner Quotas\nPartner Monitoring\nPartner Usage\nAllocations\nStock Recall\nBilling Plans\nAlert Policies\nAlert Events\nReports\nSettlement\nWebhook Logs\nAudit Logs\nAdmin Users\nRoles Permissions\nMenu Management\nSystem Settings\nCentral Dashboard\nAdmin\nCentral\nDashboard\n Refresh\n\nPartners\n\n3\n\nActive tenants\n\n3\n\nAdmin users\n\n4\n\nAudit logs\n\n5\nActivity\nNo active alerts\n\nCentral dashboard alerts will appear here when backend returns them.\n\nNewPaotang Back Office \u00b7 Meno "
+    },
+    {
+      "label": "tenant-dashboard",
+      "path": "/admin/tenant/dashboard",
+      "h1": "Tenant Dashboard",
+      "hasHeader": true,
+      "hasSidebar": true,
+      "menuItems": 64,
+      "cards": 5,
+      "tables": 0,
+      "dropdowns": 4,
+      "simplebar": true,
+      "signIn": false,
+      "error": false,
+      "snippet": " Demo Alpha Lottery\nAL\nAlpha Owner\nTENANT MENU\nDashboard\nLocal Stock\nStock Sync\nPrice Rules\nReservations\nOrders\nCustomers\nWallets\nTopups\nTickets\nAgents\nAgent Quotas\nPayment Settings\nAffiliate Programs\nAffiliate Accounts\nAffiliate Links\nAffiliate Attributions\nCommission Rules\nSeo Settings\nMaintenance\nSupport Access Logs\nCommission Transactions\nPayouts\nReports\nMonitoring\nUsage\nSync Logs\nAudit Logs\nAdmin Users\nRoles Permissions\nMenu Management\nSettings\nTenant Dashboard\nAdmin\nTenant\nDashboard\n Refresh\n\nAdmin users\n\n1\n\nRoles\n\n1\n\nOrders\n\n0\n\nAudit logs\n\n7\nTenant operations\n Maintenance controls\n Supp"
+    },
+    {
+      "label": "tenant-growth-agents-client-nav",
+      "path": "/admin/tenant/dashboard",
+      "h1": "Tenant Dashboard",
+      "hasHeader": true,
+      "hasSidebar": true,
+      "menuItems": 64,
+      "cards": 5,
+      "tables": 0,
+      "dropdowns": 4,
+      "simplebar": true,
+      "signIn": false,
+      "error": false,
+      "snippet": " Demo Alpha Lottery\nAL\nAlpha Owner\nTENANT MENU\nDashboard\nLocal Stock\nStock Sync\nPrice Rules\nReservations\nOrders\nCustomers\nWallets\nTopups\nTickets\nAgents\nAgent Quotas\nPayment Settings\nAffiliate Programs\nAffiliate Accounts\nAffiliate Links\nAffiliate Attributions\nCommission Rules\nSeo Settings\nMaintenance\nSupport Access Logs\nCommission Transactions\nPayouts\nReports\nMonitoring\nUsage\nSync Logs\nAudit Logs\nAdmin Users\nRoles Permissions\nMenu Management\nSettings\nTenant Dashboard\nAdmin\nTenant\nDashboard\n Refresh\n\nAdmin users\n\n1\n\nRoles\n\n1\n\nOrders\n\n0\n\nAudit logs\n\n7\nTenant operations\n Maintenance controls\n Supp"
+    },
+    {
+      "label": "tenant-stock-client-nav",
+      "path": "/admin/tenant/dashboard",
+      "h1": "Tenant Dashboard",
+      "hasHeader": true,
+      "hasSidebar": true,
+      "menuItems": 64,
+      "cards": 5,
+      "tables": 0,
+      "dropdowns": 4,
+      "simplebar": true,
+      "signIn": false,
+      "error": false,
+      "snippet": " Demo Alpha Lottery\nAL\nAlpha Owner\nTENANT MENU\nDashboard\nLocal Stock\nStock Sync\nPrice Rules\nReservations\nOrders\nCustomers\nWallets\nTopups\nTickets\nAgents\nAgent Quotas\nPayment Settings\nAffiliate Programs\nAffiliate Accounts\nAffiliate Links\nAffiliate Attributions\nCommission Rules\nSeo Settings\nMaintenance\nSupport Access Logs\nCommission Transactions\nPayouts\nReports\nMonitoring\nUsage\nSync Logs\nAudit Logs\nAdmin Users\nRoles Permissions\nMenu Management\nSettings\nTenant Dashboard\nAdmin\nTenant\nDashboard\n Refresh\n\nAdmin users\n\n1\n\nRoles\n\n1\n\nOrders\n\n0\n\nAudit logs\n\n7\nTenant operations\n Maintenance controls\n Supp"
+    }
+  ],
+  "clicks": [
+    {
+      "clicked": true,
+      "text": "Partners",
+      "href": "/admin/central/partners"
+    },
+    {
+      "clicked": true,
+      "text": "Agents",
+      "href": "/admin/tenant/growth/agents"
+    },
+    {
+      "clicked": true,
+      "text": "Local Stock",
+      "href": "/admin/tenant/stock"
+    }
+  ],
+  "network": {
+    "failed": [],
+    "bad_status": []
+  }
+}

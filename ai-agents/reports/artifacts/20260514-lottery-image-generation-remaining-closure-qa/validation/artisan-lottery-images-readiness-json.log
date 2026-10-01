@@ -1,0 +1,43 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-47e68911c8c7 Creating
+ Container newpaotang-platform-api-run-47e68911c8c7 Created
+{
+    "configured": true,
+    "disk": "lottery_images",
+    "disk_driver": "local",
+    "bucket_present": false,
+    "region_present": false,
+    "endpoint_present": false,
+    "cdn_base_url_present": true,
+    "queue_configured": true,
+    "runtime_webp_ready": true,
+    "secrets_redacted": true,
+    "production_ready": false,
+    "blocking_reasons": [
+        "object_storage_disk_not_s3_compatible",
+        "object_storage_bucket_missing",
+        "object_storage_region_missing"
+    ],
+    "queues": {
+        "queue_configured": true,
+        "jobs_can_run": true,
+        "connection": "redis",
+        "required_queue_names": [
+            "stock-image-generation",
+            "stock-partner-image-generation"
+        ],
+        "central_queue": "stock-image-generation",
+        "partner_queue": "stock-partner-image-generation",
+        "worker_commands": [
+            "php artisan queue:work --queue=stock-image-generation",
+            "php artisan queue:work --queue=stock-partner-image-generation"
+        ]
+    }
+}
+
+exit_code=0

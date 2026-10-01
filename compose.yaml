@@ -1,0 +1,540 @@
+services:
+  local-proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/local-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - customer
+      - back-office
+      - platform-api
+      - support-api
+
+  platform-api:
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan serve --host=0.0.0.0 --port=8000 --no-reload
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1sb2NhbC1kZXYta2V5LTEyMzQ1Njc=
+      APP_DEBUG: "true"
+      PLATFORM_BACK_OFFICE_URL: ${PLATFORM_BACK_OFFICE_URL:-http://localhost:3100}
+      ADMIN_INVITATION_TTL_HOURS: ${ADMIN_INVITATION_TTL_HOURS:-168}
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+      TOPUP_QR_TTL_SECONDS: ${TOPUP_QR_TTL_SECONDS:-900}
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: newpaotang-local
+      REVERB_APP_KEY: newpaotang-admin
+      REVERB_APP_SECRET: newpaotang-admin-secret
+      REVERB_HOST: platform-api-reverb
+      REVERB_PORT: "8080"
+      REVERB_SCHEME: http
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_URL: http://lotto-scraper:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_URLS: http://lotto-scraper:3200/internal/poll,http://lotto-scraper-thairath:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_SANOOK_URL: http://lotto-scraper:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_THAIRATH_URL: http://lotto-scraper-thairath:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
+      SUPPORT_API_URL: /support-api/v1
+      SUPPORT_REALTIME_URL: ws://localhost:8081
+      SUPPORT_REALTIME_KEY: newpaotang-support
+      SUPPORT_JWT_PRIVATE_KEY_PATH: /run/support-keys/private.pem
+      PLATFORM_SUPPORT_INGRESS_SECRET: newpaotang-local-support-ingress
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+      - ./docker/support/keys/dev-private.pem:/run/support-keys/private.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  platform-api-worker:
+    profiles: ["worker"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --queue=${PLATFORM_WORKER_QUEUES:-partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,reward-risk,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default}
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1sb2NhbC1kZXYta2V5LTEyMzQ1Njc=
+      APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: newpaotang-local
+      REVERB_APP_KEY: newpaotang-admin
+      REVERB_APP_SECRET: newpaotang-admin-secret
+      REVERB_HOST: platform-api-reverb
+      REVERB_PORT: "8080"
+      REVERB_SCHEME: http
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_URL: http://lotto-scraper:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_URLS: http://lotto-scraper:3200/internal/poll,http://lotto-scraper-thairath:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_SANOOK_URL: http://lotto-scraper:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_THAIRATH_URL: http://lotto-scraper-thairath:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  platform-api-reverb:
+    profiles: ["realtime"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1sb2NhbC1kZXYta2V5LTEyMzQ1Njc=
+      APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+      REVERB_APP_ID: newpaotang-local
+      REVERB_APP_KEY: newpaotang-admin
+      REVERB_APP_SECRET: newpaotang-admin-secret
+      REVERB_HOST: localhost
+      REVERB_PORT: "8080"
+      REVERB_SCHEME: http
+      REVERB_SERVER_HOST: 0.0.0.0
+      REVERB_SERVER_PORT: "8080"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  platform-api-scheduler:
+    profiles: ["scheduler"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1sb2NhbC1kZXYta2V5LTEyMzQ1Njc=
+      APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+      TOPUP_QR_TTL_SECONDS: ${TOPUP_QR_TTL_SECONDS:-900}
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  lotto-scraper:
+    profiles: ["scraper"]
+    build:
+      context: ./apps/lotto-scraper
+      dockerfile: Dockerfile
+    environment:
+      TZ: Asia/Bangkok
+      LOG_LEVEL: info
+      LOTTO_SCRAPER_SOURCE: sanook
+      LOTTO_SCRAPER_PLATFORM_API_URL: http://platform-api:8000/api/v1
+      LOTTO_SCRAPER_REDIS_URL: redis://valkey:6379
+      LOTTO_SCRAPER_SOURCE_BASE_URL: https://news.sanook.com/lotto/check
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_HEALTH_PORT: "3200"
+      LOTTO_SCRAPER_MIN_CRAWL_DELAY_MS: "10000"
+      LOTTO_SCRAPER_POLL_WARMUP_MS: "60000"
+      LOTTO_SCRAPER_POLL_LIVE_MIN_MS: "10000"
+      LOTTO_SCRAPER_POLL_LIVE_MAX_MS: "15000"
+      LOTTO_SCRAPER_POLL_TAIL_MIN_MS: "30000"
+      LOTTO_SCRAPER_POLL_TAIL_MAX_MS: "60000"
+    expose:
+      - "3200"
+    restart: unless-stopped
+    depends_on:
+      platform-api:
+        condition: service_started
+      valkey:
+        condition: service_healthy
+
+  lotto-scraper-thairath:
+    profiles: ["scraper"]
+    build:
+      context: ./apps/lotto-scraper
+      dockerfile: Dockerfile
+    environment:
+      TZ: Asia/Bangkok
+      LOG_LEVEL: info
+      LOTTO_SCRAPER_SOURCE: thairath
+      LOTTO_SCRAPER_PLATFORM_API_URL: http://platform-api:8000/api/v1
+      LOTTO_SCRAPER_REDIS_URL: redis://valkey:6379
+      LOTTO_SCRAPER_SOURCE_BASE_URL: https://www.thairath.co.th/lottery/check
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_HEALTH_PORT: "3200"
+      LOTTO_SCRAPER_MIN_CRAWL_DELAY_MS: "10000"
+      LOTTO_SCRAPER_POLL_WARMUP_MS: "60000"
+      LOTTO_SCRAPER_POLL_LIVE_MIN_MS: "10000"
+      LOTTO_SCRAPER_POLL_LIVE_MAX_MS: "15000"
+      LOTTO_SCRAPER_POLL_TAIL_MIN_MS: "30000"
+      LOTTO_SCRAPER_POLL_TAIL_MAX_MS: "60000"
+    expose:
+      - "3200"
+    restart: unless-stopped
+    depends_on:
+      platform-api:
+        condition: service_started
+      valkey:
+        condition: service_healthy
+
+  platform-api-smoke:
+    profiles: ["smoke"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan platform:smoke
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1sb2NhbC1kZXYta2V5LTEyMzQ1Njc=
+      APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  customer:
+    build:
+      context: ./apps/customer_flutter
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: /api/v1
+        APP_LOCALE: th-TH
+    image: customer_flutter-customer-flutter-web
+    environment:
+      CUSTOMER_FLUTTER_WEB_APP_NAME: ${CUSTOMER_FLUTTER_WEB_APP_NAME:-}
+      CUSTOMER_FLUTTER_WEB_SHORT_NAME: ${CUSTOMER_FLUTTER_WEB_SHORT_NAME:-}
+      CUSTOMER_FLUTTER_WEB_DESCRIPTION: ${CUSTOMER_FLUTTER_WEB_DESCRIPTION:-}
+      CUSTOMER_FLUTTER_WEB_THEME_COLOR: ${CUSTOMER_FLUTTER_WEB_THEME_COLOR:-}
+      CUSTOMER_FLUTTER_WEB_BACKGROUND_COLOR: ${CUSTOMER_FLUTTER_WEB_BACKGROUND_COLOR:-}
+      CUSTOMER_FLUTTER_WEB_CANONICAL_URL: ${CUSTOMER_FLUTTER_WEB_CANONICAL_URL:-}
+      CUSTOMER_FLUTTER_WEB_START_URL: ${CUSTOMER_FLUTTER_WEB_START_URL:-}
+      CUSTOMER_FLUTTER_WEB_SCOPE: ${CUSTOMER_FLUTTER_WEB_SCOPE:-}
+      CUSTOMER_FLUTTER_WEB_MANIFEST_ID: ${CUSTOMER_FLUTTER_WEB_MANIFEST_ID:-}
+      CUSTOMER_FLUTTER_WEB_FAVICON_URL: ${CUSTOMER_FLUTTER_WEB_FAVICON_URL:-}
+      CUSTOMER_FLUTTER_WEB_APPLE_TOUCH_ICON_URL: ${CUSTOMER_FLUTTER_WEB_APPLE_TOUCH_ICON_URL:-}
+      CUSTOMER_FLUTTER_WEB_ICON_192_URL: ${CUSTOMER_FLUTTER_WEB_ICON_192_URL:-}
+      CUSTOMER_FLUTTER_WEB_ICON_512_URL: ${CUSTOMER_FLUTTER_WEB_ICON_512_URL:-}
+      CUSTOMER_FLUTTER_WEB_MASKABLE_ICON_192_URL: ${CUSTOMER_FLUTTER_WEB_MASKABLE_ICON_192_URL:-}
+      CUSTOMER_FLUTTER_WEB_MASKABLE_ICON_512_URL: ${CUSTOMER_FLUTTER_WEB_MASKABLE_ICON_512_URL:-}
+      CUSTOMER_FLUTTER_WEB_SHARE_IMAGE_URL: ${CUSTOMER_FLUTTER_WEB_SHARE_IMAGE_URL:-}
+      CUSTOMER_FLUTTER_WEB_SOCIAL_TITLE: ${CUSTOMER_FLUTTER_WEB_SOCIAL_TITLE:-}
+      CUSTOMER_FLUTTER_WEB_SOCIAL_DESCRIPTION: ${CUSTOMER_FLUTTER_WEB_SOCIAL_DESCRIPTION:-}
+      CUSTOMER_FLUTTER_WEB_LOCALE: ${CUSTOMER_FLUTTER_WEB_LOCALE:-}
+      CUSTOMER_FLUTTER_WEB_DIRECTION: ${CUSTOMER_FLUTTER_WEB_DIRECTION:-}
+    ports:
+      - "3000:80"
+    depends_on:
+      - platform-api
+
+  back-office:
+    build:
+      context: apps/back-office
+      dockerfile: Dockerfile
+      target: deps
+    working_dir: /app
+    command: sh -lc "mkdir -p /tmp/newpaotang-back-office-nuxt && ln -sfn /app/node_modules /tmp/node_modules && ln -sfn /app/node_modules /tmp/newpaotang-back-office-nuxt/node_modules && npm run dev"
+    environment:
+      VITE_ADMIN_API_BASE: /api/v1
+      VITE_ADMIN_REALTIME_URL: http://localhost:8080
+      VITE_ADMIN_REALTIME_KEY: newpaotang-admin
+      VITE_SUPPORT_API_BASE: /support-api/v1
+      VITE_SUPPORT_REALTIME_URL: ws://localhost:8081
+      VITE_SUPPORT_REALTIME_KEY: newpaotang-support
+      NUXT_BUILD_DIR: /tmp/newpaotang-back-office-nuxt
+      NITRO_NO_UNIX_SOCKET: "1"
+      NODE_OPTIONS: --no-deprecation
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./apps/back-office:/app
+      - back-office-node-modules:/app/node_modules
+      - back-office-nuxt:/app/.nuxt
+
+  support-api:
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; php artisan serve --host=0.0.0.0 --port=8100 --no-reload"
+    environment: &support-api-environment
+      APP_ENV: local
+      APP_KEY: base64:bmV3cGFvdGFuZy1zdXBwb3J0LWxvY2FsLWRldi1rZXktMTIzNDU2
+      APP_DEBUG: "true"
+      APP_URL: http://localhost/support-api
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      DB_CONNECTION: pgsql
+      DB_HOST: support-postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang_support
+      DB_USERNAME: newpaotang_support
+      DB_PASSWORD: newpaotang_support
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: support-valkey
+      REDIS_PORT: "6379"
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: newpaotang-support-local
+      REVERB_APP_KEY: newpaotang-support
+      REVERB_APP_SECRET: newpaotang-support-secret
+      REVERB_HOST: support-reverb
+      REVERB_PORT: "8081"
+      REVERB_SCHEME: http
+      SUPPORT_JWT_PUBLIC_KEY_PATH: /run/support-keys/public.pem
+      PLATFORM_NOTIFICATION_INGRESS_URL: http://platform-api:8000/api/v1/internal/customer-support/notifications
+      PLATFORM_SUPPORT_INGRESS_SECRET: newpaotang-local-support-ingress
+      SUPPORT_CORS_ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:3100
+      SUPPORT_CORS_ALLOWED_ORIGIN_PATTERNS: ^https?://([a-z0-9-]+\.)*(localhost|newpaotang\.test)(:[0-9]+)?$
+      SUPPORT_REVERB_ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:3100,*.localhost,newpaotang.test,*.newpaotang.test
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - support-attachments:/var/www/html/storage/app/private
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-valkey:
+        condition: service_healthy
+
+  support-worker:
+    profiles: ["worker"]
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; php artisan queue:work --sleep=1 --tries=3 --timeout=90"
+    environment: *support-api-environment
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - support-attachments:/var/www/html/storage/app/private
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-valkey:
+        condition: service_healthy
+
+  support-scheduler:
+    profiles: ["scheduler"]
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    environment: *support-api-environment
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+      support-valkey:
+        condition: service_healthy
+
+  support-reverb:
+    profiles: ["realtime"]
+    build:
+      context: ./apps/support-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -lc "test -f vendor/autoload.php || composer install --no-interaction --no-progress; php artisan reverb:start --host=0.0.0.0 --port=8081"
+    environment:
+      <<: *support-api-environment
+      REVERB_HOST: localhost
+      REVERB_SERVER_HOST: 0.0.0.0
+      REVERB_SERVER_PORT: "8081"
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./apps/support-api:/var/www/html
+      - support-api-vendor:/var/www/html/vendor
+      - ./docker/support/keys/dev-public.pem:/run/support-keys/public.pem:ro
+    depends_on:
+      support-valkey:
+        condition: service_healthy
+
+  support-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: newpaotang_support
+      POSTGRES_USER: newpaotang_support
+      POSTGRES_PASSWORD: newpaotang_support
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./docker/support/postgres-init:/docker-entrypoint-initdb.d:ro
+      - support-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newpaotang_support -d newpaotang_support"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  support-valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - support-valkey-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: newpaotang
+      POSTGRES_USER: newpaotang
+      POSTGRES_PASSWORD: newpaotang
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newpaotang -d newpaotang"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  platform-api-vendor:
+  support-api-vendor:
+  support-attachments:
+  support-postgres-data:
+  support-valkey-data:
+  customer-node-modules:
+  customer-nuxt:
+  back-office-node-modules:
+  back-office-nuxt:
+  postgres-data:
+  valkey-data:

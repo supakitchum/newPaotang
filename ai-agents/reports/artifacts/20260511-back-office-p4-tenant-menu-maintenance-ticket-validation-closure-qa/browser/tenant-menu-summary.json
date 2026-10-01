@@ -1,0 +1,1107 @@
+{
+  "menuLinkCount": 1,
+  "editableCounts": {
+    "label": 32,
+    "route": 32,
+    "permission": 32,
+    "status": 32,
+    "order": 32,
+    "role_ids": 32
+  },
+  "beforeMenuPutCount": 0,
+  "afterReasonPutCount": 0,
+  "afterOpenPutCount": 0,
+  "afterCancelPutCount": 0,
+  "modal_has_tenant": true,
+  "modal_has_reason": true,
+  "modal_has_counts": true,
+  "modal_has_changed_context": true,
+  "save_status": 200,
+  "restore_status": 200,
+  "observedChanged": "Dashboard [TENANT-BROWSER-QA]",
+  "observedRestored": "Dashboard",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu-management",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/tenant/menu-management",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": "idk_mp0si2mw_jvcjcci7x3ql"
+      },
+      "post_data": {
+        "items": [
+          {
+            "id": "men_t_0123ecdaf7360c7a4b39",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard [TENANT-BROWSER-QA]",
+            "route": "/admin/tenant/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "status": "active",
+            "sort_order": 10,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_02800b6e0ff14a292f57",
+            "key": "local_stock",
+            "code": "local_stock",
+            "label": "Local Stock",
+            "route": "/admin/tenant/stock",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.view",
+            "status": "active",
+            "sort_order": 20,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4644a5a526ec729b1ec1",
+            "key": "stock_sync",
+            "code": "stock_sync",
+            "label": "Stock Sync",
+            "route": "/admin/tenant/stock-sync",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.sync",
+            "status": "active",
+            "sort_order": 30,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_637df631214dc2cfc289",
+            "key": "price_rules",
+            "code": "price_rules",
+            "label": "Price Rules",
+            "route": "/admin/tenant/settings",
+            "category": "Store Operations",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "price_rule.view",
+            "status": "active",
+            "sort_order": 40,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_551666b0af8b466de0b8",
+            "key": "reservations",
+            "code": "reservations",
+            "label": "Reservations",
+            "route": "/admin/tenant/reservations",
+            "category": "Store Operations",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "reservation.view",
+            "status": "active",
+            "sort_order": 50,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_149fe175fc6d9642b00f",
+            "key": "orders",
+            "code": "orders",
+            "label": "Orders",
+            "route": "/admin/tenant/orders",
+            "category": "Store Operations",
+            "icon": "ri-receipt-line",
+            "required_permission_code": "order.view",
+            "status": "active",
+            "sort_order": 60,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_e64e7a3ff85f395a4344",
+            "key": "customers",
+            "code": "customers",
+            "label": "Customers",
+            "route": "/admin/tenant/settings",
+            "category": "Store Operations",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "customer.view",
+            "status": "active",
+            "sort_order": 70,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_be2592c9f8ad0cb0a2f1",
+            "key": "wallets",
+            "code": "wallets",
+            "label": "Wallets",
+            "route": "/admin/tenant/wallets",
+            "category": "Store Operations",
+            "icon": "ri-wallet-3-line",
+            "required_permission_code": "wallet.view",
+            "status": "active",
+            "sort_order": 80,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_482cd2487ec6532da6cd",
+            "key": "topups",
+            "code": "topups",
+            "label": "Topups",
+            "route": "/admin/tenant/topups",
+            "category": "Store Operations",
+            "icon": "ri-wallet-3-line",
+            "required_permission_code": "topup.view",
+            "status": "active",
+            "sort_order": 90,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_9a666fd9f415e2f44941",
+            "key": "tickets",
+            "code": "tickets",
+            "label": "Tickets",
+            "route": "/admin/tenant/tickets",
+            "category": "Store Operations",
+            "icon": "ri-receipt-line",
+            "required_permission_code": "ticket.view",
+            "status": "active",
+            "sort_order": 100,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_076248a59ac8b9f2c9fa",
+            "key": "agents",
+            "code": "agents",
+            "label": "Agents",
+            "route": "/admin/tenant/growth/agents",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "agent.view",
+            "status": "active",
+            "sort_order": 110,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_2b12a7607fd10a9505c0",
+            "key": "agent_quotas",
+            "code": "agent_quotas",
+            "label": "Agent Quotas",
+            "route": "/admin/tenant/growth/agents",
+            "category": "Growth",
+            "icon": "ri-speed-up-line",
+            "required_permission_code": "agent.quota.manage",
+            "status": "active",
+            "sort_order": 120,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_48f2c487f4613991f839",
+            "key": "payment_settings",
+            "code": "payment_settings",
+            "label": "Payment Settings",
+            "route": "/admin/tenant/payment-settings",
+            "category": "Store Operations",
+            "icon": "ri-settings-3-line",
+            "required_permission_code": "payment_settings.view",
+            "status": "active",
+            "sort_order": 130,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_51b7dd0e628d4929dbb9",
+            "key": "affiliate_programs",
+            "code": "affiliate_programs",
+            "label": "Affiliate Programs",
+            "route": "/admin/tenant/growth/affiliate-programs",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate_program.view",
+            "status": "active",
+            "sort_order": 140,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_cba50fbd7941b021766e",
+            "key": "affiliate_accounts",
+            "code": "affiliate_accounts",
+            "label": "Affiliate Accounts",
+            "route": "/admin/tenant/growth/affiliates",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate.view",
+            "status": "active",
+            "sort_order": 150,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_1aaaa4844c0a6460ab2e",
+            "key": "affiliate_links",
+            "code": "affiliate_links",
+            "label": "Affiliate Links",
+            "route": "/admin/tenant/growth/affiliate-links",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate_link.view",
+            "status": "active",
+            "sort_order": 160,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_6aa4f1a646b3612d09e1",
+            "key": "affiliate_attributions",
+            "code": "affiliate_attributions",
+            "label": "Affiliate Attributions",
+            "route": "/admin/tenant/growth/attributions",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate_attribution.view",
+            "status": "active",
+            "sort_order": 170,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_13e8b05982d7e67c6f11",
+            "key": "commission_rules",
+            "code": "commission_rules",
+            "label": "Commission Rules",
+            "route": "/admin/tenant/growth/commission-rules",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "commission_rule.view",
+            "status": "active",
+            "sort_order": 180,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_2cff79d677e1bf8df0ee",
+            "key": "seo_settings",
+            "code": "seo_settings",
+            "label": "Seo Settings",
+            "route": "/admin/tenant/seo",
+            "category": "Operations Control",
+            "icon": "ri-settings-3-line",
+            "required_permission_code": "seo.view",
+            "status": "active",
+            "sort_order": 190,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_542aee3456c2ac957b48",
+            "key": "maintenance",
+            "code": "maintenance",
+            "label": "Maintenance",
+            "route": "/admin/tenant/maintenance",
+            "category": "Operations Control",
+            "icon": "ri-tools-line",
+            "required_permission_code": "maintenance.view",
+            "status": "active",
+            "sort_order": 200,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_c341839e89b512940154",
+            "key": "support_access_logs",
+            "code": "support_access_logs",
+            "label": "Support Access Logs",
+            "route": "/admin/tenant/support-access",
+            "category": "Operations Control",
+            "icon": "ri-history-line",
+            "required_permission_code": "support_access.audit",
+            "status": "active",
+            "sort_order": 210,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_542e27788d7779ef0682",
+            "key": "commission_transactions",
+            "code": "commission_transactions",
+            "label": "Commission Transactions",
+            "route": "/admin/tenant/growth/commission-transactions",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "commission.view",
+            "status": "active",
+            "sort_order": 220,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_87211e1cd60a6a92736e",
+            "key": "payouts",
+            "code": "payouts",
+            "label": "Payouts",
+            "route": "/admin/tenant/growth/payouts",
+            "category": "Growth",
+            "icon": "ri-bank-card-line",
+            "required_permission_code": "payout.manage",
+            "status": "active",
+            "sort_order": 230,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_948d27ab36d79432b237",
+            "key": "reports",
+            "code": "reports",
+            "label": "Reports",
+            "route": "/admin/tenant/reports",
+            "category": "Operations Control",
+            "icon": "ri-bar-chart-box-line",
+            "required_permission_code": "report.view",
+            "status": "active",
+            "sort_order": 240,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_ea295865dd709ae70472",
+            "key": "monitoring",
+            "code": "monitoring",
+            "label": "Monitoring",
+            "route": "/admin/tenant/reports",
+            "category": "Operations Control",
+            "icon": "ri-notification-3-line",
+            "required_permission_code": "monitoring.view",
+            "status": "active",
+            "sort_order": 250,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_2d4a7761b6e3105adb39",
+            "key": "usage",
+            "code": "usage",
+            "label": "Usage",
+            "route": "/admin/tenant/reports",
+            "category": "Operations Control",
+            "icon": "ri-bar-chart-box-line",
+            "required_permission_code": "usage.view",
+            "status": "active",
+            "sort_order": 260,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4fbd2e41881a918a7b2b",
+            "key": "sync_logs",
+            "code": "sync_logs",
+            "label": "Sync Logs",
+            "route": "/admin/tenant/sync-logs",
+            "category": "Operations Control",
+            "icon": "ri-history-line",
+            "required_permission_code": "sync_log.view",
+            "status": "active",
+            "sort_order": 270,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_339e1b7ca715b229ef81",
+            "key": "audit_logs",
+            "code": "audit_logs",
+            "label": "Audit Logs",
+            "route": "/admin/tenant/audit-logs",
+            "category": "Operations Control",
+            "icon": "ri-history-line",
+            "required_permission_code": "audit.view",
+            "status": "active",
+            "sort_order": 280,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_8bc408d1ffcf98541991",
+            "key": "admin_users",
+            "code": "admin_users",
+            "label": "Admin Users",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-user-settings-line",
+            "required_permission_code": "admin_user.manage",
+            "status": "active",
+            "sort_order": 290,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_51b6c9d59a2c71e94820",
+            "key": "roles_permissions",
+            "code": "roles_permissions",
+            "label": "Roles Permissions",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-shield-user-line",
+            "required_permission_code": "role.manage",
+            "status": "active",
+            "sort_order": 300,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_de6415a8cab0af1ec799",
+            "key": "menu_management",
+            "code": "menu_management",
+            "label": "Menu Management",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-menu-2-line",
+            "required_permission_code": "menu.manage",
+            "status": "active",
+            "sort_order": 310,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_ada27c54fbbbb00c1455",
+            "key": "settings",
+            "code": "settings",
+            "label": "Settings",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-settings-3-line",
+            "required_permission_code": "settings.view",
+            "status": "active",
+            "sort_order": 320,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          }
+        ],
+        "reason": "browser-closure-mp0shzly tenant menu confirmation"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu-management",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/tenant/menu-management",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": "idk_mp0si3ui_128gv8sb1drb7"
+      },
+      "post_data": {
+        "items": [
+          {
+            "id": "men_t_0123ecdaf7360c7a4b39",
+            "key": "dashboard",
+            "code": "dashboard",
+            "label": "Dashboard",
+            "route": "/admin/tenant/dashboard",
+            "category": "Dashboard",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "dashboard.view",
+            "status": "active",
+            "sort_order": 10,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_02800b6e0ff14a292f57",
+            "key": "local_stock",
+            "code": "local_stock",
+            "label": "Local Stock",
+            "route": "/admin/tenant/stock",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.view",
+            "status": "active",
+            "sort_order": 20,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4644a5a526ec729b1ec1",
+            "key": "stock_sync",
+            "code": "stock_sync",
+            "label": "Stock Sync",
+            "route": "/admin/tenant/stock-sync",
+            "category": "Store Operations",
+            "icon": "ri-archive-stack-line",
+            "required_permission_code": "stock.sync",
+            "status": "active",
+            "sort_order": 30,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_637df631214dc2cfc289",
+            "key": "price_rules",
+            "code": "price_rules",
+            "label": "Price Rules",
+            "route": "/admin/tenant/settings",
+            "category": "Store Operations",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "price_rule.view",
+            "status": "active",
+            "sort_order": 40,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_551666b0af8b466de0b8",
+            "key": "reservations",
+            "code": "reservations",
+            "label": "Reservations",
+            "route": "/admin/tenant/reservations",
+            "category": "Store Operations",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "reservation.view",
+            "status": "active",
+            "sort_order": 50,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_149fe175fc6d9642b00f",
+            "key": "orders",
+            "code": "orders",
+            "label": "Orders",
+            "route": "/admin/tenant/orders",
+            "category": "Store Operations",
+            "icon": "ri-receipt-line",
+            "required_permission_code": "order.view",
+            "status": "active",
+            "sort_order": 60,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_e64e7a3ff85f395a4344",
+            "key": "customers",
+            "code": "customers",
+            "label": "Customers",
+            "route": "/admin/tenant/settings",
+            "category": "Store Operations",
+            "icon": "ri-dashboard-line",
+            "required_permission_code": "customer.view",
+            "status": "active",
+            "sort_order": 70,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_be2592c9f8ad0cb0a2f1",
+            "key": "wallets",
+            "code": "wallets",
+            "label": "Wallets",
+            "route": "/admin/tenant/wallets",
+            "category": "Store Operations",
+            "icon": "ri-wallet-3-line",
+            "required_permission_code": "wallet.view",
+            "status": "active",
+            "sort_order": 80,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_482cd2487ec6532da6cd",
+            "key": "topups",
+            "code": "topups",
+            "label": "Topups",
+            "route": "/admin/tenant/topups",
+            "category": "Store Operations",
+            "icon": "ri-wallet-3-line",
+            "required_permission_code": "topup.view",
+            "status": "active",
+            "sort_order": 90,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_9a666fd9f415e2f44941",
+            "key": "tickets",
+            "code": "tickets",
+            "label": "Tickets",
+            "route": "/admin/tenant/tickets",
+            "category": "Store Operations",
+            "icon": "ri-receipt-line",
+            "required_permission_code": "ticket.view",
+            "status": "active",
+            "sort_order": 100,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_076248a59ac8b9f2c9fa",
+            "key": "agents",
+            "code": "agents",
+            "label": "Agents",
+            "route": "/admin/tenant/growth/agents",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "agent.view",
+            "status": "active",
+            "sort_order": 110,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_2b12a7607fd10a9505c0",
+            "key": "agent_quotas",
+            "code": "agent_quotas",
+            "label": "Agent Quotas",
+            "route": "/admin/tenant/growth/agents",
+            "category": "Growth",
+            "icon": "ri-speed-up-line",
+            "required_permission_code": "agent.quota.manage",
+            "status": "active",
+            "sort_order": 120,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_48f2c487f4613991f839",
+            "key": "payment_settings",
+            "code": "payment_settings",
+            "label": "Payment Settings",
+            "route": "/admin/tenant/payment-settings",
+            "category": "Store Operations",
+            "icon": "ri-settings-3-line",
+            "required_permission_code": "payment_settings.view",
+            "status": "active",
+            "sort_order": 130,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_51b7dd0e628d4929dbb9",
+            "key": "affiliate_programs",
+            "code": "affiliate_programs",
+            "label": "Affiliate Programs",
+            "route": "/admin/tenant/growth/affiliate-programs",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate_program.view",
+            "status": "active",
+            "sort_order": 140,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_cba50fbd7941b021766e",
+            "key": "affiliate_accounts",
+            "code": "affiliate_accounts",
+            "label": "Affiliate Accounts",
+            "route": "/admin/tenant/growth/affiliates",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate.view",
+            "status": "active",
+            "sort_order": 150,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_1aaaa4844c0a6460ab2e",
+            "key": "affiliate_links",
+            "code": "affiliate_links",
+            "label": "Affiliate Links",
+            "route": "/admin/tenant/growth/affiliate-links",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate_link.view",
+            "status": "active",
+            "sort_order": 160,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_6aa4f1a646b3612d09e1",
+            "key": "affiliate_attributions",
+            "code": "affiliate_attributions",
+            "label": "Affiliate Attributions",
+            "route": "/admin/tenant/growth/attributions",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "affiliate_attribution.view",
+            "status": "active",
+            "sort_order": 170,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_13e8b05982d7e67c6f11",
+            "key": "commission_rules",
+            "code": "commission_rules",
+            "label": "Commission Rules",
+            "route": "/admin/tenant/growth/commission-rules",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "commission_rule.view",
+            "status": "active",
+            "sort_order": 180,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_2cff79d677e1bf8df0ee",
+            "key": "seo_settings",
+            "code": "seo_settings",
+            "label": "Seo Settings",
+            "route": "/admin/tenant/seo",
+            "category": "Operations Control",
+            "icon": "ri-settings-3-line",
+            "required_permission_code": "seo.view",
+            "status": "active",
+            "sort_order": 190,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_542aee3456c2ac957b48",
+            "key": "maintenance",
+            "code": "maintenance",
+            "label": "Maintenance",
+            "route": "/admin/tenant/maintenance",
+            "category": "Operations Control",
+            "icon": "ri-tools-line",
+            "required_permission_code": "maintenance.view",
+            "status": "active",
+            "sort_order": 200,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_c341839e89b512940154",
+            "key": "support_access_logs",
+            "code": "support_access_logs",
+            "label": "Support Access Logs",
+            "route": "/admin/tenant/support-access",
+            "category": "Operations Control",
+            "icon": "ri-history-line",
+            "required_permission_code": "support_access.audit",
+            "status": "active",
+            "sort_order": 210,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_542e27788d7779ef0682",
+            "key": "commission_transactions",
+            "code": "commission_transactions",
+            "label": "Commission Transactions",
+            "route": "/admin/tenant/growth/commission-transactions",
+            "category": "Growth",
+            "icon": "ri-team-line",
+            "required_permission_code": "commission.view",
+            "status": "active",
+            "sort_order": 220,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_87211e1cd60a6a92736e",
+            "key": "payouts",
+            "code": "payouts",
+            "label": "Payouts",
+            "route": "/admin/tenant/growth/payouts",
+            "category": "Growth",
+            "icon": "ri-bank-card-line",
+            "required_permission_code": "payout.manage",
+            "status": "active",
+            "sort_order": 230,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_948d27ab36d79432b237",
+            "key": "reports",
+            "code": "reports",
+            "label": "Reports",
+            "route": "/admin/tenant/reports",
+            "category": "Operations Control",
+            "icon": "ri-bar-chart-box-line",
+            "required_permission_code": "report.view",
+            "status": "active",
+            "sort_order": 240,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_ea295865dd709ae70472",
+            "key": "monitoring",
+            "code": "monitoring",
+            "label": "Monitoring",
+            "route": "/admin/tenant/reports",
+            "category": "Operations Control",
+            "icon": "ri-notification-3-line",
+            "required_permission_code": "monitoring.view",
+            "status": "active",
+            "sort_order": 250,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_2d4a7761b6e3105adb39",
+            "key": "usage",
+            "code": "usage",
+            "label": "Usage",
+            "route": "/admin/tenant/reports",
+            "category": "Operations Control",
+            "icon": "ri-bar-chart-box-line",
+            "required_permission_code": "usage.view",
+            "status": "active",
+            "sort_order": 260,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_4fbd2e41881a918a7b2b",
+            "key": "sync_logs",
+            "code": "sync_logs",
+            "label": "Sync Logs",
+            "route": "/admin/tenant/sync-logs",
+            "category": "Operations Control",
+            "icon": "ri-history-line",
+            "required_permission_code": "sync_log.view",
+            "status": "active",
+            "sort_order": 270,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_339e1b7ca715b229ef81",
+            "key": "audit_logs",
+            "code": "audit_logs",
+            "label": "Audit Logs",
+            "route": "/admin/tenant/audit-logs",
+            "category": "Operations Control",
+            "icon": "ri-history-line",
+            "required_permission_code": "audit.view",
+            "status": "active",
+            "sort_order": 280,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_8bc408d1ffcf98541991",
+            "key": "admin_users",
+            "code": "admin_users",
+            "label": "Admin Users",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-user-settings-line",
+            "required_permission_code": "admin_user.manage",
+            "status": "active",
+            "sort_order": 290,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_51b6c9d59a2c71e94820",
+            "key": "roles_permissions",
+            "code": "roles_permissions",
+            "label": "Roles Permissions",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-shield-user-line",
+            "required_permission_code": "role.manage",
+            "status": "active",
+            "sort_order": 300,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_de6415a8cab0af1ec799",
+            "key": "menu_management",
+            "code": "menu_management",
+            "label": "Menu Management",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-menu-2-line",
+            "required_permission_code": "menu.manage",
+            "status": "active",
+            "sort_order": 310,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          },
+          {
+            "id": "men_t_ada27c54fbbbb00c1455",
+            "key": "settings",
+            "code": "settings",
+            "label": "Settings",
+            "route": "/admin/tenant/settings",
+            "category": "Administration",
+            "icon": "ri-settings-3-line",
+            "required_permission_code": "settings.view",
+            "status": "active",
+            "sort_order": 320,
+            "role_ids": [
+              "rol_19750422dd978d210e0b"
+            ],
+            "children": []
+          }
+        ],
+        "reason": "browser-closure-mp0shzly tenant menu restore"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/tenant/menu-management",
+      "headers": {
+        "x-admin-scope": "tenant",
+        "x-tenant-id": "ten_demo_alpha",
+        "idempotency-key": null
+      },
+      "post_data": null
+    }
+  ]
+}

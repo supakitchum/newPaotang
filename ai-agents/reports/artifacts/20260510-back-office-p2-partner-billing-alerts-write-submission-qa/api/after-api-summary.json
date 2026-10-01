@@ -1,0 +1,76 @@
+{
+  "captured": "after_browser_writes",
+  "token_persisted": false,
+  "statuses": {
+    "partners_list_by_q": 200,
+    "created_partner_detail": 200,
+    "provision_partner_detail": 200,
+    "partner_quotas_list_by_partner_game": 200,
+    "billing_plans_list": 200,
+    "billing_plan_detail": 200,
+    "alert_policies_list_by_partner": 200,
+    "alert_policy_detail": 200,
+    "alert_event_detail": 200
+  },
+  "extracted": {
+    "created_partner": {
+      "id": "par_01KR8Z8K1YVMQX83FMV0PA6WYY",
+      "code": "p2_write_qa_partner_20260510",
+      "name": "P2 Write QA Partner Updated",
+      "type": "internal",
+      "status": "suspended"
+    },
+    "provision_partner": {
+      "id": "par_p2_write_prov10",
+      "status": "suspended",
+      "tenant_status": "suspended",
+      "domain_status": "suspended"
+    },
+    "partner_quota": {
+      "id": "pqt_869c57706fa7e14c6e5e",
+      "partner_id": "par_demo_beta",
+      "game_id": "gam_p2_write_qa10",
+      "quota_count": 85,
+      "allocated_count": 0,
+      "remaining_count": 85,
+      "status": "active"
+    },
+    "billing_plan": {
+      "id": "bpl_01KR8ZQ8C7M60HE43SD1V51DS1",
+      "code": "p2_write_qa_plan_20260510",
+      "name": "P2 Write QA Plan Updated",
+      "monthly_fee_amount": 223400,
+      "monthly_fee_currency": "THB",
+      "status": "active",
+      "limits": {
+        "tenants": 8,
+        "api_requests": 223456,
+        "alert_policies": 11
+      },
+      "features": {
+        "affiliate": true,
+        "custom_domain": true,
+        "priority_support": false
+      }
+    },
+    "alert_policy": {
+      "id": "pal_01KR8ZSV9688WKP11PEQRHJ5HX",
+      "partner_id": "par_demo_gamma",
+      "policy_key": "p2_write_qa_policy_20260510",
+      "severity": "critical",
+      "status": "paused",
+      "config": {
+        "metric": "write_qa_metric_updated",
+        "threshold_seconds": 900,
+        "window_seconds": 180,
+        "description": "P2 write-submission QA policy updated"
+      }
+    },
+    "alert_event": {
+      "id": "pae_p2_write_event10",
+      "status": "resolved",
+      "acknowledged_at": null,
+      "resolved_at": null
+    }
+  }
+}

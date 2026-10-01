@@ -1,0 +1,16 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-1faa55c0844b Creating
+ Container newpaotang-platform-api-run-1faa55c0844b Created
+array (
+  'gd_loaded' => true,
+  'imagick_loaded' => false,
+  'webp_functions' => true,
+  'lottery_runtime' => 'gd',
+)
+
+exit_code=0

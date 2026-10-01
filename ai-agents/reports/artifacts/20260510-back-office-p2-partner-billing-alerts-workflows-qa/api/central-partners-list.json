@@ -1,0 +1,125 @@
+{
+  "status": 200,
+  "body": {
+    "data": [
+      {
+        "id": "par_demo_alpha",
+        "tenant_id": "ten_demo_alpha",
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "code": "demo_alpha",
+        "name": "Demo Alpha Partner",
+        "type": "white_label",
+        "tenants": [
+          {
+            "id": "ten_demo_alpha",
+            "partner_id": "par_demo_alpha",
+            "code": "demo_alpha",
+            "name": "Demo Alpha Lottery",
+            "status": "active",
+            "created_at": "2026-05-10T12:19:24.000000Z",
+            "updated_at": "2026-05-10T12:19:24.000000Z"
+          }
+        ],
+        "domains": [
+          {
+            "id": "dom_14f6d0741e76eca39c69",
+            "tenant_id": "ten_demo_alpha",
+            "host": "alpha.newpaotang.test",
+            "type": "subdomain",
+            "status": "active",
+            "is_primary": true,
+            "created_at": "2026-05-10T12:19:24.000000Z",
+            "updated_at": "2026-05-10T12:19:24.000000Z"
+          }
+        ],
+        "runtime": {
+          "api_clients_total": 0,
+          "monitoring_status": "active",
+          "billing_status": "trial"
+        }
+      },
+      {
+        "id": "par_demo_beta",
+        "tenant_id": "ten_demo_beta",
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "code": "demo_beta",
+        "name": "Demo Beta Partner",
+        "type": "white_label",
+        "tenants": [
+          {
+            "id": "ten_demo_beta",
+            "partner_id": "par_demo_beta",
+            "code": "demo_beta",
+            "name": "Demo Beta Rewards",
+            "status": "active",
+            "created_at": "2026-05-10T12:19:24.000000Z",
+            "updated_at": "2026-05-10T12:19:24.000000Z"
+          }
+        ],
+        "domains": [
+          {
+            "id": "dom_8aaf050c272322c64eb6",
+            "tenant_id": "ten_demo_beta",
+            "host": "beta.newpaotang.test",
+            "type": "subdomain",
+            "status": "active",
+            "is_primary": true,
+            "created_at": "2026-05-10T12:19:24.000000Z",
+            "updated_at": "2026-05-10T12:19:24.000000Z"
+          }
+        ],
+        "runtime": {
+          "api_clients_total": 0,
+          "monitoring_status": "active",
+          "billing_status": "trial"
+        }
+      },
+      {
+        "id": "par_demo_gamma",
+        "tenant_id": "ten_demo_gamma",
+        "status": "active",
+        "created_at": "2026-05-10T12:19:24.000000Z",
+        "updated_at": "2026-05-10T12:19:24.000000Z",
+        "code": "demo_gamma",
+        "name": "Demo Gamma Partner",
+        "type": "white_label",
+        "tenants": [
+          {
+            "id": "ten_demo_gamma",
+            "partner_id": "par_demo_gamma",
+            "code": "demo_gamma",
+            "name": "Demo Gamma Prizes",
+            "status": "active",
+            "created_at": "2026-05-10T12:19:24.000000Z",
+            "updated_at": "2026-05-10T12:19:24.000000Z"
+          }
+        ],
+        "domains": [
+          {
+            "id": "dom_4902b00d889e35361ee9",
+            "tenant_id": "ten_demo_gamma",
+            "host": "gamma.newpaotang.test",
+            "type": "subdomain",
+            "status": "active",
+            "is_primary": true,
+            "created_at": "2026-05-10T12:19:24.000000Z",
+            "updated_at": "2026-05-10T12:19:24.000000Z"
+          }
+        ],
+        "runtime": {
+          "api_clients_total": 0,
+          "monitoring_status": "active",
+          "billing_status": "trial"
+        }
+      }
+    ],
+    "meta": {
+      "next_cursor": null,
+      "has_more": false
+    }
+  }
+}

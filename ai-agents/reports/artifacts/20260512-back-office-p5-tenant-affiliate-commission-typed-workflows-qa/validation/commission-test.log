@@ -1,0 +1,16 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-03c93d2bc25b Creating
+ Container newpaotang-platform-api-run-03c93d2bc25b Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CommissionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcommission calculation is command driven idempotent outboxed and re[39m[90m…[39m [90m1.44s[39m
+  [32;1m✓[39;22m[90m [39m[90mcommission calculation ignores archived rules[39m[90m                       [39m [90m0.04s[39m
+  [32;1m✓[39;22m[90m [39m[90mcommission calculation skips expired and cancelled attributions[39m[90m     [39m [90m0.06s[39m
+
+  [90mTests:[39m    [32;1m3 passed[39;22m[90m (24 assertions)[39m
+  [90mDuration:[39m [39m1.64s[39m

@@ -1,0 +1,5 @@
+GET customer /login status=200
+GET back-office /login status=200
+GET back-office /admin/login status=302
+GET back-office /admin/login location=/login
+GET back-office /admin/login follow status=200

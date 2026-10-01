@@ -1,0 +1,144 @@
+## HTTP HEAD/GET retry checks
+
+### http://localhost:3100/login
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+content-type: text/html;charset=utf-8
+x-powered-by: Nuxt
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/NOTICE.md
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0  1014    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Fri, 08 May 2026 11:53:51 GMT
+etag: W/"3f6-19e076fda8f"
+content-type: text/markdown; charset=UTF-8
+content-length: 1014
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/libs/bootstrap/css/bootstrap.min.css
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0  227k    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 17:46:21 GMT
+etag: W/"38d63-19e038c399f"
+content-type: text/css; charset=UTF-8
+content-length: 232803
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/libs/bootstrap/js/bootstrap.bundle.min.js
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0 80721    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 17:46:22 GMT
+etag: W/"13b51-19e038c39c8"
+content-type: application/javascript; charset=UTF-8
+content-length: 80721
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/css/styles.css
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0  851k    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 14:19:09 GMT
+etag: W/"d4d79-19e02ce8562"
+content-type: text/css; charset=UTF-8
+content-length: 871801
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/css/icons.css
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0  628k    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 14:19:09 GMT
+etag: W/"9d074-19e02ce858c"
+content-type: text/css; charset=UTF-8
+content-length: 643188
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/libs/node-waves/waves.min.css
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0  3861    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 14:19:09 GMT
+etag: W/"f15-19e02ce865a"
+content-type: text/css; charset=UTF-8
+content-length: 3861
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/libs/simplebar/simplebar.min.css
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0  3269    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 14:19:09 GMT
+etag: W/"cc5-19e02ce8662"
+content-type: text/css; charset=UTF-8
+content-length: 3269
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+### http://localhost:3100/admin-template/assets/js/defaultmenu.min.js
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0 46167    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+HTTP/1.1 200 OK
+accept-ranges: bytes
+cache-control: public, max-age=0
+last-modified: Thu, 07 May 2026 14:19:09 GMT
+etag: W/"b457-19e02ce8653"
+content-type: application/javascript; charset=UTF-8
+content-length: 46167
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+
+
+## Protected stale marker redirect retry
+HTTP/1.1 302 Found
+location: /login?redirect=/admin/tenant/maintenance
+content-type: text/html
+date: Fri, 08 May 2026 12:27:34 GMT
+connection: close
+content-length: 127
+
+
+protected_body_contains_tenant_maintenance=no
+protected_body_contains_login=no

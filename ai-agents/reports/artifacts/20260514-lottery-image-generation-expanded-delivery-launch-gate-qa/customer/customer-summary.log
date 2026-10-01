@@ -1,0 +1,74 @@
+== npm-build ==
+npm-build exit_code=0
+    ├─ .output/server/chunks/build/nuxt-link-SV87sBoK.mjs (7.04 kB) (2.02 kB gzip)
+    ├─ .output/server/chunks/build/nuxt-link-SV87sBoK.mjs.map (6.12 kB) (1.53 kB gzip)
+    ├─ .output/server/chunks/build/profile-BonuJwpi.mjs (6.15 kB) (1.67 kB gzip)
+    ├─ .output/server/chunks/build/profile-BonuJwpi.mjs.map (4.81 kB) (1.24 kB gzip)
+    ├─ .output/server/chunks/build/register--IZqhaqy.mjs (6.57 kB) (1.81 kB gzip)
+    ├─ .output/server/chunks/build/register--IZqhaqy.mjs.map (2.33 kB) (799 B gzip)
+    ├─ .output/server/chunks/build/ResultSummaryCard-BD6kt8SW.mjs (5.29 kB) (1.36 kB gzip)
+    ├─ .output/server/chunks/build/ResultSummaryCard-BD6kt8SW.mjs.map (3.77 kB) (964 B gzip)
+    ├─ .output/server/chunks/build/search-BZu2Oxg2.mjs (14.2 kB) (3.29 kB gzip)
+    ├─ .output/server/chunks/build/search-BZu2Oxg2.mjs.map (11.4 kB) (2.53 kB gzip)
+    ├─ .output/server/chunks/build/SegmentTabs-D5USkYRs.mjs (1.58 kB) (714 B gzip)
+    ├─ .output/server/chunks/build/SegmentTabs-D5USkYRs.mjs.map (1.48 kB) (583 B gzip)
+    ├─ .output/server/chunks/build/server.mjs (171 kB) (39.1 kB gzip)
+    ├─ .output/server/chunks/build/server.mjs.map (281 B) (198 B gzip)
+    ├─ .output/server/chunks/build/styles.mjs (3.25 kB) (649 B gzip)
+    ├─ .output/server/chunks/build/styles.mjs.map (1.94 kB) (373 B gzip)
+    ├─ .output/server/chunks/build/success-M7bvvckG.mjs (19.8 kB) (3.87 kB gzip)
+    ├─ .output/server/chunks/build/success-M7bvvckG.mjs.map (14 kB) (2.94 kB gzip)
+    ├─ .output/server/chunks/build/term-reward-BLqWLegj.mjs (8.4 kB) (1.76 kB gzip)
+    ├─ .output/server/chunks/build/term-reward-BLqWLegj.mjs.map (4.02 kB) (1.14 kB gzip)
+    ├─ .output/server/chunks/build/useLotteryReward-_cJyXg_V.mjs (2.96 kB) (840 B gzip)
+    ├─ .output/server/chunks/build/useLotteryReward-_cJyXg_V.mjs.map (2.92 kB) (800 B gzip)
+    ├─ .output/server/chunks/build/useTopup-DIodrPKw.mjs (1.51 kB) (559 B gzip)
+    ├─ .output/server/chunks/build/useTopup-DIodrPKw.mjs.map (1.69 kB) (527 B gzip)
+    ├─ .output/server/chunks/build/useUserTickets-C-W6GC_K.mjs (7.2 kB) (2.1 kB gzip)
+    ├─ .output/server/chunks/build/useUserTickets-C-W6GC_K.mjs.map (6.71 kB) (1.58 kB gzip)
+    ├─ .output/server/chunks/build/view-BdfbYADv.mjs (13.8 kB) (2.99 kB gzip)
+    ├─ .output/server/chunks/build/view-BdfbYADv.mjs.map (8.99 kB) (2.1 kB gzip)
+    ├─ .output/server/chunks/build/view-styles.Cg1NdaEO.mjs (403 B) (271 B gzip)
+    ├─ .output/server/chunks/build/view-styles.Cg1NdaEO.mjs.map (280 B) (192 B gzip)
+    ├─ .output/server/chunks/routes/renderer.mjs (14.1 kB) (4.54 kB gzip)
+    ├─ .output/server/chunks/routes/renderer.mjs.map (402 B) (217 B gzip)
+    ├─ .output/server/chunks/routes/robots.txt.mjs (1.96 kB) (848 B gzip)
+    ├─ .output/server/chunks/routes/robots.txt.mjs.map (1.84 kB) (441 B gzip)
+    ├─ .output/server/chunks/routes/sitemap.xml.mjs (2.37 kB) (1.01 kB gzip)
+    ├─ .output/server/chunks/routes/sitemap.xml.mjs.map (2.17 kB) (511 B gzip)
+    ├─ .output/server/chunks/runtime.mjs (191 kB) (46.5 kB gzip)
+    ├─ .output/server/chunks/runtime.mjs.map (3.02 kB) (789 B gzip)
+    ├─ .output/server/chunks/virtual/_virtual_spa-template.mjs (94 B) (100 B gzip)
+    ├─ .output/server/chunks/virtual/_virtual_spa-template.mjs.map (90 B) (98 B gzip)
+    ├─ .output/server/index.mjs (283 B) (187 B gzip)
+    └─ .output/server/package.json (1.25 kB) (574 B gzip)
+  Σ Total size: 3.46 MB (804 kB gzip)
+  [nitro] ✔ You can preview this build using node .output/server/index.mjs
+  npm notice
+  npm notice New major version of npm available! 10.9.7 -> 11.14.1
+  npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.14.1
+  npm notice To update run: npm install -g npm@11.14.1
+  npm notice
+  exit_code=0
+
+== package-script-scan ==
+package-script-scan exit_code=1
+  [eval]:1
+  const p=require(./apps/customer/package.json); console.log(JSON.stringify({scripts:p.scripts, hasLint:!!p.scripts?.lint, hasTest:!!p.scripts?.test}, null, 2));
+                  ^
+
+  SyntaxError: Unexpected token '.'
+      at new Script (node:vm:100:7)
+      at createScript (node:vm:259:10)
+      at Object.runInThisContext (node:vm:307:10)
+      at node:internal/process/execution:79:19
+      at [eval]-wrapper:6:22
+      at evalScript (node:internal/process/execution:78:60)
+      at node:internal/main/eval_string:28:3
+
+  Node.js v18.13.0
+  exit_code=1
+
+npm-lint skipped: missing customer lint script per task note
+npm-test skipped: missing customer test script per task note
+overall_exit_code=1

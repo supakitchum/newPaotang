@@ -1,0 +1,24 @@
+{
+  "name": "@newpaotang/lotto-scraper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/main.ts",
+    "start": "node dist/main.js",
+    "test": "tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "pino": "^9.7.0",
+    "redis": "^4.7.1",
+    "undici": "^6.26.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}

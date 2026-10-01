@@ -1,0 +1,184 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Settlements detail" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Finance
+    - listitem:  Settlements detail
+  - link " Back":
+    - /url: /admin/central/settlements
+    - generic: 
+    - text: Back
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Settlements detail
+  - term: Id
+  - definition:
+    - code: pst_p3_qa10
+  - term: Partner Id
+  - definition:
+    - code: par_demo_alpha
+  - term: Tenant Id
+  - definition:
+    - code: ten_demo_alpha
+  - term: Status
+  - definition: pending
+  - term: Sales Amount
+  - definition:
+    - code: "{ \"amount\": 120000, \"currency\": \"THB\" }"
+  - term: Commission Amount
+  - definition:
+    - code: "{ \"amount\": 12000, \"currency\": \"THB\" }"
+  - term: Payout Amount
+  - definition:
+    - code: "{ \"amount\": 108000, \"currency\": \"THB\" }"
+  - term: Net Amount
+  - definition:
+    - code: "{ \"amount\": 108000, \"currency\": \"THB\" }"
+  - term: Period From
+  - definition: 2026-05-01T00:00:00.000000Z
+  - term: Period To
+  - definition: 2026-05-09T00:00:00.000000Z
+  - term: Approved By Admin Id
+  - definition:
+    - code: "-"
+  - term: Approved At
+  - definition:
+    - code: "-"
+  - term: Summary
+  - definition:
+    - code: "{ \"source\": \"p3-qa\", \"sales_count\": 12 }"
+  - term: Created At
+  - definition: 2026-05-10T14:06:14.000000Z
+  - term: Updated At
+  - definition: 2026-05-10T14:06:14.000000Z
+  - generic: Documented operations
+  - button " Approve":
+    - generic: 
+    - text: Approve
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

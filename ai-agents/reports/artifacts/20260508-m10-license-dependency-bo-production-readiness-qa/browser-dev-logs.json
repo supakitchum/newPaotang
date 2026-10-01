@@ -1,0 +1,182 @@
+[
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:29:13.137Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:29:13.163Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:29:13.602Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:29:22.661Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:29:22.669Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:29:23.390Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:29:39.853Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:29:39.861Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:29:40.391Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:30:25.214Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:30:25.227Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:30:25.771Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:30:48.550Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:30:48.559Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:30:50.199Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:31:25.263Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:31:25.278Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:31:26.176Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:32:11.291Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:32:11.308Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:32:11.822Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:32:34.254Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:32:34.259Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:32:34.881Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:32:35.440Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:32:35.456Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:32:37.334Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connecting...",
+    "timestamp": "2026-05-08T12:33:06.126Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "debug",
+    "message": "[vite] connected.",
+    "timestamp": "2026-05-08T12:33:06.146Z",
+    "url": "http://localhost:3100/_nuxt/@vite/client"
+  },
+  {
+    "level": "log",
+    "message": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     ",
+    "timestamp": "2026-05-08T12:33:06.860Z",
+    "url": "http://localhost:3100/_nuxt/node_modules/consola/dist/browser.mjs?v=77d62479"
+  }
+]

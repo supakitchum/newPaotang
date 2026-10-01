@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-05-14T12:03:59.593Z",
+  "results": [
+    {
+      "route": "/search",
+      "requestedUrl": "http://localhost:3000/search",
+      "finalUrl": "http://localhost:3000/result",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "snapshotExcerpt": "- main:\n  - generic: 12:03\n  - generic: \n  - text: \"200\"\n  - button \"กลับ\":\n    - generic: \n  - heading \"ผลรางวัลสลากฯ\" [level=1]\n  - generic: \n  - generic: กำลังโหลดผลรางวัล\n  - heading \"ผลรางวัลสลากฯ ย้อนหลัง\" [level=2]\n  - generic: กำลังโหลดข้อมูลงวดย้อนหลัง\n  - generic: คุณสามารถขึ้นเงินรางวัลได้ที่ ธนาคารกรุงไทย ธ.ก.ส. ออมสิน ทุกสาขา หรือสำนักงานสลากกินแบ่งรัฐบาล\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "route": "/checkout",
+      "requestedUrl": "http://localhost:3000/checkout",
+      "finalUrl": "http://localhost:3000/login?redirect=/checkout",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "snapshotExcerpt": "- main:\n  - generic: \n  - text: สลากดิจิทัล\n  - heading \"เข้าสู่ระบบ\" [level=1]\n  - paragraph: ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว\n  - heading \"ยืนยันตัวตน\" [level=2]\n  - paragraph: ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ\n  - generic: เบอร์โทรศัพท์\n  - generic: \n  - textbox \"เบอร์โทรศัพท์ \":\n    - /placeholder: กรอกเบอร์โทรศัพท์\n  - generic: รหัสผ่าน\n  - generic: \n  - textbox \"รหัสผ่าน  แสดงรหัสผ่าน\":\n    - /placeholder: กรอกรหัสผ่าน\n  - button \"แสดงรหัสผ่าน\":\n    - generic: \n  - checkbox \"จดจำการเข้าสู่ระบบ\" [checked]\n  - generic: จดจำการเข้าสู่ระบบ\n  - link \"ลืมรหัสผ่าน?\":\n    - /url: /login\n  - button \"เข้าสู่ระบบ\"\n  - generic: หรือ\n  - button \" เข้าสู่ระบบด้วย Line\":\n    - generic: \n    - generic: เข้าสู่ระบบด้วย Line\n  - generic: ยังไม่มีบัญชี?\n  - link \"สมัครใช้งาน\":\n    - /url: /register\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "route": "/success",
+      "requestedUrl": "http://localhost:3000/success",
+      "finalUrl": "http://localhost:3000/login?redirect=/success",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "snapshotExcerpt": "- main:\n  - generic: \n  - text: สลากดิจิทัล\n  - heading \"เข้าสู่ระบบ\" [level=1]\n  - paragraph: ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว\n  - heading \"ยืนยันตัวตน\" [level=2]\n  - paragraph: ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ\n  - generic: เบอร์โทรศัพท์\n  - generic: \n  - textbox \"เบอร์โทรศัพท์ \":\n    - /placeholder: กรอกเบอร์โทรศัพท์\n  - generic: รหัสผ่าน\n  - generic: \n  - textbox \"รหัสผ่าน  แสดงรหัสผ่าน\":\n    - /placeholder: กรอกรหัสผ่าน\n  - button \"แสดงรหัสผ่าน\":\n    - generic: \n  - checkbox \"จดจำการเข้าสู่ระบบ\" [checked]\n  - generic: จดจำการเข้าสู่ระบบ\n  - link \"ลืมรหัสผ่าน?\":\n    - /url: /login\n  - button \"เข้าสู่ระบบ\"\n  - generic: หรือ\n  - button \" เข้าสู่ระบบด้วย Line\":\n    - generic: \n    - generic: เข้าสู่ระบบด้วย Line\n  - generic: ยังไม่มีบัญชี?\n  - link \"สมัครใช้งาน\":\n    - /url: /register\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    },
+    {
+      "route": "/tickets",
+      "requestedUrl": "http://localhost:3000/tickets",
+      "finalUrl": "http://localhost:3000/login?redirect=/tickets",
+      "title": "สลากหกหลัก",
+      "hasInternalServerError": false,
+      "hasCannotStringify": false,
+      "hasDevalue": false,
+      "hasNonPojo": false,
+      "snapshotExcerpt": "- main:\n  - generic: \n  - text: สลากดิจิทัล\n  - heading \"เข้าสู่ระบบ\" [level=1]\n  - paragraph: ซื้อ ตรวจสอบ และจัดการสลากฯ ของคุณได้ในที่เดียว\n  - heading \"ยืนยันตัวตน\" [level=2]\n  - paragraph: ใช้เบอร์โทรศัพท์ที่ผูกกับบัญชีของคุณ\n  - generic: เบอร์โทรศัพท์\n  - generic: \n  - textbox \"เบอร์โทรศัพท์ \":\n    - /placeholder: กรอกเบอร์โทรศัพท์\n  - generic: รหัสผ่าน\n  - generic: \n  - textbox \"รหัสผ่าน  แสดงรหัสผ่าน\":\n    - /placeholder: กรอกรหัสผ่าน\n  - button \"แสดงรหัสผ่าน\":\n    - generic: \n  - checkbox \"จดจำการเข้าสู่ระบบ\" [checked]\n  - generic: จดจำการเข้าสู่ระบบ\n  - link \"ลืมรหัสผ่าน?\":\n    - /url: /login\n  - button \"เข้าสู่ระบบ\"\n  - generic: หรือ\n  - button \" เข้าสู่ระบบด้วย Line\":\n    - generic: \n    - generic: เข้าสู่ระบบด้วย Line\n  - generic: ยังไม่มีบัญชี?\n  - link \"สมัครใช้งาน\":\n    - /url: /register\n- status:\n  - generic: GLO\n  - text: สำนักงานสลากกินแบ่งรัฐบาล\n  - text: THE GOVERNMENT LOTTERY OFFICE\n  - generic: L6\n  - paragraph: กำลังเตรียมข้อมูลระบบ"
+    }
+  ]
+}

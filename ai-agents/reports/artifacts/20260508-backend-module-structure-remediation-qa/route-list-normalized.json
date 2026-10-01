@@ -1,0 +1,1915 @@
+[
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/admin-users/{admin_user_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-api-clients/{client_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/roles/{role_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:delete_user"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/admin-users/{admin_user_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-links/{affiliate_link_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-programs/{affiliate_program_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-rules/{commission_rule_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/maintenance/bypasses/{bypass_id}"
+  },
+  {
+    "method": "DELETE",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:role_change"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/roles/{role_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/admin-users"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/admin-users/{admin_user_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/allocations"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/allocations/{allocation_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/audit-logs"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/dashboard/summary"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/export-jobs/{export_job_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/export-jobs/{export_job_id}/download"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/games"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/games/{game_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/menu"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/menu-management"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-api-clients"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-quotas"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partners"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partners/{partner_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/reports/{report_key}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards/{reward_result_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards/{reward_result_id}/check-batches"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/roles"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/settlements"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/settlements/{settlement_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/stock"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/admin-users"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/admin-users/{admin_user_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-attributions"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-attributions/{attribution_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-links"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-links/{affiliate_link_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-programs"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-programs/{affiliate_program_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliates"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliates/{affiliate_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/agents"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/agents/{agent_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/audit-logs"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-rules"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-rules/{commission_rule_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-transactions"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/dashboard/summary"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/export-jobs/{export_job_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/export-jobs/{export_job_id}/download"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/maintenance"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/maintenance/events"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/menu"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/menu-management"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/orders"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/orders/{order_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/payouts"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reports/{report_key}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reservations"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reward-claims"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reward-claims/{claim_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/roles"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/settings"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/stock"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/stock-sync/batches"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/stock-sync/batches/{batch_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/stock/{stock_item_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access/{support_access_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/theme"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/tickets"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/tickets/{ticket_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/topups"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/topups/{topup_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/wallets"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/wallets/{wallet_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/wallets/{wallet_id}/ledger"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "admin.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/auth/admin/me"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/auth/me"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/cart"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/orders/{order_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/profile"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/reward-claims"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/reward-claims/{claim_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/tickets"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/tickets/history"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/tickets/{ticket_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/tickets/{ticket_id}/reward-status"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/topups"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/topups/{topup_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/wallet"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/health"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/health/live"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/health/ready"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/public/games/current"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/public/results/latest"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/public/results/{game_id}"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/public/site-config"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/public/stock/search"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "health"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "health/live"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "health/ready"
+  },
+  {
+    "method": "GET|HEAD",
+    "middleware": [],
+    "name": "storage.local",
+    "uri": "storage/{path}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/admin-users/{admin_user_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/games/{game_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-api-clients/{client_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-quotas/{quota_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partners/{partner_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards/{reward_result_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/roles/{role_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:permission_change"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/admin-users/{admin_user_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-links/{affiliate_link_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-programs/{affiliate_program_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliates/{affiliate_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/agents/{agent_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/agents/{agent_id}/quotas"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-rules/{commission_rule_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/orders/{order_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:role_change"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/roles/{role_id}"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/settings"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/theme"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:wallet_adjust"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/wallets/{wallet_id}/adjust"
+  },
+  {
+    "method": "PATCH",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/profile"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/admin-users"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/allocations"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/allocations/{allocation_id}/cancel"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/games"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/games/{game_id}/archive"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/games/{game_id}/close"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-api-clients"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partner-quotas"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partners"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partners/{partner_id}/provision"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/partners/{partner_id}/suspend"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/realtime/auth"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/reports/{report_key}/exports"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards/{reward_result_id}/correct"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards/{reward_result_id}/publish"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/rewards/{reward_result_id}/verify"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/roles"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/settlements/{settlement_id}/approve"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/stock/exports"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/stock/generate"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/stock/imports"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/stock/{stock_item_id}/recall"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:permission_change"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/admin-users"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-links"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliate-programs"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/affiliates"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/agents"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-rules"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/commission-transactions/{commission_id}/approve"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/maintenance/bypasses"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/orders/{order_id}/cancel"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/orders/{order_id}/refund"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/payouts"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:payout_approve"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/payouts/{payout_id}/approve"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/realtime/auth"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reports/{report_key}/exports"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reservations/{reservation_id}/cancel"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reward-claims/{claim_id}/approve"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:payout_approve"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reward-claims/{claim_id}/pay"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/reward-claims/{claim_id}/reject"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:role_change"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/roles"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/stock-sync/batches"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/stock/exports"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access/{support_access_id}/approve"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access/{support_access_id}/elevated-actions"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access/{support_access_id}/end-session"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access/{support_access_id}/impersonate"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/support-access/{support_access_id}/revoke"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant",
+      "support.block:topup_approve"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/topups/{topup_id}/approve"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/topups/{topup_id}/cancel"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/topups/{topup_id}/reject"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/auth/admin/login"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "admin.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/auth/admin/logout"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/auth/admin/refresh"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/auth/login"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/auth/logout"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/auth/refresh"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/auth/register"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/checkout"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/reservations"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/reservations/{reservation_id}/release"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/reward-claims"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/topups"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api",
+      "customer.auth"
+    ],
+    "name": null,
+    "uri": "api/v1/customer/topups/credit"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/webhooks/payments/{provider}"
+  },
+  {
+    "method": "POST",
+    "middleware": [
+      "api"
+    ],
+    "name": null,
+    "uri": "api/v1/webhooks/topups/{provider}"
+  },
+  {
+    "method": "PUT",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:central"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/central/menu-management"
+  },
+  {
+    "method": "PUT",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/maintenance"
+  },
+  {
+    "method": "PUT",
+    "middleware": [
+      "api",
+      "admin.auth",
+      "admin.scope:tenant"
+    ],
+    "name": null,
+    "uri": "api/v1/admin/tenant/menu-management"
+  },
+  {
+    "method": "PUT",
+    "middleware": [],
+    "name": "storage.local.upload",
+    "uri": "storage/{path}"
+  }
+]

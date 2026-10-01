@@ -1,0 +1,18 @@
+ Container newpaotang-back-office-run-3f6292322dd2 Creating 
+ Container newpaotang-back-office-run-3f6292322dd2 Created 
+PASS no window.setInterval in batch component
+PASS no pollIntervalMs: 5000 in batch component
+PASS fallback default is 60000ms
+PASS fallback clamps to minimum 30000ms
+PASS fallback uses window.setTimeout
+PASS fallback only when active batch and realtime not push-capable
+PASS subscribes to game realtime channel
+PASS list snapshot calls generation-batches
+PASS detail snapshot calls generation-batches id
+PASS manual refresh calls loadBatches
+PASS reconnect calls loadBatches once in handler
+PASS realtime auth endpoint is central auth
+PASS pusher subscribe sent
+PASS pusher unsubscribe sent on cleanup
+PASS pusher ping pong handled
+PASS 401/403 auth failures stop reconnect

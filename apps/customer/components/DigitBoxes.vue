@@ -108,6 +108,11 @@ const redirectToSearch = () => {
     return
   }
 
+  if (route.path === '/') {
+    navigateTo('/buy')
+    return
+  }
+
   if (isStoreLotteryRoute.value) {
     navigateTo({
       path: '/buy/search',

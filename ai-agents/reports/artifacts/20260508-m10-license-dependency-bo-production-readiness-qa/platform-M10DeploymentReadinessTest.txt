@@ -1,0 +1,19 @@
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-platform-api-run-c9c3d5a4be12 Creating 
+ Container newpaotang-platform-api-run-c9c3d5a4be12 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10DeploymentReadinessTest[39m
+  [32;1m✓[39;22m[90m [39m[90mplatform smoke command checks dependencies seeded logins and monito[39m[90m…[39m [90m3.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mroot health routes match openapi readiness contract[39m[90m                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcompose defines backend runtime roles without removing local fronte[39m[90m…[39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv template keeps infrastructure config out of tenant config[39m[90m       [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 documentation load tests and ci guardrails exist[39m[90m                [39m [90m0.02s[39m  
+
+  [90mTests:[39m    [32;1m5 passed[39;22m[90m (94 assertions)[39m
+  [90mDuration:[39m [39m3.23s[39m
+

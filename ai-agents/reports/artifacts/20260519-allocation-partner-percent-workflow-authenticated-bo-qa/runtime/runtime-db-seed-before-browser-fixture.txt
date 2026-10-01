@@ -1,0 +1,11 @@
+
+   INFO  Seeding database.
+
+  Database\Seeders\DefaultRbacMenuSeeder ............................. RUNNING
+  Database\Seeders\DefaultRbacMenuSeeder .......................... 32 ms DONE
+
+  Database\Seeders\BootstrapAdminSeeder .............................. RUNNING
+  Database\Seeders\BootstrapAdminSeeder .......................... 247 ms DONE
+
+  Database\Seeders\DemoTenantSeeder .................................. RUNNING
+  Database\Seeders\DemoTenantSeeder .............................. 763 ms DONE

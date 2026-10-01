@@ -1,0 +1,4 @@
+fake-no-image raw_fake_value_leak_count=0
+fake-image-path raw_fake_value_leak_count=0
+fake-ticket-image-env raw_fake_value_leak_count=0
+fake-base-url-only raw_fake_value_leak_count=0

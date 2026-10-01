@@ -1,0 +1,5 @@
+Supplemental tenant topups API context validation: PASS
+GET /admin/tenant/topups status: 200
+Validated topup id: top_qa_ctx_20260510
+Nested customer fields present in API: id/name/phone/email
+Secrets/tokens: login response and bearer token were not written to artifact files.

@@ -1,0 +1,29 @@
+  - heading "Central Stock" [level=2]
+    - listitem:  Central Stock
+  - generic: Game
+    - option "Available"
+    - option "Allocated"
+    - option "Sold"
+    - option "Recalled"
+  - generic: Select a game to load stock generation summary widgets.
+  - button " Import stock":
+    - text: Import stock
+  - button " Generate stock":
+    - text: Generate stock
+  - generic: Central Stock
+      - row "Number Tickets Available Allocated Sold Recalled Game Updated Actions":
+        - columnheader "Available":
+          - button "Available":
+            - generic: Available
+        - columnheader "Allocated":
+          - button "Allocated":
+            - generic: Allocated
+        - columnheader "Sold":
+          - button "Sold":
+            - generic: Sold
+        - columnheader "Recalled":
+          - button "Recalled":
+            - generic: Recalled
+        - columnheader "Game":
+          - button "Game":
+            - generic: Game

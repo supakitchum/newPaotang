@@ -1,0 +1,31 @@
+[
+  {
+    "route": "/admin/central/partners",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true
+  },
+  {
+    "route": "/admin/tenant/maintenance",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "tenantSessionLabel": true
+  },
+  {
+    "route": "/admin/tenant/growth/agents",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "tenantSessionLabel": true
+  },
+  {
+    "route": "/admin/tenant/maintenance",
+    "viewport": "390x844",
+    "urlOk": true,
+    "titleOk": true,
+    "loadedContent": true,
+    "notLogin": true,
+    "screenshot": "mobile-390x844-tenant-maintenance-after-load.png"
+  }
+]

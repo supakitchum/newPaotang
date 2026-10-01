@@ -1,0 +1,230 @@
+{
+    "status": "ready_local",
+    "generated_at": "2026-05-09T13:04:18.137682Z",
+    "boundary": {
+        "local_dev_verifiable": true,
+        "staging_approved": false,
+        "production_approved": false,
+        "client_delivery_approved": false
+    },
+    "environment": {
+        "name": "local",
+        "enabled": true,
+        "metrics_label": "local"
+    },
+    "summary": {
+        "partners": 3,
+        "active_monitoring_profiles": 3,
+        "active_usage_meters": 30,
+        "active_alert_policies": 39,
+        "health_checks": 3,
+        "usage_events": 0,
+        "daily_usage_summaries": 0,
+        "alert_events": 0,
+        "missing_required_alert_policies": []
+    },
+    "schema_readiness": {
+        "partner_usage_events": true,
+        "partner_daily_usage_summaries": true,
+        "partner_alert_events": true
+    },
+    "signals": [
+        {
+            "key": "api",
+            "name": "API request/error/latency",
+            "status": "partial",
+            "owner": "Backend/Ops",
+            "data_source": "health endpoints, access logs, partner_daily_usage_summaries",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:observability:report --format=json",
+            "production_blocker": "External APM/edge latency is a production integration gate."
+        },
+        {
+            "key": "database",
+            "name": "PostgreSQL health",
+            "status": "ready_local",
+            "owner": "Backend/Ops",
+            "data_source": "platform:smoke database check",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:smoke",
+            "production_blocker": null
+        },
+        {
+            "key": "cache",
+            "name": "Redis/Valkey cache health",
+            "status": "ready_local",
+            "owner": "Backend/Ops",
+            "data_source": "platform:smoke cache check",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:smoke",
+            "production_blocker": null
+        },
+        {
+            "key": "queue",
+            "name": "Queue lag and failed job readiness",
+            "status": "partial",
+            "owner": "Backend/Ops",
+            "data_source": "jobs, failed_jobs, platform worker command path",
+            "local_dev_validation": "docker compose run --rm platform-api php artisan queue:work --once --tries=1",
+            "production_blocker": "Horizon dashboard and production queue supervision remain open gates."
+        },
+        {
+            "key": "partner_sync",
+            "name": "Partner inbox/outbox lag",
+            "status": "ready_local",
+            "owner": "Backend/Ops",
+            "data_source": "sync_inbox, sync_outbox",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json",
+            "production_blocker": null
+        },
+        {
+            "key": "booking",
+            "name": "Booking failure readiness",
+            "status": "partial",
+            "owner": "Backend/Ops",
+            "data_source": "partner_daily_usage_summaries and application logs",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json",
+            "production_blocker": "Dedicated booking failure counters are not yet production-fed."
+        },
+        {
+            "key": "checkout",
+            "name": "Checkout/wallet failure readiness",
+            "status": "partial",
+            "owner": "Backend/Ops",
+            "data_source": "partner_daily_usage_summaries and application logs",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json",
+            "production_blocker": "Dedicated checkout failure counters are not yet production-fed."
+        },
+        {
+            "key": "reward",
+            "name": "Reward checking failure readiness",
+            "status": "ready_local",
+            "owner": "Backend/Ops",
+            "data_source": "reward_check_items",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json",
+            "production_blocker": null
+        },
+        {
+            "key": "support_access",
+            "name": "Support access audit readiness",
+            "status": "ready_local",
+            "owner": "Backend/Ops",
+            "data_source": "support_impersonation_events, support_impersonation_blocked_actions, audit_logs",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:observability:report --format=json",
+            "production_blocker": null
+        },
+        {
+            "key": "security",
+            "name": "Permission denied and cross-tenant signal readiness",
+            "status": "partial",
+            "owner": "Backend/Ops",
+            "data_source": "audit_logs",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json",
+            "production_blocker": "Production edge/WAF security events remain external integration gates."
+        },
+        {
+            "key": "usage_billing",
+            "name": "Usage metering and daily summary sink",
+            "status": "ready_local",
+            "owner": "Backend/Ops",
+            "data_source": "partner_usage_meters, partner_usage_events, partner_daily_usage_summaries",
+            "local_dev_validation": "docker compose exec platform-api php artisan platform:observability:report --format=json",
+            "production_blocker": null
+        },
+        {
+            "key": "cdn_images",
+            "name": "Ticket image CDN metrics",
+            "status": "blocked_external",
+            "owner": "Backend/Ops",
+            "data_source": "Cloudflare/CDN/R2 analytics",
+            "local_dev_validation": "Run CDN/R2 slice validation after credentials and test image path exist.",
+            "production_blocker": "Cloudflare/CDN/R2 integration remains an open release gate."
+        }
+    ],
+    "required_alert_policies": [
+        "api_error_rate_high",
+        "booking_fail_rate_high",
+        "checkout_fail_rate_high",
+        "sync_lag_high",
+        "queue_lag_high",
+        "reward_check_failure",
+        "permission_denied_spike",
+        "cross_tenant_access_attempt"
+    ],
+    "metric_label_policy": [
+        "platform",
+        "environment",
+        "module",
+        "partner_id",
+        "tenant_id",
+        "deployment_mode",
+        "package",
+        "endpoint",
+        "queue",
+        "game_id"
+    ],
+    "alert_channels": {
+        "enabled": true,
+        "local_channels": [
+            "database",
+            "log"
+        ],
+        "configured_channels": [
+            "database",
+            "log"
+        ],
+        "external_delivery_enabled": false,
+        "webhook_url": "[REDACTED]",
+        "production_placeholders": [
+            "webhook",
+            "email",
+            "sentry",
+            "grafana",
+            "datadog",
+            "new_relic"
+        ]
+    },
+    "redaction": {
+        "rule": "Payloads are recursively redacted by sensitive key name before report or alert delivery.",
+        "sensitive_key_count": 27
+    },
+    "external_integration_blockers": [
+        {
+            "integration": "webhook",
+            "status": "placeholder_only",
+            "owner": "Coordinator/Production Ops",
+            "blocker": "Real webhook URL and secret management are not available in this workspace."
+        },
+        {
+            "integration": "email",
+            "status": "placeholder_only",
+            "owner": "Coordinator/Production Ops",
+            "blocker": "SMTP/provider credentials and delivery verification are not available in this workspace."
+        },
+        {
+            "integration": "sentry",
+            "status": "placeholder_only",
+            "owner": "Coordinator/Production Ops",
+            "blocker": "Sentry DSN/project and production secret management remain open gates."
+        },
+        {
+            "integration": "grafana",
+            "status": "template_only",
+            "owner": "Coordinator/Production Ops",
+            "blocker": "Grafana datasource, token, and managed dashboard import are not available in this workspace."
+        },
+        {
+            "integration": "datadog_new_relic",
+            "status": "template_only",
+            "owner": "Coordinator/Production Ops",
+            "blocker": "Vendor account/API keys and production agent deployment remain open gates."
+        },
+        {
+            "integration": "cloudflare_cdn_r2",
+            "status": "blocked_external",
+            "owner": "Coordinator/Production Ops",
+            "blocker": "Cloudflare account/API, WAF/rate-limit rules, R2 bucket, and real ticket-image path remain separate release gates."
+        }
+    ],
+    "docker_validation_commands": [
+        "docker compose exec platform-api php artisan platform:observability:report --format=json",
+        "docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json"
+    ]
+}

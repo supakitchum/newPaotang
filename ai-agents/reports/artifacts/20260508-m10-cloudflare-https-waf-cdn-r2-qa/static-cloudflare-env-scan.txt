@@ -1,0 +1,71 @@
+apps/platform-api/.env.example:37:R2_ENDPOINT=
+apps/platform-api/.env.example:38:R2_BUCKET=
+apps/platform-api/.env.example:39:R2_ACCESS_KEY_ID=
+apps/platform-api/.env.example:40:R2_SECRET_ACCESS_KEY=
+apps/platform-api/.env.example:41:CDN_BASE_URL=
+apps/platform-api/.env.example:42:TICKET_IMAGE_CDN_REQUIRED=true
+apps/platform-api/.env.example:44:CLOUDFLARE_ACCOUNT_ID=
+apps/platform-api/.env.example:45:CLOUDFLARE_ZONE_ID=
+apps/platform-api/.env.example:46:CLOUDFLARE_API_TOKEN=
+apps/platform-api/.env.example:47:CLOUDFLARE_API_BASE_URL=https://api.cloudflare.com/client/v4
+apps/platform-api/.env.example:48:CLOUDFLARE_DRY_RUN=true
+apps/platform-api/.env.example:49:CLOUDFLARE_PROXY_REQUIRED=true
+apps/platform-api/.env.example:50:CLOUDFLARE_HTTPS_REQUIRED=true
+load-tests/k6/ticket-image-cdn-spike.js:5:const CDN_BASE_URL = __ENV.CDN_BASE_URL || '';
+load-tests/k6/ticket-image-cdn-spike.js:17:  requireEnv(['CDN_BASE_URL', 'IMAGE_PATH'], 'ticket image CDN/R2 spike testing');
+load-tests/k6/ticket-image-cdn-spike.js:19:  if (!/^https?:\/\//.test(CDN_BASE_URL)) {
+load-tests/k6/ticket-image-cdn-spike.js:20:    throw new Error('CDN_BASE_URL must be an absolute http(s) CDN/R2 URL for ticket image CDN/R2 spike testing.');
+load-tests/k6/ticket-image-cdn-spike.js:23:  if ((__ENV.BASE_URL || '') !== '' && CDN_BASE_URL === __ENV.BASE_URL) {
+load-tests/k6/ticket-image-cdn-spike.js:24:    throw new Error('CDN_BASE_URL must be explicit CDN/R2 infrastructure; BASE_URL is intentionally ignored for ticket image coverage.');
+load-tests/k6/ticket-image-cdn-spike.js:27:  const base = CDN_BASE_URL.replace(/\/$/, '');
+load-tests/README.md:46:The first six scenarios run against local/dev API fixtures. `ticket-image-cdn-spike.js` remains a runnable CDN/object-storage template; the baseline runner records a skipped artifact unless `CDN_BASE_URL` and `IMAGE_PATH` are supplied for a real Cloudflare/CDN/R2 ticket image path.
+load-tests/README.md:48:`ticket-image-cdn-spike.js` intentionally ignores normal API `BASE_URL`. CDN/R2 coverage is only claimable with explicit `CDN_BASE_URL` and `IMAGE_PATH`.
+docs/m10-deployment-monitoring-load-test.md:119:CLOUDFLARE_ACCOUNT_ID
+docs/m10-deployment-monitoring-load-test.md:120:CLOUDFLARE_ZONE_ID
+docs/m10-deployment-monitoring-load-test.md:121:CLOUDFLARE_API_TOKEN
+docs/m10-deployment-monitoring-load-test.md:122:CLOUDFLARE_API_BASE_URL
+docs/m10-deployment-monitoring-load-test.md:123:CLOUDFLARE_DRY_RUN
+docs/m10-deployment-monitoring-load-test.md:124:CLOUDFLARE_PROXY_REQUIRED
+docs/m10-deployment-monitoring-load-test.md:125:CLOUDFLARE_HTTPS_REQUIRED
+docs/m10-deployment-monitoring-load-test.md:126:R2_ENDPOINT
+docs/m10-deployment-monitoring-load-test.md:127:R2_BUCKET
+docs/m10-deployment-monitoring-load-test.md:128:R2_ACCESS_KEY_ID
+docs/m10-deployment-monitoring-load-test.md:129:R2_SECRET_ACCESS_KEY
+docs/m10-deployment-monitoring-load-test.md:130:CDN_BASE_URL
+docs/m10-deployment-monitoring-load-test.md:131:TICKET_IMAGE_CDN_REQUIRED
+docs/m10-deployment-monitoring-load-test.md:281:`ticket-image-cdn-spike.js` is runnable when `CDN_BASE_URL` and `IMAGE_PATH` point at a real CDN/object-storage ticket image. Local/dev does not provision Cloudflare/R2 ticket images, so the baseline runner emits `ticket-image-cdn-spike.skipped.json` with that blocker instead of claiming coverage.
+docs/m10-deployment-monitoring-load-test.md:283:`ticket-image-cdn-spike.js` intentionally ignores normal API `BASE_URL`. The scenario and `scripts/k6-run-baseline.sh` only claim ticket-image CDN/R2 coverage when explicit `CDN_BASE_URL` and `IMAGE_PATH` are supplied.
+ops/m10/ticket-image-cdn-load-test-runbook.md:10:CDN_BASE_URL points at Cloudflare/CDN/R2 infrastructure
+ops/m10/ticket-image-cdn-load-test-runbook.md:25:Without `CDN_BASE_URL` and `IMAGE_PATH`, the helper inspects the script and prints a blocker:
+ops/m10/ticket-image-cdn-load-test-runbook.md:34:CDN_BASE_URL=https://cdn.example.test IMAGE_PATH=/tenants/ten_demo_alpha/games/game_1/tickets/sample.webp scripts/ticket-image-cdn-check.sh
+ops/m10/ticket-image-cdn-load-test-runbook.md:39:`scripts/k6-run-baseline.sh` runs the six API-backed scenarios locally. It runs `ticket-image-cdn-spike.js` only when both `CDN_BASE_URL` and `IMAGE_PATH` are present. If either value is missing, it writes `ticket-image-cdn-spike.skipped.json`.
+ops/m10/ticket-image-cdn-load-test-runbook.md:41:The k6 script intentionally ignores `BASE_URL` and rejects `CDN_BASE_URL` values that are exactly the same as `BASE_URL`.
+scripts/ticket-image-cdn-check.sh:6:CDN_URL=${CDN_BASE_URL:-}
+scripts/ticket-image-cdn-check.sh:14:  echo "ticket-image-cdn-spike: blocked until explicit CDN_BASE_URL and IMAGE_PATH are supplied for a real CDN/R2 image."
+scripts/ticket-image-cdn-check.sh:20:  -e CDN_BASE_URL="$CDN_URL" \
+apps/platform-api/tests/Feature/M10DeploymentReadinessTest.php:102:        foreach (['DB_HOST', 'REDIS_HOST', 'QUEUE_CONNECTION', 'CACHE_STORE', 'SESSION_DRIVER', 'CDN_BASE_URL', 'REVERB_HOST', 'PLATFORM_METRICS_ENABLED'] as $key) {
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:49:            'CDN_BASE_URL',
+scripts/k6-run-baseline.sh:45:if [ "${IMAGE_PATH:-}" != "" ] && [ "${CDN_BASE_URL:-}" != "" ]; then
+scripts/k6-run-baseline.sh:52:  "reason": "Local/dev baseline has no Cloudflare CDN/R2 ticket image path. Set CDN_BASE_URL and IMAGE_PATH to run this scenario."
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:112:            'CDN_BASE_URL' => '',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:133:                    'reason' => 'Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path.',
+ops/m10/r2-ticket-image-strategy.md:40:CDN_BASE_URL points at the CDN hostname, not platform API BASE_URL
+ops/m10/r2-ticket-image-strategy.md:44:k6 ticket-image-cdn-spike runs with explicit CDN_BASE_URL and IMAGE_PATH
+ops/m10/r2-ticket-image-strategy.md:53:CDN_BASE_URL=
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:80:real ticket-image CDN load test remains blocked until CDN_BASE_URL and IMAGE_PATH point at CDN/R2
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:148:            'CLOUDFLARE_ACCOUNT_ID=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:149:            'CLOUDFLARE_ZONE_ID=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:150:            'CLOUDFLARE_API_TOKEN=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:151:            'CLOUDFLARE_DRY_RUN=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:152:            'CLOUDFLARE_PROXY_REQUIRED=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:153:            'CLOUDFLARE_HTTPS_REQUIRED=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:154:            'R2_ENDPOINT=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:155:            'R2_BUCKET=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:156:            'R2_ACCESS_KEY_ID=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:157:            'R2_SECRET_ACCESS_KEY=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:158:            'CDN_BASE_URL=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:159:            'TICKET_IMAGE_CDN_REQUIRED=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:197:        $this->assertStringContainsString("requireEnv(['CDN_BASE_URL', 'IMAGE_PATH']", $ticketScript);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:199:        $this->assertStringNotContainsString('__ENV.CDN_BASE_URL || __ENV.BASE_URL', $ticketScript);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:200:        $this->assertStringContainsString('[ "${IMAGE_PATH:-}" != "" ] && [ "${CDN_BASE_URL:-}" != "" ]', $runner);
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:46:                'docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" -e CDN_BASE_URL=https://cdn.example.test -e IMAGE_PATH=/tickets/sample.png grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js',

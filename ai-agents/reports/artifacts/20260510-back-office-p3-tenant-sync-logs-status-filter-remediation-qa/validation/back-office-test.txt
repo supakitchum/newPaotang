@@ -1,0 +1,5 @@
+
+> test
+> node scripts/check.mjs test
+
+test passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, protected deep-link marker bridge, mobile no-overflow shell guardrails, menu completion fallback guardrails, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.

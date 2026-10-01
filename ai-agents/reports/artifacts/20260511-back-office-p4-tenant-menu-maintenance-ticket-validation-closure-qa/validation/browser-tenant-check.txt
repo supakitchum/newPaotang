@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "run_id": "browser-closure-mp0shzly",
+  "checks": [
+    "tenant_menu_management",
+    "tenant_maintenance"
+  ]
+}

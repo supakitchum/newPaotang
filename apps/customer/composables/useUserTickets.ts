@@ -1,9 +1,22 @@
 import { formatDrawDateText } from '~/utils/formatDrawDate'
+import { rewardAmountToDisplayNumber } from '~/composables/usePlatformApi'
 
 export interface UserTicketGame {
   id?: number | string
+  code?: string
   name?: string
+  draw_at?: string
   status?: number | string
+  [key: string]: unknown
+}
+
+export interface UserTicketRewardPrize {
+  prize_type?: string
+  prize_number?: string
+  amount?: number | string | { amount?: number | string, currency?: string } | null
+  prize_amount?: number | string | { amount?: number | string, currency?: string } | null
+  reward?: number | string | { amount?: number | string, currency?: string } | null
+  title?: string
   [key: string]: unknown
 }
 
@@ -16,9 +29,22 @@ export interface UserTicket {
   status?: number | string
   paid?: number | string | boolean
   image?: string | null
+  image_url?: string | null
+  image_thumb_url?: string | null
+  image_status?: string | null
+  image_error?: string | null
   count?: number | string
   total?: number | string
+  prize_amount?: number | string | { amount?: number | string, currency?: string } | null
+  prize_type?: string | null
+  prize_number?: string | null
+  prizes?: UserTicketRewardPrize[]
+  claimable?: boolean
+  reward_status?: Record<string, unknown> | null
+  game?: UserTicketGame | null
   game_id?: number | string
+  game_name?: string
+  draw_at?: string
   draw?: number | string
   draw_no?: number | string
   game_no?: number | string
@@ -45,6 +71,7 @@ export interface UserTicketPagination {
 
 export interface FetchTicketsOptions {
   gameId?: number | string | null
+  history?: boolean
   search?: string
   page?: number
   perPage?: number
@@ -69,7 +96,54 @@ export const getTicketTotal = (ticket: Partial<UserTicket> | null | undefined) =
   return Number.isFinite(value) ? value : 0
 }
 
+export const getTicketImageUrl = (ticket: Partial<UserTicket> | null | undefined) => {
+  const image = ticket?.image_url || ticket?.image_thumb_url || ticket?.image
+
+  if (!image) {
+    return ''
+  }
+
+  const imageUrl = String(image)
+
+  if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
+    return imageUrl
+  }
+
+  return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl.replace(/^\/+/, '')}`
+}
+
 export const getTicketStatusText = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatusRecord = ticket?.reward_status || {}
+  const rewardStatus = String(rewardStatusRecord.status || '').toLowerCase()
+
+  if (['paid', 'paid_out'].includes(rewardStatus) || (rewardStatus === 'approved' && Boolean(rewardStatusRecord.paid_at || rewardStatusRecord.payout_ledger_id || rewardStatusRecord.payout_method === 'bank_transfer'))) {
+    return 'ขึ้นเงินแล้ว'
+  }
+
+  if (['submitted', 'claim_submitted', 'under_review'].includes(rewardStatus)) {
+    return 'รอรับเงินรางวัล'
+  }
+
+  if (['approved', 'claim_approved'].includes(rewardStatus)) {
+    return 'อนุมัติแล้ว'
+  }
+
+  if (rewardStatus === 'rejected') {
+    return 'ขึ้นเงินไม่สำเร็จ'
+  }
+
+  if (rewardStatus === 'cancelled') {
+    return 'ยกเลิกขึ้นเงิน'
+  }
+
+  if (rewardStatus === 'winning') {
+    return 'ถูกรางวัล'
+  }
+
+  if (rewardStatus === 'non_winning') {
+    return 'ไม่ถูกรางวัล'
+  }
+
   const status = Number(ticket?.status)
 
   if (status === 4) {
@@ -95,11 +169,187 @@ export const getTicketStatusText = (ticket: Partial<UserTicket> | null | undefin
   return 'รอออกผล'
 }
 
+const prizeTypeLabels: Record<string, string> = {
+  first_prize: 'รางวัลที่ 1',
+  near_first_prize: 'รางวัลข้างเคียงรางวัลที่ 1',
+  second_prize: 'รางวัลที่ 2',
+  third_prize: 'รางวัลที่ 3',
+  fourth_prize: 'รางวัลที่ 4',
+  fifth_prize: 'รางวัลที่ 5',
+  front3: 'รางวัลเลขหน้า 3 ตัว',
+  back3: 'รางวัลเลขท้าย 3 ตัว',
+  back2: 'รางวัลเลขท้าย 2 ตัว'
+}
+
+export const isWinningTicket = (ticket: Partial<UserTicket> | null | undefined) => {
+  const status = Number(ticket?.status)
+  const rewardStatus = String(ticket?.reward_status?.status || '').toLowerCase()
+
+  return [4, 5].includes(status) || ['winning', 'approved', 'claim_approved', 'submitted', 'claim_submitted', 'under_review', 'paid', 'paid_out', 'rejected', 'cancelled'].includes(rewardStatus)
+}
+
+export const getTicketPrizeAmount = (ticket: Partial<UserTicket> | null | undefined) => {
+  const prizes = getTicketRewardPrizes(ticket)
+
+  if (prizes.length > 0) {
+    return prizes.reduce((total, prize) => total + prize.amount, 0)
+  }
+
+  const rewardStatus = ticket?.reward_status || {}
+  const prizeType = rewardStatus.prize_type || ticket?.prize_type || ''
+
+  return rewardAmountToDisplayNumber(rewardStatus.prize_amount ?? ticket?.prize_amount, 0, prizeType)
+}
+
+export const getTicketRewardPrizes = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+  const source = Array.isArray(rewardStatus.prizes)
+    ? rewardStatus.prizes
+    : (Array.isArray(ticket?.prizes) ? ticket.prizes : [])
+
+  return source
+    .map((item: unknown) => {
+      const prize = item && typeof item === 'object' ? item as UserTicketRewardPrize : {}
+      const prizeType = String(prize.prize_type || '').trim()
+      const amount = rewardAmountToDisplayNumber(prize.amount ?? prize.prize_amount ?? prize.reward, 0, prizeType)
+
+      return {
+        ...prize,
+        prize_type: prizeType,
+        prize_number: String(prize.prize_number || ''),
+        title: prizeTypeLabels[prizeType] || String(prize.title || 'ถูกรางวัล'),
+        amount
+      }
+    })
+    .filter((prize) => prize.amount > 0 || prize.prize_type || prize.prize_number)
+}
+
+export const getTicketPrizeTitle = (ticket: Partial<UserTicket> | null | undefined) => {
+  const prizes = getTicketRewardPrizes(ticket)
+
+  if (prizes.length > 1) {
+    return `ถูกรางวัล ${prizes.length.toLocaleString('th-TH')} รางวัล`
+  }
+
+  if (prizes.length === 1) {
+    return prizes[0].title
+  }
+
+  const rewardStatus = ticket?.reward_status || {}
+  const type = String(rewardStatus.prize_type || ticket?.prize_type || '').trim()
+
+  return prizeTypeLabels[type] || (isWinningTicket(ticket) ? 'ถูกรางวัล' : '')
+}
+
+export const isTicketClaimable = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+
+  return Boolean(rewardStatus.claimable ?? ticket?.claimable)
+}
+
+export const getTicketDisplaySortRank = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatusRecord = ticket?.reward_status || {}
+  const rewardStatus = String(rewardStatusRecord.status || '').toLowerCase()
+  const ticketStatus = Number(ticket?.status)
+
+  if (rewardStatus === 'winning') {
+    return 0
+  }
+
+  if (['rejected', 'cancelled'].includes(rewardStatus)) {
+    return 1
+  }
+
+  if (['submitted', 'claim_submitted', 'under_review'].includes(rewardStatus)) {
+    return 2
+  }
+
+  if (
+    ['paid', 'paid_out'].includes(rewardStatus)
+    || ['approved', 'claim_approved'].includes(rewardStatus)
+    || ticketStatus === 5
+    || ticket?.paid === true
+    || ticket?.paid === 1
+    || ticket?.paid === '1'
+  ) {
+    return 3
+  }
+
+  if (rewardStatus === 'non_winning' || ticketStatus === 0) {
+    return 5
+  }
+
+  if (ticketStatus === 4) {
+    return 0
+  }
+
+  return 4
+}
+
+export const sortTicketsForCurrentDraw = (nextTickets: UserTicket[]) => (
+  nextTickets
+    .map((ticket, index) => ({ ticket, index }))
+    .sort((left, right) => (
+      (getTicketDisplaySortRank(left.ticket) - getTicketDisplaySortRank(right.ticket))
+      || left.index - right.index
+    ))
+    .map((entry) => entry.ticket)
+)
+
+export const getTicketClaimId = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+  const claimId = rewardStatus.reward_claim_id || ticket?.reward_claim_id || ''
+
+  return String(claimId || '').trim()
+}
+
+export const getTicketClaimTo = (ticket: Partial<UserTicket> | null | undefined) => {
+  const ticketId = String(ticket?.id || '').trim()
+
+  if (isTicketClaimable(ticket) && ticketId) {
+    return `/tickets/claim/${encodeURIComponent(ticketId)}`
+  }
+
+  const claimId = getTicketClaimId(ticket)
+
+  return claimId ? `/reward-claims/${encodeURIComponent(claimId)}` : ''
+}
+
 export const getTicketDraw = (ticket: Partial<UserTicket> | null | undefined, game?: UserTicketGame | null) => {
   const value = ticket?.draw_no ?? ticket?.draw ?? ticket?.game_no ?? ticket?.game_id ?? game?.id ?? '-'
 
   return String(value || '-')
 }
+
+export const getTicketGame = (ticket: Partial<UserTicket> | null | undefined) => {
+  if (ticket?.game && typeof ticket.game === 'object') {
+    return ticket.game
+  }
+
+  if (ticket?.game_id || ticket?.game_name || ticket?.draw_at) {
+    return {
+      id: ticket.game_id,
+      name: ticket.game_name || '',
+      draw_at: ticket.draw_at || ''
+    }
+  }
+
+  return null
+}
+
+export const getGameDateText = (game: UserTicketGame | null | undefined) => {
+  const nameDate = formatDrawDateText(game?.name)
+
+  if (nameDate !== '-') {
+    return nameDate
+  }
+
+  const drawAtDate = formatDrawDateText(game?.draw_at)
+
+  return drawAtDate === '-' ? '' : drawAtDate
+}
+
+export const getTicketGameDate = (ticket: Partial<UserTicket> | null | undefined) => getGameDateText(getTicketGame(ticket))
 
 export const getTicketSet = (ticket: Partial<UserTicket> | null | undefined) => {
   const value = ticket?.set ?? ticket?.sort_order ?? getTicketCount(ticket)
@@ -108,8 +358,8 @@ export const getTicketSet = (ticket: Partial<UserTicket> | null | undefined) => 
 }
 
 export const useUserTickets = () => {
-  const axios = useAxios()
-  const config = useRuntimeConfig()
+  const platformApi = usePlatformApi()
+  const pageCursors = useState<Record<string, string | null>>('ticket_page_cursors', () => ({}))
 
   const fetchTickets = async (gameIdOrOptions?: number | string | null | FetchTicketsOptions, fetchOptions: FetchTicketsOptions = {}): Promise<UserTicketResponse> => {
     const options = typeof gameIdOrOptions === 'object' && gameIdOrOptions !== null
@@ -119,77 +369,56 @@ export const useUserTickets = () => {
           gameId: gameIdOrOptions
         }
 
-    const response = await axios.get('/lotteries', {
-      params: {
-        ...(options.gameId ? { game_id: options.gameId } : {}),
-        ...(options.search ? { search: options.search } : {}),
-        ...(options.page ? { page: options.page } : {}),
-        ...(options.perPage ? { per_page: options.perPage } : {}),
-        ...(options.status !== undefined ? { status: options.status } : {})
-      }
+    const history = options.history === true || Boolean(options.gameId)
+    const page = Number(options.page || 1)
+    const key = `${history ? 'history' : 'active'}-${options.gameId || 'all'}-${options.search || ''}`
+    const cursor = page > 1 ? pageCursors.value[`${key}-${page}`] || null : null
+    const response = await platformApi.ticketsLegacy({
+      cursor,
+      limit: options.perPage,
+      page,
+      history,
+      gameId: options.gameId,
+      status: options.status
     })
+    const nextCursor = response.pagination.nextPageUrl || response.pagination.seed || null
 
-    const payload = response.data || {}
-    const result = payload.result || {}
-    const tickets = Array.isArray(result.data)
-      ? result.data
-      : Array.isArray(result)
-        ? result
-        : Array.isArray(payload.data)
-          ? payload.data
-          : []
-    const game = payload.game || result.game || null
-    const games = Array.isArray(payload.games) ? payload.games : Array.isArray(result.games) ? result.games : []
-    const pagination = {
-      currentPage: Number(result.current_page || payload.current_page || 1),
-      lastPage: Number(result.last_page || payload.last_page || 1),
-      perPage: Number(result.per_page || payload.per_page || options.perPage || tickets.length || 20),
-      total: Number(result.total || payload.total || tickets.length),
-      nextPageUrl: result.next_page_url || payload.next_page_url || null
+    if (nextCursor) {
+      pageCursors.value[`${key}-${page + 1}`] = nextCursor
     }
+
+    const filteredTickets = options.search
+      ? response.tickets.filter((ticket) => getTicketNumber(ticket).includes(String(options.search)))
+      : response.tickets
+    const ticketGame = filteredTickets.map(getTicketGame).find(Boolean) || null
 
     return {
-      tickets,
-      game,
-      games,
-      pagination,
-      totalTicketCount: Number(payload.ticket_count || result.ticket_count || 0)
+      ...response,
+      tickets: filteredTickets,
+      game: ticketGame || response.game,
+      totalTicketCount: response.totalTicketCount || filteredTickets.length
     }
-  }
-
-  const getGameDate = (game: UserTicketGame | null | undefined) => {
-    const dateText = formatDrawDateText(game?.name)
-
-    return dateText === '-' ? '' : dateText
-  }
-
-  const getTicketImageUrl = (ticket: Partial<UserTicket> | null | undefined) => {
-    const image = ticket?.image
-
-    if (!image) {
-      return ''
-    }
-
-    const imageUrl = String(image)
-
-    if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
-      return imageUrl
-    }
-
-    const baseUrl = String(config.public.apiBaseUrl || '').replace(/\/$/, '')
-    const normalizedPath = imageUrl.replace(/^\/+/, '')
-
-    return baseUrl ? `${baseUrl}/${normalizedPath}` : `/${normalizedPath}`
   }
 
   return {
     fetchTickets,
-    getGameDate,
+    getGameDate: getGameDateText,
     getTicketNumber,
     getTicketCount,
     getTicketTotal,
     getTicketStatusText,
+    isWinningTicket,
+    getTicketPrizeAmount,
+    getTicketRewardPrizes,
+    getTicketPrizeTitle,
+    isTicketClaimable,
+    getTicketDisplaySortRank,
+    sortTicketsForCurrentDraw,
+    getTicketClaimId,
+    getTicketClaimTo,
     getTicketDraw,
+    getTicketGame,
+    getTicketGameDate,
     getTicketSet,
     getTicketImageUrl
   }

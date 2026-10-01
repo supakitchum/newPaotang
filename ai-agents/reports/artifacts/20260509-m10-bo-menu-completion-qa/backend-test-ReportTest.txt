@@ -1,0 +1,16 @@
+Running ReportTest
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-4ca04dafa8a4 Creating 
+ Container newpaotang-platform-api-run-4ca04dafa8a4 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ReportTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreport and export jobs are scoped for tenant and central admins[39m[90m     [39m [90m1.99s[39m  
+
+  [90mTests:[39m    [32;1m1 passed[39;22m[90m (25 assertions)[39m
+  [90mDuration:[39m [39m2.09s[39m
+

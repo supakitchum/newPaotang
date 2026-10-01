@@ -1,0 +1,45 @@
+apps/back-office/composables/useAdminRealtime.ts:10:  onReconnect?: () => void
+apps/back-office/composables/useAdminRealtime.ts:30:  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+apps/back-office/composables/useAdminRealtime.ts:117:    if (message.event === 'pusher:connection_established') {
+apps/back-office/composables/useAdminRealtime.ts:132:    if (message.event === 'pusher:ping') {
+apps/back-office/composables/useAdminRealtime.ts:133:      sendRealtime(activeSocket, { event: 'pusher:pong', data: {} })
+apps/back-office/composables/useAdminRealtime.ts:175:        event: 'pusher:subscribe',
+apps/back-office/composables/useAdminRealtime.ts:204:      options.onReconnect?.()
+apps/back-office/composables/useAdminRealtime.ts:214:    reconnectTimer = window.setTimeout(() => {
+apps/back-office/composables/useAdminRealtime.ts:236:        event: 'pusher:unsubscribe',
+apps/back-office/composables/useAdminRealtime.ts:249:    window.clearTimeout(reconnectTimer)
+apps/back-office/components/AdminStockGenerationBatches.vue:2:  <div class="card custom-card np-stock-generation-batches">
+apps/back-office/components/AdminStockGenerationBatches.vue:34:            <div class="np-stock-generation-batches__list">
+apps/back-office/components/AdminStockGenerationBatches.vue:39:                :class="['np-stock-generation-batches__item', { active: batch.id === selectedBatchId }]"
+apps/back-office/components/AdminStockGenerationBatches.vue:50:                <span class="progress np-stock-generation-batches__bar mt-2" aria-hidden="true">
+apps/back-office/components/AdminStockGenerationBatches.vue:65:            <section v-else class="np-stock-generation-batches__detail">
+apps/back-office/components/AdminStockGenerationBatches.vue:77:              <div class="np-stock-generation-batches__metric-grid">
+apps/back-office/components/AdminStockGenerationBatches.vue:101:                <div class="progress np-stock-generation-batches__detail-bar">
+apps/back-office/components/AdminStockGenerationBatches.vue:172:  fallbackPollIntervalMs?: number
+apps/back-office/components/AdminStockGenerationBatches.vue:177:  fallbackPollIntervalMs: 60000,
+apps/back-office/components/AdminStockGenerationBatches.vue:195:let fallbackPollTimer: ReturnType<typeof setTimeout> | null = null
+apps/back-office/components/AdminStockGenerationBatches.vue:198:const realtimeChannelName = computed(() => normalizedGameId.value ? `private-admin.central.stock-generation.game.${normalizedGameId.value}` : '')
+apps/back-office/components/AdminStockGenerationBatches.vue:206:const fallbackPollIntervalMs = computed(() => Math.max(30000, Number(props.fallbackPollIntervalMs || 60000)))
+apps/back-office/components/AdminStockGenerationBatches.vue:209:  eventName: 'stock.generation.progress.updated',
+apps/back-office/components/AdminStockGenerationBatches.vue:212:  onReconnect: handleRealtimeReconnect,
+apps/back-office/components/AdminStockGenerationBatches.vue:217:const realtimeBadge = computed(() => realtimeConnectionBadge(realtimeStatus.value, realtime.isConfigured.value, fallbackPollIntervalMs.value))
+apps/back-office/components/AdminStockGenerationBatches.vue:222:    void loadBatches()
+apps/back-office/components/AdminStockGenerationBatches.vue:240:  () => [shouldUseFallbackPolling.value, fallbackPollIntervalMs.value, realtimeStatus.value],
+apps/back-office/components/AdminStockGenerationBatches.vue:251:  void loadBatches()
+apps/back-office/components/AdminStockGenerationBatches.vue:254:async function loadBatches() {
+apps/back-office/components/AdminStockGenerationBatches.vue:278:    const response = await api.apiFetch('/admin/central/stock/generation-batches', {
+apps/back-office/components/AdminStockGenerationBatches.vue:321:    const response = await api.apiFetch(`/admin/central/stock/generation-batches/${encodeURIComponent(batchId)}`, {
+apps/back-office/components/AdminStockGenerationBatches.vue:412:  fallbackPollTimer = window.setTimeout(() => {
+apps/back-office/components/AdminStockGenerationBatches.vue:418:    void loadBatches().finally(() => {
+apps/back-office/components/AdminStockGenerationBatches.vue:421:  }, fallbackPollIntervalMs.value)
+apps/back-office/components/AdminStockGenerationBatches.vue:429:  window.clearTimeout(fallbackPollTimer)
+apps/back-office/components/AdminStockGenerationBatches.vue:447:  void loadBatches()
+apps/back-office/components/AdminStockGenerationBatches.vue:600:.np-stock-generation-batches__list {
+apps/back-office/components/AdminStockGenerationBatches.vue:605:.np-stock-generation-batches__item,
+apps/back-office/components/AdminStockGenerationBatches.vue:606:.np-stock-generation-batches__detail {
+apps/back-office/components/AdminStockGenerationBatches.vue:613:.np-stock-generation-batches__item {
+apps/back-office/components/AdminStockGenerationBatches.vue:617:.np-stock-generation-batches__item.active {
+apps/back-office/components/AdminStockGenerationBatches.vue:622:.np-stock-generation-batches__bar {
+apps/back-office/components/AdminStockGenerationBatches.vue:626:.np-stock-generation-batches__detail-bar {
+apps/back-office/components/AdminStockGenerationBatches.vue:630:.np-stock-generation-batches__metric-grid {
+apps/back-office/components/AdminStockGenerationBatches.vue:636:.np-stock-generation-batches__metric-grid > div {

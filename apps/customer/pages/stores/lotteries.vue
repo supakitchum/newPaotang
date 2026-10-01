@@ -67,6 +67,12 @@ interface StoreLotteryTicket {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 interface StoreLotteryPagination {
@@ -81,11 +87,13 @@ definePageMeta({
 })
 
 const route = useRoute()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { currentDrawDate: drawDate } = useAppInit()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const lotteries = ref<StoreLotteryTicket[]>([])
 const storeName = ref('ร้านสลากฯ')
 const pagination = ref<StoreLotteryPagination | null>(null)
+const currentGameId = ref('')
 const isLoadingInitial = ref(false)
 const isRefreshing = ref(false)
 const isLoadingMore = ref(false)
@@ -118,6 +126,12 @@ const refreshButtonText = computed(() => {
   }
 
   return 'แสดงเลขใหม่'
+})
+useCustomerStockRealtime({
+  gameId: currentGameId,
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
+  includePresence: true,
 })
 
 const startCooldown = () => {
@@ -161,25 +175,43 @@ const withHighlight = (ticket: StoreLotteryTicket): StoreLotteryTicket => ({
 
 async function getData(options: { append?: boolean } = {}) {
   try {
-    const params: Record<string, string | number> = {}
-
-    if (options.append && pagination.value?.seed) {
-      params.seed = pagination.value.seed
-      params.page = currentPage.value + 1
-    }
-
-    const response = await axios.post('/lotteries/search', buildPostData(), { params })
+    const response = await platformApi.searchStockLegacy({
+      storeId: String(buildPostData().store_id || ''),
+      mode: 'browse',
+      cursor: options.append ? pagination.value?.seed || null : null,
+      page: options.append ? currentPage.value + 1 : 1
+    })
 
     if (response.data.code === 0) {
       const nextPagination = response.data.result.pagination || {}
       const nextLotteries = (response.data.result.lotteries || []).map(withHighlight)
       lotteries.value = options.append ? [...lotteries.value, ...nextLotteries] : nextLotteries
       storeName.value = response.data.result.seller?.name || storeName.value
+      currentGameId.value = String(response.data.result.game_id || currentGameId.value || '')
       pagination.value = nextPagination
     }
   } catch (e) {
     console.log(e)
   }
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  lotteries.value = lotteries.value.map((ticket) => (
+    getTicketNumber(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
 }
 
 const loadNextPage = async () => {

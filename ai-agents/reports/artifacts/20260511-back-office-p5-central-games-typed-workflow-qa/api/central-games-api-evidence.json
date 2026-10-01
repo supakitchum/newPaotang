@@ -1,0 +1,302 @@
+{
+    "generated_at": "2026-05-11T14:32:43+00:00",
+    "base_url": "http://127.0.0.1:8000/api/v1",
+    "fixture": {
+        "code": "p5_games_api_01e88b",
+        "game_id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57"
+    },
+    "steps": [
+        {
+            "name": "list before create",
+            "method": "GET",
+            "path": "/admin/central/games?limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central"
+            },
+            "request_payload_keys": [],
+            "summary": {
+                "shape": "list",
+                "count": 0,
+                "ids": [],
+                "statuses": []
+            }
+        },
+        {
+            "name": "create draft game",
+            "method": "POST",
+            "path": "/admin/central/games",
+            "status": 201,
+            "request_headers": {
+                "x-admin-scope": "central",
+                "idempotency-key": "present"
+            },
+            "request_payload_keys": [
+                "code",
+                "name",
+                "draw_at",
+                "close_at",
+                "status"
+            ],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b",
+                "status": "draft",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-22T14:32:00.000000Z",
+                "closed_at": null,
+                "archived_at": null,
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "detail after create",
+            "method": "GET",
+            "path": "/admin/central/games/gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central"
+            },
+            "request_payload_keys": [],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b",
+                "status": "draft",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-22T14:32:00.000000Z",
+                "closed_at": null,
+                "archived_at": null,
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "update draft to open",
+            "method": "PATCH",
+            "path": "/admin/central/games/gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central",
+                "idempotency-key": "present"
+            },
+            "request_payload_keys": [
+                "name",
+                "close_at",
+                "status"
+            ],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b Open",
+                "status": "open",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-21T14:32:00.000000Z",
+                "closed_at": null,
+                "archived_at": null,
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "detail after update",
+            "method": "GET",
+            "path": "/admin/central/games/gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central"
+            },
+            "request_payload_keys": [],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b Open",
+                "status": "open",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-21T14:32:00.000000Z",
+                "closed_at": null,
+                "archived_at": null,
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "close game",
+            "method": "POST",
+            "path": "/admin/central/games/gam_01KRBQ8R8NCYVA43NVADQKWJ57/close",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central",
+                "idempotency-key": "present"
+            },
+            "request_payload_keys": [
+                "reason"
+            ],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b Open",
+                "status": "closed",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-21T14:32:00.000000Z",
+                "closed_at": "2026-05-11T14:32:43.000000Z",
+                "archived_at": null,
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "archive game",
+            "method": "POST",
+            "path": "/admin/central/games/gam_01KRBQ8R8NCYVA43NVADQKWJ57/archive",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central",
+                "idempotency-key": "present"
+            },
+            "request_payload_keys": [
+                "reason"
+            ],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b Open",
+                "status": "archived",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-21T14:32:00.000000Z",
+                "closed_at": "2026-05-11T14:32:43.000000Z",
+                "archived_at": "2026-05-11T14:32:43.000000Z",
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "detail after archive",
+            "method": "GET",
+            "path": "/admin/central/games/gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central"
+            },
+            "request_payload_keys": [],
+            "summary": {
+                "shape": "object",
+                "id": "gam_01KRBQ8R8NCYVA43NVADQKWJ57",
+                "code": "p5_games_api_01e88b",
+                "name": "P5 Games API 01e88b Open",
+                "status": "archived",
+                "draw_at": "2026-05-23T14:32:00.000000Z",
+                "close_at": "2026-05-21T14:32:00.000000Z",
+                "closed_at": "2026-05-11T14:32:43.000000Z",
+                "archived_at": "2026-05-11T14:32:43.000000Z",
+                "keys": [
+                    "id",
+                    "code",
+                    "name",
+                    "draw_at",
+                    "close_at",
+                    "server_time",
+                    "status",
+                    "closed_at",
+                    "archived_at",
+                    "created_at",
+                    "updated_at"
+                ]
+            }
+        },
+        {
+            "name": "archived filter",
+            "method": "GET",
+            "path": "/admin/central/games?status=archived&limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central"
+            },
+            "request_payload_keys": [],
+            "summary": {
+                "shape": "list",
+                "count": 1,
+                "ids": [
+                    "gam_01KRBQ8R8NCYVA43NVADQKWJ57"
+                ],
+                "statuses": [
+                    "archived"
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,527 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\Support\CentralStockFixtures;
+use Tests\TestCase;
+
+class CentralGameTest extends TestCase
+{
+    use CentralStockFixtures;
+    use RefreshDatabase;
+
+    public function test_CentralGame_lifecycle_is_permissioned_idempotency_guarded_audited_and_emits_close_event(): void
+    {
+        $this->seedDefaultRbac();
+
+        $limitedLogin = $this->createCentralSession(['dashboard.view'], 'adm_game_limited', 'game-limited@example.test');
+
+        $this->withToken($limitedLogin['access_token'])
+            ->getJson('/api/v1/admin/central/games', ['X-Admin-Scope' => 'central'])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $login = $this->createCentralSession([
+            'game.view',
+            'game.create',
+            'game.update',
+            'game.close',
+        ], 'adm_game', 'game@example.test');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'code' => 'may_2026',
+                'name' => 'May 2026 Draw',
+                'draw_at' => now()->addDay()->toISOString(),
+            ], ['X-Admin-Scope' => 'central'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.Idempotency-Key.0', 'The Idempotency-Key header must be between 8 and 128 characters.');
+
+        $game = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'code' => 'should_be_ignored',
+                'name' => 'April 2026 Draw',
+                'sale_start_at' => '2026-03-30T10:00:00+07:00',
+                'draw_at' => '2026-04-01T20:00:00+07:00',
+                'close_at' => '2026-04-01T12:00:00+07:00',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-may',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('code', '01042569')
+            ->assertJsonPath('status', 'draft')
+            ->json();
+
+        $rewardId = (string) DB::table('reward_results')->where('game_id', $game['id'])->value('id');
+        $this->assertNotSame('', $rewardId);
+        $this->assertSame('draft', DB::table('reward_results')->where('id', $rewardId)->value('status'));
+        $this->assertSame($this->thaiGovernmentLotteryPrizeCount(), DB::table('reward_prizes')->where('reward_result_id', $rewardId)->count());
+
+        $rewardAdmin = $this->createCentralSession(['reward.create'], 'adm_reward_guard', 'reward-guard@example.test');
+
+        $this->withToken($rewardAdmin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$rewardId, [
+                'prizes' => $this->thaiGovernmentLotteryPrizes('123456'),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-draft-too-early',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.game_id.0', 'The game must be closed before reward results can be recorded.');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$game['id'], [
+                'code' => 'manual_code_is_ignored',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-code-manual-ignore',
+            ])
+            ->assertOk()
+            ->assertJsonPath('code', '01042569');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$game['id'], [
+                'draw_at' => '2026-04-02T20:00:00+07:00',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-code-draw-sync',
+            ])
+            ->assertOk()
+            ->assertJsonPath('code', '02042569');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$game['id'], [
+                'status' => 'open',
+                'name' => 'May 2026 Draw Open',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-open-may',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'open')
+            ->assertJsonPath('name', 'May 2026 Draw Open');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$game['id'], [
+                'status' => 'archived',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-invalid-transition',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.status.0', 'The requested game status transition is not allowed.');
+
+        $closed = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games/'.$game['id'].'/close', [
+                'reason' => 'draw_cutoff',
+                'api_secret' => 'should-redact',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-close-may',
+                'X-Request-Id' => 'req-game-close',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'closed')
+            ->json();
+
+        $this->assertSame($game['id'], $closed['id']);
+        $this->assertDatabaseHas('sync_outbox', [
+            'event_type' => 'game.closed.v1',
+            'producer' => 'central_stock',
+            'game_id' => $game['id'],
+            'idempotency_key' => 'game-close-may',
+            'correlation_id' => 'req-game-close',
+            'status' => 'pending',
+        ]);
+
+        $auditPayload = json_decode((string) DB::table('audit_logs')
+            ->where('action', 'game.closed')
+            ->value('payload_redacted_json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games/'.$game['id'].'/archive', [
+                'reason' => 'retention',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-archive-may',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'archived');
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/games', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $game['id']);
+    }
+
+    public function test_CentralGame_auto_closes_open_games_thirty_minutes_after_sale_close(): void
+    {
+        $this->insertGame('gam_auto_close_due', 'open');
+        $this->insertGame('gam_auto_close_waiting', 'open');
+        $this->insertGame('gam_auto_close_draft', 'draft');
+        DB::table('games')->where('id', 'gam_auto_close_due')->update([
+            'code' => '01062569',
+            'close_at' => now()->subMinutes(31),
+            'closed_at' => null,
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_auto_close_waiting')->update([
+            'close_at' => now()->subMinutes(29),
+            'closed_at' => null,
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_auto_close_draft')->update([
+            'close_at' => now()->subMinutes(60),
+            'closed_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        $this->artisan('games:auto-close-expired', ['--limit' => 10])
+            ->expectsOutput('Auto-closed games: 1')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('games', [
+            'id' => 'gam_auto_close_due',
+            'status' => 'closed',
+        ]);
+        $this->assertNotNull(DB::table('games')->where('id', 'gam_auto_close_due')->value('closed_at'));
+        $this->assertDatabaseHas('games', [
+            'id' => 'gam_auto_close_waiting',
+            'status' => 'open',
+            'closed_at' => null,
+        ]);
+        $this->assertDatabaseHas('games', [
+            'id' => 'gam_auto_close_draft',
+            'status' => 'draft',
+            'closed_at' => null,
+        ]);
+        $this->assertDatabaseHas('sync_outbox', [
+            'event_type' => 'game.closed.v1',
+            'producer' => 'central_stock',
+            'game_id' => 'gam_auto_close_due',
+            'idempotency_key' => 'auto-close-gam_auto_close_due',
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_type' => 'system',
+            'actor_id' => 'system_auto_close',
+            'action' => 'game.closed',
+            'target_id' => 'gam_auto_close_due',
+        ]);
+    }
+
+    public function test_CentralGame_open_requires_previous_closed_result_and_no_other_open_game(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_previous', 'open');
+
+        $login = $this->createCentralSession([
+            'game.view',
+            'game.create',
+            'game.update',
+        ], 'adm_game_rules', 'game-rules@example.test');
+
+        $next = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'code' => 'june_2026',
+                'name' => 'June 2026 Draw',
+                'sale_start_at' => now()->addDay()->toISOString(),
+                'draw_at' => now()->addDays(2)->toISOString(),
+                'close_at' => now()->addDay()->addHours(20)->toISOString(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-june',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$next['id'], [
+                'status' => 'open',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-open-june-overlap',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.status.0', 'Another game is already open for sale. Close it and record results before opening a new game.');
+
+        DB::table('games')->where('id', 'gam_previous')->update([
+            'status' => 'closed',
+            'closed_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$next['id'], [
+                'status' => 'open',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-open-june-no-result',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.status.0', 'The previous game must be closed and have recorded reward results before opening a new game.');
+
+        DB::table('reward_results')->insert([
+            'id' => 'rr_gam_previous',
+            'game_id' => 'gam_previous',
+            'status' => 'recorded',
+            'version' => 1,
+            'summary_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => null,
+            'verified_at' => null,
+            'published_at' => null,
+            'corrected_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('games')->where('id', 'gam_previous')->update([
+            'status' => 'reward_recorded',
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$next['id'], [
+                'status' => 'open',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-open-june-after-result',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'open');
+    }
+
+    public function test_CentralGame_create_clones_sale_price_rules_from_previous_draw(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_game_price', 'ten_game_price');
+        $this->insertGame('gam_price_previous', 'reward_published');
+
+        DB::table('games')->where('id', 'gam_price_previous')->update([
+            'draw_at' => '2026-05-16T13:00:00+07:00',
+            'updated_at' => now(),
+        ]);
+
+        DB::table('game_sale_price_rules')->insert([
+            [
+                'id' => 'gsp_previous_set_one',
+                'game_id' => 'gam_price_previous',
+                'set_size' => 1,
+                'price_amount' => 9000,
+                'currency' => 'THB',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'gsp_previous_set_three',
+                'game_id' => 'gam_price_previous',
+                'set_size' => 3,
+                'price_amount' => 25000,
+                'currency' => 'THB',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        DB::table('tenant_sale_price_overrides')->insert([
+            'id' => 'tsp_previous_set_one',
+            'tenant_id' => 'ten_game_price',
+            'partner_id' => 'par_game_price',
+            'game_id' => 'gam_price_previous',
+            'set_size' => 1,
+            'price_amount' => 9500,
+            'currency' => 'THB',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $login = $this->createCentralSession([
+            'game.create',
+        ], 'adm_game_price_clone', 'game-price-clone@example.test');
+
+        $next = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'name' => 'Next Draw With Cloned Sale Prices',
+                'sale_start_at' => '2026-05-30T08:00:00+07:00',
+                'draw_at' => '2026-06-01T13:00:00+07:00',
+                'close_at' => '2026-06-01T12:00:00+07:00',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-sale-price-clone',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $rules = DB::table('game_sale_price_rules')
+            ->where('game_id', $next['id'])
+            ->orderBy('set_size')
+            ->get(['set_size', 'price_amount', 'currency', 'status']);
+
+        $this->assertCount(2, $rules);
+        $this->assertSame(9000, (int) $rules[0]->price_amount);
+        $this->assertSame(1, (int) $rules[0]->set_size);
+        $this->assertSame(25000, (int) $rules[1]->price_amount);
+        $this->assertSame(3, (int) $rules[1]->set_size);
+        $this->assertTrue($rules->every(fn (object $rule): bool => (string) $rule->currency === 'THB' && (string) $rule->status === 'active'));
+
+        $this->assertDatabaseHas('tenant_sale_price_overrides', [
+            'tenant_id' => 'ten_game_price',
+            'partner_id' => 'par_game_price',
+            'game_id' => $next['id'],
+            'set_size' => 1,
+            'price_amount' => 9500,
+            'currency' => 'THB',
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_CentralGame_open_allows_previous_reward_published_game_even_when_closed_at_is_missing(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_previous_published', 'reward_published');
+
+        DB::table('reward_results')->insert([
+            'id' => 'rr_gam_previous_published',
+            'game_id' => 'gam_previous_published',
+            'status' => 'published',
+            'version' => 1,
+            'summary_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => now(),
+            'verified_at' => now(),
+            'published_at' => now(),
+            'corrected_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertNull(DB::table('games')->where('id', 'gam_previous_published')->value('closed_at'));
+
+        $login = $this->createCentralSession([
+            'game.create',
+            'game.update',
+        ], 'adm_game_pub_prev', 'game-pub-prev@example.test');
+
+        $next = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'name' => 'Next Draw After Published Result',
+                'sale_start_at' => now()->addDay()->toISOString(),
+                'draw_at' => now()->addDays(2)->toISOString(),
+                'close_at' => now()->addDay()->addHours(20)->toISOString(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-after-published-result',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$next['id'], [
+                'status' => 'open',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-open-after-published-result',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'open');
+    }
+
+    public function test_CentralGame_archived_game_without_recorded_reward_does_not_block_next_open_game(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_archived_previous', 'archived');
+
+        DB::table('games')->where('id', 'gam_archived_previous')->update([
+            'closed_at' => now()->subHour(),
+            'archived_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('reward_results')->insert([
+            'id' => 'rr_gam_archived_previous',
+            'game_id' => 'gam_archived_previous',
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => null,
+            'verified_at' => null,
+            'published_at' => null,
+            'corrected_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $login = $this->createCentralSession([
+            'game.create',
+        ], 'adm_game_archive_rules', 'game-archive-rules@example.test');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'name' => 'Next Draw After Archived',
+                'status' => 'open',
+                'sale_start_at' => now()->addDay()->toISOString(),
+                'draw_at' => now()->addDays(2)->toISOString(),
+                'close_at' => now()->addDay()->addHours(20)->toISOString(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-after-archived',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'open');
+    }
+
+    private function thaiGovernmentLotteryPrizeCount(): int
+    {
+        return array_sum(array_map(
+            fn (array $rule): int => $rule['count'],
+            ThaiGovernmentLotteryRewardTemplate::rules(),
+        ));
+    }
+
+    /**
+     * @return array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}>
+     */
+    private function thaiGovernmentLotteryPrizes(string $firstPrizeNumber): array
+    {
+        $rows = [];
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::rules() as $type => $rule) {
+            for ($index = 1; $index <= $rule['count']; $index++) {
+                $rows[] = [
+                    'prize_type' => $type,
+                    'prize_number' => $type === 'first_prize'
+                        ? $firstPrizeNumber
+                        : str_pad((string) $index, $rule['digits'], '0', STR_PAD_LEFT),
+                    'amount' => [
+                        'amount' => $rule['amount'],
+                        'currency' => ThaiGovernmentLotteryRewardTemplate::CURRENCY,
+                    ],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+}

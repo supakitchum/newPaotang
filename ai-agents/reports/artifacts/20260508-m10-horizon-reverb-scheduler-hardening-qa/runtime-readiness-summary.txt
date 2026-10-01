@@ -1,0 +1,17 @@
+[default] status=blocked_external; production_approved=False
+[default] boundary.external_services_called=False; long_lived_processes_started=False
+[default] queue_workers.status=ready_local; configured_queue_count=22; missing=[]; unknown=[]
+[default] horizon.status=blocked_external; blockers=horizon_package_missing,horizon_config_missing,horizon_supervisor_not_configured,horizon_dashboard_access_policy_not_verified,horizon_production_process_manager_missing; dashboard_route_registered=False
+[default] reverb.status=blocked_external; blockers=reverb_package_missing,reverb_runtime_profile_not_configured,reverb_tls_and_public_host_not_verified,reverb_scaling_and_load_not_verified; central_auth=True; tenant_auth=True
+[default] reverb.redacted_config={'app_id': None, 'app_key': '[REDACTED]', 'app_secret': '[REDACTED]', 'host': '[CONFIGURED]', 'port': '[CONFIGURED]', 'scheme': '[CONFIGURED]'}
+[default] scheduler.status=ready_local; missing_required_workloads=[]
+[default] helpers.status=ready_local
+[fake-reverb] status=blocked_external; production_approved=False
+[fake-reverb] boundary.external_services_called=False; long_lived_processes_started=False
+[fake-reverb] queue_workers.status=ready_local; configured_queue_count=22; missing=[]; unknown=[]
+[fake-reverb] horizon.status=blocked_external; blockers=horizon_package_missing,horizon_config_missing,horizon_supervisor_not_configured,horizon_dashboard_access_policy_not_verified,horizon_production_process_manager_missing; dashboard_route_registered=False
+[fake-reverb] reverb.status=blocked_external; blockers=reverb_package_missing,reverb_runtime_profile_not_configured,reverb_tls_and_public_host_not_verified,reverb_scaling_and_load_not_verified; central_auth=True; tenant_auth=True
+[fake-reverb] reverb.redacted_config={'app_id': '[CONFIGURED]', 'app_key': '[REDACTED]', 'app_secret': '[REDACTED]', 'host': '[CONFIGURED]', 'port': '[CONFIGURED]', 'scheme': '[CONFIGURED]'}
+[fake-reverb] scheduler.status=ready_local; missing_required_workloads=[]
+[fake-reverb] helpers.status=ready_local
+fake_reverb_raw_value_leak_count=0

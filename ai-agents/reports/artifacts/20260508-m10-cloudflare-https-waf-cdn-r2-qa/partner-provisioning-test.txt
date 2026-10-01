@@ -1,0 +1,10 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerProvisioningTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpartner provisioning central admin can create provision idempotentl[39m[90m…[39m [90m2.99s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpartner api client management is permissioned and never returns sec[39m[90m…[39m [90m1.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90msite config resolves host returns openapi shape maintenance and saf[39m[90m…[39m [90m0.80s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant settings theme read update are permissioned and tenant scope[39m[90m…[39m [90m1.35s[39m  
+
+  [90mTests:[39m    [32;1m4 passed[39;22m[90m (145 assertions)[39m
+  [90mDuration:[39m [39m6.24s[39m
+

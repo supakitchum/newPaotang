@@ -1,0 +1,8 @@
+api/v1/admin/central/partner-monitoring: PASS (3 matching lines)
+api/v1/admin/central/partner-usage: PASS (3 matching lines)
+api/v1/admin/central/billing-bindings: PASS (3 matching lines)
+api/v1/admin/central/sync-logs: PASS (1 matching lines)
+api/v1/admin/tenant/price-rules: PASS (5 matching lines)
+api/v1/admin/tenant/domains: PASS (6 matching lines)
+api/v1/admin/tenant/sync-logs: PASS (1 matching lines)
+api/v1/customer/topups: PASS (5 matching lines)

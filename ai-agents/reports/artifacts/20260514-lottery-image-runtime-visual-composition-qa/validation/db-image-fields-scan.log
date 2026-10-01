@@ -1,0 +1,61 @@
+apps/platform-api/app/Models/StockItem.php:27:        'image_url',
+apps/platform-api/app/Models/StockItem.php:28:        'image_thumb_url',
+apps/platform-api/app/Models/StockItem.php:29:        'image_storage_path',
+apps/platform-api/app/Models/StockItem.php:30:        'image_thumb_storage_path',
+apps/platform-api/app/Models/StockItem.php:31:        'image_generation_status',
+apps/platform-api/app/Models/StockItem.php:32:        'image_generation_error',
+apps/platform-api/app/Models/StockItem.php:33:        'image_generated_at',
+apps/platform-api/app/Models/StockItem.php:45:        'image_generated_at' => 'datetime',
+apps/platform-api/app/Models/LocalStockItem.php:28:        'image_url',
+apps/platform-api/app/Models/LocalStockItem.php:29:        'image_thumb_url',
+apps/platform-api/app/Models/LocalStockItem.php:30:        'image_storage_path',
+apps/platform-api/app/Models/LocalStockItem.php:31:        'image_thumb_storage_path',
+apps/platform-api/app/Models/LocalStockItem.php:32:        'image_generation_status',
+apps/platform-api/app/Models/LocalStockItem.php:33:        'image_generation_error',
+apps/platform-api/app/Models/LocalStockItem.php:34:        'image_generated_at',
+apps/platform-api/app/Models/LocalStockItem.php:47:        'image_generated_at' => 'datetime',
+apps/platform-api/database/migrations/2026_05_06_000004_create_partner_provisioning_tables.php:48:            $table->string('og_image_url')->nullable();
+apps/platform-api/database/migrations/2026_05_09_000002_create_remaining_openapi_route_closure_tables.php:82:            $table->string('og_image_url')->nullable();
+apps/platform-api/database/migrations/2026_05_09_000002_create_remaining_openapi_route_closure_tables.php:98:            $table->string('og_image_url')->nullable();
+apps/platform-api/database/migrations/2026_05_06_000006_create_local_stock_booking_tables.php:52:            $table->string('image_url')->nullable();
+apps/platform-api/database/migrations/2026_05_06_000006_create_local_stock_booking_tables.php:53:            $table->string('image_thumb_url')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:12:            if (! Schema::hasColumn('stock_items', 'image_url')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:13:                $table->string('image_url')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:15:            if (! Schema::hasColumn('stock_items', 'image_thumb_url')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:16:                $table->string('image_thumb_url')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:18:            if (! Schema::hasColumn('stock_items', 'image_storage_path')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:19:                $table->string('image_storage_path')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:21:            if (! Schema::hasColumn('stock_items', 'image_thumb_storage_path')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:22:                $table->string('image_thumb_storage_path')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:24:            if (! Schema::hasColumn('stock_items', 'image_generation_status')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:25:                $table->string('image_generation_status')->nullable()->index();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:27:            if (! Schema::hasColumn('stock_items', 'image_generation_error')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:28:                $table->text('image_generation_error')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:30:            if (! Schema::hasColumn('stock_items', 'image_generated_at')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:31:                $table->timestampTz('image_generated_at')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:45:            if (! Schema::hasColumn('local_stock_items', 'image_storage_path')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:46:                $table->string('image_storage_path')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:48:            if (! Schema::hasColumn('local_stock_items', 'image_thumb_storage_path')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:49:                $table->string('image_thumb_storage_path')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:51:            if (! Schema::hasColumn('local_stock_items', 'image_generation_status')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:52:                $table->string('image_generation_status')->nullable()->index();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:54:            if (! Schema::hasColumn('local_stock_items', 'image_generation_error')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:55:                $table->text('image_generation_error')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:57:            if (! Schema::hasColumn('local_stock_items', 'image_generated_at')) {
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:58:                $table->timestampTz('image_generated_at')->nullable();
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:94:                'image_storage_path',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:95:                'image_thumb_storage_path',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:96:                'image_generation_status',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:97:                'image_generation_error',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:98:                'image_generated_at',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:108:                'image_url',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:109:                'image_thumb_url',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:110:                'image_storage_path',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:111:                'image_thumb_storage_path',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:112:                'image_generation_status',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:113:                'image_generation_error',
+apps/platform-api/database/migrations/2026_05_14_000001_add_lottery_image_generation_metadata.php:114:                'image_generated_at',
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:104:            $table->string('image_url')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000001_create_checkout_wallet_sold_sync_tables.php:105:            $table->string('image_thumb_url')->nullable();
+
+exit_code=0

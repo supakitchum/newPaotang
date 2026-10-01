@@ -1,0 +1,61 @@
+
+const allocationPartnerField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'partner_id',
+  label: 'Partner',
+  type: 'select',
+  optionSource: 'allocation-partners',
+  required: true,
+  hideEmptyOption: false,
+  ...overrides,
+})
+
+const allocationTenantField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'tenant_id',
+  label: 'Tenant',
+  type: 'select',
+  optionSource: 'allocation-tenants',
+  dependsOn: 'partner_id',
+  emptyOptionLabel: 'Select partner first',
+  help: 'Auto-filled when the selected active partner has exactly one active tenant.',
+  ...overrides,
+})
+
+const allocationGameField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'game_id',
+  label: 'Game',
+  type: 'select',
+  optionSource: 'allocation-games',
+  required: true,
+  ...overrides,
+})
+
+const allocationPercentField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'allocation_percent',
+  label: 'Allocation percent',
+  type: 'number',
+  min: 0.01,
+  max: 100,
+  step: 0.01,
+  required: true,
+  help: 'Backend enforces total active partner percent per game <= 100% and rejects values below already reserved or sold usage.',
+  ...overrides,
+})
+
+const auditColumns: OperationColumn[] = [
+  { key: 'id', label: 'Log' },
+  { key: 'action', label: 'Action' },
+  { key: 'actor_id', label: 'Actor' },
+  { key: 'target_type', label: 'Target' },
+  { key: 'target_id', label: 'Target ID' },
+  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'request_id', label: 'Request' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+]
+
+const syncColumns: OperationColumn[] = [
+  { key: 'id', label: 'Log' },
+  { key: 'direction', label: 'Direction', type: 'status' },
+  { key: 'event_type', label: 'Event' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'producer', label: 'Producer' },
+  { key: 'consumer', label: 'Consumer' },

@@ -1,0 +1,15 @@
+{
+  "note": "Browser-captured state after API-triggered stock coverage update; no page reload was performed before these captures.",
+  "tab_a": {
+    "realtime": true,
+    "row": "56 Central 2 1 0 2 1 1 0 0 OK Use override",
+    "dom_artifact": "browser/bo-stock-pattern-coverage-two-browser-tab-a-after-event-dom.txt",
+    "screenshot_artifact": "browser/bo-stock-pattern-coverage-two-browser-tab-a-after-event.png"
+  },
+  "tab_b": {
+    "realtime": true,
+    "row": "56 Central 2 1 0 2 1 1 0 0 OK Use override",
+    "dom_artifact": "browser/bo-stock-pattern-coverage-two-browser-tab-b-after-event-dom.txt",
+    "screenshot_artifact": "browser/bo-stock-pattern-coverage-two-browser-tab-b-after-event.png"
+  }
+}

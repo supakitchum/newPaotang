@@ -1,0 +1,22 @@
+ Container newpaotang-back-office-run-341c85874f94 Creating
+ Container newpaotang-back-office-run-341c85874f94 Created
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium-1117/chrome-linux/chrome
+╔═════════════════════════════════════════════════════════════════════════╗
+║ Looks like Playwright Test or Playwright was just installed or updated. ║
+║ Please run the following command to download new browsers:              ║
+║                                                                         ║
+║     npx playwright install                                              ║
+║                                                                         ║
+║ <3 Playwright Team                                                      ║
+╚═════════════════════════════════════════════════════════════════════════╝
+    at /app/[stdin]:3:34
+    at /app/[stdin]:13:3
+    at /app/[stdin]-wrapper:6:24 {
+  name: 'Error'
+}
+
+Node.js v22.22.2

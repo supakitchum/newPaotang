@@ -1,0 +1,4 @@
+log_count=30
+contains_hydration=false
+contains_error=false
+contains_warn=false

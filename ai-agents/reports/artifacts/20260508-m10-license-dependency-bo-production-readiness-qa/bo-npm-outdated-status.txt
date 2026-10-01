@@ -1,0 +1,1 @@
+npm_outdated_exit_status=1

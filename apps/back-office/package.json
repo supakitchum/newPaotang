@@ -1,0 +1,28 @@
+{
+  "name": "newpaotang-back-office",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 0.0.0.0 --port 3100",
+    "build": "nuxt build",
+    "lint": "node scripts/check.mjs lint",
+    "test": "TZ=Asia/Bangkok node --test scripts/customer-campaign-schedule.test.mjs && node scripts/check.mjs test",
+    "preview": "nuxt preview --host 0.0.0.0 --port 3100"
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "apexcharts": "^3.54.1",
+    "bootstrap": "^5.3.3",
+    "node-waves": "^0.7.6",
+    "nuxt": "3.11.2",
+    "simplebar": "^6.3.0",
+    "sweetalert2": "^11.26.24",
+    "vue": "3.4.21"
+  },
+  "overrides": {
+    "@nuxt/devtools": "1.1.5",
+    "@nuxt/telemetry": "2.5.3",
+    "nuxi": "3.11.1",
+    "nitropack": "2.9.6"
+  }
+}

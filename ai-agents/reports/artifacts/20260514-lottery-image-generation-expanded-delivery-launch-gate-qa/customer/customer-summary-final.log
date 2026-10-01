@@ -1,0 +1,15 @@
+package-script-scan exit_code=2
+  {
+    "scripts": {
+      "dev": "nuxt dev",
+      "build": "nuxt build",
+      "generate": "nuxt generate",
+      "preview": "nuxt preview"
+    },
+    "hasLint": false,
+    "hasTest": false
+  }
+  exit_code=2
+customer lint/test skipped: scripts unavailable per launch gate note
+npm-build exit_code=0 (see npm-build.log)
+overall_exit_code=0

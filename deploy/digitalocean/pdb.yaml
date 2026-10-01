@@ -1,0 +1,39 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: platform-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: customer
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: back-office
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: back-office
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: platform-api-reverb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api-reverb

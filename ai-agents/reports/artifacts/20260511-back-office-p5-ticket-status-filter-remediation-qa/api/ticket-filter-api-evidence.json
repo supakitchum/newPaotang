@@ -1,0 +1,135 @@
+{
+    "generated_at": "2026-05-11T13:57:06+00:00",
+    "base_url": "http://127.0.0.1:8000/api/v1",
+    "fixture": {
+        "customer_id": "cus_p5_ticket_filter",
+        "stock_item_id": "stk_p5_ticket_filter",
+        "local_stock_item_id": "lsi_p5_ticket_filter",
+        "reservation_id": "res_p5_ticket_filter",
+        "order_id": "ord_p5_ticket_filter",
+        "ticket_id": "tic_p5_read",
+        "tenant_id": "ten_demo_alpha",
+        "partner_id": "par_demo_alpha",
+        "game_id": "gam_p5_ticket_filter",
+        "status": "active"
+    },
+    "steps": [
+        {
+            "name": "tenant tickets list",
+            "method": "GET",
+            "path": "/admin/tenant/tickets?limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "list",
+                "count": 1,
+                "ids": [
+                    "tic_p5_read"
+                ],
+                "statuses": [
+                    "active"
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        {
+            "name": "tenant tickets active filter",
+            "method": "GET",
+            "path": "/admin/tenant/tickets?status=active&limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "list",
+                "count": 1,
+                "ids": [
+                    "tic_p5_read"
+                ],
+                "statuses": [
+                    "active"
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        {
+            "name": "tenant tickets active cursor",
+            "method": "GET",
+            "path": "/admin/tenant/tickets?status=active&cursor=tic_p5_read&limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "list",
+                "count": 0,
+                "ids": [],
+                "statuses": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        {
+            "name": "tenant ticket detail",
+            "method": "GET",
+            "path": "/admin/tenant/tickets/tic_p5_read",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "id",
+                    "game_id",
+                    "full_number",
+                    "status",
+                    "image_thumb_url",
+                    "image_url",
+                    "tenant_id",
+                    "order",
+                    "reward_status",
+                    "history"
+                ],
+                "id": "tic_p5_read",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "order_id": "ord_p5_ticket_filter"
+            }
+        },
+        {
+            "name": "tenant tickets closed empty",
+            "method": "GET",
+            "path": "/admin/tenant/tickets?status=closed&limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "list",
+                "count": 0,
+                "ids": [],
+                "statuses": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        }
+    ]
+}

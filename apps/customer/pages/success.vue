@@ -1,12 +1,11 @@
 <template>
   <MobileShell time="13:04" active-nav="tickets" show-bottom-nav>
     <div class="success-bg">
+      <div class="success-receipt-scroll">
       <section class="receipt-card">
         <div class="text-center border-bottom pb-3 mb-3">
           <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
-            <BrandLogo />
-            <span class="vr" />
-            <span class="lottery-six fs-2">L6</span>
+            <img src="/brand/siamblend-horizontal-logo.png" class="receipt-brand-logo" alt="Siamblend" width="210" height="70">
           </div>
           <div class="check-mark"><i class="bi bi-check-lg" /></div>
           <h1 class="fs-4 fw-bold">ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ</h1>
@@ -50,13 +49,12 @@
           </div>
         </div>
       </section>
+      </div>
 
-      <div class="px-4 mt-4">
+      <div class="success-actions">
         <button class="btn bg-white text-primary rounded-pill w-50 mx-auto d-flex align-items-center justify-content-center gap-2 fw-semibold py-3" type="button">
           <i class="bi bi-download fs-4" /> บันทึก
         </button>
-      </div>
-      <div class="px-3" style="margin-top:238px">
         <NuxtLink class="primary-pill d-block text-center py-3" to="/tickets">ดูสลากฯ ของฉัน</NuxtLink>
       </div>
     </div>
@@ -99,7 +97,7 @@ interface SuccessReceipt {
 }
 
 const route = useRoute()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { currentDrawDate } = useAppInit()
 const checkoutSuccessOrder = useState<SuccessOrder | null>('checkout_success_order', () => null)
 
@@ -185,11 +183,9 @@ const fetchReceipt = async () => {
 
   try {
     const orderId = route.query.order_id
-    const response = await axios.get('/checkout/success', {
-      params: typeof orderId === 'string' && orderId ? { order_id: orderId } : undefined
-    })
-
-    receipt.value = response.data?.result || null
+    receipt.value = typeof orderId === 'string' && orderId
+      ? await platformApi.orderReceiptLegacy(orderId)
+      : null
     checkoutSuccessOrder.value = receipt.value?.order || checkoutSuccessOrder.value
   } catch (error: any) {
     loadError.value = error?.response?.data?.message || 'โหลดข้อมูลการชำระเงินไม่สำเร็จ'
@@ -202,3 +198,40 @@ onMounted(() => {
   fetchReceipt()
 })
 </script>
+
+<style scoped>
+.success-bg {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+}
+.success-receipt-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: calc(24px + env(safe-area-inset-top)) 0 16px;
+}
+.receipt-card {
+  max-width: 430px;
+  margin-inline: auto;
+  width: calc(100% - 36px);
+}
+.receipt-brand-logo {
+  max-width: 100%;
+  object-fit: contain;
+}
+.success-actions {
+  display: grid;
+  gap: 12px;
+  flex: 0 0 auto;
+  max-width: 430px;
+  width: 100%;
+  margin-inline: auto;
+  padding: 8px 18px calc(98px + max(16px, env(safe-area-inset-bottom)));
+}
+.success-actions button {
+  font-family: inherit;
+}
+</style>
