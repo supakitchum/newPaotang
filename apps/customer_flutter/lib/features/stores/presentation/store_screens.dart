@@ -69,6 +69,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     final showCartDock = _storeCartSelectionReviewEnabled(_cart);
     return AppShell(
       title: l10n.lotteryBuyTitle,
+      extendContentToBottom: true,
       currentPath: '/stores',
       backPath: '/buy',
       showBottomNavigation: false,
@@ -536,6 +537,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     final showCartDock = _storeCartSelectionReviewEnabled(_cart);
     return AppShell(
       title: l10n.storesLotteriesTitle,
+      extendContentToBottom: true,
       currentPath: '/stores',
       backPath: '/stores',
       showBottomNavigation: false,

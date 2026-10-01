@@ -3,16 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_back_navigation.dart';
-import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/asset_url.dart';
 import '../../../shared/services/receipt_export_service.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_alert.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../../shared/widgets/flexible_image.dart';
+import '../../../shared/widgets/siamblend_receipt_logo.dart';
 import '../data/purchase_history_models.dart';
 import '../data/purchase_history_repository.dart';
 import 'purchase_history_localization.dart';
@@ -79,9 +77,8 @@ class _PurchaseHistoryDetailScreenState
                       key: _receiptBoundaryKey,
                       child: order.when(
                         data: (value) => _PurchaseReceiptCard(order: value),
-                        loading: () => const _PurchaseReceiptCard(
-                          loading: true,
-                        ),
+                        loading: () =>
+                            const _PurchaseReceiptCard(loading: true),
                         error: (error, _) => _PurchaseReceiptCard(
                           errorMessage: customerErrorMessage(
                             error,
@@ -137,25 +134,30 @@ class _PurchaseHistoryDetailScreenState
     final sharePositionOrigin = _sharePositionOrigin(shareContext);
 
     try {
-      final result =
-          await ref.read(receiptExportCoordinatorProvider).exportReceipt(
-                boundaryKey: _receiptBoundaryKey,
-                text: text,
-                subject: l10n.purchaseHistoryReceiptTitle,
-                imageFileName: _receiptFileName(order, 'png'),
-                pdfFileName: _receiptFileName(order, 'pdf'),
-                sharePositionOrigin: sharePositionOrigin,
-              );
+      final result = await ref
+          .read(receiptExportCoordinatorProvider)
+          .exportReceipt(
+            boundaryKey: _receiptBoundaryKey,
+            text: text,
+            subject: l10n.purchaseHistoryReceiptTitle,
+            imageFileName: _receiptFileName(order, 'png'),
+            pdfFileName: _receiptFileName(order, 'pdf'),
+            sharePositionOrigin: sharePositionOrigin,
+          );
       if (!mounted) return;
       if (result == ReceiptExportResult.copied) {
-        ref.read(appAlertControllerProvider.notifier).show(
+        ref
+            .read(appAlertControllerProvider.notifier)
+            .show(
               message: l10n.successReceiptShareFailedCopied,
               variant: AppAlertVariant.warning,
             );
       }
     } catch (_) {
       if (!mounted) return;
-      ref.read(appAlertControllerProvider.notifier).show(
+      ref
+          .read(appAlertControllerProvider.notifier)
+          .show(
             message: l10n.successReceiptSaveFailed,
             variant: AppAlertVariant.error,
           );
@@ -234,14 +236,15 @@ class _PurchaseReceiptBackgroundPainter extends CustomPainter {
     final yellowRadius = (size.width * 0.32).clamp(110.0, 150.0);
     final yellowCenter = Offset(size.width, size.height * 0.96);
     final yellowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          accent.withValues(alpha: 0.98),
-          accent.withValues(alpha: 0),
-        ],
-      ).createShader(
-        Rect.fromCircle(center: yellowCenter, radius: yellowRadius),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              accent.withValues(alpha: 0.98),
+              accent.withValues(alpha: 0),
+            ],
+          ).createShader(
+            Rect.fromCircle(center: yellowCenter, radius: yellowRadius),
+          );
     canvas.drawRect(rect, yellowPaint);
 
     void drawBand(double dx, double alpha) {
@@ -279,15 +282,16 @@ class _PurchaseReceiptBackButton extends StatelessWidget {
       onPressed: onPressed,
       icon: const Icon(Icons.chevron_left, size: 38),
       color: Colors.white,
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(44),
-        minimumSize: const Size.square(44),
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        foregroundColor: Colors.white,
-      ).copyWith(
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      ),
+      style:
+          IconButton.styleFrom(
+            fixedSize: const Size.square(44),
+            minimumSize: const Size.square(44),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: Colors.white,
+          ).copyWith(
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
     );
   }
 }
@@ -339,20 +343,16 @@ class _PurchaseReceiptSaveButton extends StatelessWidget {
                       semanticLabel: context.l10n.commonLoadingData,
                     )
                   else
-                    Icon(
-                      Icons.download_outlined,
-                      size: 29,
-                      color: linkColor,
-                    ),
+                    Icon(Icons.download_outlined, size: 29, color: linkColor),
                   const SizedBox(width: 12),
                   Text(
                     context.l10n.successSaveReceipt,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: linkColor,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w900,
-                          height: 1.1,
-                        ),
+                      color: linkColor,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                      height: 1.1,
+                    ),
                   ),
                 ],
               ),
@@ -410,22 +410,22 @@ class _PurchaseReceiptCard extends StatelessWidget {
                 Text(
                   l10n.purchaseHistoryReceiptTitle,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: const Color(0xFF242833),
-                        fontSize: compact ? 21 : 24,
-                        fontWeight: FontWeight.w900,
-                        height: 1.35,
-                      ),
+                    color: const Color(0xFF242833),
+                    fontSize: compact ? 21 : 24,
+                    fontWeight: FontWeight.w900,
+                    height: 1.35,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   l10n.purchaseHistoryReceiptSubtitle,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: const Color(0xFF575F69),
-                        fontSize: compact ? 15 : 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.45,
-                      ),
+                    color: const Color(0xFF575F69),
+                    fontSize: compact ? 15 : 18,
+                    fontWeight: FontWeight.w700,
+                    height: 1.45,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 26),
@@ -435,10 +435,7 @@ class _PurchaseReceiptCard extends StatelessWidget {
                     loading: true,
                   )
                 else if (errorMessage.isNotEmpty)
-                  _PurchaseReceiptState(
-                    message: errorMessage,
-                    onRetry: onRetry,
-                  )
+                  _PurchaseReceiptState(message: errorMessage, onRetry: onRetry)
                 else if (order == null)
                   _PurchaseReceiptState(
                     message: l10n.purchaseHistoryDetailEmpty,
@@ -535,152 +532,12 @@ class _PurchaseReceiptContent extends StatelessWidget {
   }
 }
 
-class _ReceiptBrand extends ConsumerWidget {
+class _ReceiptBrand extends StatelessWidget {
   const _ReceiptBrand();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
-    final rawLogoUrl = bootstrap?.brand.logoUrl.trim() ?? '';
-    final logoUrl = rawLogoUrl.isEmpty
-        ? ''
-        : _resolvePurchaseReceiptLogoUrl(ref, rawLogoUrl);
-    final configuredProduct = bootstrap?.lotteryProductLabel.trim() ?? '';
-    final productLabel = configuredProduct.isNotEmpty
-        ? configuredProduct
-        : context.l10n.ticketStubSeriesLabel;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (logoUrl.isNotEmpty)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 150),
-            child: FlexibleImage(
-              source: logoUrl,
-              height: 42,
-              fit: BoxFit.contain,
-              errorIcon: Icons.receipt_long_outlined,
-            ),
-          )
-        else
-          _ReceiptBrandFallback(
-            brandLabel: context.l10n.ticketImageBrandFallback,
-            siteName: bootstrap?.siteName.trim() ?? '',
-            supportLabel: bootstrap?.supportPhone.trim() ?? '',
-          ),
-        const SizedBox(width: 18),
-        const SizedBox(
-          height: 38,
-          child: VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: Color(0xFFD7DEE8),
-          ),
-        ),
-        const SizedBox(width: 18),
-        _ReceiptProductMark(label: productLabel),
-      ],
-    );
-  }
-}
-
-class _ReceiptBrandFallback extends StatelessWidget {
-  const _ReceiptBrandFallback({
-    required this.brandLabel,
-    required this.siteName,
-    required this.supportLabel,
-  });
-
-  final String brandLabel;
-  final String siteName;
-  final String supportLabel;
-
-  @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 150),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            brandLabel,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppTheme.lotterySix(
-                    Theme.of(context).colorScheme.primary,
-                  ),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  height: 0.9,
-                ),
-          ),
-          if (siteName.isNotEmpty)
-            Text(
-              siteName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF575F69),
-                fontSize: 7,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-            ),
-          if (supportLabel.isNotEmpty)
-            Text(
-              supportLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF737B85),
-                fontSize: 6,
-                fontWeight: FontWeight.w600,
-                height: 1.1,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReceiptProductMark extends StatelessWidget {
-  const _ReceiptProductMark({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: AppTheme.primaryLink(colorScheme.primary),
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-        ),
-        Transform.translate(
-          offset: const Offset(-5, -1),
-          child: SizedBox.square(
-            dimension: 8,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.tertiary,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    return const SiamblendReceiptLogo();
   }
 }
 
@@ -728,11 +585,11 @@ class _ReceiptRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: const Color(0xFF737B85),
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w800,
-                  height: 1.35,
-                ),
+              color: const Color(0xFF737B85),
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
           ),
         ),
         const SizedBox(width: 16),
@@ -745,13 +602,13 @@ class _ReceiptRow extends StatelessWidget {
                 value,
                 textAlign: TextAlign.right,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: highlighted
-                          ? Theme.of(context).colorScheme.primary
-                          : const Color(0xFF22282F),
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w900,
-                      height: 1.35,
-                    ),
+                  color: highlighted
+                      ? Theme.of(context).colorScheme.primary
+                      : const Color(0xFF22282F),
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w900,
+                  height: 1.35,
+                ),
               ),
               if (secondaryValue.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -759,11 +616,11 @@ class _ReceiptRow extends StatelessWidget {
                   secondaryValue,
                   textAlign: TextAlign.right,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF22282F),
-                        fontSize: compact ? 15 : 17,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                      ),
+                    color: const Color(0xFF22282F),
+                    fontSize: compact ? 15 : 17,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ],
@@ -789,10 +646,10 @@ class _TotalRow extends StatelessWidget {
           child: Text(
             context.l10n.purchaseHistoryTotalLabel,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: const Color(0xFF737B85),
-                  fontSize: compact ? 15 : 18,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: const Color(0xFF737B85),
+              fontSize: compact ? 15 : 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         Text.rich(
@@ -832,11 +689,11 @@ class _ReceiptMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: const Color(0xFF626B76),
-          fontSize: compact ? 15 : 17,
-          fontWeight: FontWeight.w700,
-          height: 1.35,
-        );
+      color: const Color(0xFF626B76),
+      fontSize: compact ? 15 : 17,
+      fontWeight: FontWeight.w700,
+      height: 1.35,
+    );
     return Column(
       children: [
         Text(
@@ -879,29 +736,32 @@ class _PurchaseReceiptState extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: loading
-                      ? const Color(0xFF8A8F98)
-                      : Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w800,
-                  height: 1.4,
-                ),
+              color: loading
+                  ? const Color(0xFF8A8F98)
+                  : Theme.of(context).colorScheme.error,
+              fontWeight: FontWeight.w800,
+              height: 1.4,
+            ),
           ),
           if (onRetry != null) ...[
             const SizedBox(height: 14),
             OutlinedButton(
               onPressed: onRetry,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryOutlineText(primary),
-                minimumSize: const Size(0, 42),
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                shape: const StadiumBorder(),
-                side: BorderSide(
-                  color: AppTheme.primaryOutlineBorder(primary),
-                ),
-                textStyle: const TextStyle(fontWeight: FontWeight.w600),
-              ).copyWith(
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              ),
+              style:
+                  OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryOutlineText(primary),
+                    minimumSize: const Size(0, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    shape: const StadiumBorder(),
+                    side: BorderSide(
+                      color: AppTheme.primaryOutlineBorder(primary),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  ).copyWith(
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                  ),
               child: Text(context.l10n.commonRetry),
             ),
           ],
@@ -911,22 +771,7 @@ class _PurchaseReceiptState extends StatelessWidget {
   }
 }
 
-String _resolvePurchaseReceiptLogoUrl(WidgetRef ref, String value) {
-  final trimmed = value.trim();
-  final uri = Uri.tryParse(trimmed);
-  if (uri != null &&
-      (uri.hasScheme ||
-          trimmed.startsWith('data:') ||
-          trimmed.startsWith('//'))) {
-    return trimmed;
-  }
-  return ref.watch(assetUrlResolverProvider)(trimmed);
-}
-
-String _purchaseReceiptText(
-  BuildContext context,
-  PurchaseHistoryOrder order,
-) {
+String _purchaseReceiptText(BuildContext context, PurchaseHistoryOrder order) {
   final l10n = context.l10n;
   final reference = order.maskedPaymentReference;
   return [

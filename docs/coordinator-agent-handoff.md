@@ -1,5 +1,51 @@
 # Coordinator Agent Handoff
 
+## 2026-10-01 User Acceptance / Main Integration
+
+- User: “ปิดเลยส่วนนั้นทดสอบไปแล้ว merge งานเข้า main เลยจะอัพเดท prod”. Delivery is CLOSED; QA-G02 / QA-G03 are accepted based on the user's completed-testing statement. QA-G01 remains independently approved.
+- Decision: `ai-agents/decisions/20261001-customer-responsive-receipt-social-otp-close-main-decision.md`. Historical QA reports keep their observed results; no additional device/provider/runtime/production acceptance is claimed.
+- Commit the scoped receipt/news/social OTP delivery, preserve concurrent local changes, and merge into main retaining both independent histories. The obsolete initial main snapshot is resolved to the current develop delivery in an isolated checkout.
+- The runtime/login proposal below is superseded and will not be activated. No new agent has been dispatched.
+- Main push does not trigger the current production workflow. A develop push builds images; production deployment requires a separate manual workflow dispatch. Updated backend must precede updated clients. No new migration is introduced.
+
+**Next Agent: User for the intended production update after verified main integration.**
+
+## 2026-10-01 Independent Contract QA Approval / Runtime Proposal
+
+- Report: `ai-agents/reports/20261001-customer-responsive-receipt-social-otp-contract-remediation-qa-report.md`.
+- Coordinator approved **QA-G01 PASS within targeted scope**: CONTRACT-01/02 independently confirmed; 48 schema cases, 38 boundary cases and 16 scope invariants passed. All 26 current QA artifact checksums and source/document fingerprints match.
+- Decision: `ai-agents/decisions/20261001-customer-responsive-receipt-social-otp-contract-approval-decision.md`.
+- Overall milestone/release acceptance remains **BLOCKED on QA-G02 / QA-G03**. QA carried runtime observations forward; Coordinator separately read the four selected states and simulated starts without mutation. All four remain stopped; actual HTTP/login verification is pending.
+- Proposed next task: `ai-agents/tasks/20261001-customer-responsive-receipt-social-otp-runtime-login-orchestrator.md`; preservation-first start of only existing API/BO/customer/proxy containers and approved-account login. **Not activated or dispatched** until human authorization and secure account/tenant prerequisites are supplied.
+- Preserve all previous FAIL/PASS evidence, application source, protected DB and uncommitted work. No automatic commit/push, restart/reseed, install/SMS/link/purchase/deploy.
+
+**Next Agent: User**, then Orchestrator if the proposed runtime scope is explicitly authorized. No chat/subagent was opened or messaged. No further contract remediation is assigned.
+
+## 2026-10-01 Contract QA Findings / Documentation Remediation
+
+- Latest report: `ai-agents/reports/20261001-customer-responsive-receipt-social-otp-contract-qa-report.md`.
+- QA-G01 **FAIL**: two P2 inherited CustomerProfile discrepancies, null email/avatar/locale and absent reward bank serialized as `[]`. Request/probe flow matches. QA-G02/QA-G03 remain BLOCKED / NOT TESTED.
+- Coordinator accepted the findings and corrected those four documented fields only; actual serializer/client/DB behavior is preserved. The bank array branch accepts only zero items.
+- Decision: `ai-agents/decisions/20261001-customer-responsive-receipt-social-otp-contract-remediation-decision.md`.
+- Instruction: `ai-agents/tasks/20261001-customer-responsive-receipt-social-otp-contract-remediation-orchestrator.md`.
+- Prior decisions/reports/artifacts remain historical evidence. The local delivery is uncommitted; current root AGENTS.md protections remain authoritative.
+
+**Next Agent: Orchestrator -> QA Tester -> Coordinator.** User must relay the instruction; no chat/subagent was opened or messaged. Independent QA confirmation is pending; overall acceptance remains BLOCKED.
+
+## 2026-10-01 Customer Receipt / Social OTP QA Review
+
+Current active task: `customer-responsive-receipt-social-otp`.
+
+- Coordinator reviewed the October QA report and Orchestrator return, verified 269 artifact checksums and confirmed the application snapshot is unchanged.
+- Decision: `ai-agents/decisions/20261001-customer-responsive-receipt-social-otp-qa-review-decision.md`.
+- QA-G01: confirmed the delivered existing-phone flow; corrected OpenAPI and integration map within documentation ownership. Independent contract review remains pending.
+- QA-G02: approve read-only runtime/login preflight only; stopped shared services and missing approved-account acceptance remain blockers. Do not reseed/reset runtime data or recover stopped services automatically.
+- QA-G03: prepare native/provider/production acceptance prerequisites; retain NOT TESTED/BLOCKED and the backend-first release order.
+- Current root `AGENTS.md` overrides historical automatic commit/push and runtime reseed examples below. All local application/QA work is preserved; the delivery is uncommitted.
+- Task instruction: `ai-agents/tasks/20261001-customer-responsive-receipt-social-otp-contract-review-orchestrator.md`.
+
+**Next Agent: Orchestrator -> QA Tester -> Coordinator.** User must send the board/task instruction to Orchestrator chat; no chat or subagent has been opened or messaged. Overall acceptance remains BLOCKED until the applicable gates are resolved.
+
 ## 2026-05-20 Stock Table Realtime Socket
 
 Coordinator opened task `stock-table-realtime-socket` for Orchestrator.

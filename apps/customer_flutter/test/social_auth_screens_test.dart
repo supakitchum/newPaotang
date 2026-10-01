@@ -10,18 +10,87 @@ import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/navigation/customer_link_launcher.dart';
 import 'package:customer_flutter/core/navigation/customer_deep_link.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/affiliate/data/affiliate_referral_repository.dart';
 import 'package:customer_flutter/features/auth/presentation/line_auth_screens.dart';
 import 'package:customer_flutter/features/auth/presentation/login_screen.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  for (final size in [
+    const Size(320, 568),
+    const Size(390, 844),
+    const Size(768, 1024),
+  ]) {
+    testWidgets(
+      'social phone link has compact header and usable fields at $size',
+      (tester) async {
+        final fonts = FontLoader('Kanit')
+          ..addFont(rootBundle.load('assets/fonts/kanit/Kanit-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/kanit/Kanit-Bold.ttf'));
+        await tester.runAsync(fonts.load);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = size;
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        addTearDown(tester.view.reset);
+        final repository = _SocialAuthRepository(
+          callbackResult: _emptyCallback('google'),
+        );
+        final router = _router(
+          initialLocation: '/social/google/link-phone?token=fixture',
+          useRealLinkPhoneScreen: true,
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWithValue(_testConfig),
+              authRepositoryProvider.overrideWithValue(repository),
+              affiliateReferralServiceProvider.overrideWithValue(
+                _NoopAffiliateReferralService(),
+              ),
+            ],
+            child: MaterialApp.router(
+              locale: fallbackCustomerLocale,
+              supportedLocales: supportedCustomerLocales,
+              localizationsDelegates: const [CustomerLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+              theme: AppTheme.light(),
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            CustomerLocalizations(
+              fallbackCustomerLocale,
+            ).socialLinkHeroSubtitle('Google'),
+          ),
+          findsNothing,
+        );
+        final input = tester.getRect(find.byType(TextField));
+        expect(input.top, lessThan(430));
+        expect(input.left, greaterThanOrEqualTo(16));
+        expect(input.right, lessThanOrEqualTo(size.width - 16));
+        await tester.enterText(find.byType(TextField), '0812345678');
+        tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byType(FilledButton));
+        await tester.tap(find.byType(FilledButton));
+        await tester.pumpAndSettle();
+        expect(repository.lastOtpRequestPhone, '0812345678');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets(
     'login renders every enabled store-compliant social provider from runtime config',
     (tester) async {
@@ -830,6 +899,54 @@ void main() {
     },
   );
 
+  for (final provider in ['google', 'apple', 'facebook', 'line']) {
+    testWidgets(
+      '$provider signs in existing phone after OTP without member form',
+      (tester) async {
+        final repository = _SocialAuthRepository(
+          callbackResult: _emptyCallback(provider),
+          existingSession: const CustomerSession(
+            accessToken: 'existing-access',
+            refreshToken: 'existing-refresh',
+            pinRequired: false,
+            pinSetupRequired: false,
+            customerId: 'cus_existing',
+          ),
+        );
+        final affiliate = _NoopAffiliateReferralService();
+        final router = _router(
+          initialLocation:
+              '/social/$provider/link-phone?token=valid-link&redirect=%2Faffiliate',
+          useRealLinkPhoneScreen: true,
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appConfigProvider.overrideWithValue(_testConfig),
+              authRepositoryProvider.overrideWithValue(repository),
+              affiliateReferralServiceProvider.overrideWithValue(affiliate),
+            ],
+            child: _TestApp(router: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), '0812345678');
+        await tester.ensureVisible(find.byType(FilledButton));
+        await tester.tap(find.byType(FilledButton));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), '123456');
+        await tester.pumpAndSettle();
+        expect(repository.existingPhone, '0812345678');
+        expect(repository.existingOtpToken, 'otp-social-verified');
+        expect(repository.lastLinkFirstName, isNull);
+        expect(repository.lastLinkPassword, isNull);
+        expect(router.routeInformationProvider.value.uri.path, '/affiliate');
+        expect(affiliate.applied, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('generic social link-phone submits Google provider and signs in', (
     tester,
   ) async {
@@ -875,7 +992,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'If this phone already has an account, we will check the existing password and link this Google account immediately.',
+        'If this phone already has an account, verifying the OTP will link this Google account and sign you in immediately.',
       ),
       findsOneWidget,
     );
@@ -1277,6 +1394,7 @@ class _SocialAuthRepository extends AuthRepository {
     this.socialLoginUrlFuture,
     this.callbackError,
     this.linkError,
+    this.existingSession,
     this.linkSession = const CustomerSession(
       accessToken: 'linked-access',
       refreshToken: 'linked-refresh',
@@ -1302,6 +1420,9 @@ class _SocialAuthRepository extends AuthRepository {
   final Object? callbackError;
   final Object? linkError;
   final CustomerSession linkSession;
+  final CustomerSession? existingSession;
+  String? existingPhone;
+  String? existingOtpToken;
   String? lastCallbackProvider;
   String? lastSocialLoginProvider;
   Map<String, dynamic>? lastCallbackQuery;
@@ -1372,6 +1493,19 @@ class _SocialAuthRepository extends AuthRepository {
     final error = callbackError;
     if (error != null) throw error;
     return callbackResult;
+  }
+
+  @override
+  Future<CustomerSession?> socialLinkExistingPhone({
+    required String provider,
+    required String linkToken,
+    required String phone,
+    required String otpVerificationToken,
+    String? redirect,
+  }) async {
+    existingPhone = phone;
+    existingOtpToken = otpVerificationToken;
+    return existingSession;
   }
 
   @override

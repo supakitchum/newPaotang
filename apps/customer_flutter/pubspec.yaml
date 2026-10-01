@@ -58,6 +58,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/branding/siamblend_horizontal_logo.png
     - assets/images/splash/
     - assets/images/affiliate/tiers/
     - assets/images/banks/

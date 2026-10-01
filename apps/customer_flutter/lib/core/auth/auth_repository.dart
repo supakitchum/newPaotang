@@ -510,6 +510,38 @@ class AuthRepository {
     return result.withRedirectFallback(callbackContext?.redirect);
   }
 
+  Future<CustomerSession?> socialLinkExistingPhone({
+    required String provider,
+    required String linkToken,
+    required String phone,
+    required String otpVerificationToken,
+    String? redirect,
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/customer/auth/social/${normalizeSocialAuthProvider(provider)}/link-phone',
+      auth: false,
+      data: {
+        'link_token': linkToken,
+        'phone': phone,
+        'otp_verification_token': otpVerificationToken,
+        'existing_only': true,
+        if (redirect != null) 'redirect': safeCustomerRedirect(redirect),
+      },
+    );
+    final payload = asMap(response.data);
+    if (_truthy(
+      _authPayload(
+        payload,
+        _socialLoginPayloadWrapperKeys,
+      )['registration_required'],
+    )) {
+      return null;
+    }
+    final session = CustomerSession.fromJson(payload);
+    await _saveSession(session);
+    return session;
+  }
+
   Future<CustomerSession> socialLinkPhone({
     required String provider,
     required String linkToken,

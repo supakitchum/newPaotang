@@ -216,6 +216,186 @@ class CustomerSocialAuthServiceTest extends TestCase
         ]);
     }
 
+    public function test_verified_existing_phone_signs_in_and_links_every_social_provider_without_member_fields(): void
+    {
+        $this->seedTenant('social-store.test');
+        foreach (['google', 'apple', 'facebook', 'line'] as $index => $provider) {
+            $phone = '081234567'.$index;
+            $customerId = 'cus_existing_'.$provider;
+            $passwordHash = Hash::make('original-password');
+            DB::table('customers')->insert([
+                'id' => $customerId,
+                'tenant_id' => 'ten_social',
+                'phone' => $phone,
+                'name' => 'Existing Member',
+                'first_name' => 'Existing',
+                'last_name' => 'Member',
+                'password_hash' => $passwordHash,
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->seedSocialLinkToken($provider, $provider.'-existing', $provider.'-link');
+            $this->seedVerifiedOtp($phone, $provider.'-verified');
+            $payload = [
+                'link_token' => $provider.'-link',
+                'phone' => $phone,
+                'otp_verification_token' => $provider.'-verified',
+                'existing_only' => true,
+            ];
+            $this->postJson('http://social-store.test/api/v1/customer/auth/social/'.$provider.'/link-phone', $payload)
+                ->assertOk()
+                ->assertJsonPath('user.id', $customerId)
+                ->assertJsonPath('user.first_name', 'Existing');
+            $this->assertDatabaseHas('customers', [
+                'id' => $customerId,
+                'password_hash' => $passwordHash,
+                'last_name' => 'Member',
+            ]);
+            $this->assertDatabaseHas($provider === 'line' ? 'customer_line_identities' : 'customer_social_identities', [
+                'tenant_id' => 'ten_social',
+                'customer_id' => $customerId,
+                $provider === 'line' ? 'line_user_id' : 'provider_user_id' => $provider.'-existing',
+            ]);
+            $this->assertDatabaseHas('otp_verifications', [
+                'verification_token_hash' => hash('sha256', $provider.'-verified'),
+                'status' => 'consumed',
+            ]);
+            $this->postJson('http://social-store.test/api/v1/customer/auth/social/'.$provider.'/link-phone', $payload)
+                ->assertUnauthorized();
+        }
+    }
+
+    public function test_new_phone_probe_does_not_consume_otp_or_social_link_and_still_requires_registration(): void
+    {
+        $this->seedTenant('social-store.test');
+        foreach (['google', 'line'] as $index => $provider) {
+            $phone = '082345678'.$index;
+            $this->seedSocialLinkToken($provider, $provider.'-new-probe', $provider.'-probe-link');
+            $this->seedVerifiedOtp($phone, $provider.'-probe-otp');
+            $payload = [
+                'link_token' => $provider.'-probe-link',
+                'phone' => $phone,
+                'otp_verification_token' => $provider.'-probe-otp',
+            ];
+            $this->postJson('http://social-store.test/api/v1/customer/auth/social/'.$provider.'/link-phone', $payload + ['existing_only' => true])
+                ->assertOk()->assertJsonPath('registration_required', true);
+            $this->postJson('http://social-store.test/api/v1/customer/auth/social/'.$provider.'/link-phone', $payload)
+                ->assertStatus(422)->assertJsonPath('error.code', 'validation_failed');
+            $this->assertDatabaseHas('otp_verifications', [
+                'verification_token_hash' => hash('sha256', $provider.'-probe-otp'),
+                'status' => 'verified',
+                'consumed_at' => null,
+            ]);
+            $this->assertDatabaseHas('customer_line_link_tokens', [
+                'token_hash' => hash('sha256', $provider.'-probe-link'),
+                'status' => 'pending',
+            ]);
+            $this->assertDatabaseMissing('customers', ['phone' => $phone]);
+        }
+    }
+
+    public function test_social_phone_probe_rejects_wrong_phone_purpose_tenant_expired_and_consumed_otp(): void
+    {
+        $this->seedTenant('social-store.test');
+        DB::table('partners')->insert([
+            'id' => 'par_other', 'code' => 'par_other', 'name' => 'Other Partner',
+            'type' => 'partner_store', 'status' => 'active',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('partner_tenants')->insert([
+            'id' => 'ten_other',
+            'partner_id' => 'par_other',
+            'code' => 'other',
+            'name' => 'Other Tenant',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        foreach (['google', 'line'] as $provider) {
+            $this->seedSocialLinkToken($provider, $provider.'-protected', $provider.'-protected-link');
+            $this->seedVerifiedOtp('0834567890', $provider.'-protected-otp');
+            $otpQuery = DB::table('otp_verifications')->where('verification_token_hash', hash('sha256', $provider.'-protected-otp'));
+            foreach ([
+                ['phone_normalized' => '0899999999'],
+                ['purpose' => 'login'],
+                ['tenant_id' => 'ten_other'],
+                ['verified_at' => now()->subDay()],
+                ['status' => 'consumed', 'consumed_at' => now()],
+            ] as $invalid) {
+                $otpQuery->update(array_merge([
+                    'phone_normalized' => '0834567890',
+                    'purpose' => 'register',
+                    'tenant_id' => 'ten_social',
+                    'verified_at' => now(),
+                    'status' => 'verified',
+                    'consumed_at' => null,
+                ], $invalid));
+                $this->postJson('http://social-store.test/api/v1/customer/auth/social/'.$provider.'/link-phone', [
+                    'link_token' => $provider.'-protected-link',
+                    'phone' => '0834567890',
+                    'otp_verification_token' => $provider.'-protected-otp',
+                    'existing_only' => true,
+                ])->assertStatus(422)->assertJsonPath('error.code', 'otp_invalid');
+            }
+            $this->assertDatabaseHas('customer_line_link_tokens', [
+                'token_hash' => hash('sha256', $provider.'-protected-link'),
+                'status' => 'pending',
+            ]);
+        }
+        $this->assertDatabaseCount('customers', 0);
+    }
+
+    public function test_verified_phone_does_not_bypass_suspension_or_social_identity_ownership(): void
+    {
+        $this->seedTenant('social-store.test');
+        DB::table('customers')->insert([
+            ['id' => 'cus_target', 'tenant_id' => 'ten_social', 'phone' => '0845678901', 'name' => 'Target', 'status' => 'suspended', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 'cus_owner', 'tenant_id' => 'ten_social', 'phone' => '0845678902', 'name' => 'Owner', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+        foreach (['google', 'line'] as $provider) {
+            DB::table('customers')->where('id', 'cus_target')->update(['status' => 'suspended']);
+            $this->seedSocialLinkToken($provider, $provider.'-owned', $provider.'-owned-link');
+            $this->seedVerifiedOtp('0845678901', $provider.'-owned-otp');
+            $payload = [
+                'link_token' => $provider.'-owned-link',
+                'phone' => '0845678901',
+                'otp_verification_token' => $provider.'-owned-otp',
+                'existing_only' => true,
+            ];
+            $url = 'http://social-store.test/api/v1/customer/auth/social/'.$provider.'/link-phone';
+            $this->postJson($url, $payload)->assertStatus(403)->assertJsonPath('error.code', 'customer_suspended');
+            DB::table('customers')->where('id', 'cus_target')->update(['status' => 'active']);
+            $identity = [
+                'id' => 'identity_'.$provider,
+                'tenant_id' => 'ten_social', 'customer_id' => 'cus_owner',
+                'created_at' => now(), 'updated_at' => now(),
+            ];
+            if ($provider === 'line') {
+                DB::table('customer_line_identities')->insert($identity + ['line_user_id' => 'line-owned', 'friend_flag' => false]);
+            } else {
+                DB::table('customer_social_identities')->insert($identity + ['provider' => $provider, 'provider_user_id' => $provider.'-owned']);
+            }
+            $this->postJson($url, $payload)->assertStatus(409)->assertJsonPath('error.code', 'resource_conflict');
+            $this->assertDatabaseHas('otp_verifications', [
+                'verification_token_hash' => hash('sha256', $provider.'-owned-otp'),
+                'status' => 'verified', 'consumed_at' => null,
+            ]);
+        }
+    }
+
+    public function test_line_phone_link_rejects_another_provider_handoff_even_with_valid_otp(): void
+    {
+        $this->seedTenant('social-store.test');
+        $this->seedSocialLinkToken('google', 'google-cross-provider', 'google-only-link');
+        $this->seedVerifiedOtp('0856789012', 'valid-cross-provider-otp');
+        $this->postJson('http://social-store.test/api/v1/customer/auth/social/line/link-phone', [
+            'link_token' => 'google-only-link', 'phone' => '0856789012',
+            'otp_verification_token' => 'valid-cross-provider-otp', 'existing_only' => true,
+        ])->assertUnauthorized();
+        $this->assertDatabaseCount('customer_line_identities', 0);
+    }
+
     public function test_social_onboarding_rejects_invalid_otp_without_creating_customer(): void
     {
         $this->seedTenant('social-store.test');

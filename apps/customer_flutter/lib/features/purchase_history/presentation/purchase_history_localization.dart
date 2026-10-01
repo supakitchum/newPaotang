@@ -6,10 +6,7 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../data/purchase_history_models.dart';
 
-String localizedPurchaseYear(
-  BuildContext context,
-  PurchaseHistoryOrder order,
-) {
+String localizedPurchaseYear(BuildContext context, PurchaseHistoryOrder order) {
   final drawAt = order.drawAt?.toString().trim() ?? '';
   final value = drawAt.isNotEmpty ? order.drawAt : order.transactionAt;
   final year = formatBangkokLocalizedYear(
@@ -67,10 +64,10 @@ String localizedPurchasePaymentChannel(
   if (order.paymentMethod == 'wallet') {
     return order.walletName.isEmpty
         ? context.l10n.purchaseHistoryWalletFallback
-        : order.walletName;
+        : context.l10n.walletDisplayName(order.walletName);
   }
   if (order.paymentProvider.isNotEmpty) return order.paymentProvider;
   return order.walletName.isEmpty
       ? context.l10n.purchaseHistoryWalletFallback
-      : order.walletName;
+      : context.l10n.walletDisplayName(order.walletName);
 }

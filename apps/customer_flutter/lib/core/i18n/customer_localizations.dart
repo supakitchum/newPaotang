@@ -1410,6 +1410,9 @@ class CustomerLocalizations {
 
   String walletDisplayName(String? runtimeName) {
     final name = runtimeName?.trim() ?? '';
+    if (name.toLowerCase() == 'primary wallet' || name == 'กระเป๋าเงินหลัก') {
+      return _text('wallet.primary_name');
+    }
     return name.isEmpty ? _text('wallet.fallback_name') : name;
   }
 
@@ -1677,7 +1680,7 @@ class CustomerLocalizations {
   String rewardClaimPayoutWallet(String walletName) {
     return _text(
       'reward_claims.payout.wallet',
-    ).replaceAll('{wallet}', walletName);
+    ).replaceAll('{wallet}', walletDisplayName(walletName));
   }
 
   String get rewardClaimBankPrefix => _text('reward_claims.payout.bank_prefix');
@@ -1789,7 +1792,7 @@ class CustomerLocalizations {
   String activityClaimWalletSummary(String walletName) {
     return _text(
       'activity_claims.payout.wallet_summary',
-    ).replaceAll('{wallet}', walletName);
+    ).replaceAll('{wallet}', walletDisplayName(walletName));
   }
 
   String get activityClaimAmountLabel => _text('activity_claims.detail.amount');
@@ -3346,10 +3349,10 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.link.title': 'ผูกบัญชีด้วย {provider}',
     'auth.social.link.phone_title': 'ยืนยันเบอร์โทรศัพท์',
     'auth.social.link.phone_subtitle':
-        'หากเบอร์นี้มีบัญชีอยู่แล้ว ระบบจะตรวจรหัสผ่านเดิมและผูกบัญชี {provider} เข้ากับบัญชีนั้นทันที',
+        'หากเบอร์นี้มีบัญชีอยู่แล้ว เมื่อยืนยัน OTP สำเร็จ ระบบจะผูกบัญชี {provider} และเข้าสู่ระบบทันที',
     'auth.social.link.hero_subtitle':
         'ยืนยันเบอร์โทรศัพท์เพื่อใช้งานบัญชีเดิม หรือสร้างบัญชีใหม่ด้วย {provider}',
-    'auth.social.link.password_hint': 'รหัสผ่านบัญชีเดิม หรือรหัสผ่านใหม่',
+    'auth.social.link.password_hint': 'ตั้งรหัสผ่านสำหรับบัญชีใหม่',
     'auth.social.link.confirm_password_hint': 'กรอกซ้ำเพื่อสร้างบัญชีใหม่',
     'auth.social.link.submit': 'ยืนยันและเข้าสู่ระบบ',
     'auth.social.link.submitting': 'กำลังยืนยัน',
@@ -3364,7 +3367,7 @@ const _localizedValues = <String, Map<String, String>>{
         'กรอกเบอร์โทรศัพท์ที่ต้องการใช้กับบัญชีสมาชิก',
     'auth.social.onboarding.otp_title': 'กรอกรหัส OTP',
     'auth.social.onboarding.otp_notice':
-        'ต้องยืนยัน OTP ก่อนจึงจะกรอกข้อมูลสมาชิกและสร้างบัญชีได้',
+        'ยืนยัน OTP เพื่อผูกบัญชี หากเบอร์นี้ยังไม่มีบัญชี ระบบจะให้กรอกข้อมูลสมาชิก',
     'auth.social.onboarding.member_title': 'ข้อมูลสมาชิก',
     'auth.social.onboarding.member_description':
         'กรอกชื่อ นามสกุล และตั้งรหัสผ่านสำหรับบัญชีของคุณ',
@@ -4121,6 +4124,7 @@ const _localizedValues = <String, Map<String, String>>{
         'รายการเติมเงิน ชำระเงิน และรับเงินรางวัลจะแสดงที่นี่',
     'wallet.balance_after': 'คงเหลือ {amount}',
     'wallet.fallback_name': 'กระเป๋าเงิน',
+    'wallet.primary_name': 'กระเป๋าเงินหลัก',
     'wallet.account_title': '{wallet} x {suffix}',
     'wallet.ledger.topup': 'เติมเงินเข้า {wallet}',
     'wallet.ledger.order': 'ชำระค่าสลากดิจิทัล',
@@ -5399,11 +5403,10 @@ const _localizedValues = <String, Map<String, String>>{
     'auth.social.link.title': 'Link account with {provider}',
     'auth.social.link.phone_title': 'Verify phone number',
     'auth.social.link.phone_subtitle':
-        'If this phone already has an account, we will check the existing password and link this {provider} account immediately.',
+        'If this phone already has an account, verifying the OTP will link this {provider} account and sign you in immediately.',
     'auth.social.link.hero_subtitle':
         'Verify your phone number to use an existing account or create a new account with {provider}.',
-    'auth.social.link.password_hint':
-        'Existing account password or new password',
+    'auth.social.link.password_hint': 'Set a password for your new account',
     'auth.social.link.confirm_password_hint':
         'Enter again to create a new account',
     'auth.social.link.submit': 'Verify and sign in',
@@ -5419,7 +5422,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Enter the phone number you want to use for your member account.',
     'auth.social.onboarding.otp_title': 'Enter OTP',
     'auth.social.onboarding.otp_notice':
-        'Verify the OTP before entering member details and creating the account.',
+        'Verify the OTP to link your account. Member details are only needed for a new phone number.',
     'auth.social.onboarding.member_title': 'Member details',
     'auth.social.onboarding.member_description':
         'Enter your first name, last name, and set an account password.',
@@ -6201,6 +6204,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Topups, payments, and reward credits will appear here.',
     'wallet.balance_after': 'Balance {amount}',
     'wallet.fallback_name': 'Wallet',
+    'wallet.primary_name': 'Primary wallet',
     'wallet.account_title': '{wallet} x {suffix}',
     'wallet.ledger.topup': 'Top up {wallet}',
     'wallet.ledger.order': 'Digital lottery payment',

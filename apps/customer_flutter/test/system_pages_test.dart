@@ -21,6 +21,94 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  test(
+    'primary wallet labels are localized without replacing custom wallet names',
+    () {
+      const th = CustomerLocalizations(Locale('th', 'TH'));
+      expect(th.walletDisplayName('Primary wallet'), 'กระเป๋าเงินหลัก');
+      expect(th.walletDisplayName(' PRIMARY WALLET '), 'กระเป๋าเงินหลัก');
+      expect(th.walletDisplayName('G Wallet'), 'G Wallet');
+      expect(
+        th.rewardClaimPayoutWallet('Primary wallet'),
+        contains('กระเป๋าเงินหลัก'),
+      );
+      expect(
+        th.activityClaimWalletSummary('Primary wallet'),
+        contains('กระเป๋าเงินหลัก'),
+      );
+    },
+  );
+
+  for (final size in [
+    const Size(320, 568),
+    const Size(390, 844),
+    const Size(1440, 900),
+  ]) {
+    testWidgets('success actions stay visible with safe areas at $size', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({}),
+            ),
+            purchaseHistoryDetailProvider(
+              'ord_1',
+            ).overrideWith((_) async => _successOrder()),
+          ],
+          child: MaterialApp(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(1.3)),
+              child: child!,
+            ),
+            home: const SuccessScreen(orderId: 'ord_1'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final primary = tester.getRect(
+        find.byKey(const ValueKey('success-primary-action')),
+      );
+      final save = tester.getRect(
+        find.byKey(const ValueKey('success-save-action')),
+      );
+      expect(primary.bottom, lessThanOrEqualTo(size.height - 98 - 34));
+      expect(primary.top - save.bottom, closeTo(12, 1));
+      expect(save.top, greaterThan(47));
+      final saveButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'บันทึก'),
+      );
+      expect(
+        saveButton.style?.textStyle?.resolve({})?.fontFamily,
+        AppTheme.light().textTheme.labelLarge?.fontFamily,
+      );
+      expect(find.text('L6'), findsNothing);
+      await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byKey(const ValueKey('success-primary-action'))),
+        primary,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('maintenanceSupportPhoneUri builds safe tel links', () {
     expect(
       maintenanceSupportPhoneUri('02-528-9682')?.toString(),
@@ -507,7 +595,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
-    expect(find.text('L6'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('success-receipt-brand-logo')),
+      findsOneWidget,
+    );
     expect(find.byType(Image), findsOneWidget);
     expect(find.text('จำนวนสลากฯ'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
@@ -540,7 +631,7 @@ void main() {
     expect(exportCoordinator.boundaryKey?.currentContext, isNotNull);
   });
 
-  testWidgets('success screen keeps Nuxt receipt vertical rhythm', (
+  testWidgets('success screen keeps receipt and fixed actions in viewport', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 1000));
@@ -590,10 +681,10 @@ void main() {
     final totalLabelRect = tester.getRect(find.text('ยอดชำระทั้งหมด'));
     final totalAmountRect = tester.getRect(find.text('80.00'));
     final receiptContentRight = receiptRect.right - 16;
-
-    expect(receiptRect.top, closeTo(54, 1));
-    expect(saveRect.top - receiptRect.bottom, closeTo(24, 1));
-    expect(primaryRect.top - saveRect.bottom, closeTo(238, 1));
+    expect(receiptRect.top, closeTo(24, 1));
+    expect(saveRect.top, greaterThan(receiptRect.top));
+    expect(primaryRect.top - saveRect.bottom, closeTo(12, 1));
+    expect(primaryRect.bottom, lessThanOrEqualTo(1000));
     expect(
       tester.getRect(find.text('1 ใบ')).right,
       closeTo(receiptContentRight, 1),

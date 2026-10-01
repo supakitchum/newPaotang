@@ -6,6 +6,9 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/shared/widgets/app_splash.dart';
+import 'package:customer_flutter/shared/services/home_news_preloader.dart';
+import 'package:customer_flutter/features/news/data/news_models.dart';
+import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/shared/widgets/flexible_image.dart';
 import 'package:customer_flutter/shared/widgets/tenant_brand_header.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +17,56 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'news request and image warmup start during splash without blocking startup',
+    (tester) async {
+      final startup = Completer<void>();
+      final images = Completer<void>();
+      var requested = false;
+      var preloaded = false;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => MobileBootstrap.fromJson({}),
+            ),
+            authSessionStartupProvider.overrideWith((_) => startup.future),
+            appSplashMinimumDurationProvider.overrideWithValue(Duration.zero),
+            appSplashFadeDurationProvider.overrideWithValue(Duration.zero),
+            newsListProvider.overrideWith((_) async {
+              requested = true;
+              return [
+                NewsItem.fromJson({
+                  'id': 'news_early',
+                  'cover_url': 'https://news.test/cover.jpg',
+                }),
+              ];
+            }),
+            homeNewsPreloaderProvider.overrideWithValue((_, items) {
+              preloaded = items.single.id == 'news_early';
+              return images.future;
+            }),
+          ],
+          child: const _SplashHarness(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(requested, isTrue);
+      expect(preloaded, isTrue);
+      expect(
+        find.byKey(const ValueKey('app-splash-background')),
+        findsOneWidget,
+      );
+      startup.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('app-splash-background')), findsNothing);
+      images.complete();
+      await tester.pump();
+    },
+  );
+
   test('web iOS and Android embed the same navy splash image', () async {
     final expected = await File(appSplashBackgroundAsset).readAsBytes();
     for (final path in [

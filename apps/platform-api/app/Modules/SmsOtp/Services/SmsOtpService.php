@@ -458,6 +458,18 @@ class SmsOtpService
      */
     public function consumeVerifiedToken(string $tenantId, string $phone, string $purpose, string $token): array
     {
+        return $this->checkVerifiedToken($tenantId, $phone, $purpose, $token, consume: true);
+    }
+
+    /** @return array{ok: bool, error?: string} */
+    public function validateVerifiedToken(string $tenantId, string $phone, string $purpose, string $token): array
+    {
+        return $this->checkVerifiedToken($tenantId, $phone, $purpose, $token, consume: false);
+    }
+
+    /** @return array{ok: bool, error?: string} */
+    private function checkVerifiedToken(string $tenantId, string $phone, string $purpose, string $token, bool $consume): array
+    {
         $phone = $this->normalizePhone($phone) ?? '';
         $purpose = $this->normalizePurpose($purpose) ?? '';
         $tokenHash = hash('sha256', trim($token));
@@ -466,7 +478,7 @@ class SmsOtpService
             return ['ok' => false, 'error' => 'otp_required'];
         }
 
-        return DB::transaction(function () use ($tenantId, $phone, $purpose, $tokenHash): array {
+        return DB::transaction(function () use ($tenantId, $phone, $purpose, $tokenHash, $consume): array {
             $verification = OtpVerification::query()
                 ->where('tenant_id', $tenantId)
                 ->where('phone_normalized', $phone)
@@ -482,11 +494,13 @@ class SmsOtpService
                 return ['ok' => false, 'error' => 'otp_invalid'];
             }
 
-            OtpVerification::query()->where('id', $verification->id)->update([
-                'status' => 'consumed',
-                'consumed_at' => now(),
-                'updated_at' => now(),
-            ]);
+            if ($consume) {
+                OtpVerification::query()->where('id', $verification->id)->update([
+                    'status' => 'consumed',
+                    'consumed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             return ['ok' => true];
         });

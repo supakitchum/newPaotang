@@ -29,6 +29,7 @@ class AppShell extends StatelessWidget {
     this.bottomNavigation,
     this.compactHeader = false,
     this.fullScreen = false,
+    this.extendContentToBottom = false,
     this.heroContent,
     this.heroMinHeight = customerReferenceCompactHeroHeight,
     this.heroSheetOverlap = _defaultHeroSheetOverlap,
@@ -50,6 +51,7 @@ class AppShell extends StatelessWidget {
   final Widget? bottomNavigation;
   final bool compactHeader;
   final bool fullScreen;
+  final bool extendContentToBottom;
   final Widget? heroContent;
   final double heroMinHeight;
   final double heroSheetOverlap;
@@ -135,7 +137,11 @@ class AppShell extends StatelessWidget {
               contentOverlap: _effectiveHeroSheetOverlap(context),
               contentTopRadius: heroSheetTopRadius,
               contentBackdropColor: colorScheme.primary,
-              content: SafeArea(top: false, child: child),
+              content: SafeArea(
+                top: false,
+                bottom: !extendContentToBottom,
+                child: child,
+              ),
             ),
           ),
         ),

@@ -40,6 +40,7 @@ import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/flexible_image.dart';
+import '../../../shared/services/home_news_preloader.dart';
 
 final _homeCartProvider = FutureProvider.autoDispose<LotteryCart>((ref) async {
   ref.keepForCustomerSession();
@@ -1776,16 +1777,16 @@ bool _homeCurrentGameIsSelling(CurrentGame? game) {
   return true;
 }
 
-class _NewsRail extends StatefulWidget {
+class _NewsRail extends ConsumerStatefulWidget {
   const _NewsRail({required this.value});
 
   final AsyncValue<List<NewsItem>> value;
 
   @override
-  State<_NewsRail> createState() => _NewsRailState();
+  ConsumerState<_NewsRail> createState() => _NewsRailState();
 }
 
-class _NewsRailState extends State<_NewsRail> {
+class _NewsRailState extends ConsumerState<_NewsRail> {
   Timer? _slideshowTimer;
   int _itemCount = 0;
   int _currentPage = 0;
@@ -1837,28 +1838,28 @@ class _NewsRailState extends State<_NewsRail> {
   }
 
   void _precacheNewsImages(List<NewsItem> items) {
-    final urls = items
-        .map((item) => item.coverUrl.trim())
-        .where((url) => url.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
-    final signature = urls.join('\n');
+    final signature = items
+        .map((item) => '${item.id}:${item.coverUrl.trim()}')
+        .join('\n');
     if (signature == _precacheSignature) return;
 
     _precacheSignature = signature;
     _slideshowTimer?.cancel();
-    _newsImagesReady = urls.isEmpty;
+    final preload = ref.read(homeNewsPreloaderProvider);
+    _newsImagesReady = items.isEmpty || items.first.coverUrl.trim().isEmpty;
     if (_newsImagesReady) {
       _startSlideshowTimer();
-      return;
+    } else {
+      unawaited(
+        preload(context, items.take(1).toList()).catchError((_) {}).then((_) {
+          if (!mounted || signature != _precacheSignature) return;
+          setState(() => _newsImagesReady = true);
+          _startSlideshowTimer();
+        }),
+      );
     }
-
     unawaited(
-      _precacheHomeNetworkImages(context, urls).then((_) {
-        if (!mounted || signature != _precacheSignature) return;
-        setState(() => _newsImagesReady = true);
-        _startSlideshowTimer();
-      }),
+      preload(context, items.skip(1).take(5).toList()).catchError((_) {}),
     );
   }
 

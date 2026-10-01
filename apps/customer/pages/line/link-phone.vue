@@ -1,11 +1,10 @@
 <template>
   <MobileShell time="13:09">
-    <BlueHeader class="line-link-hero" min-height="268px">
+    <BlueHeader class="line-link-hero" min-height="0">
       <HeroBack to="/login" />
       <div class="line-link-title">
         <i class="bi bi-line" />
         <h1>ผูกบัญชีด้วย LINE</h1>
-        <p>ยืนยันเบอร์โทรศัพท์เพื่อใช้งานบัญชีเดิม หรือสร้างบัญชีใหม่ด้วย LINE</p>
       </div>
     </BlueHeader>
 
@@ -27,7 +26,7 @@
           </span>
         </div>
 
-        <label class="line-link-field">
+        <label v-if="step === 'phone'" class="line-link-field">
           <span>เบอร์โทรศัพท์</span>
           <div class="line-link-input">
             <i class="bi bi-phone" />
@@ -43,6 +42,29 @@
           </div>
         </label>
 
+        <template v-if="step === 'otp'">
+          <label class="line-link-field">
+            <span>รหัส OTP ที่ส่งไปยัง {{ maskedPhone }}</span>
+            <div class="line-link-input">
+              <i class="bi bi-chat-dots" />
+              <input v-model="otp" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="รหัส OTP 6 หลัก" @input="otp = otp.replace(/\D/g, '').slice(0, 6); otpToken = ''">
+            </div>
+          </label>
+          <div class="d-flex justify-content-between">
+            <button class="btn btn-link" type="button" :disabled="isSubmitting" @click="step = 'phone'; otpToken = ''">เปลี่ยนเบอร์</button>
+            <button class="btn btn-link" type="button" :disabled="isSubmitting || resendAfter > 0" @click="requestOtp">{{ resendAfter > 0 ? `ส่งใหม่ใน ${resendAfter} วินาที` : 'ส่ง OTP ใหม่' }}</button>
+          </div>
+        </template>
+
+        <template v-if="step === 'member'">
+          <label class="line-link-field">
+            <span>ชื่อ</span>
+            <div class="line-link-input"><input v-model="firstName" autocomplete="given-name" placeholder="ชื่อ" required></div>
+          </label>
+          <label class="line-link-field">
+            <span>นามสกุล</span>
+            <div class="line-link-input"><input v-model="lastName" autocomplete="family-name" placeholder="นามสกุล" required></div>
+          </label>
         <label class="line-link-field">
           <span>รหัสผ่าน</span>
           <div class="line-link-input">
@@ -50,8 +72,10 @@
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              autocomplete="current-password"
-              placeholder="รหัสผ่านบัญชีเดิม หรือรหัสผ่านใหม่"
+              autocomplete="new-password"
+              placeholder="ตั้งรหัสผ่านสำหรับบัญชีใหม่"
+              minlength="6"
+              required
             >
             <button type="button" class="line-link-eye" @click="showPassword = !showPassword">
               <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'" />
@@ -72,12 +96,11 @@
           </div>
         </label>
 
-        <p class="line-link-note">
-          หากเบอร์นี้มีบัญชีอยู่แล้ว ระบบจะตรวจรหัสผ่านเดิมและผูก LINE เข้ากับบัญชีนั้นทันที
-        </p>
+          <label class="d-flex gap-2"><input v-model="acceptedTerms" type="checkbox" required>ยอมรับเงื่อนไขการใช้งาน</label>
+        </template>
 
         <button class="primary-pill line-link-submit" type="submit" :disabled="isSubmitting">
-          {{ isSubmitting ? 'กำลังยืนยัน' : 'ยืนยันและเข้าสู่ระบบ' }}
+          {{ isSubmitting ? 'กำลังยืนยัน' : step === 'phone' ? 'ส่ง OTP' : step === 'otp' ? 'ยืนยัน OTP' : 'ยืนยันและเข้าสู่ระบบ' }}
         </button>
       </form>
     </section>
@@ -102,6 +125,16 @@ const password = ref('')
 const confirmPassword = ref('')
 const showPassword = ref(false)
 const isSubmitting = ref(false)
+const step = ref<'phone' | 'otp' | 'member'>('phone')
+const otp = ref('')
+const otpToken = ref('')
+const maskedPhone = ref('')
+const firstName = ref('')
+const lastName = ref('')
+const acceptedTerms = ref(false)
+const resendAfter = ref(0)
+let resendTimer: ReturnType<typeof setInterval> | undefined
+onBeforeUnmount(() => clearInterval(resendTimer))
 
 const lineName = computed(() => typeof route.query.name === 'string' ? route.query.name : '')
 const linePictureUrl = computed(() => typeof route.query.picture_url === 'string' ? route.query.picture_url : '')
@@ -146,10 +179,14 @@ const needsPinVerification = (response: Record<string, any>) => Boolean(
 
 const submit = async () => {
   if (isSubmitting.value) return
+  if (step.value === 'phone') {
+    await requestOtp()
+    return
+  }
 
   sanitizePhone()
 
-  if (password.value !== confirmPassword.value) {
+  if (step.value === 'member' && password.value !== confirmPassword.value) {
     showAlert({
       title: 'รหัสผ่านไม่ตรงกัน',
       message: 'กรุณากรอกรหัสผ่านและยืนยันรหัสผ่านให้ตรงกัน',
@@ -160,12 +197,27 @@ const submit = async () => {
 
   isSubmitting.value = true
   try {
+    if (step.value === 'otp' && !otpToken.value) {
+      const verified = await platformApi.verifyOtp({ phone: phone.value, purpose: 'register', otp: otp.value })
+      otpToken.value = String(verified.verification_token || '')
+      if (!otpToken.value) throw new Error('ยืนยัน OTP ไม่สำเร็จ')
+    }
     const response = await platformApi.lineLinkPhone({
       link_token: linkToken.value,
       phone: phone.value,
       password: password.value,
-      password_confirmation: confirmPassword.value
+      password_confirmation: confirmPassword.value,
+      first_name: firstName.value.trim(),
+      last_name: lastName.value.trim(),
+      accepted_terms: acceptedTerms.value,
+      otp_verification_token: otpToken.value,
+      existing_only: step.value === 'otp'
     })
+
+    if (response.registration_required) {
+      step.value = 'member'
+      return
+    }
 
     setAuthSession(response)
     await applyStoredRef()
@@ -191,6 +243,33 @@ const submit = async () => {
       message: error?.response?.data?.message || error?.message || 'กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง',
       variant: 'error'
     })
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const requestOtp = async () => {
+  if (isSubmitting.value || (step.value === 'otp' && resendAfter.value > 0)) return
+  sanitizePhone()
+  if (!/^\d{9,10}$/.test(phone.value)) {
+    showAlert({ title: 'เบอร์โทรศัพท์ไม่ถูกต้อง', message: 'กรุณาตรวจสอบเบอร์โทรศัพท์', variant: 'warning' })
+    return
+  }
+  isSubmitting.value = true
+  try {
+    const result = await platformApi.requestOtp({ phone: phone.value, purpose: 'register' })
+    otp.value = ''
+    otpToken.value = ''
+    maskedPhone.value = result.phone_masked || phone.value
+    step.value = 'otp'
+    resendAfter.value = Number(result.resend_after_seconds || 60)
+    clearInterval(resendTimer)
+    resendTimer = setInterval(() => {
+      resendAfter.value = Math.max(0, resendAfter.value - 1)
+      if (!resendAfter.value) clearInterval(resendTimer)
+    }, 1000)
+  } catch (error: any) {
+    showAlert({ title: 'ส่ง OTP ไม่สำเร็จ', message: error?.response?.data?.message || 'กรุณาลองอีกครั้ง', variant: 'error' })
   } finally {
     isSubmitting.value = false
   }
@@ -228,7 +307,7 @@ const submit = async () => {
 
 .line-link-title h1 {
   margin: 10px 0 8px;
-  font-size: clamp(22px, 6vw, 28px);
+  font-size: 22px;
   font-weight: 900;
   line-height: 1.12;
 }
@@ -244,18 +323,20 @@ const submit = async () => {
 
 .line-link-sheet {
   background: #f5f7fb;
-  min-height: calc(100dvh - 156px);
-  padding: clamp(18px, 5vw, 28px) 16px 40px;
+  min-height: 0;
+  margin-top: 0;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
 }
 
 .line-link-card {
   background: #fff;
   border: 1px solid rgba(18, 47, 86, .08);
-  border-radius: 18px;
+  border-radius: 8px;
   box-shadow: 0 18px 42px rgba(29, 54, 90, .12);
   display: grid;
   gap: 18px;
   max-width: 520px;
+  margin-inline: auto;
   padding: clamp(16px, 5vw, 24px);
 }
 

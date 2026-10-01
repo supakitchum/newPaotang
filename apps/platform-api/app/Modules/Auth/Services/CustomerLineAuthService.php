@@ -13,7 +13,6 @@ use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class CustomerLineAuthService
@@ -512,7 +511,9 @@ class CustomerLineAuthService
             $payload['accepted_terms'] ?? false,
             FILTER_VALIDATE_BOOL,
         );
+        $existingOnly = filter_var($payload['existing_only'] ?? false, FILTER_VALIDATE_BOOL);
         $errors = [];
+        $registrationErrors = [];
 
         if ($token === '') {
             $errors['link_token'][] = 'The link_token field is required.';
@@ -523,19 +524,19 @@ class CustomerLineAuthService
         }
 
         if ($firstName === '') {
-            $errors['first_name'][] = 'The first_name field is required.';
+            $registrationErrors['first_name'][] = 'The first_name field is required.';
         }
 
         if ($lastName === '') {
-            $errors['last_name'][] = 'The last_name field is required.';
+            $registrationErrors['last_name'][] = 'The last_name field is required.';
         }
 
         if (strlen($password) < 6) {
-            $errors['password'][] = 'The password field must be at least 6 characters.';
+            $registrationErrors['password'][] = 'The password field must be at least 6 characters.';
         }
 
         if ($password !== $passwordConfirmation) {
-            $errors['password_confirmation'][] = 'The password confirmation does not match.';
+            $registrationErrors['password_confirmation'][] = 'The password confirmation does not match.';
         }
 
         if ($otpVerificationToken === '') {
@@ -543,7 +544,7 @@ class CustomerLineAuthService
         }
 
         if (! $acceptedTerms) {
-            $errors['accepted_terms'][] = 'The terms must be accepted.';
+            $registrationErrors['accepted_terms'][] = 'The terms must be accepted.';
         }
 
         if ($errors !== []) {
@@ -558,6 +559,8 @@ class CustomerLineAuthService
             $lastName,
             $password,
             $otpVerificationToken,
+            $existingOnly,
+            $registrationErrors,
         ): array {
             $link = CustomerLineLinkToken::query()
                 ->where('tenant_id', $tenant['tenant_id'])
@@ -572,6 +575,21 @@ class CustomerLineAuthService
                 return ['error' => 'authentication_required'];
             }
 
+            $metadata = is_array($link->metadata_json) ? $link->metadata_json : [];
+            if (isset($metadata['provider']) && $metadata['provider'] !== self::PROVIDER) {
+                return ['error' => 'authentication_required'];
+            }
+
+            $otp = $this->smsOtp->validateVerifiedToken(
+                (string) $tenant['tenant_id'],
+                (string) $phone,
+                SmsOtpService::PURPOSE_REGISTER,
+                $otpVerificationToken,
+            );
+            if (($otp['ok'] ?? false) !== true) {
+                return ['error' => (string) ($otp['error'] ?? 'otp_invalid')];
+            }
+
             $lineOwner = CustomerLineIdentity::query()
                 ->where('tenant_id', $tenant['tenant_id'])
                 ->where('line_user_id', $link->line_user_id)
@@ -583,13 +601,6 @@ class CustomerLineAuthService
                 ->first();
 
             if ($customer instanceof Customer) {
-                if ($customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
-                    return [
-                        'error' => 'validation_failed',
-                        'details' => ['fields' => ['password' => ['The password does not match this phone number.']]],
-                    ];
-                }
-
                 if ($this->customerSuspensions->isSuspended($customer)) {
                     return [
                         'error' => 'customer_suspended',
@@ -607,6 +618,15 @@ class CustomerLineAuthService
             } else {
                 if ($lineOwner instanceof CustomerLineIdentity) {
                     return ['error' => 'resource_conflict'];
+                }
+            }
+
+            if (! $customer instanceof Customer) {
+                if ($existingOnly) {
+                    return ['resource' => ['registration_required' => true], 'status' => 200];
+                }
+                if ($registrationErrors !== []) {
+                    return ['error' => 'validation_failed', 'details' => ['fields' => $registrationErrors]];
                 }
             }
 

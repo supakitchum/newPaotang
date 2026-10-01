@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:customer_flutter/shared/services/home_news_preloader.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/auth/auth_controller.dart';
 import 'package:customer_flutter/core/auth/auth_repository.dart';
@@ -26,6 +29,85 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  testWidgets(
+    'first news image appears without waiting for a slow later image',
+    (tester) async {
+      final firstImage = Completer<void>();
+      final laterImage = Completer<void>();
+      final requested = <String>[];
+      final news = [
+        NewsItem.fromJson({
+          'id': 'first',
+          'cover_url': 'https://news.test/first.jpg',
+        }),
+        NewsItem.fromJson({
+          'id': 'later',
+          'cover_url': 'https://news.test/later.jpg',
+        }),
+      ];
+      await _pumpHome(
+        tester,
+        news: news,
+        imagePreloader: (_, items) {
+          if (items.isEmpty) return Future.value();
+          requested.add(items.first.id);
+          return items.first.id == 'first'
+              ? firstImage.future
+              : laterImage.future;
+        },
+      );
+      await tester.pumpAndSettle();
+      expect(requested, ['first', 'later']);
+      expect(
+        find.byKey(const ValueKey('home-news-slideshow-preload')),
+        findsOneWidget,
+      );
+      firstImage.complete();
+      await tester.pumpAndSettle();
+      expect(laterImage.isCompleted, isFalse);
+      expect(
+        find.byKey(const ValueKey('home-news-active-first')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-news-slideshow-preload')),
+        findsNothing,
+      );
+      laterImage.complete();
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('news without a first cover does not wait for later covers', (
+    tester,
+  ) async {
+    final laterImage = Completer<void>();
+    await _pumpHome(
+      tester,
+      news: [
+        NewsItem.fromJson({'id': 'no_cover', 'title': 'News without a cover'}),
+        NewsItem.fromJson({
+          'id': 'later',
+          'cover_url': 'https://news.test/later.jpg',
+        }),
+      ],
+      imagePreloader: (_, items) =>
+          items.isEmpty ? Future.value() : laterImage.future,
+    );
+    await tester.pumpAndSettle();
+    expect(laterImage.isCompleted, isFalse);
+    expect(
+      find.byKey(const ValueKey('home-news-active-no_cover')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-news-slideshow-preload')),
+      findsNothing,
+    );
+    laterImage.complete();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('home screen renders live result summary on the first page', (
     tester,
   ) async {
@@ -524,6 +606,7 @@ Future<void> _pumpHome(
   WidgetTester tester, {
   List<ActivityItem> activities = const <ActivityItem>[],
   List<NewsItem> news = _homeNewsFixtures,
+  HomeNewsPreloader? imagePreloader,
   CurrentGame? currentGame,
   RewardResultBundle? resultBundle,
 }) {
@@ -545,6 +628,8 @@ Future<void> _pumpHome(
         supportUnreadCountProvider.overrideWith((_) async => 0),
         activityListProvider.overrideWith((_) async => activities),
         newsListProvider.overrideWith((_) async => news),
+        if (imagePreloader != null)
+          homeNewsPreloaderProvider.overrideWithValue(imagePreloader),
         currentResultProvider.overrideWith((_) async {
           if (resultBundle != null) return resultBundle;
           return RewardResultBundle(

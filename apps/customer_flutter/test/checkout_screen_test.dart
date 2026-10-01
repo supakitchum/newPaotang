@@ -99,17 +99,12 @@ void main() {
     cartCompleter.complete(await _CheckoutLotteryRepository().cart());
   });
 
-  testWidgets('cart loading state uses Nuxt review copy', (
-    tester,
-  ) async {
+  testWidgets('cart loading state uses Nuxt review copy', (tester) async {
     final cartCompleter = Completer<LotteryCart>();
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy')),
@@ -172,10 +167,7 @@ void main() {
       ),
     );
 
-    expect(
-      find.text('ตะกร้าหมดอายุแล้ว กรุณาเลือกสลากใหม่'),
-      findsOneWidget,
-    );
+    expect(find.text('ตะกร้าหมดอายุแล้ว กรุณาเลือกสลากใหม่'), findsOneWidget);
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
   });
 
@@ -213,10 +205,7 @@ void main() {
       ),
     );
 
-    expect(
-      find.text('ไม่พบรายการชำระเงิน กรุณาเลือกสลากใหม่'),
-      findsWidgets,
-    );
+    expect(find.text('ไม่พบรายการชำระเงิน กรุณาเลือกสลากใหม่'), findsWidgets);
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
   });
 
@@ -229,10 +218,7 @@ void main() {
     );
 
     expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
-    expect(
-      find.textContaining('internal checkout cart failure'),
-      findsNothing,
-    );
+    expect(find.textContaining('internal checkout cart failure'), findsNothing);
   });
 
   testWidgets('checkout wallet load failure shows API payload copy safely', (
@@ -322,8 +308,9 @@ void main() {
       const ValueKey('checkout-payment-method-section-header'),
     );
     expect(paymentSectionHeader, findsOneWidget);
-    final paymentSectionHeaderPadding =
-        tester.widget<Padding>(paymentSectionHeader);
+    final paymentSectionHeaderPadding = tester.widget<Padding>(
+      paymentSectionHeader,
+    );
     expect(
       paymentSectionHeaderPadding.padding,
       const EdgeInsets.fromLTRB(18, 23, 18, 20),
@@ -378,10 +365,7 @@ void main() {
       ),
     );
     final walletNoteDecoration = walletNote.decoration as BoxDecoration;
-    expect(
-      walletNoteDecoration.color,
-      AppTheme.appCheckoutWalletNoteFill,
-    );
+    expect(walletNoteDecoration.color, AppTheme.appCheckoutWalletNoteFill);
     expect(
       find.descendant(
         of: walletOption,
@@ -541,10 +525,7 @@ void main() {
 
     expect(find.text('กำลังโหลดกระเป๋าเงิน...'), findsNothing);
     expect(find.text('240.00 บาท'), findsOneWidget);
-    expect(
-      find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน'),
-      findsOneWidget,
-    );
+    expect(find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -565,9 +546,7 @@ void main() {
     expect(find.text('กระเป๋าเงินตัวแทนจำหน่าย'), findsOneWidget);
     expect(find.text('120.00 บาท'), findsOneWidget);
     expect(
-      find.text(
-        'ใช้ยอดคอมมิชชันตัวแทนจำหน่ายที่อนุมัติแล้วเพื่อชำระรายการนี้',
-      ),
+      find.text('ใช้ยอดคอมมิชชันตัวแทนจำหน่ายที่อนุมัติแล้วเพื่อชำระรายการนี้'),
       findsOneWidget,
     );
 
@@ -575,93 +554,91 @@ void main() {
     await _openCheckoutPin(tester);
     await _enterCheckoutPin(tester);
 
-    expect(
-      lottery.checkoutPaymentMethod,
-      checkoutPaymentMethodAffiliateWallet,
-    );
+    expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodAffiliateWallet);
     expect(lottery.checkoutPin, '246810');
     expect(find.text('success:ord_nested'), findsOneWidget);
   });
 
   testWidgets(
-      'checkout wallet card handles long runtime tenant names on mobile',
-      (tester) async {
-    await tester.binding.setSurfaceSize(const Size(360, 640));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    'checkout wallet card handles long runtime tenant names on mobile',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final lottery = _CheckoutLotteryRepository();
-    final router = GoRouter(
-      initialLocation: '/checkout',
-      routes: [
-        GoRoute(
-          path: '/checkout',
-          builder: (context, state) => const CheckoutScreen(),
-        ),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => Scaffold(
-            body: Text('topup:${state.uri.queryParameters['back']}'),
+      final lottery = _CheckoutLotteryRepository();
+      final router = GoRouter(
+        initialLocation: '/checkout',
+        routes: [
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) => const CheckoutScreen(),
           ),
-        ),
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Scaffold(body: Text('Home')),
-        ),
-        GoRoute(
-          path: '/tickets',
-          builder: (context, state) => const Scaffold(body: Text('Tickets')),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const Scaffold(body: Text('Profile')),
-        ),
-      ],
-    );
-
-    const longSiteName = 'ร้านทดสอบสำหรับชำระเงินค่าสลากประจำครอบครัว';
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith(
-            (_) async => _mobileBootstrap(siteName: longSiteName),
-          ),
-          lotteryRepositoryProvider.overrideWithValue(lottery),
-          walletRepositoryProvider.overrideWithValue(
-            _WalletRepository(
-              balance: 240,
-              walletName:
-                  'G Wallet บัญชีหลักสำหรับชำระเงินค่าสลากประจำครอบครัว',
+          GoRoute(
+            path: '/topup',
+            builder: (context, state) => Scaffold(
+              body: Text('topup:${state.uri.queryParameters['back']}'),
             ),
           ),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: Text('Home')),
+          ),
+          GoRoute(
+            path: '/tickets',
+            builder: (context, state) => const Scaffold(body: Text('Tickets')),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const Scaffold(body: Text('Profile')),
           ),
         ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      );
+
+      const longSiteName = 'ร้านทดสอบสำหรับชำระเงินค่าสลากประจำครอบครัว';
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => _mobileBootstrap(siteName: longSiteName),
+            ),
+            lotteryRepositoryProvider.overrideWithValue(lottery),
+            walletRepositoryProvider.overrideWithValue(
+              _WalletRepository(
+                balance: 240,
+                walletName:
+                    'G Wallet บัญชีหลักสำหรับชำระเงินค่าสลากประจำครอบครัว',
+              ),
+            ),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text('$longSiteName Wallet'),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('checkout-payment-dock')), findsOneWidget);
-    expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('$longSiteName Wallet'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('checkout-payment-dock')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('checkout uses wallet payment method and nested order id', (
     tester,
@@ -779,10 +756,7 @@ void main() {
     tester,
   ) async {
     final lottery = _LegacyCartOrderLotteryRepository();
-    final router = await _pumpCheckoutPaymentTest(
-      tester,
-      lottery: lottery,
-    );
+    final router = await _pumpCheckoutPaymentTest(tester, lottery: lottery);
 
     expect(find.text('ยืนยันการชำระเงิน'), findsOneWidget);
     expect(find.text('จำนวนสลากฯ'), findsOneWidget);
@@ -820,10 +794,7 @@ void main() {
     final lottery = _CheckoutLotteryRepository(
       checkoutError: _apiException('รายการชำระเงินหมดอายุแล้ว'),
     );
-    final router = await _pumpCheckoutPaymentTest(
-      tester,
-      lottery: lottery,
-    );
+    final router = await _pumpCheckoutPaymentTest(tester, lottery: lottery);
 
     await _submitCheckoutPayment(tester);
 
@@ -840,15 +811,9 @@ void main() {
     tester,
   ) async {
     final lottery = _CheckoutLotteryRepository(
-      checkoutError: _apiException(
-        'PIN ไม่ถูกต้อง',
-        code: 'pin_invalid',
-      ),
+      checkoutError: _apiException('PIN ไม่ถูกต้อง', code: 'pin_invalid'),
     );
-    final router = await _pumpCheckoutPaymentTest(
-      tester,
-      lottery: lottery,
-    );
+    final router = await _pumpCheckoutPaymentTest(tester, lottery: lottery);
 
     await _submitCheckoutPayment(tester);
 
@@ -867,10 +832,7 @@ void main() {
     final lottery = _CheckoutLotteryRepository(
       checkoutError: StateError('internal checkout failure'),
     );
-    final router = await _pumpCheckoutPaymentTest(
-      tester,
-      lottery: lottery,
-    );
+    final router = await _pumpCheckoutPaymentTest(tester, lottery: lottery);
 
     await _submitCheckoutPayment(tester);
 
@@ -889,10 +851,7 @@ void main() {
     final lottery = _CheckoutLotteryRepository(
       checkoutError: _maintenanceApiException(),
     );
-    final router = await _pumpCheckoutPaymentTest(
-      tester,
-      lottery: lottery,
-    );
+    final router = await _pumpCheckoutPaymentTest(tester, lottery: lottery);
 
     await _submitCheckoutPayment(tester);
 
@@ -902,208 +861,215 @@ void main() {
   });
 
   testWidgets(
-      'checkout success keeps Nuxt-style receipt fallback on load error', (
-    tester,
-  ) async {
-    final lottery = _CheckoutLotteryRepository();
-    final router = GoRouter(
-      initialLocation: '/checkout',
-      routes: [
-        GoRoute(
-          path: '/checkout',
-          builder: (context, state) => const CheckoutScreen(),
-        ),
-        GoRoute(
-          path: '/success',
-          builder: (context, state) => SuccessScreen(
-            orderId: state.uri.queryParameters['order_id'],
+    'checkout success keeps Nuxt-style receipt fallback on load error',
+    (tester) async {
+      final lottery = _CheckoutLotteryRepository();
+      final router = GoRouter(
+        initialLocation: '/checkout',
+        routes: [
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) => const CheckoutScreen(),
           ),
-        ),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => const Scaffold(body: Text('Topup')),
-        ),
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Scaffold(body: Text('Home')),
-        ),
-        GoRoute(
-          path: '/tickets',
-          builder: (context, state) => const Scaffold(body: Text('Tickets')),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const Scaffold(body: Text('Profile')),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
-          lotteryRepositoryProvider.overrideWithValue(lottery),
-          walletRepositoryProvider.overrideWithValue(
-            _WalletRepository(balance: 240),
+          GoRoute(
+            path: '/success',
+            builder: (context, state) =>
+                SuccessScreen(orderId: state.uri.queryParameters['order_id']),
           ),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
+          GoRoute(
+            path: '/topup',
+            builder: (context, state) => const Scaffold(body: Text('Topup')),
           ),
-          purchaseHistoryDetailProvider('ord_nested').overrideWith(
-            (_) async => throw StateError('receipt unavailable'),
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: Text('Home')),
+          ),
+          GoRoute(
+            path: '/tickets',
+            builder: (context, state) => const Scaffold(body: Text('Tickets')),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const Scaffold(body: Text('Profile')),
           ),
         ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => _mobileBootstrap(),
+            ),
+            lotteryRepositoryProvider.overrideWithValue(lottery),
+            walletRepositoryProvider.overrideWithValue(
+              _WalletRepository(balance: 240),
+            ),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+            purchaseHistoryDetailProvider('ord_nested').overrideWith(
+              (_) async => throw StateError('receipt unavailable'),
+            ),
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    await _submitCheckoutPayment(tester);
-
-    expect(lottery.checkoutReservationIds, ['res_1']);
-    expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
-    expect(find.text('จำนวนสลากฯ'), findsOneWidget);
-    expect(find.text('1 ใบ'), findsOneWidget);
-    expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
-    expect(find.text('80.00'), findsOneWidget);
-    expect(find.text('บาท'), findsWidgets);
-    expect(find.textContaining('ORDER-NESTED'), findsOneWidget);
-    expect(find.text('โหลดข้อมูลการชำระเงินไม่สำเร็จ'), findsNothing);
-  });
-
-  testWidgets('checkout external payment is selectable without wallet balance',
-      (
-    tester,
-  ) async {
-    final lottery = _CheckoutLotteryRepository(
-      redirectUrl: 'https://pay.example.test/session/ord_nested',
-    );
-    final launcher = _RecordingLinkLauncher();
-    final router = GoRouter(
-      initialLocation: '/checkout',
-      routes: [
-        GoRoute(
-          path: '/checkout',
-          builder: (context, state) => const CheckoutScreen(),
-        ),
-        GoRoute(
-          path: '/checkout/pending',
-          builder: (context, state) => CheckoutPendingPaymentScreen(
-            orderId: state.uri.queryParameters['order_id'] ?? '',
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
           ),
         ),
-        GoRoute(
-          path: '/success',
-          builder: (context, state) => Scaffold(
-            body: Center(
-              child: Text('success:${state.uri.queryParameters['order_id']}'),
+      );
+
+      await tester.pumpAndSettle();
+
+      await _submitCheckoutPayment(tester);
+
+      expect(lottery.checkoutReservationIds, ['res_1']);
+      expect(find.text('ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ'), findsOneWidget);
+      expect(find.text('จำนวนสลากฯ'), findsOneWidget);
+      expect(find.text('1 ใบ'), findsOneWidget);
+      expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
+      expect(find.text('80.00'), findsOneWidget);
+      expect(find.text('บาท'), findsWidgets);
+      expect(find.textContaining('ORDER-NESTED'), findsOneWidget);
+      expect(find.text('โหลดข้อมูลการชำระเงินไม่สำเร็จ'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'checkout external payment is selectable without wallet balance',
+    (tester) async {
+      final lottery = _CheckoutLotteryRepository(
+        redirectUrl: 'https://pay.example.test/session/ord_nested',
+      );
+      final launcher = _RecordingLinkLauncher();
+      final router = GoRouter(
+        initialLocation: '/checkout',
+        routes: [
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) => const CheckoutScreen(),
+          ),
+          GoRoute(
+            path: '/checkout/pending',
+            builder: (context, state) => CheckoutPendingPaymentScreen(
+              orderId: state.uri.queryParameters['order_id'] ?? '',
             ),
           ),
-        ),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => const Scaffold(body: Text('Topup')),
-        ),
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Scaffold(body: Text('Home')),
-        ),
-        GoRoute(
-          path: '/tickets',
-          builder: (context, state) => const Scaffold(body: Text('Tickets')),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const Scaffold(body: Text('Profile')),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
-          lotteryRepositoryProvider.overrideWithValue(lottery),
-          walletRepositoryProvider
-              .overrideWithValue(_WalletRepository(balance: 20)),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
+          GoRoute(
+            path: '/success',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: Text('success:${state.uri.queryParameters['order_id']}'),
+              ),
+            ),
           ),
-          customerLinkLauncherProvider.overrideWithValue(launcher),
-          purchaseHistoryDetailProvider('ord_nested').overrideWith(
-            (_) async => PurchaseHistoryOrder.fromJson({
-              'id': 'ord_nested',
-              'reference': 'PAY-ORDER-NESTED',
-              'status': 'pending_payment',
-              'payment_status': 'pending_payment',
-              'payment_method': checkoutPaymentMethodExternalPayment,
-              'total': {'amount': 8000, 'currency': 'THB'},
-              'ticket_count': 1,
-              'redirect_url': 'https://pay.example.test/session/ord_nested',
-            }),
+          GoRoute(
+            path: '/topup',
+            builder: (context, state) => const Scaffold(body: Text('Topup')),
           ),
-          checkoutPaymentMethodProvider.overrideWithValue(
-            checkoutPaymentMethodWallet,
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: Text('Home')),
           ),
-          checkoutPaymentMethodsProvider.overrideWithValue(const [
-            checkoutPaymentMethodWallet,
-            checkoutPaymentMethodExternalPayment,
-          ]),
-          checkoutPaymentMethodLabelsProvider.overrideWithValue(const {
-            checkoutPaymentMethodExternalPayment: 'Partner Pay',
-          }),
+          GoRoute(
+            path: '/tickets',
+            builder: (context, state) => const Scaffold(body: Text('Tickets')),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const Scaffold(body: Text('Profile')),
+          ),
         ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => _mobileBootstrap(),
+            ),
+            lotteryRepositoryProvider.overrideWithValue(lottery),
+            walletRepositoryProvider.overrideWithValue(
+              _WalletRepository(balance: 20),
+            ),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+            customerLinkLauncherProvider.overrideWithValue(launcher),
+            purchaseHistoryDetailProvider('ord_nested').overrideWith(
+              (_) async => PurchaseHistoryOrder.fromJson({
+                'id': 'ord_nested',
+                'reference': 'PAY-ORDER-NESTED',
+                'status': 'pending_payment',
+                'payment_status': 'pending_payment',
+                'payment_method': checkoutPaymentMethodExternalPayment,
+                'total': {'amount': 8000, 'currency': 'THB'},
+                'ticket_count': 1,
+                'redirect_url': 'https://pay.example.test/session/ord_nested',
+              }),
+            ),
+            checkoutPaymentMethodProvider.overrideWithValue(
+              checkoutPaymentMethodWallet,
+            ),
+            checkoutPaymentMethodsProvider.overrideWithValue(const [
+              checkoutPaymentMethodWallet,
+              checkoutPaymentMethodExternalPayment,
+            ]),
+            checkoutPaymentMethodLabelsProvider.overrideWithValue(const {
+              checkoutPaymentMethodExternalPayment: 'Partner Pay',
+            }),
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('ยอดเงินไม่เพียงพอ'), findsWidgets);
-    expect(find.text('Partner Pay'), findsOneWidget);
-    expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsNothing);
+      expect(find.text('ยอดเงินไม่เพียงพอ'), findsWidgets);
+      expect(find.text('Partner Pay'), findsOneWidget);
+      expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsNothing);
 
-    final externalOption = find.text('Partner Pay');
-    await _tapVisibleAboveDock(tester, externalOption);
+      final externalOption = find.text('Partner Pay');
+      await _tapVisibleAboveDock(tester, externalOption);
 
-    expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
+      expect(find.text('ยืนยันชำระเงิน'), findsOneWidget);
 
-    await _submitCheckoutPayment(tester);
+      await _submitCheckoutPayment(tester);
 
-    expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
-    expect(
-      launcher.openedUri,
-      Uri.parse('https://pay.example.test/session/ord_nested'),
-    );
-    expect(find.text('รอชำระเงิน'), findsWidgets);
-    expect(find.text('PAY-ORDER-NESTED'), findsOneWidget);
-    expect(find.text('เปิดหน้าชำระเงิน'), findsOneWidget);
-    expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        lottery.checkoutPaymentMethod,
+        checkoutPaymentMethodExternalPayment,
+      );
+      expect(
+        launcher.openedUri,
+        Uri.parse('https://pay.example.test/session/ord_nested'),
+      );
+      expect(find.text('รอชำระเงิน'), findsWidgets);
+      expect(find.text('PAY-ORDER-NESTED'), findsOneWidget);
+      expect(find.text('เปิดหน้าชำระเงิน'), findsOneWidget);
+      expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('checkout external payment can submit while wallet is loading', (
     tester,
@@ -1204,96 +1170,101 @@ void main() {
   });
 
   testWidgets(
-      'checkout external payment continues to pending if link open fails', (
-    tester,
-  ) async {
-    final lottery = _CheckoutLotteryRepository(
-      redirectUrl: 'https://pay.example.test/session/ord_nested',
-    );
-    final launcher = _RecordingLinkLauncher(openError: Exception('blocked'));
-    final router = GoRouter(
-      initialLocation: '/checkout',
-      routes: [
-        GoRoute(
-          path: '/checkout',
-          builder: (context, state) => const CheckoutScreen(),
-        ),
-        GoRoute(
-          path: '/checkout/pending',
-          builder: (context, state) => Scaffold(
-            body: Text('pending:${state.uri.queryParameters['order_id']}'),
+    'checkout external payment continues to pending if link open fails',
+    (tester) async {
+      final lottery = _CheckoutLotteryRepository(
+        redirectUrl: 'https://pay.example.test/session/ord_nested',
+      );
+      final launcher = _RecordingLinkLauncher(openError: Exception('blocked'));
+      final router = GoRouter(
+        initialLocation: '/checkout',
+        routes: [
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) => const CheckoutScreen(),
           ),
-        ),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => const Scaffold(body: Text('Topup')),
-        ),
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Scaffold(body: Text('Home')),
-        ),
-        GoRoute(
-          path: '/tickets',
-          builder: (context, state) => const Scaffold(body: Text('Tickets')),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const Scaffold(body: Text('Profile')),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
-          lotteryRepositoryProvider.overrideWithValue(lottery),
-          walletRepositoryProvider.overrideWithValue(
-            _WalletRepository(balance: 20),
+          GoRoute(
+            path: '/checkout/pending',
+            builder: (context, state) => Scaffold(
+              body: Text('pending:${state.uri.queryParameters['order_id']}'),
+            ),
           ),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
+          GoRoute(
+            path: '/topup',
+            builder: (context, state) => const Scaffold(body: Text('Topup')),
           ),
-          customerLinkLauncherProvider.overrideWithValue(launcher),
-          checkoutPaymentMethodProvider.overrideWithValue(
-            checkoutPaymentMethodWallet,
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: Text('Home')),
           ),
-          checkoutPaymentMethodsProvider.overrideWithValue(const [
-            checkoutPaymentMethodWallet,
-            checkoutPaymentMethodExternalPayment,
-          ]),
+          GoRoute(
+            path: '/tickets',
+            builder: (context, state) => const Scaffold(body: Text('Tickets')),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const Scaffold(body: Text('Profile')),
+          ),
         ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => _mobileBootstrap(),
+            ),
+            lotteryRepositoryProvider.overrideWithValue(lottery),
+            walletRepositoryProvider.overrideWithValue(
+              _WalletRepository(balance: 20),
+            ),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+            customerLinkLauncherProvider.overrideWithValue(launcher),
+            checkoutPaymentMethodProvider.overrideWithValue(
+              checkoutPaymentMethodWallet,
+            ),
+            checkoutPaymentMethodsProvider.overrideWithValue(const [
+              checkoutPaymentMethodWallet,
+              checkoutPaymentMethodExternalPayment,
+            ]),
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
-    await _tapVisibleAboveDock(tester, externalOption);
+      final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
+      await _tapVisibleAboveDock(tester, externalOption);
 
-    await _submitCheckoutPayment(tester);
+      await _submitCheckoutPayment(tester);
 
-    expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
-    expect(
-      launcher.openedUri,
-      Uri.parse('https://pay.example.test/session/ord_nested'),
-    );
-    expect(find.text('pending:ord_nested'), findsOneWidget);
-    expect(find.text('ชำระเงินไม่สำเร็จ'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        lottery.checkoutPaymentMethod,
+        checkoutPaymentMethodExternalPayment,
+      );
+      expect(
+        launcher.openedUri,
+        Uri.parse('https://pay.example.test/session/ord_nested'),
+      );
+      expect(find.text('pending:ord_nested'), findsOneWidget);
+      expect(find.text('ชำระเงินไม่สำเร็จ'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('checkout external-only config skips wallet summary load', (
     tester,
@@ -1425,9 +1396,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          purchaseHistoryDetailProvider('ord_pending').overrideWith(
-            (_) => orderCompleter.future,
-          ),
+          purchaseHistoryDetailProvider(
+            'ord_pending',
+          ).overrideWith((_) => orderCompleter.future),
         ],
         child: MaterialApp.router(
           locale: fallbackCustomerLocale,
@@ -1613,10 +1584,7 @@ void main() {
 
     expect(loads, 1);
     expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
-    expect(
-      find.text('ไม่สามารถตรวจสอบสถานะการชำระเงินได้'),
-      findsOneWidget,
-    );
+    expect(find.text('ไม่สามารถตรวจสอบสถานะการชำระเงินได้'), findsOneWidget);
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
 
@@ -1646,9 +1614,8 @@ void main() {
         ),
         GoRoute(
           path: '/maintenance',
-          builder: (context, state) => const Scaffold(
-            body: Text('Maintenance route'),
-          ),
+          builder: (context, state) =>
+              const Scaffold(body: Text('Maintenance route')),
         ),
       ],
     );
@@ -1938,96 +1905,102 @@ void main() {
   });
 
   testWidgets(
-      'checkout keeps external payment available when wallet load fails', (
-    tester,
-  ) async {
-    final lottery = _CheckoutLotteryRepository(
-      redirectUrl: 'https://pay.example.test/session/ord_nested',
-    );
-    final launcher = _RecordingLinkLauncher();
-    final router = GoRouter(
-      initialLocation: '/checkout',
-      routes: [
-        GoRoute(
-          path: '/checkout',
-          builder: (context, state) => const CheckoutScreen(),
-        ),
-        GoRoute(
-          path: '/checkout/pending',
-          builder: (context, state) => Scaffold(
-            body: Text('pending:${state.uri.queryParameters['order_id']}'),
+    'checkout keeps external payment available when wallet load fails',
+    (tester) async {
+      final lottery = _CheckoutLotteryRepository(
+        redirectUrl: 'https://pay.example.test/session/ord_nested',
+      );
+      final launcher = _RecordingLinkLauncher();
+      final router = GoRouter(
+        initialLocation: '/checkout',
+        routes: [
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) => const CheckoutScreen(),
           ),
-        ),
-        GoRoute(
-          path: '/topup',
-          builder: (context, state) => const Scaffold(body: Text('Topup')),
-        ),
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Scaffold(body: Text('Home')),
-        ),
-        GoRoute(
-          path: '/tickets',
-          builder: (context, state) => const Scaffold(body: Text('Tickets')),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const Scaffold(body: Text('Profile')),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
-          lotteryRepositoryProvider.overrideWithValue(lottery),
-          walletRepositoryProvider
-              .overrideWithValue(_FailingWalletRepository()),
-          affiliateReferralServiceProvider.overrideWithValue(
-            _NoopAffiliateReferralService(),
+          GoRoute(
+            path: '/checkout/pending',
+            builder: (context, state) => Scaffold(
+              body: Text('pending:${state.uri.queryParameters['order_id']}'),
+            ),
           ),
-          customerLinkLauncherProvider.overrideWithValue(launcher),
-          checkoutPaymentMethodProvider.overrideWithValue(
-            checkoutPaymentMethodWallet,
+          GoRoute(
+            path: '/topup',
+            builder: (context, state) => const Scaffold(body: Text('Topup')),
           ),
-          checkoutPaymentMethodsProvider.overrideWithValue(const [
-            checkoutPaymentMethodWallet,
-            checkoutPaymentMethodExternalPayment,
-          ]),
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: Text('Home')),
+          ),
+          GoRoute(
+            path: '/tickets',
+            builder: (context, state) => const Scaffold(body: Text('Tickets')),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const Scaffold(body: Text('Profile')),
+          ),
         ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mobileBootstrapProvider.overrideWith(
+              (_) async => _mobileBootstrap(),
+            ),
+            lotteryRepositoryProvider.overrideWithValue(lottery),
+            walletRepositoryProvider.overrideWithValue(
+              _FailingWalletRepository(),
+            ),
+            affiliateReferralServiceProvider.overrideWithValue(
+              _NoopAffiliateReferralService(),
+            ),
+            customerLinkLauncherProvider.overrideWithValue(launcher),
+            checkoutPaymentMethodProvider.overrideWithValue(
+              checkoutPaymentMethodWallet,
+            ),
+            checkoutPaymentMethodsProvider.overrideWithValue(const [
+              checkoutPaymentMethodWallet,
+              checkoutPaymentMethodExternalPayment,
+            ]),
           ],
-          theme: AppTheme.light(),
-          routerConfig: router,
+          child: MaterialApp.router(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('โหลดกระเป๋าเงินไม่สำเร็จ'), findsOneWidget);
-    expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
+      expect(find.text('โหลดกระเป๋าเงินไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ชำระผ่านผู้ให้บริการภายนอก'), findsOneWidget);
 
-    final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
-    await _tapVisibleAboveDock(tester, externalOption);
+      final externalOption = find.text('ชำระผ่านผู้ให้บริการภายนอก');
+      await _tapVisibleAboveDock(tester, externalOption);
 
-    await _submitCheckoutPayment(tester);
+      await _submitCheckoutPayment(tester);
 
-    expect(lottery.checkoutPaymentMethod, checkoutPaymentMethodExternalPayment);
-    expect(
-      launcher.openedUri,
-      Uri.parse('https://pay.example.test/session/ord_nested'),
-    );
-    expect(find.text('pending:ord_nested'), findsOneWidget);
-  });
+      expect(
+        lottery.checkoutPaymentMethod,
+        checkoutPaymentMethodExternalPayment,
+      );
+      expect(
+        launcher.openedUri,
+        Uri.parse('https://pay.example.test/session/ord_nested'),
+      );
+      expect(find.text('pending:ord_nested'), findsOneWidget);
+    },
+  );
 
   testWidgets('checkout keeps confirm disabled when wallet is insufficient', (
     tester,
@@ -2066,8 +2039,9 @@ void main() {
         overrides: [
           mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           lotteryRepositoryProvider.overrideWithValue(lottery),
-          walletRepositoryProvider
-              .overrideWithValue(_WalletRepository(balance: 20)),
+          walletRepositoryProvider.overrideWithValue(
+            _WalletRepository(balance: 20),
+          ),
           affiliateReferralServiceProvider.overrideWithValue(
             _NoopAffiliateReferralService(),
           ),
@@ -2352,10 +2326,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/checkout',
           builder: (context, state) => const Scaffold(body: Text('Checkout')),
@@ -2502,10 +2473,7 @@ void main() {
       findsNothing,
     );
     expect(
-      find.descendant(
-        of: paymentDock,
-        matching: find.byIcon(Icons.payment),
-      ),
+      find.descendant(of: paymentDock, matching: find.byIcon(Icons.payment)),
       findsNothing,
     );
     final dockCountdown = find.descendant(
@@ -2549,10 +2517,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/checkout',
           builder: (context, state) => const Scaffold(body: Text('Checkout')),
@@ -2614,17 +2579,12 @@ void main() {
     expect(find.text('สลากฯ 1 ใบ'), findsOneWidget);
   });
 
-  testWidgets('cart add-more action returns to buy like Nuxt', (
-    tester,
-  ) async {
+  testWidgets('cart add-more action returns to buy like Nuxt', (tester) async {
     final lottery = _CheckoutLotteryRepository();
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy route')),
@@ -2677,10 +2637,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy route')),
@@ -2790,10 +2747,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await _pumpCartTest(
-      tester,
-      lottery: _GroupedCartLotteryRepository(),
-    );
+    await _pumpCartTest(tester, lottery: _GroupedCartLotteryRepository());
 
     final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
     await _tapVisibleAboveDock(tester, removeButton);
@@ -2822,10 +2776,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy route')),
@@ -2900,10 +2851,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy route')),
@@ -2959,17 +2907,12 @@ void main() {
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
   });
 
-  testWidgets('cart direct entry exposes back action to buy', (
-    tester,
-  ) async {
+  testWidgets('cart direct entry exposes back action to buy', (tester) async {
     final lottery = _CheckoutLotteryRepository();
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy route')),
@@ -3025,10 +2968,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/cart',
       routes: [
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const CartScreen(),
-        ),
+        GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(
           path: '/buy',
           builder: (context, state) => const Scaffold(body: Text('Buy')),
@@ -3081,10 +3021,7 @@ Future<GoRouter> _pumpCartTest(
   final router = GoRouter(
     initialLocation: '/cart',
     routes: [
-      GoRoute(
-        path: '/cart',
-        builder: (context, state) => const CartScreen(),
-      ),
+      GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(
         path: '/buy',
         builder: (context, state) => const Scaffold(body: Text('Buy')),
@@ -3210,19 +3147,26 @@ Future<GoRouter> _pumpCheckoutPaymentTest(
 Future<void> _tapVisibleAboveDock(WidgetTester tester, Finder finder) async {
   await Scrollable.ensureVisible(
     tester.element(finder),
-    alignment: 0.12,
+    alignment: 0.5,
     duration: Duration.zero,
   );
   await tester.pumpAndSettle();
+  // The add-more action is fixed outside the list on current cart layouts.
+  if (Scrollable.maybeOf(tester.element(finder)) == null) {
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+    return;
+  }
   for (var attempt = 0; attempt < 8; attempt += 1) {
     final dockTop = _fixedPaymentDockTop(tester);
     if (dockTop == null) break;
     final targetRect = tester.getRect(finder);
-    if (targetRect.center.dy <= dockTop - 44) break;
+    if (targetRect.center.dy <= dockTop - 33) break;
     final scrollable = Scrollable.of(tester.element(finder));
     final position = scrollable.position;
-    final distance =
-        (targetRect.center.dy - dockTop + 96).clamp(60.0, 280.0).toDouble();
+    final distance = (targetRect.center.dy - dockTop + 35)
+        .clamp(30.0, 200.0)
+        .toDouble();
     final nextOffset = (position.pixels + distance)
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
@@ -3236,7 +3180,7 @@ Future<void> _tapVisibleAboveDock(WidgetTester tester, Finder finder) async {
     if (renderObject is! RenderBox) break;
     final scrollableTop = renderObject.localToGlobal(Offset.zero).dy;
     final targetRect = tester.getRect(finder);
-    final minTargetCenter = scrollableTop + 48;
+    final minTargetCenter = scrollableTop + 34;
     if (targetRect.center.dy >= minTargetCenter) break;
     final position = scrollable.position;
     final nextOffset =
@@ -3253,6 +3197,7 @@ Future<void> _tapVisibleAboveDock(WidgetTester tester, Finder finder) async {
 
 double? _fixedPaymentDockTop(WidgetTester tester) {
   const keys = [
+    ValueKey('cart-add-more-dock'),
     ValueKey('checkout-payment-dock'),
     ValueKey('cart-payment-dock'),
   ];
@@ -3309,9 +3254,7 @@ DioException _apiException(
   );
 }
 
-DioException _maintenanceApiException({
-  String path = '/customer/checkout',
-}) {
+DioException _maintenanceApiException({String path = '/customer/checkout'}) {
   final requestOptions = RequestOptions(path: path);
   return DioException(
     requestOptions: requestOptions,
@@ -3426,8 +3369,8 @@ class _CheckoutLotteryRepository extends LotteryRepository {
               : 'paid',
           'payment_status':
               paymentMethod == checkoutPaymentMethodExternalPayment
-                  ? 'pending_payment'
-                  : 'paid',
+              ? 'pending_payment'
+              : 'paid',
           'payment_method': paymentMethod,
           if (redirectUrl.isNotEmpty) 'redirect_url': redirectUrl,
           'total': {'amount': 8000, 'currency': 'THB'},
@@ -3463,8 +3406,9 @@ class _LegacyCartOrderLotteryRepository extends _CheckoutLotteryRepository {
     return LotteryCart.fromJson({
       'result': {
         'cart_order': {
-          'exp':
-              DateTime.now().add(const Duration(minutes: 12)).toIso8601String(),
+          'exp': DateTime.now()
+              .add(const Duration(minutes: 12))
+              .toIso8601String(),
           'created_at': DateTime.now().toIso8601String(),
           'lotteries': [
             {
@@ -3497,16 +3441,8 @@ class _GroupedCartLotteryRepository extends _CheckoutLotteryRepository {
     final now = DateTime.now();
     return LotteryCart(
       reservations: [
-        _reservation(
-          id: 'res_1',
-          localStockItemId: 'local-stock-1',
-          now: now,
-        ),
-        _reservation(
-          id: 'res_2',
-          localStockItemId: 'local-stock-2',
-          now: now,
-        ),
+        _reservation(id: 'res_1', localStockItemId: 'local-stock-1', now: now),
+        _reservation(id: 'res_2', localStockItemId: 'local-stock-2', now: now),
       ],
       total: 160,
       itemCount: 2,
@@ -3614,7 +3550,7 @@ class _RecordingLinkLauncher extends CustomerLinkLauncher {
 
 class _WalletRepository extends WalletRepository {
   _WalletRepository({required this.balance, this.walletName = 'G Wallet'})
-      : super(_testApiClient());
+    : super(_testApiClient());
 
   final double balance;
   final String walletName;
@@ -3695,15 +3631,15 @@ class _FailingWalletRepository extends WalletRepository {
 
 class _NoopAffiliateReferralService extends AffiliateReferralService {
   _NoopAffiliateReferralService()
-      : super(
-          config: const AppConfig(
-            apiBaseUrl: 'https://partner.example.test/api/v1',
-            defaultLocale: 'th-TH',
-          ),
-          repository: AffiliateReferralRepository(_testApiClient()),
-          store: AffiliateReferralStore(),
-          visitIdStore: PublicVisitIdStore(idFactory: (_) => 'visitor'),
-        );
+    : super(
+        config: const AppConfig(
+          apiBaseUrl: 'https://partner.example.test/api/v1',
+          defaultLocale: 'th-TH',
+        ),
+        repository: AffiliateReferralRepository(_testApiClient()),
+        store: AffiliateReferralStore(),
+        visitIdStore: PublicVisitIdStore(idFactory: (_) => 'visitor'),
+      );
 
   bool applied = false;
 
@@ -3716,10 +3652,7 @@ class _NoopAffiliateReferralService extends AffiliateReferralService {
 MobileBootstrap _mobileBootstrap({String siteName = 'ร้านทดสอบ'}) {
   return MobileBootstrap.fromJson({
     'tenant_id': 'tenant_test',
-    'site': {
-      'display_name': siteName,
-      'locale': 'th-TH',
-    },
+    'site': {'display_name': siteName, 'locale': 'th-TH'},
     'brand': {'logo_url': ''},
     'mobile': {'lottery_product_label': 'L6'},
   });

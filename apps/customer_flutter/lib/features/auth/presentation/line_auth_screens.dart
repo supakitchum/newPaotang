@@ -111,9 +111,7 @@ Future<bool> completeSocialAuthentication({
 
   if (result.lineLinkRequired && result.linkToken.isNotEmpty) {
     final redirect = safeCustomerRedirect(
-      result.redirectPath.isNotEmpty
-          ? result.redirectPath
-          : fallbackRedirect,
+      result.redirectPath.isNotEmpty ? result.redirectPath : fallbackRedirect,
     );
     context.go(
       Uri(
@@ -474,9 +472,6 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final sheetMinHeight = constraints.maxHeight > 156
-              ? constraints.maxHeight - 156
-              : 0.0;
           return SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -487,7 +482,6 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                     provider: widget.provider,
                     runtimeProvider: runtimeProvider,
                     title: l10n.socialLinkTitle(providerLabel),
-                    subtitle: l10n.socialLinkHeroSubtitle(providerLabel),
                     saving: _saving,
                     onBack: () => navigateCustomerBack(
                       context,
@@ -497,7 +491,6 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                     ),
                   ),
                   _SocialLinkSheet(
-                    minHeight: sheetMinHeight,
                     viewportWidth: constraints.maxWidth,
                     child: _buildPhoneLinkCard(
                       context,
@@ -526,7 +519,7 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(viewportWidth <= 380 ? 16 : 18),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -886,22 +879,50 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       _saving = true;
     });
     try {
-      final result = await ref
-          .read(authRepositoryProvider)
-          .verifyOtp(phone: _phone.text, purpose: 'register', otp: _otp.text);
-      final token = result.verificationToken.trim();
+      final token = _otpVerificationToken.isNotEmpty
+          ? _otpVerificationToken
+          : (await ref
+                    .read(authRepositoryProvider)
+                    .verifyOtp(
+                      phone: _phone.text,
+                      purpose: 'register',
+                      otp: _otp.text,
+                    ))
+                .verificationToken
+                .trim();
       if (!mounted) return;
       if (token.isEmpty) {
         _showFormError(context.l10n.authOtpVerificationFailed);
         return;
       }
       TextInput.finishAutofillContext();
+      _otpVerificationToken = token;
+      final session = await ref
+          .read(authRepositoryProvider)
+          .socialLinkExistingPhone(
+            provider: widget.provider,
+            linkToken: widget.linkToken,
+            phone: _phone.text,
+            otpVerificationToken: token,
+            redirect: widget.redirect,
+          );
+      if (!mounted) return;
+      if (session != null) {
+        await _finishSession(session);
+        return;
+      }
       setState(() {
-        _otpVerificationToken = token;
         _step = 2;
       });
     } catch (error) {
       if (!mounted) return;
+      final handled = await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        returnPathOverride: safeCustomerRedirect(widget.redirect),
+      );
+      if (!mounted || handled) return;
       _showFormError(
         authErrorMessage(error, context.l10n.authOtpVerificationFailed),
       );
@@ -911,6 +932,7 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
   }
 
   void _verifyCompletedOtp() {
+    if (!_saving) _otpVerificationToken = '';
     if (_step == 1 && !_saving && _otp.text.length == 6) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_saving && _step == 1 && _otp.text.length == 6) {
@@ -987,16 +1009,7 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
             acceptedTerms: _acceptedTerms,
             redirect: redirect,
           );
-      ref.read(authControllerProvider).applySession(session);
-      await ref.read(affiliateReferralServiceProvider).applyStored();
-      if (!mounted) return;
-      context.go(
-        customerPostAuthRouteForRedirect(
-          redirect: redirect,
-          pinRequired: session.pinRequired,
-          pinSetupRequired: session.pinSetupRequired,
-        ),
-      );
+      await _finishSession(session);
     } catch (error) {
       if (!mounted) return;
       final handled = await handleCustomerOperationalError(
@@ -1010,6 +1023,19 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _finishSession(CustomerSession session) async {
+    ref.read(authControllerProvider).applySession(session);
+    await ref.read(affiliateReferralServiceProvider).applyStored();
+    if (!mounted) return;
+    context.go(
+      customerPostAuthRouteForRedirect(
+        redirect: safeCustomerRedirect(widget.redirect),
+        pinRequired: session.pinRequired,
+        pinSetupRequired: session.pinSetupRequired,
+      ),
+    );
   }
 
   void _clearFormError() {
@@ -1222,7 +1248,6 @@ class _SocialLinkHero extends StatelessWidget {
     required this.provider,
     required this.runtimeProvider,
     required this.title,
-    required this.subtitle,
     required this.saving,
     required this.onBack,
   });
@@ -1230,7 +1255,6 @@ class _SocialLinkHero extends StatelessWidget {
   final String provider;
   final SocialAuthProvider? runtimeProvider;
   final String title;
-  final String subtitle;
   final bool saving;
   final VoidCallback onBack;
 
@@ -1238,81 +1262,31 @@ class _SocialLinkHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return AuthBlueHeroBackdrop(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 268),
+      child: SafeArea(
+        bottom: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20, authHeroTopPadding(context), 20, 24),
-          child: Stack(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Row(
             children: [
-              PositionedDirectional(
-                start: 0,
-                top: 0,
-                child: authHeroBackButton(
-                  context,
-                  tooltip: context.l10n.commonBack,
-                  onPressed: saving ? null : onBack,
-                ),
+              authHeroBackButton(
+                context,
+                tooltip: context.l10n.commonBack,
+                onPressed: saving ? null : onBack,
               ),
-              Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 360),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 18),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: colorScheme.onPrimary.withValues(
-                              alpha: 0.18,
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: colorScheme.onPrimary.withValues(
-                                alpha: 0.2,
-                              ),
-                            ),
-                          ),
-                          child: SizedBox.square(
-                            dimension: 58,
-                            child: Icon(
-                              _ProviderBrand.icon(provider),
-                              color: _ProviderBrand.color(
-                                context,
-                                provider,
-                                runtimeProvider,
-                              ),
-                              size: 32,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: colorScheme.onPrimary,
-                                fontWeight: FontWeight.w900,
-                                height: 1.12,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          subtitle,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: colorScheme.onPrimary.withValues(
-                                  alpha: 0.9,
-                                ),
-                                fontWeight: FontWeight.w700,
-                                height: 1.45,
-                              ),
-                        ),
-                      ],
-                    ),
+              const SizedBox(width: 12),
+              Icon(
+                _ProviderBrand.icon(provider),
+                color: colorScheme.onPrimary,
+                size: 32,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1325,48 +1299,25 @@ class _SocialLinkHero extends StatelessWidget {
 }
 
 class _SocialLinkSheet extends StatelessWidget {
-  const _SocialLinkSheet({
-    required this.minHeight,
-    required this.viewportWidth,
-    required this.child,
-  });
+  const _SocialLinkSheet({required this.viewportWidth, required this.child});
 
-  final double minHeight;
   final double viewportWidth;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = viewportWidth >= 768
-        ? 32.0
-        : (viewportWidth * 0.05).clamp(18.0, 28.0);
-    final horizontalPadding = viewportWidth <= 380 ? 12.0 : 16.0;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Transform.translate(
-      offset: Offset(0, authContentSheetOverlap(viewportWidth)),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLowest,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: minHeight),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              topPadding,
-              horizontalPadding,
-              40 + bottomInset,
-            ),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: child,
-              ),
-            ),
-          ),
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: child,
         ),
       ),
     );
@@ -1438,81 +1389,29 @@ class _LineProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            providerColor.withValues(alpha: 0.08),
-            colorScheme.primary.withValues(alpha: 0.04),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: providerColor.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Builder(
-          builder: (context) {
-            final compact = viewportWidth <= 380;
-            final wide = viewportWidth >= 768;
-            final avatar = _LineProfileAvatar(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox.square(
+          dimension: 48,
+          child: FittedBox(
+            child: _LineProfileAvatar(
               provider: provider,
               providerColor: providerColor,
               pictureUrl: pictureUrl,
-            );
-            final copy = _LineProfileCopy(
-              providerLabel: providerLabel,
-              providerColor: providerColor,
-              name: name,
-              centered: compact,
-            );
-            final status = _LineProfileStatus(providerColor: providerColor);
-            if (compact) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  avatar,
-                  const SizedBox(height: 12),
-                  copy,
-                  const SizedBox(height: 12),
-                  status,
-                ],
-              );
-            }
-
-            if (!wide) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      avatar,
-                      const SizedBox(width: 12),
-                      Expanded(child: copy),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  status,
-                ],
-              );
-            }
-
-            return Row(
-              children: [
-                avatar,
-                const SizedBox(width: 12),
-                Expanded(child: copy),
-                const SizedBox(width: 12),
-                status,
-              ],
-            );
-          },
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _LineProfileCopy(
+            providerLabel: providerLabel,
+            providerColor: providerColor,
+            name: name,
+            centered: false,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1623,40 +1522,6 @@ class _LineProfileCopy extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LineProfileStatus extends StatelessWidget {
-  const _LineProfileStatus({required this.providerColor});
-
-  final Color providerColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: providerColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle_outline, color: providerColor, size: 15),
-            const SizedBox(width: 5),
-            Text(
-              context.l10n.socialProfileStatus,
-              style: TextStyle(
-                color: providerColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -103,7 +103,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(_textColor(tester, 'ข่าวสาร'), const Color(0xFF0B69DC));
+    expect(_textColor(tester, 'ข่าวสาร'), AppTheme.appOutlinePillBorder);
     expect(_textColor(tester, 'ข่าวสีตรงต้นฉบับ'), const Color(0xFF17335F));
     expect(
       _textColor(tester, 'รายละเอียดตามการ์ดข่าว Nuxt'),

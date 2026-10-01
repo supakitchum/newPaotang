@@ -8,10 +8,11 @@ String formatRewardClaimBaht(CustomerLocalizations l10n, num value) {
   final amount = unit.isEmpty
       ? formatted.trim()
       : formatted
-          .replaceFirst(RegExp('\\s*${RegExp.escape(unit)}\$'), '')
-          .trim();
+            .replaceFirst(RegExp('\\s*${RegExp.escape(unit)}\$'), '')
+            .trim();
   final numericValue = value.toDouble();
-  final cleanAmount = numericValue.isFinite &&
+  final cleanAmount =
+      numericValue.isFinite &&
           (numericValue - numericValue.roundToDouble()).abs() <= 0.000001
       ? amount.replaceFirst(RegExp(r'[\.,]00$'), '')
       : amount;
@@ -119,7 +120,8 @@ String rewardClaimPrizeLines(
 
   return claim.prizes
       .map(
-        (prize) => '${l10n.rewardClaimPrizeType(prize.prizeType)}\n'
+        (prize) =>
+            '${l10n.rewardClaimPrizeType(prize.prizeType)}\n'
             '${formatRewardClaimBaht(l10n, prize.amount)}',
       )
       .join('\n\n');
@@ -157,5 +159,7 @@ String _rewardClaimWalletName(
   RewardClaimItem claim,
 ) {
   final name = claim.walletName.trim();
-  return name.isEmpty ? l10n.rewardClaimWalletFallback : name;
+  return name.isEmpty
+      ? l10n.rewardClaimWalletFallback
+      : l10n.walletDisplayName(name);
 }

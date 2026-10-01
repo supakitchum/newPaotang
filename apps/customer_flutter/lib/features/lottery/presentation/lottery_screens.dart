@@ -74,6 +74,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
     final l10n = context.l10n;
     return AppShell(
       title: l10n.lotteryBuyTitle,
+      extendContentToBottom: true,
       currentPath: '/buy',
       backPath: '/',
       showBottomNavigation: false,
@@ -252,6 +253,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
         : l10n.lotterySearchStoreCardTitle;
     return AppShell(
       title: l10n.lotterySearchPageTitle,
+      extendContentToBottom: true,
       currentPath: '/buy',
       backPath: backPath,
       showBottomNavigation: false,
@@ -425,6 +427,7 @@ class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
     return AppShell(
       title: '',
       currentPath: '/buy',
+      extendContentToBottom: true,
       showBottomNavigation: false,
       automaticallyImplyBack: false,
       heroMinHeight: 142,
@@ -727,6 +730,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         _cart.reservationIds.isNotEmpty && !paymentExpired && !_busy;
     return AppShell(
       title: l10n.cartTitle,
+      extendContentToBottom: true,
       currentPath: '/buy',
       backPath: '/buy',
       sensitive: true,
@@ -1195,6 +1199,7 @@ class _CartAddMoreButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Align(
+      key: const ValueKey('cart-add-more-dock'),
       alignment: Alignment.center,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -2013,7 +2018,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final walletName = siteName.isNotEmpty
         ? l10n.checkoutWalletNameFor(siteName)
         : _primaryWallet?.name.trim().isNotEmpty == true
-        ? _primaryWallet!.name.trim()
+        ? l10n.walletDisplayName(_primaryWallet!.name)
         : l10n.checkoutWalletFallbackName;
     final affiliateWalletName = _affiliateWallet?.name.trim().isNotEmpty == true
         ? _affiliateWallet!.name.trim()
@@ -2029,6 +2034,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : l10n.checkoutInsufficientTitle;
     return AppShell(
       title: l10n.checkoutTitle,
+      extendContentToBottom: true,
       currentPath: '/buy',
       backPath: '/cart',
       sensitive: true,
@@ -2096,8 +2102,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               affiliateBalance: _affiliateWalletBalance,
               walletLoading: _walletLoading,
               enoughBalance: _walletBalance >= _cart.total,
-              affiliateEnoughBalance:
-                  _affiliateWalletBalance >= _cart.total,
+              affiliateEnoughBalance: _affiliateWalletBalance >= _cart.total,
               walletError: _walletError,
               methods: paymentMethods,
               methodLabels: paymentMethodLabels,
@@ -2784,6 +2789,11 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
         });
         if (reset) widget.onResetLoadingChanged?.call(false);
         _handleParentScroll();
+        // The loaded cards can be shorter than the skeleton. Recheck after
+        // layout so a page that does not fill the viewport still paginates.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _handleParentScroll();
+        });
       }
     }
   }
@@ -4386,16 +4396,14 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
                   method: method,
                   runtimeLabel: methodLabels[method] ?? '',
                   selected: method == selectedMethod,
-                  walletName:
-                      method == checkoutPaymentMethodAffiliateWallet
+                  walletName: method == checkoutPaymentMethodAffiliateWallet
                       ? affiliateWalletName
                       : walletName,
                   balance: method == checkoutPaymentMethodAffiliateWallet
                       ? affiliateBalance
                       : balance,
                   walletLoading: walletLoading,
-                  enoughBalance:
-                      method == checkoutPaymentMethodAffiliateWallet
+                  enoughBalance: method == checkoutPaymentMethodAffiliateWallet
                       ? affiliateEnoughBalance
                       : enoughBalance,
                   walletError: walletError,
@@ -4809,7 +4817,7 @@ class _CartTicketGroupCard extends StatelessWidget {
                   item: group.primaryItem,
                 ),
                 const Spacer(),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _CartRemovePillButton(
                   key: const ValueKey('cart-ticket-remove-action'),
                   onPressed: busy ? null : onRelease,
@@ -4822,24 +4830,29 @@ class _CartTicketGroupCard extends StatelessWidget {
               key: const ValueKey('cart-ticket-summary-row'),
               children: [
                 if (group.count > 1) ...[
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(
-                        alpha: 0.42,
+                  Flexible(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.42,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      child: Text(
-                        '${l10n.ticketLabelCount} ${l10n.ticketsCount(group.count)}',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        child: Text(
+                          '${l10n.ticketLabelCount} ${l10n.ticketsCount(group.count)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: colorScheme.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
                     ),

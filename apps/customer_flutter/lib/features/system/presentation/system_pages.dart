@@ -13,7 +13,6 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/purchase_history/data/purchase_history_models.dart';
 import '../../../features/purchase_history/data/purchase_history_repository.dart';
@@ -26,7 +25,7 @@ import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
-import '../../../shared/widgets/flexible_image.dart';
+import '../../../shared/widgets/siamblend_receipt_logo.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 import 'success_receipt_state.dart';
 
@@ -134,8 +133,9 @@ class AccountSuspendedScreen extends ConsumerWidget {
     return _AccountSuspendedStatePage(
       title: l10n.accountSuspendedTitle,
       message: l10n.accountSuspendedMessage,
-      reason:
-          reason.trim().isEmpty ? l10n.accountSuspendedNoReason : reason.trim(),
+      reason: reason.trim().isEmpty
+          ? l10n.accountSuspendedNoReason
+          : reason.trim(),
       duration: untilText,
       onBackToLogin: () async {
         await ref.read(authControllerProvider).logout();
@@ -200,7 +200,7 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
     final l10n = context.l10n;
     final productLabel =
         ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
-            '';
+        '';
     return AppShell(
       title: l10n.countdownTitle,
       currentPath: '/',
@@ -335,10 +335,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
     }
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
     final bootstrapProductLabel = bootstrap?.lotteryProductLabel ?? '';
-    final productLabel = _successProductLabel(
-      context,
-      bootstrapProductLabel,
-    );
+    final productLabel = _successProductLabel(context, bootstrapProductLabel);
     final watermarkLabel = _successReceiptWatermarkLabel(
       bootstrap,
       productLabel,
@@ -350,13 +347,25 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
     final order = id.isEmpty
         ? AsyncValue<PurchaseHistoryOrder?>.data(fallbackOrder)
         : ref
-            .watch(purchaseHistoryDetailProvider(id))
-            .whenData((value) => value);
+              .watch(purchaseHistoryDetailProvider(id))
+              .whenData((value) => value);
     Widget content(PurchaseHistoryOrder? item, {Widget? statusContent}) {
       return _SuccessPageList(
-        footer: _SuccessPrimaryActionButton(
-          onPressed: () => context.go('/tickets'),
-          label: context.l10n.successViewTickets,
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SuccessReceiptSaveAction(
+              onPressed: item == null || _receiptSaving
+                  ? null
+                  : () => _exportReceipt(context, item),
+            ),
+            const SizedBox(height: 12),
+            _SuccessPrimaryActionButton(
+              onPressed: () => context.go('/tickets'),
+              label: context.l10n.successViewTickets,
+            ),
+          ],
         ),
         children: [
           RepaintBoundary(
@@ -368,19 +377,13 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
               statusContent: statusContent,
             ),
           ),
-          const SizedBox(height: 24),
           if (_receiptNoticeMessage.isNotEmpty) ...[
+            const SizedBox(height: 12),
             _SuccessReceiptInlineNotice(
               message: _receiptNoticeMessage,
               success: _receiptNoticeSuccess,
             ),
-            const SizedBox(height: 12),
           ],
-          _SuccessReceiptSaveAction(
-            onPressed: item == null || _receiptSaving
-                ? null
-                : () => _exportReceipt(context, item),
-          ),
         ],
       );
     }
@@ -428,15 +431,16 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
     final l10n = context.l10n;
 
     try {
-      final result =
-          await ref.read(receiptExportCoordinatorProvider).exportReceipt(
-                boundaryKey: _receiptBoundaryKey,
-                text: successReceiptClipboardText(context, item),
-                subject: l10n.purchaseHistoryReceiptTitle,
-                imageFileName: successReceiptImageFileName(item),
-                pdfFileName: successReceiptPdfFileName(item),
-                sharePositionOrigin: _successSharePositionOrigin(shareContext),
-              );
+      final result = await ref
+          .read(receiptExportCoordinatorProvider)
+          .exportReceipt(
+            boundaryKey: _receiptBoundaryKey,
+            text: successReceiptClipboardText(context, item),
+            subject: l10n.purchaseHistoryReceiptTitle,
+            imageFileName: successReceiptImageFileName(item),
+            pdfFileName: successReceiptPdfFileName(item),
+            sharePositionOrigin: _successSharePositionOrigin(shareContext),
+          );
       if (!mounted) return;
       if (result == ReceiptExportResult.shared) {
         _showReceiptNotice(l10n.successReceiptShareStarted, success: true);
@@ -468,10 +472,7 @@ class _SuccessScreenState extends ConsumerState<SuccessScreen> {
 }
 
 class _SuccessPageList extends StatelessWidget {
-  const _SuccessPageList({
-    required this.children,
-    required this.footer,
-  });
+  const _SuccessPageList({required this.children, required this.footer});
 
   final List<Widget> children;
   final Widget footer;
@@ -479,71 +480,47 @@ class _SuccessPageList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const nuxtTopPadding = 54.0;
-        const baseBottomPadding = 30.0;
-        const bottomNavReserve = 98.0;
-        final safePadding = MediaQuery.paddingOf(context);
-        final topPadding = safePadding.top + 10 > nuxtTopPadding
-            ? safePadding.top + 10
-            : nuxtTopPadding;
-        final bottomPadding =
-            baseBottomPadding + bottomNavReserve + safePadding.bottom;
-        final contentMinHeight =
-            constraints.maxHeight - topPadding - bottomPadding;
-        final primaryActionGap =
-            _successPrimaryActionTopGap(constraints.maxHeight);
-        return ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: CustomPaint(
-                painter: _SuccessBackgroundPainter(
-                  primary: colorScheme.primary,
-                  secondary: colorScheme.secondary,
-                  accent: colorScheme.tertiary,
-                ),
-                child: SafeArea(
-                  top: false,
-                  bottom: false,
-                  child: CustomerPageBody(
-                    maxWidth: 430,
-                    top: topPadding,
-                    bottom: bottomPadding,
-                    mobileHorizontal: 18,
-                    wideHorizontal: 0,
-                    includeBottomSafeArea: false,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: contentMinHeight < 0 ? 0 : contentMinHeight,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ...children,
-                          SizedBox(height: primaryActionGap),
-                          footer,
-                        ],
-                      ),
-                    ),
+    final safePadding = MediaQuery.paddingOf(context);
+    return CustomPaint(
+      painter: _SuccessBackgroundPainter(
+        primary: colorScheme.primary,
+        secondary: colorScheme.secondary,
+        accent: colorScheme.tertiary,
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                CustomerPageBody(
+                  maxWidth: 430,
+                  top: safePadding.top + 24,
+                  bottom: 16,
+                  mobileHorizontal: 18,
+                  wideHorizontal: 18,
+                  includeBottomSafeArea: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+          CustomerPageBody(
+            maxWidth: 430,
+            top: 8,
+            bottom: 98 + (safePadding.bottom > 16 ? safePadding.bottom : 16),
+            mobileHorizontal: 18,
+            wideHorizontal: 18,
+            includeBottomSafeArea: false,
+            child: footer,
+          ),
+        ],
+      ),
     );
   }
-}
-
-double _successPrimaryActionTopGap(double viewportHeight) {
-  if (!viewportHeight.isFinite || viewportHeight <= 0) {
-    return 238.0;
-  }
-  return (viewportHeight * 0.255).clamp(120.0, 238.0).toDouble();
 }
 
 class _SuccessBackgroundPainter extends CustomPainter {
@@ -561,14 +538,10 @@ class _SuccessBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final paint = Paint()
-      ..shader = ui.Gradient.linear(
-        rect.topLeft,
-        rect.bottomRight,
-        [
-          primary,
-          AppTheme.successGradientEnd(primary, secondary),
-        ],
-      );
+      ..shader = ui.Gradient.linear(rect.topLeft, rect.bottomRight, [
+        primary,
+        AppTheme.successGradientEnd(primary, secondary),
+      ]);
     canvas.drawRect(rect, paint);
 
     canvas.drawCircle(
@@ -608,20 +581,23 @@ class _SuccessReceiptSaveAction extends StatelessWidget {
           height: 54,
           child: OutlinedButton.icon(
             onPressed: onPressed,
-            style: OutlinedButton.styleFrom(
-              backgroundColor: colorScheme.surface,
-              foregroundColor: colorScheme.primary,
-              minimumSize: const Size.fromHeight(54),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              shape: const StadiumBorder(),
-              side: BorderSide.none,
-              textStyle: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ).copyWith(
-              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-            ),
+            style:
+                OutlinedButton.styleFrom(
+                  backgroundColor: colorScheme.surface,
+                  foregroundColor: colorScheme.primary,
+                  minimumSize: const Size.fromHeight(54),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: const StadiumBorder(),
+                  side: BorderSide.none,
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ).copyWith(
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                ),
             icon: const Icon(Icons.download_outlined, size: 25),
             label: Text(context.l10n.successSaveReceipt),
           ),
@@ -738,11 +714,11 @@ class _SuccessReceiptCard extends StatelessWidget {
                     ].join('\n'),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          height: 1.45,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.45,
+                    ),
                   ),
                 ] else if (statusContent != null) ...[
                   const Divider(height: 30),
@@ -808,26 +784,7 @@ class _SuccessReceiptHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const _SuccessReceiptBrandLogo(),
-            if (productLabel.trim().isNotEmpty) ...[
-              Container(
-                width: 1,
-                height: 34,
-                margin: const EdgeInsets.symmetric(horizontal: 14),
-                color: colorScheme.outlineVariant,
-              ),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: _SuccessProductMark(label: productLabel.trim()),
-                ),
-              ),
-            ],
-          ],
-        ),
+        const SiamblendReceiptLogo(key: ValueKey('success-receipt-brand-logo')),
         const SizedBox(height: 16),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -847,11 +804,11 @@ class _SuccessReceiptHeader extends StatelessWidget {
         Text(
           l10n.successPurchaseTitle,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: colorScheme.onSurface,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
+            color: colorScheme.onSurface,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 6),
@@ -859,99 +816,9 @@ class _SuccessReceiptHeader extends StatelessWidget {
           l10n.successPurchaseSubtitle,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w400,
-                height: 1.4,
-              ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SuccessReceiptBrandLogo extends ConsumerWidget {
-  const _SuccessReceiptBrandLogo();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final bootstrap = ref.watch(mobileBootstrapProvider);
-    return SizedBox(
-      width: 96,
-      height: 40,
-      child: Center(
-        child: bootstrap.maybeWhen(
-          data: (data) {
-            final rawLogoUrl = data.brand.logoUrl.trim();
-            if (rawLogoUrl.isEmpty) {
-              return Icon(
-                Icons.storefront_outlined,
-                color: colorScheme.primary,
-                size: 28,
-              );
-            }
-            return FlexibleImage(
-              key: const ValueKey('success-receipt-brand-logo'),
-              source: _resolveSuccessReceiptLogoUrl(ref, rawLogoUrl),
-              width: 96,
-              height: 38,
-              fit: BoxFit.contain,
-              errorIcon: Icons.storefront_outlined,
-            );
-          },
-          orElse: () => Icon(
-            Icons.storefront_outlined,
-            color: colorScheme.primary,
-            size: 28,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _resolveSuccessReceiptLogoUrl(WidgetRef ref, String value) {
-  final trimmed = value.trim();
-  final uri = Uri.tryParse(trimmed);
-  if (uri != null &&
-      (uri.hasScheme ||
-          trimmed.startsWith('data:') ||
-          trimmed.startsWith('//'))) {
-    return trimmed;
-  }
-  return ref.watch(assetUrlResolverProvider)(trimmed);
-}
-
-class _SuccessProductMark extends StatelessWidget {
-  const _SuccessProductMark({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppTheme.primaryLink(colorScheme.primary),
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                height: 1,
-                letterSpacing: 0,
-              ),
-        ),
-        Transform.translate(
-          offset: const Offset(-5, 1),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.tertiary,
-              shape: BoxShape.circle,
-            ),
-            child: const SizedBox.square(dimension: 8),
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w400,
+            height: 1.4,
           ),
         ),
       ],
@@ -982,9 +849,7 @@ class _SuccessReceiptStatusMessage extends StatelessWidget {
       child: Column(
         children: [
           if (loading)
-            CustomerLoadingMark(
-              semanticLabel: message,
-            )
+            CustomerLoadingMark(semanticLabel: message)
           else if (icon != null)
             Icon(icon, color: colorScheme.error, size: 32),
           const SizedBox(height: 14),
@@ -992,12 +857,10 @@ class _SuccessReceiptStatusMessage extends StatelessWidget {
             message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: loading
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.error,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                ),
+              color: loading ? colorScheme.onSurfaceVariant : colorScheme.error,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 14),
@@ -1054,10 +917,10 @@ class _SuccessReceiptInlineNotice extends StatelessWidget {
     final foreground = success ? colorScheme.primary : colorScheme.error;
     final errorBackground =
         Color.lerp(colorScheme.error, colorScheme.surface, 0.88) ??
-            colorScheme.errorContainer.withValues(alpha: 0.52);
+        colorScheme.errorContainer.withValues(alpha: 0.52);
     final errorBorder =
         Color.lerp(colorScheme.error, colorScheme.surface, 0.68) ??
-            colorScheme.error.withValues(alpha: 0.32);
+        colorScheme.error.withValues(alpha: 0.32);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: success
@@ -1087,11 +950,11 @@ class _SuccessReceiptInlineNotice extends StatelessWidget {
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.4,
-                    ),
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -1125,10 +988,10 @@ class _SuccessTotalRow extends StatelessWidget {
             amount.trim(),
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                ),
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
           ),
           if (unit.isNotEmpty) ...[
             const SizedBox(width: 4),
@@ -1136,9 +999,9 @@ class _SuccessTotalRow extends StatelessWidget {
               unit,
               textAlign: TextAlign.end,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    height: 1.15,
-                  ),
+                fontWeight: FontWeight.w500,
+                height: 1.15,
+              ),
             ),
           ],
         ],
@@ -1155,10 +1018,7 @@ class _SuccessTotalRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: value,
-          ),
+          child: Align(alignment: Alignment.centerRight, child: value),
         ),
       ],
     );
@@ -1213,8 +1073,10 @@ String _successReceiptFileName(
       .replaceAll(RegExp(r'[^a-z0-9_-]+'), '-')
       .replaceAll(RegExp(r'-+'), '-')
       .replaceAll(RegExp(r'^-|-$'), '');
-  final normalizedExtension =
-      extension.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '').trim();
+  final normalizedExtension = extension
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '')
+      .trim();
   return 'receipt-${slug.isEmpty ? 'order' : slug}.'
       '${normalizedExtension.isEmpty ? 'txt' : normalizedExtension}';
 }
@@ -1270,11 +1132,11 @@ class _MaintenanceStatePage extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
+                  color: colorScheme.onPrimary,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1389,13 +1251,13 @@ class _AccountSuspendedStatePage extends StatelessWidget {
                       Text(
                         title,
                         textAlign: TextAlign.center,
-                        style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  color: const Color(0xFF17345F),
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.22,
-                                ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: const Color(0xFF17345F),
+                              fontSize: 25,
+                              fontWeight: FontWeight.w900,
+                              height: 1.22,
+                            ),
                       ),
                       const SizedBox(height: 14),
                       Text(
@@ -1438,6 +1300,43 @@ class _AccountSuspendedStatePage extends StatelessWidget {
   }
 }
 
+class _CountdownProductMark extends StatelessWidget {
+  const _CountdownProductMark({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: AppTheme.primaryLink(colorScheme.primary),
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
+            height: 1,
+            letterSpacing: 0,
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(-5, 1),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.tertiary,
+              shape: BoxShape.circle,
+            ),
+            child: const SizedBox.square(dimension: 8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CountdownPage extends StatelessWidget {
   const _CountdownPage({
     required this.currentDrawText,
@@ -1461,8 +1360,8 @@ class _CountdownPage extends StatelessWidget {
     final headlineSize = viewportWidth >= 768
         ? 58.0
         : viewportWidth >= 600
-            ? 48.0
-            : 34.0;
+        ? 48.0
+        : 34.0;
 
     return _SystemGradientScaffold(
       colors: [
@@ -1488,7 +1387,7 @@ class _CountdownPage extends StatelessWidget {
               children: [
                 const TenantBrandLogo(),
                 const SizedBox(width: 16),
-                _SuccessProductMark(label: productLabel),
+                _CountdownProductMark(label: productLabel),
               ],
             ),
             const SizedBox(height: 28),
@@ -1507,11 +1406,11 @@ class _CountdownPage extends StatelessWidget {
               l10n.countdownOpensIn,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: colorScheme.onPrimary,
-                    fontSize: headlineSize,
-                    fontWeight: FontWeight.w800,
-                    height: 1.08,
-                  ),
+                color: colorScheme.onPrimary,
+                fontSize: headlineSize,
+                fontWeight: FontWeight.w800,
+                height: 1.08,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1679,10 +1578,10 @@ class _SystemGradientScaffold extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final midColor =
         Color.lerp(colorScheme.primary, colorScheme.surface, 0.18) ??
-            colorScheme.primary;
+        colorScheme.primary;
     final endColor =
         Color.lerp(colorScheme.primary, colorScheme.secondary, 0.34) ??
-            colorScheme.primary;
+        colorScheme.primary;
 
     final gradientColors = colors ?? [colorScheme.primary, midColor, endColor];
     final scrollable = SafeArea(
@@ -1763,10 +1662,7 @@ class _AccountSuspendedIcon extends StatelessWidget {
 }
 
 class _AccountSuspendedAction extends StatelessWidget {
-  const _AccountSuspendedAction({
-    required this.label,
-    required this.onPressed,
-  });
+  const _AccountSuspendedAction({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -1793,17 +1689,18 @@ class _AccountSuspendedAction extends StatelessWidget {
       ),
       child: TextButton(
         onPressed: onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-          ),
-        ).copyWith(
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        ),
+        style:
+            TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            ),
         child: Text(label),
       ),
     );
@@ -1811,10 +1708,7 @@ class _AccountSuspendedAction extends StatelessWidget {
 }
 
 class _SystemWhiteIcon extends StatelessWidget {
-  const _SystemWhiteIcon({
-    required this.icon,
-    required this.color,
-  });
+  const _SystemWhiteIcon({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
@@ -1848,8 +1742,8 @@ class _CountdownGrid extends StatelessWidget {
     final numberSize = wide
         ? 44.0
         : viewportWidth <= 380
-            ? 26.0
-            : 30.0;
+        ? 26.0
+        : 30.0;
     final safe = remaining.isNegative ? Duration.zero : remaining;
     final days = safe.inDays;
     final hours = safe.inHours.remainder(24);
@@ -1886,13 +1780,13 @@ class _CountdownGrid extends StatelessWidget {
                   children: [
                     Text(
                       item.$2.toString().padLeft(2, '0'),
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: onGradient,
-                                fontSize: numberSize,
-                                fontWeight: FontWeight.w700,
-                                height: 1,
-                              ),
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: onGradient,
+                            fontSize: numberSize,
+                            fontWeight: FontWeight.w700,
+                            height: 1,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -1993,10 +1887,7 @@ class _ReceiptRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: _successReceiptLabelStyle(context),
-            ),
+            child: Text(label, style: _successReceiptLabelStyle(context)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2006,13 +1897,13 @@ class _ReceiptRow extends StatelessWidget {
                 value,
                 textAlign: TextAlign.right,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: highlighted
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
+                  color: highlighted
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
               ),
             ),
           ),
@@ -2024,9 +1915,9 @@ class _ReceiptRow extends StatelessWidget {
 
 TextStyle? _successReceiptLabelStyle(BuildContext context) {
   return Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        height: 1.25,
-      );
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    height: 1.25,
+  );
 }

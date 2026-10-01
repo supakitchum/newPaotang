@@ -282,6 +282,7 @@ const normalizePagination = (meta: AnyRecord | null | undefined, page = 1, perPa
 
 const normalizeWallet = (wallet: AnyRecord) => ({
   ...wallet,
+  name: String(wallet.name || '').trim().toLowerCase() === 'primary wallet' ? 'กระเป๋าเงินหลัก' : wallet.name,
   type: wallet.type === 'primary' ? 1 : wallet.type,
   balance: moneyToDisplayNumber(wallet.balance)
 })

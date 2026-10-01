@@ -26,6 +26,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  for (final screen in ['buy', 'stores']) {
+    testWidgets('$screen dock fills bottom safe area without floating', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      addTearDown(tester.view.reset);
+      final tokens = AuthTokenStore();
+      final router = GoRouter(
+        initialLocation: '/$screen',
+        routes: [
+          GoRoute(path: '/buy', builder: (_, __) => const BuyScreen()),
+          GoRoute(path: '/stores', builder: (_, __) => const StoresScreen()),
+        ],
+      );
+      await _pump(
+        tester,
+        router: router,
+        tokenStore: tokens,
+        authController: _authenticatedController(tokens),
+        overrides: [
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(_FakeStoreRepository()),
+          lotteryRepositoryProvider.overrideWithValue(
+            _ActiveCartLotteryRepository(tokens),
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(
+        find.byKey(const ValueKey('cart-selection-dock')),
+      );
+      expect(rect.bottom, closeTo(844, 1));
+      expect(rect.left, 0);
+      expect(rect.right, 390);
+      final button = tester.getRect(
+        find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ'),
+      );
+      expect(button.bottom, lessThan(844 - 34));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('buy screen exposes Nuxt-style store tab navigation', (
     tester,
   ) async {
@@ -59,9 +104,7 @@ void main() {
     expect(find.text('ร้านค้า'), findsOneWidget);
     expect(find.text('ระบบสุ่มสลับรายการทุกครั้งที่โหลดใหม่'), findsNothing);
     final hero = find.byKey(const ValueKey('customer-fixed-hero'));
-    final content = find.byKey(
-      const ValueKey('customer-fixed-content-region'),
-    );
+    final content = find.byKey(const ValueKey('customer-fixed-content-region'));
     expect(hero, findsOneWidget);
     expect(content, findsOneWidget);
     expect(
@@ -117,80 +160,80 @@ void main() {
     expect(find.text('Search'), findsOneWidget);
   });
 
-  testWidgets('stores screen exposes Nuxt-style store row navigation and tabs',
-      (
-    tester,
-  ) async {
-    final router = GoRouter(
-      initialLocation: '/stores',
-      routes: [
-        GoRoute(
-          path: '/stores',
-          builder: (context, state) => const StoresScreen(),
-        ),
-        GoRoute(
-          path: '/buy',
-          builder: (context, state) => const Scaffold(body: Text('Buy')),
-        ),
-        GoRoute(
-          path: '/stores/lotteries',
-          builder: (context, state) => Scaffold(
-            body: Text(
-              'Store lotteries ${state.uri.queryParameters['store_id']} '
-              '${state.uri.queryParameters['store_name']}',
+  testWidgets(
+    'stores screen exposes Nuxt-style store row navigation and tabs',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/stores',
+        routes: [
+          GoRoute(
+            path: '/stores',
+            builder: (context, state) => const StoresScreen(),
+          ),
+          GoRoute(
+            path: '/buy',
+            builder: (context, state) => const Scaffold(body: Text('Buy')),
+          ),
+          GoRoute(
+            path: '/stores/lotteries',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                'Store lotteries ${state.uri.queryParameters['store_id']} '
+                '${state.uri.queryParameters['store_name']}',
+              ),
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
 
-    await _pump(
-      tester,
-      router: router,
-      overrides: [
-        storeRepositoryProvider.overrideWithValue(_FakeStoreRepository()),
-      ],
-    );
-    await tester.pumpAndSettle();
+      await _pump(
+        tester,
+        router: router,
+        overrides: [
+          storeRepositoryProvider.overrideWithValue(_FakeStoreRepository()),
+        ],
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('สลากฯ ทั้งหมด'), findsOneWidget);
-    expect(find.text('ร้านค้า'), findsWidgets);
-    expect(find.text('ร้านสลากฯ แนะนำ'), findsOneWidget);
-    expect(find.text('ร้านทดสอบ'), findsOneWidget);
-    expect(find.text('รหัสร้าน ST1'), findsNothing);
-    final searchBox = find.byKey(const ValueKey('store-search-box'));
-    expect(searchBox, findsOneWidget);
-    final searchDecoration =
-        tester.widget<DecoratedBox>(searchBox).decoration as BoxDecoration;
-    expect(searchDecoration.border, isNull);
-    final searchField = tester.widget<TextField>(
-      find.descendant(of: searchBox, matching: find.byType(TextField)),
-    );
-    expect(searchField.decoration?.border, InputBorder.none);
-    expect(searchField.decoration?.enabledBorder, InputBorder.none);
-    expect(searchField.decoration?.focusedBorder, InputBorder.none);
-    final storeRow = find.byKey(const ValueKey('store-list-row-store_1'));
-    expect(storeRow, findsOneWidget);
-    expect(
-      find.ancestor(of: storeRow, matching: find.byType(Card)),
-      findsNothing,
-    );
+      expect(find.text('สลากฯ ทั้งหมด'), findsOneWidget);
+      expect(find.text('ร้านค้า'), findsWidgets);
+      expect(find.text('ร้านสลากฯ แนะนำ'), findsOneWidget);
+      expect(find.text('ร้านทดสอบ'), findsOneWidget);
+      expect(find.text('รหัสร้าน ST1'), findsNothing);
+      final searchBox = find.byKey(const ValueKey('store-search-box'));
+      expect(searchBox, findsOneWidget);
+      final searchDecoration =
+          tester.widget<DecoratedBox>(searchBox).decoration as BoxDecoration;
+      expect(searchDecoration.border, isNull);
+      final searchField = tester.widget<TextField>(
+        find.descendant(of: searchBox, matching: find.byType(TextField)),
+      );
+      expect(searchField.decoration?.border, InputBorder.none);
+      expect(searchField.decoration?.enabledBorder, InputBorder.none);
+      expect(searchField.decoration?.focusedBorder, InputBorder.none);
+      final storeRow = find.byKey(const ValueKey('store-list-row-store_1'));
+      expect(storeRow, findsOneWidget);
+      expect(
+        find.ancestor(of: storeRow, matching: find.byType(Card)),
+        findsNothing,
+      );
 
-    await tester.ensureVisible(storeRow);
-    await tester.pumpAndSettle();
-    await tester.tap(storeRow);
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(storeRow);
+      await tester.pumpAndSettle();
+      await tester.tap(storeRow);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Store lotteries store_1 ร้านทดสอบ'), findsOneWidget);
+      expect(find.text('Store lotteries store_1 ร้านทดสอบ'), findsOneWidget);
 
-    router.go('/stores');
-    await tester.pumpAndSettle();
+      router.go('/stores');
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('สลากฯ ทั้งหมด'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('สลากฯ ทั้งหมด'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Buy'), findsOneWidget);
-  });
+      expect(find.text('Buy'), findsOneWidget);
+    },
+  );
 
   testWidgets('stores screen shows fixed review dock when cart is active', (
     tester,
@@ -300,9 +343,7 @@ void main() {
     await _pump(
       tester,
       router: router,
-      overrides: [
-        storeRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [storeRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pump();
 
@@ -340,9 +381,7 @@ void main() {
     await _pump(
       tester,
       router: router,
-      overrides: [
-        storeRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [storeRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
 
@@ -359,58 +398,54 @@ void main() {
   });
 
   testWidgets(
-      'stores screen appends Nuxt-style skeleton rows while loading more', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 640));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    'stores screen appends Nuxt-style skeleton rows while loading more',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final repository = _DelayedNextStoreRepository();
-    final router = GoRouter(
-      initialLocation: '/stores',
-      routes: [
-        GoRoute(
-          path: '/stores',
-          builder: (context, state) => const StoresScreen(),
-        ),
-        GoRoute(
-          path: '/buy',
-          builder: (context, state) => const Scaffold(body: Text('Buy')),
-        ),
-      ],
-    );
+      final repository = _DelayedNextStoreRepository();
+      final router = GoRouter(
+        initialLocation: '/stores',
+        routes: [
+          GoRoute(
+            path: '/stores',
+            builder: (context, state) => const StoresScreen(),
+          ),
+          GoRoute(
+            path: '/buy',
+            builder: (context, state) => const Scaffold(body: Text('Buy')),
+          ),
+        ],
+      );
 
-    await _pump(
-      tester,
-      router: router,
-      overrides: [
-        storeRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
-    await tester.pumpAndSettle();
+      await _pump(
+        tester,
+        router: router,
+        overrides: [storeRepositoryProvider.overrideWithValue(repository)],
+      );
+      await tester.pumpAndSettle();
 
-    expect(repository.listCount, 1);
+      expect(repository.listCount, 1);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -1800));
-    await tester.pump();
-    await tester.pump();
+      await tester.drag(find.byType(ListView), const Offset(0, -1800));
+      await tester.pump();
+      await tester.pump();
 
-    expect(repository.listCount, 2);
-    expect(repository.cursors, ['', 'cursor_1']);
-    expect(find.text('ร้านหน้าแรก 01'), findsOneWidget);
-    expect(_storeListSkeletons('store-list-skeleton-more'), findsNWidgets(6));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(repository.listCount, 2);
+      expect(repository.cursors, ['', 'cursor_1']);
+      expect(find.text('ร้านหน้าแรก 01'), findsOneWidget);
+      expect(_storeListSkeletons('store-list-skeleton-more'), findsNWidgets(6));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    repository.completeNextPage();
-    await tester.pumpAndSettle();
+      repository.completeNextPage();
+      await tester.pumpAndSettle();
 
-    expect(_storeListSkeletons('store-list-skeleton-more'), findsNothing);
-    expect(find.text('ร้านถัดไป'), findsOneWidget);
-  });
+      expect(_storeListSkeletons('store-list-skeleton-more'), findsNothing);
+      expect(find.text('ร้านถัดไป'), findsOneWidget);
+    },
+  );
 
-  testWidgets('stores screen omits Flutter load-more CTA', (
-    tester,
-  ) async {
+  testWidgets('stores screen omits Flutter load-more CTA', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 520));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -432,9 +467,7 @@ void main() {
     await _pump(
       tester,
       router: router,
-      overrides: [
-        storeRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [storeRepositoryProvider.overrideWithValue(repository)],
     );
     await tester.pumpAndSettle();
 
@@ -638,9 +671,8 @@ class _FakeLotteryRepository extends LotteryRepository {
   Future<LotteryCart> cart() async => LotteryCart.empty();
 }
 
-class _ActiveCartLotteryRepository extends LotteryRepository {
-  _ActiveCartLotteryRepository(AuthTokenStore tokenStore)
-      : super(_testApiClient(tokenStore));
+class _ActiveCartLotteryRepository extends _FakeLotteryRepository {
+  _ActiveCartLotteryRepository(AuthTokenStore tokenStore) : super();
 
   int cartCount = 0;
 
@@ -692,10 +724,10 @@ class _ActiveCartLotteryRepository extends LotteryRepository {
 AuthController _authenticatedController(AuthTokenStore tokenStore) {
   final api = _testApiClient(tokenStore);
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = true
     ..pinRequired = false;
 }
@@ -703,10 +735,10 @@ AuthController _authenticatedController(AuthTokenStore tokenStore) {
 AuthController _unauthenticatedController(AuthTokenStore tokenStore) {
   final api = _testApiClient(tokenStore);
   return AuthController(
-    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
-    tokenStore: tokenStore,
-    biometricAuth: BiometricAuthService(api),
-  )
+      authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
     ..isAuthenticated = false
     ..pinRequired = false;
 }
@@ -721,13 +753,7 @@ class _FakeStoreRepository extends StoreRepository {
     int limit = 30,
   }) async {
     return const StorePage(
-      items: [
-        StoreItem(
-          id: 'store_1',
-          name: 'ร้านทดสอบ',
-          code: 'ST1',
-        ),
-      ],
+      items: [StoreItem(id: 'store_1', name: 'ร้านทดสอบ', code: 'ST1')],
       nextCursor: '',
       hasMore: false,
     );
@@ -743,13 +769,7 @@ class _DelayedInitialStoreRepository extends StoreRepository {
     if (_storesCompleter.isCompleted) return;
     _storesCompleter.complete(
       const StorePage(
-        items: [
-          StoreItem(
-            id: 'store_1',
-            name: 'ร้านทดสอบ',
-            code: 'ST1',
-          ),
-        ],
+        items: [StoreItem(id: 'store_1', name: 'ร้านทดสอบ', code: 'ST1')],
         nextCursor: '',
         hasMore: false,
       ),
@@ -757,11 +777,7 @@ class _DelayedInitialStoreRepository extends StoreRepository {
   }
 
   @override
-  Future<StorePage> list({
-    String q = '',
-    String cursor = '',
-    int limit = 30,
-  }) {
+  Future<StorePage> list({String q = '', String cursor = '', int limit = 30}) {
     return _storesCompleter.future;
   }
 }
@@ -782,30 +798,21 @@ class _PaginatedStoreRepository extends StoreRepository {
     cursors.add(cursor);
     if (cursor == 'cursor_1') {
       return const StorePage(
-        items: [
-          StoreItem(
-            id: 'store_next',
-            name: 'ร้านถัดไป',
-            code: 'NEXT',
-          ),
-        ],
+        items: [StoreItem(id: 'store_next', name: 'ร้านถัดไป', code: 'NEXT')],
         nextCursor: '',
         hasMore: false,
       );
     }
 
     return StorePage(
-      items: List.generate(
-        24,
-        (index) {
-          final ordinal = (index + 1).toString().padLeft(2, '0');
-          return StoreItem(
-            id: 'store_$ordinal',
-            name: 'ร้านหน้าแรก $ordinal',
-            code: 'FIRST$ordinal',
-          );
-        },
-      ),
+      items: List.generate(24, (index) {
+        final ordinal = (index + 1).toString().padLeft(2, '0');
+        return StoreItem(
+          id: 'store_$ordinal',
+          name: 'ร้านหน้าแรก $ordinal',
+          code: 'FIRST$ordinal',
+        );
+      }),
       nextCursor: 'cursor_1',
       hasMore: true,
     );
@@ -824,13 +831,7 @@ class _DelayedNextStoreRepository extends StoreRepository {
     if (_nextPageCompleter.isCompleted) return;
     _nextPageCompleter.complete(
       const StorePage(
-        items: [
-          StoreItem(
-            id: 'store_next',
-            name: 'ร้านถัดไป',
-            code: 'NEXT',
-          ),
-        ],
+        items: [StoreItem(id: 'store_next', name: 'ร้านถัดไป', code: 'NEXT')],
         nextCursor: '',
         hasMore: false,
       ),
@@ -838,26 +839,19 @@ class _DelayedNextStoreRepository extends StoreRepository {
   }
 
   @override
-  Future<StorePage> list({
-    String q = '',
-    String cursor = '',
-    int limit = 30,
-  }) {
+  Future<StorePage> list({String q = '', String cursor = '', int limit = 30}) {
     cursors.add(cursor);
     if (cursor.isEmpty) {
       return Future.value(
         StorePage(
-          items: List.generate(
-            24,
-            (index) {
-              final ordinal = (index + 1).toString().padLeft(2, '0');
-              return StoreItem(
-                id: 'store_$ordinal',
-                name: 'ร้านหน้าแรก $ordinal',
-                code: 'FIRST$ordinal',
-              );
-            },
-          ),
+          items: List.generate(24, (index) {
+            final ordinal = (index + 1).toString().padLeft(2, '0');
+            return StoreItem(
+              id: 'store_$ordinal',
+              name: 'ร้านหน้าแรก $ordinal',
+              code: 'FIRST$ordinal',
+            );
+          }),
           nextCursor: 'cursor_1',
           hasMore: true,
         ),
@@ -883,26 +877,14 @@ class _ShortPaginatedStoreRepository extends StoreRepository {
     cursors.add(cursor);
     if (cursor == 'cursor_1') {
       return const StorePage(
-        items: [
-          StoreItem(
-            id: 'store_next',
-            name: 'ร้านถัดไป',
-            code: 'NEXT',
-          ),
-        ],
+        items: [StoreItem(id: 'store_next', name: 'ร้านถัดไป', code: 'NEXT')],
         nextCursor: '',
         hasMore: false,
       );
     }
 
     return const StorePage(
-      items: [
-        StoreItem(
-          id: 'store_first',
-          name: 'ร้านหน้าแรก',
-          code: 'FIRST',
-        ),
-      ],
+      items: [StoreItem(id: 'store_first', name: 'ร้านหน้าแรก', code: 'FIRST')],
       nextCursor: 'cursor_1',
       hasMore: true,
     );

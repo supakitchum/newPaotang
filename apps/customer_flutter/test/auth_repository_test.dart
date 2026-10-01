@@ -6,6 +6,47 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'verified existing social phone saves session without member fields',
+    () async {
+      final tokens = _MemoryTokenStore();
+      final api = _AuthApiClient(tokens);
+      final session = await AuthRepository(api: api, tokenStore: tokens)
+          .socialLinkExistingPhone(
+            provider: 'google',
+            linkToken: 'link',
+            phone: '0812345678',
+            otpVerificationToken: 'verified',
+            redirect: '/affiliate',
+          );
+      expect(session?.customerId, 'cus_linked_social');
+      expect(tokens.accessToken, 'access-linked-social');
+      expect(api.authFlags, [false]);
+      expect(api.payloads.single, {
+        'link_token': 'link',
+        'phone': '0812345678',
+        'otp_verification_token': 'verified',
+        'existing_only': true,
+        'redirect': '/affiliate',
+      });
+    },
+  );
+
+  test('new social phone probe never writes session credentials', () async {
+    final tokens = _MemoryTokenStore();
+    final api = _AuthApiClient(tokens)..registrationRequired = true;
+    final session = await AuthRepository(api: api, tokenStore: tokens)
+        .socialLinkExistingPhone(
+          provider: 'google',
+          linkToken: 'link',
+          phone: '0812345678',
+          otpVerificationToken: 'verified',
+        );
+    expect(session, isNull);
+    expect(tokens.hasAccessToken, isFalse);
+    expect(tokens.refreshToken, isNull);
+  });
+
   test('login preserves recursive session wrappers and saves tokens', () async {
     final tokenStore = _MemoryTokenStore();
     final api = _AuthApiClient(tokenStore);
@@ -608,6 +649,7 @@ class _AuthApiClient extends ApiClient {
   final payloads = <Map<String, dynamic>>[];
   int googleCallbackFailuresRemaining = 0;
   bool loginOtpRequired = false;
+  bool registrationRequired = false;
   final headerPaths = <String>[];
   final headerPayloads = <Map<String, dynamic>>[];
   final headers = <Map<String, String>>[];
@@ -915,6 +957,11 @@ class _AuthApiClient extends ApiClient {
               'provider': 'apple_login',
             },
           },
+        },
+      },
+      '/customer/auth/social/google/link-phone' when registrationRequired => {
+        'data': {
+          'resource': {'registration_required': true},
         },
       },
       '/customer/auth/social/google/link-phone' => {

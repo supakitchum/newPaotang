@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/i18n/customer_localizations.dart';
 import '../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../features/news/data/news_repository.dart';
+import '../services/home_news_preloader.dart';
 
 const appSplashBackgroundAsset = 'assets/images/splash/siamblend_splash.jpg';
 const _appSplashFallbackColor = Color(0xFF03102E);
@@ -54,6 +56,7 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
   bool _canHide = false;
   bool _leaving = false;
   bool _visible = true;
+  String? _newsPreloadSignature;
 
   @override
   void initState() {
@@ -75,6 +78,19 @@ class _AppSplashHostState extends ConsumerState<AppSplashHost> {
   @override
   Widget build(BuildContext context) {
     final bootstrap = ref.watch(mobileBootstrapProvider);
+    if (_visible && bootstrap.hasValue) {
+      final news = ref.watch(newsListProvider).valueOrNull;
+      if (news != null) {
+        final signature = news.map((item) => item.coverUrl).join('\n');
+        if (signature != _newsPreloadSignature) {
+          _newsPreloadSignature = signature;
+          final preload = ref.read(homeNewsPreloaderProvider);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) unawaited(preload(context, news).catchError((_) {}));
+          });
+        }
+      }
+    }
     final authStartup = ref.watch(authSessionStartupProvider);
     final bootstrapReady = bootstrap.hasValue || bootstrap.hasError;
     final authReady = authStartup.hasValue || authStartup.hasError;
