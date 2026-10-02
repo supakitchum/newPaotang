@@ -3,8 +3,13 @@
     <section class="waiting-result-page">
       <div class="waiting-result-hero">
         <div class="waiting-result-mark">
-          <BrandLogo />
-          <span class="lottery-six">L6</span>
+          <img
+            src="/brand/siamblend-horizontal-logo.png"
+            class="waiting-result-logo"
+            alt="Siamblend"
+            width="210"
+            height="70"
+          >
         </div>
 
         <div class="waiting-result-copy">
@@ -273,14 +278,17 @@ onMounted(async () => {
 }
 
 .waiting-result-mark {
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
 }
 
-.waiting-result-mark .lottery-six {
-  font-size: 34px;
+.waiting-result-logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .waiting-result-copy {

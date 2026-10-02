@@ -11,6 +11,7 @@ import 'package:customer_flutter/features/purchase_history/data/purchase_history
 import 'package:customer_flutter/features/purchase_history/presentation/purchase_history_detail_screen.dart';
 import 'package:customer_flutter/features/content/presentation/info_pages.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
+import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/system/presentation/system_pages.dart';
 import 'package:customer_flutter/shared/widgets/customer_loading_indicator.dart';
 import 'package:dio/dio.dart';
@@ -498,6 +499,63 @@ void main() {
       ),
       'ถึง 2 ก.ค. 2569 00:30',
     );
+  });
+
+  testWidgets('countdown horizontal logo fits a small mobile viewport', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.reset);
+    final game = _currentGame(
+      status: 'open',
+      saleStartAt: DateTime.now().add(const Duration(days: 1)).toIso8601String(),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith(
+            (_) async => RewardResultBundle(
+              currentGame: game,
+              selectedResult: game.toPendingRewardGame(),
+              history: const [],
+            ),
+          ),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(const {
+              'site': {'display_name': 'Alpha Lucky Shop'},
+              'mobile': {'lottery_product_label': 'L6'},
+            }),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const CountdownScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final logo = find.image(
+      const AssetImage('assets/branding/siamblend_horizontal_logo.png'),
+    );
+    expect(logo, findsOneWidget);
+    expect(tester.getSize(logo), const Size(210, 70));
+    expect(find.text('L6'), findsNothing);
+    expect(find.text('Alpha Lucky Shop'), findsNothing);
+    expect(find.text('จะเปิดขายในอีก'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   test('countdown stays while open game sale start is still in the future', () {

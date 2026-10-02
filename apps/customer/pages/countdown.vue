@@ -2,8 +2,13 @@
   <MobileShell time="12:00" active-nav="home" show-bottom-nav>
     <section class="countdown-page">
       <div class="countdown-brand">
-        <BrandLogo />
-        <span class="lottery-six fs-2">L6</span>
+        <img
+          src="/brand/siamblend-horizontal-logo.png"
+          class="countdown-logo"
+          alt="Siamblend"
+          width="210"
+          height="70"
+        >
       </div>
 
       <div class="countdown-copy">
@@ -125,9 +130,17 @@ onBeforeUnmount(() => {
 }
 
 .countdown-brand {
+  max-width: 100%;
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+}
+
+.countdown-logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .countdown-copy {

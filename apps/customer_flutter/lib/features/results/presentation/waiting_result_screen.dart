@@ -11,7 +11,7 @@ import '../../../shared/widgets/app_alert.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_gradient_button.dart';
 import '../../../shared/widgets/customer_loading_indicator.dart';
-import '../../../shared/widgets/tenant_brand_header.dart';
+import '../../../shared/widgets/siamblend_receipt_logo.dart';
 import '../data/result_models.dart';
 import '../data/result_repository.dart';
 import 'result_widgets.dart';
@@ -65,10 +65,6 @@ class _WaitingResultScreenState extends ConsumerState<WaitingResultScreen> {
     );
     final result = ref.watch(currentResultProvider);
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
-    final configuredProduct = bootstrap?.lotteryProductLabel.trim() ?? '';
-    final productLabel = configuredProduct.isEmpty
-        ? context.l10n.ticketStubSeriesLabel
-        : configuredProduct;
 
     return AppShell(
       title: context.l10n.waitingResultTitle,
@@ -77,7 +73,6 @@ class _WaitingResultScreenState extends ConsumerState<WaitingResultScreen> {
       fullScreen: true,
       child: _WaitingResultPage(
         result: result,
-        productLabel: productLabel,
         live: bootstrap?.live,
         onRetryResult: () => ref.invalidate(currentResultProvider),
         onTickets: () => context.go('/tickets'),
@@ -104,7 +99,6 @@ class _WaitingResultScreenState extends ConsumerState<WaitingResultScreen> {
 class _WaitingResultPage extends StatelessWidget {
   const _WaitingResultPage({
     required this.result,
-    required this.productLabel,
     required this.live,
     required this.onRetryResult,
     required this.onTickets,
@@ -112,7 +106,6 @@ class _WaitingResultPage extends StatelessWidget {
   });
 
   final AsyncValue<RewardResultBundle> result;
-  final String productLabel;
   final MobileLiveConfig? live;
   final VoidCallback onRetryResult;
   final VoidCallback onTickets;
@@ -135,7 +128,7 @@ class _WaitingResultPage extends StatelessWidget {
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: Column(
                         children: [
-                          _WaitingResultBrand(productLabel: productLabel),
+                          const SiamblendReceiptLogo(),
                           const SizedBox(height: 28),
                           _WaitingResultCopy(result: result),
                           const SizedBox(height: 28),
@@ -194,60 +187,6 @@ class _WaitingResultBackground extends StatelessWidget {
         ),
         child: child,
       ),
-    );
-  }
-}
-
-class _WaitingResultBrand extends StatelessWidget {
-  const _WaitingResultBrand({required this.productLabel});
-
-  final String productLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const TenantBrandLogo(),
-        const SizedBox(width: 14),
-        _WaitingResultProductMark(label: productLabel),
-      ],
-    );
-  }
-}
-
-class _WaitingResultProductMark extends StatelessWidget {
-  const _WaitingResultProductMark({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppTheme.primaryLink(colorScheme.primary),
-                fontSize: 34,
-                fontWeight: FontWeight.w800,
-                height: 1,
-                letterSpacing: 0,
-              ),
-        ),
-        Transform.translate(
-          offset: const Offset(-5, 2),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.tertiary,
-              shape: BoxShape.circle,
-            ),
-            child: const SizedBox.square(dimension: 8),
-          ),
-        ),
-      ],
     );
   }
 }

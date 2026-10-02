@@ -16,6 +16,9 @@ void main() {
   testWidgets('waiting result shows placeholder numbers and live section', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.reset);
     final currentGame = CurrentGame(
       id: 'game_1',
       name: 'งวดวันที่ 1 ก.ค. 2569',
@@ -72,7 +75,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_text('หมดเวลาจำหน่ายสลากแล้ว'), findsOneWidget);
-    expect(_text('L6'), findsOneWidget);
+    expect(
+      find.image(
+        const AssetImage('assets/branding/siamblend_horizontal_logo.png'),
+      ),
+      findsOneWidget,
+    );
+    expect(_text('L6'), findsNothing);
+    expect(_text('Alpha Lucky Shop'), findsNothing);
+    expect(tester.takeException(), isNull);
     expect(_text('รอประกาศผลรางวัล'), findsOneWidget);
     expect(_text('xxxxxx'), findsOneWidget);
     expect(_text('xx'), findsOneWidget);

@@ -198,9 +198,6 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
     );
     final game = ref.watch(currentResultProvider);
     final l10n = context.l10n;
-    final productLabel =
-        ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
-        '';
     return AppShell(
       title: l10n.countdownTitle,
       currentPath: '/',
@@ -220,9 +217,6 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
             currentDrawText: countdownCurrentDrawText(context, current),
             saleStartAt: saleStartAt,
             remaining: remaining,
-            productLabel: productLabel.trim().isEmpty
-                ? l10n.ticketStubSeriesLabel
-                : productLabel.trim(),
             onCheckResult: () => context.go('/result'),
           );
         },
@@ -1300,56 +1294,17 @@ class _AccountSuspendedStatePage extends StatelessWidget {
   }
 }
 
-class _CountdownProductMark extends StatelessWidget {
-  const _CountdownProductMark({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: AppTheme.primaryLink(colorScheme.primary),
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            height: 1,
-            letterSpacing: 0,
-          ),
-        ),
-        Transform.translate(
-          offset: const Offset(-5, 1),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.tertiary,
-              shape: BoxShape.circle,
-            ),
-            child: const SizedBox.square(dimension: 8),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _CountdownPage extends StatelessWidget {
   const _CountdownPage({
     required this.currentDrawText,
     required this.saleStartAt,
     required this.remaining,
-    required this.productLabel,
     required this.onCheckResult,
   });
 
   final String currentDrawText;
   final DateTime? saleStartAt;
   final Duration remaining;
-  final String productLabel;
   final VoidCallback onCheckResult;
 
   @override
@@ -1382,14 +1337,7 @@ class _CountdownPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const TenantBrandLogo(),
-                const SizedBox(width: 16),
-                _CountdownProductMark(label: productLabel),
-              ],
-            ),
+            const SiamblendReceiptLogo(),
             const SizedBox(height: 28),
             Text(
               l10n.countdownWaitingTitle,
