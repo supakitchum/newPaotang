@@ -38,7 +38,12 @@ final activityListPageProvider = FutureProvider.autoDispose<ActivityListPage>((
 
 final activityDetailProvider = FutureProvider.autoDispose
     .family<ActivityItem, ActivityDetailRequest>((ref, request) {
-      ref.keepForCustomerSession();
+      // Authenticated details can contain customer-specific rights and awards.
+      // Discard them when the route unmounts instead of retaining them in the
+      // navigation cache.
+      if (!request.authenticated) {
+        ref.keepForCustomerSession();
+      }
       ref.watch(ticketRealtimeTickProvider);
       return ref
           .watch(activityRepositoryProvider)

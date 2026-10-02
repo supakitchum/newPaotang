@@ -1,0 +1,1247 @@
+{
+  "doc_sha256": "0e99748570a37c0164e6d5e9ebb8ff1dda36bbffba2f1273fa487da2e594d3d5",
+  "fixture_provenance": "Reused verified prior controller/profile fixtures; no fresh PHP/HTTP execution.",
+  "invariants": {
+    "email-explicit-types": true,
+    "email-no-nullable-extension": true,
+    "avatar_url-explicit-types": true,
+    "avatar_url-no-nullable-extension": true,
+    "preferred_locale-explicit-types": true,
+    "preferred_locale-no-nullable-extension": true,
+    "email-format-preserved": true,
+    "avatar-format-preserved": true,
+    "bank-exact-alternatives": true,
+    "CustomerSocialLinkPhoneRequest-unchanged": true,
+    "CustomerSocialLinkPhoneResponse-unchanged": true,
+    "CustomerSocialRegistrationRequiredResponse-unchanged": true,
+    "CustomerAuthResponse-unchanged": true,
+    "other-profile-properties-unchanged": true,
+    "profile-root-unchanged": true,
+    "bank-object-required-fields": true
+  },
+  "cases": [
+    {
+      "case": "email-null",
+      "field": "email",
+      "value": null,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "email-string",
+      "field": "email",
+      "value": "example@example.test",
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "email-number",
+      "field": "email",
+      "value": 42,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "email"
+              ],
+              "message": "42 is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 42, 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "email-boolean",
+      "field": "email",
+      "value": false,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "email"
+              ],
+              "message": "False is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': False, 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "email-array",
+      "field": "email",
+      "value": [],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "email"
+              ],
+              "message": "[] is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': [], 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "email-object",
+      "field": "email",
+      "value": {},
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "email"
+              ],
+              "message": "{} is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': {}, 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar_url-null",
+      "field": "avatar_url",
+      "value": null,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar_url-string",
+      "field": "avatar_url",
+      "value": "https://example.test/avatar.png",
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar_url-number",
+      "field": "avatar_url",
+      "value": 42,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "avatar_url"
+              ],
+              "message": "42 is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 42, 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar_url-boolean",
+      "field": "avatar_url",
+      "value": false,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "avatar_url"
+              ],
+              "message": "False is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': False, 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar_url-array",
+      "field": "avatar_url",
+      "value": [],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "avatar_url"
+              ],
+              "message": "[] is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': [], 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar_url-object",
+      "field": "avatar_url",
+      "value": {},
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "avatar_url"
+              ],
+              "message": "{} is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': {}, 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "preferred_locale-null",
+      "field": "preferred_locale",
+      "value": null,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "preferred_locale-string",
+      "field": "preferred_locale",
+      "value": "th-TH",
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "preferred_locale-number",
+      "field": "preferred_locale",
+      "value": 42,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "preferred_locale"
+              ],
+              "message": "42 is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 42, 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "preferred_locale-boolean",
+      "field": "preferred_locale",
+      "value": false,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "preferred_locale"
+              ],
+              "message": "False is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': False, 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "preferred_locale-array",
+      "field": "preferred_locale",
+      "value": [],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "preferred_locale"
+              ],
+              "message": "[] is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': [], 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "preferred_locale-object",
+      "field": "preferred_locale",
+      "value": {},
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "preferred_locale"
+              ],
+              "message": "{} is not of type 'string', 'null'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': {}, 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "email-invalid-format",
+      "field": "email",
+      "value": "not-an-email",
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "email"
+              ],
+              "message": "'not-an-email' is not a 'email'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'not-an-email', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "avatar-invalid-uri-format",
+      "field": "avatar_url",
+      "value": "not a URI",
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "avatar_url"
+              ],
+              "message": "'not a URI' is not a 'uri'"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'not a URI', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-configured-object",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": "Fictional Bank",
+        "account_name": "Example Member",
+        "account_number": "0000000000"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-null-compatibility",
+      "field": "reward_payout_bank_account",
+      "value": null,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-empty-array-fallback",
+      "field": "reward_payout_bank_account",
+      "value": [],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-nonempty-array-object",
+      "field": "reward_payout_bank_account",
+      "value": [
+        {
+          "bank_name": "Fictional Bank",
+          "account_name": "Example Member",
+          "account_number": "0000000000"
+        }
+      ],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "[{'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}] is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': [{'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': '0000000000'}], 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-nonempty-array-null",
+      "field": "reward_payout_bank_account",
+      "value": [
+        null
+      ],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "[None] is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': [None], 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-nonempty-array-nested-array",
+      "field": "reward_payout_bank_account",
+      "value": [
+        []
+      ],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "[[]] is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': [[]], 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-nonempty-array-number",
+      "field": "reward_payout_bank_account",
+      "value": [
+        0
+      ],
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "[0] is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': [0], 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-scalar-string",
+      "field": "reward_payout_bank_account",
+      "value": "bank",
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "'bank' is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': 'bank', 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-scalar-number",
+      "field": "reward_payout_bank_account",
+      "value": 42,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "42 is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': 42, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-scalar-boolean",
+      "field": "reward_payout_bank_account",
+      "value": false,
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "False is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': False, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-empty-object",
+      "field": "reward_payout_bank_account",
+      "value": {},
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-missing-bank_name",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "account_name": "Example Member",
+        "account_number": "0000000000"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{'account_name': 'Example Member', 'account_number': '0000000000'} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-wrong-type-bank_name",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": 42,
+        "account_name": "Example Member",
+        "account_number": "0000000000"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{'bank_name': 42, 'account_name': 'Example Member', 'account_number': '0000000000'} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 42, 'account_name': 'Example Member', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-missing-account_name",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": "Fictional Bank",
+        "account_number": "0000000000"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{'bank_name': 'Fictional Bank', 'account_number': '0000000000'} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-wrong-type-account_name",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": "Fictional Bank",
+        "account_name": 42,
+        "account_number": "0000000000"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{'bank_name': 'Fictional Bank', 'account_name': 42, 'account_number': '0000000000'} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 42, 'account_number': '0000000000'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-missing-account_number",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": "Fictional Bank",
+        "account_name": "Example Member"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{'bank_name': 'Fictional Bank', 'account_name': 'Example Member'} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member'}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-wrong-type-account_number",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": "Fictional Bank",
+        "account_name": "Example Member",
+        "account_number": 42
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [
+                "reward_payout_bank_account"
+              ],
+              "message": "{'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': 42} is not valid under any of the given schemas"
+            }
+          ]
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": false,
+          "expected_valid": false,
+          "matched": true,
+          "errors": [
+            {
+              "path": [],
+              "message": "{'session_id': 'cas_fictional', 'token': 'fictional-access-not-issued', 'refresh_token': 'fictional-refresh-not-issued', 'expires_in': 3600, 'pin_verified': False, 'session_activation_required': True, 'pin_setup_required': True, 'pin_required': False, 'user': {'id': 'cus_fictional', 'tenant_id': 'ten_fictional', 'customer_no': 'M80C056D0', 'member_no': 'M80C056D0', 'name': 'Example Member', 'first_name': None, 'last_name': None, 'phone': '0812345678', 'email': 'example@example.test', 'status': 'active', 'preferred_locale': 'th-TH', 'avatar_url': 'https://example.test/avatar.png', 'reward_payout_bank_account': {'bank_name': 'Fictional Bank', 'account_name': 'Example Member', 'account_number': 42}, 'auto_reward_claim': {'enabled': False, 'payout_method': 'wallet_credit', 'type': 'wallet'}, 'wallet': None, 'primary_wallet': None, 'has_pin': False, 'pin_verified': False, 'pin_required': False, 'pin_setup_required': True}} is not valid under any of the given schemas"
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case": "bank-optional-branch-string",
+      "field": "reward_payout_bank_account",
+      "value": {
+        "bank_name": "Fictional Bank",
+        "account_name": "Example Member",
+        "account_number": "0000000000",
+        "branch": "Example Branch"
+      },
+      "checks": [
+        {
+          "schema": "CustomerProfile",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        },
+        {
+          "schema": "CustomerSocialLinkPhoneResponse",
+          "valid": true,
+          "expected_valid": true,
+          "matched": true,
+          "errors": []
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "case_count": 38,
+  "passed": 38,
+  "failed": 0,
+  "schema_evaluations": 76,
+  "format_checkers_available": [
+    "email",
+    "uri"
+  ],
+  "dialect": "JSON Schema 2020-12, no nullable extension"
+}

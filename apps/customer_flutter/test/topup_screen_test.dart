@@ -22,6 +22,11 @@ import 'package:go_router/go_router.dart';
 
 const _runtimeTopupLogo =
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+const _testAppConfig = AppConfig(
+  apiBaseUrl: 'https://partner.example.test/api/v1',
+  defaultLocale: 'th-TH',
+  tenantHost: 'partner.example.test',
+);
 
 void main() {
   test('safeTopupBackPath follows the Nuxt return allowlist', () {
@@ -1217,6 +1222,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appConfigProvider.overrideWithValue(_testAppConfig),
           topupRepositoryProvider.overrideWithValue(repository),
           topupOverviewProvider.overrideWith(
             (_) async => _emptyTopupOverview(),
@@ -1286,6 +1292,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appConfigProvider.overrideWithValue(_testAppConfig),
           topupRepositoryProvider.overrideWithValue(repository),
           receiptImageExporterProvider.overrideWithValue(imageExporter),
           receiptShareServiceProvider.overrideWithValue(shareService),
@@ -1410,7 +1417,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [topupRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          appConfigProvider.overrideWithValue(_testAppConfig),
+          topupRepositoryProvider.overrideWithValue(repository),
+        ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
           supportedLocales: supportedCustomerLocales,
@@ -1474,7 +1484,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [topupRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          appConfigProvider.overrideWithValue(_testAppConfig),
+          topupRepositoryProvider.overrideWithValue(repository),
+        ],
         child: MaterialApp(
           locale: fallbackCustomerLocale,
           supportedLocales: supportedCustomerLocales,
@@ -1540,7 +1553,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [topupRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          appConfigProvider.overrideWithValue(_testAppConfig),
+          topupRepositoryProvider.overrideWithValue(repository),
+        ],
         child: MaterialApp.router(
           locale: fallbackCustomerLocale,
           supportedLocales: supportedCustomerLocales,
@@ -1637,6 +1653,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appConfigProvider.overrideWithValue(_testAppConfig),
             topupRepositoryProvider.overrideWithValue(repository),
             topupPendingRefreshIntervalProvider.overrideWithValue(
               const Duration(seconds: 1),
@@ -1785,6 +1802,7 @@ Future<void> _pumpTopupRoute(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        appConfigProvider.overrideWithValue(_testAppConfig),
         topupOverviewProvider.overrideWith(
           (_) async => overview ?? _emptyTopupOverview(),
         ),
@@ -1816,6 +1834,7 @@ Future<void> _pumpTopupScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        appConfigProvider.overrideWithValue(_testAppConfig),
         topupOverviewProvider.overrideWith((_) async => overview),
         if (repository != null)
           topupRepositoryProvider.overrideWithValue(repository),

@@ -1,0 +1,218 @@
+{
+  "CustomerSocialLinkPhoneRequest": {
+    "type": "object",
+    "description": "link_token, phone, and otp_verification_token are required for every request. New-member fields are required only when creating a customer for a new phone, which depends on the tenant's account state and cannot be determined from the request schema alone. Existing active accounts can link without those fields. Clients should first send existing_only=true; a registration_required response retains both tokens for the subsequent full registration request with existing_only omitted or false. Supplying member fields during existing-account linking does not overwrite that account's profile or password.",
+    "required": [
+      "link_token",
+      "phone",
+      "otp_verification_token"
+    ],
+    "properties": {
+      "link_token": {
+        "type": "string"
+      },
+      "phone": {
+        "type": "string"
+      },
+      "existing_only": {
+        "type": "boolean",
+        "default": false,
+        "description": "When true, a new phone returns registration_required=true without account creation or token consumption. An existing active phone links and signs in."
+      },
+      "first_name": {
+        "type": "string",
+        "description": "Required and non-empty when creating a new customer; ignored for an existing account."
+      },
+      "last_name": {
+        "type": "string",
+        "description": "Required and non-empty when creating a new customer; ignored for an existing account."
+      },
+      "password": {
+        "type": "string",
+        "format": "password",
+        "description": "At least six characters when creating a new customer; existing password is preserved."
+      },
+      "password_confirmation": {
+        "type": "string",
+        "format": "password",
+        "description": "New-member clients send confirmation matching password. If omitted, the current service defaults it to password; a supplied mismatch prevents new account creation. Existing-account linking preserves the stored password."
+      },
+      "otp_verification_token": {
+        "type": "string",
+        "description": "Verified register-purpose OTP token bound to this tenant and phone, unexpired and unconsumed. Validated before exposing account status; consumed once on successful linking/registration, retained on a new-phone probe."
+      },
+      "accepted_terms": {
+        "type": "boolean",
+        "description": "Must be true when creating a new customer; not required for an existing-account probe."
+      },
+      "redirect": {
+        "type": "string"
+      }
+    },
+    "examples": [
+      {
+        "link_token": "fictional-social-handoff",
+        "phone": "0812345678",
+        "otp_verification_token": "fictional-verified-register-otp",
+        "existing_only": true
+      },
+      {
+        "link_token": "fictional-social-handoff",
+        "phone": "0812345678",
+        "otp_verification_token": "fictional-verified-register-otp",
+        "existing_only": false,
+        "first_name": "Example",
+        "last_name": "Member",
+        "password": "fictional-password",
+        "password_confirmation": "fictional-password",
+        "accepted_terms": true
+      }
+    ]
+  },
+  "CustomerSocialLinkPhoneResponse": {
+    "oneOf": [
+      {
+        "$ref": "#/components/schemas/CustomerAuthResponse"
+      },
+      {
+        "$ref": "#/components/schemas/CustomerSocialRegistrationRequiredResponse"
+      }
+    ]
+  },
+  "CustomerSocialRegistrationRequiredResponse": {
+    "type": "object",
+    "required": [
+      "registration_required"
+    ],
+    "properties": {
+      "registration_required": {
+        "type": "boolean",
+        "const": true,
+        "description": "No customer exists for the verified phone and existing_only was true. No customer/session was created; OTP and link tokens remain unconsumed for the full new-member registration request."
+      }
+    },
+    "additionalProperties": false,
+    "examples": [
+      {
+        "registration_required": true
+      }
+    ]
+  },
+  "CustomerAuthResponse": {
+    "type": "object",
+    "required": [
+      "token",
+      "user"
+    ],
+    "properties": {
+      "session_id": {
+        "type": "string",
+        "description": "Stable id of the issued access/refresh session pair."
+      },
+      "token": {
+        "type": "string"
+      },
+      "refresh_token": {
+        "type": "string",
+        "nullable": true
+      },
+      "expires_in": {
+        "type": "integer",
+        "nullable": true
+      },
+      "pin_verified": {
+        "type": "boolean"
+      },
+      "session_activation_required": {
+        "type": "boolean",
+        "description": "True until PIN setup, PIN verification, or biometric assertion completes the new-device login."
+      },
+      "pin_setup_required": {
+        "type": "boolean"
+      },
+      "pin_required": {
+        "type": "boolean"
+      },
+      "user": {
+        "$ref": "#/components/schemas/CustomerProfile"
+      },
+      "order_id": {
+        "type": "string",
+        "nullable": true,
+        "description": "Optional redirect order id for payment continuation."
+      }
+    }
+  },
+  "CustomerProfile": {
+    "type": "object",
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "tenant_id": {
+        "type": "string",
+        "nullable": true
+      },
+      "name": {
+        "type": "string"
+      },
+      "phone": {
+        "type": "string"
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "nullable": true
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "active",
+          "pending_verification",
+          "suspended",
+          "disabled"
+        ],
+        "nullable": true
+      },
+      "avatar_url": {
+        "type": "string",
+        "format": "uri",
+        "nullable": true
+      },
+      "preferred_locale": {
+        "type": "string",
+        "nullable": true
+      },
+      "pin_setup_required": {
+        "type": "boolean"
+      },
+      "pin_verified": {
+        "type": "boolean"
+      },
+      "reward_payout_bank_account": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CustomerBankAccount"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "auto_reward_claim": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CustomerAutoRewardSetting"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "additionalProperties": true
+  }
+}

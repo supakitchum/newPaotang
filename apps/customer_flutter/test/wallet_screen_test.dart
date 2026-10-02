@@ -461,6 +461,11 @@ void main() {
     expect(find.text('อ้างอิง topup_1'), findsNothing);
     expect(find.text('อ้างอิง topup_2'), findsOneWidget);
     expect(find.textContaining('+900.00'), findsOneWidget);
+
+    // The navigation cache starts an expiry timer when the route unmounts.
+    // Dispose its test container before Flutter checks for leaked timers.
+    await tester.pumpWidget(const SizedBox.shrink());
+    container.dispose();
   });
 
   testWidgets('wallet screen shows Nuxt-style ledger loading copy', (

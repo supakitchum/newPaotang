@@ -1,0 +1,17 @@
+services:
+  schema:
+    image: node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+    working_dir: /tmp
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang:/workspace:ro
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation-qa:/evidence
+    command:
+      - sh
+      - -ec
+      - |
+        apk add --no-cache python3 py3-pip
+        python3 -m venv /tmp/validator
+        /tmp/validator/bin/pip install --disable-pip-version-check openapi-spec-validator==0.7.2 jsonschema==4.23.0 PyYAML==6.0.2 rfc3986-validator==0.1.1
+        /tmp/validator/bin/pip freeze > /evidence/validator-dependencies.txt
+        /tmp/validator/bin/python /evidence/validate_contract.py
+        /tmp/validator/bin/python /evidence/validate_boundaries.py

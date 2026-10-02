@@ -40,6 +40,9 @@ class CustomerLocalizations {
   String get appSplashPreparing => _text('app_splash.preparing');
   String get saleClosureAlertMessage => _text('sale_closure.alert_message');
   String get notificationsTitle => _text('notifications.title');
+  String get pushChannelName => _text('notifications.channel.name');
+  String get pushChannelDescription =>
+      _text('notifications.channel.description');
   String get notificationsInboxLabel => _text('notifications.inbox_label');
   String get notificationsHomeTooltip => _text('notifications.home_tooltip');
   String get notificationsMarkAll => _text('notifications.mark_all');
@@ -1353,6 +1356,8 @@ class CustomerLocalizations {
       _text('account_deletion.eligibility.ready');
   String get accountDeletionEligibilityBlocked =>
       _text('account_deletion.eligibility.blocked');
+  String accountDeletionBlockerLabel(String code) =>
+      _text('account_deletion.blocker.$code');
   String get accountDeletionReasonTitle =>
       _text('account_deletion.reason.title');
   String get accountDeletionReasonDetail =>
@@ -2971,6 +2976,8 @@ const _localizedValues = <String, Map<String, String>>{
     'sale_closure.alert_message':
         'ระบบพาไปหน้ารอออกผลแล้ว กรุณาตรวจผลรางวัลหลังประกาศผล',
     'notifications.title': 'การแจ้งเตือน',
+    'notifications.channel.name': 'การแจ้งเตือนลูกค้า',
+    'notifications.channel.description': 'ข่าวสารและสถานะรายการของคุณ',
     'notifications.inbox_label': 'รายการแจ้งเตือน',
     'notifications.home_tooltip': 'ดูการแจ้งเตือน',
     'notifications.mark_all': 'อ่านทั้งหมด',
@@ -4100,6 +4107,19 @@ const _localizedValues = <String, Map<String, String>>{
     'account_deletion.pending.body':
         'บัญชีอยู่ในโหมดอ่านอย่างเดียวและจะถูกปิดอัตโนมัติเมื่อครบกำหนด',
     'account_deletion.blocked.title': 'ยังปิดบัญชีไม่ได้',
+    'account_deletion.blocker.wallet_balance': 'ยังมียอดเงินใน Wallet',
+    'account_deletion.blocker.orders_pending': 'มีคำสั่งซื้อที่กำลังดำเนินการ',
+    'account_deletion.blocker.topups_pending':
+        'มีรายการเติมเงินที่กำลังดำเนินการ',
+    'account_deletion.blocker.reward_claims_pending':
+        'มีรายการขึ้นเงินรางวัลที่กำลังดำเนินการ',
+    'account_deletion.blocker.activity_claims_pending':
+        'มีรายการรับรางวัลกิจกรรมที่กำลังดำเนินการ',
+    'account_deletion.blocker.activity_awards_unclaimed':
+        'มีรางวัลกิจกรรมที่ยังไม่ได้รับ',
+    'account_deletion.blocker.affiliate_balance': 'ยังมียอดคอมมิชชันคงเหลือ',
+    'account_deletion.blocker.affiliate_payouts_pending':
+        'มีรายการถอนคอมมิชชันที่กำลังดำเนินการ',
     'account_deletion.cancel': 'ยกเลิกการลบบัญชี',
     'account_deletion.cancel.confirm': 'กรอก PIN เพื่อยกเลิกคำขอ',
     'account_deletion.cancelled': 'ยกเลิกคำขอลบบัญชีแล้ว',
@@ -5007,6 +5027,9 @@ const _localizedValues = <String, Map<String, String>>{
     'sale_closure.alert_message':
         'You have been moved to the waiting-for-results page. Please check the results after they are announced.',
     'notifications.title': 'Notifications',
+    'notifications.channel.name': 'Customer updates',
+    'notifications.channel.description':
+        'News and updates about your transactions',
     'notifications.inbox_label': 'Notifications',
     'notifications.home_tooltip': 'View notifications',
     'notifications.mark_all': 'Mark all as read',
@@ -6180,6 +6203,18 @@ const _localizedValues = <String, Map<String, String>>{
     'account_deletion.pending.body':
         'The account is read-only and will close automatically at the deadline.',
     'account_deletion.blocked.title': 'Account closure is blocked',
+    'account_deletion.blocker.wallet_balance': 'Wallet balance remains',
+    'account_deletion.blocker.orders_pending': 'Orders are pending',
+    'account_deletion.blocker.topups_pending': 'Topups are pending',
+    'account_deletion.blocker.reward_claims_pending':
+        'Reward claims are pending',
+    'account_deletion.blocker.activity_claims_pending':
+        'Activity claims are pending',
+    'account_deletion.blocker.activity_awards_unclaimed':
+        'Activity awards remain unclaimed',
+    'account_deletion.blocker.affiliate_balance': 'Affiliate balance remains',
+    'account_deletion.blocker.affiliate_payouts_pending':
+        'Affiliate payouts are pending',
     'account_deletion.cancel': 'Cancel account deletion',
     'account_deletion.cancel.confirm': 'Enter PIN to cancel the request',
     'account_deletion.cancelled': 'Account deletion request cancelled',

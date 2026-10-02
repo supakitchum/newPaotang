@@ -127,7 +127,7 @@ void main() {
     expect(find.text('ข่าวสารและกิจกรรม'), findsOneWidget);
     expect(find.text('สรุปโปรโมชัน'), findsOneWidget);
     expect(find.text('รายละเอียดเพิ่มเติมสำหรับสมาชิก'), findsOneWidget);
-    expect(_textColor(tester, 'ข่าวสารและกิจกรรม'), const Color(0xFF0875DF));
+    expect(_textColor(tester, 'ข่าวสารและกิจกรรม'), AppTheme.appBlue);
     expect(_textColor(tester, 'ข่าวแคมเปญ'), const Color(0xFF1F2937));
     expect(_textColor(tester, 'สรุปโปรโมชัน'), const Color(0xFF53616F));
     expect(

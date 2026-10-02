@@ -1531,7 +1531,7 @@ void main() {
     expect(hslTheme.accentColor, const Color(0xFFFF7A00));
   });
 
-  test('app theme fallback matches Nuxt customer visual tokens', () {
+  test('app theme fallback matches Siamblend customer visual tokens', () {
     final theme = AppTheme.light();
 
     expect(theme.colorScheme.primary, AppTheme.appBlue);
@@ -1566,19 +1566,19 @@ void main() {
     );
     expect(
       AppTheme.homeActivityFallbackStart(AppTheme.appBlue),
-      const Color(0xFF0B84ED),
+      AppTheme.appHeroStart,
     );
     expect(
       AppTheme.homeActivityFallbackEnd(AppTheme.appBlue, AppTheme.appSky),
-      const Color(0xFF11A584),
+      AppTheme.appBlue,
     );
     expect(
       AppTheme.homeNewsFallbackStart(AppTheme.appBlue),
-      const Color(0xFF0A87F5),
+      AppTheme.appHeroStart,
     );
     expect(
       AppTheme.newsCardFallbackEnd(AppTheme.appBlue, AppTheme.appInk),
-      const Color(0xFF174783),
+      AppTheme.appBlueDark,
     );
     expect(
       AppTheme.activityActionFill(AppTheme.appBlue),
@@ -1660,7 +1660,7 @@ void main() {
     expect(AppTheme.heroGradientEnd(AppTheme.appBlue), AppTheme.appHeroEnd);
   });
 
-  test('app theme keeps Nuxt blue identity with runtime color tokens', () {
+  test('app theme keeps Siamblend identity with runtime neutral tokens', () {
     final theme = AppTheme.light(
       tokens: const AppThemeTokens(
         primaryColor: Color(0xFF10B981),
@@ -1675,9 +1675,9 @@ void main() {
     expect(theme.colorScheme.primary, AppTheme.appBlue);
     expect(theme.colorScheme.secondary, AppTheme.appSky);
     expect(theme.colorScheme.tertiary, AppTheme.appYellow);
-    expect(theme.colorScheme.onSurface, const Color(0xFF111827));
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFFAFBFC));
-    expect(theme.textTheme.bodyMedium?.color, const Color(0xFF111827));
+    expect(theme.colorScheme.onSurface, AppTheme.appInk);
+    expect(theme.scaffoldBackgroundColor, AppTheme.appSheet);
+    expect(theme.textTheme.bodyMedium?.color, AppTheme.appInk);
     expect(theme.inputDecorationTheme.fillColor, Colors.white);
   });
 

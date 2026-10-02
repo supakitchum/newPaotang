@@ -1,0 +1,46 @@
+services:
+  schema:
+    image: node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+    pull_policy: never
+    working_dir: /tmp
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang:/workspace:ro
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation:/evidence
+    command:
+      - sh
+      - -ec
+      - |
+        apk add --no-cache python3 py3-pip
+        python3 -m venv /tmp/validator
+        /tmp/validator/bin/pip install --disable-pip-version-check openapi-spec-validator==0.7.2 jsonschema==4.23.0 PyYAML==6.0.2
+        /tmp/validator/bin/pip freeze > /evidence/validator-dependencies.txt
+        /tmp/validator/bin/python /evidence/validate_contract.py
+        /tmp/validator/bin/python - <<'PY'
+        import copy
+        import json
+        from pathlib import Path
+        import yaml
+        from jsonschema import Draft202012Validator, FormatChecker
+        spec = yaml.safe_load(Path('/workspace/docs/openapi.yaml').read_text())
+        schemas = spec['components']['schemas']
+        schema = {'$$ref': '#/components/schemas/CustomerSocialLinkPhoneResponse', 'components': {'schemas': schemas}}
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        records = json.loads(Path('/evidence/controller-responses.json').read_text())
+        base = next(record['body'] for record in records if record['profile'] == 'populated' and record['branch'] == 'session')
+        checks = [
+            ('bank-null', 'reward_payout_bank_account', None, True),
+            ('bank-empty-array', 'reward_payout_bank_account', [], True),
+            ('bank-nonempty-array', 'reward_payout_bank_account', [base['user']['reward_payout_bank_account']], False),
+            ('bank-empty-object', 'reward_payout_bank_account', {}, False),
+            ('bank-scalar', 'reward_payout_bank_account', 'invalid', False),
+            ('email-number', 'email', 42, False),
+            ('avatar-boolean', 'avatar_url', True, False),
+            ('locale-array', 'preferred_locale', [], False),
+        ]
+        for name, field, value, expected in checks:
+            body = copy.deepcopy(base)
+            body['user'][field] = value
+            valid = validator.is_valid(body)
+            assert valid == expected, name
+        print('Profile boundary checks: 8 passed; nonempty bank arrays and invalid field types rejected.')
+        PY

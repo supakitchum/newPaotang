@@ -51,7 +51,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Wallet balance remains'), findsOneWidget);
+    expect(find.textContaining('ยังมียอดเงินใน Wallet'), findsOneWidget);
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'ดำเนินการต่อ'),
     );

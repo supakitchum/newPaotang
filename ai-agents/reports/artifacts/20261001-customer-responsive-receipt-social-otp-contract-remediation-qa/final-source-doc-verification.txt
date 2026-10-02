@@ -1,0 +1,12 @@
+docs/openapi.yaml: OK
+docs/customer-api-integration-map.md: OK
+ai-agents/reports/20261001-customer-responsive-receipt-social-otp-contract-qa-report.md: OK
+ai-agents/reports/20261001-customer-responsive-receipt-social-otp-qa-report.md: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-qa/artifact-manifest.sha256: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/artifact-manifest.sha256: OK
+apps/customer/public/brand/siamblend-horizontal-logo.png: OK
+apps/customer_flutter/assets/branding/siamblend_horizontal_logo.png: OK
+apps/back-office/public/brand/siamblend-bo-logo.png: OK
+apps/customer_flutter/lib/shared/services/home_news_preloader.dart: OK
+apps/customer_flutter/lib/shared/widgets/siamblend_receipt_logo.dart: OK
+apps/customer_flutter/tool/customer_ui_preview.dart: OK

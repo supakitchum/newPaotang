@@ -1,0 +1,1 @@
+window.customerFlutterWebConfig = window.customerFlutterWebConfig || {};

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_link_launcher.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
@@ -265,15 +267,33 @@ class _AccountDeletionScreenState extends ConsumerState<AccountDeletionScreen> {
   }
 }
 
-class _ImpactStep extends StatelessWidget {
+class _ImpactStep extends ConsumerWidget {
   const _ImpactStep({required this.status, required this.error, super.key});
 
   final AccountDeletionStatus status;
   final String error;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
+    final bootstrap = ref
+        .watch(mobileBootstrapProvider)
+        .maybeWhen(data: (data) => data, orElse: () => null);
+    final privacyUri = Uri.tryParse(bootstrap?.privacyPolicyUrl ?? '');
+    final deletionUri = Uri.tryParse(bootstrap?.accountDeletionUrl ?? '');
+    final supportUri = Uri.tryParse(bootstrap?.supportUrl ?? '');
+
+    Future<void> openLink(Uri uri) async {
+      final opened = await ref
+          .read(customerLinkLauncherProvider)
+          .openExternal(uri);
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.accountDeletionLaunchFailed)),
+        );
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -333,6 +353,26 @@ class _ImpactStep extends StatelessWidget {
             ],
           ),
         ),
+        if (isSafeExternalLinkUri(privacyUri) ||
+            isSafeExternalLinkUri(deletionUri) ||
+            isSafeExternalLinkUri(supportUri)) ...[
+          const SizedBox(height: 14),
+          if (isSafeExternalLinkUri(privacyUri))
+            TextButton(
+              onPressed: () => unawaited(openLink(privacyUri!)),
+              child: Text(context.l10n.profilePrivacyPolicy),
+            ),
+          if (isSafeExternalLinkUri(deletionUri))
+            TextButton(
+              onPressed: () => unawaited(openLink(deletionUri!)),
+              child: Text(context.l10n.accountDeletionOpenRequest),
+            ),
+          if (isSafeExternalLinkUri(supportUri))
+            TextButton(
+              onPressed: () => unawaited(openLink(supportUri!)),
+              child: Text(context.l10n.accountDeletionContactSupport),
+            ),
+        ],
         if (error.isNotEmpty) _InlineError(error),
       ],
     );
@@ -722,32 +762,17 @@ String _duration(int seconds) {
 }
 
 String _blockerLabel(BuildContext context, String code) {
-  final thai = Localizations.localeOf(context).languageCode == 'th';
   return switch (code) {
-    'wallet_balance' =>
-      thai ? 'ยังมียอดเงินใน Wallet' : 'Wallet balance remains',
-    'orders_pending' =>
-      thai ? 'มีคำสั่งซื้อที่กำลังดำเนินการ' : 'Orders are pending',
-    'topups_pending' =>
-      thai ? 'มีรายการเติมเงินที่กำลังดำเนินการ' : 'Topups are pending',
-    'reward_claims_pending' =>
-      thai
-          ? 'มีรายการขึ้นเงินรางวัลที่กำลังดำเนินการ'
-          : 'Reward claims are pending',
-    'activity_claims_pending' =>
-      thai
-          ? 'มีรายการรับรางวัลกิจกรรมที่กำลังดำเนินการ'
-          : 'Activity claims are pending',
-    'activity_awards_unclaimed' =>
-      thai
-          ? 'มีรางวัลกิจกรรมที่ยังไม่ได้รับ'
-          : 'Activity awards remain unclaimed',
-    'affiliate_balance' =>
-      thai ? 'ยังมียอดคอมมิชชันคงเหลือ' : 'Affiliate balance remains',
-    'affiliate_payouts_pending' =>
-      thai
-          ? 'มีรายการถอนคอมมิชชันที่กำลังดำเนินการ'
-          : 'Affiliate payouts are pending',
+    'wallet_balance' ||
+    'orders_pending' ||
+    'topups_pending' ||
+    'reward_claims_pending' ||
+    'activity_claims_pending' ||
+    'activity_awards_unclaimed' ||
+    'affiliate_balance' ||
+    'affiliate_payouts_pending' => context.l10n.accountDeletionBlockerLabel(
+      code,
+    ),
     _ => context.l10n.accountDeletionEligibilityBlocked,
   };
 }

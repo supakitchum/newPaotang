@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../i18n/customer_localizations.dart';
 import 'customer_push_image_loader.dart';
 
 final customerPushPlatformProvider = Provider<CustomerPushPlatform>((_) {
@@ -368,14 +369,12 @@ class CustomerPushPlatform {
           AndroidFlutterLocalNotificationsPlugin
         >();
     if (plugin == null) return;
-    final thai = PlatformDispatcher.instance.locale.languageCode == 'th';
+    final l10n = CustomerLocalizations(PlatformDispatcher.instance.locale);
     await plugin.createNotificationChannel(
       AndroidNotificationChannel(
         channelId,
-        thai ? 'การแจ้งเตือนลูกค้า' : 'Customer updates',
-        description: thai
-            ? 'ข่าวสารและสถานะรายการของคุณ'
-            : 'News and updates about your transactions',
+        l10n.pushChannelName,
+        description: l10n.pushChannelDescription,
         importance: Importance.high,
       ),
     );

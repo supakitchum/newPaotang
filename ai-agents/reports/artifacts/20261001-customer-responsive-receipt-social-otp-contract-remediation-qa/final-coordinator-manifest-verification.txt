@@ -1,0 +1,10 @@
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/cleanup.log: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/compose.validation.yaml: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/controller-responses.json: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/full-openapi-errors.json: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/schema-results.json: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/schema-validation-initial.log: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/schema-validation.log: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/target-schemas.json: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/validate_contract.py: OK
+ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation/validator-dependencies.txt: OK

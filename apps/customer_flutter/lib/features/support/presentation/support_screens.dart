@@ -6,10 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/i18n/app_locale.dart';
+import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/realtime/customer_realtime_client.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/idempotency_key.dart';
@@ -558,9 +558,7 @@ class _SupportNewTicketScreenState
               title: l10n.support('home.no_faq'),
             )
           else
-            ..._faqs.map(
-              (faq) => _SupportFaqTile(faq: faq, expanded: true, onTap: () {}),
-            ),
+            ..._faqs.map((faq) => _SupportFaqTile(faq: faq, expanded: true)),
           const SizedBox(height: 10),
           OutlinedButton(
             onPressed: () => context.go('/support'),
@@ -1586,7 +1584,7 @@ class _SupportFaqTile extends StatelessWidget {
   const _SupportFaqTile({
     required this.faq,
     required this.expanded,
-    required this.onTap,
+    this.onTap,
     this.feedback,
     this.feedbackPending = false,
     this.onFeedback,
@@ -1594,7 +1592,7 @@ class _SupportFaqTile extends StatelessWidget {
 
   final SupportFaq faq;
   final bool expanded;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool? feedback;
   final bool feedbackPending;
   final ValueChanged<bool>? onFeedback;
@@ -2128,13 +2126,13 @@ class _SupportQueueBanner extends StatelessWidget {
   }
 }
 
-class _SupportMessageBubble extends StatelessWidget {
+class _SupportMessageBubble extends ConsumerWidget {
   const _SupportMessageBubble({required this.message});
 
   final SupportMessage message;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (message.senderType == 'system') {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -2185,7 +2183,7 @@ class _SupportMessageBubble extends StatelessWidget {
               (attachment) => Padding(
                 padding: const EdgeInsets.only(bottom: 7),
                 child: GestureDetector(
-                  onTap: () => _showAttachment(context, attachment),
+                  onTap: () => _showAttachment(context, ref, attachment),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(7),
                     child: Image.network(
@@ -2241,6 +2239,7 @@ class _SupportMessageBubble extends StatelessWidget {
 
   Future<void> _showAttachment(
     BuildContext context,
+    WidgetRef ref,
     SupportAttachment attachment,
   ) async {
     await showDialog<void>(
@@ -2266,10 +2265,14 @@ class _SupportMessageBubble extends StatelessWidget {
               top: MediaQuery.paddingOf(context).top + 8,
               right: 8,
               child: IconButton.filled(
-                onPressed: () => launchUrl(
-                  Uri.parse(attachment.url),
-                  mode: LaunchMode.externalApplication,
-                ),
+                onPressed: () {
+                  final uri = Uri.tryParse(attachment.url);
+                  if (uri != null) {
+                    unawaited(
+                      ref.read(customerLinkLauncherProvider).openExternal(uri),
+                    );
+                  }
+                },
                 icon: const Icon(Icons.download_rounded),
               ),
             ),

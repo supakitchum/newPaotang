@@ -100,7 +100,7 @@ void main() {
       );
       final appSource = File(
         'lib/app/customer_app.dart',
-      ).readAsStringSync().replaceFirst('useRuntimeBrandColors: true', '');
+      ).readAsStringSync().replaceFirst('useRuntimeBrandColors: false', '');
       _writeFile(root, 'lib/app/customer_app.dart', appSource);
 
       final issues = runCustomerFlutterProductionPreflight(
@@ -321,6 +321,8 @@ void main() {
               {
                 'appIDs': ['ABCDE12345.com.partner.customer'],
                 'paths': [
+                  '/',
+                  '/register',
                   '/line/callback',
                   '/social/*',
                   '/reset-password',
@@ -557,6 +559,8 @@ final menu = [
           'APP_DISPLAY_NAME': 'Partner Lottery',
           'CUSTOMER_FLUTTER_URL_SCHEME': 'partnerlottery',
           'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN': 'applinks:partner.example.com',
+          'CUSTOMER_FLUTTER_WEBCREDENTIALS_DOMAIN':
+              'webcredentials:partner.example.com',
           'PRODUCT_BUNDLE_IDENTIFIER': 'com.partner.customer',
           'DEVELOPMENT_TEAM': 'ABCDE12345',
         },
@@ -2779,7 +2783,7 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
     final indexSource = File('web/index.html').readAsStringSync();
     final manifestSource = File('web/manifest.json').readAsStringSync();
 
-    expect(indexSource, contains('content="#087FF0"'));
+    expect(indexSource, contains('content="#03102E"'));
     expect(
       indexSource,
       contains('const themeColor = normalizeThemeColor(firstConfigValue(['),
@@ -2795,8 +2799,8 @@ CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN=applinks:partner.example.com
       ),
     );
     expect(indexSource, contains('"#FFFFFF"'));
-    expect(manifestSource, contains('"theme_color": "#087FF0"'));
-    expect(manifestSource, contains('"background_color": "#FFFFFF"'));
+    expect(manifestSource, contains('"theme_color": "#03102E"'));
+    expect(manifestSource, contains('"background_color": "#03102E"'));
   });
 
   test('web production preflight rejects stale deployment cache binding', () {

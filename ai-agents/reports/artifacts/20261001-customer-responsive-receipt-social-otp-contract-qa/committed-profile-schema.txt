@@ -1,0 +1,42 @@
+    CustomerProfile:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        status:
+          type: string
+          enum: [active, pending_verification, suspended, disabled]
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+        preferred_locale:
+          type: string
+          nullable: true
+        pin_setup_required:
+          type: boolean
+        pin_verified:
+          type: boolean
+        reward_payout_bank_account:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerBankAccount"
+            - type: "null"
+        auto_reward_claim:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerAutoRewardSetting"
+            - type: "null"
+      additionalProperties: true
+    CustomerBankAccount:

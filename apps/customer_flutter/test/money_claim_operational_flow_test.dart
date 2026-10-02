@@ -162,8 +162,9 @@ List<_OperationalRouteCase> _providerLoadCases() {
       routePattern: '/topup/:topupId',
       screen: const TopupScreen(detailTopupId: 'topup_operational'),
       overrides: [
-        topupDetailProvider('topup_operational')
-            .overrideWith((_) async => throw maintenance),
+        topupDetailProvider(
+          'topup_operational',
+        ).overrideWith((_) async => throw maintenance),
       ],
     ),
     _OperationalRouteCase(
@@ -207,8 +208,9 @@ List<_OperationalRouteCase> _providerLoadCases() {
       routePattern: '/reward-claims/:claimId',
       screen: const RewardClaimDetailScreen(claimId: 'reward_operational'),
       overrides: [
-        rewardClaimDetailProvider('reward_operational')
-            .overrideWith((_) async => throw maintenance),
+        rewardClaimDetailProvider(
+          'reward_operational',
+        ).overrideWith((_) async => throw maintenance),
       ],
     ),
     _OperationalRouteCase(
@@ -217,8 +219,9 @@ List<_OperationalRouteCase> _providerLoadCases() {
       routePattern: '/activity-claims/:claimId',
       screen: const ActivityClaimDetailScreen(claimId: 'activity_operational'),
       overrides: [
-        activityClaimDetailProvider('activity_operational')
-            .overrideWith((_) async => throw maintenance),
+        activityClaimDetailProvider(
+          'activity_operational',
+        ).overrideWith((_) async => throw maintenance),
       ],
     ),
   ];
@@ -231,21 +234,16 @@ Future<GoRouter> _pumpOperationalRoute(
   final router = GoRouter(
     initialLocation: testCase.initialLocation,
     routes: [
-      GoRoute(
-        path: testCase.routePattern,
-        builder: (_, __) => testCase.screen,
-      ),
+      GoRoute(path: testCase.routePattern, builder: (_, __) => testCase.screen),
       GoRoute(
         path: '/maintenance',
-        builder: (_, __) => const Scaffold(
-          body: Center(child: Text('Maintenance route')),
-        ),
+        builder: (_, __) =>
+            const Scaffold(body: Center(child: Text('Maintenance route'))),
       ),
       GoRoute(
         path: '/pin',
-        builder: (_, __) => const Scaffold(
-          body: Center(child: Text('PIN route')),
-        ),
+        builder: (_, __) =>
+            const Scaffold(body: Center(child: Text('PIN route'))),
       ),
     ],
   );
@@ -254,6 +252,12 @@ Future<GoRouter> _pumpOperationalRoute(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        appConfigProvider.overrideWithValue(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.test/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+        ),
         mobileBootstrapProvider.overrideWith(
           (_) async => MobileBootstrap.fromJson(const {}),
         ),
@@ -396,10 +400,7 @@ DioException _operationalError({
     response: Response<Map<String, dynamic>>(
       requestOptions: request,
       statusCode: statusCode,
-      data: {
-        'code': code,
-        'message': message,
-      },
+      data: {'code': code, 'message': message},
     ),
   );
 }

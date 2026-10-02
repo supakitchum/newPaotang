@@ -185,7 +185,7 @@ void _checkFlutterNativePushBinding(
       '_rotateToken(platform)',
       '_scheduleRetry(stage, error)',
       '.registerDevice(',
-      '.revokeDevice(installationId)',
+      '.detachDevice(installationId)',
       "widget.router.go('/notifications')",
     ],
     'lib/core/notifications/customer_push_device_context.dart': const [
@@ -202,7 +202,7 @@ void _checkFlutterNativePushBinding(
       ProductionPreflightIssue(
         code: 'flutter_native_push_binding_missing',
         message:
-            'Native customer releases must initialize FCM, present foreground notifications, reconcile server-revoked installations, rotate invalid tokens with bounded retry, preserve notification taps through auth/PIN, and revoke the installation on logout. Missing: ${missingCommon.join(', ')}',
+            'Native customer releases must initialize FCM, present foreground notifications, reconcile server-revoked installations, rotate invalid tokens with bounded retry, preserve notification taps through auth/PIN, and detach the customer from the installation on logout. Missing: ${missingCommon.join(', ')}',
       ),
     );
   }
@@ -322,19 +322,20 @@ void _checkFlutterRuntimeThemeBinding(
   final themeSource = theme.readAsStringSync();
   final appliesRuntimeTheme =
       appSource.contains('tokens: data.theme') &&
-      appSource.contains('useRuntimeBrandColors: true');
-  final keepsBlueFallback =
+      appSource.contains('useRuntimeBrandColors: false');
+  final keepsSiamblendFallback =
       themeSource.contains('bool useRuntimeBrandColors = false') &&
+      themeSource.contains('static const appBlue = Color(0xFF061C44)') &&
       themeSource.contains('primaryColor: AppTheme.appBlue') &&
       themeSource.contains("fontFamily: 'Kanit'");
 
-  if (appliesRuntimeTheme && keepsBlueFallback) return;
+  if (appliesRuntimeTheme && keepsSiamblendFallback) return;
 
   issues.add(
     const ProductionPreflightIssue(
       code: 'flutter_runtime_theme_binding_missing',
       message:
-          'Production customer rendering must apply runtime bootstrap theme values while preserving Nuxt blue #087FF0 and Kanit as the pre-bootstrap/fallback identity.',
+          'Production customer rendering must apply runtime bootstrap tokens while preserving Siamblend navy #061C44 and Kanit as the brand identity.',
     ),
   );
 }
@@ -581,7 +582,7 @@ void _checkFlutterSystemChromeIdentityBinding(
       const ProductionPreflightIssue(
         code: 'flutter_system_chrome_identity_missing',
         message:
-            'CustomerApp must bind system status/navigation chrome to the Nuxt customer identity.',
+            'CustomerApp must bind system status/navigation chrome to the customer identity.',
       ),
     );
     return;
@@ -591,11 +592,12 @@ void _checkFlutterSystemChromeIdentityBinding(
     app.readAsStringSync(),
     const [
       'AnnotatedRegion<SystemUiOverlayStyle>',
-      'final systemUiOverlayStyle = _systemUiOverlayStyleFor(appTheme);',
-      'final statusBarColor = theme.colorScheme.primary;',
+      'final systemUiOverlayStyle = _systemUiOverlayStyleFor(',
+      'statusBarBackgroundColor: statusBarBackgroundColor',
+      'final resolvedStatusBarBackgroundColor =',
       'final navigationBarColor = theme.scaffoldBackgroundColor;',
       'ThemeData.estimateBrightnessForColor',
-      'statusBarColor: statusBarColor',
+      'statusBarColor: Colors.transparent',
       'statusBarIconBrightness:',
       'systemNavigationBarColor: navigationBarColor',
       'systemNavigationBarIconBrightness:',
@@ -606,7 +608,7 @@ void _checkFlutterSystemChromeIdentityBinding(
     const ProductionPreflightIssue(
       code: 'flutter_system_chrome_identity_missing',
       message:
-          'CustomerApp must derive native system chrome from the resolved customer theme: Nuxt-blue status chrome, runtime neutral navigation surface, and contrasting icons.',
+          'CustomerApp must derive native system chrome from the resolved customer theme: transparent status chrome, neutral navigation surface, and contrasting icons.',
     ),
     issues,
   );
@@ -643,7 +645,7 @@ void _checkFlutterSplashIdentityBinding(
     const [
       "const appSplashBackgroundAsset = 'assets/images/splash/siamblend_splash.jpg';",
       'precacheAppSplashBackground()',
-      '_appSplashFallbackColor = Color(0xFF0B96DC)',
+      '_appSplashFallbackColor = Color(0xFF03102E)',
       'appSplashMinimumDurationProvider',
       'appSplashFadeDurationProvider',
       'mobileBootstrapProvider',
@@ -655,7 +657,7 @@ void _checkFlutterSplashIdentityBinding(
       "ValueKey('app-splash-background')",
       '_SplashLoader',
       "ValueKey('app-splash-loader')",
-      'Color(0xFFE7B64C)',
+      'Color(0xFFE8D08F)',
     ],
     const ProductionPreflightIssue(
       code: 'flutter_splash_identity_missing',
@@ -2154,28 +2156,18 @@ void _checkFlutterSocialProviderRuntimeColorBinding(
     'mobileBootstrapProvider',
     'runtimeProvider?.brandColor',
   ].any((snippet) => !socialSource.contains(snippet));
-  final hardcodedProviderColor =
-      const [
-        '0xFF06C755',
-        '0xff06c755',
-        '0xFF00B900',
-        '0xff00b900',
-        '0xFF00C300',
-        '0xff00c300',
-        '0xFF4285F4',
-        '0xff4285f4',
-      ].any(
-        (snippet) =>
-            loginSource.contains(snippet) ||
-            forgotSource.contains(snippet) ||
-            socialSource.contains(snippet) ||
-            lineNotificationsSource.contains(snippet),
-      );
+  final runtimeProviderColorPrecedence = loginSource.contains(
+    'provider.brandColor ??',
+  );
+  final lineNotificationsMissing = !lineNotificationsSource.contains(
+    'provider.brandColor ??',
+  );
   if (bootstrapMissing ||
       loginMissing ||
       forgotMissing ||
       socialMissing ||
-      hardcodedProviderColor) {
+      lineNotificationsMissing ||
+      !runtimeProviderColorPrecedence) {
     issues.add(issue);
   }
 }
@@ -3157,7 +3149,7 @@ void _checkAndroidLaunchIdentity(
   final launchV21Source = launchV21.readAsStringSync();
   final missingIdentity =
       !colorSource.contains('customer_launch_background') ||
-      !colorSource.contains('#0B96DC') ||
+      !colorSource.contains('#03102E') ||
       !launchSource.contains('@color/customer_launch_background') ||
       !launchV21Source.contains('@color/customer_launch_background') ||
       !launchSource.contains('@drawable/siamblend_splash') ||
@@ -3169,7 +3161,7 @@ void _checkAndroidLaunchIdentity(
       const ProductionPreflightIssue(
         code: 'android_launch_identity_missing',
         message:
-            'Android launch background must render the Siamblend splash artwork over its matching #0B96DC fallback.',
+            'Android launch background must render the Siamblend splash artwork over its matching #03102E fallback.',
       ),
     );
   }
@@ -3666,16 +3658,16 @@ void _checkIosLaunchIdentity(
       source.contains('firstAttribute="top"') &&
       source.contains('firstAttribute="trailing"') &&
       source.contains('firstAttribute="bottom"') &&
-      source.contains('red="0.0431372549"') &&
-      source.contains('green="0.5882352941"') &&
-      source.contains('blue="0.862745098"') &&
+      source.contains('red="0.0117647059"') &&
+      source.contains('green="0.062745098"') &&
+      source.contains('blue="0.1803921569"') &&
       contentsSource.contains('"filename" : "siamblend_splash.jpg"');
   if (!hasSplashArtwork) {
     issues.add(
       const ProductionPreflightIssue(
         code: 'ios_launch_identity_missing',
         message:
-            'iOS launch screen must edge-pin the aspect-fill Siamblend artwork over its matching blue fallback.',
+            'iOS launch screen must edge-pin the aspect-fill Siamblend artwork over its matching navy fallback.',
       ),
     );
   }

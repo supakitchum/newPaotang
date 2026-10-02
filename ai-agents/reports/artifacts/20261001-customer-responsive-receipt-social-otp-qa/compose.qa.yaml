@@ -1,0 +1,76 @@
+services:
+  legacy-qa:
+    image: node:22-alpine
+    pull_policy: never
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        mkdir -p /tmp/qa-repo/apps
+        cp -a /source /tmp/qa-repo/apps/customer
+        ln -s /api-source /tmp/qa-repo/apps/platform-api
+        cd /tmp/qa-repo/apps/customer
+        rm -rf node_modules .nuxt .output
+        node --version
+        npm --version
+        npm ci
+        npm test
+        NUXT_BUILD_DIR=/tmp/customer-qa-nuxt npm run build
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang/apps/customer:/source:ro
+      - /Users/supakit/WorkSpace/www/newPaotang/apps/platform-api:/api-source:ro
+  flutter-qa:
+    image: ghcr.io/cirruslabs/flutter:stable
+    pull_policy: never
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        cp -a /source /tmp/customer-qa
+        cd /tmp/customer-qa
+        rm -rf .dart_tool build
+        flutter --version
+        flutter pub get
+        diff -u /source/pubspec.lock pubspec.lock || true
+        flutter analyze --no-pub
+        flutter test --no-pub --reporter expanded test/system_pages_test.dart test/social_auth_screens_test.dart test/auth_repository_test.dart test/app_splash_test.dart test/home_screen_test.dart test/buy_store_segment_tabs_test.dart test/checkout_screen_test.dart test/cart_grouping_test.dart test/news_repository_test.dart test/news_card_test.dart test/receipt_export_service_test.dart
+        cp /evidence/qa_fixture_evidence_test.dart test/qa_fixture_evidence_test.dart
+        flutter test --no-pub --reporter expanded test/qa_fixture_evidence_test.dart
+        flutter build web --no-pub --dart-define-from-file=release/siamblend.runtime.json --output /evidence/production-web --no-wasm-dry-run --pwa-strategy=none
+        flutter build web --no-pub -t tool/customer_ui_preview.dart --output /evidence/preview-web --no-wasm-dry-run --pwa-strategy=none
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang/apps/customer_flutter:/source:ro
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-qa:/evidence
+  preview:
+    image: nginx:1.27-alpine
+    pull_policy: never
+    ports:
+      - '127.0.0.1:18091:80'
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-qa/preview-web:/usr/share/nginx/html:ro
+  ui-qa:
+    extends: flutter-qa
+    command:
+      - -ec
+      - |
+        mkdir -p /tmp/customer-qa
+        tar -C /source --exclude=build --exclude=.dart_tool -cf - . | tar -C /tmp/customer-qa -xf -
+        cd /tmp/customer-qa
+        flutter pub get
+        cp /evidence/qa_fixture_evidence_test.dart test/qa_fixture_evidence_test.dart
+        cp /evidence/qa_ui_matrix_test.dart test/qa_ui_matrix_test.dart
+        flutter test --no-pub --reporter expanded test/qa_fixture_evidence_test.dart test/qa_ui_matrix_test.dart
+  pdf-qa:
+    image: alpine:3
+    pull_policy: never
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        apk add --no-cache poppler-utils
+        for file in /evidence/*-export.pdf; do
+          pdfinfo "$$file"
+          pdftoppm -scale-to 900 -png -singlefile "$$file" "$${file%.pdf}-pdf"
+        done
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-qa:/evidence

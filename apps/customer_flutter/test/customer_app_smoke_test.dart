@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
+import 'package:customer_flutter/core/theme/app_theme.dart';
 
 import 'support/customer_app_smoke_harness.dart';
 
@@ -10,7 +10,7 @@ void main() {
     await runCustomerAppSmokeHarness(tester, platformKey: 'web');
   });
 
-  testWidgets('CustomerApp applies runtime API theme after bootstrap', (
+  testWidgets('CustomerApp applies runtime neutral theme after bootstrap', (
     tester,
   ) async {
     await runCustomerAppSmokeHarness(
@@ -43,13 +43,13 @@ void main() {
           },
         },
       },
-      expectedPrimaryColor: const Color(0xFF0055AA),
-      expectedScaffoldBackgroundColor: const Color(0xFFF8FAFC),
+      expectedPrimaryColor: AppTheme.appBlue,
+      expectedScaffoldBackgroundColor: AppTheme.appSheet,
       expectedFontFamily: 'Kanit',
     );
   });
 
-  testWidgets('CustomerApp applies camelCase runtime API theme', (
+  testWidgets('CustomerApp applies camelCase runtime neutral theme', (
     tester,
   ) async {
     await runCustomerAppSmokeHarness(
@@ -71,9 +71,9 @@ void main() {
           },
         },
       },
-      expectedPrimaryColor: const Color(0xFF224488),
-      expectedScaffoldBackgroundColor: const Color(0xFFF9FAFB),
-      expectedFontFamily: 'Inter',
+      expectedPrimaryColor: AppTheme.appBlue,
+      expectedScaffoldBackgroundColor: AppTheme.appSheet,
+      expectedFontFamily: 'Kanit',
     );
   });
 
@@ -90,7 +90,7 @@ void main() {
           'tenant_id': 'tenant_status_bar',
           'theme': {'primary_color': '#0055AA'},
         },
-        expectedPrimaryColor: const Color(0xFF0055AA),
+        expectedPrimaryColor: AppTheme.appBlue,
       );
     },
   );

@@ -1,0 +1,70 @@
+## develop...origin/develop
+ M ai-agents/BOARD.md
+ M apps/customer/composables/usePlatformApi.ts
+ M apps/customer/pages/line/link-phone.vue
+ M apps/customer/pages/success.vue
+ M apps/customer_flutter/lib/core/auth/auth_repository.dart
+ M apps/customer_flutter/lib/core/i18n/customer_localizations.dart
+ M apps/customer_flutter/lib/core/notifications/customer_push_platform.dart
+ M apps/customer_flutter/lib/features/activities/data/activity_repository.dart
+ M apps/customer_flutter/lib/features/auth/presentation/line_auth_screens.dart
+ M apps/customer_flutter/lib/features/home/presentation/home_screen.dart
+ M apps/customer_flutter/lib/features/lottery/presentation/lottery_screens.dart
+ M apps/customer_flutter/lib/features/profile/presentation/account_deletion_screen.dart
+ M apps/customer_flutter/lib/features/purchase_history/presentation/purchase_history_detail_screen.dart
+ M apps/customer_flutter/lib/features/purchase_history/presentation/purchase_history_localization.dart
+ M apps/customer_flutter/lib/features/reward_claims/presentation/reward_claim_localization.dart
+ M apps/customer_flutter/lib/features/stores/presentation/store_screens.dart
+ M apps/customer_flutter/lib/features/support/presentation/support_screens.dart
+ M apps/customer_flutter/lib/features/system/presentation/system_pages.dart
+ M apps/customer_flutter/lib/shared/widgets/app_shell.dart
+ M apps/customer_flutter/lib/shared/widgets/app_splash.dart
+ M apps/customer_flutter/pubspec.yaml
+ M apps/customer_flutter/test/account_deletion_screen_test.dart
+ M apps/customer_flutter/test/activity_claims_screen_test.dart
+ M apps/customer_flutter/test/app_splash_test.dart
+ M apps/customer_flutter/test/auth_repository_test.dart
+ M apps/customer_flutter/test/bootstrap_test.dart
+ M apps/customer_flutter/test/buy_store_segment_tabs_test.dart
+ M apps/customer_flutter/test/checkout_screen_test.dart
+ M apps/customer_flutter/test/customer_app_smoke_test.dart
+ M apps/customer_flutter/test/customer_session_data_provider_test.dart
+ M apps/customer_flutter/test/data_parsing_test.dart
+ M apps/customer_flutter/test/home_screen_test.dart
+ M apps/customer_flutter/test/lottery_stock_card_test.dart
+ M apps/customer_flutter/test/money_claim_operational_flow_test.dart
+ M apps/customer_flutter/test/news_card_test.dart
+ M apps/customer_flutter/test/news_detail_screen_test.dart
+ M apps/customer_flutter/test/no_hardcoded_copy_test.dart
+ M apps/customer_flutter/test/production_preflight_test.dart
+ M apps/customer_flutter/test/reward_claims_screen_test.dart
+ M apps/customer_flutter/test/social_auth_screens_test.dart
+ M apps/customer_flutter/test/store_lotteries_contract_test.dart
+ M apps/customer_flutter/test/system_pages_test.dart
+ M apps/customer_flutter/test/topup_screen_test.dart
+ M apps/customer_flutter/test/wallet_screen_test.dart
+ M apps/customer_flutter/tool/src/production_preflight.dart
+ M apps/platform-api/app/Modules/Auth/Services/CustomerLineAuthService.php
+ M apps/platform-api/app/Modules/Auth/Services/CustomerSocialAuthService.php
+ M apps/platform-api/app/Modules/SmsOtp/Services/SmsOtpService.php
+ M apps/platform-api/tests/Feature/CustomerSocialAuthServiceTest.php
+ M docs/coordinator-agent-handoff.md
+ M docs/customer-api-integration-map.md
+ M docs/openapi.yaml
+?? ai-agents/decisions/20261001-customer-responsive-receipt-social-otp-qa-review-decision.md
+?? ai-agents/handoffs/20261001-customer-responsive-receipt-social-otp-contract-orchestrator-qa-dispatch-handoff.md
+?? ai-agents/handoffs/20261001-customer-responsive-receipt-social-otp-orchestrator-coordinator-handoff.md
+?? ai-agents/handoffs/20261001-customer-responsive-receipt-social-otp-orchestrator-handoff.md
+?? ai-agents/handoffs/20261001-customer-responsive-receipt-social-otp-orchestrator-qa-dispatch-handoff.md
+?? ai-agents/reports/20261001-customer-responsive-receipt-social-otp-qa-report.md
+?? ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-qa/
+?? ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-qa/
+?? ai-agents/reports/artifacts/20261001-customer-responsive-social/
+?? ai-agents/tasks/20261001-customer-responsive-receipt-social-otp-contract-qa.md
+?? ai-agents/tasks/20261001-customer-responsive-receipt-social-otp-contract-review-orchestrator.md
+?? ai-agents/tasks/20261001-customer-responsive-receipt-social-otp-qa.md
+?? apps/customer/public/brand/
+?? apps/customer_flutter/assets/branding/siamblend_horizontal_logo.png
+?? apps/customer_flutter/lib/shared/services/home_news_preloader.dart
+?? apps/customer_flutter/lib/shared/widgets/siamblend_receipt_logo.dart
+?? apps/customer_flutter/tool/customer_ui_preview.dart

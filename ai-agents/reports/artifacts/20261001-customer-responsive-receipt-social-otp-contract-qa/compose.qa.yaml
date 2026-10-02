@@ -1,0 +1,35 @@
+services:
+  schema:
+    image: node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+    working_dir: /tmp
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang:/workspace:ro
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-qa:/evidence
+    command:
+      - sh
+      - -ec
+      - |
+        apk add --no-cache python3 py3-pip
+        python3 -m venv /tmp/validator
+        /tmp/validator/bin/pip install --disable-pip-version-check openapi-spec-validator==0.7.2 jsonschema==4.23.0 PyYAML==6.0.2
+        /tmp/validator/bin/pip freeze > /evidence/validator-dependencies.txt
+        /tmp/validator/bin/python /evidence/validate_contract.py
+  controller:
+    image: sha256:d031ecc320ee2bb3a5495c5f94890903e3e19a31e72244bdf9f4f140d1ef6b18
+    working_dir: /var/www/html
+    network_mode: none
+    read_only: true
+    environment:
+      APP_ENV: testing
+      DB_DATABASE: newpaotang_test
+      BROADCAST_CONNECTION: "null"
+    volumes:
+      - /Users/supakit/WorkSpace/www/newPaotang/apps/platform-api:/var/www/html:ro
+      - api-vendor:/var/www/html/vendor:ro
+      - /Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-qa:/evidence
+    entrypoint: [php]
+    command: [/evidence/controller_contract.php]
+volumes:
+  api-vendor:
+    external: true
+    name: newpaotang_platform-api-vendor

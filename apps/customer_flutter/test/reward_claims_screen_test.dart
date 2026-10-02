@@ -71,7 +71,7 @@ void main() {
     );
     expect(
       tester.widget<Icon>(find.byIcon(Icons.chevron_right)).color,
-      const Color(0xFF3B9CFF),
+      AppTheme.appClaimChevron,
     );
 
     await tester.tap(find.text('โหลดเพิ่มเติม'));
@@ -84,7 +84,7 @@ void main() {
       tester.widget<Text>(find.text('ยกเลิกรายการ')).style?.color,
       const Color(0xFFED2C25),
     );
-    expect(find.text('รับเข้า Primary wallet'), findsOneWidget);
+    expect(find.text('รับเข้า กระเป๋าเงินหลัก'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -205,9 +205,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('reward claims list refreshes on realtime tick', (
-    tester,
-  ) async {
+  testWidgets('reward claims list refreshes on realtime tick', (tester) async {
     final repository = _RewardClaimRealtimeRepository();
     final container = ProviderContainer(
       overrides: _rewardClaimsOverrides([
@@ -398,9 +396,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('reward claim detail refreshes on realtime tick', (
-    tester,
-  ) async {
+  testWidgets('reward claim detail refreshes on realtime tick', (tester) async {
     var detailCalls = 0;
     FutureOr<RewardClaimItem> detail() {
       detailCalls++;
@@ -424,9 +420,9 @@ void main() {
 
     final container = ProviderContainer(
       overrides: _rewardClaimsOverrides([
-        rewardClaimDetailProvider('claim_realtime').overrideWith(
-          (_) => detail(),
-        ),
+        rewardClaimDetailProvider(
+          'claim_realtime',
+        ).overrideWith((_) => detail()),
       ]),
     );
     addTearDown(container.dispose);
@@ -506,27 +502,23 @@ Future<void> _pumpRewardClaims(
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Profile route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Profile route'))),
       ),
       GoRoute(
         path: '/tickets/history',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Ticket history route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Ticket history route'))),
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Home route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Home route'))),
       ),
       GoRoute(
         path: '/tickets',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Tickets route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Tickets route'))),
       ),
     ],
   );
@@ -546,18 +538,12 @@ Future<void> _pumpRewardClaims(
 
   if (container != null) {
     return tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: child,
-      ),
+      UncontrolledProviderScope(container: container, child: child),
     );
   }
 
   return tester.pumpWidget(
-    ProviderScope(
-      overrides: _rewardClaimsOverrides(overrides),
-      child: child,
-    ),
+    ProviderScope(overrides: _rewardClaimsOverrides(overrides), child: child),
   );
 }
 
@@ -589,9 +575,8 @@ Future<void> _pumpRewardClaimDetailProvider(
       ),
       GoRoute(
         path: '/reward-claims',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Reward claim history')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Reward claim history'))),
       ),
     ],
   );
@@ -611,10 +596,7 @@ Future<void> _pumpRewardClaimDetailProvider(
 
   if (container != null) {
     return tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: child,
-      ),
+      UncontrolledProviderScope(container: container, child: child),
     );
   }
 
@@ -640,10 +622,7 @@ MobileBootstrap _bootstrap() {
   return MobileBootstrap.fromJson(
     const {
       'tenant_id': 'tenant_reward_claims_test',
-      'site': {
-        'display_name': 'Partner Lottery',
-        'locale': 'th-TH',
-      },
+      'site': {'display_name': 'Partner Lottery', 'locale': 'th-TH'},
       'mobile': {'ticket_image_watermark': 'GLO'},
     },
     defaultLocale: 'th-TH',
@@ -675,10 +654,7 @@ RewardClaimItem _claim({
     'customer': {'name': 'วิรัตน์ ดวงดี'},
     'ticket': {
       'full_number': '740000',
-      'game': {
-        'name': gameName,
-        'draw_at': drawAt,
-      },
+      'game': {'name': gameName, 'draw_at': drawAt},
     },
     'prizes': [
       {

@@ -1,0 +1,2 @@
+# Preserve raw QA evidence and generated output bytes for checksum verification.
+* -text

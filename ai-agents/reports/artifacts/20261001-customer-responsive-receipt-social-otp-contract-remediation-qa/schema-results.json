@@ -1,0 +1,554 @@
+{
+  "tools": {
+    "python": "3.14.7",
+    "openapi-spec-validator": "0.7.2",
+    "jsonschema": "4.23.0",
+    "PyYAML": "6.0.2"
+  },
+  "openapi": "3.1.0",
+  "resolved_refs": 2736,
+  "full_openapi_errors": [],
+  "cases": [
+    {
+      "case": "minimal-existing-probe",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "legacy-blank-member-probe",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "full-new-member",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "backend-omission-fallback",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "missing-link_token",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [],
+          "message": "'link_token' is a required property",
+          "context": []
+        }
+      ]
+    },
+    {
+      "case": "missing-phone",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [],
+          "message": "'phone' is a required property",
+          "context": []
+        }
+      ]
+    },
+    {
+      "case": "missing-otp_verification_token",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [],
+          "message": "'otp_verification_token' is a required property",
+          "context": []
+        }
+      ]
+    },
+    {
+      "case": "nonboolean-existing-only",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [
+            "existing_only"
+          ],
+          "message": "'true' is not of type 'boolean'",
+          "context": []
+        }
+      ]
+    },
+    {
+      "case": "top-level-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "false-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [],
+          "message": "{'registration_required': False} is not valid under any of the given schemas",
+          "context": [
+            {
+              "path": [],
+              "message": "'token' is a required property"
+            },
+            {
+              "path": [],
+              "message": "'user' is a required property"
+            },
+            {
+              "path": [
+                "registration_required"
+              ],
+              "message": "True was expected"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "wrapped-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [],
+          "message": "{'resource': {'registration_required': True}} is not valid under any of the given schemas",
+          "context": [
+            {
+              "path": [],
+              "message": "'token' is a required property"
+            },
+            {
+              "path": [],
+              "message": "'user' is a required property"
+            },
+            {
+              "path": [],
+              "message": "'registration_required' is a required property"
+            },
+            {
+              "path": [],
+              "message": "Additional properties are not allowed ('resource' was unexpected)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "extra-key-registration",
+      "schema": "CustomerSocialRegistrationRequiredResponse",
+      "expected_valid": false,
+      "valid": false,
+      "expectation_matched": true,
+      "errors": [
+        {
+          "path": [],
+          "message": "Additional properties are not allowed ('token' was unexpected)",
+          "context": []
+        }
+      ]
+    },
+    {
+      "case": "documented-request-example-0",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "documented-request-example-1",
+      "schema": "CustomerSocialLinkPhoneRequest",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-google-sparse-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "google",
+      "profile": "sparse",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-google-sparse-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-google-sparse-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "google",
+      "profile": "sparse",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-apple-sparse-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "apple",
+      "profile": "sparse",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-apple-sparse-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-apple-sparse-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "apple",
+      "profile": "sparse",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-facebook-sparse-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "facebook",
+      "profile": "sparse",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-facebook-sparse-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-facebook-sparse-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "facebook",
+      "profile": "sparse",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-line-sparse-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "line",
+      "profile": "sparse",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-line-sparse-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-line-sparse-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "line",
+      "profile": "sparse",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-legacy-line-sparse-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "legacy-line",
+      "profile": "sparse",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-legacy-line-sparse-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-legacy-line-sparse-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "legacy-line",
+      "profile": "sparse",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-google-populated-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "google",
+      "profile": "populated",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-google-populated-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-google-populated-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "google",
+      "profile": "populated",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-apple-populated-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "apple",
+      "profile": "populated",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-apple-populated-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-apple-populated-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "apple",
+      "profile": "populated",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-facebook-populated-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "facebook",
+      "profile": "populated",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-facebook-populated-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-facebook-populated-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "facebook",
+      "profile": "populated",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-line-populated-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "line",
+      "profile": "populated",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-line-populated-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-line-populated-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "line",
+      "profile": "populated",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "controller-legacy-line-populated-session",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "legacy-line",
+      "profile": "populated",
+      "branch": "session",
+      "status": 200
+    },
+    {
+      "case": "profile-legacy-line-populated-session",
+      "schema": "CustomerProfile",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "controller-legacy-line-populated-registration",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": [],
+      "provider": "legacy-line",
+      "profile": "populated",
+      "branch": "registration",
+      "status": 200
+    },
+    {
+      "case": "isolate-valid-backend-value-email",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "isolate-valid-backend-value-avatar_url",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "isolate-valid-backend-value-preferred_locale",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    },
+    {
+      "case": "isolate-valid-backend-value-reward_payout_bank_account",
+      "schema": "CustomerSocialLinkPhoneResponse",
+      "expected_valid": true,
+      "valid": true,
+      "expectation_matched": true,
+      "errors": []
+    }
+  ],
+  "schema_note": "OpenAPI 3.1 / JSON Schema 2020-12. nullable is an unknown annotation, not a union with null. No normalization of the source schemas."
+}

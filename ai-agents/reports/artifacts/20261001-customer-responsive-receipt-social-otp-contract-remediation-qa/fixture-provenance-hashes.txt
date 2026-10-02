@@ -1,0 +1,5 @@
+2765402a0588117eead41df0fe66d372018092911dbcea7a62071f85c238ce7c  ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-qa/controller_contract.php
+ac1d6c11f9067ed8b7fb7301453c6da34bcc3d2f543ec5539ac19e3f9e874843  ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-qa/controller-validation.log
+5d167eae27fdec1c07991b429ec260058fbbe2cd75204a01bb8115befeafc871  ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation-qa/validate_contract.py
+3badd1708850e29ba0504079ac7be60dd80362bda58f526c894f4b91ccc53f37  ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation-qa/controller-responses.json
+412130cdb23b394ce08fc7f7364dc222f08e5f5ed2b0649700d937680e8c12db  ai-agents/reports/artifacts/20261001-customer-responsive-receipt-social-otp-contract-remediation-qa/prior-target-schemas.json

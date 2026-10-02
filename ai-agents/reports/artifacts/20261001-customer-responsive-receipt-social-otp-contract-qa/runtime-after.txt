@@ -1,0 +1,17 @@
+NAME                                  IMAGE                                   COMMAND                  SERVICE                  CREATED        STATUS                     PORTS
+newpaotang-back-office-1              newpaotang-back-office                  "docker-entrypoint.s…"   back-office              2 months ago   Exited (255) 4 weeks ago   0.0.0.0:3100->3100/tcp
+newpaotang-customer-1                 customer_flutter-customer-flutter-web   "/docker-entrypoint.…"   customer                 3 weeks ago    Exited (1) 3 weeks ago     
+newpaotang-local-proxy-1              nginx:1.27-alpine                       "/docker-entrypoint.…"   local-proxy              2 months ago   Exited (255) 4 weeks ago   0.0.0.0:80->80/tcp
+newpaotang-lotto-scraper-1            newpaotang-lotto-scraper                "docker-entrypoint.s…"   lotto-scraper            3 months ago   Up 3 weeks (healthy)       3200/tcp
+newpaotang-lotto-scraper-thairath-1   newpaotang-lotto-scraper-thairath       "docker-entrypoint.s…"   lotto-scraper-thairath   3 months ago   Up 3 weeks (healthy)       3200/tcp
+newpaotang-platform-api-1             newpaotang-platform-api                 "docker-php-entrypoi…"   platform-api             7 weeks ago    Exited (255) 3 weeks ago   0.0.0.0:8000->8000/tcp, 9000/tcp
+newpaotang-platform-api-reverb-1      newpaotang-platform-api-reverb          "docker-php-entrypoi…"   platform-api-reverb      15 hours ago   Up 15 hours                0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+newpaotang-platform-api-worker-1      newpaotang-platform-api-worker          "docker-php-entrypoi…"   platform-api-worker      3 months ago   Exited (255) 4 weeks ago   
+newpaotang-postgres-1                 postgres:17-alpine                      "docker-entrypoint.s…"   postgres                 37 hours ago   Up 37 hours (healthy)      0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+newpaotang-support-api-1              newpaotang-support-api                  "docker-php-entrypoi…"   support-api              2 months ago   Exited (255) 4 weeks ago   0.0.0.0:8100->8100/tcp
+newpaotang-support-postgres-1         postgres:17-alpine                      "docker-entrypoint.s…"   support-postgres         2 months ago   Exited (255) 4 weeks ago   0.0.0.0:5433->5432/tcp
+newpaotang-support-reverb-1           newpaotang-support-reverb               "docker-php-entrypoi…"   support-reverb           2 months ago   Exited (255) 4 weeks ago   0.0.0.0:8081->8081/tcp
+newpaotang-support-scheduler-1        newpaotang-support-scheduler            "docker-php-entrypoi…"   support-scheduler        2 months ago   Exited (255) 4 weeks ago   
+newpaotang-support-valkey-1           valkey/valkey:8-alpine                  "docker-entrypoint.s…"   support-valkey           2 months ago   Exited (255) 4 weeks ago   0.0.0.0:6380->6379/tcp
+newpaotang-support-worker-1           newpaotang-support-worker               "docker-php-entrypoi…"   support-worker           2 months ago   Exited (255) 4 weeks ago   
+newpaotang-valkey-1                   valkey/valkey:8-alpine                  "docker-entrypoint.s…"   valkey                   4 months ago   Up 3 weeks (healthy)       0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp

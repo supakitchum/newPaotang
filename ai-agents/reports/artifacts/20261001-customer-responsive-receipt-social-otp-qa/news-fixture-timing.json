@@ -1,0 +1,1 @@
+{"cold_decode_ms":8,"warm_cache_ms":0,"distinct_cold_requests":6,"extra_warm_requests":0,"failed_cover_completed":true,"scope":"In-process fixture image decode, not CDN/API/device latency"}

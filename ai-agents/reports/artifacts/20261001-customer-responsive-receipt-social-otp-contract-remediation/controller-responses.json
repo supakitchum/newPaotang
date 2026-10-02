@@ -1,0 +1,532 @@
+[
+    {
+        "provider": "google",
+        "profile": "sparse",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": null,
+                "status": "active",
+                "preferred_locale": null,
+                "avatar_url": null,
+                "reward_payout_bank_account": [],
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "google",
+        "profile": "sparse",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "apple",
+        "profile": "sparse",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": null,
+                "status": "active",
+                "preferred_locale": null,
+                "avatar_url": null,
+                "reward_payout_bank_account": [],
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "apple",
+        "profile": "sparse",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "facebook",
+        "profile": "sparse",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": null,
+                "status": "active",
+                "preferred_locale": null,
+                "avatar_url": null,
+                "reward_payout_bank_account": [],
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "facebook",
+        "profile": "sparse",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "line",
+        "profile": "sparse",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": null,
+                "status": "active",
+                "preferred_locale": null,
+                "avatar_url": null,
+                "reward_payout_bank_account": [],
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "line",
+        "profile": "sparse",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "legacy-line",
+        "profile": "sparse",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": null,
+                "status": "active",
+                "preferred_locale": null,
+                "avatar_url": null,
+                "reward_payout_bank_account": [],
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "legacy-line",
+        "profile": "sparse",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "google",
+        "profile": "populated",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": "example@example.test",
+                "status": "active",
+                "preferred_locale": "th-TH",
+                "avatar_url": "https://example.test/avatar.png",
+                "reward_payout_bank_account": {
+                    "bank_name": "Fictional Bank",
+                    "account_name": "Example Member",
+                    "account_number": "0000000000"
+                },
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "google",
+        "profile": "populated",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "apple",
+        "profile": "populated",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": "example@example.test",
+                "status": "active",
+                "preferred_locale": "th-TH",
+                "avatar_url": "https://example.test/avatar.png",
+                "reward_payout_bank_account": {
+                    "bank_name": "Fictional Bank",
+                    "account_name": "Example Member",
+                    "account_number": "0000000000"
+                },
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "apple",
+        "profile": "populated",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "facebook",
+        "profile": "populated",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": "example@example.test",
+                "status": "active",
+                "preferred_locale": "th-TH",
+                "avatar_url": "https://example.test/avatar.png",
+                "reward_payout_bank_account": {
+                    "bank_name": "Fictional Bank",
+                    "account_name": "Example Member",
+                    "account_number": "0000000000"
+                },
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "facebook",
+        "profile": "populated",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "line",
+        "profile": "populated",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": "example@example.test",
+                "status": "active",
+                "preferred_locale": "th-TH",
+                "avatar_url": "https://example.test/avatar.png",
+                "reward_payout_bank_account": {
+                    "bank_name": "Fictional Bank",
+                    "account_name": "Example Member",
+                    "account_number": "0000000000"
+                },
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "line",
+        "profile": "populated",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    },
+    {
+        "provider": "legacy-line",
+        "profile": "populated",
+        "branch": "session",
+        "status": 200,
+        "body": {
+            "session_id": "cas_fictional",
+            "token": "fictional-access-not-issued",
+            "refresh_token": "fictional-refresh-not-issued",
+            "expires_in": 3600,
+            "pin_verified": false,
+            "session_activation_required": true,
+            "pin_setup_required": true,
+            "pin_required": false,
+            "user": {
+                "id": "cus_fictional",
+                "tenant_id": "ten_fictional",
+                "customer_no": "M80C056D0",
+                "member_no": "M80C056D0",
+                "name": "Example Member",
+                "first_name": null,
+                "last_name": null,
+                "phone": "0812345678",
+                "email": "example@example.test",
+                "status": "active",
+                "preferred_locale": "th-TH",
+                "avatar_url": "https://example.test/avatar.png",
+                "reward_payout_bank_account": {
+                    "bank_name": "Fictional Bank",
+                    "account_name": "Example Member",
+                    "account_number": "0000000000"
+                },
+                "auto_reward_claim": {
+                    "enabled": false,
+                    "payout_method": "wallet_credit",
+                    "type": "wallet"
+                },
+                "wallet": null,
+                "primary_wallet": null,
+                "has_pin": false,
+                "pin_verified": false,
+                "pin_required": false,
+                "pin_setup_required": true
+            }
+        }
+    },
+    {
+        "provider": "legacy-line",
+        "profile": "populated",
+        "branch": "registration",
+        "status": 200,
+        "body": {
+            "registration_required": true
+        }
+    }
+]

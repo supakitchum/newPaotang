@@ -720,7 +720,7 @@ void main() {
     },
   );
 
-  testWidgets('stock list loads the next page when it is near the bottom', (
+  testWidgets('stock list loads the next page when first page is short', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 640));
@@ -730,11 +730,6 @@ void main() {
     final router = _lotteryRouter(initialLocation: '/buy/search?d1=2');
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
-    await tester.pumpAndSettle();
-
-    expect(lottery.searchCount, 1);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
     await tester.pumpAndSettle();
 
     expect(lottery.searchCount, 2);
@@ -806,12 +801,6 @@ void main() {
 
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
-
-    expect(lottery.searchCount, 1);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
-    await tester.pump();
-    await tester.pump();
 
     expect(lottery.searchCount, 2);
     expect(lottery.lastCursor, 'cursor_1');
@@ -1067,17 +1056,11 @@ void main() {
     await _pumpLotteryApp(tester, router: router, lottery: lottery);
     await tester.pumpAndSettle();
 
-    expect(lottery.searchCount, 1);
-    expect(lottery.lastCursor, isEmpty);
-    expect(lottery.lastStoreId, 'store_1');
-    expect(lottery.lastRandomSeed, isEmpty);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -1200));
-    await tester.pumpAndSettle();
-
+    // One short page should fill the viewport by loading the next page.
     expect(lottery.searchCount, 2);
     expect(lottery.lastCursor, 'cursor_1');
     expect(lottery.lastStoreId, 'store_1');
+    expect(lottery.lastRandomSeed, isEmpty);
     expect(lottery.randomSeeds, ['', '']);
     expect(find.text('เลือก'), findsNWidgets(2));
     expect(find.text('แสดงเลขใหม่'), findsNothing);

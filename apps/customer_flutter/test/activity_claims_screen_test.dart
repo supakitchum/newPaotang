@@ -35,9 +35,7 @@ void main() {
     expect(find.text('Profile route'), findsOneWidget);
   });
 
-  testWidgets('activity claims list uses Nuxt loading copy', (
-    tester,
-  ) async {
+  testWidgets('activity claims list uses Nuxt loading copy', (tester) async {
     await _pumpActivityClaims(tester, [
       activityClaimRepositoryProvider.overrideWithValue(
         _PendingActivityClaimRepository(),
@@ -120,9 +118,7 @@ void main() {
     expect(find.text('ลุ้นโชคงวดนี้'), findsWidgets);
     expect(find.text('รับผ่านบัญชีกสิกรไทย'), findsOneWidget);
     expect(
-      find.text(
-        formatLocalizedDateTime('2026-06-26T10:30:00+07:00', 'th-TH'),
-      ),
+      find.text(formatLocalizedDateTime('2026-06-26T10:30:00+07:00', 'th-TH')),
       findsOneWidget,
     );
     expect(find.byType(Card), findsNothing);
@@ -140,7 +136,7 @@ void main() {
     );
     expect(
       tester.widget<Icon>(find.byIcon(Icons.chevron_right)).color,
-      const Color(0xFF3B9CFF),
+      AppTheme.appClaimChevron,
     );
 
     await tester.tap(find.text('โหลดเพิ่มเติม'));
@@ -154,7 +150,7 @@ void main() {
       tester.widget<Text>(find.text('ยกเลิกรายการ')).style?.color,
       const Color(0xFFED2C25),
     );
-    expect(find.text('รับเข้า Primary wallet'), findsOneWidget);
+    expect(find.text('รับเข้า กระเป๋าเงินหลัก'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -184,7 +180,7 @@ void main() {
     expect(find.text('รอดำเนินการโอนเงิน'), findsNothing);
     expect(find.text('โอนเงินสำเร็จ'), findsOneWidget);
     expect(find.text('ACT-REALTIME'), findsNothing);
-    expect(find.text('รับเข้า Primary wallet'), findsOneWidget);
+    expect(find.text('รับเข้า กระเป๋าเงินหลัก'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -235,16 +231,12 @@ void main() {
     expect(find.text('ACT-0001'), findsOneWidget);
     expect(find.text('วันที่ทำรายการ'), findsOneWidget);
     expect(
-      find.text(
-        formatLocalizedDateTime('2026-06-26T10:30:00+07:00', 'th-TH'),
-      ),
+      find.text(formatLocalizedDateTime('2026-06-26T10:30:00+07:00', 'th-TH')),
       findsOneWidget,
     );
     expect(find.text('วันที่โอนเงิน'), findsOneWidget);
     expect(
-      find.text(
-        formatLocalizedDateTime('2026-06-26T11:00:00+07:00', 'th-TH'),
-      ),
+      find.text(formatLocalizedDateTime('2026-06-26T11:00:00+07:00', 'th-TH')),
       findsOneWidget,
     );
     expect(find.text('ยอดรางวัลกิจกรรม'), findsOneWidget);
@@ -265,9 +257,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('activity claim detail uses Nuxt loading copy', (
-    tester,
-  ) async {
+  testWidgets('activity claim detail uses Nuxt loading copy', (tester) async {
     const claimId = 'activity_claim_loading';
     final container = ProviderContainer(
       overrides: [
@@ -289,9 +279,7 @@ void main() {
     expect(find.byType(Card), findsNothing);
   });
 
-  testWidgets('activity claim detail uses Nuxt error copy', (
-    tester,
-  ) async {
+  testWidgets('activity claim detail uses Nuxt error copy', (tester) async {
     const claimId = 'activity_claim_error';
     final container = ProviderContainer(
       overrides: [
@@ -366,11 +354,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await _pumpActivityClaimDetailWithContainer(
-      tester,
-      container,
-      claimId,
-    );
+    await _pumpActivityClaimDetailWithContainer(tester, container, claimId);
     await tester.pumpAndSettle();
 
     expect(loads, 1);
@@ -405,15 +389,13 @@ Future<void> _pumpActivityClaimsRoute(
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Profile route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Profile route'))),
       ),
       GoRoute(
         path: '/activities',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Activities route')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Activities route'))),
       ),
     ],
   );
@@ -501,9 +483,8 @@ Future<void> _pumpActivityClaimDetail(
       ),
       GoRoute(
         path: '/activity-claims',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Activity claim history')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Activity claim history'))),
       ),
     ],
   );
@@ -621,12 +602,9 @@ ActivityClaimItem _claim({
 }
 
 MobileBootstrap _activityClaimBootstrap() {
-  return MobileBootstrap.fromJson(
-    const {
-      'site': {'display_name': 'กิจกรรมดี'},
-    },
-    defaultSiteName: 'กิจกรรมดี',
-  );
+  return MobileBootstrap.fromJson(const {
+    'site': {'display_name': 'กิจกรรมดี'},
+  }, defaultSiteName: 'กิจกรรมดี');
 }
 
 class _ActivityClaimListRepository extends ActivityClaimRepository {
@@ -679,11 +657,7 @@ class _EmptyActivityClaimRepository extends ActivityClaimRepository {
 
   @override
   Future<ActivityClaimPage> list({int limit = 20, String? cursor}) async {
-    return const ActivityClaimPage(
-      items: [],
-      nextCursor: null,
-      hasMore: false,
-    );
+    return const ActivityClaimPage(items: [], nextCursor: null, hasMore: false);
   }
 }
 
