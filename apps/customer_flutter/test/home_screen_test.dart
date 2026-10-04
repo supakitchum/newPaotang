@@ -57,13 +57,14 @@ void main() {
         },
       );
       await tester.pumpAndSettle();
-      expect(requested, ['first', 'later']);
+      expect(requested, ['first']);
       expect(
         find.byKey(const ValueKey('home-news-slideshow-preload')),
         findsOneWidget,
       );
       firstImage.complete();
       await tester.pumpAndSettle();
+      expect(requested, ['first', 'later']);
       expect(laterImage.isCompleted, isFalse);
       expect(
         find.byKey(const ValueKey('home-news-active-first')),

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\PlatformAsset;
+use App\Models\TenantAnnouncement;
 use App\Modules\PartnerStore\Services\PublicAssetThumbnailService;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,5 +91,60 @@ class PublicActivityThumbnailTest extends TestCase
             ->assertOk()->assertHeader('Content-Type', 'image/png')->assertContent($this->source);
         $this->get($this->asset->public_url, ['If-None-Match' => $first->headers->get('ETag')])
             ->assertStatus(304);
+    }
+
+    public function test_legacy_news_cover_uses_small_versioned_webp_without_rewriting_assets(): void
+    {
+        $this->asset->update(['purpose' => 'tenant_announcement_image']);
+        $announcement = TenantAnnouncement::query()->create([
+            'id' => 'ann_thumbnail',
+            'tenant_id' => 'ten_thumbnail',
+            'title' => 'Legacy news',
+            'slug' => 'legacy-news',
+            'status' => 'active',
+            'image_full_asset_id' => $this->asset->id,
+            'image_thumb_asset_id' => $this->asset->id,
+        ]);
+        $url = PublicAssetThumbnailService::url($this->asset, $this->asset->public_url);
+
+        $this->getJson('http://thumbnail.test/api/v1/public/news')
+            ->assertOk()
+            ->assertJsonPath('data.0.image_thumb_url', $url)
+            ->assertJsonPath('data.0.cover_url', $url)
+            ->assertJsonPath('data.0.image_full_url', $this->asset->public_url);
+
+        $response = $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/webp');
+        $this->assertSame(480, getimagesizefromstring($response->getContent())[0]);
+        $this->assertLessThan(strlen($this->source) / 5, strlen($response->getContent()));
+        $this->assertSame($this->source, Storage::disk('lottery_images')->get($this->asset->storage_key));
+        $this->assertSame($this->asset->id, $announcement->fresh()->image_full_asset_id);
+        $this->assertSame($this->asset->id, $announcement->fresh()->image_thumb_asset_id);
+        $this->assertDatabaseCount('platform_assets', 1);
+        $this->get($this->asset->public_url)->assertOk()->assertContent($this->source);
+        $this->get($url, ['If-None-Match' => $response->headers->get('ETag')])->assertStatus(304);
+    }
+
+    public function test_news_with_dedicated_thumbnail_keeps_its_existing_url(): void
+    {
+        $this->asset->update(['purpose' => 'tenant_announcement_image']);
+        $thumbnail = $this->asset->replicate();
+        $thumbnail->id = 'ast_news_dedicated_thumb';
+        $thumbnail->public_url = 'http://thumbnail.test/api/v1/public/assets/tenants/ten_thumbnail/news/thumb.webp';
+        $thumbnail->storage_key = 'tenants/ten_thumbnail/news/thumb.webp';
+        $thumbnail->save();
+        TenantAnnouncement::query()->create([
+            'id' => 'ann_dedicated_thumbnail',
+            'tenant_id' => 'ten_thumbnail',
+            'title' => 'News with a thumbnail',
+            'slug' => 'dedicated-thumbnail',
+            'status' => 'active',
+            'image_full_asset_id' => $this->asset->id,
+            'image_thumb_asset_id' => $thumbnail->id,
+        ]);
+
+        $this->getJson('http://thumbnail.test/api/v1/public/news')
+            ->assertOk()
+            ->assertJsonPath('data.0.image_thumb_url', $thumbnail->public_url)
+            ->assertJsonPath('data.0.image_full_url', $this->asset->public_url);
     }
 }

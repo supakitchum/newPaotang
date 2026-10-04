@@ -5,6 +5,7 @@ namespace App\Modules\AdminOperations\Services;
 use App\Models\PartnerTenant;
 use App\Models\PlatformAsset;
 use App\Models\TenantAnnouncement;
+use App\Modules\PartnerStore\Services\PublicAssetThumbnailService;
 use App\Modules\CustomerNotifications\Services\CustomerNotificationService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
@@ -560,6 +561,9 @@ class TenantAnnouncementService
         $thumbAsset = $row->relationLoaded('thumbAsset') ? $row->thumbAsset : null;
         $fullUrl = PublicUrl::normalizeAssetUrl($fullAsset?->public_url);
         $thumbUrl = PublicUrl::normalizeAssetUrl($thumbAsset?->public_url) ?: $fullUrl;
+        if ($thumbUrl !== null && $thumbUrl === $fullUrl && $fullAsset !== null) {
+            $thumbUrl = PublicAssetThumbnailService::url($fullAsset, $thumbUrl);
+        }
 
         return [
             'id' => (string) $row->id,

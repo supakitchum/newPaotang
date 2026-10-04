@@ -39,7 +39,7 @@ class PublicAssetController extends Controller
         if ($request->query('variant') === 'thumb') {
             $asset = PlatformAsset::query()
                 ->where('storage_key', $path)
-                ->where('purpose', 'tenant_activity_image')
+                ->whereIn('purpose', ['tenant_activity_image', 'tenant_announcement_image'])
                 ->where('status', 'committed')
                 ->first();
             if ($asset !== null) {

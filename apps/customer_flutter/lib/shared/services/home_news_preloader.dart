@@ -13,10 +13,9 @@ final homeNewsPreloaderProvider = Provider<HomeNewsPreloader>((ref) {
         .where((url) => url.isNotEmpty)
         .toSet()
         .take(6);
-    await Future.wait(
-      urls.map(
-        (url) => precacheImage(NetworkImage(url), context, onError: (_, __) {}),
-      ),
-    );
+    for (final url in urls) {
+      if (!context.mounted) return;
+      await precacheImage(NetworkImage(url), context, onError: (_, __) {});
+    }
   };
 });

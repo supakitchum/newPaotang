@@ -1846,21 +1846,27 @@ class _NewsRailState extends ConsumerState<_NewsRail> {
     _precacheSignature = signature;
     _slideshowTimer?.cancel();
     final preload = ref.read(homeNewsPreloaderProvider);
+    void preloadLaterImages() {
+      if (!mounted || signature != _precacheSignature) return;
+      unawaited(
+        preload(context, items.skip(1).take(5).toList()).catchError((_) {}),
+      );
+    }
+
     _newsImagesReady = items.isEmpty || items.first.coverUrl.trim().isEmpty;
     if (_newsImagesReady) {
       _startSlideshowTimer();
+      preloadLaterImages();
     } else {
       unawaited(
         preload(context, items.take(1).toList()).catchError((_) {}).then((_) {
           if (!mounted || signature != _precacheSignature) return;
           setState(() => _newsImagesReady = true);
           _startSlideshowTimer();
+          preloadLaterImages();
         }),
       );
     }
-    unawaited(
-      preload(context, items.skip(1).take(5).toList()).catchError((_) {}),
-    );
   }
 
   void _showRelativeSlide(int offset) {
